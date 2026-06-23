@@ -1,0 +1,155 @@
+package com.atheris.platform.modules.tenants.service;
+
+import com.atheris.common.Constants;
+import com.atheris.platform.modules.tenants.dto.*;
+import com.atheris.platform.modules.tenants.entity.Tenant;
+import com.atheris.platform.modules.tenants.repository.TenantRepository;
+import com.atheris.platform.modules.webhooks.service.WebhookService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.*;
+
+@Service @Slf4j @RequiredArgsConstructor
+public class TenantService {
+
+    private final TenantRepository repo;
+    private final WebhookService webhooks;
+
+    public List<TenantDto> findAll() {
+        return repo.findAll().stream().map(this::toDto).toList();
+    }
+
+    public TenantDto findById(String id) {
+        return toDto(repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tenant not found: " + id)));
+    }
+
+    @Transactional
+    public CreateTenantResponse create(CreateTenantRequest req, Integer createdBy) {
+        String tenantId = UUID.randomUUID().toString();
+        String webhookSecret = generateSecret(Constants.WEBHOOK_SECRET_PREFIX);
+        String apiKey = generateSecret(Constants.API_KEY_PREFIX);
+
+        Tenant t = Tenant.builder()
+            .tenantId(tenantId)
+            .legalName(req.getLegalName())
+            .shortName(req.getShortName())
+            .licenceType(req.getLicenceType())
+            .licenceNumber(req.getLicenceNumber())
+            .regulators(req.getRegulators())
+            .productLines(req.getProductLines())
+            .subscribedDocumentTypes(req.getSubscribedDocumentTypes())
+            .notificationFrequency(req.getNotificationFrequency() != null
+                ? req.getNotificationFrequency() : Constants.TENANT_PLAN_IMMEDIATE)
+            .ccoName(req.getCcoName())
+            .ccoEmail(req.getCcoEmail())
+            .techEmail(req.getTechEmail())
+            .webhookUrl(req.getWebhookUrl())
+            .webhookSecret(webhookSecret)
+            .webhookEnabled(true)
+            .subscriptionTier(req.getSubscriptionTier() != null
+                ? req.getSubscriptionTier() : Constants.TENANT_PLAN_STARTER)
+            .isActive(true)
+            .onboardedBy(createdBy)
+            .onboardedAt(Instant.now())
+            .build();
+
+        repo.save(t);
+        log.info("Tenant {} ({}) onboarded.", req.getLegalName(), tenantId);
+
+        return CreateTenantResponse.builder()
+            .tenantId(tenantId)
+            .webhookSecret(webhookSecret)  // Shown ONCE only
+            .apiKey(apiKey)
+            .message("Tenant created. Test your webhook before going live.")
+            .build();
+    }
+
+    @Transactional
+    public TenantDto update(String id, UpdateTenantRequest req) {
+        Tenant t = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tenant not found: " + id));
+        if (req.getLegalName() != null) t.setLegalName(req.getLegalName());
+        if (req.getWebhookUrl() != null) t.setWebhookUrl(req.getWebhookUrl());
+        if (req.getCcoEmail() != null) t.setCcoEmail(req.getCcoEmail());
+        if (req.getTechEmail() != null) t.setTechEmail(req.getTechEmail());
+        if (req.getRegulators() != null) t.setRegulators(req.getRegulators());
+        if (req.getProductLines() != null) t.setProductLines(req.getProductLines());
+        if (req.getSubscribedDocumentTypes() != null)
+            t.setSubscribedDocumentTypes(req.getSubscribedDocumentTypes());
+        if (req.getNotificationFrequency() != null)
+            t.setNotificationFrequency(req.getNotificationFrequency());
+        return toDto(repo.save(t));
+    }
+
+    @Transactional
+    public String rotateWebhookSecret(String id) {
+        Tenant t = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tenant not found: " + id));
+        String newSecret = generateSecret(Constants.WEBHOOK_SECRET_PREFIX);
+        t.setWebhookSecret(newSecret);
+        repo.save(t);
+        return newSecret;  // Shown ONCE only
+    }
+
+    @Transactional
+    public void deactivate(String id) {
+        repo.findById(id).ifPresent(t -> {
+            t.setIsActive(false);
+            repo.save(t);
+            log.info("Tenant {} deactivated.", id);
+        });
+    }
+
+    public WebhookTestResult testWebhook(String tenantId) {
+        Tenant t = repo.findById(tenantId)
+            .orElseThrow(() -> new RuntimeException("Tenant not found"));
+        if (t.getWebhookUrl() == null)
+            return WebhookTestResult.builder().delivered(false)
+                .error("No webhook URL configured").build();
+
+        long start = System.currentTimeMillis();
+        try {
+            webhooks.deliver(tenantId, 0L,
+                Map.of("webhook_type", Constants.WEBHOOK_EVENT_PING, "message", "Atheris webhook test"),
+                Constants.WEBHOOK_EVENT_PING);
+            return WebhookTestResult.builder()
+                .delivered(true)
+                .latencyMs((int)(System.currentTimeMillis() - start))
+                .build();
+        } catch (Exception e) {
+            return WebhookTestResult.builder()
+                .delivered(false).error(e.getMessage()).build();
+        }
+    }
+
+    private String generateSecret(String prefix) {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return prefix + HexFormat.of().formatHex(bytes);
+    }
+
+    private TenantDto toDto(Tenant t) {
+        return TenantDto.builder()
+            .tenantId(t.getTenantId())
+            .legalName(t.getLegalName())
+            .shortName(t.getShortName())
+            .licenceType(t.getLicenceType())
+            .licenceNumber(t.getLicenceNumber())
+            .regulators(t.getRegulators())
+            .productLines(t.getProductLines())
+            .subscribedDocumentTypes(t.getSubscribedDocumentTypes())
+            .notificationFrequency(t.getNotificationFrequency())
+            .ccoEmail(t.getCcoEmail())
+            .webhookUrl(t.getWebhookUrl())
+            .webhookEnabled(t.getWebhookEnabled())
+            .subscriptionTier(t.getSubscriptionTier())
+            .isActive(t.getIsActive())
+            .onboardedAt(t.getOnboardedAt())
+            .build();
+    }
+}

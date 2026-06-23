@@ -1,0 +1,101 @@
+package com.atheris.platform.modules.regulators.service;
+
+import com.atheris.common.Constants;
+import com.atheris.platform.modules.regulators.dto.*;
+import com.atheris.platform.modules.regulators.entity.Regulator;
+import com.atheris.platform.modules.regulators.entity.ScraperRunLog;
+import com.atheris.platform.modules.regulators.repository.RegulatorRepository;
+import com.atheris.platform.modules.regulators.repository.ScraperRunLogRepository;
+import com.atheris.platform.modules.regulators.strategy.ScraperRunResult;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service @RequiredArgsConstructor
+public class RegulatorService {
+
+    private final RegulatorRepository repo;
+    private final ScraperRunLogRepository scraperLogs;
+    private final ScraperService scraperService;
+
+    public List<RegulatorDto> findAll(Boolean activeOnly) {
+        List<Regulator> list = Boolean.TRUE.equals(activeOnly)
+            ? repo.findByIsActiveTrue() : repo.findAll();
+        return list.stream().map(this::toDto).toList();
+    }
+
+    public RegulatorDto findById(Integer id) {
+        return toDto(repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Regulator not found: " + id)));
+    }
+
+    @Transactional
+    public RegulatorDto create(CreateRegulatorRequest req) {
+        Regulator r = Regulator.builder()
+            .name(req.getName()).abbreviation(req.getAbbreviation().toUpperCase())
+            .websiteUrl(req.getWebsiteUrl())
+            .publicationPageUrl(req.getPublicationPageUrl())
+            .scraperStrategy(req.getScraperStrategy())
+            .scraperFrequency(req.getScraperFrequency())
+            .pdfLinkSelector(req.getPdfLinkSelector())
+            .paginationEnabled(req.getPaginationEnabled())
+            .paginationSelector(req.getPaginationSelector())
+            .paginationStrategy(req.getPaginationStrategy())
+            .maxPagesPerRun(req.getMaxPagesPerRun())
+            .maxPdfSizeMb(req.getMaxPdfSizeMb())
+            .scraperEnabled(req.getScraperEnabled())
+            .isActive(true).build();
+        return toDto(repo.save(r));
+    }
+
+    @Transactional
+    public RegulatorDto update(Integer id, CreateRegulatorRequest req) {
+        Regulator r = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Regulator not found: " + id));
+        if (req.getPublicationPageUrl() != null) r.setPublicationPageUrl(req.getPublicationPageUrl());
+        if (req.getScraperStrategy() != null) r.setScraperStrategy(req.getScraperStrategy());
+        if (req.getScraperFrequency() != null) r.setScraperFrequency(req.getScraperFrequency());
+        if (req.getPdfLinkSelector() != null) r.setPdfLinkSelector(req.getPdfLinkSelector());
+        if (req.getPaginationEnabled() != null) r.setPaginationEnabled(req.getPaginationEnabled());
+        if (req.getPaginationSelector() != null) r.setPaginationSelector(req.getPaginationSelector());
+        if (req.getMaxPagesPerRun() != null) r.setMaxPagesPerRun(req.getMaxPagesPerRun());
+        if (req.getMaxPdfSizeMb() != null) r.setMaxPdfSizeMb(req.getMaxPdfSizeMb());
+        if (req.getScraperEnabled() != null) r.setScraperEnabled(req.getScraperEnabled());
+        return toDto(repo.save(r));
+    }
+
+    @Transactional
+    public void deactivate(Integer id) {
+        repo.findById(id).ifPresent(r -> { r.setIsActive(false); repo.save(r); });
+    }
+
+    public ScraperRunResult testScraper(Integer id, boolean dryRun) {
+        Regulator r = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Regulator not found: " + id));
+        return scraperService.scrape(r, Constants.MODE_MONITORING);
+    }
+
+    public List<ScraperRunLog> getScraperHistory(Integer id) {
+        return scraperLogs.findTop30ByRegulatorIdOrderByRunAtDesc(id);
+    }
+
+    private RegulatorDto toDto(Regulator r) {
+        return RegulatorDto.builder()
+            .regulatorId(r.getRegulatorId()).name(r.getName())
+            .abbreviation(r.getAbbreviation()).websiteUrl(r.getWebsiteUrl())
+            .publicationPageUrl(r.getPublicationPageUrl())
+            .scraperStrategy(r.getScraperStrategy())
+            .scraperFrequency(r.getScraperFrequency())
+            .pdfLinkSelector(r.getPdfLinkSelector())
+            .paginationEnabled(r.getPaginationEnabled())
+            .paginationStrategy(r.getPaginationStrategy())
+            .maxPagesPerRun(r.getMaxPagesPerRun())
+            .maxPdfSizeMb(r.getMaxPdfSizeMb())
+            .scraperEnabled(r.getScraperEnabled())
+            .isActive(r.getIsActive())
+            .scraperLastRanAt(r.getScraperLastRanAt())
+            .scraperLastFound(r.getScraperLastFound())
+            .scraperNotes(r.getScraperNotes()).build();
+    }
+}
