@@ -52,8 +52,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (ExpiredJwtException e) {
             log.debug("JWT expired");
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
+            return;
         } catch (JwtException e) {
             log.warn("Invalid JWT: {}", e.getMessage());
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+            return;
         }
         chain.doFilter(req, res);
     }
