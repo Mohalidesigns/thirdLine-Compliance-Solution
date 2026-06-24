@@ -84,6 +84,11 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
+    public InputStream openReadStream(String key) throws IOException {
+        return s3Client.getObject(b -> b.bucket(bucket).key(key));
+    }
+
+    @Override
     public void upload(byte[] bytes, String key, String contentType) {
         s3Client.putObject(b -> b.bucket(bucket).key(key).contentType(contentType),
             RequestBody.fromBytes(bytes));

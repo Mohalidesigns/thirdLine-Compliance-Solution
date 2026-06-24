@@ -13,6 +13,9 @@ import com.atheris.platform.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.platform.shared.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.io.InputStream;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +49,12 @@ public class ObligationBrowserService {
         Instrument inst = instruments.findById(instrumentId)
             .orElseThrow(() -> new RuntimeException("Not found"));
         return storage.generatePresignedUrl(inst.getPdfUrl(), 3600); // 1 hour
+    }
+
+    public InputStream openPdfStream(Long instrumentId) throws IOException {
+        Instrument inst = instruments.findById(instrumentId)
+            .orElseThrow(() -> new RuntimeException("Not found"));
+        return storage.openReadStream(inst.getPdfUrl());
     }
 
     public Object getClassification(Long instrumentId, String tenantId) {

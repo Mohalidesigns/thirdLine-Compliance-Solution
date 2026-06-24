@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:9090/api/v1';
+export const API_BASE = 'http://localhost:9090/api/v1';
 const DEMO_TOKEN = 'demo-jwt-token';
 
 let authToken = null;

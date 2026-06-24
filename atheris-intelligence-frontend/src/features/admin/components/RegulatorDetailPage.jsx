@@ -8,8 +8,8 @@ import {
 import {
   ArrowBack, Search, Language, Refresh, OpenInNew, Description, Close,
 } from '@mui/icons-material';
-import api from '../../../services/api';
-import { ROUTES } from '../../../utils/constants';
+import api, { getToken, API_BASE } from '../../../services/api';
+import { ROUTES, APP } from '../../../utils/constants';
 
 const riskColors = { High: '#C53030', Medium: '#DD6B20', Low: '#2D7D46' };
 
@@ -63,13 +63,19 @@ export default function RegulatorDetailPage() {
   }, [id]);
 
   async function handleViewPdf(inst) {
+    const token = getToken();
+    if (!token || token === APP.DEMO_TOKEN) {
+      alert('PDF not available in demo mode');
+      return;
+    }
     try {
-      const data = await api.platform.instruments.getPdfUrl(inst.instrumentId);
-      if (data && data.url) {
-        window.open(data.url, '_blank');
-      } else {
-        alert('PDF not available');
-      }
+      const res = await fetch(`${API_BASE}/intelligence/obligations/${inst.instrumentId}/pdf`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
     } catch {
       alert('Failed to load PDF');
     }

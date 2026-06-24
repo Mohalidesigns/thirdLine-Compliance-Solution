@@ -4,10 +4,15 @@ import com.atheris.platform.modules.browser.dto.*;
 import com.atheris.platform.modules.browser.service.ObligationBrowserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.*;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/v1/intelligence")
@@ -35,9 +40,13 @@ public class ObligationBrowserController {
     }
 
     @GetMapping("/obligations/{id}/pdf")
-    public ResponseEntity<java.util.Map<String, String>> getPdfUrl(@PathVariable Long id) {
-        // Returns a signed S3 URL (1-hour expiry) to the original PDF
-        return ResponseEntity.ok(java.util.Map.of("url", service.getPdfPresignedUrl(id)));
+    public ResponseEntity<Resource> streamPdf(@PathVariable Long id) throws IOException {
+        InputStreamResource resource = new InputStreamResource(service.openPdfStream(id));
+        String filename = "document-" + id + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "inline; filename=\"" + filename + "\"")
+                .body(resource);
     }
 
     // ── Obligation Inbox (received, pending classification) ─────────

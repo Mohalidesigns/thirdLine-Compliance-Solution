@@ -56,6 +56,11 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
+    public InputStream openReadStream(String key) throws IOException {
+        return Files.newInputStream(resolve(key));
+    }
+
+    @Override
     public String streamUpload(InputStream inputStream, String key,
                                 String contentType, long maxBytes) throws IOException {
         Path target = resolve(key);
