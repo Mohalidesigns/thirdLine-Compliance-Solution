@@ -22,8 +22,11 @@ export const ROUTES = {
   SETTINGS_API: '/settings/api',
   SETTINGS_COMPLIANCE: '/settings/compliance',
   ADMIN_REGULATORS: '/admin/regulators',
+  ADMIN_REGULATOR_DETAIL: '/admin/regulators/:id',
   ADMIN_TENANTS: '/admin/tenants',
+  ADMIN_TENANT_DETAIL: '/admin/tenants/:id',
   ADMIN_PIPELINE: '/admin/pipeline',
+  ADMIN_PIPELINE_DETAIL: '/admin/pipeline/:id',
 };
 
 export const STRINGS = {

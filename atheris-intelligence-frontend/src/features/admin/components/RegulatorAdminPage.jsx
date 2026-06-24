@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
-  LinearProgress, CircularProgress, Alert, Drawer, Divider, TextField,
+  LinearProgress, CircularProgress, Alert, Divider, TextField,
   Dialog, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel,
   Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import {
   PlayArrow, Refresh, History, Language, Settings,
-  CheckCircle, ErrorOutline, HourglassEmpty, Close,
-  Edit, Search,
+  CheckCircle, ErrorOutline, HourglassEmpty,
 } from '@mui/icons-material';
 import api from '../../../services/api';
+import { ROUTES } from '../../../utils/constants';
 
 const scraperStatusColors = {
   idle: { color: '#718096', label: 'Idle' },
@@ -55,16 +56,10 @@ function formatDt(ts) {
 }
 
 export default function RegulatorAdminPage() {
+  const navigate = useNavigate();
   const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedReg, setSelectedReg] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // Documents in drawer
-  const [instruments, setInstruments] = useState([]);
-  const [instrLoading, setInstrLoading] = useState(false);
-  const [docSearch, setDocSearch] = useState('');
 
   function fetchRegulators() {
     setLoading(true);
@@ -76,23 +71,6 @@ export default function RegulatorAdminPage() {
   }
 
   useEffect(() => { fetchRegulators(); }, []);
-
-  function openRegulator(reg) {
-    setSelectedReg(reg);
-    setDrawerOpen(true);
-    setDocSearch('');
-    loadInstruments(reg.regulatorId, '');
-  }
-
-  function loadInstruments(regulatorId, query) {
-    setInstrLoading(true);
-    const params = new URLSearchParams({ regulatorId, size: '50' });
-    if (query) params.set('q', query);
-    api.platform.instruments.list(params.toString())
-      .then((data) => setInstruments(data.content || []))
-      .catch(() => setInstruments([]))
-      .finally(() => setInstrLoading(false));
-  }
 
   // Config modal
   const [configOpen, setConfigOpen] = useState(false);
@@ -134,10 +112,6 @@ export default function RegulatorAdminPage() {
   const totalDocs = regulators.reduce((sum, r) => sum + (r.scraperLastFound || 0), 0);
   const activeCount = regulators.filter(r => r.scraperEnabled && r.isActive).length;
   const erroredCount = regulators.filter(r => inferStatus(r) === 'error').length;
-
-  const filteredInstruments = instruments.filter(i =>
-    !docSearch || i.sourceTitle?.toLowerCase().includes(docSearch.toLowerCase())
-  );
 
   return (
     <Box>
@@ -196,7 +170,7 @@ export default function RegulatorAdminPage() {
                   const st = inferStatus(reg);
                   const stCfg = scraperStatusColors[st];
                   return (
-                    <TableRow key={reg.regulatorId} hover sx={{ cursor: 'pointer' }} onClick={() => openRegulator(reg)}>
+                      <TableRow key={reg.regulatorId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{reg.name}</Typography>
                         <Chip label={reg.abbreviation} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#EDF2F7' }} />
@@ -235,95 +209,6 @@ export default function RegulatorAdminPage() {
         </Card>
       )}
 
-      {/* Regulator Detail Drawer */}
-      <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)} sx={{ '& .MuiDrawer-paper': { width: 640, p: 3 } }}>
-        {selectedReg && (
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{selectedReg.name}</Typography>
-                <Chip label={selectedReg.abbreviation} size="small" sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', mt: 0.5 }} />
-              </Box>
-              <IconButton onClick={() => setDrawerOpen(false)}><Close /></IconButton>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Website</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{selectedReg.websiteUrl || '—'}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Publication Page</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{selectedReg.publicationPageUrl || '—'}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">Strategy</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{selectedReg.scraperStrategy || '—'}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">Frequency</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{selectedReg.scraperFrequency || '—'}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">Last Run</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatDt(selectedReg.scraperLastRanAt)}</Typography>
-              </Grid>
-            </Grid>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Search sx={{ color: '#718096', fontSize: 18 }} />
-              <TextField
-                size="small" placeholder="Search by document title..." fullWidth
-                value={docSearch}
-                onChange={(e) => setDocSearch(e.target.value)}
-              />
-            </Box>
-
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-              Discovered Documents ({filteredInstruments.length})
-            </Typography>
-
-            {instrLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}><CircularProgress size={24} /></Box>
-            ) : filteredInstruments.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                {docSearch ? 'No documents match your search' : 'No documents discovered yet'}
-              </Typography>
-            ) : (
-              <TableContainer component={Card} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Title</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Risk</TableCell>
-                      <TableCell>Discovered</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredInstruments.map((inst) => (
-                      <TableRow key={inst.instrumentId} hover>
-                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {inst.sourceTitle}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={inst.status} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700 }} />
-                        </TableCell>
-                        <TableCell>
-                          {inst.riskRating ? (
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: riskColors[inst.riskRating] }}>{inst.riskRating}</Typography>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>{formatDt(inst.discoveredAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
-        )}
-      </Drawer>
 
       {/* Scraper Config Modal */}
       <Dialog open={configOpen} onClose={() => setConfigOpen(false)} maxWidth="sm" fullWidth>

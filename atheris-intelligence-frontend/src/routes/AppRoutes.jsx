@@ -17,8 +17,11 @@ const ApiSettingsPage = lazy(() => import('../features/settings/components/ApiSe
 const ComplianceSettingsPage = lazy(() => import('../features/settings/components/ComplianceSettingsPage'));
 
 const TenantAdminPage = lazy(() => import('../features/admin/components/TenantAdminPage'));
+const TenantDetailPage = lazy(() => import('../features/admin/components/TenantDetailPage'));
 const RegulatorAdminPage = lazy(() => import('../features/admin/components/RegulatorAdminPage'));
+const RegulatorDetailPage = lazy(() => import('../features/admin/components/RegulatorDetailPage'));
 const JobQueuePage = lazy(() => import('../features/admin/components/JobQueuePage'));
+const JobDetailPage = lazy(() => import('../features/admin/components/JobDetailPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -54,8 +57,11 @@ export default function AppRoutes() {
           <Route path="settings/compliance" element={<ComplianceSettingsPage />} />
           
           <Route path="admin/tenants" element={<TenantAdminPage />} />
+          <Route path="admin/tenants/:id" element={<TenantDetailPage />} />
           <Route path="admin/regulators" element={<RegulatorAdminPage />} />
+          <Route path="admin/regulators/:id" element={<RegulatorDetailPage />} />
           <Route path="admin/pipeline" element={<JobQueuePage />} />
+          <Route path="admin/pipeline/:id" element={<JobDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} />} />
       </Routes>

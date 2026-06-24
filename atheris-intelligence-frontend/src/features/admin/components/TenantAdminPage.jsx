@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
@@ -9,6 +10,7 @@ import {
   History, SettingsInputComponent, PlayArrow, Refresh,
 } from '@mui/icons-material';
 import api from '../../../services/api';
+import { ROUTES } from '../../../utils/constants';
 
 const statusConfig = {
   active: { color: '#2D7D46', bg: '#E6F4EA' },
@@ -17,10 +19,10 @@ const statusConfig = {
 };
 
 export default function TenantAdminPage() {
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openAdd, setOpenAdd] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState(null);
 
   useEffect(() => {
     api.platform.tenants.list()
@@ -80,7 +82,7 @@ export default function TenantAdminPage() {
               ) : tenants.length === 0 ? (
                 <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">No tenants yet</Typography></TableCell></TableRow>
               ) : tenants.map((tenant) => (
-                <TableRow key={tenant.tenantId} hover>
+                <TableRow key={tenant.tenantId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`${ROUTES.ADMIN_TENANTS}/${tenant.tenantId}`)}>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{tenant.legalName}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.6rem' }}>{tenant.tenantId}</Typography>
