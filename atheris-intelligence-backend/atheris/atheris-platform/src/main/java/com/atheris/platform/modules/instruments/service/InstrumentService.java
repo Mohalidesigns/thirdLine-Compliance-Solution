@@ -174,6 +174,7 @@ public class InstrumentService {
             .licenceTypesApplicable(i.getLicenceTypesApplicable())
             .dateIssued(i.getDateIssued()).dateCommencement(i.getDateCommencement())
             .status(i.getStatus()).pdfUrl(i.getPdfUrl()).sourceUrl(i.getSourceUrl())
+            .pdfOcrText(i.getPdfOcrText())
             .discoveredAt(i.getDiscoveredAt()).obligations(oblDtos).sanctions(sanDtos).build();
     }
 }

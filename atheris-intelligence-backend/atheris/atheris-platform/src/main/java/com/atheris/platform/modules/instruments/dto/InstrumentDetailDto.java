@@ -23,6 +23,7 @@ public class InstrumentDetailDto {
     private String status;
     private String pdfUrl;
     private String sourceUrl;
+    private String pdfOcrText;
     private Instant discoveredAt;
     private List<ObligationDto> obligations;
     private List<SanctionDto> sanctions;
