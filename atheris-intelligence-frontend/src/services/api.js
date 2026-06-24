@@ -2,9 +2,46 @@ export const API_BASE = 'http://localhost:9090/api/v1';
 const DEMO_TOKEN = 'demo-jwt-token';
 
 let authToken = null;
+let authRefreshToken = null;
+let refreshInProgress = null;
 
 export const setToken = (token) => { authToken = token; };
 export const getToken = () => authToken;
+export const setRefreshToken = (token) => { authRefreshToken = token; };
+
+const STORAGE_KEY_TOKEN = 'atheris_token';
+const STORAGE_KEY_REFRESH = 'atheris_refresh_token';
+
+async function doRefresh() {
+  if (!authRefreshToken) return null;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: authRefreshToken }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    authToken = data.accessToken;
+    authRefreshToken = data.refreshToken;
+    try {
+      localStorage.setItem(STORAGE_KEY_TOKEN, data.accessToken);
+      localStorage.setItem(STORAGE_KEY_REFRESH, data.refreshToken);
+    } catch {}
+    return data.accessToken;
+  } catch {
+    return null;
+  }
+}
+
+function clearAuth() {
+  authToken = null;
+  authRefreshToken = null;
+  try {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+    localStorage.removeItem(STORAGE_KEY_REFRESH);
+  } catch {}
+}
 
 const DEMO_INBOX = [
   { instrumentId: 1, sourceTitle: 'CBN Guidelines on Sustainable Banking Principles for Financial Institutions in Nigeria', regulatorAbbreviation: 'CBN', applicabilityConfidence: 0.87, riskRating: 'High', discoveredAt: '2026-06-20T08:30:00Z', tenantClassification: 'unclassified', areaOfFocus: 'Sustainable Finance', nature: 'Guidelines' },
@@ -116,6 +153,22 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
+  if (res.status === 401 && authRefreshToken) {
+    const refreshed = await doRefresh();
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${refreshed}`;
+      try {
+        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      } catch (e) {
+        throw new Error('Backend not reachable. Make sure the server is running on port 9090.');
+      }
+    } else {
+      clearAuth();
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+  }
+
   let body = '';
   try {
     body = await res.text();
@@ -142,25 +195,20 @@ async function request(path, options = {}) {
 export const api = {
   auth: {
     login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    refresh: (refreshToken) => request('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
     me: () => request('/auth/me'),
   },
   intelligence: {
-    // Obligation Library
     search: (params = '') => request(`/intelligence/obligations${params ? '?' + params : ''}`),
     getDetail: (id) => request(`/intelligence/obligations/${id}`),
     getPdfUrl: (id) => request(`/intelligence/obligations/${id}/pdf`),
-    
-    // Inbox & Classification
     getInbox: (status = '') => request(`/intelligence/inbox${status ? '?status=' + status : ''}`),
     classify: (id, data) => request(`/intelligence/obligations/${id}/classify`, { method: 'POST', body: JSON.stringify(data) }),
-    
-    // Watches
     getWatches: () => request('/intelligence/watches'),
     updateWatch: (id, data) => request(`/intelligence/watches/${id}/preferences`, { method: 'PUT', body: JSON.stringify(data) }),
     removeWatch: (id) => request(`/intelligence/watches/${id}`, { method: 'DELETE' }),
   },
   platform: {
-    // Tenant Management
     tenants: {
       list: () => request('/platform/tenants'),
       get: (id) => request(`/platform/tenants/${id}`),
@@ -169,7 +217,6 @@ export const api = {
       rotateSecret: (id) => request(`/platform/tenants/${id}/rotate-webhook-secret`, { method: 'POST' }),
       history: (id) => request(`/platform/tenants/${id}/webhook-history`),
     },
-    // Regulator & Scraper Management
     regulators: {
       list: (activeOnly) => request(`/platform/regulators${activeOnly !== undefined ? '?activeOnly=' + activeOnly : ''}`),
       get: (id) => request(`/platform/regulators/${id}`),
@@ -179,20 +226,17 @@ export const api = {
       getBackfillStatus: (regId, backfillId) => request(`/platform/regulators/${regId}/backfill/${backfillId}`),
       testScraper: (id, dryRun) => request(`/platform/regulators/${id}/test-scraper?dryRun=${dryRun}`, { method: 'POST' }),
     },
-    // Job Queue / Pipeline
     jobs: {
       list: (params = '') => request(`/admin/jobs${params ? '?' + params : ''}`),
       stats: () => request('/admin/jobs/stats'),
       get: (id) => request(`/admin/jobs/${id}`),
       getPdfUrl: (id) => request(`/admin/jobs/${id}/pdf`),
     },
-    // Instruments per regulator
     instruments: {
       list: (params = '') => request(`/platform/instruments${params ? '?' + params : ''}`),
       get: (id) => request(`/platform/instruments/${id}`),
       getPdfUrl: (id) => request(`/intelligence/obligations/${id}/pdf`),
     },
-    // Pending Manual Downloads
     pendingDownloads: {
       list: (status = 'pending') => request(`/admin/pending-downloads?status=${status}`),
       get: (id) => request(`/admin/pending-downloads/${id}`),

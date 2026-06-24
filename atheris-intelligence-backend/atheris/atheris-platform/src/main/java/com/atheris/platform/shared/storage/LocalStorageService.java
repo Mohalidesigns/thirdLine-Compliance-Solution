@@ -25,7 +25,7 @@ public class LocalStorageService implements StorageService {
 
     @PostConstruct
     void init() throws IOException {
-        storageDir = Path.of(localPath).normalize().toAbsolutePath();
+        storageDir = Path.of(localPath).toAbsolutePath().normalize();
         metaDir = storageDir.resolve(".meta");
         Files.createDirectories(storageDir);
         Files.createDirectories(metaDir);

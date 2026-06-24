@@ -60,6 +60,7 @@ atheris:
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
     expiry-minutes: 1440
+    refresh-token-expiry-days: 30
 
   email:
     from: ${EMAIL_FROM:noreply@atheris.com}
@@ -69,7 +70,7 @@ atheris:
     provider: ${STORAGE_PROVIDER:local}
     bucket: ${S3_BUCKET:atheris-platform-docs}
     region: ${AWS_REGION:af-south-1}
-    local-path: ${STORAGE_LOCAL_PATH:./data/storage}
+    local-path: ${STORAGE_LOCAL_PATH:../../../data/storage}
 
   scraper:
     user-agent: "Atheris-HorizonScanner/1.0 (compliance@atheris.com)"
