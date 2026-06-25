@@ -4,9 +4,10 @@ import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert,
   Divider, TextField, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
+  Switch, FormControlLabel, Select, MenuItem, InputLabel, FormControl, Snackbar,
 } from '@mui/material';
 import {
-  ArrowBack, Search, Language, Refresh, OpenInNew, Description, Close,
+  ArrowBack, Search, Language, Refresh, OpenInNew, Description, Close, Save,
 } from '@mui/icons-material';
 import api, { getToken, API_BASE } from '../../../services/api';
 import { ROUTES, APP } from '../../../utils/constants';
@@ -48,6 +49,11 @@ export default function RegulatorDetailPage() {
   const [textTitle, setTextTitle] = useState('');
   const [textLoading, setTextLoading] = useState(false);
 
+  // Config editor
+  const [config, setConfig] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -57,10 +63,38 @@ export default function RegulatorDetailPage() {
       .then(([reg, instData]) => {
         setRegulator(reg);
         setInstruments(instData.content || []);
+        setConfig({
+          name: reg.name || '',
+          abbreviation: reg.abbreviation || '',
+          websiteUrl: reg.websiteUrl || '',
+          publicationPageUrl: reg.publicationPageUrl || '',
+          scraperStrategy: reg.scraperStrategy || 'html',
+          scraperFrequency: reg.scraperFrequency || 'daily',
+          scraperEnabled: reg.scraperEnabled ?? true,
+          pdfLinkSelector: reg.pdfLinkSelector || '',
+          paginationEnabled: reg.paginationEnabled ?? false,
+          paginationStrategy: reg.paginationStrategy || '',
+          maxPagesPerRun: reg.maxPagesPerRun ?? 3,
+          maxPdfSizeMb: reg.maxPdfSizeMb ?? 100,
+        });
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function saveConfig() {
+    setSaving(true);
+    try {
+      await api.platform.regulators.update(id, config);
+      setSnackbar({ open: true, message: 'Configuration saved', severity: 'success' });
+      const reg = await api.platform.regulators.get(id);
+      setRegulator(reg);
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Failed to save: ' + err.message, severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleViewPdf(inst) {
     const token = getToken();
@@ -266,6 +300,103 @@ export default function RegulatorDetailPage() {
           <Button onClick={() => setTextOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <Divider sx={{ my: 3 }} />
+
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>Scraper Configuration</Typography>
+        <Button variant="contained" size="small" startIcon={<Save />} onClick={saveConfig} disabled={saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </Box>
+
+      <Card>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Name" size="small" value={config.name}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="Abbreviation" size="small" value={config.abbreviation}
+                onChange={(e) => setConfig({ ...config, abbreviation: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Strategy</InputLabel>
+                <Select label="Strategy" value={config.scraperStrategy}
+                  onChange={(e) => setConfig({ ...config, scraperStrategy: e.target.value })}>
+                  <MenuItem value="html">HTML</MenuItem>
+                  <MenuItem value="headless">Headless</MenuItem>
+                  <MenuItem value="disabled">Disabled</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Website URL" size="small" value={config.websiteUrl}
+                onChange={(e) => setConfig({ ...config, websiteUrl: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Publication Page URL" size="small" value={config.publicationPageUrl}
+                onChange={(e) => setConfig({ ...config, publicationPageUrl: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Frequency</InputLabel>
+                <Select label="Frequency" value={config.scraperFrequency}
+                  onChange={(e) => setConfig({ ...config, scraperFrequency: e.target.value })}>
+                  <MenuItem value="15min">Every 15 min</MenuItem>
+                  <MenuItem value="hourly">Hourly</MenuItem>
+                  <MenuItem value="daily">Daily</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="PDF Link Selector" size="small" value={config.pdfLinkSelector}
+                onChange={(e) => setConfig({ ...config, pdfLinkSelector: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="Max Pages Per Run" size="small" type="number"
+                value={config.maxPagesPerRun}
+                onChange={(e) => setConfig({ ...config, maxPagesPerRun: parseInt(e.target.value) || 0 })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField fullWidth label="Max PDF Size (MB)" size="small" type="number"
+                value={config.maxPdfSizeMb}
+                onChange={(e) => setConfig({ ...config, maxPdfSizeMb: parseInt(e.target.value) || 0 })} />
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Pagination Strategy</InputLabel>
+                <Select label="Pagination Strategy" value={config.paginationStrategy}
+                  onChange={(e) => setConfig({ ...config, paginationStrategy: e.target.value })}>
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="NEXT_BUTTON">Next Button</MenuItem>
+                  <MenuItem value="PAGE_PARAM">Page Parameter</MenuItem>
+                  <MenuItem value="YEAR_FOLDERS">Year Folders</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} sm={1.5}>
+              <FormControlLabel control={
+                <Switch checked={config.scraperEnabled ?? false}
+                  onChange={(e) => setConfig({ ...config, scraperEnabled: e.target.checked })} />
+              } label="Enabled" />
+            </Grid>
+            <Grid item xs={6} sm={1.5}>
+              <FormControlLabel control={
+                <Switch checked={config.paginationEnabled ?? false}
+                  onChange={(e) => setConfig({ ...config, paginationEnabled: e.target.checked })} />
+              } label="Paginate" />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}
+        message={snackbar.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
     </Box>
   );
 }

@@ -1,6 +1,7 @@
 package com.atheris.platform.modules.regulators.service;
 
 import com.atheris.common.Constants;
+import com.atheris.platform.modules.instruments.repository.InstrumentRepository;
 import com.atheris.platform.modules.regulators.dto.*;
 import com.atheris.platform.modules.regulators.entity.Regulator;
 import com.atheris.platform.modules.regulators.entity.ScraperRunLog;
@@ -10,7 +11,9 @@ import com.atheris.platform.modules.regulators.strategy.ScraperRunResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
 public class RegulatorService {
@@ -18,16 +21,43 @@ public class RegulatorService {
     private final RegulatorRepository repo;
     private final ScraperRunLogRepository scraperLogs;
     private final ScraperService scraperService;
+    private final InstrumentRepository instrumentRepo;
 
     public List<RegulatorDto> findAll(Boolean activeOnly) {
         List<Regulator> list = Boolean.TRUE.equals(activeOnly)
             ? repo.findByIsActiveTrue() : repo.findAll();
-        return list.stream().map(this::toDto).toList();
+
+        Map<Integer, long[]> stats = buildInstrumentStats();
+
+        return list.stream()
+            .map(r -> toDto(r, stats.get(r.getRegulatorId())))
+            .toList();
+    }
+
+    public List<RegulatorDto> findAllFiltered(Boolean activeOnly, String name, String abbreviation,
+                                               Integer minDocs, Integer maxDocs,
+                                               Instant lastDocFrom, Instant lastDocTo) {
+        List<RegulatorDto> all = findAll(activeOnly);
+
+        return all.stream()
+            .filter(r -> name == null || name.isBlank()
+                || r.getName().toLowerCase().contains(name.toLowerCase()))
+            .filter(r -> abbreviation == null || abbreviation.isBlank()
+                || r.getAbbreviation().toLowerCase().contains(abbreviation.toLowerCase()))
+            .filter(r -> minDocs == null || (r.getInstrumentCount() != null && r.getInstrumentCount() >= minDocs))
+            .filter(r -> maxDocs == null || (r.getInstrumentCount() != null && r.getInstrumentCount() <= maxDocs))
+            .filter(r -> lastDocFrom == null || (r.getLastInstrumentDiscoveredAt() != null
+                && !r.getLastInstrumentDiscoveredAt().isBefore(lastDocFrom)))
+            .filter(r -> lastDocTo == null || (r.getLastInstrumentDiscoveredAt() != null
+                && !r.getLastInstrumentDiscoveredAt().isAfter(lastDocTo)))
+            .toList();
     }
 
     public RegulatorDto findById(Integer id) {
-        return toDto(repo.findById(id)
-            .orElseThrow(() -> new RuntimeException("Regulator not found: " + id)));
+        Regulator r = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Regulator not found: " + id));
+        Map<Integer, long[]> stats = buildInstrumentStats();
+        return toDto(r, stats.get(r.getRegulatorId()));
     }
 
     @Transactional
@@ -46,13 +76,16 @@ public class RegulatorService {
             .maxPdfSizeMb(req.getMaxPdfSizeMb())
             .scraperEnabled(req.getScraperEnabled())
             .isActive(true).build();
-        return toDto(repo.save(r));
+        return toDto(repo.save(r), null);
     }
 
     @Transactional
     public RegulatorDto update(Integer id, CreateRegulatorRequest req) {
         Regulator r = repo.findById(id)
             .orElseThrow(() -> new RuntimeException("Regulator not found: " + id));
+        if (req.getName() != null) r.setName(req.getName());
+        if (req.getAbbreviation() != null) r.setAbbreviation(req.getAbbreviation().toUpperCase());
+        if (req.getWebsiteUrl() != null) r.setWebsiteUrl(req.getWebsiteUrl());
         if (req.getPublicationPageUrl() != null) r.setPublicationPageUrl(req.getPublicationPageUrl());
         if (req.getScraperStrategy() != null) r.setScraperStrategy(req.getScraperStrategy());
         if (req.getScraperFrequency() != null) r.setScraperFrequency(req.getScraperFrequency());
@@ -62,7 +95,7 @@ public class RegulatorService {
         if (req.getMaxPagesPerRun() != null) r.setMaxPagesPerRun(req.getMaxPagesPerRun());
         if (req.getMaxPdfSizeMb() != null) r.setMaxPdfSizeMb(req.getMaxPdfSizeMb());
         if (req.getScraperEnabled() != null) r.setScraperEnabled(req.getScraperEnabled());
-        return toDto(repo.save(r));
+        return toDto(repo.save(r), null);
     }
 
     @Transactional
@@ -80,7 +113,19 @@ public class RegulatorService {
         return scraperLogs.findTop30ByRegulatorIdOrderByRunAtDesc(id);
     }
 
-    private RegulatorDto toDto(Regulator r) {
+    private Map<Integer, long[]> buildInstrumentStats() {
+        List<Object[]> rows = instrumentRepo.getInstrumentStats();
+        Map<Integer, long[]> map = new HashMap<>();
+        for (Object[] row : rows) {
+            Integer regulatorId = ((Number) row[0]).intValue();
+            long count = ((Number) row[1]).longValue();
+            Instant lastDiscovered = row[2] != null ? (Instant) row[2] : null;
+            map.put(regulatorId, new long[]{count, lastDiscovered != null ? lastDiscovered.toEpochMilli() : 0});
+        }
+        return map;
+    }
+
+    private RegulatorDto toDto(Regulator r, long[] stats) {
         return RegulatorDto.builder()
             .regulatorId(r.getRegulatorId()).name(r.getName())
             .abbreviation(r.getAbbreviation()).websiteUrl(r.getWebsiteUrl())
@@ -96,6 +141,9 @@ public class RegulatorService {
             .isActive(r.getIsActive())
             .scraperLastRanAt(r.getScraperLastRanAt())
             .scraperLastFound(r.getScraperLastFound())
-            .scraperNotes(r.getScraperNotes()).build();
+            .scraperNotes(r.getScraperNotes())
+            .instrumentCount(stats != null ? (int) stats[0] : 0)
+            .lastInstrumentDiscoveredAt(stats != null && stats[1] > 0 ? Instant.ofEpochMilli(stats[1]) : null)
+            .build();
     }
 }

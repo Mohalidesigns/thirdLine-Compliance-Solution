@@ -115,11 +115,11 @@ function demoRequest(path, options = {}) {
   }
   if (path.startsWith('/platform/regulators')) {
     return [
-      { id: 1, name: 'Central Bank of Nigeria', abbreviation: 'CBN', isActive: true, jurisdiction: 'Nigeria', instrumentCount: 45, lastScraped: '2026-06-21T10:00:00Z' },
-      { id: 2, name: 'Securities and Exchange Commission', abbreviation: 'SEC', isActive: true, jurisdiction: 'Nigeria', instrumentCount: 32, lastScraped: '2026-06-21T09:00:00Z' },
-      { id: 3, name: 'National Insurance Commission', abbreviation: 'NAICOM', isActive: true, jurisdiction: 'Nigeria', instrumentCount: 28, lastScraped: '2026-06-20T14:00:00Z' },
-      { id: 4, name: 'Federal Inland Revenue Service', abbreviation: 'FIRS', isActive: true, jurisdiction: 'Nigeria', instrumentCount: 19, lastScraped: '2026-06-20T11:00:00Z' },
-      { id: 5, name: 'Nigerian Communications Commission', abbreviation: 'NCC', isActive: false, jurisdiction: 'Nigeria', instrumentCount: 15, lastScraped: '2026-06-19T08:00:00Z' },
+      { regulatorId: 1, name: 'Central Bank of Nigeria', abbreviation: 'CBN', isActive: true, instrumentCount: 45, lastInstrumentDiscoveredAt: '2026-06-21T10:00:00Z' },
+      { regulatorId: 2, name: 'Securities and Exchange Commission', abbreviation: 'SEC', isActive: true, instrumentCount: 32, lastInstrumentDiscoveredAt: '2026-06-21T09:00:00Z' },
+      { regulatorId: 3, name: 'National Insurance Commission', abbreviation: 'NAICOM', isActive: true, instrumentCount: 28, lastInstrumentDiscoveredAt: '2026-06-20T14:00:00Z' },
+      { regulatorId: 4, name: 'Federal Inland Revenue Service', abbreviation: 'FIRS', isActive: true, instrumentCount: 19, lastInstrumentDiscoveredAt: '2026-06-19T11:00:00Z' },
+      { regulatorId: 5, name: 'Nigerian Communications Commission', abbreviation: 'NCC', isActive: false, instrumentCount: 15, lastInstrumentDiscoveredAt: '2026-06-19T08:00:00Z' },
     ];
   }
   if (path.startsWith('/platform/tenants')) {
@@ -218,7 +218,12 @@ export const api = {
       history: (id) => request(`/platform/tenants/${id}/webhook-history`),
     },
     regulators: {
-      list: (activeOnly) => request(`/platform/regulators${activeOnly !== undefined ? '?activeOnly=' + activeOnly : ''}`),
+      list: (params = {}) => {
+        const qs = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+        const s = qs.toString();
+        return request(`/platform/regulators${s ? '?' + s : ''}`);
+      },
       get: (id) => request(`/platform/regulators/${id}`),
       update: (id, data) => request(`/platform/regulators/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       create: (data) => request('/platform/regulators', { method: 'POST', body: JSON.stringify(data) }),
