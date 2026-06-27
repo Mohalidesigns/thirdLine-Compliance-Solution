@@ -34,22 +34,15 @@ public class RegulatorService {
             .toList();
     }
 
-    public List<RegulatorDto> findAllFiltered(Boolean activeOnly, String name, String abbreviation,
-                                               Integer minDocs, Integer maxDocs,
-                                               Instant lastDocFrom, Instant lastDocTo) {
+    public List<RegulatorDto> findAllFiltered(Boolean activeOnly, String search) {
         List<RegulatorDto> all = findAll(activeOnly);
 
+        if (search == null || search.isBlank()) return all;
+
+        String q = search.toLowerCase();
         return all.stream()
-            .filter(r -> name == null || name.isBlank()
-                || r.getName().toLowerCase().contains(name.toLowerCase()))
-            .filter(r -> abbreviation == null || abbreviation.isBlank()
-                || r.getAbbreviation().toLowerCase().contains(abbreviation.toLowerCase()))
-            .filter(r -> minDocs == null || (r.getInstrumentCount() != null && r.getInstrumentCount() >= minDocs))
-            .filter(r -> maxDocs == null || (r.getInstrumentCount() != null && r.getInstrumentCount() <= maxDocs))
-            .filter(r -> lastDocFrom == null || (r.getLastInstrumentDiscoveredAt() != null
-                && !r.getLastInstrumentDiscoveredAt().isBefore(lastDocFrom)))
-            .filter(r -> lastDocTo == null || (r.getLastInstrumentDiscoveredAt() != null
-                && !r.getLastInstrumentDiscoveredAt().isAfter(lastDocTo)))
+            .filter(r -> r.getName().toLowerCase().contains(q)
+                || r.getAbbreviation().toLowerCase().contains(q))
             .toList();
     }
 

@@ -19,7 +19,7 @@ function useDebounce(value, delay) {
 
 function formatDt(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function RegulatorAdminPage() {
@@ -27,33 +27,16 @@ export default function RegulatorAdminPage() {
   const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
-  const [nameFilter, setNameFilter] = useState('');
-  const [abbrFilter, setAbbrFilter] = useState('');
-  const [minDocs, setMinDocs] = useState('');
-  const [maxDocs, setMaxDocs] = useState('');
-  const [lastDocFrom, setLastDocFrom] = useState('');
-  const [lastDocTo, setLastDocTo] = useState('');
-
-  const debouncedName = useDebounce(nameFilter, 300);
-  const debouncedAbbr = useDebounce(abbrFilter, 300);
-  const debouncedMinDocs = useDebounce(minDocs, 300);
-  const debouncedMaxDocs = useDebounce(maxDocs, 300);
-  const debouncedFrom = useDebounce(lastDocFrom, 300);
-  const debouncedTo = useDebounce(lastDocTo, 300);
+  const debouncedSearch = useDebounce(search, 300);
 
   const fetchRegulators = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
-      if (debouncedName) params.name = debouncedName;
-      if (debouncedAbbr) params.abbreviation = debouncedAbbr;
-      if (debouncedMinDocs) params.minDocs = parseInt(debouncedMinDocs, 10);
-      if (debouncedMaxDocs) params.maxDocs = parseInt(debouncedMaxDocs, 10);
-      if (debouncedFrom) params.lastDocFrom = new Date(debouncedFrom).toISOString();
-      if (debouncedTo) params.lastDocTo = new Date(debouncedTo).toISOString();
-      params.activeOnly = true;
+      const params = { activeOnly: true };
+      if (debouncedSearch) params.search = debouncedSearch;
       const data = await api.platform.regulators.list(params);
       setRegulators(data);
     } catch (err) {
@@ -61,7 +44,7 @@ export default function RegulatorAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedName, debouncedAbbr, debouncedMinDocs, debouncedMaxDocs, debouncedFrom, debouncedTo]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchRegulators();
@@ -69,79 +52,56 @@ export default function RegulatorAdminPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>Regulators</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulators</Typography>
+        <TextField
+          size="small" placeholder="Search by name or abbreviation..." value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
+          }}
+          sx={{ width: 320, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+        />
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Card>
+      <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
         <TableContainer>
-          <Table size="small">
+          <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, pb: 0.5 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 700, pb: 0.5, width: 130 }}>Abbreviation</TableCell>
-                <TableCell sx={{ fontWeight: 700, pb: 0.5, width: 120 }}>Documents</TableCell>
-                <TableCell sx={{ fontWeight: 700, pb: 0.5, width: 200 }}>Last Document</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ pt: 0.5, borderTop: 'none' }}>
-                  <TextField
-                    size="small" placeholder="Search name..." value={nameFilter}
-                    onChange={(e) => setNameFilter(e.target.value)} fullWidth
-                    InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: '#718096' }} /></InputAdornment> }}
-                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' } }}
-                  />
-                </TableCell>
-                <TableCell sx={{ pt: 0.5, borderTop: 'none' }}>
-                  <TextField
-                    size="small" placeholder="Filter..." value={abbrFilter}
-                    onChange={(e) => setAbbrFilter(e.target.value)} fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' } }}
-                  />
-                </TableCell>
-                <TableCell sx={{ pt: 0.5, borderTop: 'none' }}>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <TextField size="small" placeholder="Min" value={minDocs}
-                      onChange={(e) => setMinDocs(e.target.value)} type="number"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' }, width: '50%' }} />
-                    <TextField size="small" placeholder="Max" value={maxDocs}
-                      onChange={(e) => setMaxDocs(e.target.value)} type="number"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' }, width: '50%' }} />
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ pt: 0.5, borderTop: 'none' }}>
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <TextField size="small" type="date" value={lastDocFrom}
-                      onChange={(e) => setLastDocFrom(e.target.value)}
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' } }} />
-                    <TextField size="small" type="date" value={lastDocTo}
-                      onChange={(e) => setLastDocTo(e.target.value)}
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem' } }} />
-                  </Box>
-                </TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 130 }}>Abbreviation</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 120 }}>Documents</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 160 }}>Last Document</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>
                   <CircularProgress size={24} />
                 </TableCell></TableRow>
               ) : regulators.length === 0 ? (
-                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: '#718096' }}>
-                  No regulators found
+                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: '#A0AEC0', fontSize: '0.85rem' }}>
+                  {search ? 'No regulators match your search' : 'No regulators found'}
                 </TableCell></TableRow>
-              ) : regulators.map((reg) => (
+              ) : regulators.map((reg, i) => (
                 <TableRow
-                  key={reg.regulatorId} hover sx={{ cursor: 'pointer' }}
+                  key={reg.regulatorId}
+                  hover
+                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
                   onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
                 >
                   <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{reg.name}</TableCell>
                   <TableCell>
                     <Chip label={reg.abbreviation} size="small"
-                      sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem' }} />
+                      sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem', borderRadius: 1 }} />
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.85rem' }}>{reg.instrumentCount ?? '—'}</TableCell>
-                  <TableCell sx={{ fontSize: '0.75rem', color: '#718096' }}>
+                  <TableCell>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{reg.instrumentCount ?? 0}</Typography>
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.78rem', color: '#718096' }}>
                     {formatDt(reg.lastInstrumentDiscoveredAt)}
                   </TableCell>
                 </TableRow>

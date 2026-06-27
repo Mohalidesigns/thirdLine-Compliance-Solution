@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -26,14 +25,8 @@ public class RegulatorController {
     @GetMapping
     public ResponseEntity<List<RegulatorDto>> listAll(
             @RequestParam(required = false) Boolean activeOnly,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String abbreviation,
-            @RequestParam(required = false) Integer minDocs,
-            @RequestParam(required = false) Integer maxDocs,
-            @RequestParam(required = false) Instant lastDocFrom,
-            @RequestParam(required = false) Instant lastDocTo) {
-        return ResponseEntity.ok(regulatorService.findAllFiltered(activeOnly, name, abbreviation,
-            minDocs, maxDocs, lastDocFrom, lastDocTo));
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(regulatorService.findAllFiltered(activeOnly, search));
     }
 
     @GetMapping("/{id}")
