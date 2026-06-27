@@ -25,8 +25,10 @@ public class RegulatorController {
     @GetMapping
     public ResponseEntity<List<RegulatorDto>> listAll(
             @RequestParam(required = false) Boolean activeOnly,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(regulatorService.findAllFiltered(activeOnly, search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir) {
+        return ResponseEntity.ok(regulatorService.findAllFiltered(activeOnly, search, sortBy, sortDir));
     }
 
     @GetMapping("/{id}")

@@ -4,7 +4,7 @@ import {
   Box, Typography, Card, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, CircularProgress, Alert, Chip, InputAdornment,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { Search, ArrowUpward, ArrowDownward, UnfoldMore } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
@@ -22,20 +22,38 @@ function formatDt(ts) {
   return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+const COLUMNS = [
+  { key: 'name', label: 'Name', width: undefined },
+  { key: 'abbreviation', label: 'Abbreviation', width: 130 },
+  { key: 'instrumentCount', label: 'Documents', width: 120 },
+  { key: 'lastInstrumentDiscoveredAt', label: 'Last Document', width: 160 },
+];
+
 export default function RegulatorAdminPage() {
   const navigate = useNavigate();
   const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
 
   const debouncedSearch = useDebounce(search, 300);
+
+  function handleSort(key) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(key);
+      setSortDir('asc');
+    }
+  }
 
   const fetchRegulators = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = { activeOnly: true };
+      const params = { activeOnly: true, sortBy, sortDir };
       if (debouncedSearch) params.search = debouncedSearch;
       const data = await api.platform.regulators.list(params);
       setRegulators(data);
@@ -44,7 +62,7 @@ export default function RegulatorAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => {
     fetchRegulators();
@@ -71,10 +89,27 @@ export default function RegulatorAdminPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 130 }}>Abbreviation</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 120 }}>Documents</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 160 }}>Last Document</TableCell>
+                {COLUMNS.map((col) => (
+                  <TableCell
+                    key={col.key}
+                    sx={{
+                      fontWeight: 700, color: '#4A5568', fontSize: '0.7rem',
+                      textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer',
+                      userSelect: 'none', width: col.width,
+                      '&:hover': { color: '#1A365D' },
+                    }}
+                    onClick={() => handleSort(col.key)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {col.label}
+                      {sortBy === col.key ? (
+                        sortDir === 'asc' ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />
+                      ) : (
+                        <UnfoldMore sx={{ fontSize: 14, color: '#CBD5E0' }} />
+                      )}
+                    </Box>
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>

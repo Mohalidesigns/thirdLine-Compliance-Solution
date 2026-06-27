@@ -34,16 +34,28 @@ public class RegulatorService {
             .toList();
     }
 
-    public List<RegulatorDto> findAllFiltered(Boolean activeOnly, String search) {
+    public List<RegulatorDto> findAllFiltered(Boolean activeOnly, String search,
+                                               String sortBy, String sortDir) {
         List<RegulatorDto> all = findAll(activeOnly);
 
-        if (search == null || search.isBlank()) return all;
+        if (search != null && !search.isBlank()) {
+            String q = search.toLowerCase();
+            all = all.stream()
+                .filter(r -> r.getName().toLowerCase().contains(q)
+                    || r.getAbbreviation().toLowerCase().contains(q))
+                .toList();
+        }
 
-        String q = search.toLowerCase();
-        return all.stream()
-            .filter(r -> r.getName().toLowerCase().contains(q)
-                || r.getAbbreviation().toLowerCase().contains(q))
-            .toList();
+        boolean asc = !"desc".equalsIgnoreCase(sortDir);
+        Comparator<RegulatorDto> cmp = switch (sortBy != null ? sortBy : "name") {
+            case "abbreviation" -> Comparator.comparing(RegulatorDto::getAbbreviation, Comparator.nullsLast(String::compareToIgnoreCase));
+            case "instrumentCount" -> Comparator.comparing(RegulatorDto::getInstrumentCount, Comparator.nullsLast(Integer::compareTo));
+            case "lastInstrumentDiscoveredAt" -> Comparator.comparing(RegulatorDto::getLastInstrumentDiscoveredAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            default -> Comparator.comparing(RegulatorDto::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+        };
+        if (!asc) cmp = cmp.reversed();
+
+        return all.stream().sorted(cmp).toList();
     }
 
     public RegulatorDto findById(Integer id) {
