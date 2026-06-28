@@ -3,28 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Grid, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  IconButton, Tooltip, CircularProgress, Alert, Select, MenuItem,
-  FormControl, InputLabel,
+  IconButton, Tooltip, CircularProgress, Alert, Button, TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
-  Refresh, ErrorOutline, CheckCircle, HourglassEmpty, PlayArrow,
-  Schedule, Warning,
+  Refresh, CloudUpload, CheckCircle, ErrorOutline, HourglassEmpty,
+  PlayArrow, PictureAsPdf, Close, Search,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
+import UploadDialog from './UploadDialog';
 
-const jobTypeLabels = {
-  ocr_document: { label: 'OCR', color: '#3182CE' },
-  classify_instrument: { label: 'Classify', color: '#805AD5' },
-  evaluate_applicability: { label: 'Applicability', color: '#DD6B20' },
-  send_webhooks: { label: 'Webhook', color: '#2D7D46' },
+const STAGE_LABELS = [
+  { key: 'download', label: 'Download', color: '#3182CE' },
+  { key: 'ocr', label: 'Extract Text', color: '#805AD5' },
+  { key: 'classify', label: 'Analyze & Tag', color: '#DD6B20' },
+  { key: 'publish', label: 'Send Alerts', color: '#2D7D46' },
+];
+
+const stageStatusIcon = {
+  idle: null,
+  pending: <HourglassEmpty sx={{ fontSize: 14 }} />,
+  processing: <PlayArrow sx={{ fontSize: 14 }} />,
+  completed: <CheckCircle sx={{ fontSize: 14 }} />,
+  failed: <ErrorOutline sx={{ fontSize: 14 }} />,
 };
 
-const statusConfig = {
-  pending: { label: 'Pending', color: '#718096', bg: '#EDF2F7', icon: <HourglassEmpty sx={{ fontSize: 14 }} /> },
-  processing: { label: 'Processing', color: '#3182CE', bg: '#EBF8FF', icon: <PlayArrow sx={{ fontSize: 14 }} /> },
-  completed: { label: 'Completed', color: '#2D7D46', bg: '#E6F4EA', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-  failed: { label: 'Failed', color: '#C53030', bg: '#FEE2E2', icon: <ErrorOutline sx={{ fontSize: 14 }} /> },
+const stageStatusColor = {
+  idle: '#E2E8F0',
+  pending: '#A0AEC0',
+  processing: '#3182CE',
+  completed: '#2D7D46',
+  failed: '#C53030',
 };
 
 function formatDt(ts) {
@@ -32,184 +42,247 @@ function formatDt(ts) {
   return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function formatLocalDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function PipelineStages({ stages }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      {STAGE_LABELS.map((st, i) => {
+        const status = stages?.[st.key] || 'idle';
+        const color = stageStatusColor[status];
+        const icon = stageStatusIcon[status];
+        return (
+          <Box key={st.key} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title={`${st.label}: ${status}`}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, px: 0.6, py: 0.3, borderRadius: 1, bgcolor: `${color}14` }}>
+                {icon && <Box sx={{ color }}>{icon}</Box>}
+                <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
+                  {st.label}
+                </Typography>
+              </Box>
+            </Tooltip>
+            {i < STAGE_LABELS.length - 1 && (
+              <Typography sx={{ color: '#CBD5E0', mx: 0.3, fontSize: '0.6rem' }}>▸</Typography>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
 }
 
 export default function JobQueuePage() {
   const navigate = useNavigate();
-  const [jobs, setJobs] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [total, setTotal] = useState(0);
-  const [jobTypeFilter, setJobTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [uploadOpen, setUploadOpen] = useState(false);
 
-  function fetchJobs() {
+  function fetchAll() {
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams();
-    params.set('page', page);
-    params.set('size', rowsPerPage);
-    if (jobTypeFilter) params.set('jobType', jobTypeFilter);
-    if (statusFilter) params.set('status', statusFilter);
+    const params = new URLSearchParams({ page, size: rowsPerPage });
+    if (search) params.set('search', search);
 
     Promise.all([
       api.platform.jobs.list(params.toString()),
+      api.platform.pendingDownloads.list('pending'),
       api.platform.jobs.stats(),
     ])
-      .then(([jobsData, statsData]) => {
-        setJobs(jobsData.content || []);
-        setTotal(jobsData.totalElements || 0);
-        setStats(statsData);
+      .then(([jobsData, pendings, stats]) => {
+        const regulatorMap = {};
+        const items = [];
+
+        for (const job of (jobsData.content || [])) {
+          const p = job.payload || {};
+          items.push({
+            id: job.jobId,
+            title: p.title || `Job #${job.jobId}`,
+            regulator: p.regulator || '—',
+            stages: getJobStages(job),
+            status: job.status,
+            updatedAt: job.updatedAt || job.createdAt,
+            _source: 'job',
+            _data: job,
+          });
+        }
+
+        for (const pd of (pendings || [])) {
+          items.push({
+            id: `pd-${pd.id}`,
+            title: pd.title || 'Untitled Document',
+            regulator: pd.regulatorName || `Regulator #${pd.regulatorId}`,
+            stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
+            status: 'download_failed',
+            updatedAt: pd.createdAt,
+            _source: 'pending',
+            _data: pd,
+          });
+        }
+
+        if (search) {
+          const q = search.toLowerCase();
+          setRows(items.filter(i => i.title.toLowerCase().includes(q) || i.regulator.toLowerCase().includes(q)));
+        } else {
+          setRows(items);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchJobs(); }, [page, rowsPerPage, jobTypeFilter, statusFilter]);
+  useEffect(() => { fetchAll(); }, [page, rowsPerPage, search]);
+
+  async function handlePendUpload(id) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,application/pdf';
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        await api.platform.pendingDownloads.upload(id, file);
+        fetchAll();
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      }
+    };
+    input.click();
+  }
+
+  async function handlePendSkip(id) {
+    try {
+      await api.platform.pendingDownloads.skip(id);
+      fetchAll();
+    } catch (err) {
+      alert('Skip failed: ' + err.message);
+    }
+  }
+
+  const filtered = rows;
+  const paged = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Pipeline Jobs</Typography>
-          <Typography variant="body2" color="text.secondary">Monitor OCR, classification, applicability, and webhook delivery jobs</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Document Pipeline</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Track documents from download to delivery. Each document moves through 4 stages.
+          </Typography>
         </Box>
-        <IconButton onClick={fetchJobs}><Refresh /></IconButton>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="contained" startIcon={<CloudUpload />} onClick={() => setUploadOpen(true)}>
+            Upload Document
+          </Button>
+          <IconButton onClick={fetchAll}><Refresh /></IconButton>
+        </Box>
       </Box>
 
-      {stats && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {[
-            { label: 'Pending', value: stats.totalPending, color: '#718096', icon: <HourglassEmpty /> },
-            { label: 'Processing', value: stats.totalProcessing, color: '#3182CE', icon: <PlayArrow /> },
-            { label: 'Completed', value: stats.totalCompleted, color: '#2D7D46', icon: <CheckCircle /> },
-            { label: 'Failed', value: stats.totalFailed, color: stats.totalFailed > 0 ? '#C53030' : '#2D7D46', icon: stats.totalFailed > 0 ? <ErrorOutline /> : <CheckCircle /> },
-          ].map((s) => (
-            <Grid item xs={6} md={3} key={s.label}>
-              <Card>
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box sx={{ color: s.color }}>{s.icon}</Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{s.value}</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {stats && stats.perType && (
-        <Grid container spacing={1.5} sx={{ mb: 3 }}>
-          {Object.entries(stats.perType).map(([type, statuses]) => {
-            const cfg = jobTypeLabels[type] || { label: type, color: '#718096' };
-            return (
-              <Grid item key={type}>
-                <Card variant="outlined" sx={{ px: 1.5, py: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: cfg.color }}>{cfg.label}</Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                    {Object.entries(statuses).map(([st, cnt]) => {
-                      const sc = statusConfig[st] || { label: st, color: '#718096', bg: '#EDF2F7' };
-                      return (
-                        <Chip key={st} size="small" label={`${sc.label}: ${cnt}`} sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: sc.bg, color: sc.color }} />
-                      );
-                    })}
-                  </Box>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      )}
-
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Job Type</InputLabel>
-          <Select value={jobTypeFilter} label="Job Type" onChange={(e) => { setJobTypeFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="">All Types</MenuItem>
-            {Object.entries(jobTypeLabels).map(([type, cfg]) => (
-              <MenuItem key={type} value={type}>{cfg.label}</MenuItem>
+      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {STAGE_LABELS.map((st) => (
+              <Box key={st.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: st.color }} />
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: st.color }}>
+                    {st.label}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: '#718096' }}>
+                    {st.key === 'download' && 'Fetch PDF from regulator source'}
+                    {st.key === 'ocr' && 'Read PDF content into searchable text'}
+                    {st.key === 'classify' && 'AI identifies obligations, risks & topics'}
+                    {st.key === 'publish' && 'Match to tenants and send notifications'}
+                  </Typography>
+                </Box>
+              </Box>
             ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Status</InputLabel>
-          <Select value={statusFilter} label="Status" onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="">All Statuses</MenuItem>
-            {Object.entries(statusConfig).map(([st, cfg]) => (
-              <MenuItem key={st} value={st}>{cfg.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <TextField
+        size="small" placeholder="Search by document title or regulator..." value={search}
+        onChange={(e) => setSearch(e.target.value)} fullWidth sx={{ mb: 2 }}
+        InputProps={{
+          startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
+        }}
+      />
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
-      ) : error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       ) : (
-        <Card>
+        <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <TableContainer>
-            <Table size="small">
+            <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Subject</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Priority</TableCell>
-                  <TableCell>Attempts</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Last Error</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Document</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Regulator</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Progress</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 120 }}>Updated</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {jobs.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4, color: '#718096' }}>No jobs found</TableCell></TableRow>
-                ) : jobs.map((job) => {
-                  const typeCfg = jobTypeLabels[job.jobType] || { label: job.jobType, color: '#718096' };
-                  const stCfg = statusConfig[job.status] || { label: job.status, color: '#718096', bg: '#EDF2F7', icon: null };
-                  return (
-                    <TableRow key={job.jobId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`${ROUTES.ADMIN_PIPELINE}/${job.jobId}`)}>
-                      <TableCell sx={{ fontSize: '0.75rem', fontFamily: 'Roboto Mono' }}>{job.jobId}</TableCell>
-                      <TableCell>
-                        <Chip label={typeCfg.label} size="small" sx={{ fontWeight: 700, bgcolor: `${typeCfg.color}18`, color: typeCfg.color, fontSize: '0.65rem' }} />
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.8rem' }}>{job.subjectId || '—'}</TableCell>
-                      <TableCell>
-                        <Chip size="small" icon={stCfg.icon} label={stCfg.label} sx={{ bgcolor: stCfg.bg, color: stCfg.color, fontWeight: 600, fontSize: '0.65rem' }} />
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.75rem' }}>
-                        <Chip label={job.priority === 1 ? 'HIGH' : 'LOW'} size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, bgcolor: job.priority === 1 ? '#FEF3E2' : '#EDF2F7', color: job.priority === 1 ? '#DD6B20' : '#718096' }} />
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.75rem' }}>{job.attemptCount}/{job.maxAttempts}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>{formatDt(job.createdAt)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem', color: '#C53030', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {job.lastError ? (
-                          <Tooltip title={job.lastError}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Warning sx={{ fontSize: 12 }} />
-                              {job.lastError.substring(0, 50)}...
-                            </Box>
+                {paged.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#A0AEC0' }}>
+                    {search ? 'No documents match your search' : 'No documents in the pipeline'}
+                  </TableCell></TableRow>
+                ) : paged.map((item, i) => (
+                  <TableRow
+                    key={item.id}
+                    hover
+                    sx={{ cursor: item._source === 'job' ? 'pointer' : 'default', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
+                    onClick={() => { if (item._source === 'job') navigate(`${ROUTES.ADMIN_PIPELINE}/${item._data.jobId}`); }}
+                  >
+                    <TableCell>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{item.title}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={item.regulator} size="small"
+                        sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff', borderRadius: 1 }} />
+                    </TableCell>
+                    <TableCell>
+                      <PipelineStages stages={item.stages} />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>
+                      {formatDt(item.updatedAt)}
+                    </TableCell>
+                    <TableCell>
+                      {item._source === 'pending' ? (
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title="Upload PDF">
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendUpload(item._data.id); }}>
+                              <CloudUpload sx={{ fontSize: 16, color: '#3182CE' }} />
+                            </IconButton>
                           </Tooltip>
-                        ) : '—'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                          <Tooltip title="Skip">
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendSkip(item._data.id); }}>
+                              <Close sx={{ fontSize: 16, color: '#A0AEC0' }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ) : (
+                        <Tooltip title="View Details">
+                          <IconButton size="small">
+                            <PictureAsPdf sx={{ fontSize: 16, color: '#718096' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
           <TablePagination
             component="div"
-            count={total}
+            count={filtered.length}
             page={page}
             onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rowsPerPage}
@@ -219,7 +292,27 @@ export default function JobQueuePage() {
         </Card>
       )}
 
-
+      <UploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSuccess={fetchAll}
+      />
     </Box>
   );
+}
+
+function getJobStages(job) {
+  const status = job.status;
+  switch (job.jobType) {
+    case 'ocr_document':
+      return { download: 'completed', ocr: status, classify: 'idle', publish: 'idle' };
+    case 'classify_instrument':
+      return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
+    case 'evaluate_applicability':
+      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
+    case 'send_webhooks':
+      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
+    default:
+      return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
+  }
 }

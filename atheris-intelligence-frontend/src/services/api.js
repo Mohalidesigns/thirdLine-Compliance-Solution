@@ -241,6 +241,21 @@ export const api = {
       list: (params = '') => request(`/platform/instruments${params ? '?' + params : ''}`),
       get: (id) => request(`/platform/instruments/${id}`),
       getPdfUrl: (id) => request(`/intelligence/obligations/${id}/pdf`),
+      upload: (regulatorId, file, title) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('regulator_id', regulatorId);
+        if (title) formData.append('title', title);
+        return fetch(`${API_BASE}/platform/instruments/upload`, {
+          method: 'POST',
+          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+          body: formData,
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || `Upload failed (${res.status})`);
+          return data;
+        });
+      },
     },
     pendingDownloads: {
       list: (status = 'pending') => request(`/admin/pending-downloads?status=${status}`),
