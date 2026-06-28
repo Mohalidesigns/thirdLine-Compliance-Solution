@@ -88,7 +88,7 @@ export default function JobQueuePage() {
     Promise.all([
       api.platform.jobs.list(params.toString()),
       api.platform.pendingDownloads.list('pending'),
-      api.platform.regulators.list({ activeOnly: true, sortBy: 'name', sortDir: 'asc' }),
+      api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' }),
     ])
       .then(([jobsData, pendings, regsData]) => {
         const regMap = {};
@@ -100,9 +100,10 @@ export default function JobQueuePage() {
         for (const job of (jobsData.content || [])) {
           const p = job.payload || {};
           const rid = p.regulator_id;
+          const jobTitle = [p.title, p.instrument_title, p.source_url].find(v => v && v.trim());
           items.push({
             id: job.jobId,
-            title: p.title || p.instrument_title || p.source_url || `Job #${job.jobId}`,
+            title: jobTitle || (job.lastError ? `Failed: ${job.lastError.substring(0, 60)}` : `Job #${job.jobId}`),
             regulator: regMap[rid] || '—',
             stages: getJobStages(job),
             status: job.status,
