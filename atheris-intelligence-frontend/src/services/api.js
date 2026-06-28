@@ -165,11 +165,13 @@ async function request(path, options = {}) {
         }
       } else {
         clearAuth();
+        sessionStorage.setItem('atheris_session_expired', '1');
         window.location.href = '/login';
         throw new Error('Session expired');
       }
     } else {
       clearAuth();
+      sessionStorage.setItem('atheris_session_expired', '1');
       window.location.href = '/login';
       throw new Error('Session expired');
     }

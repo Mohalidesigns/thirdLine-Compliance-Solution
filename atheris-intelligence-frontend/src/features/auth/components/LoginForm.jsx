@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Card, CardContent, TextField, Button, Typography, Alert,
@@ -17,6 +17,13 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (sessionStorage.getItem('atheris_session_expired')) {
+      sessionStorage.removeItem('atheris_session_expired');
+      setError('Your session has expired. Please log in again.');
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
