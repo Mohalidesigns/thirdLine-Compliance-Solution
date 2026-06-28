@@ -5,6 +5,7 @@ import {
   InputAdornment, IconButton, Divider, Checkbox, FormControlLabel, Link,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Shield, Email, Lock } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../hooks/useAuth';
 import { BRAND, STRINGS, ROUTES } from '../../../utils/constants';
@@ -17,6 +18,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem('atheris_session_expired')) {
@@ -31,6 +33,8 @@ export default function LoginForm() {
       setError(STRINGS.LOGIN_ERROR_EMPTY);
       return;
     }
+    setLoading(true);
+    setError('');
     try {
       const result = await login(email, password);
       if (result?.error) {
@@ -40,6 +44,8 @@ export default function LoginForm() {
       navigate(ROUTES.DASHBOARD);
     } catch (err) {
       setError(err.message || STRINGS.LOGIN_ERROR_FAILED);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -109,9 +115,10 @@ export default function LoginForm() {
 
             <Button
               type="submit" fullWidth variant="contained" size="large"
+              disabled={loading}
               sx={{ py: 1.3, fontSize: '0.9rem', fontWeight: 700 }}
             >
-              {STRINGS.SIGN_IN}
+              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : STRINGS.SIGN_IN}
             </Button>
           </form>
 
@@ -120,7 +127,8 @@ export default function LoginForm() {
           </Divider>
 
           <Button
-            fullWidth variant="outlined" size="large" onClick={() => { login(); navigate(ROUTES.DASHBOARD); }}
+            fullWidth variant="outlined" size="large" disabled={loading}
+            onClick={() => { login(); navigate(ROUTES.DASHBOARD); }}
             sx={{ py: 1, borderColor: theme.palette.secondary.main, color: theme.palette.secondary.main, '&:hover': { bgcolor: '#f0faf3', borderColor: theme.palette.secondary.main } }}
           >
             {STRINGS.DEMO_LOGIN}
