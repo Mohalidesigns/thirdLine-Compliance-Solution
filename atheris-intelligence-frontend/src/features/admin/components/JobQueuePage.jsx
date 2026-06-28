@@ -88,18 +88,22 @@ export default function JobQueuePage() {
     Promise.all([
       api.platform.jobs.list(params.toString()),
       api.platform.pendingDownloads.list('pending'),
-      api.platform.jobs.stats(),
+      api.platform.regulators.list({ activeOnly: true, sortBy: 'name', sortDir: 'asc' }),
     ])
-      .then(([jobsData, pendings, stats]) => {
-        const regulatorMap = {};
+      .then(([jobsData, pendings, regsData]) => {
+        const regMap = {};
+        for (const r of (regsData.content || regsData || [])) {
+          regMap[r.regulatorId || r.id] = r.name || r.abbreviation || `Regulator #${r.id}`;
+        }
         const items = [];
 
         for (const job of (jobsData.content || [])) {
           const p = job.payload || {};
+          const rid = p.regulator_id;
           items.push({
             id: job.jobId,
-            title: p.title || `Job #${job.jobId}`,
-            regulator: p.regulator || '—',
+            title: p.title || p.instrument_title || p.source_url || `Job #${job.jobId}`,
+            regulator: regMap[rid] || '—',
             stages: getJobStages(job),
             status: job.status,
             updatedAt: job.updatedAt || job.createdAt,
@@ -112,7 +116,7 @@ export default function JobQueuePage() {
           items.push({
             id: `pd-${pd.id}`,
             title: pd.title || 'Untitled Document',
-            regulator: pd.regulatorName || `Regulator #${pd.regulatorId}`,
+            regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
             stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
             status: 'download_failed',
             updatedAt: pd.createdAt,
