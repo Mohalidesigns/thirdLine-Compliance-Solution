@@ -153,14 +153,20 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  if (res.status === 401 && authRefreshToken) {
-    const refreshed = await doRefresh();
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${refreshed}`;
-      try {
-        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-      } catch (e) {
-        throw new Error('Backend not reachable. Make sure the server is running on port 9090.');
+  if (res.status === 401) {
+    if (authRefreshToken) {
+      const refreshed = await doRefresh();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${refreshed}`;
+        try {
+          res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+        } catch (e) {
+          throw new Error('Backend not reachable. Make sure the server is running on port 9090.');
+        }
+      } else {
+        clearAuth();
+        window.location.href = '/login';
+        throw new Error('Session expired');
       }
     } else {
       clearAuth();
