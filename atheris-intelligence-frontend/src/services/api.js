@@ -264,6 +264,7 @@ export const api = {
           return data;
         });
       },
+      getTenantClassifications: (id) => request(`/admin/instruments/${id}/tenant-classifications`),
     },
     pendingDownloads: {
       list: (status = 'pending') => request(`/admin/pending-downloads?status=${status}`),

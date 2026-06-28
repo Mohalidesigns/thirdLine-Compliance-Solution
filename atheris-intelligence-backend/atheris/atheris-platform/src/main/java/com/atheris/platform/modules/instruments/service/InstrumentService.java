@@ -39,6 +39,9 @@ public class InstrumentService {
 
     public Page<InstrumentDto> search(Integer regulatorId, String riskRating,
                                        String status, Pageable pageable) {
+        if (status != null && !status.isEmpty()) {
+            return instruments.findByStatus(status, pageable).map(this::toDto);
+        }
         return instruments.search(regulatorId, riskRating, pageable).map(this::toDto);
     }
 
@@ -89,7 +92,8 @@ public class InstrumentService {
 
             // Queue classification
             Long jobId = jobQueue.enqueue(Constants.JOB_CLASSIFY, inst.getInstrumentId(),
-                1, Map.of("ocr_text", text, "instrument_id", inst.getInstrumentId()),
+                1, Map.of("ocr_text", text, "instrument_id", inst.getInstrumentId(),
+                    "instrument_title", inst.getSourceTitle(), "regulator_id", regulatorId),
                 "document-upload");
 
             return UploadResponse.builder()

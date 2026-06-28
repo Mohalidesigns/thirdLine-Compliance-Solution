@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Typography, Card, CardContent, Grid, Chip, Table, TableBody,
+  Box, Typography, Card, CardContent, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
   IconButton, Tooltip, CircularProgress, Alert, Button, TextField,
-  InputAdornment,
+  InputAdornment, Tabs, Tab,
 } from '@mui/material';
 import {
   Refresh, CloudUpload, CheckCircle, ErrorOutline, HourglassEmpty,
-  PlayArrow, PictureAsPdf, Close, Search,
+  PlayArrow, Close, Search, BugReport, Group, AccountTree,
+  PictureAsPdf,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 import UploadDialog from './UploadDialog';
+
+const TABS = [
+  { key: 'all', label: 'All', icon: <AccountTree sx={{ fontSize: 16 }} /> },
+  { key: 'system', label: 'System Errors', icon: <BugReport sx={{ fontSize: 16 }} /> },
+  { key: 'ai', label: 'Awaiting AI', icon: <HourglassEmpty sx={{ fontSize: 16 }} /> },
+  { key: 'tenant', label: 'Awaiting Tenant', icon: <Group sx={{ fontSize: 16 }} /> },
+];
 
 const STAGE_LABELS = [
   { key: 'download', label: 'Download', color: '#3182CE' },
@@ -69,8 +77,28 @@ function PipelineStages({ stages }) {
   );
 }
 
+function getJobStages(job) {
+  const status = job.status;
+  switch (job.jobType) {
+    case 'ocr_document':
+      return { download: 'completed', ocr: status, classify: 'idle', publish: 'idle' };
+    case 'classify_instrument':
+      return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
+    case 'evaluate_applicability':
+      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
+    case 'send_webhooks':
+      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
+    default:
+      return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
+  }
+}
+
 export default function JobQueuePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') || 'all';
+  const [tab, setTab] = useState(['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all');
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -79,51 +107,95 @@ export default function JobQueuePage() {
   const [search, setSearch] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
 
+  useEffect(() => {
+    const t = ['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all';
+    setTab(t);
+  }, [tabParam]);
+
   function fetchAll() {
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({ page, size: rowsPerPage });
-    if (search) params.set('search', search);
 
-    Promise.all([
-      api.platform.jobs.list(params.toString()),
-      api.platform.pendingDownloads.list('pending'),
-      api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' }),
-    ])
-      .then(([jobsData, pendings, regsData]) => {
+    const calls = [api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' })];
+
+    if (tab === 'tenant') {
+      calls.push(api.platform.instruments.list('status=published&size=50'));
+    } else {
+      const params = new URLSearchParams({ page, size: rowsPerPage });
+      if (search) params.set('search', search);
+      if (tab === 'system') {
+        params.set('status', 'failed');
+      } else if (tab === 'ai') {
+        params.set('status', 'pending,processing');
+        params.set('jobType', 'classify_instrument');
+      }
+      calls.push(api.platform.jobs.list(params.toString()));
+      if (tab === 'system') {
+        calls.push(api.platform.pendingDownloads.list('pending'));
+      } else {
+        calls.push(Promise.resolve([]));
+      }
+    }
+
+    Promise.all(calls)
+      .then(([regsData, ...rest]) => {
         const regMap = {};
         for (const r of (regsData.content || regsData || [])) {
           regMap[r.regulatorId || r.id] = r.name || r.abbreviation || `Regulator #${r.id}`;
         }
         const items = [];
 
-        for (const job of (jobsData.content || [])) {
-          const p = job.payload || {};
-          const rid = p.regulator_id;
-          const jobTitle = [p.title, p.instrument_title, p.source_url].find(v => v && v.trim());
-          items.push({
-            id: job.jobId,
-            title: jobTitle || (job.lastError ? `Failed: ${job.lastError.substring(0, 60)}` : `Job #${job.jobId}`),
-            regulator: regMap[rid] || '—',
-            stages: getJobStages(job),
-            status: job.status,
-            updatedAt: job.updatedAt || job.createdAt,
-            _source: 'job',
-            _data: job,
-          });
-        }
+        if (tab === 'tenant') {
+          const instrData = rest[0];
+          for (const inst of (instrData.content || instrData || [])) {
+            items.push({
+              id: `inst-${inst.instrumentId}`,
+              instrumentId: inst.instrumentId,
+              title: inst.sourceTitle || 'Untitled',
+              regulator: regMap[inst.regulatorId] || '—',
+              stages: { download: 'completed', ocr: 'completed', classify: 'completed', publish: 'completed' },
+              status: 'published',
+              updatedAt: inst.firstPublishedAt || inst.discoveredAt,
+              _source: 'instrument',
+              _data: inst,
+            });
+          }
+        } else {
+          const jobsData = rest[0];
+          const pendings = rest[1] || [];
 
-        for (const pd of (pendings || [])) {
-          items.push({
-            id: `pd-${pd.id}`,
-            title: pd.title || 'Untitled Document',
-            regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
-            stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
-            status: 'download_failed',
-            updatedAt: pd.createdAt,
-            _source: 'pending',
-            _data: pd,
-          });
+          for (const job of (jobsData.content || [])) {
+            const p = job.payload || {};
+            const rid = p.regulator_id;
+            const jobTitle = [p.title, p.instrument_title, p.source_url].find(v => v && v.trim());
+            const fallback = job.lastError
+              ? `${job.jobType?.replace(/_/g, ' ')?.replace(/\b\w/g, c => c.toUpperCase())}: ${job.lastError.substring(0, 60)}`
+              : `Job #${job.jobId}`;
+            items.push({
+              id: job.jobId,
+              instrumentId: job.subjectId,
+              title: jobTitle || fallback,
+              regulator: regMap[rid] || '—',
+              stages: getJobStages(job),
+              status: job.status,
+              updatedAt: job.updatedAt || job.createdAt,
+              _source: 'job',
+              _data: job,
+            });
+          }
+
+          for (const pd of (pendings || [])) {
+            items.push({
+              id: `pd-${pd.id}`,
+              title: pd.title || 'Untitled Document',
+              regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
+              stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
+              status: 'download_failed',
+              updatedAt: pd.createdAt,
+              _source: 'pending',
+              _data: pd,
+            });
+          }
         }
 
         if (search) {
@@ -137,7 +209,21 @@ export default function JobQueuePage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchAll(); }, [page, rowsPerPage, search]);
+  useEffect(() => { fetchAll(); }, [tab, page, rowsPerPage, search]);
+
+  const handleTabChange = (_, newTab) => {
+    setTab(newTab);
+    setPage(0);
+    setSearchParams(newTab === 'all' ? {} : { tab: newTab });
+  };
+
+  const handleRowClick = (item) => {
+    if (item._source === 'instrument') {
+      navigate(`/admin/instruments/${item.instrumentId}/tenants`);
+    } else if (item._source === 'job') {
+      navigate(`${ROUTES.ADMIN_PIPELINE}/${item._data.jobId}`);
+    }
+  };
 
   async function handlePendUpload(id) {
     const input = document.createElement('input');
@@ -168,13 +254,20 @@ export default function JobQueuePage() {
   const filtered = rows;
   const paged = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
+  const stageDescriptions = {
+    download: 'Fetch PDF from regulator source',
+    ocr: 'Read PDF content into searchable text',
+    classify: 'AI identifies obligations, risks & topics',
+    publish: 'Match to tenants and send notifications',
+  };
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Document Pipeline</Typography>
           <Typography variant="body2" color="text.secondary">
-            Track documents from download to delivery. Each document moves through 4 stages.
+            Track documents through every stage of the pipeline.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -185,42 +278,51 @@ export default function JobQueuePage() {
         </Box>
       </Box>
 
-      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {STAGE_LABELS.map((st) => (
-              <Box key={st.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: st.color }} />
-                <Box>
-                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: st.color }}>
-                    {st.label}
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: '#718096' }}>
-                    {st.key === 'download' && 'Fetch PDF from regulator source'}
-                    {st.key === 'ocr' && 'Read PDF content into searchable text'}
-                    {st.key === 'classify' && 'AI identifies obligations, risks & topics'}
-                    {st.key === 'publish' && 'Match to tenants and send notifications'}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2, '& .MuiTab-root': { minHeight: 36, py: 0.5, fontSize: '0.8rem' } }}>
+        {TABS.map(t => (
+          <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
+        ))}
+      </Tabs>
 
-      <TextField
-        size="small" placeholder="Search by document title or regulator..." value={search}
-        onChange={(e) => setSearch(e.target.value)} fullWidth sx={{ mb: 2 }}
-        InputProps={{
-          startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
-        }}
-      />
+      {tab === 'all' && (
+        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {STAGE_LABELS.map((st) => (
+                <Box key={st.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: st.color }} />
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: st.color }}>
+                      {st.label}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: '#718096' }}>
+                      {stageDescriptions[st.key]}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <TextField
+          size="small" placeholder="Search by document title or regulator..." value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }} sx={{ flex: 1 }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
+          }}
+        />
+      </Box>
+
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
+      )}
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
-      ) : (
+      {!loading && !error && (
         <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <TableContainer>
             <Table>
@@ -236,14 +338,14 @@ export default function JobQueuePage() {
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#A0AEC0' }}>
-                    {search ? 'No documents match your search' : 'No documents in the pipeline'}
+                    {search ? 'No documents match your search' : 'No documents in this view'}
                   </TableCell></TableRow>
                 ) : paged.map((item, i) => (
                   <TableRow
                     key={item.id}
                     hover
-                    sx={{ cursor: item._source === 'job' ? 'pointer' : 'default', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
-                    onClick={() => { if (item._source === 'job') navigate(`${ROUTES.ADMIN_PIPELINE}/${item._data.jobId}`); }}
+                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
+                    onClick={() => handleRowClick(item)}
                   >
                     <TableCell>
                       <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{item.title}</Typography>
@@ -272,8 +374,14 @@ export default function JobQueuePage() {
                             </IconButton>
                           </Tooltip>
                         </Box>
+                      ) : item._source === 'instrument' ? (
+                        <Tooltip title="View tenant classifications">
+                          <IconButton size="small">
+                            <Group sx={{ fontSize: 16, color: '#3182CE' }} />
+                          </IconButton>
+                        </Tooltip>
                       ) : (
-                        <Tooltip title="View Details">
+                        <Tooltip title="View job details">
                           <IconButton size="small">
                             <PictureAsPdf sx={{ fontSize: 16, color: '#718096' }} />
                           </IconButton>
@@ -304,20 +412,4 @@ export default function JobQueuePage() {
       />
     </Box>
   );
-}
-
-function getJobStages(job) {
-  const status = job.status;
-  switch (job.jobType) {
-    case 'ocr_document':
-      return { download: 'completed', ocr: status, classify: 'idle', publish: 'idle' };
-    case 'classify_instrument':
-      return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
-    case 'evaluate_applicability':
-      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
-    case 'send_webhooks':
-      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
-    default:
-      return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
-  }
 }

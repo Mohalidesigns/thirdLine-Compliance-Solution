@@ -7,7 +7,8 @@ import {
 import {
   Visibility, CheckCircle, Schedule, ErrorOutline, LibraryBooks,
   AssignmentTurnedIn, CloudOff, CloudDownload, Close,
-  Description, PictureAsPdf, Refresh,
+  Description, PictureAsPdf, Refresh, BugReport, HourglassEmpty,
+  Group, AccountTree,
 } from '@mui/icons-material';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -194,12 +195,20 @@ export default function DashboardPage() {
             onClick={() => navigate('/admin/tenants')} />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <KpiCard title="Pipeline Queue" value={stats?.totalPending || 0} icon={<Schedule sx={{ fontSize: 20 }} />} color="#D4AF37" loading={loading}
-            onClick={() => navigate('/admin/pipeline')} />
+          <KpiCard title="System Failures" value={pendings.length + (stats?.perType?.ocr_document?.failed || 0)} icon={<BugReport sx={{ fontSize: 20 }} />} color={(pendings.length + (stats?.perType?.ocr_document?.failed || 0)) > 0 ? '#C53030' : '#2D7D46'} loading={loading}
+            onClick={() => navigate('/admin/pipeline?tab=system')} />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <KpiCard title="Jobs Failed Today" value={stats?.totalFailed || 0} icon={<ErrorOutline sx={{ fontSize: 20 }} />} color={stats?.totalFailed > 0 ? '#C53030' : '#2D7D46'} loading={loading}
-            onClick={() => navigate('/admin/pipeline?status=failed')} />
+          <KpiCard title="Awaiting AI" value={stats?.perType?.classify_instrument?.pending || 0} icon={<HourglassEmpty sx={{ fontSize: 20 }} />} color={(stats?.perType?.classify_instrument?.pending || 0) > 0 ? '#DD6B20' : '#2D7D46'} loading={loading}
+            onClick={() => navigate('/admin/pipeline?tab=ai')} />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <KpiCard title="Awaiting Tenant" value={instruments.filter(i => i.status === 'published').length} icon={<Group sx={{ fontSize: 20 }} />} color={instruments.filter(i => i.status === 'published').length > 0 ? '#3182CE' : '#2D7D46'} loading={loading}
+            onClick={() => navigate('/admin/pipeline?tab=tenant')} />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <KpiCard title="Pipeline Queue" value={stats?.totalPending || 0} icon={<AccountTree sx={{ fontSize: 20 }} />} color={(stats?.totalPending || 0) > 0 ? '#D4AF37' : '#2D7D46'} loading={loading}
+            onClick={() => navigate('/admin/pipeline')} />
         </Grid>
       </Grid>
 

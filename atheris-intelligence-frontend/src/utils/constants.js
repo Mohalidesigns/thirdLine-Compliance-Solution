@@ -27,6 +27,7 @@ export const ROUTES = {
   ADMIN_TENANT_DETAIL: '/admin/tenants/:id',
   ADMIN_PIPELINE: '/admin/pipeline',
   ADMIN_PIPELINE_DETAIL: '/admin/pipeline/:id',
+  ADMIN_INSTRUMENT_TENANTS: '/admin/instruments/:id/tenants',
 };
 
 export const STRINGS = {

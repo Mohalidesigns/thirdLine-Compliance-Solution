@@ -22,6 +22,7 @@ const RegulatorAdminPage = lazy(() => import('../features/admin/components/Regul
 const RegulatorDetailPage = lazy(() => import('../features/admin/components/RegulatorDetailPage'));
 const JobQueuePage = lazy(() => import('../features/admin/components/JobQueuePage'));
 const JobDetailPage = lazy(() => import('../features/admin/components/JobDetailPage'));
+const InstrumentTenantDetailPage = lazy(() => import('../features/admin/components/InstrumentTenantDetailPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -62,6 +63,7 @@ export default function AppRoutes() {
           <Route path="admin/regulators/:id" element={<RegulatorDetailPage />} />
           <Route path="admin/pipeline" element={<JobQueuePage />} />
           <Route path="admin/pipeline/:id" element={<JobDetailPage />} />
+          <Route path="admin/instruments/:id/tenants" element={<InstrumentTenantDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} />} />
       </Routes>

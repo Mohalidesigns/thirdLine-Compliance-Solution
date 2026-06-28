@@ -50,7 +50,16 @@ public interface JobQueueRepository extends JpaRepository<JobQueue, Long> {
     @Query("SELECT j.jobType, COUNT(j) FROM JobQueue j WHERE j.status='pending' GROUP BY j.jobType")
     List<Object[]> countPendingByType();
 
-    @Query("SELECT j FROM JobQueue j WHERE (:jobType IS NULL OR j.jobType = :jobType) AND (:status IS NULL OR j.status = :status) ORDER BY j.createdAt DESC")
+    @Query(value = """
+        SELECT * FROM job_queue
+        WHERE (:jobType IS NULL OR job_type = :jobType)
+        AND (:status IS NULL OR status = ANY(STRING_TO_ARRAY(:status, ',')))
+        ORDER BY created_at DESC
+        """, nativeQuery = true, countQuery = """
+        SELECT COUNT(*) FROM job_queue
+        WHERE (:jobType IS NULL OR job_type = :jobType)
+        AND (:status IS NULL OR status = ANY(STRING_TO_ARRAY(:status, ',')))
+        """)
     Page<JobQueue> listJobs(@Param("jobType") String jobType, @Param("status") String status, Pageable pageable);
 
     @Query("SELECT j.jobType, j.status, COUNT(j) FROM JobQueue j GROUP BY j.jobType, j.status ORDER BY j.jobType, j.status")
