@@ -34,7 +34,7 @@ export default function LoginForm() {
     try {
       const result = await login(email, password);
       if (result?.error) {
-        setError(result.error.message || STRINGS.LOGIN_ERROR_FAILED);
+        setError(result.payload || STRINGS.LOGIN_ERROR_FAILED);
         return;
       }
       navigate(ROUTES.DASHBOARD);
