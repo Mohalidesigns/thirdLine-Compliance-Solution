@@ -153,7 +153,7 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  if (res.status === 401) {
+  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
     if (authRefreshToken) {
       const refreshed = await doRefresh();
       if (refreshed) {
@@ -196,7 +196,7 @@ async function request(path, options = {}) {
     throw new Error(`Unexpected response: ${body.substring(0, 100)}`);
   }
 
-  if (!res.ok) throw new Error(data.message || `API error ${res.status}`);
+  if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`);
   return data;
 }
 

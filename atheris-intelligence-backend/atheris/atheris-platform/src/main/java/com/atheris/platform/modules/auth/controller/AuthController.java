@@ -18,9 +18,13 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest req) {
-        LoginResponse res = authService.authenticate(req.getEmail(), req.getPassword());
-        return ResponseEntity.ok(res);
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+        try {
+            LoginResponse res = authService.authenticate(req.getEmail(), req.getPassword());
+            return ResponseEntity.ok(res);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/refresh")
