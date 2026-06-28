@@ -148,7 +148,7 @@ async function request(path, options = {}) {
   try {
     res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   } catch (e) {
-    throw new Error('Backend not reachable. Make sure the server is running on port 9090.');
+    throw new Error('Cannot connect to server. Please try again.');
   }
 
   if (res.status === 204) return null;
@@ -161,7 +161,7 @@ async function request(path, options = {}) {
         try {
           res = await fetch(`${API_BASE}${path}`, { ...options, headers });
         } catch (e) {
-          throw new Error('Backend not reachable. Make sure the server is running on port 9090.');
+          throw new Error('Cannot connect to server. Please try again.');
         }
       } else {
         clearAuth();
