@@ -31,7 +31,7 @@ CREATE INDEX idx_regulators_active ON regulators(is_active);
 CREATE INDEX idx_regulators_abbreviation ON regulators(abbreviation);
 
 INSERT INTO regulators (name, abbreviation, publication_page_url, scraper_strategy, scraper_frequency) VALUES
-('Central Bank of Nigeria',                     'CBN',   'https://www.cbn.gov.ng/Out/Publications.aspx?pg=Circulars', 'headless', 'daily'),
+('Central Bank of Nigeria',                     'CBN',   'https://www.cbn.gov.ng/Documents/circulars.html',            'headless', '15min'),
 ('Securities and Exchange Commission',          'SEC',   'https://sec.gov.ng/regulations',                            'html',     'daily'),
 ('National Deposit Insurance Corporation',      'NDIC',  'https://ndic.gov.ng/publications',                          'html',     'weekly'),
 ('National Insurance Commission',               'NAICOM','https://www.naicom.gov.ng/index.php/publications',           'html',     'weekly'),
