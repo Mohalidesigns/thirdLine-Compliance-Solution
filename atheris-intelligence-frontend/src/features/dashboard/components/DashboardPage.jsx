@@ -101,7 +101,7 @@ export default function DashboardPage() {
       api.platform.jobs.list('size=15'),
       api.platform.instruments.list('size=15'),
       api.platform.pendingDownloads.list('pending'),
-      api.platform.regulators.list(true),
+      api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' }),
       api.platform.tenants.list(),
     ]).then(([statsData, jobsData, instrData, pendData, regData, tenData]) => {
       setStats(statsData);
@@ -118,7 +118,7 @@ export default function DashboardPage() {
 
   const documents = [
     ...pendings.map(p => ({ ...p, _source: 'pending', _sort: p.discoveredAt })),
-    ...jobs.map(j => ({ ...j, _source: 'job', _sort: j.createdAt, title: j.payload?.title || '', sourceUrl: j.payload?.source_url || '', regulatorId: j.payload?.regulator_id })),
+    ...jobs.map(j => ({ ...j, _source: 'job', _sort: j.createdAt, title: [j.payload?.title, j.payload?.instrument_title, j.payload?.source_url].find(v => v && v.trim()) || j.lastError || '', sourceUrl: j.payload?.source_url || '', regulatorId: j.payload?.regulator_id })),
     ...instruments.map(i => ({ ...i, _source: 'instrument', _sort: i.discoveredAt, title: i.sourceTitle, sourceUrl: i.sourceUrl, pdfUrl: i.pdfUrl })),
   ].sort((a, b) => (b._sort || '') > (a._sort || '') ? 1 : -1).slice(0, 20);
 
