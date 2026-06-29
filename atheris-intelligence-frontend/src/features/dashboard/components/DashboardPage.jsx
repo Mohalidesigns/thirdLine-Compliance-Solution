@@ -96,7 +96,7 @@ export default function DashboardPage() {
   const [snackbar, setSnackbar] = useState(null);
   const fileInputRefs = useRef({});
 
-  useEffect(() => {
+  const fetchData = () => {
     Promise.all([
       api.platform.jobs.stats(),
       api.platform.jobs.list('size=15'),
@@ -115,7 +115,9 @@ export default function DashboardPage() {
       if (Array.isArray(regData)) regData.forEach(r => { map[r.regulatorId] = r.abbreviation || r.name; });
       setRegulatorMap(map);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 60_000); return () => clearInterval(i); }, []);
 
   const documents = [
     ...pendings.map(p => ({ ...p, _source: 'pending', _sort: p.discoveredAt })),
