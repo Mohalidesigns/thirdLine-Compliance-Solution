@@ -188,6 +188,7 @@ export default function JobQueuePage() {
             items.push({
               id: `pd-${pd.id}`,
               title: pd.title || 'Untitled Document',
+              sourceUrl: pd.sourceUrl || '',
               regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
               stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
               status: 'download_failed',
@@ -349,6 +350,18 @@ export default function JobQueuePage() {
                   >
                     <TableCell>
                       <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{item.title}</Typography>
+                      {item.sourceUrl && (
+                        <Typography
+                          component="a"
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          sx={{ fontSize: '0.6rem', color: '#3182CE', textDecoration: 'underline', display: 'block', mt: 0.3, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: '#1A365D' } }}
+                        >
+                          {item.sourceUrl}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip label={item.regulator} size="small"
