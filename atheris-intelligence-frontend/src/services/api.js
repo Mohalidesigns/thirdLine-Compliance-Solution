@@ -113,13 +113,43 @@ function demoRequest(path, options = {}) {
       totalElements: 8, totalPages: 1, size: 15, number: 0,
     };
   }
+  if (path.startsWith('/platform/regulators') && path.includes('pipeline-stats')) {
+    const id = parseInt(path.split('/')[4]);
+    return {
+      discoveredCount: 57, downloadedCount: 45, extractedCount: 38, classifiedCount: 42,
+      uploadedCount: id === 1 ? 2 : 0,
+      failedDownloads: id === 1 ? [
+        { id: 1, title: 'CBN Circular on Foreign Exchange Limits', sourceUrl: 'https://www.cbn.gov.ng/out/2026/fx-circular.pdf', errorMessage: 'Download timed out', discoveredAt: '2026-06-21T10:00:00Z' },
+        { id: 2, title: 'CBN Guidelines on Open Banking Operations', sourceUrl: 'https://www.cbn.gov.ng/out/open-banking.pdf', errorMessage: '403 Forbidden', discoveredAt: '2026-06-20T14:30:00Z' },
+      ] : id === 3 ? [
+        { id: 3, title: 'NAICOM Risk-Based Capital Framework Q2', sourceUrl: 'https://www.naicom.gov.ng/rbc-q2.pdf', errorMessage: 'Cloudflare challenge failed', discoveredAt: '2026-06-19T08:15:00Z' },
+      ] : [],
+      uploadedDocuments: id === 1 ? [
+        { id: 10, title: 'CBN Circular on FOREX 2026', sourceUrl: 'https://www.cbn.gov.ng/out/forex-2026.pdf', discoveredAt: '2026-06-18T10:00:00Z', jobStatus: 'processing' },
+        { id: 11, title: 'CBN AML/CFT Requirements', sourceUrl: 'https://www.cbn.gov.ng/out/aml-cft.pdf', discoveredAt: '2026-06-17T14:00:00Z', jobStatus: 'completed' },
+      ] : [],
+      downloadedDocuments: [
+        { instrumentId: 1, sourceTitle: 'CBN AML/CFT Regulations 2026' },
+        { instrumentId: 2, sourceTitle: 'CBN Guidelines on Digital Lending' },
+        { instrumentId: 3, sourceTitle: 'CBN Framework for Payment Service Banks' },
+      ],
+      extractedDocuments: [
+        { instrumentId: 1, sourceTitle: 'CBN AML/CFT Regulations 2026' },
+        { instrumentId: 3, sourceTitle: 'CBN Framework for Payment Service Banks' },
+      ],
+      classifiedDocuments: [
+        { instrumentId: 1, sourceTitle: 'CBN AML/CFT Regulations 2026', status: 'Published', riskRating: 'High' },
+        { instrumentId: 3, sourceTitle: 'CBN Framework for Payment Service Banks', status: 'Published', riskRating: 'Medium' },
+      ],
+    };
+  }
   if (path.startsWith('/platform/regulators')) {
     return [
-      { regulatorId: 1, name: 'Central Bank of Nigeria', abbreviation: 'CBN', isActive: true, instrumentCount: 45, lastInstrumentDiscoveredAt: '2026-06-21T10:00:00Z' },
-      { regulatorId: 2, name: 'Securities and Exchange Commission', abbreviation: 'SEC', isActive: true, instrumentCount: 32, lastInstrumentDiscoveredAt: '2026-06-21T09:00:00Z' },
-      { regulatorId: 3, name: 'National Insurance Commission', abbreviation: 'NAICOM', isActive: true, instrumentCount: 28, lastInstrumentDiscoveredAt: '2026-06-20T14:00:00Z' },
-      { regulatorId: 4, name: 'Federal Inland Revenue Service', abbreviation: 'FIRS', isActive: true, instrumentCount: 19, lastInstrumentDiscoveredAt: '2026-06-19T11:00:00Z' },
-      { regulatorId: 5, name: 'Nigerian Communications Commission', abbreviation: 'NCC', isActive: false, instrumentCount: 15, lastInstrumentDiscoveredAt: '2026-06-19T08:00:00Z' },
+      { regulatorId: 1, name: 'Central Bank of Nigeria', abbreviation: 'CBN', isActive: true, instrumentCount: 45, pendingDownloadCount: 12, lastInstrumentDiscoveredAt: '2026-06-21T10:00:00Z' },
+      { regulatorId: 2, name: 'Securities and Exchange Commission', abbreviation: 'SEC', isActive: true, instrumentCount: 32, pendingDownloadCount: 0, lastInstrumentDiscoveredAt: '2026-06-21T09:00:00Z' },
+      { regulatorId: 3, name: 'National Insurance Commission', abbreviation: 'NAICOM', isActive: true, instrumentCount: 28, pendingDownloadCount: 3, lastInstrumentDiscoveredAt: '2026-06-20T14:00:00Z' },
+      { regulatorId: 4, name: 'Federal Inland Revenue Service', abbreviation: 'FIRS', isActive: true, instrumentCount: 19, pendingDownloadCount: 0, lastInstrumentDiscoveredAt: '2026-06-19T11:00:00Z' },
+      { regulatorId: 5, name: 'Nigerian Communications Commission', abbreviation: 'NCC', isActive: false, instrumentCount: 15, pendingDownloadCount: 0, lastInstrumentDiscoveredAt: '2026-06-19T08:00:00Z' },
     ];
   }
   if (path.startsWith('/platform/tenants')) {
@@ -153,7 +183,7 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
+  if ((res.status === 401 || res.status === 403) && path !== '/auth/login' && path !== '/auth/refresh') {
     if (authRefreshToken) {
       const refreshed = await doRefresh();
       if (refreshed) {
@@ -238,6 +268,7 @@ export const api = {
       startBackfill: (id, data) => request(`/platform/regulators/${id}/backfill`, { method: 'POST', body: JSON.stringify(data) }),
       getBackfillStatus: (regId, backfillId) => request(`/platform/regulators/${regId}/backfill/${backfillId}`),
       testScraper: (id, dryRun) => request(`/platform/regulators/${id}/test-scraper?dryRun=${dryRun}`, { method: 'POST' }),
+      getPipelineStats: (id) => request(`/platform/regulators/${id}/pipeline-stats`),
     },
     jobs: {
       list: (params = '') => request(`/admin/jobs${params ? '?' + params : ''}`),

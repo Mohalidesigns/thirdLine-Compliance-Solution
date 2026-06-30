@@ -17,6 +17,11 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
     Optional<Instrument> findByPdfHash(String pdfHash);
     Page<Instrument> findByStatus(String status, Pageable pageable);
     Page<Instrument> findByRegulatorIdAndStatus(Integer regulatorId, String status, Pageable pageable);
+    List<Instrument> findByRegulatorIdOrderByDiscoveredAtDesc(Integer regulatorId);
+    @Query("SELECT i FROM Instrument i WHERE i.pdfOcrText IS NOT NULL AND i.regulatorId = :regulatorId ORDER BY i.discoveredAt DESC")
+    List<Instrument> findExtractedByRegulatorId(@Param("regulatorId") Integer regulatorId);
+    @Query("SELECT i FROM Instrument i WHERE i.status != 'Triage' AND i.regulatorId = :regulatorId ORDER BY i.discoveredAt DESC")
+    List<Instrument> findClassifiedByRegulatorId(@Param("regulatorId") Integer regulatorId);
     @Query("SELECT i FROM Instrument i WHERE i.status = 'Published' AND " +
            "(:regulator IS NULL OR i.regulatorId = :regulator) AND " +
            "(:riskRating IS NULL OR i.riskRating = :riskRating)")

@@ -66,4 +66,5 @@ public interface JobQueueRepository extends JpaRepository<JobQueue, Long> {
     List<Object[]> countByTypeAndStatus();
 
     long countByStatus(String status);
+    Optional<JobQueue> findTopByCreatedByServiceOrderByCreatedAtDesc(String createdByService);
 }

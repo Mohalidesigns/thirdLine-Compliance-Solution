@@ -24,5 +24,6 @@ public class RegulatorDto {
     private Integer scraperLastFound;
     private String scraperNotes;
     private Integer instrumentCount;
+    private Integer pendingDownloadCount;
     private Instant lastInstrumentDiscoveredAt;
 }

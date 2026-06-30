@@ -1,7 +1,12 @@
 package com.atheris.platform.modules.regulators.service;
 
 import com.atheris.common.Constants;
+import com.atheris.platform.modules.instruments.entity.Instrument;
 import com.atheris.platform.modules.instruments.repository.InstrumentRepository;
+import com.atheris.platform.modules.jobs.entity.JobQueue;
+import com.atheris.platform.modules.jobs.repository.JobQueueRepository;
+import com.atheris.platform.modules.pending.entity.PendingDownload;
+import com.atheris.platform.modules.pending.repository.PendingDownloadRepository;
 import com.atheris.platform.modules.regulators.dto.*;
 import com.atheris.platform.modules.regulators.entity.Regulator;
 import com.atheris.platform.modules.regulators.entity.ScraperRunLog;
@@ -22,6 +27,8 @@ public class RegulatorService {
     private final ScraperRunLogRepository scraperLogs;
     private final ScraperService scraperService;
     private final InstrumentRepository instrumentRepo;
+    private final PendingDownloadRepository pendingRepo;
+    private final JobQueueRepository jobQueueRepo;
 
     public List<RegulatorDto> findAll(Boolean activeOnly) {
         List<Regulator> list = Boolean.TRUE.equals(activeOnly)
@@ -118,6 +125,65 @@ public class RegulatorService {
         return scraperLogs.findTop30ByRegulatorIdOrderByRunAtDesc(id);
     }
 
+    public RegulatorPipelineStatsDto getPipelineStats(Integer regulatorId) {
+        List<Instrument> allInstruments = instrumentRepo.findByRegulatorIdOrderByDiscoveredAtDesc(regulatorId);
+        List<Instrument> extracted = instrumentRepo.findExtractedByRegulatorId(regulatorId);
+        List<Instrument> classified = instrumentRepo.findClassifiedByRegulatorId(regulatorId);
+        List<PendingDownload> pendings = pendingRepo.findByRegulatorIdOrderByDiscoveredAtDesc(regulatorId);
+        List<PendingDownload> failedPends = pendings.stream().filter(p -> "pending".equals(p.getStatus())).toList();
+        List<PendingDownload> uploadedPends = pendings.stream().filter(p -> "uploaded".equals(p.getStatus())).toList();
+
+        int downloadedCount = allInstruments.size();
+        int extractedCount = extracted.size();
+        int classifiedCount = classified.size();
+        int discoveredCount = downloadedCount + failedPends.size();
+
+        List<RegulatorPipelineStatsDto.PendingDownloadItem> failedItems = failedPends.stream()
+            .map(p -> RegulatorPipelineStatsDto.PendingDownloadItem.builder()
+                .id(p.getId()).title(p.getTitle()).sourceUrl(p.getSourceUrl())
+                .errorMessage(p.getErrorMessage())
+                .discoveredAt(p.getDiscoveredAt() != null ? p.getDiscoveredAt().toString() : null)
+                .build())
+            .toList();
+
+        List<RegulatorPipelineStatsDto.PendingDownloadItem> uploadedItems = uploadedPends.stream()
+            .map(p -> {
+                String jobStatus = jobQueueRepo.findTopByCreatedByServiceOrderByCreatedAtDesc("manual-upload-pending-" + p.getId())
+                    .map(JobQueue::getStatus)
+                    .orElse(null);
+                return RegulatorPipelineStatsDto.PendingDownloadItem.builder()
+                    .id(p.getId()).title(p.getTitle()).sourceUrl(p.getSourceUrl())
+                    .discoveredAt(p.getDiscoveredAt() != null ? p.getDiscoveredAt().toString() : null)
+                    .jobStatus(jobStatus)
+                    .build();
+            })
+            .toList();
+
+        List<RegulatorPipelineStatsDto.DocumentItem> downloadedItems = allInstruments.stream()
+            .map(i -> RegulatorPipelineStatsDto.DocumentItem.builder()
+                .instrumentId(i.getInstrumentId()).sourceTitle(i.getSourceTitle()).build())
+            .toList();
+
+        List<RegulatorPipelineStatsDto.DocumentItem> extractedItems = extracted.stream()
+            .map(i -> RegulatorPipelineStatsDto.DocumentItem.builder()
+                .instrumentId(i.getInstrumentId()).sourceTitle(i.getSourceTitle()).build())
+            .toList();
+
+        List<RegulatorPipelineStatsDto.ClassifiedDocumentItem> classifiedItems = classified.stream()
+            .map(i -> RegulatorPipelineStatsDto.ClassifiedDocumentItem.builder()
+                .instrumentId(i.getInstrumentId()).sourceTitle(i.getSourceTitle())
+                .status(i.getStatus()).riskRating(i.getRiskRating()).build())
+            .toList();
+
+        return RegulatorPipelineStatsDto.builder()
+            .discoveredCount(discoveredCount).downloadedCount(downloadedCount)
+            .extractedCount(extractedCount).classifiedCount(classifiedCount)
+            .failedDownloads(failedItems).uploadedCount(uploadedItems.size())
+            .uploadedDocuments(uploadedItems).downloadedDocuments(downloadedItems)
+            .extractedDocuments(extractedItems).classifiedDocuments(classifiedItems)
+            .build();
+    }
+
     private Map<Integer, long[]> buildInstrumentStats() {
         List<Object[]> rows = instrumentRepo.getInstrumentStats();
         Map<Integer, long[]> map = new HashMap<>();
@@ -125,7 +191,12 @@ public class RegulatorService {
             Integer regulatorId = ((Number) row[0]).intValue();
             long count = ((Number) row[1]).longValue();
             Instant lastDiscovered = row[2] != null ? (Instant) row[2] : null;
-            map.put(regulatorId, new long[]{count, lastDiscovered != null ? lastDiscovered.toEpochMilli() : 0});
+            map.put(regulatorId, new long[]{count, lastDiscovered != null ? lastDiscovered.toEpochMilli() : 0, 0});
+        }
+        for (Object[] row : pendingRepo.countPendingByRegulator()) {
+            Integer regulatorId = ((Number) row[0]).intValue();
+            long pendCount = ((Number) row[1]).longValue();
+            map.computeIfAbsent(regulatorId, k -> new long[]{0, 0, 0})[2] = pendCount;
         }
         return map;
     }
@@ -148,6 +219,7 @@ public class RegulatorService {
             .scraperLastFound(r.getScraperLastFound())
             .scraperNotes(r.getScraperNotes())
             .instrumentCount(stats != null ? (int) stats[0] : 0)
+            .pendingDownloadCount(stats != null ? (int) stats[2] : 0)
             .lastInstrumentDiscoveredAt(stats != null && stats[1] > 0 ? Instant.ofEpochMilli(stats[1]) : null)
             .build();
     }
