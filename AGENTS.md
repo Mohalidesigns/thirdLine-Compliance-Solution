@@ -159,6 +159,11 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
+## Done — Latest
+- **Per-regulator pipeline stage breakdown** — Backend: `InstrumentRepository` adds `findExtractedByRegulatorId` (non-null pdfOcrText) and `findClassifiedByRegulatorId` (status != Triage); `RegulatorService.getPipelineStats()` returns discovered/downloaded/extracted/classified counts + drill-down lists; new endpoint `GET /platform/regulators/{id}/pipeline-stats`. Frontend: Regulator detail page shows 4 clickable pipeline stage cards (Discovered/Downloaded/Extracted/Classified) below info cards; clicking each opens a dialog with actionable items — failed downloads show URL + Upload PDF button, downloaded show View PDF, extracted show View Text, classified show status/risk badges.
+- **Dashboard Pipeline Health alert** — Banner between KPI cards and pipeline table shows total discovered vs processed vs pending downloads; amber Warning alert with "View Failed" link when pendings exist, green success when clear.
+- **Regulators table stage columns** — "Documents" column split into "Discovered" (instruments + pending), "Downloaded" (instruments, green), "Failed" (pending count in red chip); `RegulatorDto.pendingDownloadCount` populated via `PendingDownloadRepository.countPendingByRegulator()`.
+
 ## Pending Manual Downloads — What to Test
 
 ### Prerequisites

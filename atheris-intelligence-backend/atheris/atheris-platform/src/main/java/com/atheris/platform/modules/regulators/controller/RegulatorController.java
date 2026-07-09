@@ -65,4 +65,9 @@ public class RegulatorController {
     public ResponseEntity<List<ScraperRunLog>> scraperHistory(@PathVariable Integer id) {
         return ResponseEntity.ok(regulatorService.getScraperHistory(id));
     }
+
+    @GetMapping("/{id}/pipeline-stats")
+    public ResponseEntity<RegulatorPipelineStatsDto> pipelineStats(@PathVariable Integer id) {
+        return ResponseEntity.ok(regulatorService.getPipelineStats(id));
+    }
 }

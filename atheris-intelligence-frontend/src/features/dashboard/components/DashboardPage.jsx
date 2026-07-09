@@ -8,7 +8,7 @@ import {
   Visibility, CheckCircle, Schedule, ErrorOutline, LibraryBooks,
   AssignmentTurnedIn, CloudOff, CloudDownload, Close,
   Description, PictureAsPdf, Refresh, BugReport, HourglassEmpty,
-  Group, AccountTree,
+  Group, AccountTree, Warning,
 } from '@mui/icons-material';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -89,6 +89,7 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState([]);
   const [instruments, setInstruments] = useState([]);
   const [pendings, setPendings] = useState([]);
+  const [totalDiscovered, setTotalDiscovered] = useState(0);
   const [regulators, setRegulators] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [regulatorMap, setRegulatorMap] = useState({});
@@ -108,6 +109,7 @@ export default function DashboardPage() {
       setStats(statsData);
       setJobs(jobsData.content || []);
       setInstruments(instrData.content || []);
+      setTotalDiscovered(instrData.totalElements || 0);
       setPendings(pendData);
       setRegulators(Array.isArray(regData) ? regData : []);
       setTenants(Array.isArray(tenData) ? tenData : []);
@@ -213,6 +215,24 @@ export default function DashboardPage() {
             onClick={() => navigate('/admin/pipeline')} />
         </Grid>
       </Grid>
+
+      {/* Row 1.5 — Pipeline Health */}
+      {!loading && <Box sx={{ mb: 3 }}>
+        <Alert
+          severity={pendings.length > 0 ? 'warning' : 'success'}
+          icon={<Warning />}
+          action={pendings.length > 0 && (
+            <Button color="inherit" size="small" onClick={() => navigate('/admin/pipeline?tab=system')}>
+              View Failed
+            </Button>
+          )}
+          sx={{ alignItems: 'center' }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Pipeline Health: {totalDiscovered + pendings.length} discovered &middot; {totalDiscovered} processed &middot; {pendings.length} pending downloads
+          </Typography>
+        </Alert>
+      </Box>}
 
       {/* Row 2 — Document Pipeline Table */}
       <Card sx={{ mb: 3 }}>

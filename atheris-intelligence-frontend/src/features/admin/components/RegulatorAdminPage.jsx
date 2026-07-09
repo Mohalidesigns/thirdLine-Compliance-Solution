@@ -25,8 +25,10 @@ function formatDt(ts) {
 const COLUMNS = [
   { key: 'name', label: 'Name', width: undefined },
   { key: 'abbreviation', label: 'Abbreviation', width: 130 },
-  { key: 'instrumentCount', label: 'Documents', width: 120 },
-  { key: 'lastInstrumentDiscoveredAt', label: 'Last Document', width: 160 },
+  { key: 'instrumentCount', label: 'Discovered', width: 110 },
+  { key: 'downloaded', label: 'Downloaded', width: 110 },
+  { key: 'failed', label: 'Failed', width: 80 },
+  { key: 'lastInstrumentDiscoveredAt', label: 'Last Document', width: 150 },
 ];
 
 export default function RegulatorAdminPage() {
@@ -89,36 +91,40 @@ export default function RegulatorAdminPage() {
           <Table>
             <TableHead>
               <TableRow>
-                {COLUMNS.map((col) => (
-                  <TableCell
-                    key={col.key}
-                    sx={{
-                      fontWeight: 700, color: '#4A5568', fontSize: '0.7rem',
-                      textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer',
-                      userSelect: 'none', width: col.width,
-                      '&:hover': { color: '#1A365D' },
-                    }}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {col.label}
-                      {sortBy === col.key ? (
-                        sortDir === 'asc' ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />
-                      ) : (
-                        <UnfoldMore sx={{ fontSize: 14, color: '#CBD5E0' }} />
-                      )}
-                    </Box>
-                  </TableCell>
-                ))}
+                {COLUMNS.map((col) => {
+                  const sortable = !['downloaded', 'failed'].includes(col.key);
+                  return (
+                    <TableCell
+                      key={col.key}
+                      sx={{
+                        fontWeight: 700, color: '#4A5568', fontSize: '0.7rem',
+                        textTransform: 'uppercase', letterSpacing: 1,
+                        cursor: sortable ? 'pointer' : 'default',
+                        userSelect: 'none', width: col.width,
+                        ...(sortable ? { '&:hover': { color: '#1A365D' } } : {}),
+                      }}
+                      onClick={() => sortable && handleSort(col.key)}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {col.label}
+                        {sortable && (sortBy === col.key ? (
+                          sortDir === 'asc' ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />
+                        ) : (
+                          <UnfoldMore sx={{ fontSize: 14, color: '#CBD5E0' }} />
+                        ))}
+                      </Box>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                   <CircularProgress size={24} />
                 </TableCell></TableRow>
               ) : regulators.length === 0 ? (
-                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: '#A0AEC0', fontSize: '0.85rem' }}>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: '#A0AEC0', fontSize: '0.85rem' }}>
                   {search ? 'No regulators match your search' : 'No regulators found'}
                 </TableCell></TableRow>
               ) : regulators.map((reg, i) => (
@@ -134,7 +140,17 @@ export default function RegulatorAdminPage() {
                       sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem', borderRadius: 1 }} />
                   </TableCell>
                   <TableCell>
-                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{reg.instrumentCount ?? 0}</Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#2D7D46' }}>{reg.instrumentCount ?? 0}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    {(reg.pendingDownloadCount ?? 0) > 0 ? (
+                      <Chip label={reg.pendingDownloadCount} size="small" sx={{ fontWeight: 700, bgcolor: '#FED7D7', color: '#C53030', fontSize: '0.7rem', borderRadius: 1 }} />
+                    ) : (
+                      <Typography sx={{ fontSize: '0.85rem', color: '#A0AEC0' }}>0</Typography>
+                    )}
                   </TableCell>
                   <TableCell sx={{ fontSize: '0.78rem', color: '#718096' }}>
                     {formatDt(reg.lastInstrumentDiscoveredAt)}
