@@ -183,7 +183,7 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/refresh') {
+  if ((res.status === 401 || res.status === 403) && path !== '/auth/login' && path !== '/auth/refresh') {
     if (authRefreshToken) {
       const refreshed = await doRefresh();
       if (refreshed) {
