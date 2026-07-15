@@ -4,7 +4,10 @@
 
 ```
 atheris-intelligence-backend/atheris/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
-  atheris-platform/                    — main application module
+  atheris-platform/                    — main application module (port 9090)
+  atheris-tenant/                      — tenant-facing compliance service (port 9091)
+  atheris-common/                      — shared DTOs, constants, utilities
+  atheris-platform/
     src/main/java/com/atheris/platform/
       modules/
         instruments/                   — Instrument entity, repository, controller
@@ -41,8 +44,8 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 ### Backend
 - Docker PostgreSQL: container `db`, port 5432, DB `atheris_platform`, user `atheris`/`changeme`
-- Start: `mvn spring-boot:run` from `atheris-intelligence-backend/atheris/atheris-platform`
-- Port: `9090`
+- Start platform: `mvn spring-boot:run` from `atheris-intelligence-backend/atheris/atheris-platform` (port 9090)
+- Start tenant: `mvn spring-boot:run -pl atheris-tenant -am` from `atheris-intelligence-backend/atheris` (port 9091)
 - Default admin: `admin@atheris.ng` / `admin123`
 
 ### Frontend
@@ -159,32 +162,76 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## Done — Latest
-- **Per-regulator pipeline stage breakdown** — Backend: `InstrumentRepository` adds `findExtractedByRegulatorId` (non-null pdfOcrText) and `findClassifiedByRegulatorId` (status != Triage); `RegulatorService.getPipelineStats()` returns discovered/downloaded/extracted/classified counts + drill-down lists; new endpoint `GET /platform/regulators/{id}/pipeline-stats`. Frontend: Regulator detail page shows 4 clickable pipeline stage cards (Discovered/Downloaded/Extracted/Classified) below info cards; clicking each opens a dialog with actionable items — failed downloads show URL + Upload PDF button, downloaded show View PDF, extracted show View Text, classified show status/risk badges.
-- **Dashboard Pipeline Health alert** — Banner between KPI cards and pipeline table shows total discovered vs processed vs pending downloads; amber Warning alert with "View Failed" link when pendings exist, green success when clear.
+## Done — Pipeline Stage Breakdown
+- **Per-regulator pipeline stage breakdown** — Backend: `InstrumentRepository` adds `findExtractedByRegulatorId` (non-null pdfOcrText) and `findClassifiedByRegulatorId` (status != Triage); `RegulatorService.getPipelineStats()` returns discovered/downloaded/extracted/classified counts + drill-down lists with `jobStatus` for uploaded items; new endpoint `GET /platform/regulators/{id}/pipeline-stats`. Frontend: RegulatorDetailPage shows 4 clickable pipeline stage cards with inline scrollable tables (Title | URL | Status | Action columns); uploaded docs appear alongside pending with green checkmark + job status chip (OCR Pending/Processing/Done/Failed); Scraper Config moved to modal.
+- **Dashboard Pipeline Health alert** — Banner between KPI cards and pipeline table shows total discovered vs processed vs pending downloads; amber Warning with "View Failed" link when pendings exist, green success when clear.
 - **Regulators table stage columns** — "Documents" column split into "Discovered" (instruments + pending), "Downloaded" (instruments, green), "Failed" (pending count in red chip); `RegulatorDto.pendingDownloadCount` populated via `PendingDownloadRepository.countPendingByRegulator()`.
+- **Remote push synced** — `origin/main` now matches local `main` at `5787d9f` (merge commit with `99008da` pipeline stage breakdown); stale Windows Credential Manager entries cleared, `gh` CLI token used for auth.
 
-## Pending Manual Downloads — What to Test
+## Done — Tenant Backend Aligned as Submodule
 
-### Prerequisites
-- Start backend: `mvn spring-boot:run` from `atheris-platform/atheris/atheris-platform`
-- Start frontend: `npm run dev` from `atheris-compliance-intelligence-hub`
-- Flyway V10 migration automatically creates `pending_downloads` table
+The standalone `atheris-tenant` service at `C:\Users\hp\Documents\atheris-tenant` was copied and adapted as a Maven submodule at `atheris-intelligence-backend/atheris/atheris-tenant/`.
 
-### Test Flow
-1. **Scraper failure creates pending record** — Run a scraper on a regulator with Cloudflare/Playwright (e.g. CBN). When `processNewDocument()` throws, a `PendingDownload` row is saved to `pending_downloads` with status `pending` and the error message.
-   - Verify: `docker exec db psql -U atheris -d atheris_platform -c "SELECT id, title, status, error_message FROM pending_downloads;"`
-2. **Dashboard shows pending downloads** — Open `http://localhost:5173/dashboard`. The "Pending Manual Downloads" card (top-right of bottom section) should show each record with title, URL, regulator ID, and discovered date.
-3. **Upload a PDF** — Click the cloud-download icon on a pending row. Select a genuine PDF file. The upload button is hidden until you pick a file.
-   - Expected: Snackbar shows "PDF uploaded successfully"
-   - Verify job enqueued: `docker exec db psql -U atheris -d atheris_platform -c "SELECT * FROM job_queue WHERE job_type='ocr_document' ORDER BY created_at DESC LIMIT 1;"`
-4. **Pipeline processes uploaded PDF** — Wait for OCR scheduler (2min cycle) or force by restarting. Verify the instrument appears and classification proceeds.
-5. **Skip a record** — Click the X icon on a pending row. Expected: Snackbar shows "Marked as skipped", record disappears from widget.
-   - Verify: `SELECT status FROM pending_downloads WHERE id=<id>;` → `skipped`
-6. **Empty state** — Once all pending records are resolved, the widget should show "No pending downloads" with the cloud icon.
+### Module Structure
 
-### Known Considerations
-- The widget only shows `status=pending` records. "uploaded" and "skipped" records are hidden from the list.
-- Uploaded PDFs go to S3 under `raw/reg<regulatorId>/` prefix.
-- Magic bytes check (`%PDF`) happens on upload — non-PDF files are rejected with 400 error.
-- The `source_page_url` is set if `PdfLink.getDiscoveredOnPage()` was populated during scraping (may be null for headless strategy).
+```
+atheris-tenant/
+  pom.xml                              — depends on atheris-common + Spring Boot + JPA + Security + JWT
+  src/main/java/com/atheris/tenant/
+    AtherisTenantApplication.java       — @SpringBootApplication on port 9091
+    config/SecurityConfig.java          — JWT filter, BCrypt, stateless sessions
+    modules/
+      auth/                             — JWT login/refresh/logout, invite tokens, password reset
+      users/                            — CRUD, invite flow, role management, password change
+      onboarding/                       — Multi-step wizard (institution → regulators → doc types → confirm)
+      subscriptions/                    — Regulator subscriptions, per-regulator overrides
+      obligations/                      — Per-instrument classification, CCO approval, versioned history
+      controls/                         — Control inventory, test scheduling, test result recording
+      findings/                         — Auto-raised from failed tests, remediation workflow
+      returns/                          — Regulatory return calendar, stage-based filing
+      notifications/                    — Obligation change alerts (read/acknowledge)
+      dashboard/                        — Compliance score, KPIs, daily snapshots
+      audit/                            — Tamper-evident hash chain audit log
+      webhook/                          — Webhook receiver from main platform
+  src/main/resources/
+    application.yml                     — DB: atheris_tenant, schema: tenant, port 9091
+    db/migration/tenant/
+      V1__create_users.sql              — users, invite_tokens, refresh_tokens
+      V2__create_tenant_profile.sql     — tenant_profile, tenant_regulator_preferences
+      V3__create_obligations.sql        — obligation_classifications, classification_history
+      V4__create_controls.sql           — controls, control_tasks, control_test_results
+      V5__create_findings.sql           — findings
+      V6__create_returns.sql            — regulatory_returns, return_filing_instances
+      V7__create_audit.sql              — audit_events (hash chain)
+      V8__create_notifications.sql      — obligation_notifications
+      V9__create_dashboard.sql          — dashboard_snapshots
+```
+
+### Code Practices Applied
+- **All queries are native SQL** (`nativeQuery = true`) — zero JPQL
+- **All business logic in service layer** — controllers are thin (just delegate + return)
+- **Repository methods use JPA `findBy` naming** where possible
+- **No JPQL `@Query` annotations** — only native queries where `findBy` naming isn't enough
+- **WebhookReceiverService** extracted from inline controller logic
+- **NotificationController** delegates status filtering to service
+
+### How to Run
+```bash
+# Create tenant database
+docker exec -it db psql -U atheris -c "CREATE DATABASE atheris_tenant;"
+
+# Start tenant service
+cd atheris-intelligence-backend/atheris
+mvn spring-boot:run -pl atheris-tenant -am
+
+# Tenant service runs on port 9091
+# API base: http://localhost:9091/api/v1/
+```
+
+## Next — Tenant Backend Work
+- [ ] Create `tenant` schema in PostgreSQL and seed default data
+- [ ] Test auth endpoints (login, invite, refresh)
+- [ ] Test onboarding flow end-to-end
+- [ ] Wire up `evaluate_applicability` processor to send webhooks to tenant service
+- [ ] Add tenant dashboard widgets (active tenants, webhook health in main platform)
+- [ ] Run backend + frontend to verify
