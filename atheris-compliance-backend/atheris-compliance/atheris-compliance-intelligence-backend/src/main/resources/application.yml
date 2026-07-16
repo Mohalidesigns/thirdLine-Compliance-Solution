@@ -1,0 +1,92 @@
+spring:
+  application:
+    name: atheris-compliance-intelligence-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:atheris_platform}
+    username: ${DB_USER:atheris}
+    password: ${DB_PASSWORD:changeme}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        project-id: atheris-platform
+        chat:
+          options:
+            model: gemini-3.1-flash-lite
+            temperature: 0.0
+            max-output-tokens: 1500
+
+server:
+  port: ${PORT:9090}
+  servlet:
+    context-path: /
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+atheris:
+  admin:
+    username: ${ADMIN_USERNAME:admin@atheris.ng}
+    password: ${ADMIN_PASSWORD}
+
+  jwt:
+    secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
+    expiry-minutes: 1440
+    refresh-token-expiry-days: 30
+
+  email:
+    from: ${EMAIL_FROM:noreply@atheris.com}
+    base-url: ${BASE_URL:https://app.atheris.com}
+
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+    bucket: ${S3_BUCKET:atheris-platform-docs}
+    region: ${AWS_REGION:af-south-1}
+    local-path: ${STORAGE_LOCAL_PATH:../../../data/storage}
+
+  scraper:
+    user-agent: "Atheris-HorizonScanner/1.0 (compliance@atheris.com)"
+    request-timeout-seconds: 30
+    max-pdf-size-mb: 100
+
+  jobs:
+    scraper-interval-ms: 900000       # 15 minutes
+    ocr-processor-interval-ms: 120000 # 2 minutes
+    classifier-interval-ms: 100000    # 1.5 minutes
+    applicability-interval-ms: 300000 # 5 minutes
+    webhook-sender-interval-ms: 300000 # 5 minutes
+    webhook-retry-interval-ms: 1800000 # 30 minutes
+
+logging:
+  level:
+    com.atheris.compliance: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

@@ -3,12 +3,12 @@
 ## Project Structure
 
 ```
-atheris-intelligence-backend/atheris/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
-  atheris-platform/                    — main application module (port 9090)
-  atheris-tenant/                      — tenant-facing compliance service (port 9091)
-  atheris-common/                      — shared DTOs, constants, utilities
-  atheris-platform/
-    src/main/java/com/atheris/platform/
+atheris-compliance-backend/atheris/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
+  atheris-compliance-intelligence-backend/                    — main application module (port 9090)
+  atheris-compliance-tenant-backend/                      — tenant-facing compliance service (port 9091)
+  atheris-compliance-common/                      — shared DTOs, constants, utilities
+  atheris-compliance-intelligence-backend/
+    src/main/java/com/atheris/compliance/intelligence/backend/
       modules/
         instruments/                   — Instrument entity, repository, controller
         regulators/                    — Regulator entity, scraper service, controller
@@ -44,8 +44,8 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 ### Backend
 - Docker PostgreSQL: container `db`, port 5432, DB `atheris_platform`, user `atheris`/`changeme`
-- Start platform: `mvn spring-boot:run` from `atheris-intelligence-backend/atheris/atheris-platform` (port 9090)
-- Start tenant: `mvn spring-boot:run -pl atheris-tenant -am` from `atheris-intelligence-backend/atheris` (port 9091)
+- Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris/atheris-compliance-intelligence-backend` (port 9090)
+- Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris` (port 9091)
 - Default admin: `admin@atheris.ng` / `admin123`
 
 ### Frontend
@@ -170,15 +170,15 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 ## Done — Tenant Backend Aligned as Submodule
 
-The standalone `atheris-tenant` service at `C:\Users\hp\Documents\atheris-tenant` was copied and adapted as a Maven submodule at `atheris-intelligence-backend/atheris/atheris-tenant/`.
+The standalone `atheris-compliance-tenant-backend` service at `C:\Users\hp\Documents\atheris-compliance-tenant-backend` was copied and adapted as a Maven submodule at `atheris-compliance-backend/atheris/atheris-compliance-tenant-backend/`.
 
 ### Module Structure
 
 ```
-atheris-tenant/
-  pom.xml                              — depends on atheris-common + Spring Boot + JPA + Security + JWT
-  src/main/java/com/atheris/tenant/
-    AtherisTenantApplication.java       — @SpringBootApplication on port 9091
+atheris-compliance-tenant-backend/
+  pom.xml                              — depends on atheris-compliance-common + Spring Boot + JPA + Security + JWT
+  src/main/java/com/atheris/compliance/tenant/backend/
+    AtherisTenantBackendApplication.java       — @SpringBootApplication on port 9091
     config/SecurityConfig.java          — JWT filter, BCrypt, stateless sessions
     modules/
       auth/                             — JWT login/refresh/logout, invite tokens, password reset
@@ -221,8 +221,8 @@ atheris-tenant/
 docker exec -it db psql -U atheris -c "CREATE DATABASE atheris_tenant;"
 
 # Start tenant service
-cd atheris-intelligence-backend/atheris
-mvn spring-boot:run -pl atheris-tenant -am
+cd atheris-compliance-backend/atheris
+mvn spring-boot:run -pl atheris-compliance-tenant-backend -am
 
 # Tenant service runs on port 9091
 # API base: http://localhost:9091/api/v1/

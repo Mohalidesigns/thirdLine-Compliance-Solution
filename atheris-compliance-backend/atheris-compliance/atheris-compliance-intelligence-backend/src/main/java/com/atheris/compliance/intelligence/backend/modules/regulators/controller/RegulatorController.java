@@ -1,0 +1,73 @@
+package com.atheris.compliance.intelligence.backend.modules.regulators.controller;
+
+import com.atheris.compliance.intelligence.backend.modules.regulators.dto.*;
+import com.atheris.compliance.intelligence.backend.modules.regulators.entity.ScraperRunLog;
+import com.atheris.compliance.intelligence.backend.modules.regulators.service.RegulatorService;
+import com.atheris.compliance.intelligence.backend.modules.regulators.service.ScraperService;
+import com.atheris.compliance.intelligence.backend.modules.regulators.strategy.ScraperRunResult;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/platform/regulators")
+@PreAuthorize("hasRole('PLATFORM_ADMIN')")
+@RequiredArgsConstructor
+public class RegulatorController {
+
+    private final RegulatorService regulatorService;
+    private final ScraperService scraperService;
+
+    @GetMapping
+    public ResponseEntity<List<RegulatorDto>> listAll(
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir) {
+        return ResponseEntity.ok(regulatorService.findAllFiltered(activeOnly, search, sortBy, sortDir));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RegulatorDto> getOne(@PathVariable Integer id) {
+        return ResponseEntity.ok(regulatorService.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<RegulatorDto> create(@Valid @RequestBody CreateRegulatorRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(regulatorService.create(req));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<RegulatorDto> update(
+            @PathVariable Integer id,
+            @Valid @RequestBody CreateRegulatorRequest req) {
+        return ResponseEntity.ok(regulatorService.update(id, req));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deactivate(@PathVariable Integer id) {
+        regulatorService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/test-scraper")
+    public ResponseEntity<ScraperRunResult> testScraper(
+            @PathVariable Integer id,
+            @RequestParam(defaultValue = "false") boolean dryRun) {
+        return ResponseEntity.ok(regulatorService.testScraper(id, dryRun));
+    }
+
+    @GetMapping("/{id}/scraper-history")
+    public ResponseEntity<List<ScraperRunLog>> scraperHistory(@PathVariable Integer id) {
+        return ResponseEntity.ok(regulatorService.getScraperHistory(id));
+    }
+
+    @GetMapping("/{id}/pipeline-stats")
+    public ResponseEntity<RegulatorPipelineStatsDto> pipelineStats(@PathVariable Integer id) {
+        return ResponseEntity.ok(regulatorService.getPipelineStats(id));
+    }
+}
