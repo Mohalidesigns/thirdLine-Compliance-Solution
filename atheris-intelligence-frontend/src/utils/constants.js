@@ -21,6 +21,7 @@ export const ROUTES = {
   WATCHLIST: '/watchlist',
   SETTINGS_API: '/settings/api',
   SETTINGS_COMPLIANCE: '/settings/compliance',
+  ACTIVATE_LICENSE: '/activate-license',
   ADMIN_REGULATORS: '/admin/regulators',
   ADMIN_REGULATOR_DETAIL: '/admin/regulators/:id',
   ADMIN_TENANTS: '/admin/tenants',
@@ -28,6 +29,8 @@ export const ROUTES = {
   ADMIN_PIPELINE: '/admin/pipeline',
   ADMIN_PIPELINE_DETAIL: '/admin/pipeline/:id',
   ADMIN_INSTRUMENT_TENANTS: '/admin/instruments/:id/tenants',
+  ADMIN_LICENSES: '/admin/licenses',
+  ADMIN_LICENSE_DETAIL: '/admin/licenses/:id',
 };
 
 export const STRINGS = {
@@ -54,6 +57,7 @@ export const LABELS = {
   REGULATORS: 'Regulators',
   TENANT_MANAGEMENT: 'Tenant Management',
   PIPELINE: 'Pipeline Jobs',
+  LICENSES: 'License Management',
 };
 
 export const NAV_SECTIONS = [
@@ -68,6 +72,7 @@ export const NAV_SECTIONS = [
   { label: 'PLATFORM', items: [
     { text: 'Regulators', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATORS },
     { text: 'Tenant Management', icon: 'AdminPanelSettings', path: ROUTES.ADMIN_TENANTS },
+    { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
     { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
   ]},
 ];

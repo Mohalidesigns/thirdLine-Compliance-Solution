@@ -38,11 +38,30 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markRead(Long id) { repo.markRead(id, Instant.now()); }
+    public void markRead(Long id) {
+        repo.findById(id).ifPresent(n -> {
+            n.setStatus("read");
+            n.setReadAt(Instant.now());
+            repo.save(n);
+        });
+    }
 
     @Transactional
-    public void acknowledge(Long id, Integer userId) { repo.acknowledge(id, userId, Instant.now()); }
+    public void acknowledge(Long id, Integer userId) {
+        repo.findById(id).ifPresent(n -> {
+            n.setStatus("acknowledged");
+            n.setAcknowledgedAt(Instant.now());
+            n.setAcknowledgedByUserId(userId);
+            repo.save(n);
+        });
+    }
 
     @Transactional
-    public void markAllRead() { repo.markAllRead(Instant.now()); }
+    public void markAllRead() {
+        repo.findByStatusOrderByCreatedAtDesc("unread").forEach(n -> {
+            n.setStatus("read");
+            n.setReadAt(Instant.now());
+            repo.save(n);
+        });
+    }
 }

@@ -27,11 +27,11 @@ public class ReturnService {
     }
 
     public List<ReturnFilingInstance> getCalendar(int days) {
-        return instances.findDueBetween(LocalDate.now(), LocalDate.now().plusDays(days));
+        return instances.findByDueDateBetweenOrderByDueDateAsc(LocalDate.now(), LocalDate.now().plusDays(days));
     }
 
     public List<ReturnFilingInstance> getOverdue() {
-        return instances.findOverdue(LocalDate.now());
+        return instances.findByStatusNotInAndDueDateBefore(List.of("Submitted", "Submitted Late"), LocalDate.now());
     }
 
     public List<ReturnFilingInstance> getInstances(Long returnId) {

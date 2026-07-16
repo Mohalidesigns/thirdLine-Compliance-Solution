@@ -46,7 +46,7 @@ public class ObligationService {
     }
 
     public List<ObligationClassificationDto> getHighRiskPendingApproval() {
-        return classifications.findHighRiskPendingApproval().stream().map(this::toDto).toList();
+        return classifications.findByApplicabilityAndCcoApprovedFalseAndTenantRiskRating("applicable", "High").stream().map(this::toDto).toList();
     }
 
     @Transactional

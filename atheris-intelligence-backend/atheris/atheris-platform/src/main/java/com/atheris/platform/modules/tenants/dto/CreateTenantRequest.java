@@ -10,7 +10,7 @@ public class CreateTenantRequest {
     private String shortName;
     @NotBlank private String licenceType;
     private String licenceNumber;
-    private List<String> regulators;
+    private List<Integer> regulators;
     private List<String> productLines;
     private List<String> subscribedDocumentTypes;
     private String notificationFrequency;

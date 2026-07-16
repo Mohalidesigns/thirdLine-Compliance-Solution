@@ -24,46 +24,46 @@ public class SubscriptionController {
     @PutMapping("/regulators")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
     public ResponseEntity<Map<String, Object>> updateRegulators(
-            @RequestBody Map<String, List<String>> body,
+            @RequestBody Map<String, List<Integer>> body,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.ok(service.updateRegulators(
             body.get("subscribed_regulators"), u.getUserId()));
     }
 
-    @PostMapping("/regulators/{abbr}")
+    @PostMapping("/regulators/{regulatorId}")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
     public ResponseEntity<Map<String, Object>> addRegulator(
-            @PathVariable String abbr,
+            @PathVariable Integer regulatorId,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.addRegulator(abbr, u.getUserId()));
+        return ResponseEntity.ok(service.addRegulator(regulatorId, u.getUserId()));
     }
 
-    @DeleteMapping("/regulators/{abbr}")
+    @DeleteMapping("/regulators/{regulatorId}")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
     public ResponseEntity<Void> removeRegulator(
-            @PathVariable String abbr,
+            @PathVariable Integer regulatorId,
             @AuthenticationPrincipal User u) {
-        service.removeRegulator(abbr, u.getUserId());
+        service.removeRegulator(regulatorId, u.getUserId());
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/regulators/{abbr}/preferences")
+    @PutMapping("/regulators/{regulatorId}/preferences")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
     public ResponseEntity<Map<String, Object>> updatePreferences(
-            @PathVariable String abbr,
+            @PathVariable Integer regulatorId,
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal User u) {
         @SuppressWarnings("unchecked")
         List<String> docTypes = (List<String>) body.get("document_types_override");
         return ResponseEntity.ok(service.updateRegulatorPreferences(
-            abbr, (String) body.get("notification_frequency_override"), docTypes, u.getUserId()));
+            regulatorId, (String) body.get("notification_frequency_override"), docTypes, u.getUserId()));
     }
 
-    @DeleteMapping("/regulators/{abbr}/preferences")
+    @DeleteMapping("/regulators/{regulatorId}/preferences")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
-    public ResponseEntity<Map<String, Object>> resetPreferences(@PathVariable String abbr) {
-        service.resetRegulatorPreferences(abbr);
-        return ResponseEntity.ok(Map.of("regulator_abbr", abbr, "overrides_cleared", true));
+    public ResponseEntity<Map<String, Object>> resetPreferences(@PathVariable Integer regulatorId) {
+        service.resetRegulatorPreferences(regulatorId);
+        return ResponseEntity.ok(Map.of("regulator_id", regulatorId, "overrides_cleared", true));
     }
 
     @PutMapping("/document-types")

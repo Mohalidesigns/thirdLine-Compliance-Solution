@@ -5,6 +5,7 @@ import com.atheris.platform.modules.instruments.entity.Instrument;
 import com.atheris.platform.modules.instruments.repository.InstrumentRepository;
 import com.atheris.platform.modules.regulators.service.ScraperService;
 import com.atheris.platform.modules.regulators.repository.RegulatorRepository;
+import com.atheris.platform.modules.tenants.entity.Tenant;
 import com.atheris.platform.modules.tenants.repository.TenantRepository;
 import com.atheris.platform.modules.webhooks.service.WebhookService;
 import com.atheris.common.Constants;
@@ -151,7 +152,7 @@ public class JobQueueProcessors {
             var job = jobOpt.get();
             try {
                 Long instrumentId = job.getSubjectId();
-                List<String> matchedTenantIds = findMatchingTenants(instrumentId);
+                List<Long> matchedTenantIds = findMatchingTenants(instrumentId);
 
                 jobQueue.enqueue(Constants.JOB_WEBHOOK, instrumentId,
                     1, Map.of("matching_tenants", matchedTenantIds,
@@ -181,7 +182,7 @@ public class JobQueueProcessors {
                 Map<String, Object> p = job.getPayload();
                 Long instrumentId = Long.valueOf(p.get("instrument_id").toString());
                 @SuppressWarnings("unchecked")
-                List<String> tenantIds = (List<String>) p.get("matching_tenants");
+                List<Long> tenantIds = (List<Long>) p.get("matching_tenants");
 
                 Map<String, Object> payload = buildObligationPayload(instrumentId);
                 tenantIds.forEach(tid ->
@@ -205,10 +206,10 @@ public class JobQueueProcessors {
         webhooks.retryFailed(10);
     }
 
-    private List<String> findMatchingTenants(Long instrumentId) {
+    private List<Long> findMatchingTenants(Long instrumentId) {
         // Simplified — full implementation queries instruments + tenants tables
         return tenants.findByIsActiveTrue().stream()
-            .map(t -> t.getTenantId())
+            .map(Tenant::getTenantId)
             .toList();
     }
 

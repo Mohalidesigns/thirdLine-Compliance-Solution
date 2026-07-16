@@ -16,17 +16,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: tenant
   flyway:
     enabled: true
     locations: classpath:db/migration/tenant
-    schemas: tenant
-    create-schemas: true
-    default-schema: tenant
 
 atheris:
+  admin:
+    username: ${ADMIN_USERNAME:admin@atheris.ng}
+    password: ${ADMIN_PASSWORD:admin123}
   jwt:
     secret: ${JWT_SECRET:change-me-in-production-use-a-long-random-base64-secret}
     expiry-minutes: 1440
   tenant-id: ${TENANT_ID:}
   webhook-secret: ${WEBHOOK_SECRET:}
+  platform:
+    base-url: ${PLATFORM_BASE_URL:http://localhost:9090}

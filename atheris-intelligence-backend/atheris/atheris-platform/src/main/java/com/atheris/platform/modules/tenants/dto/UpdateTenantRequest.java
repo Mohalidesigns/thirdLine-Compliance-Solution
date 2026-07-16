@@ -9,7 +9,7 @@ public class UpdateTenantRequest {
     private String webhookUrl;
     private String ccoEmail;
     private String techEmail;
-    private List<String> regulators;
+    private List<Integer> regulators;
     private List<String> productLines;
     private List<String> subscribedDocumentTypes;
     private String notificationFrequency;

@@ -1,0 +1,326 @@
+package com.atheris.platform.modules.licenses.service;
+
+import com.atheris.platform.modules.licenses.dto.*;
+import com.atheris.platform.modules.licenses.entity.License;
+import com.atheris.platform.modules.licenses.entity.LicenseDevice;
+import com.atheris.platform.modules.licenses.exception.DeviceMismatchException;
+import com.atheris.platform.modules.licenses.exception.DeviceNotFoundException;
+import com.atheris.platform.modules.licenses.exception.LicenseNotFoundException;
+import com.atheris.platform.modules.licenses.mapper.LicenseMapper;
+import com.atheris.platform.modules.licenses.repository.LicenseDeviceRepository;
+import com.atheris.platform.modules.licenses.repository.LicenseRepository;
+import com.atheris.platform.modules.tenants.entity.Tenant;
+import com.atheris.platform.modules.tenants.repository.TenantRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class LicenseService {
+
+    private final LicenseRepository licenses;
+    private final LicenseDeviceRepository devices;
+    private final LicenseKeyGenerator keyGenerator;
+    private final TenantRepository tenants;
+    private final LicenseMapper mapper;
+
+    @Transactional
+    public LicenseDto create(CreateLicenseRequest req) {
+        Tenant tenant = tenants.findById(req.getTenantId())
+            .orElseThrow(() -> new LicenseNotFoundException("Tenant not found: " + req.getTenantId()));
+
+        String key;
+        do {
+            key = keyGenerator.generate();
+        } while (licenses.findByLicenseKey(key).isPresent());
+
+        License license = License.builder()
+            .tenantId(req.getTenantId())
+            .licenseKey(key)
+            .tier(req.getTier() != null ? req.getTier() : "custom")
+            .intelligenceEnabled(req.getIntelligenceEnabled() != null ? req.getIntelligenceEnabled() : true)
+            .maxUsers(req.getMaxUsers() != null ? req.getMaxUsers() : 5)
+            .maxDevices(req.getMaxDevices() != null ? req.getMaxDevices() : 1)
+            .maxRegulators(req.getMaxRegulators())
+            .maxControls(req.getMaxControls())
+            .maxReturns(req.getMaxReturns())
+            .maxStorageMb(req.getMaxStorageMb() != null ? req.getMaxStorageMb() : 500)
+            .deviceFingerprintEnforced(req.getDeviceFingerprintEnforced() != null ? req.getDeviceFingerprintEnforced() : true)
+            .status("inactive")
+            .expiresAt(req.getExpiresAt())
+            .gracePeriodDays(req.getGracePeriodDays() != null ? req.getGracePeriodDays() : 7)
+            .notes(req.getNotes())
+            .build();
+
+        licenses.save(license);
+        log.info("License created: {} for tenant {}", key, req.getTenantId());
+        return toDto(license, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public LicenseDto getById(Integer id) {
+        License license = licenses.findById(id)
+            .orElseThrow(() -> new LicenseNotFoundException(id));
+        List<LicenseDevice> deviceList = devices.findByLicenseId(id);
+        return toDto(license, deviceList);
+    }
+
+    @Transactional(readOnly = true)
+    public LicenseDto getByLicenseKey(String licenseKey) {
+        License license = licenses.findByLicenseKey(licenseKey)
+            .orElseThrow(() -> new LicenseNotFoundException(licenseKey, "key"));
+        List<LicenseDevice> deviceList = devices.findByLicenseId(license.getId());
+        return toDto(license, deviceList);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LicenseDto> list(String status, Long tenantId) {
+        List<License> result;
+        if (tenantId != null) {
+            result = licenses.findByTenantId(tenantId);
+        } else if (status != null) {
+            result = licenses.findByStatus(status);
+        } else {
+            result = licenses.findAll();
+        }
+        Set<Long> ids = result.stream().map(License::getTenantId).collect(Collectors.toSet());
+        Map<Long, String> tenantNames = ids.isEmpty() ? Map.of()
+            : tenants.findAllById(ids).stream()
+                .collect(Collectors.toMap(Tenant::getTenantId, Tenant::getLegalName));
+        return result.stream()
+            .map(l -> toDto(l, devices.findByLicenseId(l.getId()), tenantNames.getOrDefault(l.getTenantId(), null)))
+            .toList();
+    }
+
+    @Transactional
+    public LicenseDto update(Integer id, UpdateLicenseRequest req) {
+        License license = licenses.findById(id)
+            .orElseThrow(() -> new LicenseNotFoundException(id));
+        mapper.updateFromRequest(req, license);
+        licenses.save(license);
+        return toDto(license, devices.findByLicenseId(id));
+    }
+
+    @Transactional
+    public void revoke(Integer id) {
+        License license = licenses.findById(id)
+            .orElseThrow(() -> new LicenseNotFoundException(id));
+        license.setStatus("revoked");
+        licenses.save(license);
+        log.info("License {} revoked for tenant {}", license.getLicenseKey(), license.getTenantId());
+    }
+
+    @Transactional
+    public LicenseDto renew(Integer id, Instant newExpiry, Integer newGracePeriodDays) {
+        License license = licenses.findById(id)
+            .orElseThrow(() -> new LicenseNotFoundException(id));
+        license.setStatus("active");
+        license.setExpiresAt(newExpiry);
+        if (newGracePeriodDays != null) license.setGracePeriodDays(newGracePeriodDays);
+        license.setGracePeriodEnd(newExpiry.plus(license.getGracePeriodDays(), ChronoUnit.DAYS));
+        licenses.save(license);
+        log.info("License {} renewed until {}", license.getLicenseKey(), newExpiry);
+        return toDto(license, devices.findByLicenseId(id));
+    }
+
+    @Transactional
+    public ValidateLicenseResponse validate(ValidateLicenseRequest req) {
+        Optional<License> opt = licenses.findByLicenseKey(req.getLicenseKey());
+        if (opt.isEmpty()) {
+            return ValidateLicenseResponse.builder()
+                .valid(false)
+                .status("not_found")
+                .message("License key not found")
+                .build();
+        }
+        License license = opt.get();
+
+        String status = license.getStatus();
+        Instant now = Instant.now();
+        boolean expired = now.isAfter(license.getExpiresAt());
+        boolean inGrace = expired && license.getGracePeriodEnd() != null && now.isBefore(license.getGracePeriodEnd());
+
+        switch (status) {
+            case "revoked":
+            case "suspended":
+                return ValidateLicenseResponse.builder()
+                    .valid(false)
+                    .status(status)
+                    .message("License is " + status)
+                    .build();
+            case "inactive":
+                return ValidateLicenseResponse.builder()
+                    .valid(false)
+                    .status("inactive")
+                    .message("License has not been activated")
+                    .build();
+        }
+
+        if (expired && !inGrace) {
+            license.setStatus("expired");
+            licenses.save(license);
+            return ValidateLicenseResponse.builder()
+                .valid(false)
+                .status("expired")
+                .message("License expired on " + license.getExpiresAt())
+                .build();
+        }
+
+        if (inGrace) {
+            license.setStatus("grace_period");
+            licenses.save(license);
+        }
+
+        Integer deviceCount = devices.countByLicenseId(license.getId());
+        boolean deviceRegistered = false;
+
+        if (license.getGracePeriodEnd() == null && license.getStatus().equals("active")) {
+            license.setGracePeriodEnd(license.getExpiresAt().plus(license.getGracePeriodDays(), ChronoUnit.DAYS));
+        }
+
+        if (req.getDeviceFingerprint() != null) {
+            boolean exists = devices.existsByLicenseIdAndDeviceFingerprint(
+                license.getId(), req.getDeviceFingerprint());
+
+            if (exists) {
+                deviceRegistered = true;
+                LicenseDevice dev = devices.findByLicenseIdAndDeviceFingerprint(
+                    license.getId(), req.getDeviceFingerprint())
+                    .orElseThrow(() -> new RuntimeException("Device record disappeared"));
+                dev.setLastSeenAt(now);
+                dev.setLastIpAddress(req.getIpAddress());
+                devices.save(dev);
+            } else {
+                boolean limitEnforced = license.getDeviceFingerprintEnforced() != null
+                    && license.getDeviceFingerprintEnforced();
+                if (limitEnforced && deviceCount >= license.getMaxDevices()) {
+                    return ValidateLicenseResponse.builder()
+                        .valid(false)
+                        .status(license.getStatus())
+                        .tier(license.getTier())
+                        .intelligenceEnabled(license.getIntelligenceEnabled())
+                        .maxUsers(license.getMaxUsers())
+                        .maxDevices(license.getMaxDevices())
+                        .expiresAt(license.getExpiresAt())
+                        .gracePeriodEnd(license.getGracePeriodEnd())
+                        .gracePeriodDays(license.getGracePeriodDays())
+                        .deviceRegistered(false)
+                        .deviceCount(deviceCount)
+                        .deviceLimit(license.getMaxDevices())
+                        .message("Device limit reached (" + deviceCount + "/" + license.getMaxDevices() + "). Contact admin to add more device slots.")
+                        .build();
+                }
+                LicenseDevice newDev = LicenseDevice.builder()
+                    .licenseId(license.getId())
+                    .deviceFingerprint(req.getDeviceFingerprint())
+                    .deviceLabel(req.getDeviceLabel())
+                    .lastSeenAt(now)
+                    .lastIpAddress(req.getIpAddress())
+                    .build();
+                devices.save(newDev);
+                deviceRegistered = true;
+                deviceCount++;
+            }
+        }
+
+        return ValidateLicenseResponse.builder()
+            .valid(true)
+            .status(license.getStatus())
+            .tier(license.getTier())
+            .intelligenceEnabled(license.getIntelligenceEnabled())
+            .maxUsers(license.getMaxUsers())
+            .maxDevices(license.getMaxDevices())
+            .expiresAt(license.getExpiresAt())
+            .gracePeriodEnd(license.getGracePeriodEnd())
+            .gracePeriodDays(license.getGracePeriodDays())
+            .deviceRegistered(deviceRegistered)
+            .deviceCount(deviceCount)
+            .deviceLimit(license.getMaxDevices())
+            .message("License is active")
+            .build();
+    }
+
+    @Transactional
+    public void removeDevice(Integer licenseId, Integer deviceId) {
+        LicenseDevice dev = devices.findById(deviceId)
+            .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+        if (!dev.getLicenseId().equals(licenseId)) {
+            throw new DeviceMismatchException(deviceId, licenseId);
+        }
+        devices.delete(dev);
+        log.info("Device {} removed from license {}", deviceId, licenseId);
+    }
+
+    @Transactional(readOnly = true)
+    public LicenseStatsDto getStats() {
+        List<Object[]> rows = licenses.countByStatus();
+        Map<String, Long> byStatus = new HashMap<>();
+        long total = 0;
+        for (Object[] row : rows) {
+            String s = (String) row[0];
+            Long c = (Long) row[1];
+            byStatus.put(s, c);
+            total += c;
+        }
+        return LicenseStatsDto.builder()
+            .total(total)
+            .active(byStatus.getOrDefault("active", 0L))
+            .inactive(byStatus.getOrDefault("inactive", 0L))
+            .expired(byStatus.getOrDefault("expired", 0L))
+            .revoked(byStatus.getOrDefault("revoked", 0L))
+            .gracePeriod(byStatus.getOrDefault("grace_period", 0L))
+            .suspended(byStatus.getOrDefault("suspended", 0L))
+            .byStatus(byStatus)
+            .build();
+    }
+
+    private LicenseDto toDto(License l, List<LicenseDevice> deviceList) {
+        String name = tenants.findById(l.getTenantId()).map(Tenant::getLegalName).orElse(null);
+        return toDto(l, deviceList, name);
+    }
+
+    private LicenseDto toDto(License l, List<LicenseDevice> deviceList, String legalName) {
+        return LicenseDto.builder()
+            .id(l.getId())
+            .tenantId(l.getTenantId())
+            .legalName(legalName)
+            .licenseKey(l.getLicenseKey())
+            .tier(l.getTier())
+            .intelligenceEnabled(l.getIntelligenceEnabled())
+            .maxUsers(l.getMaxUsers())
+            .maxDevices(l.getMaxDevices())
+            .maxRegulators(l.getMaxRegulators())
+            .maxControls(l.getMaxControls())
+            .maxReturns(l.getMaxReturns())
+            .maxStorageMb(l.getMaxStorageMb())
+            .deviceFingerprintEnforced(l.getDeviceFingerprintEnforced())
+            .status(l.getStatus())
+            .activatedAt(l.getActivatedAt())
+            .expiresAt(l.getExpiresAt())
+            .gracePeriodDays(l.getGracePeriodDays())
+            .gracePeriodEnd(l.getGracePeriodEnd())
+            .issuedBy(l.getIssuedBy())
+            .notes(l.getNotes())
+            .deviceCount(deviceList.size())
+            .devices(deviceList.stream().map(d -> LicenseDeviceDto.builder()
+                .id(d.getId())
+                .deviceFingerprint(d.getDeviceFingerprint())
+                .deviceLabel(d.getDeviceLabel())
+                .lastSeenAt(d.getLastSeenAt())
+                .lastIpAddress(d.getLastIpAddress())
+                .createdAt(d.getCreatedAt())
+                .build()).toList())
+            .createdAt(l.getCreatedAt())
+            .updatedAt(l.getUpdatedAt())
+            .build();
+    }
+}

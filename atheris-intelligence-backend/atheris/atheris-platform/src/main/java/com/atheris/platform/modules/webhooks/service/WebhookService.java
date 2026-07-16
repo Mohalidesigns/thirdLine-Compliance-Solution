@@ -28,7 +28,7 @@ public class WebhookService {
     private final HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10)).build();
 
-    public void deliver(String tenantId, Long instrumentId,
+    public void deliver(Long tenantId, Long instrumentId,
                         Map<String, Object> payload, String webhookType) {
         Tenant tenant = tenants.findById(tenantId).orElse(null);
         if (tenant == null || !tenant.getIsActive() || tenant.getWebhookUrl() == null) return;

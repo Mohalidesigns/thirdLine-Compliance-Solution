@@ -19,10 +19,28 @@ public class OnboardingController {
         return ResponseEntity.ok(service.getStatus());
     }
 
+    @PostMapping("/activate-license")
+    public ResponseEntity<OnboardingStatusResponse> activateLicense(
+            @Valid @RequestBody ActivateLicenseStepRequest req) {
+        return ResponseEntity.ok(service.activateLicense(req));
+    }
+
     @PostMapping("/institution")
     public ResponseEntity<OnboardingStatusResponse> saveInstitution(
             @Valid @RequestBody InstitutionDetailsRequest req) {
         return ResponseEntity.ok(service.saveInstitution(req));
+    }
+
+    @PostMapping("/intelligence-mode")
+    public ResponseEntity<OnboardingStatusResponse> saveIntelligenceMode(
+            @RequestBody IntelligenceModeRequest req) {
+        return ResponseEntity.ok(service.saveIntelligenceMode(req));
+    }
+
+    @PostMapping("/user-setup")
+    public ResponseEntity<OnboardingStatusResponse> saveUserSetup(
+            @Valid @RequestBody UserSetupRequest req) {
+        return ResponseEntity.ok(service.saveUserSetup(req));
     }
 
     @PostMapping("/regulators")

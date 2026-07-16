@@ -9,15 +9,15 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface TenantRepository extends JpaRepository<Tenant, String> {
+public interface TenantRepository extends JpaRepository<Tenant, Long> {
     List<Tenant> findByIsActiveTrue();
     Optional<Tenant> findByCcoEmail(String email);
 
     @Query(value = """
         SELECT * FROM tenants
         WHERE is_active = true
-        AND :regulator = ANY(regulators::text[])
+        AND :regulatorId = ANY(regulators::int[])
         AND licence_type = ANY(:licenceTypes)
         """, nativeQuery = true)
-    List<Tenant> findEligibleTenants(@Param("regulator") String regulator, @Param("licenceTypes") String[] licenceTypes);
+    List<Tenant> findEligibleTenants(@Param("regulatorId") Integer regulatorId, @Param("licenceTypes") String[] licenceTypes);
 }

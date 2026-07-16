@@ -9,7 +9,7 @@ import java.util.Optional;
 @Repository
 public interface ObligationWatchRepository extends JpaRepository<ObligationWatch, Long> {
     List<ObligationWatch> findByInstrumentIdAndIsWatchingTrue(Long instrumentId);
-    Optional<ObligationWatch> findByInstrumentIdAndTenantId(Long instrumentId, String tenantId);
-    List<ObligationWatch> findByTenantIdAndIsWatchingTrue(String tenantId);
-    boolean existsByInstrumentIdAndTenantId(Long instrumentId, String tenantId);
+    Optional<ObligationWatch> findByInstrumentIdAndTenantId(Long instrumentId, Long tenantId);
+    List<ObligationWatch> findByTenantIdAndIsWatchingTrue(Long tenantId);
+    boolean existsByInstrumentIdAndTenantId(Long instrumentId, Long tenantId);
 }

@@ -35,11 +35,11 @@ public class ControlTestService {
     }
 
     public List<ControlTask> getTasksForUser(Integer userId) {
-        return taskRepo.findActiveForUser(userId);
+        return taskRepo.findByAssignedToUserIdAndStatusIn(userId, List.of("Pending", "In Progress", "Overdue"));
     }
 
     public List<ControlTask> getAllOverdue() {
-        return taskRepo.findOverdue(LocalDate.now());
+        return taskRepo.findByStatusAndDueDateBefore("Pending", LocalDate.now());
     }
 
     @Transactional
@@ -102,9 +102,13 @@ public class ControlTestService {
     @Scheduled(cron = "0 0 1 * * *")
     @Transactional
     public void processOverdueTasks() {
-        int marked = taskRepo.markOverdue(LocalDate.now());
-        log.info("Marked {} tasks as overdue", marked);
-        taskRepo.findOverdue(LocalDate.now().minusDays(2)).forEach(t -> {
+        List<ControlTask> overdue = taskRepo.findByStatusAndDueDateBefore("Pending", LocalDate.now());
+        for (ControlTask t : overdue) {
+            t.setStatus("Overdue");
+            taskRepo.save(t);
+        }
+        log.info("Marked {} tasks as overdue", overdue.size());
+        taskRepo.findByStatusAndDueDateBefore("Pending", LocalDate.now().minusDays(2)).forEach(t -> {
             if (t.getEscalationLevel() < 1) {
                 t.setEscalationLevel(1);
                 t.setEscalatedAt(Instant.now());
@@ -112,7 +116,7 @@ public class ControlTestService {
                 log.info("Task {} escalated to manager", t.getTaskId());
             }
         });
-        taskRepo.findOverdue(LocalDate.now().minusDays(5)).forEach(t -> {
+        taskRepo.findByStatusAndDueDateBefore("Pending", LocalDate.now().minusDays(5)).forEach(t -> {
             if (t.getEscalationLevel() < 2) {
                 t.setEscalationLevel(2);
                 taskRepo.save(t);

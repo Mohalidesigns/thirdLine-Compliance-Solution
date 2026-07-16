@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS tenant_profile (
     profile_id                 SERIAL PRIMARY KEY,
-    tenant_id                  VARCHAR(36) NOT NULL,
+    tenant_id                  BIGINT NOT NULL,
     legal_name                 VARCHAR(500) NOT NULL,
     short_name                 VARCHAR(100),
     licence_type               VARCHAR(100) NOT NULL,
@@ -29,14 +29,13 @@ CREATE INDEX idx_tenant_profile_tenant ON tenant_profile(tenant_id);
 
 CREATE TABLE IF NOT EXISTS tenant_regulator_preferences (
     preference_id                 SERIAL PRIMARY KEY,
-    regulator_id                 INT NOT NULL,
-    regulator_abbr               VARCHAR(50) NOT NULL,
-    is_subscribed                BOOLEAN DEFAULT true,
-    document_types_override      JSONB,
+    regulator_id                  INT NOT NULL,
+    is_subscribed                 BOOLEAN DEFAULT true,
+    document_types_override       JSONB,
     notification_frequency_override VARCHAR(50),
-    updated_by_user_id           INT,
-    created_at                   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at                   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_by_user_id            INT,
+    created_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_regulator_prefs_abbr ON tenant_regulator_preferences(regulator_abbr);
+CREATE INDEX idx_regulator_prefs_id ON tenant_regulator_preferences(regulator_id);

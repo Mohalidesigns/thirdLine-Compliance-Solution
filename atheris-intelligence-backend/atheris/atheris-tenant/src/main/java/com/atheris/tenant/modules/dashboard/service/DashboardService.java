@@ -37,10 +37,10 @@ public class DashboardService {
 
     public Map<String, Object> getAttentionItems() {
         return Map.of(
-            "high_risk_findings", findings.findCriticalOpen().size(),
-            "overdue_returns", returnsRepo.findOverdue(LocalDate.now()).size(),
+            "high_risk_findings", findings.findByStatusAndSeverity("Open", "Critical").size(),
+            "overdue_returns", returnsRepo.findByStatusNotInAndDueDateBefore(List.of("Submitted", "Submitted Late"), LocalDate.now()).size(),
             "obligations_no_control", obligations.findByHasGapTrue().size(),
-            "controls_failing", controls.findHighResidualRisk().size()
+            "controls_failing", controls.findByResidualRisk("High").size()
         );
     }
 
@@ -58,12 +58,12 @@ public class DashboardService {
         long totalInapplicable = obligations.countByApplicability("not_applicable");
         long gaps = obligations.countByHasGapTrue();
         long totalControls = controls.count();
-        long failing = controls.findHighResidualRisk().size();
+        long failing = controls.findByResidualRisk("High").size();
         long passing = totalControls - failing;
         double testRate = totalControls > 0 ? (double) passing / totalControls * 100 : 0;
         long openFindings = findings.countByStatus("Open");
         long highFindings = findings.countBySeverity("High");
-        long overdueFix = findings.findOverdueRemediation(LocalDate.now()).size();
+        long overdueFix = findings.findByStatusInAndRemediationDeadlineBefore(List.of("Open", "In Remediation"), LocalDate.now()).size();
         long totalReturns = returnsRepo.count();
         long onTime = returnsRepo.countByStatus("Submitted");
         long late = returnsRepo.countByStatus("Submitted Late");

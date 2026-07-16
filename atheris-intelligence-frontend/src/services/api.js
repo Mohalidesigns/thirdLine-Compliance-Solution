@@ -63,6 +63,23 @@ const DEMI_OBLIGATIONS = [
 
 const DEMO_WATCHES = DEMI_OBLIGATIONS.filter(o => o.isWatching);
 
+const DEMO_LICENSES = [
+  { id: 1, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-A1B2-C3D4-E5F6-G7H8', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxRegulators: 10, maxControls: 100, maxReturns: 50, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-01-15T00:00:00Z', expiresAt: '2027-01-15T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-01-22T00:00:00Z', issuedBy: 'Ada', notes: 'Enterprise license', deviceCount: 2, devices: [
+    { id: 1, deviceFingerprint: 'fp_firstbank_001', deviceLabel: 'Server-01', lastSeenAt: '2026-06-21T10:00:00Z', lastIpAddress: '10.0.1.1', createdAt: '2026-01-15T00:00:00Z' },
+    { id: 2, deviceFingerprint: 'fp_firstbank_002', deviceLabel: 'Server-02', lastSeenAt: '2026-06-20T08:00:00Z', lastIpAddress: '10.0.1.2', createdAt: '2026-02-01T00:00:00Z' },
+  ], createdAt: '2026-01-15T00:00:00Z', updatedAt: '2026-06-15T00:00:00Z' },
+  { id: 2, tenantId: 2, legalName: 'Zenith Bank Plc', licenseKey: 'ATH-Z1Y2-X3W4-V5U6-T7S8', tier: 'custom', intelligenceEnabled: true, maxUsers: 25, maxDevices: 3, maxRegulators: 5, maxControls: 50, maxReturns: 25, maxStorageMb: 512, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-02-01T00:00:00Z', expiresAt: '2027-02-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-02-08T00:00:00Z', issuedBy: 'Ada', notes: null, deviceCount: 1, devices: [
+    { id: 3, deviceFingerprint: 'fp_zenith_001', deviceLabel: 'Primary Server', lastSeenAt: '2026-06-19T12:00:00Z', lastIpAddress: '10.0.2.1', createdAt: '2026-02-01T00:00:00Z' },
+  ], createdAt: '2026-02-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 3, tenantId: 4, legalName: 'Leadway Assurance Company Ltd', licenseKey: 'ATH-L8K9-J0H1-G2F3-D4E5', tier: 'custom', intelligenceEnabled: false, maxUsers: 10, maxDevices: 2, maxRegulators: 3, maxControls: 20, maxReturns: 10, maxStorageMb: 256, deviceFingerprintEnforced: false, status: 'active', activatedAt: '2026-04-05T00:00:00Z', expiresAt: '2027-04-05T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-04-12T00:00:00Z', issuedBy: 'Ada', notes: 'Insurance tier', deviceCount: 0, devices: [], createdAt: '2026-04-05T00:00:00Z', updatedAt: '2026-04-05T00:00:00Z' },
+  { id: 4, tenantId: 5, legalName: 'MTN Nigeria Communications Plc', licenseKey: 'ATH-M6N7-B8V9-C0X1-Z2A3', tier: 'custom', intelligenceEnabled: true, maxUsers: 100, maxDevices: 10, maxRegulators: 5, maxControls: 200, maxReturns: 100, maxStorageMb: 2048, deviceFingerprintEnforced: true, status: 'expired', activatedAt: '2025-05-20T00:00:00Z', expiresAt: '2026-05-20T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-05-27T00:00:00Z', issuedBy: 'Ada', notes: 'Expired - needs renewal', deviceCount: 3, devices: [
+    { id: 4, deviceFingerprint: 'fp_mtn_001', deviceLabel: 'API Server', lastSeenAt: '2026-05-19T10:00:00Z', lastIpAddress: '10.0.5.1', createdAt: '2025-05-20T00:00:00Z' },
+    { id: 5, deviceFingerprint: 'fp_mtn_002', deviceLabel: 'Backup Server', lastSeenAt: '2026-05-18T14:00:00Z', lastIpAddress: '10.0.5.2', createdAt: '2025-06-01T00:00:00Z' },
+    { id: 6, deviceFingerprint: 'fp_mtn_003', deviceLabel: 'Worker Node', lastSeenAt: '2026-05-17T08:00:00Z', lastIpAddress: '10.0.5.3', createdAt: '2025-07-01T00:00:00Z' },
+  ], createdAt: '2025-05-20T00:00:00Z', updatedAt: '2026-05-20T00:00:00Z' },
+  { id: 5, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-Q4R5-S6T7-U8V9-W0X1', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxRegulators: 10, maxControls: 100, maxReturns: 50, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'revoked', activatedAt: '2025-01-01T00:00:00Z', expiresAt: '2026-01-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-01-08T00:00:00Z', issuedBy: 'Ada', notes: 'Replaced by new license', deviceCount: 0, devices: [], createdAt: '2025-01-01T00:00:00Z', updatedAt: '2026-01-15T00:00:00Z' },
+];
+
 function demoRequest(path, options = {}) {
   if (authToken !== DEMO_TOKEN) return null;
 
@@ -98,6 +115,7 @@ function demoRequest(path, options = {}) {
   if (path.startsWith('/admin/jobs/stats')) {
     return { OCR_QUEUE: 12, AWAITING_CLASSIFY: 8, CLASSIFIED: 145, FAILED_STUCK: 3 };
   }
+  if (path.endsWith('/pdf')) return 'https://placeholder-atheris-pdf.s3.af-south-1.amazonaws.com/sample.pdf';
   if (path.startsWith('/admin/jobs')) {
     return {
       content: [
@@ -154,15 +172,27 @@ function demoRequest(path, options = {}) {
   }
   if (path.startsWith('/platform/tenants')) {
     return [
-      { id: 1, legalName: 'First Bank of Nigeria Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-01-15T00:00:00Z' },
-      { id: 2, legalName: 'Zenith Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-02-01T00:00:00Z' },
-      { id: 3, legalName: 'Access Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-03-10T00:00:00Z' },
-      { id: 4, legalName: 'Leadway Assurance Company Ltd', licenceType: 'Insurance', isActive: true, webhookEnabled: false, onboardedAt: '2025-04-05T00:00:00Z' },
-      { id: 5, legalName: 'MTN Nigeria Communications Plc', licenceType: 'Telecommunications', isActive: true, webhookEnabled: true, onboardedAt: '2025-05-20T00:00:00Z' },
+      { tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-01-15T00:00:00Z' },
+      { tenantId: 2, legalName: 'Zenith Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-02-01T00:00:00Z' },
+      { tenantId: 3, legalName: 'Access Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-03-10T00:00:00Z' },
+      { tenantId: 4, legalName: 'Leadway Assurance Company Ltd', licenceType: 'Insurance', isActive: true, webhookEnabled: false, onboardedAt: '2025-04-05T00:00:00Z' },
+      { tenantId: 5, legalName: 'MTN Nigeria Communications Plc', licenceType: 'Telecommunications', isActive: true, webhookEnabled: true, onboardedAt: '2025-05-20T00:00:00Z' },
     ];
   }
   if (path.startsWith('/platform/instruments')) {
     return { content: DEMI_OBLIGATIONS, totalElements: DEMI_OBLIGATIONS.length, totalPages: 1, size: 50, number: 0 };
+  }
+  if (path.startsWith('/admin/licenses')) {
+    if (path.endsWith('/stats')) return { active: 5, expired: 1, revoked: 1, total: 7 };
+    const idMatch = path.match(/\/admin\/licenses\/(\d+)$/);
+    if (idMatch) {
+      const id = parseInt(idMatch[1]);
+      return DEMO_LICENSES.find(l => l.id === id) || DEMO_LICENSES[0];
+    }
+    if (path.includes('/renew') || path.includes('/revoke') || options.method === 'POST' || options.method === 'PUT' || options.method === 'DELETE') {
+      return { message: 'ok' };
+    }
+    return DEMO_LICENSES;
   }
   return null;
 }
@@ -182,6 +212,12 @@ async function request(path, options = {}) {
   }
 
   if (res.status === 204) return null;
+
+  if (res.status === 402 && path !== '/license/activate' && path !== '/auth/login') {
+    sessionStorage.setItem('atheris_license_required', '1');
+    window.location.href = '/activate-license';
+    throw new Error('License required');
+  }
 
   if ((res.status === 401 || res.status === 403) && path !== '/auth/login' && path !== '/auth/refresh') {
     if (authRefreshToken) {
@@ -315,8 +351,34 @@ export const api = {
       },
       skip: (id) => request(`/admin/pending-downloads/${id}/skip`, { method: 'POST' }),
       stats: () => request('/admin/pending-downloads/stats'),
-    }
-  }
+    },
+    licenses: {
+      list: (params = '') => request(`/admin/licenses${params ? '?' + params : ''}`),
+      get: (id) => request(`/admin/licenses/${id}`),
+      create: (data) => request('/admin/licenses', { method: 'POST', body: JSON.stringify(data) }),
+      update: (id, data) => request(`/admin/licenses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      revoke: (id) => request(`/admin/licenses/${id}/revoke`, { method: 'POST' }),
+      renew: (id, expiresAt, gracePeriodDays) => {
+        return request(`/admin/licenses/${id}/renew`, { method: 'POST', body: JSON.stringify({ expiresAt, gracePeriodDays }) });
+      },
+      validate: (data) => request('/admin/licenses/validate', { method: 'POST', body: JSON.stringify(data) }),
+      removeDevice: (licenseId, deviceId) => request(`/admin/licenses/${licenseId}/devices/${deviceId}`, { method: 'DELETE' }),
+      stats: () => request('/admin/licenses/stats'),
+    },
+    recommendations: {
+      list: (licenceType) => request(`/recommendations${licenceType ? '?licenceType=' + licenceType : ''}`),
+      create: (data) => request('/recommendations', { method: 'POST', body: JSON.stringify(data) }),
+      update: (id, data) => request(`/recommendations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
+    },
+  },
+  license: {
+    activate: (data) => request('/license/activate', { method: 'POST', body: JSON.stringify(data) }),
+    status: () => request('/license/status'),
+    checkup: () => request('/license/checkup', { method: 'POST' }),
+    deactivate: () => request('/license/deactivate', { method: 'POST' }),
+    audit: () => request('/license/audit'),
+  },
 };
 
 export default api;

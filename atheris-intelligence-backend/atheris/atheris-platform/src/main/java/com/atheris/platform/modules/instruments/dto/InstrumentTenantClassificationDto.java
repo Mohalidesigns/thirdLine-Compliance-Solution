@@ -17,7 +17,7 @@ public class InstrumentTenantClassificationDto {
 
     @Data @Builder
     public static class TenantClassification {
-        private String tenantId;
+        private Long tenantId;
         private String legalName;
         private String shortName;
         private String licenceType;

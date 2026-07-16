@@ -51,10 +51,16 @@ public class AuthService {
         if (!req.getPassword().equals(req.getConfirmPassword()))
             throw new RuntimeException("Passwords do not match");
         validatePw(req.getPassword());
-        users.setPassword(t.getUserId(), passwordEncoder.encode(req.getPassword()), Instant.now());
-        inviteTokens.markUsed(t.getTokenId());
-        return issueTokens(users.findById(t.getUserId()).orElseThrow(),
-            req.getDeviceName(), req.getIpAddress());
+        User u = users.findById(t.getUserId()).orElseThrow();
+        u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        u.setPasswordChangedAt(Instant.now());
+        u.setInviteStatus("active");
+        u.setEmailVerified(true);
+        users.save(u);
+        t.setIsUsed(true);
+        t.setUsedAt(Instant.now());
+        inviteTokens.save(t);
+        return issueTokens(u, req.getDeviceName(), req.getIpAddress());
     }
 
     @Transactional
@@ -67,14 +73,18 @@ public class AuthService {
         if (u.getLockedUntil() != null && Instant.now().isBefore(u.getLockedUntil()))
             throw new RuntimeException("Account locked");
         if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
-            if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED)
-                users.lockAccount(u.getUserId(), Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
-            else
+            if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
+                u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
+                users.save(u);
+            } else
                 users.incrementFailedAttempts(u.getUserId());
             throw new RuntimeException("Invalid email or password");
         }
-        users.resetFailedAttempts(u.getUserId());
-        users.updateLastLogin(u.getUserId(), Instant.now(), req.getIpAddress());
+        u.setFailedLoginAttempts(0);
+        u.setLockedUntil(null);
+        u.setLastLoginAt(Instant.now());
+        u.setLastLoginIp(req.getIpAddress());
+        users.save(u);
         return issueTokens(u, req.getDeviceName(), req.getIpAddress());
     }
 
@@ -85,14 +95,21 @@ public class AuthService {
         if (t.getIsRevoked()) throw new RuntimeException("Token revoked");
         if (Instant.now().isAfter(t.getExpiresAt())) throw new RuntimeException("Token expired");
         User u = users.findById(t.getUserId()).orElseThrow();
-        refreshTokens.revoke(t.getTokenId(), "rotated", Instant.now());
+        t.setIsRevoked(true);
+        t.setRevokedAt(Instant.now());
+        t.setRevokedReason("rotated");
+        refreshTokens.save(t);
         return issueTokens(u, t.getDeviceName(), t.getIpAddress());
     }
 
     @Transactional
     public void logout(String raw) {
-        refreshTokens.findByTokenHash(sha256(raw))
-            .ifPresent(t -> refreshTokens.revoke(t.getTokenId(), "logout", Instant.now()));
+        refreshTokens.findByTokenHash(sha256(raw)).ifPresent(t -> {
+            t.setIsRevoked(true);
+            t.setRevokedAt(Instant.now());
+            t.setRevokedReason("logout");
+            refreshTokens.save(t);
+        });
     }
 
     @Transactional
@@ -118,9 +135,19 @@ public class AuthService {
         if (!req.getNewPassword().equals(req.getConfirmPassword()))
             throw new RuntimeException("Passwords do not match");
         validatePw(req.getNewPassword());
-        users.setPassword(t.getUserId(), passwordEncoder.encode(req.getNewPassword()), Instant.now());
-        refreshTokens.revokeAllForUser(t.getUserId(), "password_reset", Instant.now());
-        inviteTokens.markUsed(t.getTokenId());
+        User u = users.findById(t.getUserId()).orElseThrow();
+        u.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        u.setPasswordChangedAt(Instant.now());
+        users.save(u);
+        refreshTokens.findByUserIdAndIsRevokedFalse(t.getUserId()).forEach(rt -> {
+            rt.setIsRevoked(true);
+            rt.setRevokedAt(Instant.now());
+            rt.setRevokedReason("password_reset");
+            refreshTokens.save(rt);
+        });
+        t.setIsUsed(true);
+        t.setUsedAt(Instant.now());
+        inviteTokens.save(t);
     }
 
     private AuthTokens issueTokens(User u, String device, String ip) {
@@ -129,6 +156,7 @@ public class AuthService {
         refreshTokens.save(RefreshToken.builder()
             .userId(u.getUserId()).tokenHash(sha256(raw))
             .deviceName(device).ipAddress(ip)
+            .isRevoked(false)
             .expiresAt(Instant.now().plus(REFRESH_DAYS, ChronoUnit.DAYS))
             .build());
         return AuthTokens.builder()

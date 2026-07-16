@@ -25,13 +25,13 @@ public class ApplicabilityService {
      * 5. Per-regulator override is not disabled (checked tenant-side)
      * 6. Applicability confidence is sufficient (>0 means route it)
      */
-    public List<String> evaluate(Long instrumentId) {
+    public List<Long> evaluate(Long instrumentId) {
         Instrument instrument = instruments.findById(instrumentId)
             .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
 
         List<Tenant> allActive = tenants.findByIsActiveTrue();
 
-        List<String> matched = allActive.stream()
+        List<Long> matched = allActive.stream()
             .filter(t -> shouldDeliver(instrument, t))
             .map(Tenant::getTenantId)
             .toList();

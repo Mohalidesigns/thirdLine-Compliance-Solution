@@ -12,7 +12,6 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import api from '../../../services/api';
 
 const stageColors = {
   completed: { bg: '#E6F4EA', color: '#2D7D46' },

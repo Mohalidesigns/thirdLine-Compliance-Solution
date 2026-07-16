@@ -7,7 +7,7 @@ import java.time.Instant;
 @Data @Builder
 public class ClassifyResponse {
     private Long instrumentId;
-    private String tenantId;
+    private Long tenantId;
     private String applicability;          // What was decided
     private Instant classifiedAt;
     private Boolean watchCreated;          // true = tenant will now receive change notifications

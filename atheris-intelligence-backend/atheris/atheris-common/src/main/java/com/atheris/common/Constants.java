@@ -123,6 +123,24 @@ public final class Constants {
     public static final String CHANGE_TYPE_SUPERSEDED = "superseded";
     public static final String CHANGE_TYPE_APPLICABILITY_CLARIFIED = "applicability_clarified";
 
+    // ── License Statuses ──
+    public static final String LICENSE_INACTIVE = "inactive";
+    public static final String LICENSE_ACTIVE = "active";
+    public static final String LICENSE_EXPIRED = "expired";
+    public static final String LICENSE_REVOKED = "revoked";
+    public static final String LICENSE_GRACE_PERIOD = "grace_period";
+    public static final String LICENSE_SUSPENDED = "suspended";
+    public static final String LICENSE_KEY_PREFIX = "ATH-";
+
+    // ── License Events ──
+    public static final String LICENSE_EVENT_ACTIVATED = "activated";
+    public static final String LICENSE_EVENT_VALIDATED = "validated";
+    public static final String LICENSE_EVENT_CHECKUP = "checkup";
+    public static final String LICENSE_EVENT_EXPIRED = "expired";
+    public static final String LICENSE_EVENT_REVOKED = "revoked";
+    public static final String LICENSE_EVENT_DEVICE_REGISTERED = "device_registered";
+    public static final String LICENSE_EVENT_DEVICE_REJECTED = "device_rejected";
+
     // ── Email ──
     public static final String EMAIL_FROM = "noreply@atheris.com";
     public static final String EMAIL_BASE_URL = "https://app.atheris.com";

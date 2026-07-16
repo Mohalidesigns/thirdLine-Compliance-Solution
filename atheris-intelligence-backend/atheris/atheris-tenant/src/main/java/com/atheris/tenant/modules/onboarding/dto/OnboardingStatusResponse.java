@@ -4,15 +4,17 @@ import lombok.Builder;
 import lombok.Data;
 import java.util.List;
 
-@Data
-@Builder
+@Data @Builder
 public class OnboardingStatusResponse {
     private Boolean onboardingCompleted;
     private Integer currentStep;
     private Integer nextStep;
     private String legalName;
     private String licenceType;
-    private List<String> subscribedRegulators;
+    private Boolean intelligenceEnabled;
+    private String licenseStatus;
+    private String authType;
+    private List<Integer> subscribedRegulators;
     private List<String> subscribedDocumentTypes;
-    private List<String> recommendedRegulators;
+    private List<Integer> recommendedRegulators;
 }

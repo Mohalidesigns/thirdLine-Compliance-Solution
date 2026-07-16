@@ -1,6 +1,7 @@
 package com.atheris.tenant.config;
 
 import com.atheris.tenant.modules.auth.filter.JwtAuthFilter;
+import com.atheris.tenant.modules.license.filter.LicenseFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final LicenseFilter licenseFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -28,9 +30,16 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/api/v1/webhooks/receive", "/actuator/health").permitAll()
+                .requestMatchers(
+                    "/api/v1/auth/**",
+                    "/api/v1/webhooks/receive",
+                    "/api/v1/license/activate",
+                    "/api/v1/license/status",
+                    "/actuator/health"
+                ).permitAll()
                 .anyRequest().authenticated())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(licenseFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

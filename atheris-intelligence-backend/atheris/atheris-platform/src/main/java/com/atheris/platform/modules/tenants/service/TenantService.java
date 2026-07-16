@@ -3,6 +3,7 @@ package com.atheris.platform.modules.tenants.service;
 import com.atheris.common.Constants;
 import com.atheris.platform.modules.tenants.dto.*;
 import com.atheris.platform.modules.tenants.entity.Tenant;
+import com.atheris.platform.modules.tenants.mapper.TenantMapper;
 import com.atheris.platform.modules.tenants.repository.TenantRepository;
 import com.atheris.platform.modules.webhooks.service.WebhookService;
 import lombok.RequiredArgsConstructor;
@@ -18,24 +19,23 @@ public class TenantService {
 
     private final TenantRepository repo;
     private final WebhookService webhooks;
+    private final TenantMapper mapper;
 
     public List<TenantDto> findAll() {
-        return repo.findAll().stream().map(this::toDto).toList();
+        return repo.findAll().stream().map(mapper::toDto).toList();
     }
 
-    public TenantDto findById(String id) {
-        return toDto(repo.findById(id)
+    public TenantDto findById(Long id) {
+        return mapper.toDto(repo.findById(id)
             .orElseThrow(() -> new RuntimeException("Tenant not found: " + id)));
     }
 
     @Transactional
     public CreateTenantResponse create(CreateTenantRequest req, Integer createdBy) {
-        String tenantId = UUID.randomUUID().toString();
         String webhookSecret = generateSecret(Constants.WEBHOOK_SECRET_PREFIX);
         String apiKey = generateSecret(Constants.API_KEY_PREFIX);
 
         Tenant t = Tenant.builder()
-            .tenantId(tenantId)
             .legalName(req.getLegalName())
             .shortName(req.getShortName())
             .licenceType(req.getLicenceType())
@@ -59,10 +59,10 @@ public class TenantService {
             .build();
 
         repo.save(t);
-        log.info("Tenant {} ({}) onboarded.", req.getLegalName(), tenantId);
+        log.info("Tenant {} ({}) onboarded.", req.getLegalName(), t.getTenantId());
 
         return CreateTenantResponse.builder()
-            .tenantId(tenantId)
+            .tenantId(t.getTenantId())
             .webhookSecret(webhookSecret)  // Shown ONCE only
             .apiKey(apiKey)
             .message("Tenant created. Test your webhook before going live.")
@@ -70,24 +70,15 @@ public class TenantService {
     }
 
     @Transactional
-    public TenantDto update(String id, UpdateTenantRequest req) {
+    public TenantDto update(Long id, UpdateTenantRequest req) {
         Tenant t = repo.findById(id)
             .orElseThrow(() -> new RuntimeException("Tenant not found: " + id));
-        if (req.getLegalName() != null) t.setLegalName(req.getLegalName());
-        if (req.getWebhookUrl() != null) t.setWebhookUrl(req.getWebhookUrl());
-        if (req.getCcoEmail() != null) t.setCcoEmail(req.getCcoEmail());
-        if (req.getTechEmail() != null) t.setTechEmail(req.getTechEmail());
-        if (req.getRegulators() != null) t.setRegulators(req.getRegulators());
-        if (req.getProductLines() != null) t.setProductLines(req.getProductLines());
-        if (req.getSubscribedDocumentTypes() != null)
-            t.setSubscribedDocumentTypes(req.getSubscribedDocumentTypes());
-        if (req.getNotificationFrequency() != null)
-            t.setNotificationFrequency(req.getNotificationFrequency());
-        return toDto(repo.save(t));
+        mapper.updateFromRequest(req, t);
+        return mapper.toDto(repo.save(t));
     }
 
     @Transactional
-    public String rotateWebhookSecret(String id) {
+    public String rotateWebhookSecret(Long id) {
         Tenant t = repo.findById(id)
             .orElseThrow(() -> new RuntimeException("Tenant not found: " + id));
         String newSecret = generateSecret(Constants.WEBHOOK_SECRET_PREFIX);
@@ -97,7 +88,7 @@ public class TenantService {
     }
 
     @Transactional
-    public void deactivate(String id) {
+    public void deactivate(Long id) {
         repo.findById(id).ifPresent(t -> {
             t.setIsActive(false);
             repo.save(t);
@@ -105,7 +96,7 @@ public class TenantService {
         });
     }
 
-    public WebhookTestResult testWebhook(String tenantId) {
+    public WebhookTestResult testWebhook(Long tenantId) {
         Tenant t = repo.findById(tenantId)
             .orElseThrow(() -> new RuntimeException("Tenant not found"));
         if (t.getWebhookUrl() == null)
@@ -133,23 +124,4 @@ public class TenantService {
         return prefix + HexFormat.of().formatHex(bytes);
     }
 
-    private TenantDto toDto(Tenant t) {
-        return TenantDto.builder()
-            .tenantId(t.getTenantId())
-            .legalName(t.getLegalName())
-            .shortName(t.getShortName())
-            .licenceType(t.getLicenceType())
-            .licenceNumber(t.getLicenceNumber())
-            .regulators(t.getRegulators())
-            .productLines(t.getProductLines())
-            .subscribedDocumentTypes(t.getSubscribedDocumentTypes())
-            .notificationFrequency(t.getNotificationFrequency())
-            .ccoEmail(t.getCcoEmail())
-            .webhookUrl(t.getWebhookUrl())
-            .webhookEnabled(t.getWebhookEnabled())
-            .subscriptionTier(t.getSubscriptionTier())
-            .isActive(t.getIsActive())
-            .onboardedAt(t.getOnboardedAt())
-            .build();
-    }
 }

@@ -23,6 +23,7 @@ const RegulatorDetailPage = lazy(() => import('../features/admin/components/Regu
 const JobQueuePage = lazy(() => import('../features/admin/components/JobQueuePage'));
 const JobDetailPage = lazy(() => import('../features/admin/components/JobDetailPage'));
 const InstrumentTenantDetailPage = lazy(() => import('../features/admin/components/InstrumentTenantDetailPage'));
+const LicenseAdminPage = lazy(() => import('../features/admin/components/LicenseAdminPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -57,6 +58,7 @@ export default function AppRoutes() {
           <Route path="settings/api" element={<ApiSettingsPage />} />
           <Route path="settings/compliance" element={<ComplianceSettingsPage />} />
           
+          <Route path="admin/licenses" element={<LicenseAdminPage />} />
           <Route path="admin/tenants" element={<TenantAdminPage />} />
           <Route path="admin/tenants/:id" element={<TenantDetailPage />} />
           <Route path="admin/regulators" element={<RegulatorAdminPage />} />

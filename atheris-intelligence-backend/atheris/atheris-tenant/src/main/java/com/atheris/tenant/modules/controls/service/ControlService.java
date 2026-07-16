@@ -27,11 +27,11 @@ public class ControlService {
     }
 
     public List<ControlDto> findByOwner(Integer uid) {
-        return repo.findActiveByOwner(uid).stream().map(this::toDto).toList();
+        return repo.findByControlOwnerUserIdAndStatus(uid, "Active").stream().map(this::toDto).toList();
     }
 
     public List<ControlDto> findHighRisk() {
-        return repo.findHighResidualRisk().stream().map(this::toDto).toList();
+        return repo.findByResidualRisk("High").stream().map(this::toDto).toList();
     }
 
     public ControlDto findById(Integer id) {

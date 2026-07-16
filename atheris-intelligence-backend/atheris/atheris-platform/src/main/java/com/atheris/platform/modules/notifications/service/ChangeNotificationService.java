@@ -65,7 +65,7 @@ public class ChangeNotificationService {
      * Create or update a watch when a tenant classifies an obligation.
      */
     @Transactional
-    public ObligationWatch upsertWatch(Long instrumentId, String tenantId,
+    public ObligationWatch upsertWatch(Long instrumentId, Long tenantId,
                                         String classification, Integer userId) {
         ObligationWatch watch = watches
             .findByInstrumentIdAndTenantId(instrumentId, tenantId)
@@ -84,7 +84,7 @@ public class ChangeNotificationService {
      * Stop watching an obligation.
      */
     @Transactional
-    public void removeWatch(Long instrumentId, String tenantId) {
+    public void removeWatch(Long instrumentId, Long tenantId) {
         watches.findByInstrumentIdAndTenantId(instrumentId, tenantId)
             .ifPresent(w -> { w.setIsWatching(false); watches.save(w); });
     }

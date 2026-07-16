@@ -62,14 +62,28 @@ public class UserService {
             throw new RuntimeException("Current password incorrect");
         if (!req.getNewPassword().equals(req.getConfirmPassword()))
             throw new RuntimeException("Passwords do not match");
-        users.setPassword(userId, passwordEncoder.encode(req.getNewPassword()), Instant.now());
-        refreshTokens.revokeAllForUser(userId, "password_change", Instant.now());
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setPasswordChangedAt(Instant.now());
+        users.save(user);
+        refreshTokens.findByUserIdAndIsRevokedFalse(userId).forEach(rt -> {
+            rt.setIsRevoked(true);
+            rt.setRevokedAt(Instant.now());
+            rt.setRevokedReason("password_change");
+            refreshTokens.save(rt);
+        });
     }
 
     @Transactional
     public void deactivate(Integer userId) {
-        users.deactivate(userId);
-        refreshTokens.revokeAllForUser(userId, "admin_deactivate", Instant.now());
+        User user = users.findById(userId).orElseThrow();
+        user.setIsActive(false);
+        users.save(user);
+        refreshTokens.findByUserIdAndIsRevokedFalse(userId).forEach(rt -> {
+            rt.setIsRevoked(true);
+            rt.setRevokedAt(Instant.now());
+            rt.setRevokedReason("admin_deactivate");
+            refreshTokens.save(rt);
+        });
     }
 
     @Transactional

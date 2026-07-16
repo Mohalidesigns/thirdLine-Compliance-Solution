@@ -14,7 +14,7 @@ import java.util.Optional;
 @Repository
 public interface WebhookDeliveryLogRepository extends JpaRepository<WebhookDeliveryLog, Long> {
     Optional<WebhookDeliveryLog> findByWebhookId(String webhookId);
-    List<WebhookDeliveryLog> findByTenantIdOrderByCreatedAtDesc(String tenantId);
+    List<WebhookDeliveryLog> findByTenantIdOrderByCreatedAtDesc(Long tenantId);
 
     @Query("SELECT w FROM WebhookDeliveryLog w WHERE w.status='failed' AND w.attemptCount < w.maxAttempts AND w.nextRetryAt < :now ORDER BY w.nextRetryAt ASC")
     List<WebhookDeliveryLog> findDueForRetry(@Param("now") Instant now);

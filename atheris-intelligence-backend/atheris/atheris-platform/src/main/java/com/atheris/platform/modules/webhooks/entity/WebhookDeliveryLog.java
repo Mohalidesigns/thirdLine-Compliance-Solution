@@ -14,7 +14,7 @@ public class WebhookDeliveryLog {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long deliveryId;
     @Column(unique = true) private String webhookId;
-    private String tenantId;
+    private Long tenantId;
     private Long instrumentId;
     private String webhookType;
     private String status = Constants.STATUS_PENDING;

@@ -13,6 +13,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.atheris.common.Constants;
+import com.atheris.platform.modules.auth.entity.UserPrincipal;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -43,10 +44,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
                 .build().parseClaimsJws(token).getBody();
 
-            String userId = claims.getSubject();
+            Long userId = Long.valueOf(claims.getSubject());
             String role = claims.get(Constants.JWT_CLAIM_ROLE, String.class);
+            Long tenantId = claims.get("tenantId", Long.class);
 
-            var auth = new UsernamePasswordAuthenticationToken(userId, null,
+            var auth = new UsernamePasswordAuthenticationToken(
+                new UserPrincipal(userId, tenantId), null,
                 List.of(new SimpleGrantedAuthority(Constants.ROLE_PREFIX + role)));
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
             SecurityContextHolder.getContext().setAuthentication(auth);

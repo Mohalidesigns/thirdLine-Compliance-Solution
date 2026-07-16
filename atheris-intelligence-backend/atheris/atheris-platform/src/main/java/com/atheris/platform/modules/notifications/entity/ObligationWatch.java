@@ -11,7 +11,7 @@ public class ObligationWatch {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long watchId;
     @Column(nullable = false) private Long instrumentId;
-    @Column(nullable = false) private String tenantId;
+    @Column(nullable = false) private Long tenantId;
     private String classification;   // applicable | not_applicable | under_review
     private Instant classifiedAt;
     private Integer classifiedByUserId;

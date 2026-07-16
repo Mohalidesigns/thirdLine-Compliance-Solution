@@ -39,7 +39,7 @@ public class ObligationBrowserService {
             .map(i -> toSummaryDto(i, req.getTenantId()));
     }
 
-    public ObligationDetailDto findById(Long id, String tenantId) {
+    public ObligationDetailDto findById(Long id, Long tenantId) {
         Instrument inst = instruments.findById(id)
             .orElseThrow(() -> new RuntimeException("Obligation not found: " + id));
         return toDetailDto(inst, tenantId);
@@ -57,7 +57,7 @@ public class ObligationBrowserService {
         return storage.openReadStream(inst.getPdfUrl());
     }
 
-    public Object getClassification(Long instrumentId, String tenantId) {
+    public Object getClassification(Long instrumentId, Long tenantId) {
         return watches.findByInstrumentIdAndTenantId(instrumentId, tenantId)
             .map(w -> Map.of(
                 "instrument_id", instrumentId,
@@ -69,7 +69,7 @@ public class ObligationBrowserService {
             .orElse(Map.of("applicability", Constants.CLASS_UNCLASSIFIED));
     }
 
-    public Object updateWatchPreferences(Long instrumentId, String tenantId, WatchPreferencesRequest req) {
+    public Object updateWatchPreferences(Long instrumentId, Long tenantId, WatchPreferencesRequest req) {
         ObligationWatch watch = watches.findByInstrumentIdAndTenantId(instrumentId, tenantId)
             .orElseThrow(() -> new RuntimeException("No watch found for this obligation"));
         if (req.getNotifyEmail() != null) watch.setNotifyEmail(req.getNotifyEmail());
@@ -87,7 +87,7 @@ public class ObligationBrowserService {
         throw new UnsupportedOperationException("Export not yet implemented");
     }
 
-    public Page<ObligationSummaryDto> getInbox(String tenantId, String status, Pageable pageable) {
+    public Page<ObligationSummaryDto> getInbox(Long tenantId, String status, Pageable pageable) {
         // Received obligations not yet classified by this tenant
         return instruments.findByStatus("Published", pageable)
             .map(i -> {
@@ -102,7 +102,7 @@ public class ObligationBrowserService {
     }
 
     @Transactional
-    public ClassifyResponse classify(Long instrumentId, String tenantId,
+    public ClassifyResponse classify(Long instrumentId, Long tenantId,
                                       ClassifyRequest req, Integer userId) {
         // Validate instrument exists
         instruments.findById(instrumentId)
@@ -128,11 +128,11 @@ public class ObligationBrowserService {
     }
 
     @Transactional
-    public void removeClassification(Long instrumentId, String tenantId) {
+    public void removeClassification(Long instrumentId, Long tenantId) {
         notificationService.removeWatch(instrumentId, tenantId);
     }
 
-    public List<ObligationSummaryDto> getWatched(String tenantId) {
+    public List<ObligationSummaryDto> getWatched(Long tenantId) {
         return watches.findByTenantIdAndIsWatchingTrue(tenantId).stream()
             .map(w -> instruments.findById(w.getInstrumentId())
                 .map(i -> toSummaryDto(i, tenantId))
@@ -141,7 +141,7 @@ public class ObligationBrowserService {
             .toList();
     }
 
-    private ObligationSummaryDto toSummaryDto(Instrument i, String tenantId) {
+    private ObligationSummaryDto toSummaryDto(Instrument i, Long tenantId) {
         String classification = tenantId != null
             ? watches.findByInstrumentIdAndTenantId(i.getInstrumentId(), tenantId)
                 .map(ObligationWatch::getClassification).orElse(Constants.CLASS_UNCLASSIFIED)
@@ -167,7 +167,7 @@ public class ObligationBrowserService {
             .build();
     }
 
-    private ObligationDetailDto toDetailDto(Instrument i, String tenantId) {
+    private ObligationDetailDto toDetailDto(Instrument i, Long tenantId) {
         String classification = tenantId != null
             ? watches.findByInstrumentIdAndTenantId(i.getInstrumentId(), tenantId)
                 .map(ObligationWatch::getClassification).orElse(Constants.CLASS_UNCLASSIFIED)

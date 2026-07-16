@@ -7,12 +7,13 @@ import java.util.List;
 
 @Data @Builder
 public class TenantDto {
-    private String tenantId;
+    private Long tenantId;
     private String legalName;
     private String shortName;
     private String licenceType;
     private String licenceNumber;
-    private List<String> regulators;
+    private List<Integer> regulators;
+    private List<String> regulatorAbbreviations;
     private List<String> productLines;
     private List<String> subscribedDocumentTypes;
     private String notificationFrequency;

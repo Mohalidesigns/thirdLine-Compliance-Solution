@@ -1,5 +1,6 @@
 package com.atheris.platform.modules.browser.controller;
 
+import com.atheris.platform.modules.auth.entity.UserPrincipal;
 import com.atheris.platform.modules.browser.dto.*;
 import com.atheris.platform.modules.browser.service.ObligationBrowserService;
 import jakarta.validation.Valid;
@@ -26,17 +27,17 @@ public class ObligationBrowserController {
     @GetMapping("/obligations")
     public ResponseEntity<Page<ObligationSummaryDto>> search(
             ObligationSearchRequest req,
-            @AuthenticationPrincipal String tenantId,
+            @AuthenticationPrincipal UserPrincipal principal,
             Pageable pageable) {
-        req.setTenantId(tenantId);
+        req.setTenantId(principal.getTenantId());
         return ResponseEntity.ok(service.search(req, pageable));
     }
 
     @GetMapping("/obligations/{id}")
     public ResponseEntity<ObligationDetailDto> getOne(
             @PathVariable Long id,
-            @AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.findById(id, tenantId));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.findById(id, principal.getTenantId()));
     }
 
     @GetMapping("/obligations/{id}/pdf")
@@ -53,11 +54,11 @@ public class ObligationBrowserController {
 
     @GetMapping("/inbox")
     public ResponseEntity<Page<ObligationSummaryDto>> getInbox(
-            @AuthenticationPrincipal String tenantId,
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) String status,
             // status: unclassified | applicable | not_applicable | under_review
             Pageable pageable) {
-        return ResponseEntity.ok(service.getInbox(tenantId, status, pageable));
+        return ResponseEntity.ok(service.getInbox(principal.getTenantId(), status, pageable));
     }
 
     // ── Classification (Mark applicable / not applicable) ───────────
@@ -66,37 +67,37 @@ public class ObligationBrowserController {
     public ResponseEntity<ClassifyResponse> classify(
             @PathVariable Long id,
             @Valid @RequestBody ClassifyRequest req,
-            @AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.classify(id, tenantId, req, null));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.classify(id, principal.getTenantId(), req, null));
     }
 
     @PutMapping("/obligations/{id}/classify")
     public ResponseEntity<ClassifyResponse> updateClassification(
             @PathVariable Long id,
             @Valid @RequestBody ClassifyRequest req,
-            @AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.classify(id, tenantId, req, null));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.classify(id, principal.getTenantId(), req, null));
     }
 
     @GetMapping("/obligations/{id}/classification")
     public ResponseEntity<?> getClassification(
             @PathVariable Long id,
-            @AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.getClassification(id, tenantId));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.getClassification(id, principal.getTenantId()));
     }
 
     // ── Watch Management ────────────────────────────────────────────
 
     @GetMapping("/watches")
-    public ResponseEntity<?> getWatched(@AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.getWatched(tenantId));
+    public ResponseEntity<?> getWatched(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.getWatched(principal.getTenantId()));
     }
 
     @DeleteMapping("/watches/{instrumentId}")
     public ResponseEntity<Void> removeWatch(
             @PathVariable Long instrumentId,
-            @AuthenticationPrincipal String tenantId) {
-        service.removeClassification(instrumentId, tenantId);
+            @AuthenticationPrincipal UserPrincipal principal) {
+        service.removeClassification(instrumentId, principal.getTenantId());
         return ResponseEntity.noContent().build();
     }
 
@@ -104,8 +105,8 @@ public class ObligationBrowserController {
     public ResponseEntity<?> updateWatchPreferences(
             @PathVariable Long instrumentId,
             @RequestBody WatchPreferencesRequest req,
-            @AuthenticationPrincipal String tenantId) {
-        return ResponseEntity.ok(service.updateWatchPreferences(instrumentId, tenantId, req));
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(service.updateWatchPreferences(instrumentId, principal.getTenantId(), req));
     }
 
     // ── Export ──────────────────────────────────────────────────────
@@ -114,8 +115,8 @@ public class ObligationBrowserController {
     public ResponseEntity<?> export(
             ObligationSearchRequest req,
             @RequestParam(defaultValue = "csv") String format,
-            @AuthenticationPrincipal String tenantId) {
-        req.setTenantId(tenantId);
+            @AuthenticationPrincipal UserPrincipal principal) {
+        req.setTenantId(principal.getTenantId());
         // format: csv | xlsx
         // Returns file download
         return ResponseEntity.ok(service.export(req, format));

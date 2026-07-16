@@ -1,10 +1,11 @@
 CREATE TABLE IF NOT EXISTS tenants (
-    tenant_id              VARCHAR(36) PRIMARY KEY,
+    tenant_id              BIGSERIAL PRIMARY KEY,
     legal_name             VARCHAR(500) NOT NULL,
     short_name             VARCHAR(100),
     licence_type           VARCHAR(100) NOT NULL,
     licence_number         VARCHAR(100),
-    regulators             JSONB,
+    regulators                    JSONB,
+    regulator_abbreviations        JSONB,
     product_lines          JSONB,
     subscribed_document_types JSONB,
     notification_frequency VARCHAR(50) DEFAULT 'immediate',
@@ -27,7 +28,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 CREATE TABLE IF NOT EXISTS webhook_delivery_log (
     delivery_id         BIGSERIAL PRIMARY KEY,
     webhook_id          VARCHAR(100) UNIQUE,
-    tenant_id           VARCHAR(36) REFERENCES tenants(tenant_id),
+    tenant_id           BIGINT NOT NULL REFERENCES tenants(tenant_id),
     instrument_id       BIGINT,
     webhook_type        VARCHAR(100),
     status              VARCHAR(50) DEFAULT 'pending',

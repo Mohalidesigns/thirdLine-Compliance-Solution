@@ -20,8 +20,6 @@ public class TenantRegulatorPreference {
     private Integer preferenceId;
     @Column(nullable = false)
     private Integer regulatorId;
-    @Column(nullable = false)
-    private String regulatorAbbr;
     private Boolean isSubscribed = true;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

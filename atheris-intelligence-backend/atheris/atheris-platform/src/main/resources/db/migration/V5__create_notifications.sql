@@ -15,7 +15,7 @@ CREATE INDEX idx_changes_instrument ON obligation_changes(instrument_id, created
 CREATE TABLE IF NOT EXISTS obligation_watches (
     watch_id               BIGSERIAL   PRIMARY KEY,
     instrument_id          BIGINT      NOT NULL REFERENCES instruments(instrument_id),
-    tenant_id              VARCHAR(36) NOT NULL REFERENCES tenants(tenant_id),
+    tenant_id              BIGINT NOT NULL REFERENCES tenants(tenant_id),
     classification         VARCHAR(50),
     classified_at          TIMESTAMP WITH TIME ZONE,
     classified_by_user_id  INT,

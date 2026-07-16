@@ -22,9 +22,9 @@ public class FindingService {
     private final AuditService audit;
 
     public List<Finding> findAll() { return repo.findAll(); }
-    public List<Finding> findOpen() { return repo.findAllOpen(); }
+    public List<Finding> findOpen() { return repo.findByStatusNotOrderByCreatedAtDesc("Closed"); }
     public List<Finding> findByStatus(String s) { return repo.findByStatus(s); }
-    public List<Finding> findOverdue() { return repo.findOverdueRemediation(LocalDate.now()); }
+    public List<Finding> findOverdue() { return repo.findByStatusInAndRemediationDeadlineBefore(List.of("Open", "In Remediation"), LocalDate.now()); }
     public Finding findById(Long id) {
         return repo.findById(id).orElseThrow(() -> new RuntimeException("Finding not found: " + id));
     }

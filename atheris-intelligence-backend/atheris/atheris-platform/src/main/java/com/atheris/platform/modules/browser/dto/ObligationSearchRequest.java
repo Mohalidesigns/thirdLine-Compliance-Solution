@@ -12,5 +12,5 @@ public class ObligationSearchRequest {
     private String status;              // Published | Triage | Superseded
     private String applicableTo;        // Licence type filter
     private String since;               // ISO date — obligations published after this date
-    private String tenantId;            // Set from JWT — used to show classification status
+    private Long tenantId;            // Set from JWT — used to show classification status
 }

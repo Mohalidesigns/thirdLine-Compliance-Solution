@@ -14,6 +14,7 @@ public class User {
     private String firstName;
     private String lastName;
     @Column(nullable = false) private String role;
+    private Long tenantId;
     private Boolean isActive = true;
     private Instant createdAt;
     private Instant updatedAt;

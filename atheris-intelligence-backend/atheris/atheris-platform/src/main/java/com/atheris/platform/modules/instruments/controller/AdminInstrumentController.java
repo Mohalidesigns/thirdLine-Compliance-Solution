@@ -34,7 +34,7 @@ public class AdminInstrumentController {
             .orElse("Unknown");
 
         List<Tenant> eligible = tenants.findEligibleTenants(
-            regulators.findById(inst.getRegulatorId()).map(r -> r.getAbbreviation()).orElse(""),
+            inst.getRegulatorId(),
             inst.getLicenceTypesApplicable() != null
                 ? inst.getLicenceTypesApplicable().toArray(new String[0])
                 : new String[0]);

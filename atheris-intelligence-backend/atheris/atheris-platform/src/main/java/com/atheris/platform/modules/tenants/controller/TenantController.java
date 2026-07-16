@@ -25,7 +25,7 @@ public class TenantController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TenantDto> getOne(@PathVariable String id) {
+    public ResponseEntity<TenantDto> getOne(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }
 
@@ -37,13 +37,13 @@ public class TenantController {
 
     @PutMapping("/{id}")
     public ResponseEntity<TenantDto> update(
-            @PathVariable String id,
+            @PathVariable Long id,
             @RequestBody UpdateTenantRequest req) {
         return ResponseEntity.ok(service.update(id, req));
     }
 
     @PostMapping("/{id}/rotate-webhook-secret")
-    public ResponseEntity<?> rotateSecret(@PathVariable String id) {
+    public ResponseEntity<?> rotateSecret(@PathVariable Long id) {
         String newSecret = service.rotateWebhookSecret(id);
         return ResponseEntity.ok(java.util.Map.of(
             "webhook_secret", newSecret,
@@ -52,13 +52,13 @@ public class TenantController {
     }
 
     @PostMapping("/{id}/test-webhook")
-    public ResponseEntity<WebhookTestResult> testWebhook(@PathVariable String id) {
+    public ResponseEntity<WebhookTestResult> testWebhook(@PathVariable Long id) {
         return ResponseEntity.ok(service.testWebhook(id));
     }
 
     @GetMapping("/{id}/webhook-history")
     public ResponseEntity<?> webhookHistory(
-            @PathVariable String id,
+            @PathVariable Long id,
             @RequestParam(defaultValue = "100") int limit) {
         return ResponseEntity.ok(
             deliveryLog.findByTenantIdOrderByCreatedAtDesc(id).stream()
@@ -68,13 +68,13 @@ public class TenantController {
 
     @PostMapping("/{id}/webhook-history/{deliveryId}/resend")
     public ResponseEntity<?> resendWebhook(
-            @PathVariable String id,
+            @PathVariable Long id,
             @PathVariable Long deliveryId) {
         return ResponseEntity.ok(java.util.Map.of("message", "Resend queued"));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deactivate(@PathVariable String id) {
+    public ResponseEntity<Void> deactivate(@PathVariable Long id) {
         service.deactivate(id);
         return ResponseEntity.noContent().build();
     }

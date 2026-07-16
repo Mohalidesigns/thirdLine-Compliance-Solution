@@ -104,6 +104,7 @@ public class AuthService {
         return Jwts.builder()
             .subject(user.getUserId().toString())
             .claim(Constants.JWT_CLAIM_ROLE, user.getRole())
+            .claim("tenantId", user.getTenantId())
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + expiryMinutes * 60_000L))
             .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))

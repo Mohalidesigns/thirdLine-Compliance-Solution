@@ -22,7 +22,7 @@ public class SubscriptionService {
     private final AuditService audit;
 
     @Value("${atheris.tenant-id:}")
-    private String tenantId;
+    private Long tenantId;
 
     public Map<String, Object> getSummary() {
         TenantProfile p = getProfile();
@@ -36,11 +36,11 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> updateRegulators(List<String> regulators, Integer userId) {
+    public Map<String, Object> updateRegulators(List<Integer> regulators, Integer userId) {
         TenantProfile p = getProfile();
-        List<String> old = p.getSubscribedRegulators() != null ? p.getSubscribedRegulators() : List.of();
-        List<String> added = regulators.stream().filter(r -> !old.contains(r)).toList();
-        List<String> removed = old.stream().filter(r -> !regulators.contains(r)).toList();
+        List<Integer> old = p.getSubscribedRegulators() != null ? p.getSubscribedRegulators() : List.of();
+        List<Integer> added = regulators.stream().filter(r -> !old.contains(r)).toList();
+        List<Integer> removed = old.stream().filter(r -> !regulators.contains(r)).toList();
         p.setSubscribedRegulators(regulators);
         profiles.save(p);
         audit.log(userId, "subscriptions_updated", "tenant_profile", null, Map.of("added", added, "removed", removed));
@@ -48,52 +48,60 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public Map<String, Object> addRegulator(String abbr, Integer userId) {
+    public Map<String, Object> addRegulator(Integer regulatorId, Integer userId) {
         TenantProfile p = getProfile();
-        List<String> current = new ArrayList<>(p.getSubscribedRegulators() != null ? p.getSubscribedRegulators() : List.of());
-        if (!current.contains(abbr)) {
-            current.add(abbr);
+        List<Integer> current = new ArrayList<>(p.getSubscribedRegulators() != null ? p.getSubscribedRegulators() : List.of());
+        if (!current.contains(regulatorId)) {
+            current.add(regulatorId);
             p.setSubscribedRegulators(current);
             profiles.save(p);
         }
-        if (!regPrefs.existsByRegulatorAbbr(abbr))
-            regPrefs.save(TenantRegulatorPreference.builder().regulatorAbbr(abbr).regulatorId(0).isSubscribed(true).updatedByUserId(userId).build());
+        if (!regPrefs.existsByRegulatorId(regulatorId))
+            regPrefs.save(TenantRegulatorPreference.builder().regulatorId(regulatorId).isSubscribed(true).updatedByUserId(userId).build());
         else
-            regPrefs.setSubscribed(abbr, true);
-        audit.log(userId, "regulator_added", "subscription", null, Map.of("regulator", abbr));
-        return Map.of("regulator_abbr", abbr, "subscribed", true);
+            regPrefs.findByRegulatorId(regulatorId).ifPresent(pref -> {
+                pref.setIsSubscribed(true);
+                pref.setUpdatedByUserId(userId);
+                regPrefs.save(pref);
+            });
+        audit.log(userId, "regulator_added", "subscription", null, Map.of("regulator_id", regulatorId));
+        return Map.of("regulator_id", regulatorId, "subscribed", true);
     }
 
     @Transactional
-    public void removeRegulator(String abbr, Integer userId) {
+    public void removeRegulator(Integer regulatorId, Integer userId) {
         TenantProfile p = getProfile();
         if (p.getSubscribedRegulators() != null) {
-            List<String> updated = new ArrayList<>(p.getSubscribedRegulators());
-            updated.remove(abbr);
+            List<Integer> updated = new ArrayList<>(p.getSubscribedRegulators());
+            updated.remove(regulatorId);
             p.setSubscribedRegulators(updated);
             profiles.save(p);
         }
-        regPrefs.setSubscribed(abbr, false);
-        audit.log(userId, "regulator_removed", "subscription", null, Map.of("regulator", abbr));
+        regPrefs.findByRegulatorId(regulatorId).ifPresent(pref -> {
+            pref.setIsSubscribed(false);
+            pref.setUpdatedByUserId(userId);
+            regPrefs.save(pref);
+        });
+        audit.log(userId, "regulator_removed", "subscription", null, Map.of("regulator_id", regulatorId));
     }
 
     @Transactional
-    public Map<String, Object> updateRegulatorPreferences(String abbr, String freq, List<String> docTypes, Integer userId) {
-        TenantRegulatorPreference pref = regPrefs.findByRegulatorAbbr(abbr)
-            .orElse(TenantRegulatorPreference.builder().regulatorAbbr(abbr).regulatorId(0).isSubscribed(true).build());
+    public Map<String, Object> updateRegulatorPreferences(Integer regulatorId, String freq, List<String> docTypes, Integer userId) {
+        TenantRegulatorPreference pref = regPrefs.findByRegulatorId(regulatorId)
+            .orElse(TenantRegulatorPreference.builder().regulatorId(regulatorId).isSubscribed(true).build());
         if (freq != null) pref.setNotificationFrequencyOverride(freq);
         if (docTypes != null) pref.setDocumentTypesOverride(docTypes);
         pref.setUpdatedByUserId(userId);
         regPrefs.save(pref);
-        audit.log(userId, "regulator_preferences_updated", "subscription", null, Map.of("regulator", abbr));
-        return Map.of("regulator_abbr", abbr,
+        audit.log(userId, "regulator_preferences_updated", "subscription", null, Map.of("regulator_id", regulatorId));
+        return Map.of("regulator_id", regulatorId,
             "notification_frequency_override", freq != null ? freq : "",
             "document_types_override", docTypes != null ? docTypes : List.of());
     }
 
     @Transactional
-    public void resetRegulatorPreferences(String abbr) {
-        regPrefs.findByRegulatorAbbr(abbr).ifPresent(p -> {
+    public void resetRegulatorPreferences(Integer regulatorId) {
+        regPrefs.findByRegulatorId(regulatorId).ifPresent(p -> {
             p.setNotificationFrequencyOverride(null);
             p.setDocumentTypesOverride(null);
             regPrefs.save(p);
