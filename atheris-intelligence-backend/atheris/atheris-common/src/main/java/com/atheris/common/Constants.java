@@ -130,7 +130,11 @@ public final class Constants {
     public static final String LICENSE_REVOKED = "revoked";
     public static final String LICENSE_GRACE_PERIOD = "grace_period";
     public static final String LICENSE_SUSPENDED = "suspended";
+    public static final String LICENSE_NOT_FOUND = "not_found";
+    public static final String LICENSE_VALIDATION_ERROR = "validation_error";
     public static final String LICENSE_KEY_PREFIX = "ATH-";
+    public static final String LICENSE_DEFAULT_TIER = "custom";
+    public static final String LICENSE_NO_LICENSE = "no_license";
 
     // ── License Events ──
     public static final String LICENSE_EVENT_ACTIVATED = "activated";

@@ -11,7 +11,8 @@ import com.atheris.platform.modules.licenses.repository.LicenseDeviceRepository;
 import com.atheris.platform.modules.licenses.repository.LicenseRepository;
 import com.atheris.platform.modules.tenants.entity.Tenant;
 import com.atheris.platform.modules.tenants.repository.TenantRepository;
-import jakarta.persistence.EntityNotFoundException;
+import static com.atheris.common.Constants.*;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class LicenseService {
         License license = License.builder()
             .tenantId(req.getTenantId())
             .licenseKey(key)
-            .tier(req.getTier() != null ? req.getTier() : "custom")
+            .tier(req.getTier() != null ? req.getTier() : LICENSE_DEFAULT_TIER)
             .intelligenceEnabled(req.getIntelligenceEnabled() != null ? req.getIntelligenceEnabled() : true)
             .maxUsers(req.getMaxUsers() != null ? req.getMaxUsers() : 5)
             .maxDevices(req.getMaxDevices() != null ? req.getMaxDevices() : 1)
@@ -55,7 +56,7 @@ public class LicenseService {
             .maxReturns(req.getMaxReturns())
             .maxStorageMb(req.getMaxStorageMb() != null ? req.getMaxStorageMb() : 500)
             .deviceFingerprintEnforced(req.getDeviceFingerprintEnforced() != null ? req.getDeviceFingerprintEnforced() : true)
-            .status("inactive")
+            .status(LICENSE_INACTIVE)
             .expiresAt(req.getExpiresAt())
             .gracePeriodDays(req.getGracePeriodDays() != null ? req.getGracePeriodDays() : 7)
             .notes(req.getNotes())
@@ -114,7 +115,7 @@ public class LicenseService {
     public void revoke(Integer id) {
         License license = licenses.findById(id)
             .orElseThrow(() -> new LicenseNotFoundException(id));
-        license.setStatus("revoked");
+        license.setStatus(LICENSE_REVOKED);
         licenses.save(license);
         log.info("License {} revoked for tenant {}", license.getLicenseKey(), license.getTenantId());
     }
@@ -123,7 +124,7 @@ public class LicenseService {
     public LicenseDto renew(Integer id, Instant newExpiry, Integer newGracePeriodDays) {
         License license = licenses.findById(id)
             .orElseThrow(() -> new LicenseNotFoundException(id));
-        license.setStatus("active");
+        license.setStatus(LICENSE_ACTIVE);
         license.setExpiresAt(newExpiry);
         if (newGracePeriodDays != null) license.setGracePeriodDays(newGracePeriodDays);
         license.setGracePeriodEnd(newExpiry.plus(license.getGracePeriodDays(), ChronoUnit.DAYS));
@@ -138,7 +139,7 @@ public class LicenseService {
         if (opt.isEmpty()) {
             return ValidateLicenseResponse.builder()
                 .valid(false)
-                .status("not_found")
+                .status(LICENSE_NOT_FOUND)
                 .message("License key not found")
                 .build();
         }
@@ -150,40 +151,40 @@ public class LicenseService {
         boolean inGrace = expired && license.getGracePeriodEnd() != null && now.isBefore(license.getGracePeriodEnd());
 
         switch (status) {
-            case "revoked":
-            case "suspended":
+            case LICENSE_REVOKED:
+            case LICENSE_SUSPENDED:
                 return ValidateLicenseResponse.builder()
                     .valid(false)
                     .status(status)
                     .message("License is " + status)
                     .build();
-            case "inactive":
+            case LICENSE_INACTIVE:
                 return ValidateLicenseResponse.builder()
                     .valid(false)
-                    .status("inactive")
+                    .status(LICENSE_INACTIVE)
                     .message("License has not been activated")
                     .build();
         }
 
         if (expired && !inGrace) {
-            license.setStatus("expired");
+            license.setStatus(LICENSE_EXPIRED);
             licenses.save(license);
             return ValidateLicenseResponse.builder()
                 .valid(false)
-                .status("expired")
+                .status(LICENSE_EXPIRED)
                 .message("License expired on " + license.getExpiresAt())
                 .build();
         }
 
         if (inGrace) {
-            license.setStatus("grace_period");
+            license.setStatus(LICENSE_GRACE_PERIOD);
             licenses.save(license);
         }
 
         Integer deviceCount = devices.countByLicenseId(license.getId());
         boolean deviceRegistered = false;
 
-        if (license.getGracePeriodEnd() == null && license.getStatus().equals("active")) {
+        if (license.getGracePeriodEnd() == null && license.getStatus().equals(LICENSE_ACTIVE)) {
             license.setGracePeriodEnd(license.getExpiresAt().plus(license.getGracePeriodDays(), ChronoUnit.DAYS));
         }
 
@@ -273,12 +274,12 @@ public class LicenseService {
         }
         return LicenseStatsDto.builder()
             .total(total)
-            .active(byStatus.getOrDefault("active", 0L))
-            .inactive(byStatus.getOrDefault("inactive", 0L))
-            .expired(byStatus.getOrDefault("expired", 0L))
-            .revoked(byStatus.getOrDefault("revoked", 0L))
-            .gracePeriod(byStatus.getOrDefault("grace_period", 0L))
-            .suspended(byStatus.getOrDefault("suspended", 0L))
+            .active(byStatus.getOrDefault(LICENSE_ACTIVE, 0L))
+            .inactive(byStatus.getOrDefault(LICENSE_INACTIVE, 0L))
+            .expired(byStatus.getOrDefault(LICENSE_EXPIRED, 0L))
+            .revoked(byStatus.getOrDefault(LICENSE_REVOKED, 0L))
+            .gracePeriod(byStatus.getOrDefault(LICENSE_GRACE_PERIOD, 0L))
+            .suspended(byStatus.getOrDefault(LICENSE_SUSPENDED, 0L))
             .byStatus(byStatus)
             .build();
     }

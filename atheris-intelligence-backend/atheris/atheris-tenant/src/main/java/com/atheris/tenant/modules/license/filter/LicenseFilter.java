@@ -1,5 +1,7 @@
 package com.atheris.tenant.modules.license.filter;
 
+import static com.atheris.common.Constants.*;
+
 import com.atheris.tenant.modules.license.exception.LicenseBlockedException;
 import com.atheris.tenant.modules.license.service.LicenseService;
 import jakarta.servlet.FilterChain;
@@ -51,7 +53,7 @@ public class LicenseFilter extends OncePerRequestFilter {
                 response.getWriter().write("{\"error\":\"payment_required\",\"message\":\"" + msg + "\"}");
             } else {
                 response.setStatus(403);
-                response.setHeader("X-License-Status", "expired");
+                response.setHeader("X-License-Status", LICENSE_EXPIRED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"license_blocked\",\"message\":\"" + msg + "\"}");
             }

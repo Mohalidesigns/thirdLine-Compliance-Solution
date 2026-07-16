@@ -11,6 +11,8 @@ import com.atheris.tenant.modules.subscriptions.entity.TenantRegulatorPreference
 import com.atheris.tenant.modules.subscriptions.repository.TenantRegulatorPreferenceRepository;
 import com.atheris.tenant.modules.users.entity.User;
 import com.atheris.tenant.modules.users.repository.UserRepository;
+import static com.atheris.common.Constants.*;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -65,7 +67,7 @@ public class OnboardingService {
         }
 
         p.setLicenseKey(req.getLicenseKey());
-        p.setLicenseStatus("active");
+        p.setLicenseStatus(LICENSE_ACTIVE);
         p.setLicenseActivatedAt(Instant.now());
         if (req.getDeviceFingerprint() != null) {
             p.setDeviceFingerprint(req.getDeviceFingerprint());
@@ -78,7 +80,7 @@ public class OnboardingService {
 
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(1).nextStep(2)
-            .licenseStatus("active").intelligenceEnabled(p.getIntelligenceEnabled())
+            .licenseStatus(LICENSE_ACTIVE).intelligenceEnabled(p.getIntelligenceEnabled())
             .build();
     }
 

@@ -1,5 +1,7 @@
 package com.atheris.platform.modules.licenses.entity;
 
+import static com.atheris.common.Constants.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -14,7 +16,7 @@ public class License {
     @Column(nullable = false, unique = true, length = 64)
     private String licenseKey;
     @Column(nullable = false, length = 50)
-    private String tier = "custom";
+    private String tier = LICENSE_DEFAULT_TIER;
     @Column(nullable = false)
     private Boolean intelligenceEnabled = true;
     @Column(nullable = false)
@@ -28,7 +30,7 @@ public class License {
     @Column(nullable = false)
     private Boolean deviceFingerprintEnforced = true;
     @Column(nullable = false, length = 50)
-    private String status = "inactive";
+    private String status = LICENSE_INACTIVE;
     private Instant activatedAt;
     @Column(nullable = false)
     private Instant expiresAt;

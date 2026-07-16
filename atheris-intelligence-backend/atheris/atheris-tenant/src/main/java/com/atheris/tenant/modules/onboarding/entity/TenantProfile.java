@@ -1,5 +1,7 @@
 package com.atheris.tenant.modules.onboarding.entity;
 
+import static com.atheris.common.Constants.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -49,7 +51,7 @@ public class TenantProfile {
     private Instant onboardingCompletedAt;
 
     private String licenseKey;
-    private String licenseStatus = "inactive";
+    private String licenseStatus = LICENSE_INACTIVE;
     private Instant licenseActivatedAt;
     private Instant licenseExpiresAt;
     private Boolean intelligenceEnabled = true;

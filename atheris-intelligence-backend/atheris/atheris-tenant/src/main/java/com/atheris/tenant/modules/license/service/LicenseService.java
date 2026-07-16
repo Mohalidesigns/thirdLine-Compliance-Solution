@@ -8,6 +8,8 @@ import com.atheris.tenant.modules.license.exception.ProfileNotFoundException;
 import com.atheris.tenant.modules.license.repository.LicenseAuditLogRepository;
 import com.atheris.tenant.modules.onboarding.entity.TenantProfile;
 import com.atheris.tenant.modules.onboarding.repository.TenantProfileRepository;
+import static com.atheris.common.Constants.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -72,9 +74,9 @@ public class LicenseService {
         profiles.save(profile);
 
         auditLog.save(LicenseAuditLog.builder()
-            .eventType("activated")
+            .eventType(LICENSE_EVENT_ACTIVATED)
             .licenseKey(req.getLicenseKey())
-            .status("active")
+            .status(LICENSE_ACTIVE)
             .deviceFingerprint(req.getDeviceFingerprint())
             .responseData(toJson(platformResp))
             .ipAddress(ipAddress)
@@ -90,7 +92,7 @@ public class LicenseService {
         if (opt.isEmpty() || opt.get().getLicenseKey() == null) {
             return LicenseStatusResponse.builder()
                 .valid(false)
-                .status("no_license")
+                .status(LICENSE_NO_LICENSE)
                 .message("No license key configured")
                 .build();
         }
@@ -115,7 +117,7 @@ public class LicenseService {
         if (opt.isEmpty() || opt.get().getLicenseKey() == null) {
             return LicenseStatusResponse.builder()
                 .valid(false)
-                .status("no_license")
+                .status(LICENSE_NO_LICENSE)
                 .message("No license key configured")
                 .build();
         }
@@ -135,7 +137,7 @@ public class LicenseService {
         profiles.save(profile);
 
         auditLog.save(LicenseAuditLog.builder()
-            .eventType("checkup")
+            .eventType(LICENSE_EVENT_CHECKUP)
             .licenseKey(profile.getLicenseKey())
             .status(profile.getLicenseStatus())
             .responseData(toJson(platformResp))
@@ -154,7 +156,7 @@ public class LicenseService {
         }
         TenantProfile profile = opt.get();
         String status = profile.getLicenseStatus();
-        if ("revoked".equals(status) || "suspended".equals(status)) {
+        if (LICENSE_REVOKED.equals(status) || LICENSE_SUSPENDED.equals(status)) {
             throw new LicenseBlockedException("License is " + status + ". Contact admin.");
         }
         if (profile.getLicenseExpiresAt() != null
@@ -165,7 +167,7 @@ public class LicenseService {
             }
             throw new LicenseBlockedException("License has expired. System is in read-only mode.");
         }
-        if ("expired".equals(status)) {
+        if (LICENSE_EXPIRED.equals(status)) {
             if (profile.getLicenseGracePeriodEnd() != null
                 && Instant.now().isBefore(profile.getLicenseGracePeriodEnd())) {
                 return;
@@ -195,7 +197,7 @@ public class LicenseService {
             log.error("Failed to validate license with platform: {}", e.getMessage());
             return ValidateLicenseResponse.builder()
                 .valid(false)
-                .status("validation_error")
+                .status(LICENSE_VALIDATION_ERROR)
                 .message("Could not reach license server: " + e.getMessage())
                 .build();
         }
@@ -206,7 +208,7 @@ public class LicenseService {
         TenantProfile profile = profiles.findByTenantId(tenantId)
             .orElseThrow(() -> new ProfileNotFoundException("Tenant profile not found"));
         profile.setLicenseKey(null);
-        profile.setLicenseStatus("inactive");
+        profile.setLicenseStatus(LICENSE_INACTIVE);
         profile.setLicenseActivatedAt(null);
         profile.setLicenseExpiresAt(null);
         profile.setDeviceFingerprint(null);
@@ -216,7 +218,7 @@ public class LicenseService {
         profiles.save(profile);
         auditLog.save(LicenseAuditLog.builder()
             .eventType("deactivated")
-            .status("inactive")
+            .status(LICENSE_INACTIVE)
             .build());
     }
 
