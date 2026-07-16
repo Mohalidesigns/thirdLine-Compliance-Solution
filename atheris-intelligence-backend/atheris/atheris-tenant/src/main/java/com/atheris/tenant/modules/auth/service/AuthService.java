@@ -76,8 +76,11 @@ public class AuthService {
             if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
                 u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
                 users.save(u);
-            } else
-                users.incrementFailedAttempts(u.getUserId());
+            }             else
+                users.findById(u.getUserId()).ifPresent(user -> {
+                    user.setFailedLoginAttempts(user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() + 1 : 1);
+                    users.save(user);
+                });
             throw new RuntimeException("Invalid email or password");
         }
         u.setFailedLoginAttempts(0);

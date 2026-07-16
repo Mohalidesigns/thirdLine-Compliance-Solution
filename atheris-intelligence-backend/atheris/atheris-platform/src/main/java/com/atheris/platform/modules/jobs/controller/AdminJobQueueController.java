@@ -11,10 +11,14 @@ import com.atheris.platform.shared.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -32,9 +36,16 @@ public class AdminJobQueueController {
             @RequestParam(required = false) String jobType,
             @RequestParam(required = false) String status,
             Pageable pageable) {
-        return ResponseEntity.ok(
-            repo.listJobs(jobType, status, pageable).map(this::toDto)
-        );
+        Specification<JobQueue> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (jobType != null) predicates.add(cb.equal(root.get("jobType"), jobType));
+            if (status != null) {
+                String[] statuses = status.split(",");
+                predicates.add(root.get("status").in((Object[]) statuses));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return ResponseEntity.ok(repo.findAll(spec, pageable).map(this::toDto));
     }
 
     @GetMapping("/{id}")
@@ -92,11 +103,10 @@ public class AdminJobQueueController {
         long failed = repo.countByStatus("failed");
 
         Map<String, Map<String, Long>> perType = new HashMap<>();
-        for (Object[] row : repo.countByTypeAndStatus()) {
-            String type = (String) row[0];
-            String st = (String) row[1];
-            Long cnt = (Long) row[2];
-            perType.computeIfAbsent(type, k -> new HashMap<>()).put(st, cnt);
+        var allJobs = repo.findAll();
+        for (JobQueue j : allJobs) {
+            perType.computeIfAbsent(j.getJobType(), k -> new HashMap<>())
+                .merge(j.getStatus(), 1L, Long::sum);
         }
 
         return ResponseEntity.ok(JobQueueStatsDto.builder()

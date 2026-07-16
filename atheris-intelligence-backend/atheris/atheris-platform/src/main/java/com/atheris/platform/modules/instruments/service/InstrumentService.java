@@ -10,12 +10,16 @@ import com.atheris.platform.modules.obligations.repository.ObligationMappingRepo
 import com.atheris.platform.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.platform.shared.ocr.PdfExtractionService;
 import com.atheris.platform.shared.storage.StorageService;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
@@ -42,7 +46,16 @@ public class InstrumentService {
         if (status != null && !status.isEmpty()) {
             return instruments.findByStatus(status, pageable).map(this::toDto);
         }
-        return instruments.search(regulatorId, riskRating, pageable).map(this::toDto);
+        Specification<Instrument> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
+            if (regulatorId != null)
+                predicates.add(cb.equal(root.get("regulatorId"), regulatorId));
+            if (riskRating != null)
+                predicates.add(cb.equal(root.get("riskRating"), riskRating));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return instruments.findAll(spec, pageable).map(this::toDto);
     }
 
     public InstrumentDetailDto findById(Long id) {

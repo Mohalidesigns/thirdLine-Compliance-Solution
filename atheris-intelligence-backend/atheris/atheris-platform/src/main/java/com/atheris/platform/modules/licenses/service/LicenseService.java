@@ -288,13 +288,12 @@ public class LicenseService {
 
     @Transactional(readOnly = true)
     public LicenseStatsDto getStats() {
-        List<LicenseStatusCount> rows = licenses.countByStatus();
+        List<License> allLicenses = licenses.findAll();
         Map<String, Long> byStatus = new HashMap<>();
-        long total = 0;
-        for (LicenseStatusCount row : rows) {
-            byStatus.put(row.getStatus(), row.getCount());
-            total += row.getCount();
+        for (License l : allLicenses) {
+            byStatus.merge(l.getStatus(), 1L, Long::sum);
         }
+        long total = byStatus.values().stream().mapToLong(Long::longValue).sum();
         return LicenseStatsDto.builder()
             .total(total)
             .active(byStatus.getOrDefault(LICENSE_ACTIVE, 0L))

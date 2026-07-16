@@ -8,6 +8,7 @@ import com.atheris.common.Constants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -60,20 +61,44 @@ public class WebhookService {
 
             int latency = (int)(System.currentTimeMillis() - start);
             if (resp.statusCode() == 200) {
-                deliveryLog.markDelivered(log_.getDeliveryId(), resp.statusCode(), latency, Instant.now());
+                deliveryLog.findById(log_.getDeliveryId()).ifPresent(w -> {
+                    w.setStatus(Constants.STATUS_DELIVERED);
+                    w.setResponseCode(resp.statusCode());
+                    w.setDeliveryLatencyMs(latency);
+                    w.setDeliveredAt(Instant.now());
+                    deliveryLog.save(w);
+                });
                 log.info("Webhook delivered to tenant {} for instrument {} ({}ms)", tenantId, instrumentId, latency);
             } else {
-                deliveryLog.markFailed(log_.getDeliveryId(),
-                    "HTTP " + resp.statusCode(), nextRetry(0));
+                deliveryLog.findById(log_.getDeliveryId()).ifPresent(w -> {
+                    w.setStatus(Constants.STATUS_FAILED);
+                    w.setLastError("HTTP " + resp.statusCode());
+                    w.setAttemptCount(w.getAttemptCount() != null ? w.getAttemptCount() + 1 : 1);
+                    w.setNextRetryAt(nextRetry(0));
+                    deliveryLog.save(w);
+                });
             }
         } catch (Exception e) {
-            deliveryLog.markFailed(log_.getDeliveryId(), e.getMessage(), nextRetry(0));
+            deliveryLog.findById(log_.getDeliveryId()).ifPresent(w -> {
+                w.setStatus(Constants.STATUS_FAILED);
+                w.setLastError(e.getMessage());
+                w.setAttemptCount(w.getAttemptCount() != null ? w.getAttemptCount() + 1 : 1);
+                w.setNextRetryAt(nextRetry(0));
+                deliveryLog.save(w);
+            });
             log.warn("Webhook delivery failed for tenant {}: {}", tenantId, e.getMessage());
         }
     }
 
     public void retryFailed(int limit) {
-        deliveryLog.findDueForRetry(Instant.now()).stream().limit(limit).forEach(w -> {
+        Specification<WebhookDeliveryLog> retrySpec = (root, query, cb) -> cb.and(
+            cb.equal(root.get("status"), Constants.STATUS_FAILED),
+            cb.lt(root.get("attemptCount"), root.get("maxAttempts")),
+            cb.lessThan(root.get("nextRetryAt"), Instant.now())
+        );
+        var query = deliveryLog.findAll(retrySpec,
+            org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "nextRetryAt"));
+        query.stream().limit(limit).forEach(w -> {
             tenants.findById(w.getTenantId()).ifPresent(t -> {
                 if (t.getWebhookUrl() == null) return;
                 try {
@@ -85,14 +110,31 @@ public class WebhookService {
                             .POST(HttpRequest.BodyPublishers.ofString(payloadJson))
                             .timeout(Duration.ofSeconds(10)).build(),
                         HttpResponse.BodyHandlers.ofString());
-                    if (resp.statusCode() == 200)
-                        deliveryLog.markDelivered(w.getDeliveryId(), 200, 0, Instant.now());
-                    else
-                        deliveryLog.markFailed(w.getDeliveryId(), "HTTP " + resp.statusCode(),
-                            nextRetry(w.getAttemptCount()));
+                    if (resp.statusCode() == 200) {
+                        deliveryLog.findById(w.getDeliveryId()).ifPresent(wl -> {
+                            wl.setStatus(Constants.STATUS_DELIVERED);
+                            wl.setResponseCode(200);
+                            wl.setDeliveryLatencyMs(0);
+                            wl.setDeliveredAt(Instant.now());
+                            deliveryLog.save(wl);
+                        });
+                    } else {
+                        deliveryLog.findById(w.getDeliveryId()).ifPresent(wl -> {
+                            wl.setStatus(Constants.STATUS_FAILED);
+                            wl.setLastError("HTTP " + resp.statusCode());
+                            wl.setAttemptCount(wl.getAttemptCount() != null ? wl.getAttemptCount() + 1 : 1);
+                            wl.setNextRetryAt(nextRetry(wl.getAttemptCount()));
+                            deliveryLog.save(wl);
+                        });
+                    }
                 } catch (Exception e) {
-                    deliveryLog.markFailed(w.getDeliveryId(), e.getMessage(),
-                        nextRetry(w.getAttemptCount()));
+                    deliveryLog.findById(w.getDeliveryId()).ifPresent(wl -> {
+                        wl.setStatus(Constants.STATUS_FAILED);
+                        wl.setLastError(e.getMessage());
+                        wl.setAttemptCount(wl.getAttemptCount() != null ? wl.getAttemptCount() + 1 : 1);
+                        wl.setNextRetryAt(nextRetry(wl.getAttemptCount()));
+                        deliveryLog.save(wl);
+                    });
                 }
             });
         });

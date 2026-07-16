@@ -13,9 +13,13 @@ import com.atheris.platform.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.platform.shared.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +39,16 @@ public class ObligationBrowserService {
     private final StorageService storage;
 
     public Page<ObligationSummaryDto> search(ObligationSearchRequest req, Pageable pageable) {
-        return instruments.search(req.getRegulatorId(), req.getRiskRating(), pageable)
+        Specification<Instrument> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
+            if (req.getRegulatorId() != null)
+                predicates.add(cb.equal(root.get("regulatorId"), req.getRegulatorId()));
+            if (req.getRiskRating() != null)
+                predicates.add(cb.equal(root.get("riskRating"), req.getRiskRating()));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return instruments.findAll(spec, pageable)
             .map(i -> toSummaryDto(i, req.getTenantId()));
     }
 

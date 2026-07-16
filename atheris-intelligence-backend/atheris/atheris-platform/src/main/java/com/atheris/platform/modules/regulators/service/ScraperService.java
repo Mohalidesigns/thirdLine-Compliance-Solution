@@ -114,7 +114,12 @@ public class ScraperService {
         int duration = (int)(System.currentTimeMillis() - start);
         logRun(regulator, mode, found.size(), newCount, failed,
             errors.isEmpty() ? null : String.join("; ", errors.subList(0, Math.min(3, errors.size()))));
-        regulators.updateLastRan(regulator.getRegulatorId(), Instant.now(), newCount);
+        int finalNewCount = newCount;
+        regulators.findById(regulator.getRegulatorId()).ifPresent(r -> {
+            r.setScraperLastRanAt(Instant.now());
+            r.setScraperLastFound(finalNewCount);
+            regulators.save(r);
+        });
 
         log.info("[{}] Done {}. Found:{} New:{} Skipped:{} Failed:{} {}ms",
             mode, regulator.getAbbreviation(), found.size(), newCount, skipped, failed, duration);

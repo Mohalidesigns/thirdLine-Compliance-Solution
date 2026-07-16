@@ -127,8 +127,12 @@ public class RegulatorService {
 
     public RegulatorPipelineStatsDto getPipelineStats(Integer regulatorId) {
         List<Instrument> allInstruments = instrumentRepo.findByRegulatorIdOrderByDiscoveredAtDesc(regulatorId);
-        List<Instrument> extracted = instrumentRepo.findExtractedByRegulatorId(regulatorId);
-        List<Instrument> classified = instrumentRepo.findClassifiedByRegulatorId(regulatorId);
+        List<Instrument> extracted = allInstruments.stream()
+            .filter(i -> i.getPdfOcrText() != null)
+            .toList();
+        List<Instrument> classified = allInstruments.stream()
+            .filter(i -> !Constants.INST_TRIAGE.equals(i.getStatus()))
+            .toList();
         List<PendingDownload> pendings = pendingRepo.findByRegulatorIdOrderByDiscoveredAtDesc(regulatorId);
         List<PendingDownload> failedPends = pendings.stream().filter(p -> "pending".equals(p.getStatus())).toList();
         List<PendingDownload> uploadedPends = pendings.stream().filter(p -> "uploaded".equals(p.getStatus())).toList();
@@ -185,19 +189,20 @@ public class RegulatorService {
     }
 
     private Map<Integer, long[]> buildInstrumentStats() {
-        List<Object[]> rows = instrumentRepo.getInstrumentStats();
+        List<Instrument> allInstruments = instrumentRepo.findAll();
         Map<Integer, long[]> map = new HashMap<>();
-        for (Object[] row : rows) {
-            Integer regulatorId = ((Number) row[0]).intValue();
-            long count = ((Number) row[1]).longValue();
-            Instant lastDiscovered = row[2] != null ? (Instant) row[2] : null;
-            map.put(regulatorId, new long[]{count, lastDiscovered != null ? lastDiscovered.toEpochMilli() : 0, 0});
-        }
-        for (Object[] row : pendingRepo.countPendingByRegulator()) {
-            Integer regulatorId = ((Number) row[0]).intValue();
-            long pendCount = ((Number) row[1]).longValue();
-            map.computeIfAbsent(regulatorId, k -> new long[]{0, 0, 0})[2] = pendCount;
-        }
+        allInstruments.forEach(i -> {
+            map.computeIfAbsent(i.getRegulatorId(), k -> new long[]{0, 0, 0})[0]++;
+            if (i.getDiscoveredAt() != null) {
+                long epoch = i.getDiscoveredAt().toEpochMilli();
+                long[] arr = map.get(i.getRegulatorId());
+                if (arr[1] < epoch) arr[1] = epoch;
+            }
+        });
+        List<PendingDownload> allPending = pendingRepo.findByStatusOrderByDiscoveredAtDesc("pending");
+        allPending.forEach(p -> {
+            map.computeIfAbsent(p.getRegulatorId(), k -> new long[]{0, 0, 0})[2]++;
+        });
         return map;
     }
 

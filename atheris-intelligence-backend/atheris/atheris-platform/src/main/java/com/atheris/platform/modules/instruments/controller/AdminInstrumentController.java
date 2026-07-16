@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -33,11 +34,14 @@ public class AdminInstrumentController {
             .map(r -> r.getName())
             .orElse("Unknown");
 
-        List<Tenant> eligible = tenants.findEligibleTenants(
-            inst.getRegulatorId(),
-            inst.getLicenceTypesApplicable() != null
-                ? inst.getLicenceTypesApplicable().toArray(new String[0])
-                : new String[0]);
+        Integer regulatorId = inst.getRegulatorId();
+        String[] licenceTypes = inst.getLicenceTypesApplicable() != null
+            ? inst.getLicenceTypesApplicable().toArray(new String[0])
+            : new String[0];
+        List<Tenant> eligible = tenants.findByIsActiveTrue().stream()
+            .filter(t -> t.getRegulators() != null && t.getRegulators().contains(regulatorId)
+                && t.getLicenceType() != null && Arrays.asList(licenceTypes).contains(t.getLicenceType()))
+            .toList();
 
         List<InstrumentTenantClassificationDto.TenantClassification> tcList = eligible.stream()
             .map(t -> {
