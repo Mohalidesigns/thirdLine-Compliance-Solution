@@ -13,8 +13,12 @@ import com.atheris.platform.modules.tenants.entity.Tenant;
 import com.atheris.platform.modules.tenants.repository.TenantRepository;
 import static com.atheris.common.Constants.*;
 
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -84,22 +88,34 @@ public class LicenseService {
     }
 
     @Transactional(readOnly = true)
-    public List<LicenseDto> list(String status, Long tenantId) {
-        List<License> result;
-        if (tenantId != null) {
-            result = licenses.findByTenantId(tenantId);
-        } else if (status != null) {
-            result = licenses.findByStatus(status);
-        } else {
-            result = licenses.findAll();
-        }
-        Set<Long> ids = result.stream().map(License::getTenantId).collect(Collectors.toSet());
-        Map<Long, String> tenantNames = ids.isEmpty() ? Map.of()
-            : tenants.findAllById(ids).stream()
+    public Page<LicenseDto> list(String status, Long tenantId, String search, Pageable pageable) {
+        Specification<License> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (tenantId != null) {
+                predicates.add(cb.equal(root.get("tenantId"), tenantId));
+            }
+            if (search != null && !search.isBlank()) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("licenseKey")), pattern),
+                    cb.like(cb.lower(root.get("tier")), pattern)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<License> page = licenses.findAll(spec, pageable);
+        Set<Long> tenantIds = page.getContent().stream()
+            .map(License::getTenantId).collect(Collectors.toSet());
+        Map<Long, String> tenantNames = tenantIds.isEmpty() ? Map.of()
+            : tenants.findAllById(tenantIds).stream()
                 .collect(Collectors.toMap(Tenant::getTenantId, Tenant::getLegalName));
-        return result.stream()
-            .map(l -> toDto(l, devices.findByLicenseId(l.getId()), tenantNames.getOrDefault(l.getTenantId(), null)))
-            .toList();
+
+        return page.map(l -> toDto(l, devices.findByLicenseId(l.getId()),
+            tenantNames.getOrDefault(l.getTenantId(), null)));
     }
 
     @Transactional
@@ -195,8 +211,17 @@ public class LicenseService {
             if (exists) {
                 deviceRegistered = true;
                 LicenseDevice dev = devices.findByLicenseIdAndDeviceFingerprint(
-                    license.getId(), req.getDeviceFingerprint())
-                    .orElseThrow(() -> new RuntimeException("Device record disappeared"));
+                    license.getId(), req.getDeviceFingerprint()).orElse(null);
+                if (dev == null) {
+                    return ValidateLicenseResponse.builder()
+                        .valid(false)
+                        .status(license.getStatus())
+                        .message("Device record inconsistent. Please re-register.")
+                        .deviceRegistered(false)
+                        .deviceCount(deviceCount)
+                        .deviceLimit(license.getMaxDevices())
+                        .build();
+                }
                 dev.setLastSeenAt(now);
                 dev.setLastIpAddress(req.getIpAddress());
                 devices.save(dev);
@@ -263,14 +288,12 @@ public class LicenseService {
 
     @Transactional(readOnly = true)
     public LicenseStatsDto getStats() {
-        List<Object[]> rows = licenses.countByStatus();
+        List<LicenseStatusCount> rows = licenses.countByStatus();
         Map<String, Long> byStatus = new HashMap<>();
         long total = 0;
-        for (Object[] row : rows) {
-            String s = (String) row[0];
-            Long c = (Long) row[1];
-            byStatus.put(s, c);
-            total += c;
+        for (LicenseStatusCount row : rows) {
+            byStatus.put(row.getStatus(), row.getCount());
+            total += row.getCount();
         }
         return LicenseStatsDto.builder()
             .total(total)

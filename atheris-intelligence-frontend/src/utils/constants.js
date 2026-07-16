@@ -22,6 +22,7 @@ export const ROUTES = {
   SETTINGS_API: '/settings/api',
   SETTINGS_COMPLIANCE: '/settings/compliance',
   ACTIVATE_LICENSE: '/activate-license',
+  ONBOARDING: '/onboarding',
   ADMIN_REGULATORS: '/admin/regulators',
   ADMIN_REGULATOR_DETAIL: '/admin/regulators/:id',
   ADMIN_TENANTS: '/admin/tenants',

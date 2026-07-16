@@ -4,13 +4,14 @@ import com.atheris.platform.modules.licenses.dto.*;
 import com.atheris.platform.modules.licenses.service.LicenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,10 +23,12 @@ public class AdminLicenseController {
     private final LicenseService service;
 
     @GetMapping
-    public ResponseEntity<List<LicenseDto>> list(
+    public ResponseEntity<Page<LicenseDto>> list(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long tenantId) {
-        return ResponseEntity.ok(service.list(status, tenantId));
+            @RequestParam(required = false) Long tenantId,
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.list(status, tenantId, search, pageable));
     }
 
     @PostMapping

@@ -40,18 +40,36 @@ public class OnboardingService {
 
     public OnboardingStatusResponse getStatus() {
         return profiles.findByTenantId(tenantId)
-            .map(p -> OnboardingStatusResponse.builder()
-                .onboardingCompleted(p.getOnboardingCompletedAt() != null)
-                .currentStep(p.getOnboardingStep())
-                .legalName(p.getLegalName()).licenceType(p.getLicenceType())
-                .intelligenceEnabled(p.getIntelligenceEnabled())
-                .licenseStatus(p.getLicenseStatus())
-                .authType(p.getAuthType())
-                .subscribedRegulators(p.getSubscribedRegulators())
-                .subscribedDocumentTypes(p.getSubscribedDocumentTypes())
-                .build())
+            .map(p -> {
+                Integer step = p.getOnboardingStep();
+                boolean completed = p.getOnboardingCompletedAt() != null;
+                boolean enabled = Boolean.TRUE.equals(p.getIntelligenceEnabled());
+                Integer nextStep = computeNextStep(step, completed, enabled);
+                return OnboardingStatusResponse.builder()
+                    .onboardingCompleted(completed)
+                    .currentStep(step)
+                    .nextStep(nextStep)
+                    .legalName(p.getLegalName()).licenceType(p.getLicenceType())
+                    .intelligenceEnabled(p.getIntelligenceEnabled())
+                    .licenseStatus(p.getLicenseStatus())
+                    .authType(p.getAuthType())
+                    .subscribedRegulators(p.getSubscribedRegulators())
+                    .subscribedDocumentTypes(p.getSubscribedDocumentTypes())
+                    .build();
+            })
             .orElse(OnboardingStatusResponse.builder()
-                .onboardingCompleted(false).currentStep(0).build());
+                .onboardingCompleted(false).currentStep(0).nextStep(1).build());
+    }
+
+    private Integer computeNextStep(Integer step, boolean completed, boolean intelligenceEnabled) {
+        if (completed) return 7;
+        if (step == null || step == 0) return 1;
+        if (step == 1) return 2;
+        if (step == 2) return 3;
+        if (step == 3) return 4;
+        if (step == 4) return intelligenceEnabled ? 5 : 7;
+        if (step == 5) return 6;
+        return 7;
     }
 
     @Transactional
@@ -149,10 +167,11 @@ public class OnboardingService {
             }
         }
 
+        boolean enabled = Boolean.TRUE.equals(p.getIntelligenceEnabled());
         p.setOnboardingStep(4);
         profiles.save(p);
         return OnboardingStatusResponse.builder()
-            .onboardingCompleted(false).currentStep(4).nextStep(5)
+            .onboardingCompleted(false).currentStep(4).nextStep(enabled ? 5 : 7)
             .authType(p.getAuthType())
             .intelligenceEnabled(p.getIntelligenceEnabled())
             .licenseStatus(p.getLicenseStatus())
@@ -162,6 +181,12 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse saveRegulators(RegulatorSubscriptionRequest req) {
         TenantProfile p = getProfile();
+        if (Boolean.FALSE.equals(p.getIntelligenceEnabled())) {
+            return OnboardingStatusResponse.builder()
+                .onboardingCompleted(false).currentStep(4).nextStep(7)
+                .intelligenceEnabled(false)
+                .licenseStatus(p.getLicenseStatus()).build();
+        }
         p.setSubscribedRegulators(req.getSubscribedRegulators());
         if (req.getNotificationFrequency() != null)
             p.setNotificationFrequency(req.getNotificationFrequency());
@@ -188,6 +213,12 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse saveDocumentTypes(DocumentTypeRequest req) {
         TenantProfile p = getProfile();
+        if (Boolean.FALSE.equals(p.getIntelligenceEnabled())) {
+            return OnboardingStatusResponse.builder()
+                .onboardingCompleted(false).currentStep(4).nextStep(7)
+                .intelligenceEnabled(false)
+                .licenseStatus(p.getLicenseStatus()).build();
+        }
         p.setSubscribedDocumentTypes(req.getSubscribedDocumentTypes());
         p.setNotificationRiskRatings(req.getNotificationRiskRatings());
         p.setOnboardingStep(6);
