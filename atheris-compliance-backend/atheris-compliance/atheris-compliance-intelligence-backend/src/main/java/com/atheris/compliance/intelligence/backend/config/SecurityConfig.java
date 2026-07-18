@@ -49,7 +49,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/platform/**").hasRole("PLATFORM_ADMIN")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(internalApiKeyFilter, JwtAuthFilter.class)
+            .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

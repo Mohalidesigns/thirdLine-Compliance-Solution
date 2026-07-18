@@ -34,13 +34,13 @@ export default function LicenseAdminPage() {
 
   useEffect(() => {
     load();
-    api.platform.tenants.list().then(setTenants).catch(() => {});
+    api.platform.tenants.list().then(data => setTenants(Array.isArray(data) ? data : data.content || [])).catch(() => {});
   }, []);
 
   const load = () => {
     setLoading(true);
     api.platform.licenses.list()
-      .then(setLicenses)
+      .then(data => setLicenses(data.content || data))
       .catch(console.error)
       .finally(() => setLoading(false));
   };

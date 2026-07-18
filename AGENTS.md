@@ -228,10 +228,51 @@ mvn spring-boot:run -pl atheris-compliance-tenant-backend -am
 # API base: http://localhost:9091/api/v1/
 ```
 
-## Next — Tenant Backend Work
-- [ ] Create `tenant` schema in PostgreSQL and seed default data
-- [ ] Test auth endpoints (login, invite, refresh)
-- [ ] Test onboarding flow end-to-end
+## Done — Tenant Frontend Portal Built
+
+Full tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (port 5174):
+
+### Pages
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/login` | LoginPage | Dark gradient, gold Shield icon, "Africa's Premier Compliance Solution" subtitle, "Get Started — Register Your Institution" link to `:5173/onboarding` |
+| `/dashboard` | DashboardPage | KPI cards (pending, classified, failed) + recent uploads table |
+| `/regulators` | RegulatorsPage | CRUD table with inline active toggle, add/edit dialog |
+| `/upload` | UploadPage | File picker + regulator/doc-type form, triggers `POST /subscriptions/upload-document` |
+| `/upload-history` | UploadStatusPage | Table with status chips (Processing/Done/Failed), polls upload status |
+| `/library` | LibraryPage | Search instruments from platform, detail drawer |
+| `/settings` | SettingsPage | Polling interval config via `GET/PUT /api/v1/settings/polling` |
+
+### Architecture
+- No webhooks — tenant polls platform via `ObligationSyncService` at configurable interval (DB-backed `tenant_polling_config` table)
+- Upload flow: `POST /api/v1/subscriptions/upload-document` → platform `POST /api/v1/internal/instruments/ingest` (SHA-256 dedup) → async processing → tenant polls `GET /api/v1/subscriptions/upload-status/{id}`
+- Tenant regulators stored in `tenant_regulators` table (optional `platform_regulator_id` FK)
+- Single license covers everything; 6-step onboarding (license → institution → user → regulators → doc types → confirm)
+
+### Fixes
+- `LicenseAdminPage.jsx` — handle paginated API responses (`.content \|\| data`, `Array.isArray(data) ? data : data.content \|\| []`)
+- `DashboardPage.jsx` — added missing `import api`
+- Intelligence `SecurityConfig` — `internalApiKeyFilter` placed before `UsernamePasswordAuthenticationFilter.class` (was `JwtAuthFilter.class`)
+- Tenant `SecurityConfig` — added `noopUserDetailsService()` bean to suppress auto-generated Spring Security password
+- `AdminUserSeeder.java` — **deleted entirely** (no more startup seeder warnings)
+- Tenant frontend `package.json` — reordered deps, added Inter + Roboto Mono Google Fonts
+- Tenant frontend `main.jsx` — replaced placeholder stub with proper `<StrictMode><App /></StrictMode>` bootstrap
+- Vite 8 Rolldown resolution — added missing `package.json` in `node_modules/@mui/icons-material/` for resolution
+
+### How to Run
+```bash
+# Tenant frontend (separate terminal)
+cd atheris-compliance-frontend/atheris-compliance-tenant-frontend
+npm run dev
+# → http://localhost:5174
+```
+
+### E2E Testing
+See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference, and full testing script with curl commands.
+
+## Next — Backend Verification & Integration
+- [ ] Start both backends, verify clean startup (no seeder warnings, no auto-generated password)
+- [ ] Test onboarding E2E: open `:5173`, complete 6-step wizard → login at `:5174`
 - [ ] Wire up `evaluate_applicability` processor to send webhooks to tenant service
-- [ ] Add tenant dashboard widgets (active tenants, webhook health in main platform)
-- [ ] Run backend + frontend to verify
+- [ ] Add tenant dashboard widgets (active tenants, webhook health) in main platform
+- [ ] Cleanup: add `@Builder.Default` to entity fields flagged by Lombok warnings
