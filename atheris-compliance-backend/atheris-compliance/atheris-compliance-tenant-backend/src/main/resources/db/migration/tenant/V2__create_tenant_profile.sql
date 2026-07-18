@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS tenant_profile (
     is_active                  BOOLEAN DEFAULT true,
     onboarding_step            INT DEFAULT 1,
     onboarding_completed_at    TIMESTAMP WITH TIME ZONE,
+    encrypted_api_key          TEXT,
+    api_key_prefix             VARCHAR(16),
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

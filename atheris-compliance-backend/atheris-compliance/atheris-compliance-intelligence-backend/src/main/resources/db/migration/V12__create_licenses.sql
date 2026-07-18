@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS licenses (
     id              SERIAL PRIMARY KEY,
-    tenant_id       BIGINT NOT NULL REFERENCES tenants(tenant_id),
+    tenant_id       BIGINT REFERENCES tenants(tenant_id),
     license_key     VARCHAR(64) NOT NULL UNIQUE,
     tier            VARCHAR(50) NOT NULL DEFAULT 'custom',
     intelligence_enabled BOOLEAN NOT NULL DEFAULT true,
@@ -37,3 +37,19 @@ CREATE INDEX idx_licenses_tenant_id ON licenses(tenant_id);
 CREATE INDEX idx_licenses_license_key ON licenses(license_key);
 CREATE INDEX idx_licenses_status ON licenses(status);
 CREATE INDEX idx_license_devices_license_id ON license_devices(license_id);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id              SERIAL PRIMARY KEY,
+    license_id      INT NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
+    tenant_id       BIGINT REFERENCES tenants(tenant_id),
+    key_hash        VARCHAR(64) NOT NULL,
+    key_prefix      VARCHAR(16) NOT NULL,
+    encrypted_key   TEXT NOT NULL,
+    label           VARCHAR(100) DEFAULT 'default',
+    is_active       BOOLEAN DEFAULT true,
+    last_used_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_tenant ON api_keys(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_license ON api_keys(license_id);

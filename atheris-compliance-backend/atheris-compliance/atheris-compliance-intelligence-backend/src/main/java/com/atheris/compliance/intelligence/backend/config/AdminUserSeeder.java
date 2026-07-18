@@ -23,8 +23,8 @@ public class AdminUserSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (adminPassword == null || adminPassword.isBlank()) {
-            log.warn("ADMIN_PASSWORD not configured — skipping admin seed");
+        if (adminEmail == null || adminEmail.isBlank() || adminPassword == null || adminPassword.isBlank()) {
+            log.warn("ADMIN_USERNAME or ADMIN_PASSWORD not configured — skipping admin seed");
             return;
         }
 

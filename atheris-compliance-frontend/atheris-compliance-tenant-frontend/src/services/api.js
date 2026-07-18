@@ -23,6 +23,15 @@ export const api = {
       method: 'POST', body: JSON.stringify({ email, password }),
     }),
   },
+  onboarding: {
+    status: () => request('/onboarding/status'),
+    activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
+    institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
+    userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
+    regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
+    documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
+    confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
+  },
   regulators: {
     list: () => request('/subscriptions/regulators'),
     get: (id) => request(`/subscriptions/regulators/${id}`),

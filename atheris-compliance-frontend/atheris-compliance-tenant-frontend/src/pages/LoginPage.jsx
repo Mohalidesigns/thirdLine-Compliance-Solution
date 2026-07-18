@@ -113,7 +113,7 @@ export default function LoginPage() {
 
           <Button
             fullWidth variant="outlined" size="large"
-            onClick={() => window.location.href = 'http://localhost:5173/onboarding'}
+            onClick={() => window.location.href = '/onboarding'}
             sx={{ py: 1, borderColor: theme.palette.warning.main, color: theme.palette.warning.main, '&:hover': { bgcolor: 'rgba(212,175,55,0.08)', borderColor: theme.palette.warning.main } }}
           >
             Get Started — Register Your Institution

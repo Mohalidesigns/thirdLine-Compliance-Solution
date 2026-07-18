@@ -87,6 +87,9 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 ## Recent Changes
 
 ### Backend
+- **Webhooks removed from pipeline** — `JobQueueProcessors.processApplicabilityQueue()` no longer enqueues `send_webhooks` jobs; `@Scheduled` on `processWebhookQueue()` and `retryFailedWebhooks()` commented out (code kept for future re-enablement). Tenant data is now delivered via polling only.
+- **License Dashboard KPIs** — `LicenseAdminPage.jsx` now fetches `GET /admin/licenses/stats` and displays 6 KPI cards (Active, Inactive, Grace Period, Expired, Revoked, Total).
+- **TenantAdminPage cleaned up** — Removed webhook URL field from create tenant dialog and "Webhook Enabled" KPI card; webhook column kept in table for visibility.
 - Migrated from custom Anthropic HTTP client to Spring AI ChatModel
 - Added AdminJobQueueController: `GET /admin/jobs` (paginated, filterable) + `GET /admin/jobs/stats` (aggregate counts) + `GET /admin/jobs/{id}` (full detail with payload + related instrument)
 - Added Flyway V9: `cors_whitelist` table seeded with `localhost:5173` and `localhost:9090`

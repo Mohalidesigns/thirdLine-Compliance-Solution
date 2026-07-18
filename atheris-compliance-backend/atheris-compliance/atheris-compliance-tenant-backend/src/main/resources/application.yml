@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/atheris_tenant
     username: atheris
-    password: changeme
+    password: ${DB_PASSWORD:changeme}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,9 +21,6 @@ spring:
     locations: classpath:db/migration/tenant
 
 atheris:
-  admin:
-    username: ${ADMIN_USERNAME:admin@atheris.ng}
-    password: ${ADMIN_PASSWORD:admin123}
   jwt:
     secret: ${JWT_SECRET:change-me-in-production-use-a-long-random-base64-secret}
     expiry-minutes: 1440
@@ -31,4 +28,4 @@ atheris:
   webhook-secret: ${WEBHOOK_SECRET:}
   platform:
     base-url: ${PLATFORM_BASE_URL:http://localhost:9090}
-    internal-api-key: ${INTERNAL_API_KEY:dev-internal-key-change-in-prod}
+    encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}

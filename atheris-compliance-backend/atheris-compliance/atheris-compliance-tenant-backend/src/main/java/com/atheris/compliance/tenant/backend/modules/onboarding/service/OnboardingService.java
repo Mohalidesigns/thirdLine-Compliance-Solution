@@ -11,6 +11,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorPreferenceRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import static com.atheris.compliance.common.Constants.*;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class OnboardingService {
     private final LicenseService licenseService;
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
+    private final PlatformApiClient platformApi;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -201,6 +203,27 @@ public class OnboardingService {
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(6);
         profiles.save(p);
+
+        try {
+            Map<String, Object> tenantReq = new HashMap<>();
+            tenantReq.put("legalName", p.getLegalName());
+            tenantReq.put("shortName", p.getShortName());
+            tenantReq.put("licenceType", p.getLicenceType());
+            tenantReq.put("licenceNumber", p.getLicenceNumber());
+            tenantReq.put("ccoName", p.getCcoName());
+            tenantReq.put("ccoEmail", p.getCcoEmail());
+            tenantReq.put("techEmail", p.getTechEmail());
+            tenantReq.put("regulators", p.getSubscribedRegulators());
+            tenantReq.put("productLines", p.getProductLines());
+            tenantReq.put("subscribedDocumentTypes", p.getSubscribedDocumentTypes());
+            tenantReq.put("notificationFrequency", p.getNotificationFrequency());
+            tenantReq.put("subscriptionTier", p.getSubscriptionTier());
+            tenantReq.put("webhookUrl", p.getWebhookUrl());
+            platformApi.onboardTenant(tenantReq);
+        } catch (Exception e) {
+            log.error("Failed to create tenant on platform for {}: {}", tenantId, e.getMessage());
+        }
+
         log.info("Onboarding completed for tenant {}", tenantId);
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(true).currentStep(6)

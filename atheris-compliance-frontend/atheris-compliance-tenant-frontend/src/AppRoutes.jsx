@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import { useAuth } from './contexts/AuthContext';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
@@ -33,6 +34,7 @@ export default function AppRoutes() {
     <Suspense fallback={<Loading />}>
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />

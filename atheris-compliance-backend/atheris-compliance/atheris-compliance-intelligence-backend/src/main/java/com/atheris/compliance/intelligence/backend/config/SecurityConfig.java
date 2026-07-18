@@ -28,7 +28,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final InternalApiKeyFilter internalApiKeyFilter;
+    private final ApiKeyFilter apiKeyFilter;
     private final CorsWhitelistRepository corsRepo;
 
     @Bean
@@ -49,7 +49,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/platform/**").hasRole("PLATFORM_ADMIN")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

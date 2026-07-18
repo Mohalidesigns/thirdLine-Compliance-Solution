@@ -1,12 +1,14 @@
 package com.atheris.compliance.intelligence.backend.modules.licenses.service;
 
 import com.atheris.compliance.intelligence.backend.modules.licenses.dto.*;
+import com.atheris.compliance.intelligence.backend.modules.licenses.entity.ApiKey;
 import com.atheris.compliance.intelligence.backend.modules.licenses.entity.License;
 import com.atheris.compliance.intelligence.backend.modules.licenses.entity.LicenseDevice;
 import com.atheris.compliance.intelligence.backend.modules.licenses.exception.DeviceMismatchException;
 import com.atheris.compliance.intelligence.backend.modules.licenses.exception.DeviceNotFoundException;
 import com.atheris.compliance.intelligence.backend.modules.licenses.exception.LicenseNotFoundException;
 import com.atheris.compliance.intelligence.backend.modules.licenses.mapper.LicenseMapper;
+import com.atheris.compliance.intelligence.backend.modules.licenses.repository.ApiKeyRepository;
 import com.atheris.compliance.intelligence.backend.modules.licenses.repository.LicenseDeviceRepository;
 import com.atheris.compliance.intelligence.backend.modules.licenses.repository.LicenseRepository;
 import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
@@ -16,12 +18,19 @@ import static com.atheris.compliance.common.Constants.*;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -37,20 +46,26 @@ public class LicenseService {
     private final LicenseKeyGenerator keyGenerator;
     private final TenantRepository tenants;
     private final LicenseMapper mapper;
+    private final ApiKeyRepository apiKeys;
+
+    @Value("${atheris.encryption-key:temporary-dev-encryption-key-change-in-prod}")
+    private String encryptionKey;
 
     @Transactional
     public LicenseDto create(CreateLicenseRequest req) {
-        Tenant tenant = tenants.findById(req.getTenantId())
-            .orElseThrow(() -> new LicenseNotFoundException("Tenant not found: " + req.getTenantId()));
+        if (req.getTenantId() != null) {
+            tenants.findById(req.getTenantId())
+                .orElseThrow(() -> new LicenseNotFoundException("Tenant not found: " + req.getTenantId()));
+        }
 
-        String key;
+        String licenseKey;
         do {
-            key = keyGenerator.generate();
-        } while (licenses.findByLicenseKey(key).isPresent());
+            licenseKey = keyGenerator.generate();
+        } while (licenses.findByLicenseKey(licenseKey).isPresent());
 
         License license = License.builder()
             .tenantId(req.getTenantId())
-            .licenseKey(key)
+            .licenseKey(licenseKey)
             .tier(req.getTier() != null ? req.getTier() : LICENSE_DEFAULT_TIER)
             .intelligenceEnabled(req.getIntelligenceEnabled() != null ? req.getIntelligenceEnabled() : true)
             .maxUsers(req.getMaxUsers() != null ? req.getMaxUsers() : 5)
@@ -67,7 +82,19 @@ public class LicenseService {
             .build();
 
         licenses.save(license);
-        log.info("License created: {} for tenant {}", key, req.getTenantId());
+
+        String rawApiKey = generateApiKey();
+        ApiKey apiKey = ApiKey.builder()
+            .licenseId(license.getId())
+            .keyHash(sha256(rawApiKey))
+            .keyPrefix(rawApiKey.substring(0, 12))
+            .encryptedKey(encrypt(rawApiKey))
+            .label("default")
+            .isActive(true)
+            .build();
+        apiKeys.save(apiKey);
+
+        log.info("License created: {} (apiKey: {}...)", licenseKey, rawApiKey.substring(0, 12));
         return toDto(license, List.of());
     }
 
@@ -204,6 +231,8 @@ public class LicenseService {
             license.setGracePeriodEnd(license.getExpiresAt().plus(license.getGracePeriodDays(), ChronoUnit.DAYS));
         }
 
+        boolean isFirstActivation = license.getActivatedAt() == null;
+
         if (req.getDeviceFingerprint() != null) {
             boolean exists = devices.existsByLicenseIdAndDeviceFingerprint(
                 license.getId(), req.getDeviceFingerprint());
@@ -258,6 +287,16 @@ public class LicenseService {
             }
         }
 
+        String apiKeyValue = null;
+        if (isFirstActivation) {
+            license.setActivatedAt(now);
+            licenses.save(license);
+            Optional<ApiKey> ak = apiKeys.findByLicenseId(license.getId());
+            if (ak.isPresent()) {
+                apiKeyValue = decrypt(ak.get().getEncryptedKey());
+            }
+        }
+
         return ValidateLicenseResponse.builder()
             .valid(true)
             .status(license.getStatus())
@@ -271,6 +310,7 @@ public class LicenseService {
             .deviceRegistered(deviceRegistered)
             .deviceCount(deviceCount)
             .deviceLimit(license.getMaxDevices())
+            .apiKey(apiKeyValue)
             .message("License is active")
             .build();
     }
@@ -304,6 +344,54 @@ public class LicenseService {
             .suspended(byStatus.getOrDefault(LICENSE_SUSPENDED, 0L))
             .byStatus(byStatus)
             .build();
+    }
+
+    private String generateApiKey() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return "sk_atheris_" + HexFormat.of().formatHex(bytes);
+    }
+
+    private String sha256(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(md.digest(input.getBytes()));
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
+    private String encrypt(String plaintext) {
+        try {
+            byte[] keyBytes = MessageDigest.getInstance("SHA-256").digest(encryptionKey.getBytes());
+            SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            byte[] iv = new byte[12];
+            new SecureRandom().nextBytes(iv);
+            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
+            byte[] ciphertext = cipher.doFinal(plaintext.getBytes());
+            byte[] result = new byte[iv.length + ciphertext.length];
+            System.arraycopy(iv, 0, result, 0, iv.length);
+            System.arraycopy(ciphertext, 0, result, iv.length, ciphertext.length);
+            return Base64.getEncoder().encodeToString(result);
+        } catch (Exception e) {
+            throw new RuntimeException("Encryption failed", e);
+        }
+    }
+
+    private String decrypt(String encrypted) {
+        try {
+            byte[] keyBytes = MessageDigest.getInstance("SHA-256").digest(encryptionKey.getBytes());
+            SecretKeySpec key = new SecretKeySpec(keyBytes, "AES");
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            byte[] decoded = Base64.getDecoder().decode(encrypted);
+            byte[] iv = new byte[12];
+            System.arraycopy(decoded, 0, iv, 0, iv.length);
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+            return new String(cipher.doFinal(decoded, iv.length, decoded.length - iv.length));
+        } catch (Exception e) {
+            throw new RuntimeException("Decryption failed", e);
+        }
     }
 
     private LicenseDto toDto(License l, List<LicenseDevice> deviceList) {

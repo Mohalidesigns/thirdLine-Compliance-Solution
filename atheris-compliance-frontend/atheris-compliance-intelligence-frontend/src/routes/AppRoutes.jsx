@@ -7,7 +7,6 @@ import { useAuth } from '../features/auth/hooks/useAuth';
 import { ROUTES } from '../utils/constants';
 
 const LoginForm = lazy(() => import('../features/auth/components/LoginForm'));
-const OnboardingPage = lazy(() => import('../features/onboarding/components/OnboardingPage'));
 const DashboardPage = lazy(() => import('../features/dashboard/components/DashboardPage'));
 
 const LibraryPage = lazy(() => import('../features/intelligence/components/LibraryPage'));
@@ -48,7 +47,6 @@ export default function AppRoutes() {
     <Suspense fallback={<Loading />}>
       <Routes>
         <Route path={ROUTES.LOGIN} element={isAuthenticated ? <Navigate to={ROUTES.DASHBOARD} /> : <LoginForm />} />
-        <Route path={ROUTES.ONBOARDING} element={<OnboardingPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to={ROUTES.DASHBOARD} />} />
           <Route path="dashboard" element={<DashboardPage />} />

@@ -52,6 +52,8 @@ public class TenantProfile {
 
     private String licenseKey;
     private String licenseStatus = LICENSE_INACTIVE;
+    private String encryptedApiKey;
+    private String apiKeyPrefix;
     private Instant licenseActivatedAt;
     private Instant licenseExpiresAt;
     private Boolean intelligenceEnabled = true;

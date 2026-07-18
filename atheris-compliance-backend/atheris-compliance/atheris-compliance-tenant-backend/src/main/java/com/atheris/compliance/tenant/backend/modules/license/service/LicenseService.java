@@ -8,6 +8,7 @@ import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNo
 import com.atheris.compliance.tenant.backend.modules.license.repository.LicenseAuditLogRepository;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
+import com.atheris.compliance.tenant.backend.shared.util.CryptoUtil;
 import static com.atheris.compliance.common.Constants.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,6 +35,7 @@ public class LicenseService {
     private final LicenseAuditLogRepository auditLog;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final CryptoUtil crypto;
 
     @Value("${atheris.tenant-id:1}")
     private Long tenantId;
@@ -71,6 +73,12 @@ public class LicenseService {
             profile.setDeviceFingerprintProvisionedAt(Instant.now());
         }
         profile.setLicenseGracePeriodEnd(platformResp.getGracePeriodEnd());
+
+        if (platformResp.getApiKey() != null) {
+            profile.setEncryptedApiKey(crypto.encrypt(platformResp.getApiKey()));
+            profile.setApiKeyPrefix(platformResp.getApiKey().substring(0, Math.min(12, platformResp.getApiKey().length())));
+        }
+
         profiles.save(profile);
 
         auditLog.save(LicenseAuditLog.builder()

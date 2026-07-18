@@ -1,6 +1,9 @@
 package com.atheris.compliance.tenant.backend.shared.platform.client;
 
+import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
+import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.*;
+import com.atheris.compliance.tenant.backend.shared.util.CryptoUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Component @Slf4j
 public class PlatformApiClient {
@@ -23,21 +28,43 @@ public class PlatformApiClient {
     private final RestTemplate rest;
     private final ObjectMapper mapper;
     private final String baseUrl;
-    private final String apiKey;
+    private final TenantProfileRepository profiles;
+    private final CryptoUtil crypto;
 
     public PlatformApiClient(
             @Value("${atheris.platform.base-url:http://localhost:9090}") String baseUrl,
-            @Value("${atheris.platform.internal-api-key:}") String apiKey) {
+            @Value("${atheris.tenant-id:1}") Long tenantId,
+            TenantProfileRepository profiles,
+            CryptoUtil crypto) {
         this.baseUrl = baseUrl;
-        this.apiKey = apiKey;
+        this.profiles = profiles;
+        this.crypto = crypto;
         this.rest = new RestTemplate();
         this.mapper = new ObjectMapper();
     }
 
     private HttpHeaders headers() {
         HttpHeaders h = new HttpHeaders();
-        h.set("X-Internal-Api-Key", apiKey);
+        Optional<TenantProfile> opt = profiles.findAll().stream().findFirst();
+        if (opt.isPresent() && opt.get().getEncryptedApiKey() != null) {
+            String decrypted = crypto.decrypt(opt.get().getEncryptedApiKey());
+            h.set("X-Api-Key", decrypted);
+        } else {
+            log.warn("No API key available for platform calls");
+        }
         return h;
+    }
+
+    public void onboardTenant(Map<String, Object> tenantData) {
+        try {
+            HttpHeaders h = headers();
+            h.setContentType(MediaType.APPLICATION_JSON);
+            rest.postForEntity(
+                baseUrl + "/api/v1/internal/tenants/onboard",
+                new HttpEntity<>(tenantData, h), Map.class);
+        } catch (Exception e) {
+            log.error("Failed to onboard tenant on platform: {}", e.getMessage());
+        }
     }
 
     public IngestResponseDto ingestDocument(MultipartFile file, Long tenantRegulatorId,

@@ -18,5 +18,6 @@ public class ValidateLicenseResponse {
     private Boolean deviceRegistered;
     private Integer deviceCount;
     private Integer deviceLimit;
+    private String apiKey;
     private String message;
 }

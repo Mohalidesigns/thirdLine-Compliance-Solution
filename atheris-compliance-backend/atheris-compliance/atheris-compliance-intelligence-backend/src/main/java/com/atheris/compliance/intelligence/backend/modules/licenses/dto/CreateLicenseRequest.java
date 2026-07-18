@@ -8,7 +8,6 @@ import java.time.Instant;
 
 @Data
 public class CreateLicenseRequest {
-    @NotNull
     private Long tenantId;
     @NotBlank
     private String tier;

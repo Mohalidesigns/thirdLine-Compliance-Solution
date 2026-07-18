@@ -54,8 +54,9 @@ management:
 
 atheris:
   admin:
-    username: ${ADMIN_USERNAME:admin@atheris.ng}
+    username: ${ADMIN_USERNAME}
     password: ${ADMIN_PASSWORD}
+  encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
@@ -76,8 +77,6 @@ atheris:
     user-agent: "Atheris-HorizonScanner/1.0 (compliance@atheris.com)"
     request-timeout-seconds: 30
     max-pdf-size-mb: 100
-
-  internal-api-key: ${INTERNAL_API_KEY:dev-internal-key-change-in-prod}
 
   jobs:
     scraper-interval-ms: 900000       # 15 minutes
