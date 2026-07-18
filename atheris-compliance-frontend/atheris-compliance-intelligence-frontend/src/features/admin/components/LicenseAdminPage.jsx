@@ -24,6 +24,8 @@ export default function LicenseAdminPage() {
   const [licenses, setLicenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openCreate, setOpenCreate] = useState(false);
@@ -34,6 +36,7 @@ export default function LicenseAdminPage() {
 
   useEffect(() => {
     load();
+    api.platform.licenses.stats().then(setStats).catch(() => {}).finally(() => setLoadingStats(false));
     api.platform.tenants.list().then(data => setTenants(Array.isArray(data) ? data : data.content || [])).catch(() => {});
   }, []);
 
@@ -110,6 +113,27 @@ export default function LicenseAdminPage() {
           <Button variant="contained" size="small" startIcon={<Add />} onClick={openCreateDialog}>Create License</Button>
         </Box>
       </Box>
+
+      {/* Dashboard KPIs */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        {[
+          { label: 'Active', value: stats?.active ?? '…', color: '#2D7D46' },
+          { label: 'Inactive', value: stats?.inactive ?? '…', color: '#718096' },
+          { label: 'Grace Period', value: stats?.gracePeriod ?? '…', color: '#D4AF37' },
+          { label: 'Expired', value: stats?.expired ?? '…', color: '#C53030' },
+          { label: 'Revoked', value: stats?.revoked ?? '…', color: '#9B2C2C' },
+          { label: 'Total', value: stats?.total ?? '…', color: '#1A365D' },
+        ].map((s) => (
+          <Grid item xs={6} sm={4} md={2} key={s.label}>
+            <Card sx={{ borderTop: `3px solid ${s.color}` }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{s.label}</Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{s.value}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
       <Card>
         <TableContainer>

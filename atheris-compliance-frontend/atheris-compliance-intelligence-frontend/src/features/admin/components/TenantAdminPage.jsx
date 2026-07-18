@@ -48,7 +48,7 @@ export default function TenantAdminPage() {
         {[
           { label: 'Total Tenants', value: loading ? '...' : tenants.length, color: '#1A365D' },
           { label: 'Active', value: loading ? '...' : tenants.filter(t => t.isActive).length, color: '#2D7D46' },
-          { label: 'Webhook Enabled', value: loading ? '...' : tenants.filter(t => t.webhookEnabled).length, color: '#319795' },
+
           { label: 'Licence Types', value: loading ? '...' : new Set(tenants.map(t => t.licenceType).filter(Boolean)).size, color: '#D4AF37' },
         ].map((s) => (
           <Grid item xs={6} md={3} key={s.label}>
@@ -151,9 +151,6 @@ export default function TenantAdminPage() {
                 <MenuItem value="Microfinance">Microfinance</MenuItem>
                 <MenuItem value="Fintech">Fintech / PSP</MenuItem>
               </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth size="small" label="Webhook URL" placeholder="https://api.client.com/v1/compliance/hooks" />
             </Grid>
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">

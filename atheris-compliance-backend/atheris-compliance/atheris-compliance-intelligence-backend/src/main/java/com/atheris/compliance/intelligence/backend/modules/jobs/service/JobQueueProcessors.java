@@ -154,11 +154,6 @@ public class JobQueueProcessors {
                 Long instrumentId = job.getSubjectId();
                 List<Long> matchedTenantIds = findMatchingTenants(instrumentId);
 
-                jobQueue.enqueue(Constants.JOB_WEBHOOK, instrumentId,
-                    1, Map.of("matching_tenants", matchedTenantIds,
-                              "instrument_id", instrumentId),
-                    Constants.JOB_APPLICABILITY);
-
                 jobQueue.markCompleted(job.getJobId());
                 log.info("Applicability job {} done. {} tenants matched.", job.getJobId(), matchedTenantIds.size());
             } catch (Throwable e) {
@@ -170,9 +165,9 @@ public class JobQueueProcessors {
         }
     }
 
-    // ── Webhook sender: every 5 minutes ──
-    @Scheduled(fixedDelayString = "${atheris.jobs.webhook-sender-interval-ms:300000}")
-    @Transactional
+    // ── Webhook sender: every 5 minutes ── (disabled, using polling instead)
+    // @Scheduled(fixedDelayString = "${atheris.jobs.webhook-sender-interval-ms:300000}")
+    // @Transactional
     public void processWebhookQueue() {
         for (int i = 0; i < WEBHOOK_BATCH; i++) {
             var jobOpt = jobQueue.claimOne(Constants.JOB_WEBHOOK);
@@ -199,8 +194,8 @@ public class JobQueueProcessors {
         }
     }
 
-    // ── Webhook retry: every 30 minutes ──
-    @Scheduled(fixedDelayString = "${atheris.jobs.webhook-retry-interval-ms:1800000}")
+    // ── Webhook retry: every 30 minutes ── (disabled, using polling instead)
+    // @Scheduled(fixedDelayString = "${atheris.jobs.webhook-retry-interval-ms:1800000}")
     public void retryFailedWebhooks() {
         log.debug("Running webhook retry...");
         webhooks.retryFailed(10);
