@@ -1,4 +1,5 @@
 export const API_BASE = 'http://localhost:9090/api/v1';
+const TENANT_API_BASE = 'http://localhost:9091/api/v1';
 const DEMO_TOKEN = 'demo-jwt-token';
 
 let authToken = null;
@@ -197,7 +198,7 @@ function demoRequest(path, options = {}) {
   return null;
 }
 
-async function request(path, options = {}) {
+async function fetchWithBase(base, path, options = {}) {
   const demo = demoRequest(path, options);
   if (demo) return demo;
 
@@ -206,7 +207,7 @@ async function request(path, options = {}) {
 
   let res;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    res = await fetch(`${base}${path}`, { ...options, headers });
   } catch (e) {
     throw new Error('Cannot connect to server. Please try again.');
   }
@@ -225,7 +226,7 @@ async function request(path, options = {}) {
       if (refreshed) {
         headers['Authorization'] = `Bearer ${refreshed}`;
         try {
-          res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+          res = await fetch(`${base}${path}`, { ...options, headers });
         } catch (e) {
           throw new Error('Cannot connect to server. Please try again.');
         }
@@ -264,6 +265,14 @@ async function request(path, options = {}) {
 
   if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`);
   return data;
+}
+
+async function request(path, options = {}) {
+  return fetchWithBase(API_BASE, path, options);
+}
+
+async function tenantRequest(path, options = {}) {
+  return fetchWithBase(TENANT_API_BASE, path, options);
 }
 
 export const api = {
@@ -373,20 +382,20 @@ export const api = {
     },
   },
   license: {
-    activate: (data) => request('/license/activate', { method: 'POST', body: JSON.stringify(data) }),
-    status: () => request('/license/status'),
-    checkup: () => request('/license/checkup', { method: 'POST' }),
-    deactivate: () => request('/license/deactivate', { method: 'POST' }),
-    audit: () => request('/license/audit'),
+    activate: (data) => tenantRequest('/license/activate', { method: 'POST', body: JSON.stringify(data) }),
+    status: () => tenantRequest('/license/status'),
+    checkup: () => tenantRequest('/license/checkup', { method: 'POST' }),
+    deactivate: () => tenantRequest('/license/deactivate', { method: 'POST' }),
+    audit: () => tenantRequest('/license/audit'),
   },
   onboarding: {
-    status: () => request('/onboarding/status'),
-    activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
-    institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
-    userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
-    regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
-    documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
-    confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
+    status: () => tenantRequest('/onboarding/status'),
+    activateLicense: (data) => tenantRequest('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
+    institution: (data) => tenantRequest('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
+    userSetup: (data) => tenantRequest('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
+    regulators: (data) => tenantRequest('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
+    documentTypes: (data) => tenantRequest('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
+    confirm: (data) => tenantRequest('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
   },
 };
 

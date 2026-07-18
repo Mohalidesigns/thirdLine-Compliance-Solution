@@ -258,6 +258,7 @@ Full tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-t
 - Tenant frontend `package.json` — reordered deps, added Inter + Roboto Mono Google Fonts
 - Tenant frontend `main.jsx` — replaced placeholder stub with proper `<StrictMode><App /></StrictMode>` bootstrap
 - Vite 8 Rolldown resolution — added missing `package.json` in `node_modules/@mui/icons-material/` for resolution
+- **Onboarding redirect to login fix** — `api.js` hardcoded `API_BASE = 'http://localhost:9090/api/v1'`, so onboarding/license API calls went to the intelligence backend (no `/onboarding/` routes) which returned 401 → `window.location.href = '/login'`. Added `TENANT_API_BASE = 'http://localhost:9091/api/v1'` + `tenantRequest()`; onboarding and license methods now target the correct backend directly.
 
 ### How to Run
 ```bash
