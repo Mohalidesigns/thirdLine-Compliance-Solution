@@ -32,9 +32,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/v1/auth/**",
-                    "/api/v1/webhooks/receive",
-                    "/api/v1/license/activate",
-                    "/api/v1/license/status",
+                    "/api/v1/onboarding/**",
+                    "/api/v1/recommendations/**",
+                    "/api/v1/webhooks/**",
+                    "/api/v1/license/**",
                     "/actuator/health"
                 ).permitAll()
                 .anyRequest().authenticated())

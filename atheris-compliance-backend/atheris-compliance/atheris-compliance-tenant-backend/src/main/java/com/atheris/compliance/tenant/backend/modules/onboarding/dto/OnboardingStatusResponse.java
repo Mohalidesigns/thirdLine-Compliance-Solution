@@ -11,7 +11,6 @@ public class OnboardingStatusResponse {
     private Integer nextStep;
     private String legalName;
     private String licenceType;
-    private Boolean intelligenceEnabled;
     private String licenseStatus;
     private String authType;
     private List<Integer> subscribedRegulators;

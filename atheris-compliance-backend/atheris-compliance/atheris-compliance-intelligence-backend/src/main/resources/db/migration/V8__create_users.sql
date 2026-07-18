@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   VARCHAR(255) NOT NULL,
     first_name      VARCHAR(100),
     last_name       VARCHAR(100),
+    tenant_id       BIGINT,
     role            VARCHAR(50)  NOT NULL DEFAULT 'PLATFORM_ADMIN',
     is_active       BOOLEAN      DEFAULT true,
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

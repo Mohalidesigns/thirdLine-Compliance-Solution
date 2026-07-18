@@ -31,12 +31,6 @@ public class OnboardingController {
         return ResponseEntity.ok(service.saveInstitution(req));
     }
 
-    @PostMapping("/intelligence-mode")
-    public ResponseEntity<OnboardingStatusResponse> saveIntelligenceMode(
-            @RequestBody IntelligenceModeRequest req) {
-        return ResponseEntity.ok(service.saveIntelligenceMode(req));
-    }
-
     @PostMapping("/user-setup")
     public ResponseEntity<OnboardingStatusResponse> saveUserSetup(
             @Valid @RequestBody UserSetupRequest req) {

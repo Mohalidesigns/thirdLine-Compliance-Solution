@@ -62,6 +62,7 @@ public class AdminLicenseController {
     }
 
     @PostMapping("/validate")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<ValidateLicenseResponse> validate(
             @Valid @RequestBody ValidateLicenseRequest req) {
         return ResponseEntity.ok(service.validate(req));

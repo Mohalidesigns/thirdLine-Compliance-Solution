@@ -3,6 +3,7 @@ package com.atheris.compliance.intelligence.backend.config;
 import com.atheris.compliance.intelligence.backend.modules.auth.JwtAuthFilter;
 import com.atheris.compliance.intelligence.backend.modules.cors.repository.CorsWhitelistRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -27,6 +28,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final InternalApiKeyFilter internalApiKeyFilter;
     private final CorsWhitelistRepository corsRepo;
 
     @Bean
@@ -42,10 +44,12 @@ public class SecurityConfig {
                 res.getWriter().write("{\"error\":\"Authentication required\"}");
             }))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/admin/licenses/validate", "/actuator/health").permitAll()
+                .requestMatchers("/api/v1/internal/**").permitAll()
                 .requestMatchers("/api/v1/platform/**").hasRole("PLATFORM_ADMIN")
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(internalApiKeyFilter, JwtAuthFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
-  Alert, CircularProgress, Switch, FormControlLabel, Radio, RadioGroup,
+  Alert, CircularProgress, Radio, RadioGroup,
   FormControl, FormLabel, Select, MenuItem, Chip, OutlinedInput, InputLabel,
   Checkbox, ListItemText,
 } from '@mui/material';
 import {
-  VpnKey, CheckCircle, Shield, Business, ToggleOn, PeopleAlt,
+  VpnKey, CheckCircle, Shield, Business, PeopleAlt,
   AccountBalance, Description, HowToReg,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -23,6 +23,8 @@ const DOCUMENT_TYPES = ['circulars', 'guidelines', 'directives', 'regulations', 
 const RISK_RATINGS = ['high', 'medium', 'low'];
 const NOTIFICATION_FREQUENCIES = ['immediate', 'daily', 'weekly'];
 
+const STEPS = ['License', 'Institution', 'User Setup', 'Regulators', 'Doc Types', 'Confirm'];
+
 export default function OnboardingPage() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -31,7 +33,6 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [intelligenceEnabled, setIntelligenceEnabled] = useState(true);
   const [recommendedRegulators, setRecommendedRegulators] = useState([]);
   const [completed, setCompleted] = useState(false);
 
@@ -53,10 +54,6 @@ export default function OnboardingPage() {
   const [selectedDocTypes, setSelectedDocTypes] = useState([]);
   const [selectedRiskRatings, setSelectedRiskRatings] = useState(['high', 'medium']);
   const [webhookUrl, setWebhookUrl] = useState('');
-
-  const steps = intelligenceEnabled
-    ? ['License', 'Institution', 'AI Mode', 'User Setup', 'Regulators', 'Doc Types', 'Confirm']
-    : ['License', 'Institution', 'AI Mode', 'User Setup', 'Confirm'];
 
   useEffect(() => {
     try {
@@ -86,7 +83,6 @@ export default function OnboardingPage() {
         return;
       }
       setStep(resp.currentStep || 0);
-      setIntelligenceEnabled(resp.intelligenceEnabled !== false);
       if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName, licenceType: resp.licenceType }));
       if (resp.authType) setAuthType(resp.authType);
       if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
@@ -104,9 +100,8 @@ export default function OnboardingPage() {
     try {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
-      setIntelligenceEnabled(resp.intelligenceEnabled !== false);
       if (resp.recommendedRegulators) setRecommendedRegulators(resp.recommendedRegulators);
-      if (nextStep === 7 && resp.onboardingCompleted) {
+      if (nextStep === 6 && resp.onboardingCompleted) {
         setCompleted(true);
         setTimeout(() => navigate(ROUTES.DASHBOARD, { replace: true }), 2000);
       }
@@ -144,13 +139,6 @@ export default function OnboardingPage() {
     );
   }
 
-  function handleIntelligenceMode() {
-    submit('intelligenceMode',
-      api.onboarding.intelligenceMode({ intelligenceEnabled }),
-      3
-    );
-  }
-
   function handleUserSetup() {
     if (authType === 'local' && (!localAdmin.fullName || !localAdmin.email || !localAdmin.password)) {
       setError('All admin fields are required');
@@ -162,7 +150,7 @@ export default function OnboardingPage() {
           ? { authType: 'local', localAdmin }
           : { authType: 'ldap', ldapConfig: { url: ldapUrl } }
       ),
-      4
+      3
     );
   }
 
@@ -172,7 +160,7 @@ export default function OnboardingPage() {
         subscribedRegulators: selectedRegulators,
         notificationFrequency,
       }),
-      intelligenceEnabled ? 5 : 7
+      4
     );
   }
 
@@ -182,14 +170,14 @@ export default function OnboardingPage() {
         subscribedDocumentTypes: selectedDocTypes,
         notificationRiskRatings: selectedRiskRatings,
       }),
-      6
+      5
     );
   }
 
   function handleConfirm() {
     submit('confirm',
       api.onboarding.confirm({ webhookUrl: webhookUrl || undefined }),
-      7
+      6
     );
   }
 
@@ -198,10 +186,8 @@ export default function OnboardingPage() {
     if (step === 1) return 1;
     if (step === 2) return 2;
     if (step === 3) return 3;
-    if (!intelligenceEnabled) return 4;
     if (step === 4) return 4;
-    if (step === 5) return 5;
-    return intelligenceEnabled ? 6 : 4;
+    return 5;
   }
 
   if (loading) {
@@ -226,7 +212,7 @@ export default function OnboardingPage() {
             </Box>
 
             <Stepper activeStep={getActiveStep()} alternativeLabel sx={{ mb: 4 }}>
-              {steps.map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
+              {STEPS.map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
             </Stepper>
 
             {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.85rem' }}>{error}</Alert>}
@@ -312,32 +298,6 @@ export default function OnboardingPage() {
 
             {getActiveStep() === 2 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Enable AI-powered classification to automatically detect and categorize regulatory instruments
-                </Typography>
-                <FormControlLabel
-                  control={<Switch checked={intelligenceEnabled}
-                    onChange={e => setIntelligenceEnabled(e.target.checked)} />}
-                  label={
-                    <Box>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>AI Intelligence</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Auto-classify instruments, extract obligations, and recommend actions
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{ mb: 3 }}
-                />
-                <Button fullWidth variant="contained" size="large"
-                  onClick={handleIntelligenceMode} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
-                  {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
-                </Button>
-              </Box>
-            )}
-
-            {getActiveStep() === 3 && (
-              <Box>
                 <FormControl sx={{ mb: 2 }}>
                   <FormLabel>Authentication Type</FormLabel>
                   <RadioGroup row value={authType} onChange={e => setAuthType(e.target.value)}>
@@ -377,7 +337,7 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {intelligenceEnabled && getActiveStep() === 4 && (
+            {getActiveStep() === 3 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   {recommendedRegulators.length > 0
@@ -419,7 +379,7 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {intelligenceEnabled && getActiveStep() === 5 && (
+            {getActiveStep() === 4 && (
               <Box>
                 <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                   <InputLabel>Document Types</InputLabel>
@@ -467,13 +427,10 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {(!intelligenceEnabled && getActiveStep() === 4) ||
-             (intelligenceEnabled && getActiveStep() === 6) ? (
+            {getActiveStep() === 5 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  {intelligenceEnabled
-                    ? 'You\'ve configured your regulators. Finalize your workspace setup.'
-                    : 'AI intelligence is disabled. You can skip regulator subscriptions and document type filters.'}
+                  Finalize your workspace setup.
                 </Typography>
                 <TextField fullWidth size="small" label="Webhook URL (optional)"
                   placeholder="https://api.yourbank.com/atheris-webhook"
@@ -486,7 +443,7 @@ export default function OnboardingPage() {
                   {submitting ? <CircularProgress size={20} /> : 'Complete Setup'}
                 </Button>
               </Box>
-            ) : null}
+            )}
           </CardContent>
         </Card>
       </Box>

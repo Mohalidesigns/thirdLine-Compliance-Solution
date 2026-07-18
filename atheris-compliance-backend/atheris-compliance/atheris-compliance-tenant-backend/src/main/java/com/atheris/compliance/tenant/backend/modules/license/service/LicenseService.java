@@ -35,7 +35,7 @@ public class LicenseService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${atheris.tenant-id:}")
+    @Value("${atheris.tenant-id:1}")
     private Long tenantId;
 
     @Value("${atheris.platform.base-url:http://localhost:9090}")

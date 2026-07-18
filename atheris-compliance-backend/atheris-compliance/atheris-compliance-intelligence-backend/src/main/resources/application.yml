@@ -77,6 +77,8 @@ atheris:
     request-timeout-seconds: 30
     max-pdf-size-mb: 100
 
+  internal-api-key: ${INTERNAL_API_KEY:dev-internal-key-change-in-prod}
+
   jobs:
     scraper-interval-ms: 900000       # 15 minutes
     ocr-processor-interval-ms: 120000 # 2 minutes
