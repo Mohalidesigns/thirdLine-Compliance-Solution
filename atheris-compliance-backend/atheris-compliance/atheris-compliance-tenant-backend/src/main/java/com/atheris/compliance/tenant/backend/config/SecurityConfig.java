@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.config;
 
 import com.atheris.compliance.tenant.backend.modules.auth.filter.JwtAuthFilter;
+import com.atheris.compliance.tenant.backend.modules.cors.repository.CorsWhitelistRepository;
 import com.atheris.compliance.tenant.backend.modules.license.filter.LicenseFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,10 +25,12 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final LicenseFilter licenseFilter;
+    private final CorsWhitelistRepository corsRepo;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
@@ -53,5 +56,10 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService noopUserDetailsService() {
         return username -> { throw new RuntimeException("JWT-only auth"); };
+    }
+
+    @Bean
+    public DatabaseCorsConfigurationSource corsConfigurationSource() {
+        return new DatabaseCorsConfigurationSource(corsRepo);
     }
 }

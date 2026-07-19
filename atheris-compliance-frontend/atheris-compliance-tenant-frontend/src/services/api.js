@@ -24,7 +24,7 @@ export const api = {
     }),
   },
   onboarding: {
-    status: () => request('/onboarding/status'),
+    status: (opts = {}) => request('/onboarding/status', opts),
     activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
     institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),

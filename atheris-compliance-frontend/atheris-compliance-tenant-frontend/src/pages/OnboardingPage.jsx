@@ -76,7 +76,7 @@ export default function OnboardingPage() {
 
   async function loadStatus() {
     try {
-      const resp = await api.onboarding.status();
+      const resp = await api.onboarding.status({ signal: AbortSignal.timeout(5000) });
       if (resp.onboardingCompleted) {
         navigate('/dashboard', { replace: true });
         return;
