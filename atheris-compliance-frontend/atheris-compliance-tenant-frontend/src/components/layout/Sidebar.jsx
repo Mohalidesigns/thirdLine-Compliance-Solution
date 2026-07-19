@@ -49,7 +49,7 @@ export default function Sidebar() {
             Atheris
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6rem' }}>
-            Tenant Portal
+            Compliance Portal
           </Typography>
         </Box>
       </Box>

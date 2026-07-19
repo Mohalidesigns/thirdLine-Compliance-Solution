@@ -34,7 +34,7 @@ export default function TopBar() {
         <Box sx={{ flex: 1 }} />
         <Chip
           size="small"
-          label="Tenant Portal"
+          label="Compliance Portal"
           sx={{ bgcolor: '#EBF5FB', color: theme.palette.primary.main, fontWeight: 500, fontSize: '0.7rem' }}
         />
       </Toolbar>

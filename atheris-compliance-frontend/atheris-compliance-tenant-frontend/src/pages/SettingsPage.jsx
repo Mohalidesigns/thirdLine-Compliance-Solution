@@ -68,7 +68,7 @@ export default function SettingsPage() {
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Account</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Manage your tenant account settings
+            Manage your account settings
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="body2" color="text.secondary">
