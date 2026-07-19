@@ -23,6 +23,10 @@ public class RegulatorRecommendationService {
     }
 
     public List<Integer> getRecommendedRegulatorIds(String licenceType) {
+        if (licenceType == null) {
+            return repository.findAll().stream()
+                .map(RegulatorRecommendation::getRegulatorId).toList();
+        }
         return repository.findByLicenceTypeOrderBySortOrderAsc(licenceType)
             .stream().map(RegulatorRecommendation::getRegulatorId).toList();
     }

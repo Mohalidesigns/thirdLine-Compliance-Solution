@@ -201,13 +201,8 @@ public class LicenseService {
                     .status(status)
                     .message("License is " + status)
                     .build();
-            case LICENSE_INACTIVE:
-                return ValidateLicenseResponse.builder()
-                    .valid(false)
-                    .status(LICENSE_INACTIVE)
-                    .message("License has not been activated")
-                    .build();
         }
+        // LICENSE_INACTIVE falls through — first activation will set activatedAt
 
         if (expired && !inGrace) {
             license.setStatus(LICENSE_EXPIRED);
@@ -287,14 +282,22 @@ public class LicenseService {
             }
         }
 
+        if (!isFirstActivation) {
+            return ValidateLicenseResponse.builder()
+                .valid(false)
+                .status(LICENSE_ACTIVE)
+                .message("License has already been activated")
+                .build();
+        }
+
+        license.setActivatedAt(now);
+        license.setStatus(LICENSE_ACTIVE);
+        licenses.save(license);
+
         String apiKeyValue = null;
-        if (isFirstActivation) {
-            license.setActivatedAt(now);
-            licenses.save(license);
-            Optional<ApiKey> ak = apiKeys.findByLicenseId(license.getId());
-            if (ak.isPresent()) {
-                apiKeyValue = decrypt(ak.get().getEncryptedKey());
-            }
+        Optional<ApiKey> ak = apiKeys.findByLicenseId(license.getId());
+        if (ak.isPresent()) {
+            apiKeyValue = decrypt(ak.get().getEncryptedKey());
         }
 
         return ValidateLicenseResponse.builder()
@@ -395,7 +398,9 @@ public class LicenseService {
     }
 
     private LicenseDto toDto(License l, List<LicenseDevice> deviceList) {
-        String name = tenants.findById(l.getTenantId()).map(Tenant::getLegalName).orElse(null);
+        String name = l.getTenantId() != null
+            ? tenants.findById(l.getTenantId()).map(Tenant::getLegalName).orElse(null)
+            : null;
         return toDto(l, deviceList, name);
     }
 

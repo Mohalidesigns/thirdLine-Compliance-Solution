@@ -15,7 +15,7 @@ public class Tenant {
     private Long tenantId;
     @Column(nullable = false) private String legalName;
     private String shortName;
-    @Column(nullable = false) private String licenceType;
+    private String licenceType;
     private String licenceNumber;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private List<Integer> regulators;
@@ -28,6 +28,9 @@ public class Tenant {
     private String notificationFrequency = Constants.TENANT_PLAN_IMMEDIATE;
     private Integer employeeCount;
     private String stateOfHq;
+    private String address;
+    private String contactPhone;
+    private String contactEmail;
     private String ccoName;
     private String ccoEmail;
     private String techEmail;

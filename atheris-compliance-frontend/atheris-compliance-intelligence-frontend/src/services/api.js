@@ -172,19 +172,24 @@ function demoRequest(path, options = {}) {
     ];
   }
   if (path.startsWith('/platform/tenants')) {
-    return [
+    const ALL_TENANTS = [
       { tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-01-15T00:00:00Z' },
       { tenantId: 2, legalName: 'Zenith Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-02-01T00:00:00Z' },
       { tenantId: 3, legalName: 'Access Bank Plc', licenceType: 'Commercial Bank', isActive: true, webhookEnabled: true, onboardedAt: '2025-03-10T00:00:00Z' },
       { tenantId: 4, legalName: 'Leadway Assurance Company Ltd', licenceType: 'Insurance', isActive: true, webhookEnabled: false, onboardedAt: '2025-04-05T00:00:00Z' },
       { tenantId: 5, legalName: 'MTN Nigeria Communications Plc', licenceType: 'Telecommunications', isActive: true, webhookEnabled: true, onboardedAt: '2025-05-20T00:00:00Z' },
     ];
+    const qs = new URLSearchParams(path.split('?')[1] || '');
+    const isActive = qs.get('isActive');
+    if (isActive === 'true') return ALL_TENANTS.filter(t => t.isActive);
+    if (isActive === 'false') return ALL_TENANTS.filter(t => !t.isActive);
+    return ALL_TENANTS;
   }
   if (path.startsWith('/platform/instruments')) {
     return { content: DEMI_OBLIGATIONS, totalElements: DEMI_OBLIGATIONS.length, totalPages: 1, size: 50, number: 0 };
   }
   if (path.startsWith('/admin/licenses')) {
-    if (path.endsWith('/stats')) return { active: 5, expired: 1, revoked: 1, total: 7 };
+    if (path.endsWith('/stats')) return { active: 5, expired: 1, revoked: 1, total: 7, gracePeriod: 0, suspended: 0, inactive: 0 };
     const idMatch = path.match(/\/admin\/licenses\/(\d+)$/);
     if (idMatch) {
       const id = parseInt(idMatch[1]);
@@ -193,6 +198,9 @@ function demoRequest(path, options = {}) {
     if (path.includes('/renew') || path.includes('/revoke') || options.method === 'POST' || options.method === 'PUT' || options.method === 'DELETE') {
       return { message: 'ok' };
     }
+    const qs = new URLSearchParams(path.split('?')[1] || '');
+    const status = qs.get('status');
+    if (status) return DEMO_LICENSES.filter(l => l.status === status);
     return DEMO_LICENSES;
   }
   return null;

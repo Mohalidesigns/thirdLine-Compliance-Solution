@@ -10,7 +10,6 @@ public class OnboardingStatusResponse {
     private Integer currentStep;
     private Integer nextStep;
     private String legalName;
-    private String licenceType;
     private String licenseStatus;
     private String authType;
     private List<Integer> subscribedRegulators;

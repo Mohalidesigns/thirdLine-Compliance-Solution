@@ -3,11 +3,11 @@ import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  TablePagination, Drawer,
+  TablePagination, Drawer, Divider, InputAdornment, Snackbar, Alert,
 } from '@mui/material';
 import {
   Add, VpnKey, CheckCircle, Cancel, Warning, Refresh,
-  Delete, Visibility, Close, DeviceHub, Autorenew,
+  Delete, Visibility, Close, DeviceHub, Autorenew, Description, ContentCopy,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 
@@ -20,10 +20,18 @@ const statusConfig = {
   suspended: { color: '#DD6B20', bg: '#FFFAF0' },
 };
 
+const KPI_CARDS = [
+  { label: 'Active', value: 'active', color: '#2D7D46' },
+  { label: 'Inactive', value: 'inactive', color: '#718096' },
+  { label: 'Grace Period', value: 'grace_period', color: '#D4AF37' },
+  { label: 'Expired', value: 'expired', color: '#C53030' },
+  { label: 'Revoked', value: 'revoked', color: '#9B2C2C' },
+  { label: 'Total', value: null, color: '#1A365D' },
+];
+
 export default function LicenseAdminPage() {
   const [licenses, setLicenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tenants, setTenants] = useState([]);
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [page, setPage] = useState(0);
@@ -33,29 +41,45 @@ export default function LicenseAdminPage() {
   const [selectedLicense, setSelectedLicense] = useState(null);
   const [openRenew, setOpenRenew] = useState(null);
   const [form, setForm] = useState({});
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   useEffect(() => {
     load();
     api.platform.licenses.stats().then(setStats).catch(() => {}).finally(() => setLoadingStats(false));
-    api.platform.tenants.list().then(data => setTenants(Array.isArray(data) ? data : data.content || [])).catch(() => {});
   }, []);
 
-  const load = () => {
+  const load = (status) => {
     setLoading(true);
-    api.platform.licenses.list()
+    const params = status || filterStatus;
+    api.platform.licenses.list(params ? 'status=' + params : '')
       .then(data => setLicenses(data.content || data))
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
+  const handleFilterClick = (status) => {
+    const next = filterStatus === status ? null : status;
+    setFilterStatus(next);
+    setPage(0);
+    load(next);
+  };
+
+  const copyKey = (key) => {
+    navigator.clipboard.writeText(key);
+    setSnackbar({ open: true, message: 'License key copied' });
+  };
+
   const handleCreate = () => {
-    api.platform.licenses.create(form)
+    const body = { ...form, expiresAt: form.expiresAt ? form.expiresAt + ':00Z' : null };
+    api.platform.licenses.create(body)
       .then(() => { setOpenCreate(false); setForm({}); load(); })
       .catch(console.error);
   };
 
   const handleUpdate = () => {
-    api.platform.licenses.update(openEdit, form)
+    const body = { ...form, expiresAt: form.expiresAt ? form.expiresAt + ':00Z' : null };
+    api.platform.licenses.update(openEdit, body)
       .then(() => { setOpenEdit(null); setForm({}); load(); })
       .catch(console.error);
   };
@@ -80,7 +104,9 @@ export default function LicenseAdminPage() {
   };
 
   const openCreateDialog = () => {
-    setForm({ tenantId: tenants.length === 1 ? tenants[0].tenantId : '', tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true });
+    const defaultExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const expiresAt = defaultExpiry.toISOString().slice(0, 16);
+    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, expiresAt });
     setOpenCreate(true);
   };
 
@@ -103,36 +129,48 @@ export default function LicenseAdminPage() {
 
   return (
     <Box>
+      <Snackbar open={snackbar.open} autoHideDuration={2000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" variant="filled" sx={{ fontSize: '0.85rem' }}>{snackbar.message}</Alert>
+      </Snackbar>
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>License Management</Typography>
           <Typography variant="body2" color="text.secondary">Create and manage tenant license keys, device limits, and renewals</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={load}>Refresh</Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {filterStatus && (
+            <Chip label={`Filter: ${filterStatus.replace('_', ' ')}`} size="small" onDelete={() => handleFilterClick(filterStatus)} color="primary" variant="outlined" sx={{ fontWeight: 600, textTransform: 'capitalize' }} />
+          )}
+          <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => load()}>Refresh</Button>
           <Button variant="contained" size="small" startIcon={<Add />} onClick={openCreateDialog}>Create License</Button>
         </Box>
       </Box>
 
-      {/* Dashboard KPIs */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        {[
-          { label: 'Active', value: stats?.active ?? '…', color: '#2D7D46' },
-          { label: 'Inactive', value: stats?.inactive ?? '…', color: '#718096' },
-          { label: 'Grace Period', value: stats?.gracePeriod ?? '…', color: '#D4AF37' },
-          { label: 'Expired', value: stats?.expired ?? '…', color: '#C53030' },
-          { label: 'Revoked', value: stats?.revoked ?? '…', color: '#9B2C2C' },
-          { label: 'Total', value: stats?.total ?? '…', color: '#1A365D' },
-        ].map((s) => (
-          <Grid item xs={6} sm={4} md={2} key={s.label}>
-            <Card sx={{ borderTop: `3px solid ${s.color}` }}>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{s.label}</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{s.value}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        {KPI_CARDS.map((s) => {
+          const isActive = filterStatus === s.value;
+          const statKey = s.value ? s.value.replace(/_(.)/g, (_, c) => c.toUpperCase()) : 'total';
+          return (
+            <Grid item xs={6} sm={4} md={2} key={s.label}>
+              <Card
+                onClick={() => handleFilterClick(s.value)}
+                sx={{
+                  borderTop: `3px solid ${s.color}`,
+                  cursor: 'pointer',
+                  ...(isActive && { boxShadow: `0 0 0 2px ${s.color}`, bgcolor: '#F7FAFC' }),
+                  transition: 'box-shadow 0.15s, background-color 0.15s',
+                  '&:hover': { bgcolor: '#F7FAFC' },
+                }}
+              >
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{s.label}</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{stats?.[statKey] ?? '…'}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
       <Card>
@@ -157,15 +195,20 @@ export default function LicenseAdminPage() {
               ) : paginated.map((lic) => {
                 const sc = statusConfig[lic.status] || statusConfig.inactive;
                 return (
-                  <TableRow key={lic.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.72rem' }}>
-                        {lic.licenseKey}
-                      </Typography>
+                  <TableRow key={lic.id} hover sx={{ cursor: 'pointer' }} onClick={() => viewLicense(lic)}>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.72rem' }}>
+                          {lic.licenseKey}
+                        </Typography>
+                        <Tooltip title="Copy license key">
+                          <IconButton size="small" onClick={() => copyKey(lic.licenseKey)} sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
+                            <ContentCopy sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>{lic.legalName || lic.tenantId}</Typography>
-                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{lic.legalName || lic.tenantId}</TableCell>
                     <TableCell>
                       <Chip label={lic.status.replace('_', ' ')} size="small" sx={{ bgcolor: sc.bg, color: sc.color, fontWeight: 600, fontSize: '0.65rem', textTransform: 'capitalize' }} />
                     </TableCell>
@@ -181,7 +224,7 @@ export default function LicenseAdminPage() {
                         : <Chip label="OFF" size="small" sx={{ bgcolor: '#FEE2E2', color: '#C53030', fontWeight: 600, fontSize: '0.6rem' }} />
                       }
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" onClick={e => e.stopPropagation()}>
                       <Tooltip title="View Details"><IconButton size="small" onClick={() => viewLicense(lic)}><Visibility sx={{ fontSize: 18 }} /></IconButton></Tooltip>
                       <Tooltip title="Edit"><IconButton size="small" onClick={() => openEditDialog(lic)}><VpnKey sx={{ fontSize: 18 }} /></IconButton></Tooltip>
                       {lic.status === 'expired' || lic.status === 'grace_period' ? (
@@ -204,7 +247,7 @@ export default function LicenseAdminPage() {
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Create License</DialogTitle>
         <DialogContent>
-          <LicenseForm form={form} onChange={setForm} tenants={tenants} />
+          <LicenseForm form={form} onChange={setForm} />
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
@@ -216,7 +259,7 @@ export default function LicenseAdminPage() {
       <Dialog open={!!openEdit} onClose={() => setOpenEdit(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Edit License</DialogTitle>
         <DialogContent>
-          <LicenseForm form={form} onChange={setForm} tenants={tenants} />
+          <LicenseForm form={form} onChange={setForm} />
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button onClick={() => setOpenEdit(null)}>Cancel</Button>
@@ -248,7 +291,14 @@ export default function LicenseAdminPage() {
               <IconButton onClick={() => setSelectedLicense(null)}><Close /></IconButton>
             </Box>
             <Box sx={{ mb: 2, p: 2, bgcolor: '#F7FAFC', borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.7rem' }}>{selectedLicense.licenseKey}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.7rem' }}>{selectedLicense.licenseKey}</Typography>
+                <Tooltip title="Copy license key">
+                  <IconButton size="small" onClick={() => copyKey(selectedLicense.licenseKey)} sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
+                    <ContentCopy sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
               <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>{selectedLicense.legalName}</Typography>
               <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
                 <Chip label={selectedLicense.status.replace('_', ' ')} size="small" sx={{ bgcolor: (statusConfig[selectedLicense.status] || statusConfig.inactive).bg, color: (statusConfig[selectedLicense.status] || statusConfig.inactive).color, fontWeight: 600, fontSize: '0.65rem' }} />
@@ -308,59 +358,70 @@ export default function LicenseAdminPage() {
   );
 }
 
-function LicenseForm({ form, onChange, tenants }) {
+function LicenseForm({ form, onChange }) {
   const set = (key, val) => onChange(prev => ({ ...prev, [key]: val }));
   return (
-    <Grid container spacing={2} sx={{ mt: 0.5 }}>
-      <Grid item xs={12}>
-        <TextField fullWidth select size="small" label="Tenant" value={form.tenantId || ''} onChange={e => set('tenantId', e.target.value)}>
-          {tenants.map(t => (
-            <MenuItem key={t.tenantId} value={t.tenantId}>{t.legalName}</MenuItem>
-          ))}
-        </TextField>
+    <Box sx={{ mt: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <VpnKey sx={{ fontSize: 20, color: '#D4AF37' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Plan Limits</Typography>
+      </Box>
+      <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Tier" value={form.tier || ''} onChange={e => set('tier', e.target.value)} placeholder="e.g. enterprise" />
+        </Grid>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Max Users" type="number" value={form.maxUsers || ''} onChange={e => set('maxUsers', parseInt(e.target.value) || 0)} />
+        </Grid>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Max Devices" type="number" value={form.maxDevices || ''} onChange={e => set('maxDevices', parseInt(e.target.value) || 0)} />
+        </Grid>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Max Regulators" type="number" value={form.maxRegulators ?? ''} onChange={e => set('maxRegulators', e.target.value ? parseInt(e.target.value) : null)} />
+        </Grid>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Max Controls" type="number" value={form.maxControls ?? ''} onChange={e => set('maxControls', e.target.value ? parseInt(e.target.value) : null)} />
+        </Grid>
+        <Grid item xs={4}>
+          <TextField fullWidth size="small" label="Max Returns" type="number" value={form.maxReturns ?? ''} onChange={e => set('maxReturns', e.target.value ? parseInt(e.target.value) : null)} />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField fullWidth size="small" label="Storage" type="number" value={form.maxStorageMb || ''} onChange={e => set('maxStorageMb', parseInt(e.target.value) || 0)} InputProps={{ endAdornment: <InputAdornment position="end">MB</InputAdornment> }} />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField fullWidth select size="small" label="Intelligence" value={form.intelligenceEnabled !== false ? 'true' : 'false'} onChange={e => set('intelligenceEnabled', e.target.value === 'true')}>
+            <MenuItem value="true">Enabled</MenuItem>
+            <MenuItem value="false">Disabled</MenuItem>
+          </TextField>
+        </Grid>
       </Grid>
-      <Grid item xs={6}>
-        <TextField fullWidth size="small" label="Tier" value={form.tier || ''} onChange={e => set('tier', e.target.value)} />
+
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Autorenew sx={{ fontSize: 20, color: '#2D7D46' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Validity</Typography>
+      </Box>
+      <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+        <Grid item xs={6}>
+          <TextField fullWidth size="small" label="Expires At" type="datetime-local" value={form.expiresAt || ''} onChange={e => set('expiresAt', e.target.value)} InputLabelProps={{ shrink: true }} />
+        </Grid>
+        <Grid item xs={3}>
+          <TextField fullWidth size="small" label="Grace Period" type="number" value={form.gracePeriodDays || ''} onChange={e => set('gracePeriodDays', parseInt(e.target.value) || 7)} InputProps={{ endAdornment: <InputAdornment position="end">days</InputAdornment> }} />
+        </Grid>
+        <Grid item xs={3}>
+          <TextField fullWidth select size="small" label="Device Enforce" value={form.deviceFingerprintEnforced !== false ? 'true' : 'false'} onChange={e => set('deviceFingerprintEnforced', e.target.value === 'true')}>
+            <MenuItem value="true">Enforced</MenuItem>
+            <MenuItem value="false">Not Enforced</MenuItem>
+          </TextField>
+        </Grid>
       </Grid>
-      <Grid item xs={6}>
-        <TextField fullWidth select size="small" label="Intelligence" value={form.intelligenceEnabled !== false ? 'true' : 'false'} onChange={e => set('intelligenceEnabled', e.target.value === 'true')}>
-          <MenuItem value="true">Enabled</MenuItem>
-          <MenuItem value="false">Disabled</MenuItem>
-        </TextField>
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Max Users" type="number" value={form.maxUsers || ''} onChange={e => set('maxUsers', parseInt(e.target.value) || 0)} />
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Max Devices" type="number" value={form.maxDevices || ''} onChange={e => set('maxDevices', parseInt(e.target.value) || 0)} />
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Storage (MB)" type="number" value={form.maxStorageMb || ''} onChange={e => set('maxStorageMb', parseInt(e.target.value) || 0)} />
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Max Regulators" type="number" value={form.maxRegulators ?? ''} onChange={e => set('maxRegulators', e.target.value ? parseInt(e.target.value) : null)} />
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Max Controls" type="number" value={form.maxControls ?? ''} onChange={e => set('maxControls', e.target.value ? parseInt(e.target.value) : null)} />
-      </Grid>
-      <Grid item xs={4}>
-        <TextField fullWidth size="small" label="Max Returns" type="number" value={form.maxReturns ?? ''} onChange={e => set('maxReturns', e.target.value ? parseInt(e.target.value) : null)} />
-      </Grid>
-      <Grid item xs={6}>
-        <TextField fullWidth size="small" label="Expires At" type="datetime-local" value={form.expiresAt || ''} onChange={e => set('expiresAt', e.target.value)} InputLabelProps={{ shrink: true }} />
-      </Grid>
-      <Grid item xs={3}>
-        <TextField fullWidth size="small" label="Grace Period (days)" type="number" value={form.gracePeriodDays || ''} onChange={e => set('gracePeriodDays', parseInt(e.target.value) || 7)} />
-      </Grid>
-      <Grid item xs={3}>
-        <TextField fullWidth select size="small" label="Device Enforce" value={form.deviceFingerprintEnforced !== false ? 'true' : 'false'} onChange={e => set('deviceFingerprintEnforced', e.target.value === 'true')}>
-          <MenuItem value="true">Enforced</MenuItem>
-          <MenuItem value="false">Not Enforced</MenuItem>
-        </TextField>
-      </Grid>
-      <Grid item xs={12}>
-        <TextField fullWidth size="small" label="Notes" multiline rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
-      </Grid>
-    </Grid>
+
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Description sx={{ fontSize: 20, color: '#718096' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Notes</Typography>
+      </Box>
+      <TextField fullWidth size="small" label="Notes" multiline rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Optional internal notes about this license" />
+    </Box>
   );
 }

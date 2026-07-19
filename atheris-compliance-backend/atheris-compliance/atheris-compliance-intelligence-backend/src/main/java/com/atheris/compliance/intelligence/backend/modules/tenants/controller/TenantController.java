@@ -20,8 +20,9 @@ public class TenantController {
     private final WebhookDeliveryLogRepository deliveryLog;
 
     @GetMapping
-    public ResponseEntity<List<TenantDto>> listAll() {
-        return ResponseEntity.ok(service.findAll());
+    public ResponseEntity<List<TenantDto>> listAll(
+            @RequestParam(required = false) Boolean isActive) {
+        return ResponseEntity.ok(service.findAll(isActive));
     }
 
     @GetMapping("/{id}")

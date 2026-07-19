@@ -50,7 +50,7 @@ public class OnboardingService {
                     .onboardingCompleted(completed)
                     .currentStep(step)
                     .nextStep(nextStep)
-                    .legalName(p.getLegalName()).licenceType(p.getLicenceType())
+                    .legalName(p.getLegalName())
                     .licenseStatus(p.getLicenseStatus())
                     .authType(p.getAuthType())
                     .subscribedRegulators(p.getSubscribedRegulators())
@@ -74,7 +74,9 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse activateLicense(ActivateLicenseStepRequest req) {
         TenantProfile p = profiles.findByTenantId(tenantId)
-            .orElse(TenantProfile.builder().tenantId(tenantId).build());
+            .orElse(profiles.save(TenantProfile.builder()
+                .tenantId(tenantId)
+                .build()));
 
         LicenseStatusResponse licenseResp = licenseService.activate(
             toActivateReq(req), null, null);
@@ -103,23 +105,18 @@ public class OnboardingService {
     public OnboardingStatusResponse saveInstitution(InstitutionDetailsRequest req) {
         TenantProfile p = getProfile();
         p.setLegalName(req.getLegalName());
-        p.setShortName(req.getShortName());
-        p.setLicenceType(req.getLicenceType());
-        p.setLicenceNumber(req.getLicenceNumber());
-        p.setStateOfHq(req.getStateOfHq());
-        p.setEmployeeCount(req.getEmployeeCount());
-        p.setProductLines(req.getProductLines());
-        p.setCcoName(req.getCcoName());
-        p.setCcoEmail(req.getCcoEmail());
-        p.setTechEmail(req.getTechEmail());
+        p.setAddress(req.getAddress());
+        p.setContactPhone(req.getContactPhone());
+        p.setContactEmail(req.getContactEmail());
+        if (req.getCcoEmail() != null) p.setCcoEmail(req.getCcoEmail());
         p.setOnboardingStep(2);
         profiles.save(p);
-        List<Integer> recommended = recommendationService.getRecommendedRegulatorIds(req.getLicenceType());
+        List<Integer> recommended = recommendationService.getRecommendedRegulatorIds(null);
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(2).nextStep(3)
             .recommendedRegulators(recommended)
             .licenseStatus(p.getLicenseStatus())
-            .legalName(req.getLegalName()).licenceType(req.getLicenceType()).build();
+            .legalName(req.getLegalName()).build();
     }
 
     @Transactional
@@ -155,7 +152,7 @@ public class OnboardingService {
             .onboardingCompleted(false).currentStep(3).nextStep(4)
             .authType(p.getAuthType())
             .licenseStatus(p.getLicenseStatus())
-            .legalName(p.getLegalName()).licenceType(p.getLicenceType()).build();
+            .legalName(p.getLegalName()).build();
     }
 
     @Transactional
@@ -207,14 +204,11 @@ public class OnboardingService {
         try {
             Map<String, Object> tenantReq = new HashMap<>();
             tenantReq.put("legalName", p.getLegalName());
-            tenantReq.put("shortName", p.getShortName());
-            tenantReq.put("licenceType", p.getLicenceType());
-            tenantReq.put("licenceNumber", p.getLicenceNumber());
-            tenantReq.put("ccoName", p.getCcoName());
+            tenantReq.put("address", p.getAddress());
+            tenantReq.put("contactPhone", p.getContactPhone());
+            tenantReq.put("contactEmail", p.getContactEmail());
             tenantReq.put("ccoEmail", p.getCcoEmail());
-            tenantReq.put("techEmail", p.getTechEmail());
             tenantReq.put("regulators", p.getSubscribedRegulators());
-            tenantReq.put("productLines", p.getProductLines());
             tenantReq.put("subscribedDocumentTypes", p.getSubscribedDocumentTypes());
             tenantReq.put("notificationFrequency", p.getNotificationFrequency());
             tenantReq.put("subscriptionTier", p.getSubscriptionTier());

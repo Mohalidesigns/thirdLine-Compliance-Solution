@@ -18,11 +18,19 @@ const statusConfig = {
   inactive: { color: '#C53030', bg: '#FEE2E2' },
 };
 
+const KPI_CARDS = [
+  { label: 'Total Tenants', value: null, color: '#1A365D', statFn: (tenants) => tenants.length },
+  { label: 'Active', value: 'active', color: '#2D7D46', statFn: (tenants) => tenants.filter(t => t.isActive).length },
+  { label: 'Inactive', value: 'inactive', color: '#C53030', statFn: (tenants) => tenants.filter(t => !t.isActive).length },
+  { label: 'Licence Types', value: null, color: '#D4AF37', statFn: (tenants) => new Set(tenants.map(t => t.licenceType).filter(Boolean)).size },
+];
+
 export default function TenantAdminPage() {
   const navigate = useNavigate();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openAdd, setOpenAdd] = useState(false);
+  const [filterStatus, setFilterStatus] = useState(null);
 
   useEffect(() => {
     api.platform.tenants.list()
@@ -31,6 +39,16 @@ export default function TenantAdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleFilterClick = (value) => {
+    setFilterStatus(filterStatus === value ? null : value);
+  };
+
+  const filteredTenants = filterStatus === 'active'
+    ? tenants.filter(t => t.isActive)
+    : filterStatus === 'inactive'
+      ? tenants.filter(t => !t.isActive)
+      : tenants;
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -38,31 +56,41 @@ export default function TenantAdminPage() {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Tenant Management</Typography>
           <Typography variant="body2" color="text.secondary">Manage client organisations, onboarding, and API integrations</Typography>
         </Box>
-        <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setOpenAdd(true)}>
-          New Tenant
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {filterStatus && (
+            <Chip label={`Filter: ${filterStatus}`} size="small" onDelete={() => setFilterStatus(null)} color="primary" variant="outlined" sx={{ fontWeight: 600, textTransform: 'capitalize' }} />
+          )}
+          <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setOpenAdd(true)}>
+            New Tenant
+          </Button>
+        </Box>
       </Box>
 
-      {/* Summary Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[
-          { label: 'Total Tenants', value: loading ? '...' : tenants.length, color: '#1A365D' },
-          { label: 'Active', value: loading ? '...' : tenants.filter(t => t.isActive).length, color: '#2D7D46' },
-
-          { label: 'Licence Types', value: loading ? '...' : new Set(tenants.map(t => t.licenceType).filter(Boolean)).size, color: '#D4AF37' },
-        ].map((s) => (
-          <Grid item xs={6} md={3} key={s.label}>
-            <Card>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{s.value}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        {KPI_CARDS.map((s) => {
+          const isActive = filterStatus === s.value;
+          return (
+            <Grid item xs={6} md={3} key={s.label}>
+              <Card
+                onClick={() => handleFilterClick(s.value)}
+                sx={{
+                  borderTop: `3px solid ${s.color}`,
+                  cursor: s.value ? 'pointer' : 'default',
+                  ...(isActive && { boxShadow: `0 0 0 2px ${s.color}`, bgcolor: '#F7FAFC' }),
+                  transition: 'box-shadow 0.15s, background-color 0.15s',
+                  '&:hover': s.value ? { bgcolor: '#F7FAFC' } : {},
+                }}
+              >
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <Typography variant="caption" color="text.secondary">{s.label}</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{loading ? '...' : s.statFn(tenants)}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
-      {/* Tenant List */}
       <Card>
         <TableContainer>
           <Table size="small">
@@ -79,9 +107,9 @@ export default function TenantAdminPage() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">Loading...</Typography></TableCell></TableRow>
-              ) : tenants.length === 0 ? (
+              ) : filteredTenants.length === 0 ? (
                 <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">No tenants yet</Typography></TableCell></TableRow>
-              ) : tenants.map((tenant) => (
+              ) : filteredTenants.map((tenant) => (
                 <TableRow key={tenant.tenantId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`${ROUTES.ADMIN_TENANTS}/${tenant.tenantId}`)}>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{tenant.legalName}</Typography>

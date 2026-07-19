@@ -8,7 +8,7 @@ import java.util.List;
 public class CreateTenantRequest {
     @NotBlank private String legalName;
     private String shortName;
-    @NotBlank private String licenceType;
+    private String licenceType;
     private String licenceNumber;
     private List<Integer> regulators;
     private List<String> productLines;
@@ -19,4 +19,7 @@ public class CreateTenantRequest {
     private String techEmail;
     private String webhookUrl;
     private String subscriptionTier;
+    private String address;
+    private String contactPhone;
+    private String contactEmail;
 }

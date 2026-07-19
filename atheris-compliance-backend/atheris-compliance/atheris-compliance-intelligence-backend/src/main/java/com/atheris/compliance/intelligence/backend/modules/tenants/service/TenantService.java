@@ -21,8 +21,10 @@ public class TenantService {
     private final WebhookService webhooks;
     private final TenantMapper mapper;
 
-    public List<TenantDto> findAll() {
-        return repo.findAll().stream().map(mapper::toDto).toList();
+    public List<TenantDto> findAll(Boolean isActive) {
+        return repo.findAll().stream()
+            .filter(t -> isActive == null || t.getIsActive().equals(isActive))
+            .map(mapper::toDto).toList();
     }
 
     public TenantDto findById(Long id) {

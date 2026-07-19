@@ -2,6 +2,8 @@ package com.atheris.compliance.tenant.backend.modules.license.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 
 @Entity
@@ -19,6 +21,7 @@ public class LicenseAuditLog {
     private String status;
     @Column(length = 128)
     private String deviceFingerprint;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String responseData;
     @Column(length = 45)

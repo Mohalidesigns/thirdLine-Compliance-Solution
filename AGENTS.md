@@ -280,3 +280,4 @@ See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference,
 - [ ] Wire up `evaluate_applicability` processor to send webhooks to tenant service
 - [ ] Add tenant dashboard widgets (active tenants, webhook health) in main platform
 - [ ] Cleanup: add `@Builder.Default` to entity fields flagged by Lombok warnings
+- [ ] Cleanup: `maxRegulators`, `maxControls`, `maxReturns` are stored in entity/DTO but never enforced. Remove from create/edit forms and DTOs, or wire up actual limit enforcement.

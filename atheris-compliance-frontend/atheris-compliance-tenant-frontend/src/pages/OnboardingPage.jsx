@@ -13,11 +13,6 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 
-const LICENCE_TYPES = [
-  'commercial_bank', 'merchant_bank', 'microfinance_bank', 'insurance',
-  'pension', 'asset_management', 'telecommunications', 'fintech',
-];
-
 const DOCUMENT_TYPES = ['circulars', 'guidelines', 'directives', 'regulations', 'standards', 'frameworks'];
 const RISK_RATINGS = ['high', 'medium', 'low'];
 const NOTIFICATION_FREQUENCIES = ['immediate', 'daily', 'weekly'];
@@ -39,9 +34,7 @@ export default function OnboardingPage() {
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
 
   const [institution, setInstitution] = useState({
-    legalName: '', shortName: '', licenceType: '', licenceNumber: '',
-    stateOfHq: '', employeeCount: '', productLines: '',
-    ccoName: '', ccoEmail: '', techEmail: '',
+    legalName: '', address: '', contactPhone: '', contactEmail: '', ccoEmail: '',
   });
 
   const [authType, setAuthType] = useState('local');
@@ -55,23 +48,20 @@ export default function OnboardingPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
-    try {
-      const fp = localStorage.getItem('atheris_device_fp');
-      if (fp) { setDeviceFingerprint(fp); return; }
-      import('@fingerprintjs/fingerprintjs').then(FingerprintJS => {
-        FingerprintJS.load().then(agent => {
-          agent.get().then(result => {
-            const id = result.visitorId;
-            setDeviceFingerprint(id);
-            localStorage.setItem('atheris_device_fp', id);
-          });
-        });
-      }).catch(() => {
-        setDeviceFingerprint('browser-' + Math.random().toString(36).substring(2, 10));
-      });
-    } catch { /* ignore */ }
-
     loadStatus();
+    const fp = localStorage.getItem('atheris_device_fp');
+    if (fp) { setDeviceFingerprint(fp); return; }
+    import('@fingerprintjs/fingerprintjs').then(FingerprintJS => {
+      FingerprintJS.load().then(agent => {
+        agent.get().then(result => {
+          const id = result.visitorId;
+          setDeviceFingerprint(id);
+          localStorage.setItem('atheris_device_fp', id);
+        });
+      });
+    }).catch(() => {
+      setDeviceFingerprint('browser-' + Math.random().toString(36).substring(2, 10));
+    });
   }, []);
 
   async function loadStatus() {
@@ -82,7 +72,7 @@ export default function OnboardingPage() {
         return;
       }
       setStep(resp.currentStep || 0);
-      if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName, licenceType: resp.licenceType }));
+      if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName }));
       if (resp.authType) setAuthType(resp.authType);
       if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
       if (resp.subscribedDocumentTypes) setSelectedDocTypes(resp.subscribedDocumentTypes);
@@ -124,15 +114,17 @@ export default function OnboardingPage() {
   }
 
   function handleInstitution() {
-    if (!institution.legalName || !institution.licenceType) {
-      setError('Legal name and licence type are required');
+    if (!institution.legalName) {
+      setError('Legal name is required');
       return;
     }
     submit('institution',
       api.onboarding.institution({
-        ...institution,
-        employeeCount: institution.employeeCount ? Number(institution.employeeCount) : null,
-        productLines: institution.productLines ? institution.productLines.split(',').map(s => s.trim()) : [],
+        legalName: institution.legalName,
+        address: institution.address || undefined,
+        contactPhone: institution.contactPhone || undefined,
+        contactEmail: institution.contactEmail || undefined,
+        ccoEmail: institution.ccoEmail || undefined,
       }),
       2
     );
@@ -247,45 +239,22 @@ export default function OnboardingPage() {
                   value={institution.legalName}
                   onChange={e => setInstitution(p => ({ ...p, legalName: e.target.value }))}
                   sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="Short Name"
-                  value={institution.shortName}
-                  onChange={e => setInstitution(p => ({ ...p, shortName: e.target.value }))}
+                <TextField fullWidth size="small" label="Address"
+                  value={institution.address}
+                  onChange={e => setInstitution(p => ({ ...p, address: e.target.value }))}
+                  multiline rows={2}
                   sx={{ mb: 2 }} />
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Licence Type *</InputLabel>
-                  <Select value={institution.licenceType}
-                    onChange={e => setInstitution(p => ({ ...p, licenceType: e.target.value }))}
-                    label="Licence Type *">
-                    {LICENCE_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
-                  </Select>
-                </FormControl>
-                <TextField fullWidth size="small" label="Licence Number"
-                  value={institution.licenceNumber}
-                  onChange={e => setInstitution(p => ({ ...p, licenceNumber: e.target.value }))}
+                <TextField fullWidth size="small" label="Contact Phone"
+                  value={institution.contactPhone}
+                  onChange={e => setInstitution(p => ({ ...p, contactPhone: e.target.value }))}
                   sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="State of HQ"
-                  value={institution.stateOfHq}
-                  onChange={e => setInstitution(p => ({ ...p, stateOfHq: e.target.value }))}
-                  sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="Employee Count" type="number"
-                  value={institution.employeeCount}
-                  onChange={e => setInstitution(p => ({ ...p, employeeCount: e.target.value }))}
-                  sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="Product Lines (comma-separated)"
-                  value={institution.productLines}
-                  onChange={e => setInstitution(p => ({ ...p, productLines: e.target.value }))}
-                  sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="CCO Name"
-                  value={institution.ccoName}
-                  onChange={e => setInstitution(p => ({ ...p, ccoName: e.target.value }))}
+                <TextField fullWidth size="small" label="Contact Email" type="email"
+                  value={institution.contactEmail}
+                  onChange={e => setInstitution(p => ({ ...p, contactEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
                 <TextField fullWidth size="small" label="CCO Email" type="email"
                   value={institution.ccoEmail}
                   onChange={e => setInstitution(p => ({ ...p, ccoEmail: e.target.value }))}
-                  sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="Tech Email" type="email"
-                  value={institution.techEmail}
-                  onChange={e => setInstitution(p => ({ ...p, techEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleInstitution} disabled={submitting}

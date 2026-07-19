@@ -19,10 +19,8 @@ public class TenantProfile {
     private Integer profileId;
     @Column(nullable = false)
     private Long tenantId;
-    @Column(nullable = false)
     private String legalName;
     private String shortName;
-    @Column(nullable = false)
     private String licenceType;
     private String licenceNumber;
     private String stateOfHq;
@@ -43,6 +41,9 @@ public class TenantProfile {
     private String ccoName;
     private String ccoEmail;
     private String techEmail;
+    private String address;
+    private String contactPhone;
+    private String contactEmail;
     private String webhookUrl;
     private Boolean webhookEnabled = true;
     private String subscriptionTier = "starter";
