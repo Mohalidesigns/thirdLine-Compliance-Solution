@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup,
-  FormControl, FormLabel, Select, MenuItem, Chip, OutlinedInput, InputLabel,
-  Checkbox, ListItemText,
+  FormControl, FormLabel, FormControlLabel, Select, MenuItem, Chip, OutlinedInput, InputLabel,
+  Checkbox, ListItemText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, InputAdornment,
 } from '@mui/material';
 import {
   VpnKey, CheckCircle, Shield, Business, PeopleAlt,
@@ -27,7 +29,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [recommendedRegulators, setRecommendedRegulators] = useState([]);
+  const [availableRegulators, setAvailableRegulators] = useState([]);
   const [completed, setCompleted] = useState(false);
 
   const [licenseKey, setLicenseKey] = useState('');
@@ -38,10 +40,11 @@ export default function OnboardingPage() {
   });
 
   const [authType, setAuthType] = useState('local');
-  const [localAdmin, setLocalAdmin] = useState({ fullName: '', email: '', password: '' });
+  const [localAdmin, setLocalAdmin] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [ldapUrl, setLdapUrl] = useState('');
 
   const [selectedRegulators, setSelectedRegulators] = useState([]);
+  const [regulatorSearch, setRegulatorSearch] = useState('');
   const [notificationFrequency, setNotificationFrequency] = useState('immediate');
   const [selectedDocTypes, setSelectedDocTypes] = useState([]);
   const [selectedRiskRatings, setSelectedRiskRatings] = useState(['high', 'medium']);
@@ -76,6 +79,7 @@ export default function OnboardingPage() {
       if (resp.authType) setAuthType(resp.authType);
       if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
       if (resp.subscribedDocumentTypes) setSelectedDocTypes(resp.subscribedDocumentTypes);
+      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
     } catch {
       setStep(0);
     } finally {
@@ -89,7 +93,7 @@ export default function OnboardingPage() {
     try {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
-      if (resp.recommendedRegulators) setRecommendedRegulators(resp.recommendedRegulators);
+      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
       if (nextStep === 6 && resp.onboardingCompleted) {
         setCompleted(true);
         setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
@@ -114,10 +118,15 @@ export default function OnboardingPage() {
   }
 
   function handleInstitution() {
-    if (!institution.legalName) {
-      setError('Legal name is required');
-      return;
-    }
+    const checks = [
+      { v: validateName(institution.legalName), label: 'Legal name' },
+      { v: validateEmail(institution.ccoEmail), label: 'CCO email' },
+    ];
+    if (institution.address) checks.push({ v: required(institution.address, 'Address'), label: 'Address' });
+    if (institution.contactEmail) checks.push({ v: validateEmail(institution.contactEmail), label: 'Contact email' });
+    if (institution.contactPhone) checks.push({ v: validatePhone(institution.contactPhone), label: 'Contact phone' });
+    const fail = checks.find(c => !c.v.valid);
+    if (fail) { setError(fail.v.message); return; }
     submit('institution',
       api.onboarding.institution({
         legalName: institution.legalName,
@@ -131,9 +140,18 @@ export default function OnboardingPage() {
   }
 
   function handleUserSetup() {
-    if (authType === 'local' && (!localAdmin.fullName || !localAdmin.email || !localAdmin.password)) {
-      setError('All admin fields are required');
-      return;
+    if (authType === 'local') {
+      const checks = [
+        { v: validateName(localAdmin.fullName), label: 'Full name' },
+        { v: validateEmail(localAdmin.email), label: 'Email' },
+        { v: validatePassword(localAdmin.password), label: 'Password' },
+      ];
+      const fail = checks.find(c => !c.v.valid);
+      if (fail) { setError(fail.v.message); return; }
+      if (localAdmin.password !== localAdmin.confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
     }
     submit('userSetup',
       api.onboarding.userSetup(
@@ -288,6 +306,10 @@ export default function OnboardingPage() {
                       value={localAdmin.password}
                       onChange={e => setLocalAdmin(p => ({ ...p, password: e.target.value }))}
                       sx={{ mb: 2 }} />
+                    <TextField fullWidth size="small" label="Confirm Password" type="password" required
+                      value={localAdmin.confirmPassword}
+                      onChange={e => setLocalAdmin(p => ({ ...p, confirmPassword: e.target.value }))}
+                      sx={{ mb: 2 }} />
                   </Box>
                 ) : (
                   <TextField fullWidth size="small" label="LDAP URL"
@@ -308,29 +330,55 @@ export default function OnboardingPage() {
             {getActiveStep() === 3 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {recommendedRegulators.length > 0
-                    ? `Recommended regulators for your licence type have been pre-selected`
-                    : 'Select the regulators you want to monitor'}
+                  Select the regulators you want to monitor
                 </Typography>
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Regulators</InputLabel>
-                  <Select multiple
-                    value={selectedRegulators}
-                    onChange={e => setSelectedRegulators(e.target.value)}
-                    input={<OutlinedInput label="Regulators" />}
-                    renderValue={selected => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map(id => <Chip key={id} label={`Regulator #${id}`} size="small" />)}
-                      </Box>
-                    )}>
-                    {[...Array(10)].map((_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>
-                        <Checkbox checked={selectedRegulators.includes(i + 1)} />
-                        <ListItemText primary={`Regulator ${i + 1}`} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <TextField fullWidth size="small" placeholder="Search by name or abbreviation..."
+                  value={regulatorSearch}
+                  onChange={e => setRegulatorSearch(e.target.value)}
+                  sx={{ mb: 1.5 }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
+                  }} />
+                <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 260 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Regulator</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Abbreviation</TableCell>
+                        <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {availableRegulators.filter(r =>
+                        !regulatorSearch ||
+                        r.name.toLowerCase().includes(regulatorSearch.toLowerCase()) ||
+                        (r.abbreviation || '').toLowerCase().includes(regulatorSearch.toLowerCase())
+                      ).map(r => (
+                        <TableRow
+                          key={r.regulatorId}
+                          hover
+                          selected={selectedRegulators.includes(r.regulatorId)}
+                          onClick={() => {
+                            setSelectedRegulators(prev =>
+                              prev.includes(r.regulatorId)
+                                ? prev.filter(id => id !== r.regulatorId)
+                                : [...prev, r.regulatorId]
+                            );
+                          }}
+                          sx={{ cursor: 'pointer' }}>
+                          <TableCell>{r.name}</TableCell>
+                          <TableCell>{r.abbreviation}</TableCell>
+                          <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                            <Checkbox
+                              checked={selectedRegulators.includes(r.regulatorId)}
+                              onChange={() => {}}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
                 <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                   <InputLabel>Notification Frequency</InputLabel>
                   <Select value={notificationFrequency}
@@ -398,13 +446,8 @@ export default function OnboardingPage() {
             {getActiveStep() === 5 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Finalize your workspace setup.
+                  You're all set! Review your selections and complete setup.
                 </Typography>
-                <TextField fullWidth size="small" label="Webhook URL (optional)"
-                  placeholder="https://api.yourbank.com/atheris-webhook"
-                  value={webhookUrl}
-                  onChange={e => setWebhookUrl(e.target.value)}
-                  sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleConfirm} disabled={submitting}
                   sx={{ py: 1.2, fontWeight: 600 }}>

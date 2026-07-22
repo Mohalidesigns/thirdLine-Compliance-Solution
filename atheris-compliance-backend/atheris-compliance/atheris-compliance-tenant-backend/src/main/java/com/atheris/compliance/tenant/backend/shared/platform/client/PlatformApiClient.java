@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.shared.platform.client;
 
+import com.atheris.compliance.tenant.backend.modules.onboarding.dto.RegulatorSummary;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.*;
@@ -106,6 +107,20 @@ public class PlatformApiClient {
         } catch (Exception e) {
             log.error("Failed to fetch instrument detail: {}", e.getMessage());
             return null;
+        }
+    }
+
+    public List<RegulatorSummary> fetchRegulators() {
+        try {
+            HttpHeaders h = headers();
+            ResponseEntity<List<RegulatorSummary>> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/regulators",
+                HttpMethod.GET, new HttpEntity<>(h),
+                new ParameterizedTypeReference<List<RegulatorSummary>>() {});
+            return resp.getBody() != null ? resp.getBody() : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch regulators from platform: {}", e.getMessage());
+            return List.of();
         }
     }
 

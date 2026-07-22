@@ -41,6 +41,7 @@ public class OnboardingService {
     private Long tenantId;
 
     public OnboardingStatusResponse getStatus() {
+        List<RegulatorSummary> regulators = platformApi.fetchRegulators();
         return profiles.findByTenantId(tenantId)
             .map(p -> {
                 Integer step = p.getOnboardingStep();
@@ -55,10 +56,17 @@ public class OnboardingService {
                     .authType(p.getAuthType())
                     .subscribedRegulators(p.getSubscribedRegulators())
                     .subscribedDocumentTypes(p.getSubscribedDocumentTypes())
+                    .availableRegulators(regulators)
                     .build();
             })
-            .orElse(OnboardingStatusResponse.builder()
-                .onboardingCompleted(false).currentStep(0).nextStep(1).build());
+            .orElse(resultWithRegulators(regulators));
+    }
+
+    private OnboardingStatusResponse resultWithRegulators(List<RegulatorSummary> regulators) {
+        return OnboardingStatusResponse.builder()
+            .onboardingCompleted(false).currentStep(0).nextStep(1)
+            .availableRegulators(regulators)
+            .build();
     }
 
     private Integer computeNextStep(Integer step, boolean completed) {
@@ -111,10 +119,10 @@ public class OnboardingService {
         if (req.getCcoEmail() != null) p.setCcoEmail(req.getCcoEmail());
         p.setOnboardingStep(2);
         profiles.save(p);
-        List<Integer> recommended = recommendationService.getRecommendedRegulatorIds(null);
+        List<RegulatorSummary> regulators = platformApi.fetchRegulators();
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(2).nextStep(3)
-            .recommendedRegulators(recommended)
+            .availableRegulators(regulators)
             .licenseStatus(p.getLicenseStatus())
             .legalName(req.getLegalName()).build();
     }

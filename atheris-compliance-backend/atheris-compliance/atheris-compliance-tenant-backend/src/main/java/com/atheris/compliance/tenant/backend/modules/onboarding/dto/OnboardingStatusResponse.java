@@ -14,5 +14,5 @@ public class OnboardingStatusResponse {
     private String authType;
     private List<Integer> subscribedRegulators;
     private List<String> subscribedDocumentTypes;
-    private List<Integer> recommendedRegulators;
+    private List<RegulatorSummary> availableRegulators;
 }
