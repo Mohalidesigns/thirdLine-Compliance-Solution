@@ -27,12 +27,16 @@ public class ObligationController {
         return ResponseEntity.ok(riskTypes.findAllByOrderByDisplayOrderAsc());
     }
 
-    @GetMapping
-    public ResponseEntity<Page<ObligationClassificationDto>> list(
+    @GetMapping("/register")
+    public ResponseEntity<Page<ObligationRegisterItem>> register(
             @RequestParam(required = false) String applicability,
+            @RequestParam(required = false) String tenantRiskRating,
+            @RequestParam(required = false) Boolean hasGap,
+            @RequestParam(required = false) Integer assignedOwnerUserId,
             @RequestParam(required = false) String status,
             Pageable p) {
-        return ResponseEntity.ok(service.findAll(applicability, status, p));
+        return ResponseEntity.ok(service.getRegisterList(
+            applicability, tenantRiskRating, hasGap, assignedOwnerUserId, status, p));
     }
 
     @GetMapping("/inbox")
@@ -46,9 +50,9 @@ public class ObligationController {
         return ResponseEntity.ok(service.getGaps());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ObligationClassificationDto> getOne(@PathVariable Long id) {
-        return ResponseEntity.ok(service.findByInstrumentId(id));
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<ObligationDetailResponse> detail(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getDetail(id));
     }
 
     @PostMapping("/{id}/classify")

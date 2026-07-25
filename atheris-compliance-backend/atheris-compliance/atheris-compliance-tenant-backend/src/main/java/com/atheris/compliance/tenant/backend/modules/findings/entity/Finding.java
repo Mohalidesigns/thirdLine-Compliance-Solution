@@ -19,6 +19,8 @@ public class Finding {
     private Long triggeredByTestId;
     private String triggerReason;
     private String findingType;
+    private Long linkedObligationId;
+    private Integer linkedControlId;
     private String severity;
     @Column(columnDefinition = "text")
     private String description;

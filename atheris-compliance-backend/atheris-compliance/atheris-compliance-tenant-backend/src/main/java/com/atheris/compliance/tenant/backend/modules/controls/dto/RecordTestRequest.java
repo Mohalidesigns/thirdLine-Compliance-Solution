@@ -8,6 +8,7 @@ import java.time.LocalDate;
 @Data
 public class RecordTestRequest {
     @NotNull private LocalDate testDate;
+    private String testedByName;
     @NotBlank private String result;
     private String resultDescription;
     private String failureDetails;

@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.service.ControlSer
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,21 @@ import java.util.List;
 public class ControlController {
 
     private final ControlService service;
+
+    @GetMapping("/register")
+    public ResponseEntity<Page<ControlRegisterItem>> register(
+            @RequestParam(required = false) String theme,
+            @RequestParam(required = false) String residualRisk,
+            @RequestParam(required = false) Integer ownerUserId,
+            @RequestParam(required = false) String status,
+            Pageable p) {
+        return ResponseEntity.ok(service.getRegisterList(theme, residualRisk, ownerUserId, status, p));
+    }
+
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<ControlDetailResponse> detail(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.getDetail(id));
+    }
 
     @GetMapping
     public ResponseEntity<List<ControlDto>> list(

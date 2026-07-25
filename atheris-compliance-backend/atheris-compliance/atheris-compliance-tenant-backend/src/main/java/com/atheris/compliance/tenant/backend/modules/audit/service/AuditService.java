@@ -1,7 +1,9 @@
 package com.atheris.compliance.tenant.backend.modules.audit.service;
 
+import com.atheris.compliance.tenant.backend.modules.audit.dto.AuditEventItem;
 import com.atheris.compliance.tenant.backend.modules.audit.entity.AuditEvent;
 import com.atheris.compliance.tenant.backend.modules.audit.repository.AuditEventRepository;
+import com.atheris.compliance.tenant.backend.modules.audit.repository.AuditSpecification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,13 @@ public class AuditService {
             log.error("Failed to write audit event: {}", e.getMessage());
             return null;
         }
+    }
+
+    public Page<AuditEventItem> search(
+            String subjectType, Long subjectId, Integer actorUserId,
+            Instant dateFrom, Instant dateTo, Pageable p) {
+        var spec = AuditSpecification.withFilters(subjectType, subjectId, actorUserId, dateFrom, dateTo);
+        return repo.findAll(spec, p).map(AuditEventItem::from);
     }
 
     public Page<AuditEvent> findBySubject(String subjectType, Long subjectId, Pageable p) {

@@ -23,6 +23,9 @@ public class RegulatoryReturn {
     private String status = "Active";
     private Integer filingDueDayOfMonth;
     private Integer filingDeadlineOffsetDays;
+    private String filingChannel;
+    private Integer returnOwnerUserId;
+    private String returnOwnerName;
     private Instant createdAt;
     private Instant updatedAt;
 

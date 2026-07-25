@@ -4,27 +4,77 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
+import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingSpecification;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-@Service
-@Slf4j
-@RequiredArgsConstructor
+@Service @Slf4j @RequiredArgsConstructor
 public class FindingService {
 
     private final FindingRepository repo;
     private final AuditService audit;
 
-    public List<Finding> findAll() { return repo.findAll(); }
-    public List<Finding> findOpen() { return repo.findByStatusNotOrderByCreatedAtDesc("Closed"); }
-    public List<Finding> findByStatus(String s) { return repo.findByStatus(s); }
-    public List<Finding> findOverdue() { return repo.findByStatusInAndRemediationDeadlineBefore(List.of("Open", "In Remediation"), LocalDate.now()); }
+    public Page<FindingRegisterItem> getRegisterList(
+            String status, String severity, Boolean overdueOnly, Integer assignedToUserId, Pageable p) {
+        var spec = FindingSpecification.withFilters(status, severity, overdueOnly, assignedToUserId);
+        return repo.findAll(spec, p).map(FindingRegisterItem::from);
+    }
+
+    public FindingDetailResponse getDetail(Long id) {
+        Finding f = repo.findById(id).orElseThrow(() -> new RuntimeException("Finding not found: " + id));
+        List<FindingDetailResponse.TimelineEvent> timeline = new ArrayList<>();
+        if (f.getCreatedAt() != null)
+            timeline.add(FindingDetailResponse.TimelineEvent.builder()
+                .timestamp(f.getCreatedAt()).eventType("raised")
+                .description("Finding raised" + (f.getTriggerReason() != null ? " (" + f.getTriggerReason() + ")" : ""))
+                .build());
+        if (f.getAssignedAt() != null)
+            timeline.add(FindingDetailResponse.TimelineEvent.builder()
+                .timestamp(f.getAssignedAt()).eventType("assigned")
+                .description("Assigned to " + (f.getAssignedToName() != null ? f.getAssignedToName() : "user " + f.getAssignedToUserId()))
+                .build());
+        if (f.getRemediationSubmittedAt() != null)
+            timeline.add(FindingDetailResponse.TimelineEvent.builder()
+                .timestamp(f.getRemediationSubmittedAt()).eventType("remediated")
+                .description("Remediation submitted" + (f.getRemediationNotes() != null ? " — " + f.getRemediationNotes() : ""))
+                .build());
+        if (f.getCcoSignOffAt() != null)
+            timeline.add(FindingDetailResponse.TimelineEvent.builder()
+                .timestamp(f.getCcoSignOffAt()).eventType("closed")
+                .description("Finding closed by CCO sign-off")
+                .build());
+        timeline.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
+
+        long remaining = 0;
+        if (f.getRemediationDeadline() != null && !"Closed".equals(f.getStatus())) {
+            remaining = Math.max(0, LocalDate.now().until(f.getRemediationDeadline(), ChronoUnit.DAYS));
+        }
+
+        return FindingDetailResponse.builder()
+            .findingId(f.getFindingId())
+            .displayId("FIND-" + String.format("%03d", f.getFindingId()))
+            .triggerReason(f.getTriggerReason()).findingType(f.getFindingType())
+            .severity(f.getSeverity()).description(f.getDescription()).rootCause(f.getRootCause())
+            .assignedToUserId(f.getAssignedToUserId()).assignedToName(f.getAssignedToName())
+            .assignedAt(f.getAssignedAt()).status(f.getStatus())
+            .remediationDeadline(f.getRemediationDeadline()).slaDays(f.getSlaDays())
+            .slaRemainingDays(remaining)
+            .remediationNotes(f.getRemediationNotes())
+            .remediationEvidenceUrl(f.getRemediationEvidenceUrl())
+            .remediationSubmittedAt(f.getRemediationSubmittedAt())
+            .ccoSignOffUserId(f.getCcoSignOffUserId()).ccoSignOffAt(f.getCcoSignOffAt())
+            .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
+            .linkedControlId(f.getLinkedControlId()).createdByUserId(f.getCreatedByUserId())
+            .createdAt(f.getCreatedAt()).timeline(timeline).build();
+    }
+
     public Finding findById(Long id) {
         return repo.findById(id).orElseThrow(() -> new RuntimeException("Finding not found: " + id));
     }
@@ -34,10 +84,8 @@ public class FindingService {
         String severity = determineSeverity(test.getFailureSeverity(), control.getInherentRisk());
         int sla = slaDays(severity);
         Finding f = Finding.builder()
-            .triggeredByTestId(test.getTestId())
-            .triggerReason("Control test failed")
-            .findingType("Control Failure")
-            .severity(severity)
+            .triggeredByTestId(test.getTestId()).triggerReason("Control test failed")
+            .findingType("Control Failure").severity(severity)
             .description(String.format("Control %s (%s) failed on %s. %s",
                 control.getControlNumber(), control.getName(), test.getTestDate(), test.getResultDescription()))
             .rootCause(test.getFailureDetails())
@@ -45,9 +93,7 @@ public class FindingService {
             .assignedToName(control.getControlOwnerName())
             .assignedAt(Instant.now())
             .remediationDeadline(LocalDate.now().plus(sla, ChronoUnit.DAYS))
-            .slaDays(sla)
-            .createdByUserId(test.getTestedByUserId())
-            .status("Open").build();
+            .slaDays(sla).createdByUserId(test.getTestedByUserId()).status("Open").build();
         Finding saved = repo.save(f);
         audit.log(test.getTestedByUserId(), "finding_auto_raised", "finding", saved.getFindingId(),
             Map.of("severity", severity));
@@ -55,16 +101,23 @@ public class FindingService {
     }
 
     @Transactional
-    public Finding manualRaise(String description, String severity, String type, Integer userId) {
+    public FindingRaisedResponse manualRaise(RaiseFindingRequest req, Integer userId) {
+        int sla = slaDays(req.getSeverity());
         Finding f = Finding.builder()
-            .triggerReason("Manual discovery").findingType(type).severity(severity)
-            .description(description).slaDays(slaDays(severity))
-            .remediationDeadline(LocalDate.now().plus(slaDays(severity), ChronoUnit.DAYS))
-            .createdByUserId(userId).status("Open").build();
+            .triggerReason("Manual discovery").findingType(req.getFindingType())
+            .severity(req.getSeverity()).description(req.getDescription())
+            .rootCause(req.getRootCause())
+            .linkedObligationId(req.getLinkedObligationId())
+            .linkedControlId(req.getLinkedControlId())
+            .assignedToUserId(req.getAssignedToUserId())
+            .assignedToName(req.getAssignedToName())
+            .assignedAt(req.getAssignedToUserId() != null ? Instant.now() : null)
+            .remediationDeadline(req.getRemediationDeadline()).slaDays(sla)
+            .createdByUserId(userId).status(req.getAssignedToUserId() != null ? "In Remediation" : "Open").build();
         Finding saved = repo.save(f);
         audit.log(userId, "finding_raised_manually", "finding", saved.getFindingId(),
-            Map.of("severity", severity));
-        return saved;
+            Map.of("severity", req.getSeverity()));
+        return new FindingRaisedResponse(saved.getFindingId(), saved.getStatus());
     }
 
     @Transactional

@@ -1,12 +1,13 @@
 package com.atheris.compliance.tenant.backend.modules.audit.controller;
 
-import com.atheris.compliance.tenant.backend.modules.audit.entity.AuditEvent;
+import com.atheris.compliance.tenant.backend.modules.audit.dto.AuditEventItem;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.time.Instant;
 import java.util.Map;
 
 @RestController
@@ -16,18 +17,16 @@ public class AuditController {
 
     private final AuditService service;
 
-    @GetMapping
+    @GetMapping("/register")
     @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
-    public ResponseEntity<Page<AuditEvent>> list(Pageable p) {
-        return ResponseEntity.ok(service.findAll(p));
-    }
-
-    @GetMapping("/{subjectType}/{subjectId}")
-    public ResponseEntity<Page<AuditEvent>> bySubject(
-            @PathVariable String subjectType,
-            @PathVariable Long subjectId,
+    public ResponseEntity<Page<AuditEventItem>> register(
+            @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Integer actorUserId,
+            @RequestParam(required = false) Instant dateFrom,
+            @RequestParam(required = false) Instant dateTo,
             Pageable p) {
-        return ResponseEntity.ok(service.findBySubject(subjectType, subjectId, p));
+        return ResponseEntity.ok(service.search(subjectType, subjectId, actorUserId, dateFrom, dateTo, p));
     }
 
     @GetMapping("/verify")
@@ -35,10 +34,10 @@ public class AuditController {
     public ResponseEntity<Map<String, Object>> verify() {
         boolean valid = service.verifyChain();
         return ResponseEntity.ok(Map.of(
-            "chain_valid", valid,
+            "chainValid", valid,
             "message", valid
                 ? "Hash chain verified — no tampering detected"
-                : "WARNING: Hash chain broken"
+                : "WARNING: Hash chain broken — contact your system administrator"
         ));
     }
 }

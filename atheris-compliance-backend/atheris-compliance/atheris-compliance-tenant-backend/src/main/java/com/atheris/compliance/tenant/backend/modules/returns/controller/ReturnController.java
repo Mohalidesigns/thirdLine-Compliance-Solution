@@ -1,14 +1,15 @@
 package com.atheris.compliance.tenant.backend.modules.returns.controller;
 
-import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
+import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/returns")
@@ -17,53 +18,46 @@ public class ReturnController {
 
     private final ReturnService service;
 
-    @GetMapping
-    public ResponseEntity<List<RegulatoryReturn>> list() {
-        return ResponseEntity.ok(service.findAll());
-    }
-
     @GetMapping("/calendar")
-    public ResponseEntity<List<ReturnFilingInstance>> calendar(
-            @RequestParam(defaultValue = "30") int days) {
-        return ResponseEntity.ok(service.getCalendar(days));
+    public ResponseEntity<Page<ReturnInstanceItem>> calendar(
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) Long returnId,
+            @RequestParam(required = false) String status,
+            Pageable p) {
+        return ResponseEntity.ok(service.getCalendar(period, returnId, status, p));
     }
 
-    @GetMapping("/overdue")
-    public ResponseEntity<List<ReturnFilingInstance>> overdue() {
-        return ResponseEntity.ok(service.getOverdue());
+    @GetMapping("/instances/{id}/detail")
+    public ResponseEntity<ReturnInstanceDetailResponse> detail(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getDetail(id));
     }
 
-    @GetMapping("/{id}/instances")
-    public ResponseEntity<List<ReturnFilingInstance>> instances(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getInstances(id));
-    }
-
-    @PutMapping("/{id}/instances/{iid}/advance")
+    @PutMapping("/instances/{id}/advance")
     @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
-    public ResponseEntity<ReturnFilingInstance> advance(
+    public ResponseEntity<Void> advance(
             @PathVariable Long id,
-            @PathVariable Long iid,
+            @Valid @RequestBody AdvanceStageRequest req,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.advanceStage(iid, u.getUserId()));
+        service.advanceStage(id, req, u.getUserId());
+        return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/{id}/instances/{iid}/submit")
+    @PutMapping("/instances/{id}/submit")
     @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
-    public ResponseEntity<ReturnFilingInstance> submit(
+    public ResponseEntity<Void> submit(
             @PathVariable Long id,
-            @PathVariable Long iid,
-            @RequestBody Map<String, String> body,
+            @RequestBody AdvanceStageRequest req,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(
-            service.submit(iid, body.get("evidence_url"), u.getUserId()));
+        service.submit(id, req.getEvidenceUrl(), u.getUserId());
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
-    public ResponseEntity<RegulatoryReturn> create(
-            @RequestBody RegulatoryReturn req,
+    public ResponseEntity<Long> create(
+            @Valid @RequestBody CreateReturnRequest req,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(service.create(req, u.getUserId()));
+            .body(service.create(req, u.getUserId()).getReturnId());
     }
 }

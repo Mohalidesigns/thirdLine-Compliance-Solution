@@ -14,4 +14,6 @@ public interface ControlTaskRepository extends JpaRepository<ControlTask, Long>,
     List<ControlTask> findByControlId(Integer controlId);
     List<ControlTask> findByStatusAndDueDateBefore(String status, LocalDate today);
     List<ControlTask> findByAssignedToUserIdAndStatusIn(Integer userId, List<String> statuses);
+    List<ControlTask> findByControlIdInAndStatus(List<Integer> ids, String status);
+    ControlTask findTopByControlIdAndStatusOrderByDueDateAsc(Integer controlId, String status);
 }

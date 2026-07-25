@@ -53,12 +53,18 @@ export function AuthProvider({ children }) {
     return res;
   }
 
+  async function demoLogin() {
+    const res = await api.auth.demo();
+    save(res.accessToken, res.refreshToken, res.user);
+    return res;
+  }
+
   function logout() {
     clear();
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, demoLogin, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

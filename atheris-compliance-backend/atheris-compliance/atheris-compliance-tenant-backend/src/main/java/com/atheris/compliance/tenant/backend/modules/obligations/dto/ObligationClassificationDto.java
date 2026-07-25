@@ -23,6 +23,7 @@ public class ObligationClassificationDto {
     private String residualRiskRating;
     private Integer assignedOwnerUserId;
     private String assignedOwnerName;
+    private String assignedDepartment;
     private List<Integer> linkedControlIds;
     private Boolean hasGap;
     private String gapDescription;

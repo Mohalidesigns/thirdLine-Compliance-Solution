@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS findings (
     cco_sign_off_at           TIMESTAMP WITH TIME ZONE,
     closed_at                 TIMESTAMP WITH TIME ZONE,
     created_by_user_id        INT,
+    linked_obligation_id      BIGINT,
+    linked_control_id         INT,
     created_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -24,6 +24,9 @@ public class ReturnFilingInstance {
     private String currentStage = "Not Started";
     private String status = "Not Started";
     private Integer stageOwnerUserId;
+    @Column(columnDefinition = "jsonb")
+    private String stageData;
+    private String filingChannel;
     private LocalDate submittedDate;
     private Integer submittedByUserId;
     private String submissionEvidenceUrl;

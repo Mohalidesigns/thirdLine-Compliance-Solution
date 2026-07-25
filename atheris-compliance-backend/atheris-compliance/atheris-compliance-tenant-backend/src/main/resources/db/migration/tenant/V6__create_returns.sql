@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     status                     VARCHAR(50) DEFAULT 'Active',
     filing_due_day_of_month    INT,
     filing_deadline_offset_days INT,
+    filing_channel             VARCHAR(255),
+    return_owner_user_id       INT,
+    return_owner_name          VARCHAR(255),
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -20,6 +23,8 @@ CREATE TABLE IF NOT EXISTS return_filing_instances (
     current_stage            VARCHAR(50) DEFAULT 'Not Started',
     status                   VARCHAR(50) DEFAULT 'Not Started',
     stage_owner_user_id      INT,
+    stage_data               JSONB,
+    filing_channel           VARCHAR(255),
     submitted_date           DATE,
     submitted_by_user_id     INT,
     submission_evidence_url  TEXT,

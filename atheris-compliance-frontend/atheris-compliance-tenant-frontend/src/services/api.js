@@ -106,6 +106,7 @@ async function request(path, options = {}) {
 
 export const api = {
   auth: {
+    demo: () => request('/demo/login', { method: 'POST' }),
     login: (email, password) => request('/auth/login', {
       method: 'POST', body: JSON.stringify({ email, password }),
     }),
@@ -155,10 +156,94 @@ export const api = {
     classify: (id, data) => request(`/obligations/${id}/classify`, {
       method: 'POST', body: JSON.stringify(data),
     }),
-    list: (page = 0, size = 20) => request(`/obligations?page=${page}&size=${size}`),
-    get: (id) => request(`/obligations/${id}`),
+    register: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/obligations/register${s ? '?' + s : ''}`);
+    },
+    detail: (id) => request(`/obligations/${id}/detail`),
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
+  },
+  findings: {
+    register: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/findings/register${s ? '?' + s : ''}`);
+    },
+    detail: (id) => request(`/findings/${id}/detail`),
+    raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
+    assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
+    remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
+    close: (id) => request(`/findings/${id}/close`, { method: 'PUT' }),
+  },
+  controls: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/controls${s ? '?' + s : ''}`);
+    },
+    register: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/controls/register${s ? '?' + s : ''}`);
+    },
+    detail: (id) => request(`/controls/${id}/detail`),
+    get: (id) => request(`/controls/${id}`),
+    create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/controls/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
+  },
+  returns: {
+    calendar: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/returns/calendar${s ? '?' + s : ''}`);
+    },
+    detail: (id) => request(`/returns/instances/${id}/detail`),
+    advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
+    submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
+    create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  evidence: {
+    list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
+    upload: (formData) => {
+      const headers = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      return fetch(`${API_BASE}/evidence/upload`, {
+        method: 'POST', headers, body: formData,
+      }).then(async (res) => {
+        if (!res.ok) { const err = await res.json().catch(() => ({ message: res.statusText })); throw new Error(err.message); }
+        return res.json();
+      });
+    },
+    download: (id) => {
+      const headers = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      return fetch(`${API_BASE}/evidence/${id}/download`, { headers })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('Download failed');
+          const blob = await res.blob();
+          const disposition = res.headers.get('Content-Disposition');
+          const match = disposition && disposition.match(/filename="?(.+?)"?$/);
+          const name = match ? match[1] : 'evidence.bin';
+          return { blob, name };
+        });
+    },
+  },
+  audit: {
+    register: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/audit/register${s ? '?' + s : ''}`);
+    },
+    verify: () => request('/audit/verify'),
   },
   settings: {
     polling: () => request('/settings/polling'),
