@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.demo.service;
 
+import static com.atheris.compliance.common.Constants.*;
 import com.atheris.compliance.tenant.backend.modules.auth.dto.AuthTokens;
 import com.atheris.compliance.tenant.backend.modules.auth.service.JwtService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
@@ -8,6 +9,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.Control
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
+import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
+import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
@@ -16,6 +19,7 @@ import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +35,12 @@ public class DemoDataSeeder {
     private final FindingRepository findings;
     private final RegulatoryReturnRepository returns;
     private final ReturnFilingInstanceRepository instances;
+    private final TenantProfileRepository profiles;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${atheris.tenant-id:1}")
+    private Long tenantId;
 
     private Integer demoUserId;
     private static final String DEMO_EMAIL = "demo@atheris.ng";
@@ -52,6 +60,8 @@ public class DemoDataSeeder {
         }
         demoUserId = demo.getUserId();
 
+        seedLicense();
+
         if (controls.count() == 0) seedControls();
         if (findings.count() == 0) seedFindings();
         if (returns.count() == 0) seedReturns();
@@ -64,6 +74,21 @@ public class DemoDataSeeder {
                 .userId(demo.getUserId()).email(demo.getEmail())
                 .fullName(demo.getFullName()).role(demo.getRole()).build())
             .build();
+    }
+
+    void seedLicense() {
+        TenantProfile profile = profiles.findByTenantId(tenantId)
+            .orElse(TenantProfile.builder().tenantId(tenantId).build());
+        if (profile.getLicenseKey() == null) {
+            profile.setLicenseKey("DEMO-LICENSE-KEY");
+            profile.setLicenseStatus(LICENSE_ACTIVE);
+            profile.setLicenseActivatedAt(Instant.now());
+            profile.setLicenseExpiresAt(Instant.now().plus(java.time.Duration.ofDays(365)));
+            profile.setOnboardingStep(6);
+            profile.setOnboardingCompletedAt(Instant.now());
+            profiles.save(profile);
+            log.info("Seeded demo license for tenant {}", tenantId);
+        }
     }
 
     void seedControls() {
