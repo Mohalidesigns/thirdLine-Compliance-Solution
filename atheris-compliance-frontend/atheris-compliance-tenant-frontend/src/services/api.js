@@ -1,20 +1,107 @@
 const API_BASE = 'http://localhost:9091/api/v1';
 
 let authToken = null;
+let authRefreshToken = null;
 
 export const setToken = (t) => { authToken = t; };
 export const getToken = () => authToken;
+export const setRefreshToken = (t) => { authRefreshToken = t; };
+export const getRefreshToken = () => authRefreshToken;
+
+const STORAGE_KEY_TOKEN = 'atheris_tenant_token';
+const STORAGE_KEY_REFRESH = 'atheris_tenant_refresh_token';
+const STORAGE_KEY_USER = 'atheris_tenant_user';
+
+async function doRefresh() {
+  if (!authRefreshToken) return null;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: authRefreshToken }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    authToken = data.accessToken;
+    authRefreshToken = data.refreshToken;
+    try {
+      localStorage.setItem(STORAGE_KEY_TOKEN, data.accessToken);
+      localStorage.setItem(STORAGE_KEY_REFRESH, data.refreshToken);
+    } catch {}
+    return data.accessToken;
+  } catch {
+    return null;
+  }
+}
+
+function clearAuth() {
+  authToken = null;
+  authRefreshToken = null;
+  try {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+    localStorage.removeItem(STORAGE_KEY_REFRESH);
+    localStorage.removeItem(STORAGE_KEY_USER);
+  } catch {}
+}
 
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || `Request failed: ${res.status}`);
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    throw new Error('Cannot connect to server. Please try again.');
   }
+
   if (res.status === 204) return null;
-  return res.json();
+
+  if ((res.status === 401 || res.status === 403) && !path.startsWith('/auth/')) {
+    if (authRefreshToken) {
+      const refreshed = await doRefresh();
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${refreshed}`;
+        try {
+          res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+        } catch {
+          throw new Error('Cannot connect to server. Please try again.');
+        }
+      } else {
+        clearAuth();
+        sessionStorage.setItem('atheris_tenant_session_expired', '1');
+        window.location.href = '/login';
+        throw new Error('Session expired');
+      }
+    } else {
+      clearAuth();
+      sessionStorage.setItem('atheris_tenant_session_expired', '1');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+  }
+
+  let body = '';
+  try {
+    body = await res.text();
+  } catch {
+    throw new Error('Failed to read response');
+  }
+
+  if (!body) {
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return null;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(`Unexpected response: ${body.substring(0, 100)}`);
+  }
+
+  if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`);
+  return data;
 }
 
 export const api = {
@@ -60,6 +147,18 @@ export const api = {
   instruments: {
     list: (page = 0, size = 20, q = '') => request(`/subscriptions/instruments?page=${page}&size=${size}&q=${encodeURIComponent(q)}`),
     get: (id) => request(`/subscriptions/instruments/${id}`),
+  },
+  inbox: {
+    list: (page = 0, size = 20) => request(`/obligations/inbox?page=${page}&size=${size}`),
+  },
+  obligations: {
+    classify: (id, data) => request(`/obligations/${id}/classify`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    list: (page = 0, size = 20) => request(`/obligations?page=${page}&size=${size}`),
+    get: (id) => request(`/obligations/${id}`),
+    history: (id) => request(`/obligations/${id}/history`),
+    riskTypes: () => request('/obligations/risk-types'),
   },
   settings: {
     polling: () => request('/settings/polling'),

@@ -22,7 +22,7 @@ export default function LibraryPage() {
     try {
       const data = await api.instruments.list(0, 50, q);
       setInstruments(data.content || []);
-    } catch (err) { setError(err.message); }
+    } catch { setError('Failed to load instruments. Please try again.'); }
     finally { setLoading(false); }
   }
 

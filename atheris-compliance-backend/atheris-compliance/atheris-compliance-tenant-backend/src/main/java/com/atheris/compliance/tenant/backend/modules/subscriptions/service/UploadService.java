@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 @Service @Slf4j @RequiredArgsConstructor
@@ -70,6 +72,10 @@ public class UploadService {
             .platformInstrumentId(job.getPlatformInstrumentId())
             .errorMessage(job.getErrorMessage())
             .build();
+    }
+
+    public Page<UploadJob> list(Pageable pageable) {
+        return uploadJobs.findByTenantId(tenantId, pageable);
     }
 
     public UploadJobResponse getUploadStatus(UUID uploadId) {

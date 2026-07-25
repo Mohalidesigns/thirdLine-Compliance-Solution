@@ -8,6 +8,8 @@ import com.atheris.compliance.intelligence.backend.modules.internal.dto.Internal
 import com.atheris.compliance.intelligence.backend.modules.internal.dto.InternalInstrumentSummary;
 import com.atheris.compliance.intelligence.backend.modules.jobs.service.JobQueueService;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
+import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
@@ -35,6 +37,7 @@ public class InternalInstrumentService {
     private final PdfExtractionService pdfExtractor;
     private final StorageService storage;
     private final JobQueueService jobQueue;
+    private final RegulatorRepository regulators;
 
     @Value("${atheris.storage.max-pdf-size-mb:50}")
     private int maxPdfSizeMb;
@@ -121,15 +124,40 @@ public class InternalInstrumentService {
         return new PageImpl<>(filtered, pageable, page.getTotalElements());
     }
 
+    public Page<InternalInstrumentSummary> searchInstruments(String q, List<Integer> regulatorIds, Pageable pageable) {
+        Specification<Instrument> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (q != null && !q.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("sourceTitle")), "%" + q.toLowerCase() + "%"));
+            }
+            if (regulatorIds != null && !regulatorIds.isEmpty()) {
+                predicates.add(root.get("regulatorId").in(regulatorIds));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return instruments.findAll(spec, pageable).map(this::toSummary);
+    }
+
     public InternalInstrumentDetail getFullDetail(Long instrumentId) {
         Instrument inst = instruments.findById(instrumentId)
             .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
+
+        String regName = null, regAbbr = null;
+        if (inst.getRegulatorId() != null) {
+            Optional<Regulator> r = regulators.findById(inst.getRegulatorId());
+            if (r.isPresent()) {
+                regName = r.get().getName();
+                regAbbr = r.get().getAbbreviation();
+            }
+        }
 
         return InternalInstrumentDetail.builder()
             .instrumentId(inst.getInstrumentId())
             .sourceTitle(inst.getSourceTitle())
             .sourceReferenceNumber(inst.getSourceReferenceNumber())
             .regulatorId(inst.getRegulatorId())
+            .regulatorName(regName)
+            .regulatorAbbreviation(regAbbr)
             .dateIssued(inst.getDateIssued())
             .dateCommencement(inst.getDateCommencement())
             .riskRating(inst.getRiskRating())
@@ -172,16 +200,28 @@ public class InternalInstrumentService {
     }
 
     private InternalInstrumentSummary toSummary(Instrument i) {
+        String regName = null, regAbbr = null;
+        if (i.getRegulatorId() != null) {
+            Optional<Regulator> r = regulators.findById(i.getRegulatorId());
+            if (r.isPresent()) {
+                regName = r.get().getName();
+                regAbbr = r.get().getAbbreviation();
+            }
+        }
         return InternalInstrumentSummary.builder()
             .instrumentId(i.getInstrumentId())
             .sourceTitle(i.getSourceTitle())
             .sourceReferenceNumber(i.getSourceReferenceNumber())
             .regulatorId(i.getRegulatorId())
+            .regulatorName(regName)
+            .regulatorAbbreviation(regAbbr)
             .dateIssued(i.getDateIssued())
             .riskRating(i.getRiskRating())
             .nature(i.getNature())
             .areaOfFocus(i.getAreaOfFocus())
             .aiSummary(i.getAiSummary())
+            .status(i.getStatus())
+            .documentType(i.getNature())
             .publishedAt(i.getPublishedAt())
             .pdfUrl(storage.generatePresignedUrl(i.getPdfUrl(), 3600))
             .build();

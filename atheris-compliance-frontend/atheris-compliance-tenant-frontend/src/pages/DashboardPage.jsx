@@ -14,10 +14,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      api.regulators.list().catch(() => []),
+      api.regulators.list().catch(() => ({ content: [] })),
       api.uploads.list().catch(() => ({ content: [] })),
     ]).then(([regs, upl]) => {
-      setRegulators(regs);
+      setRegulators(Array.isArray(regs) ? regs : (regs.content || []));
       setUploads(upl.content || []);
     }).finally(() => setLoading(false));
   }, []);
@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>Welcome back, {user?.firstName}</Typography>
+      <Typography variant="h4" sx={{ mb: 0.5 }}>Welcome back, {user?.fullName?.split(' ')[0] || 'User'}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Your compliance workspace overview</Typography>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>

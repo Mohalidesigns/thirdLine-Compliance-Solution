@@ -14,6 +14,8 @@ public class PlatformInstrumentDetail {
     private String sourceTitle;
     private String sourceReferenceNumber;
     private Integer regulatorId;
+    private String regulatorName;
+    private String regulatorAbbreviation;
     private LocalDate dateIssued;
     private LocalDate dateCommencement;
     private String riskRating;

@@ -1,6 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.controller;
 
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.*;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.RiskType;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.RiskTypeRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import jakarta.validation.Valid;
@@ -18,6 +20,12 @@ import java.util.List;
 public class ObligationController {
 
     private final ObligationService service;
+    private final RiskTypeRepository riskTypes;
+
+    @GetMapping("/risk-types")
+    public ResponseEntity<List<RiskType>> listRiskTypes() {
+        return ResponseEntity.ok(riskTypes.findAllByOrderByDisplayOrderAsc());
+    }
 
     @GetMapping
     public ResponseEntity<Page<ObligationClassificationDto>> list(
@@ -28,7 +36,7 @@ public class ObligationController {
     }
 
     @GetMapping("/inbox")
-    public ResponseEntity<Page<ObligationClassificationDto>> inbox(Pageable p) {
+    public ResponseEntity<Page<InboxItemResponse>> inbox(Pageable p) {
         return ResponseEntity.ok(service.getInbox(p));
     }
 
@@ -36,12 +44,6 @@ public class ObligationController {
     @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','ANALYST')")
     public ResponseEntity<List<ObligationClassificationDto>> gaps() {
         return ResponseEntity.ok(service.getGaps());
-    }
-
-    @GetMapping("/pending-approval")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
-    public ResponseEntity<List<ObligationClassificationDto>> pendingApproval() {
-        return ResponseEntity.ok(service.getHighRiskPendingApproval());
     }
 
     @GetMapping("/{id}")
@@ -65,14 +67,6 @@ public class ObligationController {
             @Valid @RequestBody ClassifyObligationRequest req,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.ok(service.classify(id, req, u.getUserId()));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
-    public ResponseEntity<ObligationClassificationDto> approve(
-            @PathVariable Long id,
-            @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.ccoApprove(id, u.getUserId()));
     }
 
     @GetMapping("/{id}/history")

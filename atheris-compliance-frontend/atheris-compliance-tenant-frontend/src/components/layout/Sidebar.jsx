@@ -4,8 +4,8 @@ import {
   Typography, Divider, Avatar,
 } from '@mui/material';
 import {
-  Dashboard, AccountBalance, CloudUpload, History, LibraryBooks,
-  Settings, Logout, Shield,
+  Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks,
+  Settings, Logout, Shield, Gavel, Warning, CalendarMonth,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,11 +13,14 @@ import { useAuth } from '../../contexts/AuthContext';
 const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Overview', icon: <Dashboard />, path: '/overview' },
+  { text: 'Inbox', icon: <Inbox />, path: '/inbox' },
+  { text: 'Obligations', icon: <LibraryBooks />, path: '/obligations' },
   { text: 'Regulators', icon: <AccountBalance />, path: '/regulators' },
-  { text: 'Upload Document', icon: <CloudUpload />, path: '/upload' },
-  { text: 'Upload History', icon: <History />, path: '/uploads' },
-  { text: 'Obligation Library', icon: <LibraryBooks />, path: '/library' },
+  { text: 'Uploads', icon: <CloudUpload />, path: '/uploads' },
+  { text: 'Controls', icon: <Gavel />, path: '/controls' },
+  { text: 'Findings', icon: <Warning />, path: '/findings' },
+  { text: 'Returns', icon: <CalendarMonth />, path: '/returns' },
   { text: 'Settings', icon: <Settings />, path: '/settings' },
 ];
 
@@ -93,11 +96,11 @@ export default function Sidebar() {
 
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Avatar sx={{ width: 36, height: 36, bgcolor: theme.palette.warning.main, fontSize: '0.8rem', fontWeight: 700 }}>
-          {user?.firstName?.[0]}{user?.lastName?.[0]}
+          {user?.fullName?.[0] || 'U'}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="body2" sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '0.78rem', lineHeight: 1.3 }} noWrap>
-            {user?.firstName} {user?.lastName}
+            {user?.fullName || 'User'}
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem' }} noWrap>
             {user?.role?.replace(/_/g, ' ') || 'User'}

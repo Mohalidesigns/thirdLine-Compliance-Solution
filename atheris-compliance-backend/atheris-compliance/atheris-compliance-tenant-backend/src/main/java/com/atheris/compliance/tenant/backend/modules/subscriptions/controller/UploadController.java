@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UploadJobResponse;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.UploadJob;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +31,11 @@ public class UploadController {
             @RequestParam(value = "date_issued", required = false) String dateIssued) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(service.uploadDocument(file, tenantRegulatorId, title, dateIssued));
+    }
+
+    @GetMapping("/uploads")
+    public ResponseEntity<Page<UploadJob>> list(Pageable pageable) {
+        return ResponseEntity.ok(service.list(pageable));
     }
 
     @GetMapping("/upload-status/{uploadId}")

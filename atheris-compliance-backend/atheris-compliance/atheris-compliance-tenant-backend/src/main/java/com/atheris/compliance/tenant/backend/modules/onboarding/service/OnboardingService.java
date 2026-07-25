@@ -7,8 +7,10 @@ import com.atheris.compliance.tenant.backend.modules.license.service.LicenseServ
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulatorPreference;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorPreferenceRepository;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
@@ -31,6 +33,7 @@ public class OnboardingService {
 
     private final TenantProfileRepository profiles;
     private final TenantRegulatorPreferenceRepository regPrefs;
+    private final TenantRegulatorRepository tenantRegulatorRepo;
     private final RegulatorRecommendationService recommendationService;
     private final LicenseService licenseService;
     private final UserRepository users;
@@ -171,6 +174,7 @@ public class OnboardingService {
             p.setNotificationFrequency(req.getNotificationFrequency());
         p.setOnboardingStep(4);
         profiles.save(p);
+
         if (req.getPerRegulatorOverrides() != null) {
             req.getPerRegulatorOverrides().forEach(o -> {
                 Integer id = (Integer) o.get("regulator_id");
@@ -182,6 +186,38 @@ public class OnboardingService {
                 regPrefs.save(pref);
             });
         }
+
+        List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
+        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tenantId);
+
+        if (req.getSubscribedRegulators() != null) {
+            for (Integer regId : req.getSubscribedRegulators()) {
+                boolean alreadyExists = existing.stream()
+                    .anyMatch(e -> regId.equals(e.getPlatformRegulatorId()));
+                if (alreadyExists) continue;
+                RegulatorSummary summary = allRegs.stream()
+                    .filter(r -> regId.equals(r.getRegulatorId()))
+                    .findFirst().orElse(null);
+                if (summary != null) {
+                    tenantRegulatorRepo.save(TenantRegulator.builder()
+                        .tenantId(tenantId)
+                        .name(summary.getName())
+                        .abbreviation(summary.getAbbreviation())
+                        .platformRegulatorId(summary.getRegulatorId())
+                        .isActive(true)
+                        .build());
+                } else {
+                    log.warn("Regulator {} not found on platform, creating with fallback name", regId);
+                    tenantRegulatorRepo.save(TenantRegulator.builder()
+                        .tenantId(tenantId)
+                        .name("Regulator " + regId)
+                        .platformRegulatorId(regId)
+                        .isActive(true)
+                        .build());
+                }
+            }
+        }
+
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(4).nextStep(5)
             .licenseStatus(p.getLicenseStatus())

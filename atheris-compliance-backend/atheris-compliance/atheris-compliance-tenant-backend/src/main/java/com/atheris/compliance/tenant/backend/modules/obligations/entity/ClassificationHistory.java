@@ -15,8 +15,8 @@ public class ClassificationHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long historyId;
-    @Column(nullable = false)
     private Long instrumentId;
+    private Long obligationId;
     private Integer classificationVersion;
     private String applicability;
     private String tenantRiskRating;

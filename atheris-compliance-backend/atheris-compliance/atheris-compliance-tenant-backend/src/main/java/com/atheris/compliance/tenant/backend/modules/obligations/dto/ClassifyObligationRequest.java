@@ -10,6 +10,12 @@ public class ClassifyObligationRequest {
     private String applicabilityReasoning;
     private String tenantRiskRating;
     private String riskJustification;
+    private String riskType;
+    private String impactRating;
+    private String impactJustification;
+    private String likelihoodRating;
+    private String likelihoodJustification;
+    private String inherentRiskRating;
     private Integer assignedOwnerUserId;
     private List<Integer> linkedControlIds;
     private Boolean hasGap;

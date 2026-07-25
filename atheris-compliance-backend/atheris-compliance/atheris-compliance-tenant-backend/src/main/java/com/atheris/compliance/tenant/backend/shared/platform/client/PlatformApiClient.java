@@ -7,6 +7,7 @@ import com.atheris.compliance.tenant.backend.shared.platform.dto.*;
 import com.atheris.compliance.tenant.backend.shared.util.CryptoUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.Pageable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -121,6 +122,28 @@ public class PlatformApiClient {
         } catch (Exception e) {
             log.error("Failed to fetch regulators from platform: {}", e.getMessage());
             return List.of();
+        }
+    }
+
+    public PagedResponse<PlatformInstrumentSummary> searchInstruments(String q, List<Integer> regulatorIds, Pageable pageable) {
+        try {
+            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/instruments/search")
+                .append("?q=").append(java.net.URLEncoder.encode(q != null ? q : "", "UTF-8"))
+                .append("&page=").append(pageable.getPageNumber())
+                .append("&size=").append(pageable.getPageSize());
+            if (regulatorIds != null) {
+                for (Integer id : regulatorIds) {
+                    url.append("&regulatorIds=").append(id);
+                }
+            }
+            HttpHeaders h = headers();
+            ResponseEntity<PagedResponse<PlatformInstrumentSummary>> resp = rest.exchange(
+                url.toString(), HttpMethod.GET, new HttpEntity<>(h),
+                new ParameterizedTypeReference<PagedResponse<PlatformInstrumentSummary>>() {});
+            return resp.getBody() != null ? resp.getBody() : new PagedResponse<>(List.of(), 0, 0, pageable.getPageSize(), pageable.getPageNumber());
+        } catch (Exception e) {
+            log.error("Failed to search instruments: {}", e.getMessage());
+            return new PagedResponse<>(List.of(), 0, 0, pageable.getPageSize(), pageable.getPageNumber());
         }
     }
 

@@ -7,11 +7,15 @@ import { useAuth } from './contexts/AuthContext';
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const InboxPage = lazy(() => import('./pages/InboxPage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const UploadStatusPage = lazy(() => import('./pages/UploadStatusPage'));
 const LibraryPage = lazy(() => import('./pages/LibraryPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ControlsPage = lazy(() => import('./pages/ControlsPage'));
+const FindingsPage = lazy(() => import('./pages/FindingsPage'));
+const ReturnsPage = lazy(() => import('./pages/ReturnsPage'));
 
 function Loading() {
   return (
@@ -33,18 +37,25 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<Loading />}>
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/overview" /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+          <Route index element={<Navigate to="/overview" />} />
+          <Route path="overview" element={<DashboardPage />} />
+          <Route path="inbox" element={<InboxPage />} />
+          <Route path="obligations" element={<LibraryPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
-          <Route path="upload" element={<UploadPage />} />
-          <Route path="uploads" element={<UploadStatusPage />} />
-          <Route path="library" element={<LibraryPage />} />
+          <Route path="uploads" element={<UploadPage />} />
+          <Route path="upload-history" element={<UploadStatusPage />} />
+          <Route path="controls" element={<ControlsPage />} />
+          <Route path="findings" element={<FindingsPage />} />
+          <Route path="returns" element={<ReturnsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="dashboard" element={<Navigate to="/overview" />} />
+          <Route path="library" element={<Navigate to="/obligations" />} />
+          <Route path="upload" element={<Navigate to="/uploads" />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" />} />
+        <Route path="*" element={<Navigate to="/overview" />} />
       </Routes>
     </Suspense>
   );

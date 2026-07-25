@@ -23,7 +23,7 @@ export default function UploadPage() {
 
   useEffect(() => {
     api.regulators.list()
-      .then(setRegulators)
+      .then(data => setRegulators(Array.isArray(data) ? data : (data.content || [])))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

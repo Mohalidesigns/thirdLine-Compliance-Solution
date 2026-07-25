@@ -1,13 +1,16 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentSummary;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -32,6 +35,7 @@ public class ObligationSyncService {
     private final TenantPollingConfigRepository pollingConfigs;
     private final TenantRegulatorRepository tenantRegulators;
     private final ObligationClassificationRepository obligations;
+    private final ObligationRepository obligationRepo;
 
     @PersistenceContext
     private EntityManager em;
@@ -67,14 +71,38 @@ public class ObligationSyncService {
                 if (obligations.findByInstrumentId(item.getInstrumentId()).isPresent())
                     continue;
 
+                PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(item.getInstrumentId());
+                Long firstObligationId = null;
+
+                if (detail != null && detail.getObligations() != null) {
+                    LocalDate effDate = detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued();
+                    int num = 1;
+                    for (var extObl : detail.getObligations()) {
+                        Obligation o = Obligation.builder()
+                            .instrumentId(item.getInstrumentId())
+                            .obligationNumber(num++)
+                            .description(extObl.getPlainEnglishStatement())
+                            .sectionReference(extObl.getSpecificSectionReference())
+                            .obligationType(extObl.getObligationType())
+                            .recurringDeadlineType(extObl.getRecurringDeadlineType())
+                            .effectiveDate(effDate)
+                            .source("ai_extracted")
+                            .build();
+                        o = obligationRepo.save(o);
+                        if (firstObligationId == null) firstObligationId = o.getObligationId();
+                    }
+                }
+
                 ObligationClassification oc = ObligationClassification.builder()
                     .instrumentId(item.getInstrumentId())
+                    .obligationId(firstObligationId)
                     .applicability("under_review")
                     .tenantRiskRating(item.getRiskRating())
                     .status("unclassified")
                     .build();
                 obligations.save(oc);
-                log.info("Created local obligation record for instrument {}: {}",
+                log.info("Created {} obligations + classification for instrument {}: {}",
+                    detail != null && detail.getObligations() != null ? detail.getObligations().size() : 0,
                     item.getInstrumentId(), item.getSourceTitle());
             }
 

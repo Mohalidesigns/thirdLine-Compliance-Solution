@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ClassificationHistoryRepository extends JpaRepository<ClassificationHistory, Long>, JpaSpecificationExecutor<ClassificationHistory> {
     List<ClassificationHistory> findByInstrumentIdOrderByChangedAtDesc(Long instrumentId);
+    List<ClassificationHistory> findByObligationIdOrderByChangedAtDesc(Long obligationId);
 }

@@ -71,7 +71,7 @@ export default function OnboardingPage() {
     try {
       const resp = await api.onboarding.status({ signal: AbortSignal.timeout(5000) });
       if (resp.onboardingCompleted) {
-        navigate('/dashboard', { replace: true });
+        navigate('/login', { replace: true });
         return;
       }
       setStep(resp.currentStep || 0);
@@ -96,7 +96,7 @@ export default function OnboardingPage() {
       if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
       if (nextStep === 6 && resp.onboardingCompleted) {
         setCompleted(true);
-        setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
+        setTimeout(() => navigate('/login', { replace: true }), 2000);
       }
     } catch (err) {
       setError(err.message || 'Something went wrong');

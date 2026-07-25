@@ -23,6 +23,14 @@ public class InternalInstrumentController {
 
     private final InternalInstrumentService service;
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<InternalInstrumentSummary>> search(
+            @RequestParam String q,
+            @RequestParam(required = false) List<Integer> regulatorIds,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.searchInstruments(q, regulatorIds, pageable));
+    }
+
     @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<InternalIngestResponse> ingest(
             @RequestParam("file") MultipartFile file,

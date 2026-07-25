@@ -1,10 +1,35 @@
+CREATE TABLE IF NOT EXISTS obligations (
+    obligation_id            BIGSERIAL PRIMARY KEY,
+    instrument_id           BIGINT NOT NULL,
+    obligation_number       INT,
+    description             TEXT,
+    section_reference       VARCHAR(255),
+    obligation_type         VARCHAR(100),
+    recurring_deadline_type VARCHAR(100),
+    effective_date          DATE,
+    status                  VARCHAR(50) DEFAULT 'active',
+    source                  VARCHAR(50) DEFAULT 'ai_extracted',
+    created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_obligations_instrument ON obligations(instrument_id);
+
 CREATE TABLE IF NOT EXISTS obligation_classifications (
     classification_id          BIGSERIAL PRIMARY KEY,
-    instrument_id              BIGINT NOT NULL UNIQUE,
+    instrument_id              BIGINT,
+    obligation_id              BIGINT UNIQUE,
     applicability              VARCHAR(50) DEFAULT 'under_review',
     applicability_reasoning    TEXT,
     tenant_risk_rating         VARCHAR(50),
     risk_justification         TEXT,
+    risk_type                  VARCHAR(50),
+    impact_rating              VARCHAR(50),
+    impact_justification       TEXT,
+    likelihood_rating          VARCHAR(50),
+    likelihood_justification    TEXT,
+    inherent_risk_rating       VARCHAR(50),
+    residual_risk_rating       VARCHAR(50),
     assigned_owner_user_id     INT,
     assigned_owner_name        VARCHAR(255),
     assigned_department        VARCHAR(255),
@@ -14,9 +39,7 @@ CREATE TABLE IF NOT EXISTS obligation_classifications (
     classification_version     INT DEFAULT 1,
     classified_by_user_id      INT,
     classified_at              TIMESTAMP WITH TIME ZONE,
-    cco_approved               BOOLEAN DEFAULT false,
-    cco_approved_by_user_id    INT,
-    cco_approved_at            TIMESTAMP WITH TIME ZONE,
+
     status                     VARCHAR(50) DEFAULT 'unclassified',
     audit_hash                 VARCHAR(64),
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -28,7 +51,8 @@ CREATE INDEX idx_obligation_class_applicability ON obligation_classifications(ap
 
 CREATE TABLE IF NOT EXISTS classification_history (
     history_id               BIGSERIAL PRIMARY KEY,
-    instrument_id            BIGINT NOT NULL,
+    instrument_id            BIGINT,
+    obligation_id            BIGINT,
     classification_version   INT,
     applicability            VARCHAR(50),
     tenant_risk_rating       VARCHAR(50),
@@ -40,3 +64,11 @@ CREATE TABLE IF NOT EXISTS classification_history (
 );
 
 CREATE INDEX idx_classification_history_instrument ON classification_history(instrument_id, changed_at DESC);
+CREATE INDEX idx_classification_history_obligation ON classification_history(obligation_id);
+
+CREATE TABLE IF NOT EXISTS obligation_controls (
+    obligation_id BIGINT NOT NULL REFERENCES obligations(obligation_id),
+    control_id    INT NOT NULL,
+    linked_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (obligation_id, control_id)
+);

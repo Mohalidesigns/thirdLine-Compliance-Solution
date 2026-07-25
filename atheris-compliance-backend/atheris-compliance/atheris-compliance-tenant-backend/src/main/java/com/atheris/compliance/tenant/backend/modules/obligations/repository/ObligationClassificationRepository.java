@@ -12,10 +12,10 @@ import java.util.Optional;
 @Repository
 public interface ObligationClassificationRepository extends JpaRepository<ObligationClassification, Long>, JpaSpecificationExecutor<ObligationClassification> {
     Optional<ObligationClassification> findByInstrumentId(Long instrumentId);
+    Optional<ObligationClassification> findByObligationId(Long obligationId);
     Page<ObligationClassification> findByApplicability(String applicability, Pageable p);
     Page<ObligationClassification> findByStatus(String status, Pageable p);
     List<ObligationClassification> findByHasGapTrue();
     long countByApplicability(String applicability);
     long countByHasGapTrue();
-    List<ObligationClassification> findByApplicabilityAndCcoApprovedFalseAndTenantRiskRating(String applicability, String riskRating);
 }

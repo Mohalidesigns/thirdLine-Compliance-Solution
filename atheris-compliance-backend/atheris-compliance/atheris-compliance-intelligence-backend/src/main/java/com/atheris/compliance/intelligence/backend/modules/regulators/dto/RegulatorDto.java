@@ -1,10 +1,12 @@
 package com.atheris.compliance.intelligence.backend.modules.regulators.dto;
-
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.Instant;
 
-@Data @Builder
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class RegulatorDto {
     private Integer regulatorId;
     private String name;

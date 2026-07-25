@@ -23,7 +23,7 @@ export default function RegulatorsPage() {
     setLoading(true);
     try {
       const data = await api.regulators.list();
-      setRegulators(data);
+      setRegulators(Array.isArray(data) ? data : (data.content || data));
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }

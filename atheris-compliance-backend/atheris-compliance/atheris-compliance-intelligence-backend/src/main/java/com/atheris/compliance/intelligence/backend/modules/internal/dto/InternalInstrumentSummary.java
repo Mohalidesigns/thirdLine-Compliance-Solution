@@ -12,11 +12,15 @@ public class InternalInstrumentSummary {
     private String sourceTitle;
     private String sourceReferenceNumber;
     private Integer regulatorId;
+    private String regulatorName;
+    private String regulatorAbbreviation;
     private LocalDate dateIssued;
     private String riskRating;
     private String nature;
     private String areaOfFocus;
     private String aiSummary;
+    private String status;
+    private String documentType;
     private LocalDate publishedAt;
     private String pdfUrl;
 }
