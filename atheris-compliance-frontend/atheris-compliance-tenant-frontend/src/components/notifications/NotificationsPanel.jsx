@@ -6,7 +6,6 @@ import { api } from '../../services/api';
 
 export default function NotificationsPanel({ open, onClose }) {
   const theme = useTheme();
-  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [counts, setCounts] = useState({ unread: 0 });
   const [loading, setLoading] = useState(false);

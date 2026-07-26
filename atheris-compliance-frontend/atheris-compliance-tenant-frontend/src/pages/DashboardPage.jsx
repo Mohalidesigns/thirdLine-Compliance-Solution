@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, LinearProgress, Alert, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { TrendingUp, TrendingDown, Shield, CheckCircle, CalendarMonth, Error as ErrorIcon, Warning, Assignment, Upload, InfoOutlined } from '@mui/icons-material';
+import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, LinearProgress, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Shield, CheckCircle, CalendarMonth, Error as ErrorIcon, Warning, InfoOutlined } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,15 +49,15 @@ export default function DashboardPage() {
     { label: 'Compliance Score', value: `${Math.round(score)}%`, sub: `${score >= 80 ? '↑' : '↓'} Today`, icon: <Shield />, color: score >= 80 ? theme.palette.success.main : score >= 60 ? theme.palette.warning.main : theme.palette.error.main },
     { label: 'Controls Tested', value: `${Math.round(tested)}%`, sub: snapshot?.controlsTotal > 0 ? `${snapshot.controlsPassing} of ${snapshot.controlsTotal} passing` : 'No controls', icon: <CheckCircle />, color: tested >= 80 ? theme.palette.success.main : tested >= 60 ? theme.palette.warning.main : theme.palette.error.main },
     { label: 'Returns on Time', value: `${returnsOnTime}%`, sub: snapshot?.returnsTotal > 0 ? `Q2 ${now.getFullYear()}` : 'No returns', icon: <CalendarMonth />, color: returnsOnTime >= 90 ? theme.palette.success.main : returnsOnTime >= 70 ? theme.palette.warning.main : theme.palette.error.main },
-    { label: 'Open Findings', value: openFindings, sub: `${highFindings} High severity`, icon: <Error as ErrorIcon />, color: openFindings === 0 ? theme.palette.success.main : highFindings > 0 ? theme.palette.error.main : theme.palette.warning.main },
+    { label: 'Open Findings', value: openFindings, sub: `${highFindings} High severity`, icon: <ErrorIcon />, color: openFindings === 0 ? theme.palette.success.main : highFindings > 0 ? theme.palette.error.main : theme.palette.warning.main },
   ];
 
   const attentionItems = [];
   if (attention) {
     if (attention.overdue_returns > 0) attentionItems.push({ icon: <Warning color="error" />, text: `${attention.overdue_returns} return${attention.overdue_returns > 1 ? 's' : ''} overdue`, severity: 'error' });
-    if (attention.controls_failing > 0) attentionItems.push({ icon: <Error as ErrorIcon color="error" />, text: `${attention.controls_failing} control${attention.controls_failing > 1 ? 's' : ''} failing`, severity: 'error' });
+    if (attention.controls_failing > 0) attentionItems.push({ icon: <ErrorIcon color="error" />, text: `${attention.controls_failing} control${attention.controls_failing > 1 ? 's' : ''} failing`, severity: 'error' });
     if (attention.obligations_no_control > 0) attentionItems.push({ icon: <InfoOutlined color="warning" />, text: `${attention.obligations_no_control} obligation${attention.obligations_no_control > 1 ? 's' : ''} with no linked control`, severity: 'warning' });
-    if (attention.high_risk_findings > 0) attentionItems.push({ icon: <Error as ErrorIcon color="error" />, text: `${attention.high_risk_findings} critical finding${attention.high_risk_findings > 1 ? 's' : ''}`, severity: 'error' });
+    if (attention.high_risk_findings > 0) attentionItems.push({ icon: <ErrorIcon color="error" />, text: `${attention.high_risk_findings} critical finding${attention.high_risk_findings > 1 ? 's' : ''}`, severity: 'error' });
   }
 
   const returnColor = (status, overdue) => {
