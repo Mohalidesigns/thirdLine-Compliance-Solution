@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
-  Snackbar, TableContainer, Paper, TablePagination,
+  Snackbar, TableContainer, Paper, TablePagination, FormControl, InputLabel, Select,
 } from '@mui/material';
 import {
   Visibility, CheckCircle, Cancel, Search, Close, ExpandMore, ExpandLess,
-  Article, CalendarToday,
+  Article, CalendarToday, CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 
@@ -27,6 +28,7 @@ const COLUMNS = [
 ];
 
 export default function InboxPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -104,10 +106,18 @@ export default function InboxPage() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>Instruments</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Review and classify newly published regulatory instruments
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+        <Box>
+          <Typography variant="h4">Instruments</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Review and classify newly published regulatory instruments
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<CloudUploadIcon />}
+          onClick={() => navigate('/uploads')}>
+          Upload Instrument
+        </Button>
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -161,7 +171,8 @@ export default function InboxPage() {
                   return (
                     <TableRow key={item.instrumentId} hover
                       onClick={() => setDetailOpen(item)}
-                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: rc?.bg || '#F7FAFC' },
+                      sx={{ cursor: 'pointer', bgcolor: rc?.bg || 'inherit',
+                      '&:hover': { bgcolor: rc?.bg || '#F7FAFC' },
                       borderLeft: rc ? `3px solid ${rc.chip}` : '3px solid transparent',
                     }}>
                       <TableCell>

@@ -14,10 +14,9 @@ const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Inbox', icon: <Inbox />, path: '/inbox' },
+  { text: 'Instruments', icon: <Inbox />, path: '/inbox' },
   { text: 'Obligations', icon: <LibraryBooks />, path: '/obligations' },
   { text: 'Regulators', icon: <AccountBalance />, path: '/regulators' },
-  { text: 'Uploads', icon: <CloudUpload />, path: '/uploads' },
   { text: 'Controls', icon: <Gavel />, path: '/controls' },
   { text: 'Findings', icon: <Warning />, path: '/findings' },
   { text: 'Returns', icon: <CalendarMonth />, path: '/returns' },
