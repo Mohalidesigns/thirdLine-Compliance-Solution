@@ -2,6 +2,8 @@ package com.atheris.compliance.tenant.backend.modules.demo.service;
 
 import static com.atheris.compliance.common.Constants.*;
 import com.atheris.compliance.tenant.backend.modules.auth.dto.AuthTokens;
+import com.atheris.compliance.tenant.backend.modules.auth.entity.RefreshToken;
+import com.atheris.compliance.tenant.backend.modules.auth.repository.RefreshTokenRepository;
 import com.atheris.compliance.tenant.backend.modules.auth.service.JwtService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
@@ -36,6 +38,7 @@ public class DemoDataSeeder {
     private final RegulatoryReturnRepository returns;
     private final ReturnFilingInstanceRepository instances;
     private final TenantProfileRepository profiles;
+    private final RefreshTokenRepository refreshTokens;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
@@ -67,8 +70,22 @@ public class DemoDataSeeder {
         if (returns.count() == 0) seedReturns();
 
         String access = jwtService.generateAccessToken(demo.getUserId(), demo.getEmail(), demo.getRole());
+        byte[] b = new byte[96];
+        new java.security.SecureRandom().nextBytes(b);
+        String rawRefresh = java.util.HexFormat.of().formatHex(b);
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(rawRefresh.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            refreshTokens.save(RefreshToken.builder()
+                .userId(demo.getUserId()).tokenHash(java.util.HexFormat.of().formatHex(hash))
+                .isRevoked(false)
+                .expiresAt(Instant.now().plus(30, java.time.temporal.ChronoUnit.DAYS))
+                .build());
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
         return AuthTokens.builder()
-            .accessToken(access).refreshToken("demo-refresh")
+            .accessToken(access).refreshToken(rawRefresh)
             .accessTokenExpiresIn(1440).tokenType("Bearer")
             .user(AuthTokens.UserSummary.builder()
                 .userId(demo.getUserId()).email(demo.getEmail())
