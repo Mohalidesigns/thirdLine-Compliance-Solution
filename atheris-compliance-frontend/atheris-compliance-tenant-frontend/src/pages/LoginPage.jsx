@@ -4,7 +4,7 @@ import {
   Box, Card, CardContent, TextField, Button, Typography, Alert,
   InputAdornment, IconButton, Divider, Checkbox, FormControlLabel, Link,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Shield, Email, Lock } from '@mui/icons-material';
+import { Visibility, VisibilityOff, ElectricBolt, Email, Lock } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,15 +58,15 @@ export default function LoginPage() {
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box sx={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 60, height: 60, borderRadius: 3, bgcolor: theme.palette.primary.main, mb: 2,
+              width: 60, height: 60, borderRadius: 3, bgcolor: theme.palette.warning.main, mb: 2,
             }}>
-              <Shield sx={{ fontSize: 36, color: theme.palette.warning.main }} />
+              <ElectricBolt sx={{ fontSize: 36, color: theme.palette.primary.main }} />
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
               Atheris
             </Typography>
-            <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mt: 0.5 }}>
-              Africa's Premier Compliance Solution
+            <Typography variant="body2" sx={{ color: theme.palette.warning.main, fontStyle: 'italic', mt: 0.5 }}>
+              Compliance Intelligence Hub
             </Typography>
           </Box>
 

@@ -69,10 +69,15 @@ public class DashboardService {
         long late = returnsRepo.countByStatus("Submitted Late");
         long pending = returnsRepo.countByStatus("Not Started") + returnsRepo.countByStatus("In Progress");
 
-        double score = Math.min(100.0,
-            (totalControls > 0 ? (passing / (double) totalControls) * 40 : 0) +
-            (totalReturns > 0 ? (onTime / (double) totalReturns) * 30 : 30) + 20.0 +
-            (totalActive + totalInapplicable > 0 ? 10.0 : 0));
+        Double score;
+        if (totalActive + totalInapplicable == 0) {
+            score = null;
+        } else {
+            score = Math.min(100.0,
+                (totalControls > 0 ? (passing / (double) totalControls) * 40 : 0) +
+                (totalReturns > 0 ? (onTime / (double) totalReturns) * 30 : 30) + 20.0 +
+                10.0);
+        }
 
         DashboardSnapshot s = DashboardSnapshot.builder()
             .snapshotDate(LocalDate.now()).computedAt(Instant.now())

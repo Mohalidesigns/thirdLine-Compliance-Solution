@@ -36,5 +36,5 @@ public class DashboardSnapshot {
     private Integer returnsSubmittedLate = 0;
     private Integer returnsPending = 0;
     private BigDecimal totalPenaltyExposureNaira = BigDecimal.ZERO;
-    private Double complianceScore = 0.0;
+    private Double complianceScore;
 }

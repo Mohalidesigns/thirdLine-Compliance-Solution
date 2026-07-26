@@ -41,3 +41,4 @@ CREATE TABLE upload_jobs (
 CREATE INDEX idx_uj_tenant ON upload_jobs(tenant_id);
 CREATE INDEX idx_uj_upload_id ON upload_jobs(upload_id);
 CREATE INDEX idx_uj_status ON upload_jobs(status);
+

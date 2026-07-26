@@ -9,7 +9,7 @@ import {
   Paper, InputAdornment,
 } from '@mui/material';
 import {
-  VpnKey, CheckCircle, Shield, Business, PeopleAlt,
+  VpnKey, CheckCircle, ElectricBolt, Business, PeopleAlt,
   AccountBalance, Description, HowToReg,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -17,7 +17,6 @@ import { api } from '../services/api';
 
 const DOCUMENT_TYPES = ['circulars', 'guidelines', 'directives', 'regulations', 'standards', 'frameworks'];
 const RISK_RATINGS = ['high', 'medium', 'low'];
-const NOTIFICATION_FREQUENCIES = ['immediate', 'daily', 'weekly'];
 
 const STEPS = ['License', 'Institution', 'User Setup', 'Regulators', 'Doc Types', 'Confirm'];
 
@@ -45,7 +44,7 @@ export default function OnboardingPage() {
 
   const [selectedRegulators, setSelectedRegulators] = useState([]);
   const [regulatorSearch, setRegulatorSearch] = useState('');
-  const [notificationFrequency, setNotificationFrequency] = useState('immediate');
+  const [docTypeSearch, setDocTypeSearch] = useState('');
   const [selectedDocTypes, setSelectedDocTypes] = useState([]);
   const [selectedRiskRatings, setSelectedRiskRatings] = useState(['high', 'medium']);
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -167,7 +166,6 @@ export default function OnboardingPage() {
     submit('regulators',
       api.onboarding.regulators({
         subscribedRegulators: selectedRegulators,
-        notificationFrequency,
       }),
       4
     );
@@ -213,7 +211,9 @@ export default function OnboardingPage() {
         <Card sx={{ borderRadius: 3, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
           <CardContent sx={{ p: { xs: 3, md: 4 } }}>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Shield sx={{ fontSize: 40, color: theme.palette.warning.main, mb: 1 }} />
+              <Box sx={{ width: 52, height: 52, borderRadius: 1.5, bgcolor: theme.palette.warning.main, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5 }}>
+                <ElectricBolt sx={{ fontSize: 30, color: theme.palette.primary.main }} />
+              </Box>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>Welcome to Atheris</Typography>
               <Typography variant="body2" color="text.secondary">
                 Set up your compliance intelligence workspace
@@ -378,15 +378,7 @@ export default function OnboardingPage() {
                       ))}
                     </TableBody>
                   </Table>
-                </TableContainer>
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Notification Frequency</InputLabel>
-                  <Select value={notificationFrequency}
-                    onChange={e => setNotificationFrequency(e.target.value)}
-                    label="Notification Frequency">
-                    {NOTIFICATION_FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-                  </Select>
-                </FormControl>
+                    </TableContainer>
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleRegulators} disabled={submitting}
                   sx={{ py: 1.2, fontWeight: 600 }}>
@@ -397,44 +389,45 @@ export default function OnboardingPage() {
 
             {getActiveStep() === 4 && (
               <Box>
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Document Types</InputLabel>
-                  <Select multiple
-                    value={selectedDocTypes}
-                    onChange={e => setSelectedDocTypes(e.target.value)}
-                    input={<OutlinedInput label="Document Types" />}
-                    renderValue={selected => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map(t => <Chip key={t} label={t} size="small" />)}
-                      </Box>
-                    )}>
-                    {DOCUMENT_TYPES.map(t => (
-                      <MenuItem key={t} value={t}>
-                        <Checkbox checked={selectedDocTypes.includes(t)} />
-                        <ListItemText primary={t} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Risk Rating Notifications</InputLabel>
-                  <Select multiple
-                    value={selectedRiskRatings}
-                    onChange={e => setSelectedRiskRatings(e.target.value)}
-                    input={<OutlinedInput label="Risk Rating Notifications" />}
-                    renderValue={selected => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map(r => <Chip key={r} label={r} size="small" color={r === 'high' ? 'error' : r === 'medium' ? 'warning' : 'default'} />)}
-                      </Box>
-                    )}>
-                    {RISK_RATINGS.map(r => (
-                      <MenuItem key={r} value={r}>
-                        <Checkbox checked={selectedRiskRatings.includes(r)} />
-                        <ListItemText primary={r} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Select the document types you want to track
+                </Typography>
+                <TextField fullWidth size="small" placeholder="Search document type..."
+                  value={docTypeSearch}
+                  onChange={e => setDocTypeSearch(e.target.value)}
+                  sx={{ mb: 1.5 }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
+                  }} />
+                <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 200 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>Document Type</TableCell>
+                        <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {DOCUMENT_TYPES.filter(t =>
+                        !docTypeSearch || t.toLowerCase().includes(docTypeSearch.toLowerCase())
+                      ).map(t => (
+                        <TableRow key={t} hover
+                          selected={selectedDocTypes.includes(t)}
+                          onClick={() => {
+                            setSelectedDocTypes(prev =>
+                              prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                            );
+                          }}
+                          sx={{ cursor: 'pointer' }}>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>{t}</TableCell>
+                          <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
+                            <Checkbox checked={selectedDocTypes.includes(t)} onChange={() => {}} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleDocumentTypes} disabled={submitting}
                   sx={{ py: 1.2, fontWeight: 600 }}>

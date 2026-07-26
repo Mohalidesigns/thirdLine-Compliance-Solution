@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const now = new Date();
   const todayStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
 
-  const score = snapshot?.complianceScore ?? 0;
+  const score = snapshot?.complianceScore;
   const tested = snapshot?.controlsTestCompletionRate ?? 0;
   const returnsOnTime = snapshot?.returnsTotal > 0 ? Math.round((snapshot.returnsSubmittedOnTime / snapshot.returnsTotal) * 100) : 100;
   const openFindings = snapshot?.findingsOpen ?? 0;
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const medLowRisk = Math.max(0, totalActive - highRisk);
 
   const KPI_CARDS = [
-    { label: 'Compliance Score', value: `${Math.round(score)}%`, sub: `${score >= 80 ? '↑' : '↓'} Today`, icon: <Shield />, color: score >= 80 ? theme.palette.success.main : score >= 60 ? theme.palette.warning.main : theme.palette.error.main },
+    { label: 'Compliance Score', value: score != null ? `${Math.round(score)}%` : 'N/A', sub: score != null ? `${score >= 80 ? '↑' : '↓'} Today` : 'No obligations yet', icon: <Shield />, color: score != null ? (score >= 80 ? theme.palette.success.main : score >= 60 ? theme.palette.warning.main : theme.palette.error.main) : theme.palette.grey[500] },
     { label: 'Controls Tested', value: `${Math.round(tested)}%`, sub: snapshot?.controlsTotal > 0 ? `${snapshot.controlsPassing} of ${snapshot.controlsTotal} passing` : 'No controls', icon: <CheckCircle />, color: tested >= 80 ? theme.palette.success.main : tested >= 60 ? theme.palette.warning.main : theme.palette.error.main },
     { label: 'Returns on Time', value: `${returnsOnTime}%`, sub: snapshot?.returnsTotal > 0 ? `Q2 ${now.getFullYear()}` : 'No returns', icon: <CalendarMonth />, color: returnsOnTime >= 90 ? theme.palette.success.main : returnsOnTime >= 70 ? theme.palette.warning.main : theme.palette.error.main },
     { label: 'Open Findings', value: openFindings, sub: `${highFindings} High severity`, icon: <ErrorIcon />, color: openFindings === 0 ? theme.palette.success.main : highFindings > 0 ? theme.palette.error.main : theme.palette.warning.main },

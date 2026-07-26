@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks,
-  Settings, Logout, Shield, Gavel, Warning, CalendarMonth, Verified, Folder,
+  Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
@@ -48,7 +48,9 @@ export default function Sidebar() {
       }}
     >
       <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Shield sx={{ fontSize: 28, color: theme.palette.warning.main }} />
+        <Box sx={{ width: 32, height: 32, borderRadius: 1, bgcolor: theme.palette.warning.main, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ElectricBolt sx={{ fontSize: 20, color: theme.palette.primary.main }} />
+        </Box>
         <Box>
           <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 700, lineHeight: 1.2, fontSize: '0.95rem' }}>
             Atheris
@@ -108,10 +110,15 @@ export default function Sidebar() {
             {user?.role?.replace(/_/g, ' ') || 'User'}
           </Typography>
         </Box>
-        <Logout
+      </Box>
+      <Box sx={{ px: 2, pb: 2 }}>
+        <Box
           onClick={logout}
-          sx={{ color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 20, '&:hover': { color: theme.palette.error.main } }}
-        />
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', py: 1, px: 1.5, borderRadius: 1, color: 'rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: theme.palette.error.main } }}
+        >
+          <Logout sx={{ fontSize: 18 }} />
+          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>Logout</Typography>
+        </Box>
       </Box>
     </Drawer>
   );

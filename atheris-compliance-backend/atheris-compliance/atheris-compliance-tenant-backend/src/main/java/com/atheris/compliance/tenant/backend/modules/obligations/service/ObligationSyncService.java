@@ -17,6 +17,8 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,11 +45,30 @@ public class ObligationSyncService {
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void syncOnStartup() {
+        new Thread(() -> {
+            try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            log.info("Running initial sync on startup...");
+            try { syncNow(); } catch (Exception e) {
+                log.warn("Startup sync failed: {}", e.getMessage());
+            }
+        }).start();
+    }
+
     @Scheduled(fixedDelayString = "#{@pollingIntervalProvider.intervalMs}")
     @Transactional
     public void pollForNewObligations() {
+        syncNow();
+    }
+
+    @Transactional
+    public void syncNow() {
         TenantProfile p = profiles.findByTenantId(tenantId).orElse(null);
-        if (p == null || !Boolean.TRUE.equals(p.getIsActive())) return;
+        if (p == null || !Boolean.TRUE.equals(p.getIsActive())) {
+            log.info("Sync skipped: tenant {} not found or inactive", tenantId);
+            return;
+        }
 
         List<Integer> platformRegulatorIds = tenantRegulators
             .findByTenantIdAndIsActiveTrue(tenantId)
@@ -56,7 +77,10 @@ public class ObligationSyncService {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-        if (platformRegulatorIds.isEmpty()) return;
+        if (platformRegulatorIds.isEmpty()) {
+            log.info("Sync skipped: no active regulators for tenant {}", tenantId);
+            return;
+        }
 
         var pollingConfig = pollingConfigs.findByTenantId(tenantId)
             .orElse(null);
@@ -64,12 +88,18 @@ public class ObligationSyncService {
             ? pollingConfig.getLastPolledAt().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
 
         try {
+            log.info("Syncing instruments for tenant {} (regulators: {}, since: {})", tenantId, platformRegulatorIds, since);
             List<PlatformInstrumentSummary> results = platformClient.findRecentInstruments(
                 tenantId, platformRegulatorIds, p.getLicenceType(), since);
 
+            log.info("Received {} instruments from platform", results.size());
+            int created = 0, skipped = 0;
+
             for (PlatformInstrumentSummary item : results) {
-                if (obligations.findByInstrumentId(item.getInstrumentId()).isPresent())
+                if (obligations.findByInstrumentId(item.getInstrumentId()).isPresent()) {
+                    skipped++;
                     continue;
+                }
 
                 PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(item.getInstrumentId());
                 Long firstObligationId = null;
@@ -101,10 +131,13 @@ public class ObligationSyncService {
                     .status("unclassified")
                     .build();
                 obligations.save(oc);
+                created++;
                 log.info("Created {} obligations + classification for instrument {}: {}",
                     detail != null && detail.getObligations() != null ? detail.getObligations().size() : 0,
                     item.getInstrumentId(), item.getSourceTitle());
             }
+
+            log.info("Sync complete: {} created, {} skipped (already exist)", created, skipped);
 
             if (pollingConfig != null) {
                 pollingConfig.setLastPolledAt(Instant.now());

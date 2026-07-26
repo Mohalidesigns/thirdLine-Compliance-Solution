@@ -206,7 +206,7 @@ public class LicenseService {
             return ValidateLicenseResponse.builder()
                 .valid(false)
                 .status(LICENSE_VALIDATION_ERROR)
-                .message("Could not reach license server: " + e.getMessage())
+                .message("Unable to validate license. Please check that your license key is correct and try again.")
                 .build();
         }
     }

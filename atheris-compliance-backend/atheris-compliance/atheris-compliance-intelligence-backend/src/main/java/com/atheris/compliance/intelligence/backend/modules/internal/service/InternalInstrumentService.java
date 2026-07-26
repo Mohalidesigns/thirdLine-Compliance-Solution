@@ -115,9 +115,6 @@ public class InternalInstrumentService {
 
         Page<Instrument> page = instruments.findAll(spec, pageable);
         List<InternalInstrumentSummary> filtered = page.getContent().stream()
-            .filter(i -> i.getLicenceTypesApplicable() == null
-                || i.getLicenceTypesApplicable().isEmpty()
-                || i.getLicenceTypesApplicable().contains(licenceType))
             .map(this::toSummary)
             .toList();
 

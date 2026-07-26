@@ -282,17 +282,11 @@ public class LicenseService {
             }
         }
 
-        if (!isFirstActivation) {
-            return ValidateLicenseResponse.builder()
-                .valid(false)
-                .status(LICENSE_ACTIVE)
-                .message("License has already been activated")
-                .build();
+        if (isFirstActivation) {
+            license.setActivatedAt(now);
+            license.setStatus(LICENSE_ACTIVE);
+            licenses.save(license);
         }
-
-        license.setActivatedAt(now);
-        license.setStatus(LICENSE_ACTIVE);
-        licenses.save(license);
 
         String apiKeyValue = null;
         Optional<ApiKey> ak = apiKeys.findByLicenseId(license.getId());
@@ -314,7 +308,7 @@ public class LicenseService {
             .deviceCount(deviceCount)
             .deviceLimit(license.getMaxDevices())
             .apiKey(apiKeyValue)
-            .message("License is active")
+            .message(isFirstActivation ? "License is active" : "License validated")
             .build();
     }
 

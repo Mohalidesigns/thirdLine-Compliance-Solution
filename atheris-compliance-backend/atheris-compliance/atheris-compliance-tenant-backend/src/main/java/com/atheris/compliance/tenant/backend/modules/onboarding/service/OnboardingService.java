@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.license.dto.LicenseStatusRe
 import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseActivationException;
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import com.atheris.compliance.tenant.backend.modules.license.service.LicenseService;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
@@ -22,6 +23,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.*;
@@ -39,6 +42,7 @@ public class OnboardingService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final PlatformApiClient platformApi;
+    private final ObligationSyncService syncService;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -170,8 +174,6 @@ public class OnboardingService {
     public OnboardingStatusResponse saveRegulators(RegulatorSubscriptionRequest req) {
         TenantProfile p = getProfile();
         p.setSubscribedRegulators(req.getSubscribedRegulators());
-        if (req.getNotificationFrequency() != null)
-            p.setNotificationFrequency(req.getNotificationFrequency());
         p.setOnboardingStep(4);
         profiles.save(p);
 
@@ -241,6 +243,7 @@ public class OnboardingService {
     public OnboardingStatusResponse confirm(OnboardingConfirmRequest req) {
         TenantProfile p = getProfile();
         if (req.getWebhookUrl() != null) p.setWebhookUrl(req.getWebhookUrl());
+        p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(6);
         profiles.save(p);
@@ -263,6 +266,15 @@ public class OnboardingService {
         }
 
         log.info("Onboarding completed for tenant {}", tenantId);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                try { syncService.syncNow(); } catch (Exception e) {
+                    log.warn("Initial sync failed: {}", e.getMessage());
+                }
+            }
+        });
+
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(true).currentStep(6)
             .licenseStatus(p.getLicenseStatus())
