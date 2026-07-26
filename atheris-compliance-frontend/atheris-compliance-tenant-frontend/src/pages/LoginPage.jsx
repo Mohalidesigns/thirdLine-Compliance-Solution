@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function LoginPage() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { login, demoLogin } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,22 +33,9 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, password);
-      navigate('/overview', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDemoLogin() {
-    setLoading(true);
-    setError('');
-    try {
-      await demoLogin();
-      navigate('/overview', { replace: true });
-    } catch (err) {
-      setError(err.message || 'Demo login failed');
     } finally {
       setLoading(false);
     }
@@ -139,18 +126,7 @@ export default function LoginPage() {
             Get Started — Register Your Institution
           </Button>
 
-          <Box sx={{ textAlign: 'center', mt: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              Quick evaluation?
-            </Typography>
-            <Button
-              size="small" variant="text"
-              onClick={handleDemoLogin} disabled={loading}
-              sx={{ color: theme.palette.warning.main, fontSize: '0.75rem', textTransform: 'none', '&:hover': { bgcolor: 'rgba(212,175,55,0.08)' } }}
-            >
-              {loading ? <CircularProgress size={14} sx={{ mr: 0.5 }} /> : '⚡ Demo Login'}
-            </Button>
-          </Box>
+
         </CardContent>
       </Card>
     </Box>
