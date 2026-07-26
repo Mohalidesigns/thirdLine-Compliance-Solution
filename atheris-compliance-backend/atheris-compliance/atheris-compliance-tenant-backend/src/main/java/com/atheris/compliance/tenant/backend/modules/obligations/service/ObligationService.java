@@ -160,6 +160,7 @@ public class ObligationService {
             .obligationCount(d.getObligations() != null ? d.getObligations().size() : 0)
             .penaltySummary(d.getSanctions() != null && !d.getSanctions().isEmpty()
                 ? "\u20A6" + d.getSanctions().get(0).getAmountNaira() + " penalty" : null)
+            .pdfOcrText(d.getPdfOcrText())
             .applicability(c.getApplicability()).applicabilityReasoning(c.getApplicabilityReasoning())
             .tenantRiskRating(c.getTenantRiskRating()).riskJustification(c.getRiskJustification())
             .riskType(c.getRiskType()).impactRating(c.getImpactRating())

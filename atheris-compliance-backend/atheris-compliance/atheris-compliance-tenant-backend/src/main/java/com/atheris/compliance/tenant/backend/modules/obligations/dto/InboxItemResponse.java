@@ -25,6 +25,7 @@ public class InboxItemResponse {
     private String status;
     private int obligationCount;
     private String penaltySummary;
+    private String pdfOcrText;
 
     private String applicability;
     private String applicabilityReasoning;
