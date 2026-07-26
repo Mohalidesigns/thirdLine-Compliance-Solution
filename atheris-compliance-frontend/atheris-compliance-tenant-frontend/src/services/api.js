@@ -245,6 +245,11 @@ export const api = {
     },
     verify: () => request('/audit/verify'),
   },
+  dashboard: {
+    summary: () => request('/dashboard/summary'),
+    trends: () => request('/dashboard/trends'),
+    attentionItems: () => request('/dashboard/attention-items'),
+  },
   settings: {
     polling: () => request('/settings/polling'),
     updatePolling: (data) => request('/settings/polling', {

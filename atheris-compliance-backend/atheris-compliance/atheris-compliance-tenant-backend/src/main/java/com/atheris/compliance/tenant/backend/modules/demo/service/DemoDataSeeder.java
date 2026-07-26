@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.auth.dto.AuthTokens;
 import com.atheris.compliance.tenant.backend.modules.auth.entity.RefreshToken;
 import com.atheris.compliance.tenant.backend.modules.auth.repository.RefreshTokenRepository;
 import com.atheris.compliance.tenant.backend.modules.auth.service.JwtService;
+import com.atheris.compliance.tenant.backend.modules.dashboard.service.DashboardService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
@@ -39,6 +40,7 @@ public class DemoDataSeeder {
     private final ReturnFilingInstanceRepository instances;
     private final TenantProfileRepository profiles;
     private final RefreshTokenRepository refreshTokens;
+    private final DashboardService dashboardService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
@@ -68,6 +70,8 @@ public class DemoDataSeeder {
         if (controls.count() == 0) seedControls();
         if (findings.count() == 0) seedFindings();
         if (returns.count() == 0) seedReturns();
+
+        try { dashboardService.computeSnapshot(); } catch (Exception e) { log.warn("Dashboard snapshot failed: {}", e.getMessage()); }
 
         String access = jwtService.generateAccessToken(demo.getUserId(), demo.getEmail(), demo.getRole());
         byte[] b = new byte[96];
