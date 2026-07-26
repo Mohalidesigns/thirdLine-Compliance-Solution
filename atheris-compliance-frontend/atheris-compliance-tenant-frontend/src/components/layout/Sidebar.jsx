@@ -13,7 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
-  { text: 'Overview', icon: <Dashboard />, path: '/overview' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
   { text: 'Inbox', icon: <Inbox />, path: '/inbox' },
   { text: 'Obligations', icon: <LibraryBooks />, path: '/obligations' },
   { text: 'Regulators', icon: <AccountBalance />, path: '/regulators' },

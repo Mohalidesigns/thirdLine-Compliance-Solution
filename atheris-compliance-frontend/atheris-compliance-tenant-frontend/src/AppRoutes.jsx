@@ -39,11 +39,11 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<Loading />}>
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/overview" /> : <LoginPage />} />
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/overview" />} />
-          <Route path="overview" element={<DashboardPage />} />
+          <Route index element={<Navigate to="/dashboard" />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
@@ -55,10 +55,10 @@ export default function AppRoutes() {
           <Route path="audit" element={<AuditTrailPage />} />
           <Route path="evidence" element={<EvidenceVaultPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="dashboard" element={<Navigate to="/overview" />} />
+          <Route path="overview" element={<Navigate to="/dashboard" />} />
           <Route path="upload" element={<Navigate to="/uploads" />} />
         </Route>
-        <Route path="*" element={<Navigate to="/overview" />} />
+        <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </Suspense>
   );
