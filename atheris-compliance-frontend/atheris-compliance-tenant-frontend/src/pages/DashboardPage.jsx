@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, LinearProgress, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Shield, CheckCircle, CalendarMonth, Error as ErrorIcon, Warning, InfoOutlined } from '@mui/icons-material';
+import { Shield, CheckCircle, CalendarMonth, Error as ErrorIcon, Warning, InfoOutlined, Upload } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';

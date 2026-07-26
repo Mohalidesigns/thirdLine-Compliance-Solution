@@ -26,6 +26,9 @@ public class LicenseFilter extends OncePerRequestFilter {
     private static final Set<String> EXCLUDED_PATHS = Set.of(
         "/api/v1/auth/",
         "/api/v1/demo/",
+        "/api/v1/dashboard/",
+        "/api/v1/notifications/",
+        "/api/v1/returns/calendar",
         "/api/v1/onboarding/",
         "/api/v1/license/activate",
         "/api/v1/license/status",
