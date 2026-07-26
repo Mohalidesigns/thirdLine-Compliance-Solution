@@ -2,6 +2,8 @@ package com.atheris.compliance.tenant.backend.modules.returns.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -24,6 +26,7 @@ public class ReturnFilingInstance {
     private String currentStage = "Not Started";
     private String status = "Not Started";
     private Integer stageOwnerUserId;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String stageData;
     private String filingChannel;
