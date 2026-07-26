@@ -104,9 +104,9 @@ export default function InboxPage() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>Inbox</Typography>
+      <Typography variant="h4" sx={{ mb: 0.5 }}>Instruments</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {items.length} obligation{items.length !== 1 ? 's' : ''} awaiting review
+        Review and classify newly published regulatory instruments
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -159,8 +159,9 @@ export default function InboxPage() {
                 {filtered.map(item => {
                   const rc = RISK_CONFIG[item.platformRiskRating];
                   return (
-                    <TableRow key={item.instrumentId} hover sx={{
-                      '&:hover': { bgcolor: rc?.bg || '#F7FAFC' },
+                    <TableRow key={item.instrumentId} hover
+                      onClick={() => setDetailOpen(item)}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: rc?.bg || '#F7FAFC' },
                       borderLeft: rc ? `3px solid ${rc.chip}` : '3px solid transparent',
                     }}>
                       <TableCell>
@@ -184,15 +185,15 @@ export default function InboxPage() {
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <Button size="small" variant="text" startIcon={<Visibility />}
-                            onClick={() => setDetailOpen(item)} sx={{ minWidth: 0, px: 1 }}>
+                            onClick={e => { e.stopPropagation(); setDetailOpen(item); }} sx={{ minWidth: 0, px: 1 }}>
                             View
                           </Button>
                           <IconButton size="small" color="success" title="Mark applicable"
-                            onClick={() => setClassifyOpen(item)}>
+                            onClick={e => { e.stopPropagation(); setClassifyOpen(item); }}>
                             <CheckCircle fontSize="small" />
                           </IconButton>
                           <IconButton size="small" color="error" title="Not applicable"
-                            onClick={() => handleClassify(item.instrumentId, 'not_applicable')}>
+                            onClick={e => { e.stopPropagation(); handleClassify(item.instrumentId, 'not_applicable'); }}>
                             <Cancel fontSize="small" />
                           </IconButton>
                         </Box>
