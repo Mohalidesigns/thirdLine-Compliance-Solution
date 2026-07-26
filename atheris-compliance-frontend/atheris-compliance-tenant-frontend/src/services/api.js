@@ -245,6 +245,13 @@ export const api = {
     },
     verify: () => request('/audit/verify'),
   },
+  notifications: {
+    list: (status) => request(`/notifications${status ? `?status=${status}` : ''}`),
+    count: () => request('/notifications/count'),
+    markRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
+    acknowledge: (id) => request(`/notifications/${id}/acknowledge`, { method: 'PUT' }),
+    markAllRead: () => request('/notifications/mark-all-read', { method: 'PUT' }),
+  },
   dashboard: {
     summary: () => request('/dashboard/summary'),
     trends: () => request('/dashboard/trends'),
