@@ -1,55 +1,40 @@
 package com.atheris.compliance.intelligence.backend.shared.exception;
 
-import com.atheris.compliance.intelligence.backend.modules.licenses.exception.DeviceMismatchException;
-import com.atheris.compliance.intelligence.backend.modules.licenses.exception.DeviceNotFoundException;
-import com.atheris.compliance.intelligence.backend.modules.licenses.exception.LicenseNotFoundException;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
-@Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(LicenseNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleLicenseNotFound(LicenseNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "not_found", "message", e.getMessage()));
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidFile(InvalidFileException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getErrorCode(), e.getMessage());
     }
 
-    @ExceptionHandler(DeviceNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleDeviceNotFound(DeviceNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "not_found", "message", e.getMessage()));
+    @ExceptionHandler(DuplicateUploadException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateUpload(DuplicateUploadException e) {
+        return build(HttpStatus.CONFLICT, e.getErrorCode(), e.getMessage());
     }
 
-    @ExceptionHandler(DeviceMismatchException.class)
-    public ResponseEntity<Map<String, String>> handleDeviceMismatch(DeviceMismatchException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(Map.of("error", "bad_request", "message", e.getMessage()));
+    @ExceptionHandler(UploadException.class)
+    public ResponseEntity<Map<String, Object>> handleUpload(UploadException e) {
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, e.getErrorCode(), e.getMessage());
     }
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "not_found", "message", e.getMessage()));
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleBadArgument(IllegalArgumentException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(Map.of("error", "bad_request", "message", e.getMessage()));
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
-        log.error("Unhandled exception", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of("error", "internal_error", "message", "An unexpected error occurred"));
+    private ResponseEntity<Map<String, Object>> build(HttpStatus status, String code, String message) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", code);
+        body.put("message", message);
+        body.put("status", status.value());
+        return ResponseEntity.status(status).body(body);
     }
 }

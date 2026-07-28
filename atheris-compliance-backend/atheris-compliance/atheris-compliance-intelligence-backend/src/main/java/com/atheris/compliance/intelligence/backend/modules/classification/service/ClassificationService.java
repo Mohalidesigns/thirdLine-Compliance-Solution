@@ -7,6 +7,7 @@ import com.atheris.compliance.intelligence.backend.modules.instruments.repositor
 import com.atheris.compliance.intelligence.backend.modules.jobs.service.JobQueueService;
 import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class ClassificationService {
     private final AiClient aiClient;
     private final InstrumentRepository instruments;
     private final ObligationMappingRepository obligations;
+    private final RegulatorRepository regulators;
     private final JobQueueService jobQueue;
     private final ObjectMapper mapper;
 
@@ -36,6 +38,7 @@ public class ClassificationService {
           "licence_types_applicable": string[],
           "applicability_confidence": number (0.0 to 1.0),
           "ai_summary": string (3-5 plain English sentences),
+          "regulator": string (full name of the issuing regulatory body, e.g. "Central Bank of Nigeria"),
           "obligations": [
             {
               "number": integer,
@@ -101,6 +104,13 @@ public class ClassificationService {
         inst.setLicenceTypesApplicable(r.getLicenceTypesApplicable());
         inst.setApplicabilityConfidence(r.getApplicabilityConfidence());
         inst.setAiSummary(r.getAiSummary());
+
+        if (inst.getRegulatorId() == null && r.getRegulator() != null && !r.getRegulator().isBlank()) {
+            regulators.findByNameContainingIgnoreCase(r.getRegulator())
+                .stream().findFirst()
+                .ifPresent(reg -> inst.setRegulatorId(reg.getRegulatorId()));
+        }
+
         inst.setStatus(Constants.INST_PUBLISHED);
         instruments.save(inst);
 

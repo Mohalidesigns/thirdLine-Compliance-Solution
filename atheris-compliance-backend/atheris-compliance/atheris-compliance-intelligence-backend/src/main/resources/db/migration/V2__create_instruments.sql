@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS instruments (
     instrument_id              BIGSERIAL PRIMARY KEY,
-    regulator_id               INT NOT NULL REFERENCES regulators(regulator_id),
+    regulator_id               INT REFERENCES regulators(regulator_id),
     type_id                    INT,
     source_title               VARCHAR(500) NOT NULL,
     source_reference_number    VARCHAR(100),

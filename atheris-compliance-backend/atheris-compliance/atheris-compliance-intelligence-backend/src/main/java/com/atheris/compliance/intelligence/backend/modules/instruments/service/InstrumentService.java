@@ -7,6 +7,7 @@ import com.atheris.compliance.intelligence.backend.modules.instruments.entity.In
 import com.atheris.compliance.intelligence.backend.modules.instruments.repository.InstrumentRepository;
 import com.atheris.compliance.intelligence.backend.modules.jobs.service.JobQueueService;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
@@ -37,6 +38,7 @@ public class InstrumentService {
     private final StorageService storage;
     private final JobQueueService jobQueue;
     private final ClassificationService classifier;
+    private final RegulatorRepository regulators;
 
     @Value("${atheris.storage.max-pdf-size-mb:50}")
     private int maxPdfSizeMb;
@@ -184,8 +186,15 @@ public class InstrumentService {
                 .liableRoles(s.getLiableRoles()).severityScore(s.getSeverityScore())
                 .hasBeenEnforced(s.getHasBeenEnforced()).build()).toList();
 
+        String regulatorName = i.getRegulatorId() != null
+            ? regulators.findById(i.getRegulatorId())
+                .map(r -> r.getAbbreviation() + " — " + r.getName())
+                .orElse(null)
+            : null;
+
         return InstrumentDetailDto.builder()
             .instrumentId(i.getInstrumentId()).sourceTitle(i.getSourceTitle())
+            .regulator(regulatorName)
             .areaOfFocus(i.getAreaOfFocus()).nature(i.getNature()).riskRating(i.getRiskRating())
             .applicabilityConfidence(i.getApplicabilityConfidence()).aiSummary(i.getAiSummary())
             .licenceTypesApplicable(i.getLicenceTypesApplicable())

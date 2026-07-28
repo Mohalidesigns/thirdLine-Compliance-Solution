@@ -30,6 +30,8 @@ export const ROUTES = {
   ADMIN_PIPELINE: '/admin/pipeline',
   ADMIN_PIPELINE_DETAIL: '/admin/pipeline/:id',
   ADMIN_INSTRUMENT_TENANTS: '/admin/instruments/:id/tenants',
+  ADMIN_INSTRUMENTS: '/admin/instruments',
+  ADMIN_UPLOADS: '/admin/uploads',
   ADMIN_LICENSES: '/admin/licenses',
   ADMIN_LICENSE_DETAIL: '/admin/licenses/:id',
 };
@@ -59,6 +61,8 @@ export const LABELS = {
   TENANT_MANAGEMENT: 'Tenant Management',
   PIPELINE: 'Pipeline Jobs',
   LICENSES: 'License Management',
+  INSTRUMENTS: 'Instruments',
+  UPLOADS: 'Uploads',
 };
 
 export const NAV_SECTIONS = [
@@ -75,6 +79,7 @@ export const NAV_SECTIONS = [
     { text: 'Tenant Management', icon: 'AdminPanelSettings', path: ROUTES.ADMIN_TENANTS },
     { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
     { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
+    { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
   ]},
 ];
 

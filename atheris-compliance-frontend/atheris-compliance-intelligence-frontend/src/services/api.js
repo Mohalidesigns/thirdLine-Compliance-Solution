@@ -185,7 +185,7 @@ function demoRequest(path, options = {}) {
     if (isActive === 'false') return ALL_TENANTS.filter(t => !t.isActive);
     return ALL_TENANTS;
   }
-  if (path.startsWith('/platform/instruments')) {
+  if (path === '/platform/instruments' || path.startsWith('/platform/instruments?')) {
     return { content: DEMI_OBLIGATIONS, totalElements: DEMI_OBLIGATIONS.length, totalPages: 1, size: 50, number: 0 };
   }
   if (path.startsWith('/admin/licenses')) {
@@ -387,6 +387,22 @@ export const api = {
       create: (data) => request('/recommendations', { method: 'POST', body: JSON.stringify(data) }),
       update: (id, data) => request(`/recommendations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
+    },
+    uploads: {
+      list: (status = '') => request(`/admin/uploads${status ? '?status=' + status : ''}`),
+      get: (id) => request(`/admin/uploads/${id}`),
+      stats: () => request('/admin/uploads/stats'),
+      upload: (formData) => {
+        return fetch(`${API_BASE}/admin/uploads`, {
+          method: 'POST',
+          headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+          body: formData,
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || `Upload failed (${res.status})`);
+          return data;
+        });
+      },
     },
   },
   license: {

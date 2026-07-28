@@ -12,6 +12,7 @@ public class ClassificationResult {
     @JsonProperty("licence_types_applicable") private List<String> licenceTypesApplicable;
     @JsonProperty("applicability_confidence") private Double applicabilityConfidence;
     @JsonProperty("ai_summary") private String aiSummary;
+    private String regulator;
     private List<ObligationItem> obligations;
 
     @Data
