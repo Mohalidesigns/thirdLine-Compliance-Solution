@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class IngestResponseDto {
+    private Long uploadId;
     private Long instrumentId;
-    private Long jobId;
     private String status;
     private boolean duplicate;
     private String message;

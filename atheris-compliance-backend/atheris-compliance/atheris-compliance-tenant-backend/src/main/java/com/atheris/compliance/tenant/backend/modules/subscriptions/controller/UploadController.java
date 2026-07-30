@@ -1,6 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 
-import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UploadJobResponse;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.UploadJob;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.UploadService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class UploadController {
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
     public ResponseEntity<UploadJobResponse> uploadDocument(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("tenant_regulator_id") Long tenantRegulatorId,
+            @RequestParam(value = "tenant_regulator_id", required = false) Long tenantRegulatorId,
             @RequestParam(value = "title", required = false) String title,
             @RequestParam(value = "date_issued", required = false) String dateIssued) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
@@ -41,5 +41,18 @@ public class UploadController {
     @GetMapping("/upload-status/{uploadId}")
     public ResponseEntity<UploadJobResponse> getUploadStatus(@PathVariable UUID uploadId) {
         return ResponseEntity.ok(service.getUploadStatus(uploadId));
+    }
+
+    @GetMapping("/uploads/{uploadId}/review")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    public ResponseEntity<UploadReviewResponse> getReview(@PathVariable UUID uploadId) {
+        return ResponseEntity.ok(service.getReview(uploadId));
+    }
+
+    @PostMapping("/uploads/{uploadId}/confirm")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    public ResponseEntity<UploadJobResponse> confirm(@PathVariable UUID uploadId,
+                                                      @RequestBody ConfirmUploadRequest req) {
+        return ResponseEntity.ok(service.confirm(uploadId, req));
     }
 }

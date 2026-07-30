@@ -29,3 +29,8 @@ atheris:
   platform:
     base-url: ${PLATFORM_BASE_URL:http://localhost:9090}
     encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
+
+logging:
+  level:
+    com.atheris.compliance: DEBUG
+    org.springframework.web.client: DEBUG

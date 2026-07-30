@@ -143,6 +143,8 @@ export const api = {
     },
     status: (id) => request(`/subscriptions/upload-status/${id}`),
     list: (page = 0, size = 20) => request(`/subscriptions/uploads?page=${page}&size=${size}`),
+    review: (uploadId) => request(`/uploads/${uploadId}/review`),
+    confirm: (uploadId, data) => request(`/uploads/${uploadId}/confirm`, { method: 'POST', body: JSON.stringify(data) }),
   },
   instruments: {
     list: (page = 0, size = 20, q = '') => request(`/subscriptions/instruments?page=${page}&size=${size}&q=${encodeURIComponent(q)}`),

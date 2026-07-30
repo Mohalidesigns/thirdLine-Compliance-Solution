@@ -125,6 +125,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - **api.js** — added `jobs.getPdfUrl(id)`, `instruments.getPdfUrl(id)` for PDF viewing; `JobQueueDto` now includes `payload` field so dashboard can read title/regulator/URL without fetching each job individually
 - **View PDF** — Dashboard "PDF" column calls `GET /admin/jobs/{id}/pdf` (for in-flight items) or `GET /intelligence/obligations/{id}/pdf` (for classified instruments), opens presigned S3 URL in new tab
 - **Demo login uses client-side mock data** — `api.js` now has a `demoRequest()` function that intercepts all API calls when `authToken === DEMO_TOKEN` and returns realistic mock data for Inbox, Library, Jobs, Regulators, Tenants, Pending Downloads, and Dashboard; `loginDemo()` reducer now calls `setToken(APP.DEMO_TOKEN)` so the API client is aware of demo mode
+- **LibraryPage removed** — The old `/library` route (Obligation Library) was deleted. Its Refresh button was moved to `/admin/instruments` (InstrumentsPage), placed just before the "Upload Instrument" button.
 
 ## Admin API Endpoints
 

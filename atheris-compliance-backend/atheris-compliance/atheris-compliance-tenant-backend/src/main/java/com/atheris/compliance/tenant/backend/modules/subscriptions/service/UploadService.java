@@ -1,6 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
-import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UploadJobResponse;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.UploadJob;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
@@ -17,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service @Slf4j @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class UploadService {
     private final UploadJobRepository uploadJobs;
     private final TenantRegulatorRepository tenantRegulators;
     private final PlatformApiClient platformClient;
+    private final ObligationRepository obligationsRepo;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -36,11 +41,14 @@ public class UploadService {
         if (!file.getContentType().contains("pdf"))
             throw new IllegalArgumentException("Only PDF files accepted");
 
-        TenantRegulator reg = tenantRegulators.findByIdAndTenantId(tenantRegulatorId, tenantId)
-            .orElseThrow(() -> new IllegalArgumentException("Regulator not found"));
-
-        if (!Boolean.TRUE.equals(reg.getIsActive()))
-            throw new IllegalArgumentException("Regulator is not active");
+        Integer platformRegulatorId = null;
+        if (tenantRegulatorId != null) {
+            TenantRegulator reg = tenantRegulators.findByIdAndTenantId(tenantRegulatorId, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Regulator not found"));
+            if (!Boolean.TRUE.equals(reg.getIsActive()))
+                throw new IllegalArgumentException("Regulator is not active");
+            platformRegulatorId = reg.getPlatformRegulatorId();
+        }
 
         UUID uploadId = UUID.randomUUID();
 
@@ -48,21 +56,22 @@ public class UploadService {
             .uploadId(uploadId)
             .tenantId(tenantId)
             .tenantRegulatorId(tenantRegulatorId)
+            .title(title != null ? title : file.getOriginalFilename())
             .status("queued")
             .build();
         uploadJobs.save(job);
 
         IngestResponseDto result = platformClient.ingestDocument(
             file, tenantRegulatorId, tenantId,
-            reg.getPlatformRegulatorId(), title, dateIssued);
+            platformRegulatorId, title, dateIssued);
 
         if (result.getError() != null) {
             job.setStatus("failed");
             job.setErrorMessage(result.getError());
         } else {
+            job.setPlatformJobId(result.getUploadId());
             job.setPlatformInstrumentId(result.getInstrumentId());
-            job.setPlatformJobId(result.getJobId());
-            job.setStatus(result.isDuplicate() ? "completed" : "processing");
+            job.setStatus(result.getInstrumentId() != null ? "completed" : "processing");
         }
         uploadJobs.save(job);
 
@@ -75,19 +84,126 @@ public class UploadService {
     }
 
     public Page<UploadJob> list(Pageable pageable) {
-        return uploadJobs.findByTenantId(tenantId, pageable);
+        Page<UploadJob> page = uploadJobs.findByTenantId(tenantId, pageable);
+        List<UploadJob> changed = new ArrayList<>();
+        for (UploadJob job : page.getContent()) {
+            if ("processing".equals(job.getStatus()) && job.getPlatformJobId() != null) {
+                IngestResponseDto status = platformClient.getUploadStatus(job.getPlatformJobId());
+                if (status.getInstrumentId() != null) {
+                    job.setPlatformInstrumentId(status.getInstrumentId());
+                    job.setStatus("completed");
+                    changed.add(job);
+                } else if (status.getError() != null) {
+                    job.setStatus("failed");
+                    job.setErrorMessage(status.getError());
+                    changed.add(job);
+                }
+            }
+        }
+        if (!changed.isEmpty()) uploadJobs.saveAll(changed);
+        return page;
+    }
+
+    public UploadReviewResponse getReview(UUID uploadId) {
+        UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
+            .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
+
+        Long instrumentId = job.getPlatformInstrumentId();
+        if (instrumentId == null && job.getPlatformJobId() != null) {
+            IngestResponseDto status = platformClient.getUploadStatus(job.getPlatformJobId());
+            if (status.getInstrumentId() != null) {
+                job.setPlatformInstrumentId(status.getInstrumentId());
+                uploadJobs.save(job);
+                instrumentId = status.getInstrumentId();
+            }
+        }
+
+        if (instrumentId == null) {
+            return UploadReviewResponse.builder()
+                .uploadId(uploadId).status(job.getStatus()).build();
+        }
+
+        PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
+        if (detail == null) {
+            return UploadReviewResponse.builder()
+                .uploadId(uploadId).status(job.getStatus())
+                .platformInstrumentId(instrumentId).build();
+        }
+
+        List<UploadReviewResponse.ObligationItem> items = new ArrayList<>();
+        if (detail.getObligations() != null) {
+            for (var o : detail.getObligations()) {
+                items.add(UploadReviewResponse.ObligationItem.builder()
+                    .obligationNumber(o.getObligationNumber())
+                    .plainEnglishStatement(o.getPlainEnglishStatement())
+                    .specificSectionReference(o.getSpecificSectionReference())
+                    .obligationType(o.getObligationType())
+                    .recurringDeadlineType(o.getRecurringDeadlineType())
+                    .build());
+            }
+        }
+
+        return UploadReviewResponse.builder()
+            .uploadId(uploadId)
+            .platformInstrumentId(instrumentId)
+            .status(job.getStatus())
+            .regulatorId(detail.getRegulatorId())
+            .regulatorName(detail.getRegulatorName())
+            .pdfOcrText(detail.getPdfOcrText())
+            .aiSummary(detail.getAiSummary())
+            .obligations(items)
+            .build();
+    }
+
+    @Transactional
+    public UploadJobResponse confirm(UUID uploadId, ConfirmUploadRequest req) {
+        UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
+            .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
+
+        Long instrumentId = job.getPlatformInstrumentId();
+        if (instrumentId == null) {
+            throw new IllegalStateException("Upload has no instrument yet");
+        }
+
+        if (req.getObligations() != null) {
+            for (var o : req.getObligations()) {
+                Obligation ob = Obligation.builder()
+                    .instrumentId(instrumentId)
+                    .obligationNumber(o.getObligationNumber())
+                    .description(o.getDescription())
+                    .sectionReference(o.getSectionReference())
+                    .obligationType(o.getObligationType())
+                    .recurringDeadlineType(o.getRecurringDeadlineType())
+                    .source("manual_upload")
+                    .build();
+                obligationsRepo.save(ob);
+            }
+        }
+
+        job.setStatus("confirmed");
+        uploadJobs.save(job);
+
+        return UploadJobResponse.builder()
+            .uploadId(uploadId)
+            .status("confirmed")
+            .platformInstrumentId(instrumentId)
+            .build();
     }
 
     public UploadJobResponse getUploadStatus(UUID uploadId) {
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
             .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
 
-        if ("processing".equals(job.getStatus()) && job.getPlatformInstrumentId() != null) {
-            PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(job.getPlatformInstrumentId());
-            if (detail != null && detail.isCompleted()) {
+        if ("processing".equals(job.getStatus()) && job.getPlatformJobId() != null) {
+            IngestResponseDto status = platformClient.getUploadStatus(job.getPlatformJobId());
+            if (status.getInstrumentId() != null) {
+                job.setPlatformInstrumentId(status.getInstrumentId());
                 job.setStatus("completed");
-                uploadJobs.save(job);
+            } else if (status.getError() != null) {
+                job.setStatus("failed");
+                job.setErrorMessage(status.getError());
             }
+            uploadJobs.save(job);
         }
 
         return UploadJobResponse.builder()

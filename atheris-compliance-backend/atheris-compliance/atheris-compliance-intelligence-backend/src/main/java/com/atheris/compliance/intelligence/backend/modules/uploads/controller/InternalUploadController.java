@@ -48,6 +48,13 @@ public class InternalUploadController {
                 .toList();
     }
 
+    @GetMapping("/record/{uploadId}")
+    public ResponseEntity<Map<String, Object>> getByUploadId(@PathVariable Long uploadId) {
+        return repo.findById(uploadId)
+                .map(r -> ResponseEntity.ok(toResponse(r)))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     private Map<String, Object> toResponse(UploadRecord r) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", r.getId());

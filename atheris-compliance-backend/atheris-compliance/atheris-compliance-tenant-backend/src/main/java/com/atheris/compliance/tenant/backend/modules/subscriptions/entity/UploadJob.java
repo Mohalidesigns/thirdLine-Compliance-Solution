@@ -13,7 +13,8 @@ public class UploadJob {
     private Long id;
     @Column(nullable = false, unique = true) private UUID uploadId;
     @Column(nullable = false) private Long tenantId;
-    @Column(nullable = false) private Long tenantRegulatorId;
+    private Long tenantRegulatorId;
+    private String title;
     private Long platformInstrumentId;
     private Long platformJobId;
     private String status = "queued";

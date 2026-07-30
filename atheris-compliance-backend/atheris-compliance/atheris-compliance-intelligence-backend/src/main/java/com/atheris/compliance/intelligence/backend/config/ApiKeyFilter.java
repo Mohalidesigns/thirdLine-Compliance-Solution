@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class ApiKeyFilter extends OncePerRequestFilter {
 
     private final ApiKeyRepository apiKeys;
@@ -36,6 +38,10 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
                                     FilterChain chain) throws IOException, ServletException {
         String provided = req.getHeader("X-Api-Key");
+        log.debug("ApiKeyFilter: {} {} method={}, X-Api-Key={}, content-type={}",
+            req.getMethod(), req.getRequestURI(), req.getMethod(),
+            provided != null ? provided.substring(0, Math.min(12, provided.length())) + "..." : "null",
+            req.getContentType());
         if (provided == null || provided.isBlank()) {
             res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             res.setContentType("application/json");
@@ -48,6 +54,8 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         if (opt.isEmpty() || !Boolean.TRUE.equals(opt.get().getIsActive())) {
             res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             res.setContentType("application/json");
+            log.warn("ApiKeyFilter: invalid hash {} for key prefix {}... (found: {})", hash,
+                provided.substring(0, Math.min(12, provided.length())), opt.isPresent());
             res.getWriter().write("{\"error\":\"Invalid API key\"}");
             return;
         }

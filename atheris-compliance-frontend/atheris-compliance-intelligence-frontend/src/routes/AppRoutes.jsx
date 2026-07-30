@@ -9,7 +9,6 @@ import { ROUTES } from '../utils/constants';
 const LoginForm = lazy(() => import('../features/auth/components/LoginForm'));
 const DashboardPage = lazy(() => import('../features/dashboard/components/DashboardPage'));
 
-const LibraryPage = lazy(() => import('../features/intelligence/components/LibraryPage'));
 const InboxPage = lazy(() => import('../features/intelligence/components/InboxPage'));
 const WatchlistPage = lazy(() => import('../features/intelligence/components/WatchlistPage'));
 
@@ -53,7 +52,6 @@ export default function AppRoutes() {
           <Route index element={<Navigate to={ROUTES.DASHBOARD} />} />
           <Route path="dashboard" element={<DashboardPage />} />
           
-          <Route path="library" element={<LibraryPage />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="watchlist" element={<WatchlistPage />} />
           

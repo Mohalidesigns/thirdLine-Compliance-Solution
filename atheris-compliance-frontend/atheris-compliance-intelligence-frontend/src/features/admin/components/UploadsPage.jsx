@@ -133,7 +133,6 @@ export default function UploadsPage() {
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Upload Document</Typography>
 
       {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 1 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
       <Paper sx={{ p: 1.5, mb: 3, display: 'flex', gap: 1, alignItems: 'center' }}>
         <input type="file" accept=".pdf" hidden id="upload-file-input"
@@ -172,7 +171,7 @@ export default function UploadsPage() {
             {DOC_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
           </Select>
         </FormControl>
-        <Button variant="contained" size="small" onClick={handleSubmit} disabled={uploading}
+        <Button variant="contained" size="small" onClick={handleSubmit} disabled={uploading || !file}
           sx={{ px: 3, width: 120 }}
           startIcon={uploading ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CloudUploadIcon />}>
           {uploading ? 'Uploading' : 'Upload'}
@@ -187,19 +186,13 @@ export default function UploadsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem' }}>File</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem' }}>Title</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 90 }}>Reg</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 90 }}>Regulator</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 120 }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 120 }}>Uploaded</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 80 }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 80 }}>Action</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell sx={{ p: 0.5 }}>
-                <TextField size="small" placeholder="Filter file" value={fileFilter}
-                  onChange={e => { setFileFilter(e.target.value); setPage(0); }}
-                  sx={{ '& .MuiInputBase-root': { fontSize: '0.7rem' } }} />
-              </TableCell>
               <TableCell sx={{ p: 0.5 }}>
                 <TextField size="small" placeholder="Filter title" value={titleFilter}
                   onChange={e => { setTitleFilter(e.target.value); setPage(0); }}
@@ -225,22 +218,21 @@ export default function UploadsPage() {
           </TableHead>
           <TableBody>
             {tableLoading && records.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: '#A0AEC0' }}>No uploads found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: '#A0AEC0' }}>No uploads found.</TableCell></TableRow>
             ) : (
               filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((r, i) => (
                 <TableRow key={r.id} hover sx={{ bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}>
-                  <TableCell><Typography variant="body2">{r.originalFilename || '—'}</Typography></TableCell>
-                  <TableCell><Typography variant="body2" sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</Typography></TableCell>
+                  <TableCell><Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.originalFilename || '—'}</Typography></TableCell>
                   <TableCell><Chip label={regMap[r.regulatorId] || '—'} size="small" sx={{ fontWeight: 600, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff' }} /></TableCell>
                   <TableCell>{r.status === 'FAILED' && r.errorMessage ? <Tooltip title={r.errorMessage}><Box><StatusChip status={r.status} /></Box></Tooltip> : <StatusChip status={r.status} />}</TableCell>
                   <TableCell><Typography variant="caption" color="text.secondary">{formatDt(r.createdAt)}</Typography></TableCell>
                   <TableCell>
-                    {r.status === UploadStatus.COMPLETED && r.instrumentId ? (
+                    {r.status === UploadStatus.FAILED ? (
+                      <Button size="small" variant="contained" disabled sx={{ fontSize: '0.7rem', py: 0.2 }}>View</Button>
+                    ) : r.status === UploadStatus.COMPLETED && r.instrumentId ? (
                       <Button size="small" variant="contained" onClick={() => navigate(`/admin/instruments/${r.instrumentId}`)} sx={{ fontSize: '0.7rem', py: 0.2 }}>View</Button>
-                    ) : r.status === UploadStatus.FAILED ? (
-                      <Typography variant="caption" color="error">Failed</Typography>
                     ) : (
                       <Typography variant="caption" color="text.secondary">Processing...</Typography>
                     )}

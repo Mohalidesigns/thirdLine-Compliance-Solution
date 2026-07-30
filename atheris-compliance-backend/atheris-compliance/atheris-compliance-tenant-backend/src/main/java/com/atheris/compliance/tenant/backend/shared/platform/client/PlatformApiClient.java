@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -37,11 +38,12 @@ public class PlatformApiClient {
             @Value("${atheris.platform.base-url:http://localhost:9090}") String baseUrl,
             @Value("${atheris.tenant-id:1}") Long tenantId,
             TenantProfileRepository profiles,
-            CryptoUtil crypto) {
+            CryptoUtil crypto,
+            RestTemplateBuilder builder) {
         this.baseUrl = baseUrl;
         this.profiles = profiles;
         this.crypto = crypto;
-        this.rest = new RestTemplate();
+        this.rest = builder.build();
         this.mapper = new ObjectMapper();
     }
 
@@ -50,9 +52,11 @@ public class PlatformApiClient {
         Optional<TenantProfile> opt = profiles.findAll().stream().findFirst();
         if (opt.isPresent() && opt.get().getEncryptedApiKey() != null) {
             String decrypted = crypto.decrypt(opt.get().getEncryptedApiKey());
+            log.debug("API key prefix: {}...", decrypted.substring(0, Math.min(12, decrypted.length())));
             h.set("X-Api-Key", decrypted);
         } else {
-            log.warn("No API key available for platform calls");
+            log.warn("No API key available for platform calls (profile present: {}, encryptedKey null: {})",
+                opt.isPresent(), opt.isPresent() ? opt.get().getEncryptedApiKey() == null : "N/A");
         }
         return h;
     }
@@ -77,23 +81,69 @@ public class PlatformApiClient {
             body.add("file", new ByteArrayResource(file.getBytes()) {
                 @Override public String getFilename() { return file.getOriginalFilename(); }
             });
-            body.add("tenant_regulator_id", String.valueOf(tenantRegulatorId));
-            body.add("tenant_id", String.valueOf(tenantId));
             if (platformRegulatorId != null)
-                body.add("platform_regulator_id", String.valueOf(platformRegulatorId));
+                body.add("regulatorId", String.valueOf(platformRegulatorId));
+            if (tenantId != null)
+                body.add("tenantId", String.valueOf(tenantId));
             if (title != null) body.add("title", title);
-            if (dateIssued != null) body.add("date_issued", dateIssued);
 
             HttpHeaders h = headers();
             h.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-            ResponseEntity<IngestResponseDto> resp = rest.exchange(
-                baseUrl + "/api/v1/internal/instruments/ingest",
-                HttpMethod.POST, new HttpEntity<>(body, h), IngestResponseDto.class);
-            return resp.getBody() != null ? resp.getBody() : IngestResponseDto.builder()
-                .error("Empty response from platform").build();
+            log.debug("Ingest POST to {} with {} parts (API key set: {})",
+                baseUrl + "/api/v1/internal/uploads", body.size(), h.containsKey("X-Api-Key"));
+
+            ResponseEntity<Map> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/uploads",
+                HttpMethod.POST, new HttpEntity<>(body, h), Map.class);
+
+            Map<String, Object> map = resp.getBody();
+            if (map == null) return IngestResponseDto.builder().error("Empty response from platform").build();
+
+            String err = (String) map.get("errorMessage");
+            if (err != null && !err.isBlank()) {
+                return IngestResponseDto.builder().error(err).build();
+            }
+            Number idNum = (Number) map.get("id");
+            Number instNum = (Number) map.get("instrumentId");
+            return IngestResponseDto.builder()
+                .uploadId(idNum != null ? idNum.longValue() : null)
+                .instrumentId(instNum != null ? instNum.longValue() : null)
+                .status((String) map.get("status"))
+                .build();
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String respBody = e.getResponseBodyAsString();
+            log.error("Platform ingest HTTP {} {}: responseHeaders={}, body='{}'",
+                e.getStatusCode(), e.getStatusText(), e.getResponseHeaders(), respBody);
+            return IngestResponseDto.builder().error(respBody != null && !respBody.isEmpty() ? respBody : e.getStatusText()).build();
         } catch (Exception e) {
-            log.error("Failed to call platform ingest: {}", e.getMessage());
+            log.error("Failed to call platform ingest: {}", e.getMessage(), e);
+            return IngestResponseDto.builder().error(e.getMessage()).build();
+        }
+    }
+
+    public IngestResponseDto getUploadStatus(Long uploadRecordId) {
+        try {
+            HttpHeaders h = headers();
+            ResponseEntity<Map> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/uploads/record/" + uploadRecordId,
+                HttpMethod.GET, new HttpEntity<>(h), Map.class);
+            Map<String, Object> map = resp.getBody();
+            if (map == null) return IngestResponseDto.builder().error("Empty response").build();
+
+            String err = (String) map.get("errorMessage");
+            if (err != null && !err.isBlank()) {
+                return IngestResponseDto.builder().error(err).build();
+            }
+            Number idNum = (Number) map.get("id");
+            Number instNum = (Number) map.get("instrumentId");
+            return IngestResponseDto.builder()
+                .uploadId(idNum != null ? idNum.longValue() : null)
+                .instrumentId(instNum != null ? instNum.longValue() : null)
+                .status((String) map.get("status"))
+                .build();
+        } catch (Exception e) {
+            log.error("Failed to fetch upload status: {}", e.getMessage());
             return IngestResponseDto.builder().error(e.getMessage()).build();
         }
     }
@@ -148,7 +198,7 @@ public class PlatformApiClient {
     }
 
     public List<PlatformInstrumentSummary> findRecentInstruments(Long tenantId, List<Integer> regulatorIds,
-                                                                  String licenceType, LocalDate since) {
+                                                                   String licenceType, LocalDate since) {
         try {
             StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/instruments/recent")
                 .append("?tenantId=").append(tenantId)

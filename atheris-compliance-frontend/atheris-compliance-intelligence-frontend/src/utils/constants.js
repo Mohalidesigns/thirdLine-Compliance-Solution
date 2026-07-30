@@ -70,7 +70,6 @@ export const NAV_SECTIONS = [
     { text: 'Dashboard', icon: 'Dashboard', path: ROUTES.DASHBOARD },
   ]},
   { label: 'INTELLIGENCE', items: [
-    { text: 'Obligation Library', icon: 'LibraryBooks', path: ROUTES.LIBRARY },
     { text: 'Review Inbox', icon: 'Inbox', path: ROUTES.INBOX },
     { text: 'Watchlist', icon: 'Visibility', path: ROUTES.WATCHLIST },
   ]},

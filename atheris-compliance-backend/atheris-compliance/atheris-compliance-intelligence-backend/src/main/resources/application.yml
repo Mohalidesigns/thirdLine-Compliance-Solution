@@ -88,6 +88,6 @@ atheris:
 
 logging:
   level:
-    com.atheris.compliance: INFO
+    com.atheris.compliance: DEBUG
     org.springframework.security: WARN
     org.hibernate.SQL: WARN

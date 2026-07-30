@@ -11,6 +11,7 @@ const InboxPage = lazy(() => import('./pages/InboxPage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const UploadStatusPage = lazy(() => import('./pages/UploadStatusPage'));
+const UploadReviewPage = lazy(() => import('./pages/UploadReviewPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ControlsPage = lazy(() => import('./pages/ControlsPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
@@ -48,6 +49,7 @@ export default function AppRoutes() {
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
           <Route path="uploads" element={<UploadPage />} />
+          <Route path="uploads/:uploadId/review" element={<UploadReviewPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
           <Route path="findings" element={<FindingsPage />} />
