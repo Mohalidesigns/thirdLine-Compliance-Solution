@@ -30,6 +30,7 @@ CREATE TABLE upload_jobs (
     upload_id UUID NOT NULL UNIQUE,
     tenant_id BIGINT NOT NULL,
     tenant_regulator_id BIGINT REFERENCES tenant_regulators(id),
+    title VARCHAR(500),
     platform_instrument_id BIGINT,
     platform_job_id BIGINT,
     status VARCHAR(20) DEFAULT 'queued',

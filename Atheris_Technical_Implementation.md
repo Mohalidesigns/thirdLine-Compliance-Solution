@@ -6026,7 +6026,7 @@ public class SecurityConfig {
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:5432/atheris_platform
+    url: jdbc:postgresql://${DB_HOST}:5432/atheris_intel
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   
@@ -6174,7 +6174,7 @@ Two completely separate user systems:
 
 ```
 1. Platform Users    → Atheris staff. Manage regulators, tenants, instruments.
-                       One database: atheris_platform
+                       One database: atheris_intel
                        
 2. Tenant Users      → Bank/fintech/pension staff. Use the compliance platform.
                        Each tenant: their own isolated database schema
@@ -6189,7 +6189,7 @@ They never share a users table. A platform admin cannot log into a tenant's app 
 
 ---
 
-### Platform Database: `atheris_platform`
+### Platform Database: `atheris_intel`
 
 #### `platform_users`
 

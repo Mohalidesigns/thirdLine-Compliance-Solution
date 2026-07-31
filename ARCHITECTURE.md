@@ -26,7 +26,7 @@
             │                                      │
      ┌──────▼──────────────┐             ┌─────────▼──────────┐
      │  PostgreSQL         │             │  PostgreSQL         │
-     │  atheris_platform   │             │  atheris_tenant     │
+      │  atheris_intel     │             │  atheris_tenant     │
      │  (Flyway migrations)│             │  (Flyway migrations)│
      └─────────────────────┘             └─────────────────────┘
 ```
@@ -53,7 +53,7 @@ Per-tenant compliance management service. Auth, onboarding, obligations, control
 
 ```
 ┌─────────────────────────────────────┐   ┌─────────────────────────────────────┐
-│         atheris_platform            │   │         atheris_tenant              │
+│         atheris_intel              │   │         atheris_tenant              │
 │                                     │   │                                     │
 │  regulators           ──────────────┼───┼─── subscription/tenant_profile     │
 │  instruments          ──────────────┼───┼─── obligation_classifications       │

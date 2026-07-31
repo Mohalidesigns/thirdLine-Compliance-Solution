@@ -1374,7 +1374,7 @@ spring:
   application:
     name: atheris-platform
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:5432/atheris_platform
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/atheris_intel
     username: ${DB_USER:atheris}
     password: ${DB_PASSWORD:atheris}
     driver-class-name: org.postgresql.Driver

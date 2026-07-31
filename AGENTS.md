@@ -43,7 +43,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 ## How to Run
 
 ### Backend
-- Docker PostgreSQL: container `db`, port 5432, DB `atheris_platform`, user `atheris`/`changeme`
+- Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris`/`changeme`
 - Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris/atheris-compliance-intelligence-backend` (port 9090)
 - Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris` (port 9091)
 - Default admin: `admin@atheris.ng` / `admin123`
