@@ -264,9 +264,9 @@ export default function ReviewInboxPage() {
                             <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleViewPdf(item); }}
                               title="View PDF"><Visibility sx={{ fontSize: 18 }} /></IconButton>
                           )}
-                          <Button size="small" variant="outlined" color="inherit"
+                          <Button size="small" variant="contained" color="error"
                             onClick={(e) => { e.stopPropagation(); handleSkip(item); }} sx={{ fontSize: '0.7rem', py: 0.3 }}>
-                            Skip
+                            Not Applicable
                           </Button>
                         </Box>
                       </TableCell>

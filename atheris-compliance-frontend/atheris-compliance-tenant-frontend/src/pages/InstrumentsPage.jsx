@@ -36,7 +36,7 @@ export default function InstrumentsPage() {
   const [detailItem, setDetailItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [showOcr, setShowOcr] = useState(false);
+  const [showOcr, setShowOcr] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -168,23 +168,26 @@ export default function InstrumentsPage() {
             </Paper>
 
             {detailData?.aiSummary && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Summary</Typography>
-                <Typography variant="body2" fontStyle="italic" color="text.secondary">{detailData.aiSummary}</Typography>
+              <Paper sx={{ p: 3, mb: 2, borderLeft: '4px solid', borderColor: 'primary.main', bgcolor: '#F8FAFF' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>AI Summary</Typography>
+                <Typography variant="body1" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{detailData.aiSummary}</Typography>
               </Paper>
             )}
 
             {detailData?.pdfOcrText && (
               <Paper sx={{ mb: 2 }}>
-                <Button size="small" onClick={() => setShowOcr(!showOcr)}
-                  endIcon={showOcr ? <ExpandLess /> : <ExpandMore />} sx={{ px: 2, py: 1 }}>
-                  {showOcr ? 'Hide' : 'Show'} Raw OCR Text
-                </Button>
+                <Box onClick={() => setShowOcr(!showOcr)}
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    px: 2, py: 1.25, bgcolor: '#F7FAFC', cursor: 'pointer', userSelect: 'none',
+                    '&:hover': { bgcolor: '#EDF2F7' } }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Extracted Text</Typography>
+                  {showOcr ? <ExpandLess /> : <ExpandMore />}
+                </Box>
                 <Collapse in={showOcr}>
                   <Box sx={{
-                    p: 2, bgcolor: '#1A1A2E', color: '#E2E8F0',
-                    maxHeight: 400, overflow: 'auto', fontFamily: 'Roboto Mono, monospace',
-                    fontSize: '0.75rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    p: 2.5, bgcolor: '#FAFBFD', borderTop: '1px solid', borderColor: 'divider',
+                    maxHeight: 400, overflow: 'auto', fontFamily: "'Roboto Mono', 'SFMono-Regular', Consolas, monospace",
+                    fontSize: '0.8rem', lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                   }}>
                     {detailData.pdfOcrText}
                   </Box>

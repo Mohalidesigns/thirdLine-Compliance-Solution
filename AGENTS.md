@@ -308,3 +308,30 @@ Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Desi
 - Theme filter maps to `obligation_type` (no dedicated theme column on obligations).
 - Status filter values: `active` / `unclassified` / `under_review`.
 - KPI "Under Review" = obligations not yet `applicable` (unclassified / under_review).
+
+## Done — Per-Obligation Review Workflow (Edit & Save gate)
+
+**The single most important rule: NO document reaches the Obligations Register without a human "Edit & Save" on the Review page. Instruments carry NO classification — every classification detail lives on an individual obligation.**
+
+### Current Flow (tenant portal, `:5174`)
+
+1. **Upload / Sync** — Documents arrive via manual upload (`POST /subscriptions/upload-document`) or platform sync. They land in the `pending_reviews` table (Flyway V21) as **Review Inbox** items.
+2. **Review Inbox** (`/review`, `ReviewInboxPage.jsx`) — list of incoming instruments with stats (Pending / Saved / Skipped / Failed). Click → Review Edit.
+3. **Review Edit** (`/review/edit/:id`, `ReviewEditPage.jsx`) — human edits the extracted obligations and **classifies each obligation inline per-row** (Applicability, Risk Rating, Impact, Likelihood, Owner, Department, reasoning, Has gap, linked returns). Footer has a "Reason for Update" field.
+4. **Save** — `ReviewService.save()` deletes the instrument's existing obligations + classifications, then re-creates each applicable obligation with **one `ObligationClassification` keyed by `obligation_id`** (status `active`). The instrument is now "confirmed" (has obligations).
+5. **Instruments** (`/instruments`, `InstrumentsPage.jsx`) — lists **only confirmed instruments** (filtered by `ObligationRepository.findDistinctInstrumentIds()`). Table = Title | Regulator | Obligations | Published | Actions. Detail view = metadata, AI Summary, collapsible raw OCR, penalties, obligations list. **No risk/status/classification on the instrument.**
+6. **Obligations Register** (`/obligations`) — one row per obligation, inherits classification from its own `ObligationClassification`. Detail/edit drawer, linked controls + returns, version history.
+
+### Key Backend Facts
+- `SaveReviewRequest.java` — top-level classification fields removed; classification nested per `ObligationDto` (applicability, risk, impact, likelihood, owner, department, gap, `linkedReturnIds`). Top level keeps only `changeReason` + `obligations`.
+- `ReviewService.save()` — deletes old `obligations` + `obligation_classifications` for the instrument, then saves one `Obligation` + one `ObligationClassification` (keyed `obligation_id`) per applicable obligation, links returns.
+- `ObligationClassificationRepository.deleteByInstrumentId()` — native DELETE.
+- `ObligationService` — register/detail/history/classify all keyed on `obligation_id` (`findByObligationId`, `findByObligationIdOrderByChangedAtDesc`). `classify()` accepts `linkedObligationId` for return linking.
+- `InstrumentsService.search()` — returns only confirmed instruments (have obligations), in-memory pagination; `InstrumentSummaryResponse` has `obligationCount`; `InstrumentDetailResponse` has `aiSummary` + `pdfOcrText`.
+- **Published date mapping** — the platform's `instruments.published_at` is NEVER populated. The real issue date lives in `instruments.date_issued`, extracted by the AI classifier from the document text during classification. The tenant instruments table maps `publishedAt = publishedAt != null ? publishedAt : dateIssued`, so the **Published** column = the document's own issue date (falls back to `-` when the AI couldn't extract one). Manual uploads pass `date_issued` on `POST /subscriptions/upload-document`.
+- Schema already supported per-obligation: `obligation_classifications.obligation_id BIGINT UNIQUE` (V3) — no migration needed. V21 adds `pending_reviews`.
+
+### Frontend Files
+- `ReviewInboxPage.jsx`, `ReviewEditPage.jsx` (new), `InstrumentsPage.jsx` (new, replaces deleted `InboxPage.jsx`), `UploadReviewPage.jsx` deleted.
+- `ObligationsRegisterPage.jsx` — classify call uses `selected.obligationId` (NOT `instrumentId`).
+- Routes in `AppRoutes.jsx`; Sidebar: Review Inbox → Instruments → Obligations Register.

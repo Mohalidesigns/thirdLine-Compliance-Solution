@@ -119,7 +119,7 @@ public class InstrumentsService {
             .documentType(s.getDocumentType() != null ? s.getDocumentType() : s.getNature())
             .riskRating(s.getRiskRating())
             .status(s.getStatus())
-            .publishedAt(s.getPublishedAt())
+            .publishedAt(s.getPublishedAt() != null ? s.getPublishedAt() : s.getDateIssued())
             .pdfUrl(s.getPdfUrl())
             .obligationCount((int) obligationRepo.countByInstrumentId(s.getInstrumentId()))
             .build();

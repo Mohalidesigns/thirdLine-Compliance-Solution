@@ -145,7 +145,7 @@ export default function ReviewEditPage() {
   const [obligations, setObligations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ocrOpen, setOcrOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [snack, setSnack] = useState(null);
@@ -290,19 +290,16 @@ export default function ReviewEditPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate('/review')}><ArrowBack /></IconButton>
         <Box>
-          <Typography variant="h4">Review Document</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            {data.regulatorName || data.regulatorAbbreviation || 'Unknown regulator'}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
-            {data.regulatorName || 'Unknown regulator'} — edit obligations and classify before saving to the register
+            Review document — edit obligations and classify before saving to the register
           </Typography>
         </Box>
         <Box sx={{ flex: 1 }} />
-        <Button variant="outlined" onClick={handleViewInstrument} startIcon={<Visibility />}>View PDF</Button>
-        <Button variant="outlined" color="inherit" onClick={handleSkip} disabled={skipping}
-          startIcon={skipping ? <CircularProgress size={16} /> : <Close />}>Skip</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || applicableCount === 0}
-          startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Save />}>
-          {saving ? 'Saving...' : 'Save to Register'}
-        </Button>
+        <Button variant="contained" size="medium" onClick={handleViewInstrument} startIcon={<Visibility />}
+          sx={{ height: 40, bgcolor: '#616161', color: '#fff', '&:hover': { bgcolor: '#424242' } }}>View PDF</Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -316,7 +313,7 @@ export default function ReviewEditPage() {
             Received {new Date(data.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
           </Typography>
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>{data.sourceTitle || 'Untitled document'}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>{data.sourceTitle || 'Untitled document'}</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">Regulator</Typography>
@@ -353,25 +350,29 @@ export default function ReviewEditPage() {
 
       {/* AI Summary */}
       {data.aiSummary && (
-        <Paper sx={{ p: 3, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Summary</Typography>
-          <Typography variant="body2" fontStyle="italic" color="text.secondary">{data.aiSummary}</Typography>
+        <Paper sx={{ p: 3, mb: 2, borderLeft: '4px solid', borderColor: 'primary.main', bgcolor: '#F8FAFF' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>AI Summary</Typography>
+          <Typography variant="body1" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{data.aiSummary}</Typography>
         </Paper>
       )}
 
       {/* OCR */}
       {data.pdfOcrText && (
         <Paper sx={{ mb: 2 }}>
-          <Button fullWidth onClick={() => setOcrOpen(!ocrOpen)}
-            sx={{ justifyContent: 'space-between', textTransform: 'none', color: 'text.primary', px: 2, py: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              OCR Text ({data.pdfOcrText ? `${data.pdfOcrText.length} chars` : 'none'})
-            </Typography>
+          <Box onClick={() => setOcrOpen(!ocrOpen)}
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              px: 2, py: 1.25, bgcolor: '#F7FAFC', cursor: 'pointer', userSelect: 'none',
+              '&:hover': { bgcolor: '#EDF2F7' } }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Extracted Text</Typography>
             {ocrOpen ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-          </Button>
+          </Box>
           <Collapse in={ocrOpen}>
-            <Box sx={{ p: 2, maxHeight: 300, overflow: 'auto', bgcolor: '#F7FAFC' }}>
-              <Typography variant="caption" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.65rem' }}>
+            <Box sx={{ p: 2.5, maxHeight: 400, overflow: 'auto', bgcolor: '#FAFBFD', borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography component="pre" sx={{
+                m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                fontFamily: "'Roboto Mono', 'SFMono-Regular', Consolas, monospace",
+                fontSize: '0.8rem', lineHeight: 1.7, color: '#334155',
+              }}>
                 {data.pdfOcrText}
               </Typography>
             </Box>
@@ -422,11 +423,12 @@ export default function ReviewEditPage() {
       </Paper>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
-        <Button variant="outlined" color="inherit" onClick={handleSkip} disabled={skipping}>Skip</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || applicableCount === 0}
-          startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Save />}>
-          {saving ? 'Saving...' : 'Save to Register'}
-        </Button>
+        <Button variant="contained" color="error" size="medium" onClick={handleSkip} disabled={skipping}
+          startIcon={skipping ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Close />}
+          sx={{ height: 40 }}>Not Applicable</Button>
+        <Button variant="contained" size="medium" onClick={handleSave} disabled={saving || applicableCount === 0}
+          startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Save />}
+          sx={{ height: 40 }}>{saving ? 'Saving...' : 'Save to Register'}</Button>
       </Box>
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)}
