@@ -19,6 +19,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -115,6 +117,12 @@ public class InternalInstrumentService {
                     .build())
                 .toList())
             .build();
+    }
+
+    public InputStream openPdfStream(Long instrumentId) throws IOException {
+        Instrument inst = instruments.findById(instrumentId)
+            .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
+        return storage.openReadStream(inst.getPdfUrl());
     }
 
     private InternalInstrumentSummary toSummary(Instrument i) {

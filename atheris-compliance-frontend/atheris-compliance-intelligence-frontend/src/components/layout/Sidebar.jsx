@@ -126,10 +126,15 @@ export default function Sidebar() {
             {user?.role?.replace('_', ' ')}
           </Typography>
         </Box>
-        <Logout
+      </Box>
+      <Box sx={{ px: 2, pb: 2 }}>
+        <Box
           onClick={logout}
-          sx={{ color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 20, '&:hover': { color: theme.palette.error.main } }}
-        />
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', py: 1, px: 1.5, borderRadius: 1, color: 'rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: theme.palette.error.main } }}
+        >
+          <Logout sx={{ fontSize: 18 }} />
+          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>Logout</Typography>
+        </Box>
       </Box>
     </Drawer>
   );

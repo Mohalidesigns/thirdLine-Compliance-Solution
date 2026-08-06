@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:9091/api/v1';
+export const API_BASE = 'http://localhost:9091/api/v1';
 
 let authToken = null;
 let authRefreshToken = null;
@@ -153,6 +153,20 @@ export const api = {
   inbox: {
     list: (page = 0, size = 20) => request(`/obligations/inbox?page=${page}&size=${size}`),
   },
+  review: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/review${s ? '?' + s : ''}`);
+    },
+    stats: () => request('/review/stats'),
+    get: (reviewId) => request(`/review/${reviewId}`),
+    save: (reviewId, data) => request(`/review/${reviewId}/save`, {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    skip: (reviewId) => request(`/review/${reviewId}/skip`, { method: 'POST' }),
+  },
   obligations: {
     classify: (id, data) => request(`/obligations/${id}/classify`, {
       method: 'POST', body: JSON.stringify(data),
@@ -163,6 +177,11 @@ export const api = {
       const s = qs.toString();
       return request(`/obligations/register${s ? '?' + s : ''}`);
     },
+    stats: () => request('/obligations/stats'),
+    obligationDetail: (obligationId) => request(`/obligations/obligation/${obligationId}`),
+    linkReturns: (obligationId, linkedReturnIds) => request(`/obligations/obligation/${obligationId}/returns`, {
+      method: 'PUT', body: JSON.stringify({ linkedReturnIds }),
+    }),
     detail: (id) => request(`/obligations/${id}/detail`),
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
@@ -200,6 +219,7 @@ export const api = {
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
   },
   returns: {
+    list: () => request('/returns/list'),
     calendar: (params = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });

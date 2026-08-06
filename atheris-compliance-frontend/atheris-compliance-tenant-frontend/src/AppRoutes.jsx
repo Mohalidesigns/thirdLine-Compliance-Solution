@@ -7,11 +7,12 @@ import { useAuth } from './contexts/AuthContext';
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const InboxPage = lazy(() => import('./pages/InboxPage'));
+const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
+const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
+const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const UploadStatusPage = lazy(() => import('./pages/UploadStatusPage'));
-const UploadReviewPage = lazy(() => import('./pages/UploadReviewPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ControlsPage = lazy(() => import('./pages/ControlsPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
@@ -45,11 +46,12 @@ export default function AppRoutes() {
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="inbox" element={<InboxPage />} />
+          <Route path="review" element={<ReviewInboxPage />} />
+          <Route path="review/:reviewId" element={<ReviewEditPage />} />
+          <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
           <Route path="uploads" element={<UploadPage />} />
-          <Route path="uploads/:uploadId/review" element={<UploadReviewPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
           <Route path="findings" element={<FindingsPage />} />

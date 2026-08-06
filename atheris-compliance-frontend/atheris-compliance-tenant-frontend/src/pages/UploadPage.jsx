@@ -214,7 +214,7 @@ export default function UploadPage() {
                     {r.status === UploadStatus.FAILED ? (
                       <Button size="small" variant="contained" disabled sx={{ fontSize: '0.7rem', py: 0.2 }}>Review</Button>
                     ) : r.status === UploadStatus.COMPLETED ? (
-                      <Button size="small" variant="contained" onClick={() => navigate(`/uploads/${r.uploadId}/review`)} sx={{ fontSize: '0.7rem', py: 0.2 }}>Review</Button>
+                      <Button size="small" variant="contained" onClick={() => navigate('/review')} sx={{ fontSize: '0.7rem', py: 0.2 }}>Review</Button>
                     ) : (
                       <Typography variant="caption" color="text.secondary">Processing...</Typography>
                     )}

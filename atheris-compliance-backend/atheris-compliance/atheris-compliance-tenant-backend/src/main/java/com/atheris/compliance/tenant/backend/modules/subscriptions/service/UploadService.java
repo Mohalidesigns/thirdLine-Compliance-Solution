@@ -1,7 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.UploadJob;
@@ -29,7 +30,7 @@ public class UploadService {
     private final UploadJobRepository uploadJobs;
     private final TenantRegulatorRepository tenantRegulators;
     private final PlatformApiClient platformClient;
-    private final ObligationRepository obligationsRepo;
+    private final PendingReviewRepository pendingReviews;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -92,6 +93,8 @@ public class UploadService {
                 if (status.getInstrumentId() != null) {
                     job.setPlatformInstrumentId(status.getInstrumentId());
                     job.setStatus("completed");
+                    backfillRegulator(job, status.getInstrumentId());
+                    ensurePendingReview(job, status.getInstrumentId());
                     changed.add(job);
                 } else if (status.getError() != null) {
                     job.setStatus("failed");
@@ -123,6 +126,8 @@ public class UploadService {
                 .uploadId(uploadId).status(job.getStatus()).build();
         }
 
+        backfillRegulator(job, instrumentId);
+
         PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
         if (detail == null) {
             return UploadReviewResponse.builder()
@@ -149,6 +154,7 @@ public class UploadService {
             .status(job.getStatus())
             .regulatorId(detail.getRegulatorId())
             .regulatorName(detail.getRegulatorName())
+            .pdfUrl(detail.getPdfUrl())
             .pdfOcrText(detail.getPdfOcrText())
             .aiSummary(detail.getAiSummary())
             .obligations(items)
@@ -165,20 +171,39 @@ public class UploadService {
             throw new IllegalStateException("Upload has no instrument yet");
         }
 
+        PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
+        List<ReviewObligation> obligations = new ArrayList<>();
         if (req.getObligations() != null) {
             for (var o : req.getObligations()) {
-                Obligation ob = Obligation.builder()
-                    .instrumentId(instrumentId)
+                obligations.add(ReviewObligation.builder()
                     .obligationNumber(o.getObligationNumber())
                     .description(o.getDescription())
                     .sectionReference(o.getSectionReference())
                     .obligationType(o.getObligationType())
                     .recurringDeadlineType(o.getRecurringDeadlineType())
-                    .source("manual_upload")
-                    .build();
-                obligationsRepo.save(ob);
+                    .applicable(o.getApplicable() != null ? o.getApplicable() : true)
+                    .build());
             }
         }
+
+        PendingReview review = pendingReviews.findByUploadIdAndTenantId(uploadId, tenantId)
+            .orElseGet(() -> PendingReview.builder().tenantId(tenantId).source("upload").uploadId(uploadId).build());
+        review.setInstrumentId(instrumentId);
+        review.setSourceTitle(detail != null ? detail.getSourceTitle() : job.getTitle());
+        review.setSourceReferenceNumber(detail != null ? detail.getSourceReferenceNumber() : null);
+        review.setRegulatorId(detail != null ? detail.getRegulatorId() : null);
+        review.setRegulatorName(detail != null ? detail.getRegulatorName() : null);
+        review.setRegulatorAbbreviation(detail != null ? detail.getRegulatorAbbreviation() : null);
+        review.setDocumentType(detail != null ? detail.getNature() : null);
+        review.setRiskRating(detail != null ? detail.getRiskRating() : null);
+        review.setDateIssued(detail != null ? detail.getDateIssued() : null);
+        review.setEffectiveDate(detail != null
+            ? (detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued()) : null);
+        review.setPublishedAt(detail != null ? detail.getPublishedAt() : null);
+        review.setPdfUrl(detail != null ? detail.getPdfUrl() : null);
+        review.setObligations(obligations);
+        review.setStatus("pending");
+        pendingReviews.save(review);
 
         job.setStatus("confirmed");
         uploadJobs.save(job);
@@ -199,6 +224,8 @@ public class UploadService {
             if (status.getInstrumentId() != null) {
                 job.setPlatformInstrumentId(status.getInstrumentId());
                 job.setStatus("completed");
+                backfillRegulator(job, status.getInstrumentId());
+                ensurePendingReview(job, status.getInstrumentId());
             } else if (status.getError() != null) {
                 job.setStatus("failed");
                 job.setErrorMessage(status.getError());
@@ -212,5 +239,56 @@ public class UploadService {
             .platformInstrumentId(job.getPlatformInstrumentId())
             .errorMessage(job.getErrorMessage())
             .build();
+    }
+
+    private void backfillRegulator(UploadJob job, Long instrumentId) {
+        if (job.getTenantRegulatorId() != null) return;
+        PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
+        if (detail == null || detail.getRegulatorId() == null) return;
+        tenantRegulators.findByTenantIdAndPlatformRegulatorId(tenantId, detail.getRegulatorId())
+            .ifPresent(reg -> {
+                job.setTenantRegulatorId(reg.getId());
+                log.info("Backfilled regulator {} for upload {}", reg.getId(), job.getUploadId());
+            });
+    }
+
+    private void ensurePendingReview(UploadJob job, Long instrumentId) {
+        if (pendingReviews.findByInstrumentIdAndTenantId(instrumentId, tenantId).isPresent()) return;
+        PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
+        List<ReviewObligation> obligations = new ArrayList<>();
+        if (detail != null && detail.getObligations() != null) {
+            for (var o : detail.getObligations()) {
+                obligations.add(ReviewObligation.builder()
+                    .obligationNumber(o.getObligationNumber())
+                    .description(o.getPlainEnglishStatement())
+                    .sectionReference(o.getSpecificSectionReference())
+                    .obligationType(o.getObligationType())
+                    .recurringDeadlineType(o.getRecurringDeadlineType())
+                    .applicable(true)
+                    .build());
+            }
+        }
+        pendingReviews.save(PendingReview.builder()
+            .tenantId(tenantId)
+            .source("upload")
+            .uploadId(job.getUploadId())
+            .instrumentId(instrumentId)
+            .sourceTitle(detail != null ? detail.getSourceTitle() : job.getTitle())
+            .sourceReferenceNumber(detail != null ? detail.getSourceReferenceNumber() : null)
+            .regulatorId(detail != null ? detail.getRegulatorId() : null)
+            .regulatorName(detail != null ? detail.getRegulatorName() : null)
+            .regulatorAbbreviation(detail != null ? detail.getRegulatorAbbreviation() : null)
+            .documentType(detail != null ? detail.getNature() : null)
+            .riskRating(detail != null ? detail.getRiskRating() : null)
+            .dateIssued(detail != null ? detail.getDateIssued() : null)
+            .effectiveDate(detail != null
+                ? (detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued()) : null)
+            .publishedAt(detail != null ? detail.getPublishedAt() : null)
+            .pdfUrl(detail != null ? detail.getPdfUrl() : null)
+            .obligations(obligations)
+            .status("pending")
+            .build());
+        log.info("Queued {} obligations for review from upload {} (instrument {})",
+            obligations.size(), job.getUploadId(), instrumentId);
     }
 }

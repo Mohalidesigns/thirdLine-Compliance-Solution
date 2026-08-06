@@ -3,25 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem,
-  Collapse, TableContainer, Paper, TablePagination, Card, CardContent, Tooltip,
+  Collapse, TableContainer, Paper, TablePagination, Tooltip,
 } from '@mui/material';
 import {
   Visibility, Search, Close, ExpandMore, ExpandLess,
   Article, CalendarToday, CloudUpload as CloudUploadIcon, ArrowBack, Download,
 } from '@mui/icons-material';
-import api, { getToken, API_BASE } from '../../../services/api';
-
-const RISK_CONFIG = {
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
-};
+import { api, getToken, API_BASE } from '../services/api';
 
 const COLUMNS = [
   { id: 'title', label: 'Title', minWidth: 280 },
   { id: 'regulator', label: 'Regulator', minWidth: 100 },
-  { id: 'risk', label: 'Risk', minWidth: 80 },
-  { id: 'status', label: 'Status', minWidth: 90 },
+  { id: 'obligations', label: 'Obligations', minWidth: 100 },
   { id: 'published', label: 'Published', minWidth: 110 },
   { id: 'actions', label: 'Actions', minWidth: 100 },
 ];
@@ -31,27 +24,13 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, fontWeight: 600 }} />;
-}
-
-function statusChip(status) {
-  const colors = { Published: 'success', Triage: 'warning', Superseded: 'default', Withdrawn: 'error' };
-  return <Chip size="small" label={status || 'Unknown'} color={colors[status] || 'default'} sx={{ height: 22, fontWeight: 600 }} />;
-}
-
 export default function InstrumentsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
-  const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [rowsPerPage] = useState(20);
   const [detailItem, setDetailItem] = useState(null);
@@ -60,43 +39,24 @@ export default function InstrumentsPage() {
   const [showOcr, setShowOcr] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.platform.instruments.list(`size=100&page=${page}`),
-      api.platform.regulators.list(),
-    ]).then(([instrData, regData]) => {
-      setItems(instrData.content || []);
-      setRegulators(Array.isArray(regData) ? regData : (regData.content || []));
-    }).catch(err => setError(err.message))
-    .finally(() => setLoading(false));
-  }, [page]);
+    setLoading(true);
+    api.instruments.list(page, rowsPerPage, search)
+      .then(data => setItems(data.content || []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [page, search]);
 
-  const regMap = useMemo(() => {
-    const m = {};
-    regulators.forEach(r => { m[r.regulatorId] = r.abbreviation || r.name; });
-    return m;
-  }, [regulators]);
-
-  const regulatorsList = useMemo(() => ['All', ...regulators.map(r => r.abbreviation || r.name).filter(Boolean)], [regulators]);
-
-  const statuses = useMemo(() => {
-    const s = new Set(items.map(i => i.status).filter(Boolean));
+  const regulatorsList = useMemo(() => {
+    const s = new Set(items.map(i => i.regulatorAbbreviation || i.regulatorName).filter(Boolean));
     return ['All', ...Array.from(s)];
   }, [items]);
 
   const filtered = useMemo(() => {
     return items.filter(i => {
-      if (riskFilter !== 'All' && i.riskRating !== riskFilter) return false;
-      if (regulatorFilter !== 'All' && regMap[i.regulatorId] !== regulatorFilter) return false;
-      if (statusFilter !== 'All' && i.status !== statusFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const title = (i.sourceTitle || '').toLowerCase();
-        const reg = (regMap[i.regulatorId] || '').toLowerCase();
-        if (!title.includes(q) && !reg.includes(q)) return false;
-      }
+      if (regulatorFilter !== 'All' && (i.regulatorAbbreviation || i.regulatorName) !== regulatorFilter) return false;
       return true;
     });
-  }, [items, riskFilter, regulatorFilter, statusFilter, search, regMap]);
+  }, [items, regulatorFilter]);
 
   async function openDetail(item) {
     setDetailItem(item);
@@ -104,7 +64,7 @@ export default function InstrumentsPage() {
     setDetailData(null);
     setShowOcr(false);
     try {
-      const data = await api.platform.instruments.get(item.instrumentId);
+      const data = await api.instruments.get(item.id);
       setDetailData(data);
     } catch {
       setError('Failed to load detail.');
@@ -119,7 +79,7 @@ export default function InstrumentsPage() {
 
   async function fetchPdfBlob(instrumentId) {
     const token = getToken();
-    const res = await fetch(`${API_BASE}/intelligence/obligations/${instrumentId}/pdf`, {
+    const res = await fetch(`${API_BASE}/subscriptions/instruments/${instrumentId}/pdf`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Failed to load PDF');
@@ -128,7 +88,7 @@ export default function InstrumentsPage() {
 
   async function handleViewInstrument(item) {
     try {
-      const blob = await fetchPdfBlob(item.instrumentId);
+      const blob = await fetchPdfBlob(item.id);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch {
@@ -138,11 +98,11 @@ export default function InstrumentsPage() {
 
   async function handleDownloadInstrument(item) {
     try {
-      const blob = await fetchPdfBlob(item.instrumentId);
+      const blob = await fetchPdfBlob(item.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${item.sourceTitle || 'instrument-' + item.instrumentId}.pdf`;
+      a.download = `${item.sourceTitle || 'instrument-' + item.id}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -155,6 +115,7 @@ export default function InstrumentsPage() {
   // ── Detail View ──
   if (detailItem) {
     const d = detailItem;
+    const regulator = detailData?.regulatorAbbreviation || detailData?.regulatorName || d.regulatorAbbreviation || d.regulatorName || '-';
     return (
       <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -174,48 +135,34 @@ export default function InstrumentsPage() {
           <>
             <Paper sx={{ p: 3, mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                {riskChip(d.riskRating)}
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  {detailData?.regulator || regMap[d.regulatorId] || '-'}
+                  {regulator}
                 </Typography>
-                {statusChip(d.status)}
-                <Chip size="small" label={d.areaOfFocus || 'General'} variant="outlined" />
+                <Chip size="small" label={detailData?.documentType || d.documentType || 'Document'} variant="outlined" />
               </Box>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{d.sourceTitle}</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Risk Rating</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(d.riskRating)}</Box>
-                </Box>
-                <Box>
                   <Typography variant="caption" color="text.secondary">Regulator</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{detailData?.regulator || regMap[d.regulatorId] || '-'}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{regulator}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Area of Focus</Typography>
-                  <Typography variant="body2">{d.areaOfFocus || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Nature</Typography>
-                  <Typography variant="body2">{d.nature || '-'}</Typography>
+                  <Typography variant="caption" color="text.secondary">Document Type</Typography>
+                  <Typography variant="body2">{detailData?.documentType || d.documentType || '-'}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Obligations</Typography>
                   <Typography variant="body2">{detailData?.obligations?.length || 0}</Typography>
                 </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Confidence</Typography>
-                  <Typography variant="body2">{d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'}</Typography>
-                </Box>
-                {d.dateCommencement && (
+                {detailData?.obligations?.some(o => o.effectiveDate) && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">Effective Date</Typography>
-                    <Typography variant="body2">{formatDate(d.dateCommencement)}</Typography>
+                    <Typography variant="body2">{formatDate(detailData.obligations.find(o => o.effectiveDate).effectiveDate)}</Typography>
                   </Box>
                 )}
                 <Box>
                   <Typography variant="caption" color="text.secondary">Published</Typography>
-                  <Typography variant="body2">{formatDate(d.firstPublishedAt || d.discoveredAt)}</Typography>
+                  <Typography variant="body2">{formatDate(d.publishedAt || d.createdAt)}</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -251,13 +198,11 @@ export default function InstrumentsPage() {
                 {detailData.sanctions.map((s, i) => (
                   <Box key={i} sx={{ mb: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                      {s.sanctionType}{s.amountNaira ? ` — ₦${s.amountNaira.toLocaleString()}` : ''}
+                      {s.type || s.description || 'Penalty'}
                     </Typography>
-                    {s.liableRoles?.length > 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        Liable: {s.liableRoles.join(', ')}
-                      </Typography>
-                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {s.description && s.type ? s.description : ''}
+                    </Typography>
                   </Box>
                 ))}
               </Paper>
@@ -278,24 +223,29 @@ export default function InstrumentsPage() {
                         <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Section</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Deadline</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Effective</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {detailData.obligations.map(obl => (
-                        <TableRow key={obl.number} hover>
-                          <TableCell>{obl.number}</TableCell>
+                      {detailData.obligations.map((obl, idx) => (
+                        <TableRow key={obl.obligationId || idx} hover>
+                          <TableCell>{idx + 1}</TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.statement}</Typography>
+                            <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.description}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                            <Chip size="small" label={obl.section || '-'} variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} />
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">{obl.type || '-'}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2">{obl.recurringDeadline || '-'}</Typography>
+                            <Typography variant="body2">{formatDate(obl.effectiveDate)}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip size="small" label={obl.status || 'active'} variant="outlined"
+                              sx={{ height: 22, fontWeight: 600, color: 'success.main', borderColor: 'success.main' }} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -304,7 +254,7 @@ export default function InstrumentsPage() {
                 </TableContainer>
               ) : (
                 <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-                  <Typography variant="body2">No specific obligations extracted for this instrument.</Typography>
+                  <Typography variant="body2">No obligations saved for this instrument.</Typography>
                 </Box>
               )}
             </Paper>
@@ -321,11 +271,11 @@ export default function InstrumentsPage() {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Instruments</Typography>
           <Typography variant="body2" color="text.secondary">
-            Browse all regulatory instruments in the platform
+            Instruments confirmed into your obligations register
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<CloudUploadIcon />}
-          onClick={() => navigate('/admin/uploads')}>
+          onClick={() => navigate('/uploads')}>
           Upload Instrument
         </Button>
       </Box>
@@ -337,21 +287,13 @@ export default function InstrumentsPage() {
           onChange={e => { setSearch(e.target.value); setPage(0); }}
           slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
           sx={{ minWidth: 220 }} />
-        <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk" sx={{ minWidth: 110 }}>
-          {['All', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
         <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
           label="Regulator" sx={{ minWidth: 130 }}>
           {regulatorsList.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 120 }}>
-          {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        {(search || riskFilter !== 'All' || regulatorFilter !== 'All' || statusFilter !== 'All') && (
+        {(search || regulatorFilter !== 'All') && (
           <Button size="small" startIcon={<Close />} onClick={() => {
-            setSearch(''); setRiskFilter('All'); setRegulatorFilter('All'); setStatusFilter('All');
+            setSearch(''); setRegulatorFilter('All');
           }}>Clear</Button>
         )}
       </Paper>
@@ -361,7 +303,7 @@ export default function InstrumentsPage() {
       ) : filtered.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
           <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No instruments found.</Typography>
+          <Typography variant="body1">No confirmed instruments yet. Review and save items from the Review Inbox.</Typography>
         </Paper>
       ) : (
         <Paper>
@@ -378,14 +320,10 @@ export default function InstrumentsPage() {
               </TableHead>
               <TableBody>
                 {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map(item => {
-                  const rc = RISK_CONFIG[item.riskRating] || {};
                   return (
-                    <TableRow key={item.instrumentId} hover
+                    <TableRow key={item.id} hover
                       onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', bgcolor: rc.bg || 'inherit',
-                        '&:hover': { bgcolor: rc.bg || '#F7FAFC' },
-                        borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent',
-                      }}>
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                       <TableCell>
                         <Tooltip title={item.sourceTitle}>
                           <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -394,18 +332,19 @@ export default function InstrumentsPage() {
                         </Tooltip>
                       </TableCell>
                       <TableCell>
-                        <Tooltip title={regMap[item.regulatorId] || '-'}>
+                        <Tooltip title={item.regulatorAbbreviation || item.regulatorName || '-'}>
                           <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {regMap[item.regulatorId] || '-'}
+                            {item.regulatorAbbreviation || item.regulatorName || '-'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
-                      <TableCell>{riskChip(item.riskRating)}</TableCell>
-                      <TableCell>{statusChip(item.status)}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={item.obligationCount ?? 0} variant="outlined" sx={{ height: 22, fontWeight: 600 }} />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <CalendarToday sx={{ fontSize: 13, color: 'text.secondary' }} />
-                          <Typography variant="body2">{formatDate(item.firstPublishedAt || item.discoveredAt)}</Typography>
+                          <Typography variant="body2">{formatDate(item.publishedAt || item.createdAt)}</Typography>
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -420,7 +359,7 @@ export default function InstrumentsPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)}
+          <TablePagination component="div" count={items.length} page={page} onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} />
         </Paper>
       )}

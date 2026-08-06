@@ -1,20 +1,23 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
-  Typography, Divider, Avatar,
+  Typography, Divider, Avatar, Badge,
 } from '@mui/material';
 import {
-  Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks,
+  Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks, Article,
   Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../services/api';
 
 const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Instruments', icon: <Inbox />, path: '/inbox' },
+  { text: 'Review Inbox', icon: <Inbox />, path: '/review' },
+  { text: 'Instruments', icon: <Article />, path: '/instruments' },
   { text: 'Obligations', icon: <LibraryBooks />, path: '/obligations' },
   { text: 'Regulators', icon: <AccountBalance />, path: '/regulators' },
   { text: 'Controls', icon: <Gavel />, path: '/controls' },
@@ -30,6 +33,17 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => api.review.stats()
+      .then(s => { if (!cancelled) setPendingCount(s?.total || 0); })
+      .catch(() => {});
+    load();
+    const t = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
 
   return (
     <Drawer
@@ -88,6 +102,10 @@ export default function Sidebar() {
                 >
                   <ListItemIcon>{item.icon}</ListItemIcon>
                   <ListItemText primary={item.text} />
+                  {item.path === '/review' && pendingCount > 0 && (
+                    <Badge badgeContent={pendingCount} color="error" max={99}
+                      sx={{ '& .MuiBadge-badge': { fontSize: '0.62rem', fontWeight: 700 } }} />
+                  )}
                 </ListItemButton>
               </ListItem>
             );

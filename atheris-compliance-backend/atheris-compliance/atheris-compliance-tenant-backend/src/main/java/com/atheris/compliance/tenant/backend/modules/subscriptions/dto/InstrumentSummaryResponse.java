@@ -19,4 +19,5 @@ public class InstrumentSummaryResponse {
     private LocalDate publishedAt;
     private LocalDate createdAt;
     private String pdfUrl;
+    private int obligationCount;
 }

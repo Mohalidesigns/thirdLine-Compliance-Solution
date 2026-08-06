@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.returns.controller;
 
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/returns")
@@ -17,6 +19,11 @@ import org.springframework.web.bind.annotation.*;
 public class ReturnController {
 
     private final ReturnService service;
+
+    @GetMapping("/list")
+    public ResponseEntity<List<RegulatoryReturn>> list() {
+        return ResponseEntity.ok(service.listActive());
+    }
 
     @GetMapping("/calendar")
     public ResponseEntity<Page<ReturnInstanceItem>> calendar(

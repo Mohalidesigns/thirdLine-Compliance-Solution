@@ -14,6 +14,7 @@ public class UploadReviewResponse {
     private String status;
     private Integer regulatorId;
     private String regulatorName;
+    private String pdfUrl;
     private String pdfOcrText;
     private String aiSummary;
     private List<ObligationItem> obligations;

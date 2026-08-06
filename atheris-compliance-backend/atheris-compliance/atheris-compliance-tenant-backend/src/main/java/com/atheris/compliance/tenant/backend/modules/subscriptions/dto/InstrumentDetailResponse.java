@@ -19,6 +19,8 @@ public class InstrumentDetailResponse {
     private String status;
     private LocalDate publishedAt;
     private String pdfUrl;
+    private String aiSummary;
+    private String pdfOcrText;
     private List<ObligationItem> obligations;
     private List<SanctionItem> sanctions;
 

@@ -4,12 +4,18 @@ import com.atheris.compliance.intelligence.backend.modules.internal.dto.Internal
 import com.atheris.compliance.intelligence.backend.modules.internal.dto.InternalInstrumentSummary;
 import com.atheris.compliance.intelligence.backend.modules.internal.service.InternalInstrumentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -41,5 +47,19 @@ public class InternalInstrumentController {
     @GetMapping("/{instrumentId}/detail")
     public ResponseEntity<InternalInstrumentDetail> detail(@PathVariable Long instrumentId) {
         return ResponseEntity.ok(service.getFullDetail(instrumentId));
+    }
+
+    @GetMapping("/{instrumentId}/pdf")
+    public ResponseEntity<Resource> pdf(@PathVariable Long instrumentId,
+                                        @RequestParam(defaultValue = "false") boolean download) throws IOException {
+        InputStreamResource resource = new InputStreamResource(service.openPdfStream(instrumentId));
+        String filename = "document-" + instrumentId + ".pdf";
+        ContentDisposition disposition = download
+                ? ContentDisposition.attachment().filename(filename).build()
+                : ContentDisposition.inline().filename(filename).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(resource);
     }
 }

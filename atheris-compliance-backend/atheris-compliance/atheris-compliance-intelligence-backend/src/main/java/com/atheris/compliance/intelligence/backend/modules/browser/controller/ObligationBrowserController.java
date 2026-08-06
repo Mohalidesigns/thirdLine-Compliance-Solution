@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.*;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -41,12 +43,16 @@ public class ObligationBrowserController {
     }
 
     @GetMapping("/obligations/{id}/pdf")
-    public ResponseEntity<Resource> streamPdf(@PathVariable Long id) throws IOException {
+    public ResponseEntity<Resource> streamPdf(@PathVariable Long id,
+                                              @RequestParam(defaultValue = "false") boolean download) throws IOException {
         InputStreamResource resource = new InputStreamResource(service.openPdfStream(id));
         String filename = "document-" + id + ".pdf";
+        ContentDisposition disposition = download
+                ? ContentDisposition.attachment().filename(filename).build()
+                : ContentDisposition.inline().filename(filename).build();
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header("Content-Disposition", "inline; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
     }
 

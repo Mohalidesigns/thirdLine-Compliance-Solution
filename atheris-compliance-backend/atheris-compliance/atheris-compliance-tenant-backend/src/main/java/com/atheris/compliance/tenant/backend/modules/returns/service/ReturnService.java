@@ -52,6 +52,10 @@ public class ReturnService {
         return ReturnInstanceDetailResponse.from(inst, r.getReturnName(), r.getFilingRegulator(), r.getReturnOwnerName());
     }
 
+    public List<RegulatoryReturn> listActive() {
+        return returns.findByStatus("Active");
+    }
+
     @Transactional
     public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)

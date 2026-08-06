@@ -161,6 +161,19 @@ public class PlatformApiClient {
         }
     }
 
+    public byte[] getInstrumentPdf(Long instrumentId) {
+        try {
+            HttpHeaders h = headers();
+            ResponseEntity<byte[]> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/instruments/" + instrumentId + "/pdf",
+                HttpMethod.GET, new HttpEntity<>(h), byte[].class);
+            return resp.getBody();
+        } catch (Exception e) {
+            log.error("Failed to fetch instrument PDF: {}", e.getMessage());
+            return null;
+        }
+    }
+
     public List<RegulatorSummary> fetchRegulators() {
         try {
             HttpHeaders h = headers();

@@ -3,9 +3,11 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
+import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -37,7 +40,7 @@ public class ObligationSyncService {
     private final TenantPollingConfigRepository pollingConfigs;
     private final TenantRegulatorRepository tenantRegulators;
     private final ObligationClassificationRepository obligations;
-    private final ObligationRepository obligationRepo;
+    private final PendingReviewRepository pendingReviews;
 
     @PersistenceContext
     private EntityManager em;
@@ -100,41 +103,51 @@ public class ObligationSyncService {
                     skipped++;
                     continue;
                 }
-
-                PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(item.getInstrumentId());
-                Long firstObligationId = null;
-
-                if (detail != null && detail.getObligations() != null) {
-                    LocalDate effDate = detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued();
-                    int num = 1;
-                    for (var extObl : detail.getObligations()) {
-                        Obligation o = Obligation.builder()
-                            .instrumentId(item.getInstrumentId())
-                            .obligationNumber(num++)
-                            .description(extObl.getPlainEnglishStatement())
-                            .sectionReference(extObl.getSpecificSectionReference())
-                            .obligationType(extObl.getObligationType())
-                            .recurringDeadlineType(extObl.getRecurringDeadlineType())
-                            .effectiveDate(effDate)
-                            .source("ai_extracted")
-                            .build();
-                        o = obligationRepo.save(o);
-                        if (firstObligationId == null) firstObligationId = o.getObligationId();
-                    }
+                if (pendingReviews.findByInstrumentIdAndTenantId(item.getInstrumentId(), tenantId).isPresent()) {
+                    skipped++;
+                    continue;
                 }
 
-                ObligationClassification oc = ObligationClassification.builder()
+                PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(item.getInstrumentId());
+                if (detail == null || detail.getObligations() == null || detail.getObligations().isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+
+                List<ReviewObligation> extracted = new ArrayList<>();
+                for (var extObl : detail.getObligations()) {
+                    extracted.add(ReviewObligation.builder()
+                        .obligationNumber(extObl.getObligationNumber())
+                        .description(extObl.getPlainEnglishStatement())
+                        .sectionReference(extObl.getSpecificSectionReference())
+                        .obligationType(extObl.getObligationType())
+                        .recurringDeadlineType(extObl.getRecurringDeadlineType())
+                        .applicable(true)
+                        .build());
+                }
+
+                LocalDate effDate = detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued();
+                pendingReviews.save(PendingReview.builder()
+                    .tenantId(tenantId)
+                    .source("intel")
                     .instrumentId(item.getInstrumentId())
-                    .obligationId(firstObligationId)
-                    .applicability("under_review")
-                    .tenantRiskRating(item.getRiskRating())
-                    .status("unclassified")
-                    .build();
-                obligations.save(oc);
+                    .sourceTitle(detail.getSourceTitle())
+                    .sourceReferenceNumber(detail.getSourceReferenceNumber())
+                    .regulatorId(detail.getRegulatorId())
+                    .regulatorName(detail.getRegulatorName())
+                    .regulatorAbbreviation(detail.getRegulatorAbbreviation())
+                    .documentType(detail.getNature())
+                    .riskRating(detail.getRiskRating())
+                    .dateIssued(detail.getDateIssued())
+                    .effectiveDate(effDate)
+                    .publishedAt(detail.getPublishedAt())
+                    .pdfUrl(detail.getPdfUrl())
+                    .obligations(extracted)
+                    .status("pending")
+                    .build());
                 created++;
-                log.info("Created {} obligations + classification for instrument {}: {}",
-                    detail != null && detail.getObligations() != null ? detail.getObligations().size() : 0,
-                    item.getInstrumentId(), item.getSourceTitle());
+                log.info("Queued {} obligations for review from instrument {}: {}",
+                    extracted.size(), item.getInstrumentId(), detail.getSourceTitle());
             }
 
             log.info("Sync complete: {} created, {} skipped (already exist)", created, skipped);

@@ -6,6 +6,9 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.service.Instr
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,5 +29,19 @@ public class InstrumentsController {
     @GetMapping("/{id}")
     public ResponseEntity<InstrumentDetailResponse> detail(@PathVariable Long id) {
         return ResponseEntity.ok(service.detail(id));
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable Long id,
+                                      @RequestParam(defaultValue = "false") boolean download) {
+        byte[] bytes = service.pdfBytes(id);
+        String filename = "document-" + id + ".pdf";
+        ContentDisposition disposition = download
+                ? ContentDisposition.attachment().filename(filename).build()
+                : ContentDisposition.inline().filename(filename).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(bytes);
     }
 }

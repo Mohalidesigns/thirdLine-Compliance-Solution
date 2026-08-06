@@ -29,14 +29,37 @@ public class ObligationController {
 
     @GetMapping("/register")
     public ResponseEntity<Page<ObligationRegisterItem>> register(
-            @RequestParam(required = false) String applicability,
-            @RequestParam(required = false) String tenantRiskRating,
-            @RequestParam(required = false) Boolean hasGap,
-            @RequestParam(required = false) Integer assignedOwnerUserId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String risk,
+            @RequestParam(required = false) String regulator,
+            @RequestParam(required = false) String theme,
+            @RequestParam(required = false) String owner,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean hasGap,
+            @RequestParam(required = false) Boolean noControl,
             Pageable p) {
         return ResponseEntity.ok(service.getRegisterList(
-            applicability, tenantRiskRating, hasGap, assignedOwnerUserId, status, p));
+            q, risk, regulator, theme, owner, status, hasGap, noControl, p));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ObligationStats> stats() {
+        return ResponseEntity.ok(service.getStats());
+    }
+
+    @GetMapping("/obligation/{obligationId}")
+    public ResponseEntity<ObligationDetailView> obligationDetail(@PathVariable Long obligationId) {
+        return ResponseEntity.ok(service.getObligationDetail(obligationId));
+    }
+
+    @PutMapping("/obligation/{obligationId}/returns")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> linkReturns(
+            @PathVariable Long obligationId,
+            @RequestBody LinkReturnRequest req,
+            @AuthenticationPrincipal User u) {
+        service.linkReturns(obligationId, req.getLinkedReturnIds(), u.getUserId());
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/inbox")

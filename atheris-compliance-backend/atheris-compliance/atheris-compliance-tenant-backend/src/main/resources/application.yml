@@ -9,6 +9,10 @@ spring:
     username: atheris
     password: ${DB_PASSWORD:changeme}
     driver-class-name: org.postgresql.Driver
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
   jpa:
     hibernate:
       ddl-auto: validate

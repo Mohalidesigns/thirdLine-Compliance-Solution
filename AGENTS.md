@@ -282,3 +282,29 @@ See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference,
 - [ ] Add tenant dashboard widgets (active tenants, webhook health) in main platform
 - [ ] Cleanup: add `@Builder.Default` to entity fields flagged by Lombok warnings
 - [ ] Cleanup: `maxRegulators`, `maxControls`, `maxReturns` are stored in entity/DTO but never enforced. Remove from create/edit forms and DTOs, or wire up actual limit enforcement.
+
+## Done — Tenant Obligations Register Rebuilt (Per-Obligation)
+
+Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Design_Specification.md` Screen 4. CCO approval explicitly excluded (once applicable = final).
+
+### Backend (`atheris-compliance-tenant-backend`)
+- **Root cause fixed**: `ObligationService.getRegisterList()` previously paged `ObligationClassification` (one row per instrument). Now pages the `obligations` table directly — one register row per obligation — inheriting risk/owner/gap/status from the instrument's classification and enriching title/regulator via `PlatformApiClient.getInstrumentDetail()`.
+- **Flyway V20**: `obligation_returns` join table (`obligation_id` ↔ `return_id`).
+- **`ObligationRepository`**: added `findAllReturnLinks()`, `findLinkedReturnIds()`, `deleteReturnLinks()`, `insertReturnLink()` (native queries + projection row).
+- **`ObligationService`**:
+  - `getRegisterList(q, risk, regulator, theme, owner, status, hasGap, pageable)` — in-memory filter + sort (obligationNumber/sourceTitle/risk/owner/status) over all tenant obligations.
+  - `getStats()` → `GET /obligations/stats`: total / highRisk / gaps / underReview + distinct regulators, themes, owners, risk levels for filter dropdowns.
+  - `getObligationDetail(obligationId)` → `GET /obligations/obligation/{id}`: obligation + classification + linked controls (with names) + linked returns (with names/frequency) + evidence (`sourceType='obligation'`) + version history with usernames.
+  - `linkReturns(obligationId, returnIds)` → `PUT /obligations/obligation/{id}/returns`.
+  - `classify()` extended: accepts `linkedReturnIds` + `linkedObligationId` to persist return mapping in the same transaction.
+- **`ReturnService`**: `listActive()` + `GET /returns/list` (return templates for the mapping dropdown).
+- DTOs: `ObligationRegisterItem` (rewritten, per-obligation), new `ObligationStats`, `ObligationDetailView`, `LinkReturnRequest`.
+
+### Frontend (`atheris-compliance-tenant-frontend`)
+- **`ObligationsRegisterPage.jsx` fully rebuilt**: 4 KPI cards (Total / High Risk / Gaps / Under Review, clickable → set filters), search box, Risk/Regulator/Theme/Owner filters + "Has gap" checkbox, sortable table (# / Obligation / Instrument / Risk / Owner / Status / Returns), right-side detail drawer (classification, risk assessment, owner, linked controls, return mapping, gap alert, evidence with download, View PDF), version history tab, and a full edit drawer (owner, risk, impact/likelihood, justification, linked controls multi-select, return-required multi-select, gap toggle, evidence upload, reason for update).
+- `api.js`: added `obligations.stats`, `obligations.obligationDetail`, `obligations.linkReturns`, `returns.list`.
+
+### Notes
+- Theme filter maps to `obligation_type` (no dedicated theme column on obligations).
+- Status filter values: `active` / `unclassified` / `under_review`.
+- KPI "Under Review" = obligations not yet `applicable` (unclassified / under_review).
