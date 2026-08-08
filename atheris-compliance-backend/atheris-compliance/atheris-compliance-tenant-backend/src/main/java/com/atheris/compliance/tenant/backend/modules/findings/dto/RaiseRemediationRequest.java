@@ -6,6 +6,6 @@ import java.time.LocalDate;
 
 @Data
 public class RaiseRemediationRequest {
-    @NotNull private Integer assignedToUserId;
+    @NotNull private Integer assignedToOwnerId;
     @NotNull private LocalDate remediationDeadline;
 }

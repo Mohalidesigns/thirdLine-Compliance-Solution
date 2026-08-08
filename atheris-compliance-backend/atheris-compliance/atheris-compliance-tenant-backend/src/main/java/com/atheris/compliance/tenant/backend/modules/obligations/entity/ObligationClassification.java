@@ -39,6 +39,9 @@ public class ObligationClassification {
     private Integer assignedOwnerUserId;
     private String assignedOwnerName;
     private String assignedDepartment;
+    private Integer assignedOwnerId;
+    private Integer assignedTeamId;
+    private Integer assignedDepartmentId;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Integer> linkedControlIds;

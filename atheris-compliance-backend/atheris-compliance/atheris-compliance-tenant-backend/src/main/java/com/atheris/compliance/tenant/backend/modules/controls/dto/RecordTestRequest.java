@@ -16,5 +16,6 @@ public class RecordTestRequest {
     private String evidenceUrl;
     private Boolean remediationRequired;
     private Integer remediationOwnerUserId;
+    private Integer remediationOwnerId;
     private LocalDate remediationDeadline;
 }

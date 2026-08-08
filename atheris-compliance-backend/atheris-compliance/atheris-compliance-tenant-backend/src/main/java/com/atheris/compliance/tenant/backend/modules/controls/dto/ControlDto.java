@@ -17,6 +17,7 @@ public class ControlDto {
     private String whatItDoes;
     private String howTested;
     private Integer controlOwnerUserId;
+    private Integer controlOwnerId;
     private String controlOwnerName;
     private String testFrequency;
     private Integer testFrequencyDays;

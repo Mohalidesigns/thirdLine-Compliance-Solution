@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
+import OwnerPicker from '../components/org/OwnerPicker';
 
 const SEV_COLORS = { Critical: 'error', High: 'error', Medium: 'warning', Low: 'success' };
 const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
@@ -316,7 +317,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
   const [form, setForm] = useState({
     findingType: '', severity: '', description: '', rootCause: '',
     linkedObligationId: '', linkedControlId: '',
-    assignedToUserId: '', assignedToName: '', remediationDeadline: '',
+    assignedToOwnerId: null, remediationDeadline: '',
   });
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
@@ -325,12 +326,11 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
       const body = { ...form };
       if (body.linkedObligationId) body.linkedObligationId = parseInt(body.linkedObligationId, 10);
       if (body.linkedControlId) body.linkedControlId = parseInt(body.linkedControlId, 10);
-      if (body.assignedToUserId) body.assignedToUserId = parseInt(body.assignedToUserId, 10);
       await api.findings.raise(body);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  const reset = () => setForm({ findingType: '', severity: '', description: '', rootCause: '', linkedObligationId: '', linkedControlId: '', assignedToUserId: '', assignedToName: '', remediationDeadline: '' });
+  const reset = () => setForm({ findingType: '', severity: '', description: '', rootCause: '', linkedObligationId: '', linkedControlId: '', assignedToOwnerId: null, remediationDeadline: '' });
   useEffect(() => { if (open) reset(); }, [open]);
 
   return (
@@ -373,13 +373,9 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
             <TextField label="Linked Control ID" fullWidth size="small" type="number" value={form.linkedControlId}
               onChange={e => setForm(f => ({ ...f, linkedControlId: e.target.value }))} />
           </Grid>
-          <Grid item xs={6}>
-            <TextField label="Assign to User ID" fullWidth size="small" type="number" value={form.assignedToUserId}
-              onChange={e => setForm(f => ({ ...f, assignedToUserId: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField label="Assign to Name" fullWidth size="small" value={form.assignedToName}
-              onChange={e => setForm(f => ({ ...f, assignedToName: e.target.value }))} />
+          <Grid item xs={12}>
+            <OwnerPicker value={form.assignedToOwnerId}
+              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
           </Grid>
           <Grid item xs={12}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
@@ -400,27 +396,27 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
 
 /* ---------- Assign Dialog ---------- */
 function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ assignedToUserId: '', remediationDeadline: '' });
+  const [form, setForm] = useState({ assignedToOwnerId: null, remediationDeadline: '' });
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.findings.assign(findingId, {
-        assignedToUserId: parseInt(form.assignedToUserId, 10),
+        assignedToOwnerId: form.assignedToOwnerId,
         remediationDeadline: form.remediationDeadline,
       });
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  useEffect(() => { if (open) setForm({ assignedToUserId: '', remediationDeadline: '' }); }, [open]);
+  useEffect(() => { if (open) setForm({ assignedToOwnerId: null, remediationDeadline: '' }); }, [open]);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Assign Finding</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid item xs={12}>
-            <TextField label="User ID" fullWidth size="small" type="number" required value={form.assignedToUserId}
-              onChange={e => setForm(f => ({ ...f, assignedToUserId: e.target.value }))} />
+            <OwnerPicker value={form.assignedToOwnerId}
+              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
           </Grid>
           <Grid item xs={12}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
@@ -431,7 +427,7 @@ function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.assignedToUserId || !form.remediationDeadline}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.assignedToOwnerId || !form.remediationDeadline}>
           {saving ? 'Assigning...' : 'Assign'}
         </Button>
       </DialogActions>

@@ -5,12 +5,17 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.review.dto.*;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +36,8 @@ public class ReviewService {
     private final ObligationClassificationRepository classifications;
     private final PlatformApiClient platform;
     private final AuditService audit;
+    private final OwnerRepository ownerRepo;
+    private final DepartmentRepository departmentRepo;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -161,8 +168,7 @@ public class ReviewService {
                 if (o.getLikelihoodRating() != null) c.setLikelihoodRating(o.getLikelihoodRating());
                 if (o.getLikelihoodJustification() != null) c.setLikelihoodJustification(o.getLikelihoodJustification());
                 if (o.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(o.getAssignedOwnerUserId());
-                if (o.getAssignedOwnerName() != null) c.setAssignedOwnerName(o.getAssignedOwnerName());
-                if (o.getAssignedDepartment() != null) c.setAssignedDepartment(o.getAssignedDepartment());
+                applyOwner(c, o);
                 if (o.getHasGap() != null) c.setHasGap(o.getHasGap());
                 if (o.getGapDescription() != null) c.setGapDescription(o.getGapDescription());
                 c.setClassifiedByUserId(userId);
@@ -200,6 +206,25 @@ public class ReviewService {
     }
 
     // -------------------------------------------------------------- helpers
+
+    private void applyOwner(ObligationClassification c, SaveReviewRequest.ObligationDto o) {
+        if (o.getAssignedOwnerId() == null) {
+            if (o.getAssignedOwnerName() != null) c.setAssignedOwnerName(o.getAssignedOwnerName());
+            if (o.getAssignedDepartment() != null) c.setAssignedDepartment(o.getAssignedDepartment());
+            return;
+        }
+        Owner owner = ownerRepo.findById(o.getAssignedOwnerId())
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + o.getAssignedOwnerId()));
+        c.setAssignedOwnerId(owner.getOwnerId());
+        c.setAssignedTeamId(owner.getTeamId());
+        c.setAssignedDepartmentId(owner.getDepartmentId());
+        c.setAssignedOwnerName(owner.getFullName());
+        c.setAssignedDepartment(owner.getDepartmentId() != null
+            ? departmentRepo.findById(owner.getDepartmentId())
+                .map(Department::getName)
+                .orElse(null)
+            : null);
+    }
 
     private PendingReview find(Long reviewId) {
         return reviews.findByReviewIdAndTenantId(reviewId, tenantId)

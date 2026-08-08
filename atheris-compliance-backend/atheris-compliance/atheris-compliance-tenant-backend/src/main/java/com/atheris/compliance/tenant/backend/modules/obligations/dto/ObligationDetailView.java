@@ -32,6 +32,9 @@ public class ObligationDetailView {
     private String inherentRiskRating;
     private String residualRiskRating;
     private Integer assignedOwnerUserId;
+    private Integer assignedOwnerId;
+    private Integer assignedTeamId;
+    private Integer assignedDepartmentId;
     private String assignedOwnerName;
     private String assignedDepartment;
     private Boolean hasGap;

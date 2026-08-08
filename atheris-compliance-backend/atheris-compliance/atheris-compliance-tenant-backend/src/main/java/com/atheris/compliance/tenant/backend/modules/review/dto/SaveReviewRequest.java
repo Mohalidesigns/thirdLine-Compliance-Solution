@@ -27,6 +27,7 @@ public class SaveReviewRequest {
         private String likelihoodRating;
         private String likelihoodJustification;
         private Integer assignedOwnerUserId;
+        private Integer assignedOwnerId;
         private String assignedOwnerName;
         private String assignedDepartment;
         private Boolean hasGap;

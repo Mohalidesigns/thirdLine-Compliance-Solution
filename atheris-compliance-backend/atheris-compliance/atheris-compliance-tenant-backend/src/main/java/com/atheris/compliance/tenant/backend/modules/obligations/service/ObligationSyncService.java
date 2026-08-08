@@ -1,8 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
@@ -39,7 +37,7 @@ public class ObligationSyncService {
     private final TenantProfileRepository profiles;
     private final TenantPollingConfigRepository pollingConfigs;
     private final TenantRegulatorRepository tenantRegulators;
-    private final ObligationClassificationRepository obligations;
+    private final ObligationRepository obligationRepository;
     private final PendingReviewRepository pendingReviews;
 
     @PersistenceContext
@@ -99,7 +97,7 @@ public class ObligationSyncService {
             int created = 0, skipped = 0;
 
             for (PlatformInstrumentSummary item : results) {
-                if (obligations.findByInstrumentId(item.getInstrumentId()).isPresent()) {
+                if (obligationRepository.countByInstrumentId(item.getInstrumentId()) > 0) {
                     skipped++;
                     continue;
                 }

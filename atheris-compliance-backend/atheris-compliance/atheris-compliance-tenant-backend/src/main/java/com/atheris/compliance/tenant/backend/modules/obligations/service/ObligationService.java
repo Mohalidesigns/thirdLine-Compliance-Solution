@@ -8,12 +8,17 @@ import com.atheris.compliance.tenant.backend.modules.evidence.repository.Evidenc
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.*;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.*;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.*;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -35,6 +40,8 @@ public class ObligationService {
     private final UserRepository userRepo;
     private final AuditService audit;
     private final PlatformApiClient platform;
+    private final OwnerRepository ownerRepo;
+    private final DepartmentRepository departmentRepo;
 
     private static final List<String> RISK_LEVELS = List.of("Extreme", "High", "Medium", "Low");
 
@@ -276,6 +283,9 @@ public class ObligationService {
             .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
             .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
             .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
+            .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
+            .assignedTeamId(c != null ? c.getAssignedTeamId() : null)
+            .assignedDepartmentId(c != null ? c.getAssignedDepartmentId() : null)
             .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .hasGap(c != null ? c.getHasGap() : null)
@@ -302,6 +312,109 @@ public class ObligationService {
             }
         }
         audit.log(userId, "link_returns", "obligation", obligationId, Map.of("returnIds", returnIds));
+    }
+
+    // ------------------------------------------------------------------ per-concern updates (owner / risk / gap / controls)
+
+    @Transactional
+    public void assignOwner(Long obligationId, AssignOwnerRequest req, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new EntityNotFoundException("Obligation not found: " + obligationId));
+        ObligationClassification c = loadOrCreateClassification(ob, userId);
+        recordHistory(c, ob, req.getChangeReason(), userId);
+        applyOwner(c, req.getAssignedOwnerId());
+        classifications.save(c);
+        audit.log(userId, "assign_owner", "obligation", obligationId,
+            Map.of("ownerId", req.getAssignedOwnerId()));
+    }
+
+    private void applyOwner(ObligationClassification c, Integer ownerId) {
+        if (ownerId == null) {
+            c.setAssignedOwnerId(null);
+            c.setAssignedTeamId(null);
+            c.setAssignedDepartmentId(null);
+            c.setAssignedOwnerName(null);
+            c.setAssignedDepartment(null);
+            return;
+        }
+        Owner owner = ownerRepo.findById(ownerId)
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
+        c.setAssignedOwnerId(owner.getOwnerId());
+        c.setAssignedTeamId(owner.getTeamId());
+        c.setAssignedDepartmentId(owner.getDepartmentId());
+        c.setAssignedOwnerName(owner.getFullName());
+        c.setAssignedDepartment(owner.getDepartmentId() != null
+            ? departmentRepo.findById(owner.getDepartmentId())
+                .map(Department::getName)
+                .orElse(null)
+            : null);
+    }
+
+    @Transactional
+    public void updateRisk(Long obligationId, RiskAssessmentRequest req, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+        ObligationClassification c = loadOrCreateClassification(ob, userId);
+        recordHistory(c, ob, req.getChangeReason(), userId);
+        if (req.getTenantRiskRating() != null) c.setTenantRiskRating(req.getTenantRiskRating());
+        if (req.getRiskJustification() != null) c.setRiskJustification(req.getRiskJustification());
+        if (req.getImpactRating() != null) c.setImpactRating(req.getImpactRating());
+        if (req.getImpactJustification() != null) c.setImpactJustification(req.getImpactJustification());
+        if (req.getLikelihoodRating() != null) c.setLikelihoodRating(req.getLikelihoodRating());
+        if (req.getLikelihoodJustification() != null) c.setLikelihoodJustification(req.getLikelihoodJustification());
+        classifications.save(c);
+        audit.log(userId, "update_risk", "obligation", obligationId,
+            Map.of("tenantRiskRating", req.getTenantRiskRating()));
+    }
+
+    @Transactional
+    public void updateGap(Long obligationId, GapRequest req, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+        ObligationClassification c = loadOrCreateClassification(ob, userId);
+        recordHistory(c, ob, req.getChangeReason(), userId);
+        c.setHasGap(Boolean.TRUE.equals(req.getHasGap()));
+        c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
+        classifications.save(c);
+        audit.log(userId, "update_gap", "obligation", obligationId,
+            Map.of("hasGap", req.getHasGap()));
+    }
+
+    @Transactional
+    public void linkControls(Long obligationId, LinkControlsRequest req, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+        ObligationClassification c = loadOrCreateClassification(ob, userId);
+        recordHistory(c, ob, req.getChangeReason(), userId);
+        c.setLinkedControlIds(req.getLinkedControlIds() == null
+            ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
+        classifications.save(c);
+        audit.log(userId, "link_controls", "obligation", obligationId,
+            Map.of("linkedControlIds", c.getLinkedControlIds()));
+    }
+
+    private ObligationClassification loadOrCreateClassification(Obligation ob, Integer userId) {
+        ObligationClassification c = classifications.findByObligationId(ob.getObligationId())
+            .orElse(ObligationClassification.builder()
+                .instrumentId(ob.getInstrumentId())
+                .obligationId(ob.getObligationId())
+                .status("active")
+                .classificationVersion(1)
+                .classifiedByUserId(userId)
+                .classifiedAt(Instant.now())
+                .build());
+        return c;
+    }
+
+    private void recordHistory(ObligationClassification c, Obligation ob, String changeReason, Integer userId) {
+        if (c.getClassificationId() == null) return;
+        history.save(ClassificationHistory.builder()
+            .instrumentId(ob.getInstrumentId()).obligationId(ob.getObligationId())
+            .classificationVersion(c.getClassificationVersion())
+            .applicability(c.getApplicability()).tenantRiskRating(c.getTenantRiskRating())
+            .assignedOwnerUserId(c.getAssignedOwnerUserId()).hasGap(c.getHasGap())
+            .changeReason(changeReason).changedByUserId(userId).build());
+        c.setClassificationVersion(c.getClassificationVersion() + 1);
     }
 
     // ------------------------------------------------------------------ legacy instrument-level (inbox + api)
@@ -445,7 +558,7 @@ public class ObligationService {
                 .changeReason(req.getChangeReason()).changedByUserId(userId).build());
             c.setClassificationVersion(c.getClassificationVersion() + 1);
         }
-        c.setApplicability(req.getApplicability());
+        if (req.getApplicability() != null) c.setApplicability(req.getApplicability());
         if (req.getApplicabilityReasoning() != null) c.setApplicabilityReasoning(req.getApplicabilityReasoning());
         if (req.getTenantRiskRating() != null) c.setTenantRiskRating(req.getTenantRiskRating());
         if (req.getRiskJustification() != null) c.setRiskJustification(req.getRiskJustification());

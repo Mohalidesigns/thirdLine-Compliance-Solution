@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
+import OwnerPicker from '../components/org/OwnerPicker';
 
 const RISK_COLORS = { High: 'error', Medium: 'warning', Low: 'success' };
 
@@ -24,7 +25,7 @@ export default function ControlsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [filters, setFilters] = useState({ theme: '', residualRisk: '', ownerUserId: '' });
+  const [filters, setFilters] = useState({ theme: '', residualRisk: '', ownerId: null });
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [recordTestOpen, setRecordTestOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function ControlsPage() {
     const p = { page, size: rowsPerPage };
     if (filters.theme) p.theme = filters.theme;
     if (filters.residualRisk) p.residualRisk = filters.residualRisk;
-    if (filters.ownerUserId) p.ownerUserId = filters.ownerUserId;
+    if (filters.ownerId) p.ownerId = filters.ownerId;
     api.controls.register(p).then(res => {
       setData(res);
     }).catch(e => {
@@ -107,8 +108,8 @@ export default function ControlsPage() {
             <MenuItem value="Medium">Medium</MenuItem>
             <MenuItem value="Low">Low</MenuItem>
           </TextField>
-          <TextField label="Owner User ID" size="small" type="number" sx={{ minWidth: 120 }}
-            value={filters.ownerUserId} onChange={e => { setFilters(f => ({ ...f, ownerUserId: e.target.value })); setPage(0); }} />
+          <OwnerPicker value={filters.ownerId} onChange={id => { setFilters(f => ({ ...f, ownerId: id })); setPage(0); }}
+            label="Owner" allowQuickAdd={false} sx={{ minWidth: 200 }} />
         </CardContent>
       </Card>
 
@@ -359,14 +360,14 @@ function CreateDialog({ open, onClose, onSaved, onSnackbar, saving, setSaving })
   const [form, setForm] = useState(emptyForm());
   function emptyForm() {
     return { controlNumber: '', name: '', description: '', theme: '', controlType: '',
-      whatItDoes: '', howTested: '', controlOwnerUserId: '', controlOwnerName: '', testFrequency: '',
+      whatItDoes: '', howTested: '', controlOwnerId: null, testFrequency: '',
       testFrequencyDays: '', linkedObligationIds: '', inherentRisk: '' };
   }
   const handleSave = async () => {
     setSaving(true);
     try {
       const body = { ...form };
-      if (body.controlOwnerUserId) body.controlOwnerUserId = parseInt(body.controlOwnerUserId, 10);
+      if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
       if (body.linkedObligationIds) {
         body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
@@ -431,13 +432,9 @@ function CreateDialog({ open, onClose, onSaved, onSnackbar, saving, setSaving })
             <TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
               onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} />
           </Grid>
-          <Grid item xs={4}>
-            <TextField label="Owner User ID" fullWidth size="small" type="number" value={form.controlOwnerUserId}
-              onChange={e => setForm(f => ({ ...f, controlOwnerUserId: e.target.value }))} />
-          </Grid>
-          <Grid item xs={4}>
-            <TextField label="Owner Name" fullWidth size="small" value={form.controlOwnerName}
-              onChange={e => setForm(f => ({ ...f, controlOwnerName: e.target.value }))} />
+          <Grid item xs={8}>
+            <OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))}
+              label="Owner" />
           </Grid>
           <Grid item xs={4}>
             <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
@@ -476,8 +473,7 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
     if (control) {
       setForm({
         name: control.name || '', description: control.description || '', whatItDoes: control.whatItDoes || '',
-        howTested: control.howTested || '', controlOwnerUserId: control.controlOwnerUserId?.toString() || '',
-        controlOwnerName: control.controlOwnerName || '', testFrequency: control.testFrequency || '',
+        howTested: control.howTested || '', controlOwnerId: control.controlOwnerId ?? null, testFrequency: control.testFrequency || '',
         testFrequencyDays: control.testFrequencyDays?.toString() || '',
         linkedObligationIds: control.linkedObligations?.map(o => o.obligationId).join(', ') || '',
         inherentRisk: control.inherentRisk || '',
@@ -488,7 +484,7 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
     setSaving(true);
     try {
       const body = { ...form };
-      if (body.controlOwnerUserId) body.controlOwnerUserId = parseInt(body.controlOwnerUserId, 10);
+      if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
       if (body.linkedObligationIds) {
         body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
@@ -519,13 +515,9 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
             <TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
               onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} />
           </Grid>
-          <Grid item xs={4}>
-            <TextField label="Owner User ID" fullWidth size="small" type="number" value={form.controlOwnerUserId}
-              onChange={e => setForm(f => ({ ...f, controlOwnerUserId: e.target.value }))} />
-          </Grid>
-          <Grid item xs={4}>
-            <TextField label="Owner Name" fullWidth size="small" value={form.controlOwnerName}
-              onChange={e => setForm(f => ({ ...f, controlOwnerName: e.target.value }))} />
+          <Grid item xs={8}>
+            <OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))}
+              label="Owner" />
           </Grid>
           <Grid item xs={4}>
             <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
@@ -560,13 +552,13 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
   const [form, setForm] = useState({
     testDate: new Date().toISOString().split('T')[0],
     result: '', resultDescription: '', failureDetails: '', failureSeverity: '',
-    evidenceUrl: '', remediationRequired: false, remediationOwnerUserId: '', remediationDeadline: '',
+    evidenceUrl: '', remediationRequired: false, remediationOwnerId: null, remediationDeadline: '',
   });
   const handleSave = async () => {
     setSaving(true);
     try {
       const body = { ...form };
-      if (body.remediationOwnerUserId) body.remediationOwnerUserId = parseInt(body.remediationOwnerUserId, 10);
+      if (!body.remediationOwnerId) body.remediationOwnerId = null;
       if (!body.remediationDeadline) delete body.remediationDeadline;
       await api.controls.recordTest(controlId, body);
       onSaved();
@@ -615,8 +607,8 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
           </Grid>
           <Grid item xs={6}>
-            <TextField label="Remediation Owner User ID" fullWidth size="small" type="number" value={form.remediationOwnerUserId}
-              onChange={e => setForm(f => ({ ...f, remediationOwnerUserId: e.target.value }))} />
+            <OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+              onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} />
           </Grid>
           <Grid item xs={6}>
             <TextField label="Remediation Deadline" type="date" fullWidth size="small"

@@ -53,6 +53,7 @@ public class ControlTestService {
             .failureDetails(req.getFailureDetails()).failureSeverity(req.getFailureSeverity())
             .evidenceUrl(req.getEvidenceUrl()).remediationRequired(req.getRemediationRequired())
             .remediationOwnerUserId(req.getRemediationOwnerUserId())
+            .remediationOwnerId(req.getRemediationOwnerId())
             .remediationDeadline(req.getRemediationDeadline())
             .reviewStatus("Pending").build();
         testRepo.save(result);

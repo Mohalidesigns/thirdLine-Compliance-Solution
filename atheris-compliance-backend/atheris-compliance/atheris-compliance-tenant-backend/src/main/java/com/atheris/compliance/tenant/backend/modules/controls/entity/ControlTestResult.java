@@ -30,6 +30,7 @@ public class ControlTestResult {
     private String evidenceUrl;
     private Boolean remediationRequired = false;
     private Integer remediationOwnerUserId;
+    private Integer remediationOwnerId;
     private LocalDate remediationDeadline;
     private String reviewStatus = "Pending";
     private Integer reviewedByUserId;

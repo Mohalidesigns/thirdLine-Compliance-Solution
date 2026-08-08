@@ -28,6 +28,7 @@ public class Finding {
     private String rootCause;
     private Integer assignedToUserId;
     private String assignedToName;
+    private Integer assignedToOwnerId;
     private Instant assignedAt;
     private String status = "Open";
     private LocalDate remediationDeadline;

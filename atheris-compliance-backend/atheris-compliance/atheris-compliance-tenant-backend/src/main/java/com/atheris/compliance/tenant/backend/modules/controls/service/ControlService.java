@@ -7,6 +7,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -23,11 +25,12 @@ public class ControlService {
     private final ControlTestResultRepository testRepo;
     private final ControlTaskRepository taskRepo;
     private final ObligationRepository obligationRepo;
+    private final OwnerRepository ownerRepo;
     private final AuditService audit;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, String residualRisk, Integer ownerUserId, String status, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, status);
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, Pageable p) {
+        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status);
         Page<Control> page = repo.findAll(spec, p);
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
             page.getContent().stream().map(Control::getControlId).toList());
@@ -87,7 +90,8 @@ public class ControlService {
             .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
             .description(c.getDescription()).theme(c.getTheme()).controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes()).howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerName(c.getControlOwnerName())
+            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerId(c.getControlOwnerId())
+            .controlOwnerName(c.getControlOwnerName())
             .testFrequency(c.getTestFrequency()).testFrequencyDays(c.getTestFrequencyDays())
             .linkedObligations(obligations).inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk()).status(c.getStatus())
@@ -102,13 +106,14 @@ public class ControlService {
     @Transactional
     public ControlDto create(CreateControlRequest req, Integer userId) {
         if (repo.existsByControlNumber(req.getControlNumber()))
-            throw new RuntimeException("Control number already exists");
+            throw new IllegalArgumentException("Control number already exists");
         Control c = Control.builder()
             .controlNumber(req.getControlNumber()).name(req.getName())
             .description(req.getDescription()).theme(req.getTheme())
             .controlType(req.getControlType()).whatItDoes(req.getWhatItDoes())
-            .howTested(req.getHowTested()).controlOwnerUserId(req.getControlOwnerUserId())
-            .controlOwnerName(req.getControlOwnerName())
+            .howTested(req.getHowTested())
+            .controlOwnerId(req.getControlOwnerId())
+            .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
             .testFrequency(req.getTestFrequency()).testFrequencyDays(req.getTestFrequencyDays())
             .linkedObligationIds(req.getLinkedObligationIds())
             .inherentRisk(req.getInherentRisk()).residualRisk(req.getInherentRisk())
@@ -126,8 +131,10 @@ public class ControlService {
         if (req.getDescription() != null) c.setDescription(req.getDescription());
         if (req.getWhatItDoes() != null) c.setWhatItDoes(req.getWhatItDoes());
         if (req.getHowTested() != null) c.setHowTested(req.getHowTested());
-        if (req.getControlOwnerUserId() != null) c.setControlOwnerUserId(req.getControlOwnerUserId());
-        if (req.getControlOwnerName() != null) c.setControlOwnerName(req.getControlOwnerName());
+        if (req.getControlOwnerId() != null) {
+            c.setControlOwnerId(req.getControlOwnerId());
+            c.setControlOwnerName(resolveOwnerName(req.getControlOwnerId()));
+        }
         if (req.getTestFrequency() != null) c.setTestFrequency(req.getTestFrequency());
         if (req.getTestFrequencyDays() != null) c.setTestFrequencyDays(req.getTestFrequencyDays());
         if (req.getLinkedObligationIds() != null) c.setLinkedObligationIds(req.getLinkedObligationIds());
@@ -139,14 +146,21 @@ public class ControlService {
         return toDto(repo.save(c));
     }
 
+    private String resolveOwnerName(Integer ownerId) {
+        if (ownerId == null) return null;
+        return ownerRepo.findById(ownerId)
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
+            .getFullName();
+    }
+
     public List<ControlDto> findAll() {
         return repo.findByStatus("Active").stream().map(this::toDto).toList();
     }
     public List<ControlDto> findByTheme(String theme) {
         return repo.findByTheme(theme).stream().map(this::toDto).toList();
     }
-    public List<ControlDto> findByOwner(Integer userId) {
-        return repo.findByControlOwnerUserId(userId).stream().map(this::toDto).toList();
+    public List<ControlDto> findByOwner(Integer ownerId) {
+        return repo.findByControlOwnerId(ownerId).stream().map(this::toDto).toList();
     }
     public List<ControlDto> findHighRisk() {
         return repo.findByResidualRisk("High").stream().map(this::toDto).toList();
@@ -157,7 +171,8 @@ public class ControlService {
             .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
             .description(c.getDescription()).theme(c.getTheme()).controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes()).howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerName(c.getControlOwnerName())
+            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerId(c.getControlOwnerId())
+            .controlOwnerName(c.getControlOwnerName())
             .testFrequency(c.getTestFrequency()).testFrequencyDays(c.getTestFrequencyDays())
             .linkedObligationIds(c.getLinkedObligationIds())
             .inherentRisk(c.getInherentRisk()).residualRisk(c.getResidualRisk())

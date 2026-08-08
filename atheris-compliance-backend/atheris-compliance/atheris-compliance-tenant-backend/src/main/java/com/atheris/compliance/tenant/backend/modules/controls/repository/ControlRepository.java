@@ -12,6 +12,7 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
     Optional<Control> findByControlNumber(String controlNumber);
     boolean existsByControlNumber(String controlNumber);
     List<Control> findByControlOwnerUserId(Integer userId);
+    List<Control> findByControlOwnerId(Integer ownerId);
     List<Control> findByTheme(String theme);
     List<Control> findByStatus(String status);
     List<Control> findByResidualRisk(String risk);

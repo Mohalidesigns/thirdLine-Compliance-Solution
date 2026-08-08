@@ -1,17 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, MenuItem, FormControlLabel, Checkbox, Snackbar, Tooltip,
-  TablePagination, Drawer, Divider, List, ListItem, ListItemButton, ListItemText,
-  LinearProgress, Switch, Collapse, TableSortLabel,
+  TextField, MenuItem, FormControlLabel, Checkbox, Tooltip,
+  TablePagination, TableSortLabel,
 } from '@mui/material';
 import {
-  Search, Refresh, Visibility, Edit, History, UploadFile, Close, Download,
-  Link as LinkIcon, CheckCircle, Warning as WarningIcon, Article, ArrowBack,
-  CalendarToday,
+  Search, Refresh, Close,
+  Link as LinkIcon, Warning as WarningIcon, Article,
 } from '@mui/icons-material';
-import { api, API_BASE, getToken } from '../services/api';
+import { api } from '../services/api';
 
 const RISK_CONFIG = {
   Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
@@ -42,6 +41,7 @@ const COLUMNS = [
 ];
 
 export default function ObligationsRegisterPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -61,22 +61,6 @@ export default function ObligationsRegisterPage() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
-
-  // detail drawer
-  const [selected, setSelected] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [view, setView] = useState('overview');
-
-  // edit drawer
-  const [editOpen, setEditOpen] = useState(false);
-  const [editData, setEditData] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [controls, setControls] = useState([]);
-  const [returns, setReturns] = useState([]);
-  const [evidenceFile, setEvidenceFile] = useState(null);
-
-  const [snack, setSnack] = useState(null);
-  const notify = (severity, message) => setSnack({ severity, message });
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
     || themeFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
@@ -108,12 +92,6 @@ export default function ObligationsRegisterPage() {
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
-  useEffect(() => {
-    if (editOpen) {
-      api.controls.list({}).then(d => setControls(Array.isArray(d) ? d : (d.content || []))).catch(() => {});
-      api.returns.list().then(d => setReturns(Array.isArray(d) ? d : (d.content || []))).catch(() => {});
-    }
-  }, [editOpen]);
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
@@ -121,85 +99,8 @@ export default function ObligationsRegisterPage() {
     setPage(0);
   }
 
-  async function openDetail(row) {
-    setDetailLoading(true);
-    setError('');
-    setView('overview');
-    try {
-      const d = await api.obligations.obligationDetail(row.obligationId);
-      setSelected(d);
-    } catch (e) { notify('error', e.message || 'Failed to load detail.'); }
-    finally { setDetailLoading(false); }
-  }
-
-  function openEdit() {
-    if (!selected) return;
-    setEditData({
-      applicability: selected.applicability || 'applicable',
-      applicabilityReasoning: selected.applicabilityReasoning || '',
-      tenantRiskRating: selected.tenantRiskRating || '',
-      riskJustification: selected.riskJustification || '',
-      riskType: selected.riskType || '',
-      impactRating: selected.impactRating || '',
-      likelihoodRating: selected.likelihoodRating || '',
-      assignedOwnerName: selected.assignedOwnerName || '',
-      assignedDepartment: selected.assignedDepartment || '',
-      linkedControlIds: selected.linkedControls?.map(c => c.controlId) || [],
-      hasGap: !!selected.hasGap,
-      gapDescription: selected.gapDescription || '',
-      linkedReturnIds: selected.linkedReturns?.map(r => r.returnId) || [],
-      changeReason: '',
-    });
-    setEvidenceFile(null);
-    setEditOpen(true);
-  }
-
-  async function handleSaveEdit() {
-    setSaving(true);
-    try {
-      const body = { ...editData };
-      await api.obligations.classify(selected.obligationId, body);
-      if (editData.linkedReturnIds && editData.linkedReturnIds.length > 0) {
-        await api.obligations.linkReturns(selected.obligationId, editData.linkedReturnIds);
-      }
-      if (evidenceFile) {
-        const fd = new FormData();
-        fd.append('file', evidenceFile);
-        fd.append('sourceType', 'obligation');
-        fd.append('sourceId', String(selected.obligationId));
-        fd.append('description', editData.changeReason || 'Evidence uploaded during classification edit');
-        await api.evidence.upload(fd);
-      }
-      notify('success', 'Classification saved');
-      setEditOpen(false);
-      openDetail({ obligationId: selected.obligationId });
-      loadList();
-      loadStats();
-    } catch (e) { notify('error', e.message || 'Failed to save.'); }
-    finally { setSaving(false); }
-  }
-
-  async function handleDownloadEvidence(ev) {
-    try {
-      const { blob, name } = await api.evidence.download(ev.fileId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    } catch { notify('error', 'Failed to download evidence.'); }
-  }
-
-  async function handleViewPdf() {
-    const id = selected?.instrumentId;
-    if (!id) return;
-    try {
-      const res = await fetch(`${API_BASE}/subscriptions/instruments/${id}/pdf`, {
-        headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {},
-      });
-      if (!res.ok) throw new Error('PDF load failed');
-      const blob = await res.blob();
-      window.open(URL.createObjectURL(blob), '_blank');
-    } catch { notify('error', 'Failed to load PDF.'); }
+  function openDetail(row) {
+    navigate(`/obligations/${row.obligationId}`);
   }
 
   function applyKpiFilter(type) {
@@ -392,289 +293,6 @@ export default function ObligationsRegisterPage() {
         </Paper>
       )}
 
-      {/* Detail Drawer */}
-      <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 620 }, maxWidth: '100%' } }}>
-        {detailLoading ? (
-          <Box sx={{ p: 4 }}><LinearProgress /></Box>
-        ) : selected && (
-          <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <IconButton onClick={() => setSelected(null)}><ArrowBack /></IconButton>
-              <Box sx={{ flex: 1 }} />
-              <Button size="small" variant="outlined" startIcon={<Visibility />} onClick={handleViewPdf}>PDF</Button>
-              <Button size="small" variant="contained" startIcon={<Edit />} onClick={openEdit}>Edit</Button>
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-              {riskChip(selected.tenantRiskRating || selected.inherentRiskRating)}
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                {selected.regulatorAbbreviation || selected.regulatorName}
-              </Typography>
-              <Chip size="small" label={selected.status || 'unknown'}
-                color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-              {selected.description || 'Untitled obligation'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{selected.sourceTitle}</Typography>
-
-            {/* Classification */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Your Classification</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CheckCircle sx={{ color: selected.applicability === 'applicable' ? '#38A169' : '#CBD5E0', fontSize: 18 }} />
-                <Typography variant="body2" sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                  {selected.applicability || 'Not classified'}
-                </Typography>
-                {selected.classifiedByName && (
-                  <Typography variant="caption" color="text.secondary">— {selected.classifiedByName}</Typography>
-                )}
-              </Box>
-              {selected.classifiedAt && (
-                <Typography variant="caption" color="text.secondary">{formatDate(selected.classifiedAt)}</Typography>
-              )}
-              {selected.applicabilityReasoning && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selected.applicabilityReasoning}</Typography>
-              )}
-            </Paper>
-
-            {/* Risk Assessment */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Internal Risk Assessment</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 2, mb: 1.5 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Inherent</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(selected.inherentRiskRating)}</Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Residual</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(selected.residualRiskRating)}</Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Impact</Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.impactRating || '-'} / {selected.likelihoodRating || '-'}</Typography>
-                </Box>
-              </Box>
-              {selected.riskJustification && (
-                <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
-              )}
-            </Paper>
-
-            {/* Owner */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Compliance Owner</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {selected.assignedOwnerName || 'Unassigned'}
-              </Typography>
-              {selected.assignedDepartment && (
-                <Typography variant="caption" color="text.secondary">{selected.assignedDepartment}</Typography>
-              )}
-            </Paper>
-
-            {/* Controls */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Linked Controls</Typography>
-              {selected.linkedControls?.length > 0 ? (
-                <List dense disablePadding>
-                  {selected.linkedControls.map(c => (
-                    <ListItem key={c.controlId} disableGutters sx={{ py: 0.25 }}>
-                      <ListItemText
-                        primary={<Typography variant="body2">{c.controlNumber} — {c.name}</Typography>}
-                        secondary={<Typography variant="caption" color="text.secondary">
-                          {c.theme || ''}{c.controlType ? ` · ${c.controlType}` : ''}{c.inherentRisk ? ` · Inherent: ${c.inherentRisk}` : ''}
-                        </Typography>} />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : <Typography variant="body2" color="text.secondary">No controls linked</Typography>}
-            </Paper>
-
-            {/* Returns */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Return Required</Typography>
-              {selected.linkedReturns?.length > 0 ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.linkedReturns.map(r => (
-                    <Chip key={r.returnId} size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                      label={`${r.returnName}${r.frequency ? ` (${r.frequency})` : ''}`} variant="outlined" sx={{ height: 22 }} />
-                  ))}
-                </Box>
-              ) : <Typography variant="body2" color="text.secondary">None mapped</Typography>}
-            </Paper>
-
-            {/* Gap */}
-            {selected.hasGap && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                <strong>Gap identified:</strong> {selected.gapDescription || 'No control covers this obligation'}
-              </Alert>
-            )}
-
-            {/* Evidence */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Evidence</Typography>
-              {selected.evidence?.length > 0 ? (
-                <List dense disablePadding>
-                  {selected.evidence.map(ev => (
-                    <ListItem key={ev.fileId} disableGutters
-                      secondaryAction={
-                        <Tooltip title="Download"><IconButton size="small" onClick={() => handleDownloadEvidence(ev)}><Download fontSize="small" /></IconButton></Tooltip>
-                      }>
-                      <ListItemText
-                        primary={<Typography variant="body2" sx={{ fontWeight: 500 }}>{ev.originalName}</Typography>}
-                        secondary={<Typography variant="caption" color="text.secondary">
-                          {ev.uploadedByName || 'Unknown'} · {ev.createdAt ? formatDate(ev.createdAt) : ''}
-                        </Typography>} />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : <Typography variant="body2" color="text.secondary">No evidence uploaded</Typography>}
-            </Paper>
-
-            {/* History */}
-            <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Version History</Typography>
-              {selected.history?.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">No version history recorded.</Typography>
-              ) : selected.history.map((h, i) => (
-                <Box key={i} sx={{ mb: 1.5, pb: 1.5, borderBottom: i < selected.history.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                    Version {h.classificationVersion} — {h.changedAt ? formatDate(h.changedAt) : '-'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {h.changedByName || `User #${h.changedByUserId}`}
-                  </Typography>
-                  {h.applicability && <Typography variant="body2">Applicability: {h.applicability}</Typography>}
-                  {h.tenantRiskRating && <Typography variant="body2">Risk: {h.tenantRiskRating}</Typography>}
-                  {h.hasGap != null && <Typography variant="body2">Has gap: {h.hasGap ? 'Yes' : 'No'}</Typography>}
-                  {h.changeReason && <Typography variant="body2" sx={{ fontStyle: 'italic', mt: 0.5 }}>Reason: {h.changeReason}</Typography>}
-                </Box>
-              ))}
-            </Paper>
-          </Box>
-        )}
-      </Drawer>
-
-      {/* Edit Drawer */}
-      <Drawer anchor="right" open={editOpen} onClose={() => setEditOpen(false)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 620 }, maxWidth: '100%' } }}>
-        <Box sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <IconButton onClick={() => setEditOpen(false)}><ArrowBack /></IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>Edit Classification</Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{selected?.description}</Typography>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Ownership</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-              <TextField size="small" fullWidth label="Compliance Owner" value={editData.assignedOwnerName || ''}
-                onChange={e => setEditData({ ...editData, assignedOwnerName: e.target.value })} />
-              <TextField size="small" fullWidth label="Department" value={editData.assignedDepartment || ''}
-                onChange={e => setEditData({ ...editData, assignedDepartment: e.target.value })} />
-            </Box>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Internal Risk Rating</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 2 }}>
-              <TextField select size="small" label="Risk Rating" value={editData.tenantRiskRating || ''}
-                onChange={e => setEditData({ ...editData, tenantRiskRating: e.target.value })}>
-                <MenuItem value=""><em>None</em></MenuItem>
-                {riskLevels.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-              </TextField>
-              <TextField select size="small" label="Impact" value={editData.impactRating || ''}
-                onChange={e => setEditData({ ...editData, impactRating: e.target.value })}>
-                <MenuItem value=""><em>None</em></MenuItem>
-                {['Critical', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-              </TextField>
-              <TextField select size="small" label="Likelihood" value={editData.likelihoodRating || ''}
-                onChange={e => setEditData({ ...editData, likelihoodRating: e.target.value })}>
-                <MenuItem value=""><em>None</em></MenuItem>
-                {['Almost Certain', 'Likely', 'Possible', 'Unlikely', 'Rare'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-              </TextField>
-            </Box>
-            <TextField size="small" fullWidth multiline rows={2} label="Risk justification" value={editData.riskJustification || ''}
-              onChange={e => setEditData({ ...editData, riskJustification: e.target.value })} />
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Linked Controls</Typography>
-            <Box sx={{ maxHeight: 160, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-              {controls.length === 0 ? <Typography variant="caption" color="text.secondary">No controls available</Typography>
-              : controls.map(c => (
-                <FormControlLabel key={c.controlId} control={
-                  <Checkbox size="small" checked={(editData.linkedControlIds || []).includes(c.controlId)}
-                    onChange={e => {
-                      const ids = editData.linkedControlIds || [];
-                      setEditData({ ...editData, linkedControlIds: e.target.checked ? [...ids, c.controlId] : ids.filter(x => x !== c.controlId) });
-                    }} />
-                } label={<Typography variant="body2">{c.controlNumber} — {c.name}</Typography>}
-                  sx={{ display: 'flex', width: '100%', m: 0 }} />
-              ))}
-            </Box>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Return Required</Typography>
-            <Box sx={{ maxHeight: 140, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-              {returns.length === 0 ? <Typography variant="caption" color="text.secondary">No returns configured</Typography>
-              : returns.map(r => (
-                <FormControlLabel key={r.returnId} control={
-                  <Checkbox size="small" checked={(editData.linkedReturnIds || []).includes(r.returnId)}
-                    onChange={e => {
-                      const ids = editData.linkedReturnIds || [];
-                      setEditData({ ...editData, linkedReturnIds: e.target.checked ? [...ids, r.returnId] : ids.filter(x => x !== r.returnId) });
-                    }} />
-                } label={<Typography variant="body2">{r.returnName} {r.frequency ? `(${r.frequency})` : ''}</Typography>}
-                  sx={{ display: 'flex', width: '100%', m: 0 }} />
-              ))}
-            </Box>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Gap</Typography>
-            <FormControlLabel control={
-              <Switch checked={!!editData.hasGap}
-                onChange={e => setEditData({ ...editData, hasGap: e.target.checked })} size="small" />
-            } label={<Typography variant="body2">Has gap (no control covers this obligation)</Typography>} />
-            {editData.hasGap && (
-              <TextField size="small" fullWidth multiline rows={2} label="Gap description" value={editData.gapDescription || ''}
-                onChange={e => setEditData({ ...editData, gapDescription: e.target.value })} sx={{ mt: 1.5 }} />
-            )}
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Supporting Evidence</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Button component="label" variant="outlined" startIcon={<UploadFile />} size="small">
-                {evidenceFile ? evidenceFile.name : 'Upload evidence (optional)'}
-                <input type="file" hidden onChange={e => setEvidenceFile(e.target.files?.[0] || null)} />
-              </Button>
-              {evidenceFile && <Button size="small" color="error" onClick={() => setEvidenceFile(null)}>Remove</Button>}
-            </Box>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Reason for Update</Typography>
-            <TextField size="small" fullWidth multiline rows={2} label="Reason for update" required
-              value={editData.changeReason || ''}
-              onChange={e => setEditData({ ...editData, changeReason: e.target.value })} />
-          </Paper>
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
-            <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSaveEdit} disabled={saving || !editData.changeReason}>
-              {saving ? <CircularProgress size={20} /> : 'Save Changes'}
-            </Button>
-          </Box>
-        </Box>
-      </Drawer>
-
-      <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        {snack ? <Alert severity={snack.severity} onClose={() => setSnack(null)}>{snack.message}</Alert> : undefined}
-      </Snackbar>
     </Box>
   );
 }

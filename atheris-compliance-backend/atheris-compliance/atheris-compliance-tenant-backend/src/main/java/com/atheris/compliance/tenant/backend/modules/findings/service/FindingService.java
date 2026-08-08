@@ -6,6 +6,8 @@ import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingSpecification;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -19,6 +21,7 @@ import java.util.*;
 public class FindingService {
 
     private final FindingRepository repo;
+    private final OwnerRepository ownerRepo;
     private final AuditService audit;
 
     public Page<FindingRegisterItem> getRegisterList(
@@ -83,15 +86,18 @@ public class FindingService {
     public Finding autoRaiseFromTest(ControlTestResult test, Control control) {
         String severity = determineSeverity(test.getFailureSeverity(), control.getInherentRisk());
         int sla = slaDays(severity);
+        Integer ownerId = test.getRemediationOwnerId() != null
+            ? test.getRemediationOwnerId()
+            : control.getControlOwnerId();
         Finding f = Finding.builder()
             .triggeredByTestId(test.getTestId()).triggerReason("Control test failed")
             .findingType("Control Failure").severity(severity)
             .description(String.format("Control %s (%s) failed on %s. %s",
                 control.getControlNumber(), control.getName(), test.getTestDate(), test.getResultDescription()))
             .rootCause(test.getFailureDetails())
-            .assignedToUserId(control.getControlOwnerUserId())
-            .assignedToName(control.getControlOwnerName())
-            .assignedAt(Instant.now())
+            .assignedToOwnerId(ownerId)
+            .assignedToName(resolveOwnerName(ownerId))
+            .assignedAt(ownerId != null ? Instant.now() : null)
             .remediationDeadline(LocalDate.now().plus(sla, ChronoUnit.DAYS))
             .slaDays(sla).createdByUserId(test.getTestedByUserId()).status("Open").build();
         Finding saved = repo.save(f);
@@ -109,11 +115,11 @@ public class FindingService {
             .rootCause(req.getRootCause())
             .linkedObligationId(req.getLinkedObligationId())
             .linkedControlId(req.getLinkedControlId())
-            .assignedToUserId(req.getAssignedToUserId())
-            .assignedToName(req.getAssignedToName())
-            .assignedAt(req.getAssignedToUserId() != null ? Instant.now() : null)
+            .assignedToOwnerId(req.getAssignedToOwnerId())
+            .assignedToName(resolveOwnerName(req.getAssignedToOwnerId()))
+            .assignedAt(req.getAssignedToOwnerId() != null ? Instant.now() : null)
             .remediationDeadline(req.getRemediationDeadline()).slaDays(sla)
-            .createdByUserId(userId).status(req.getAssignedToUserId() != null ? "In Remediation" : "Open").build();
+            .createdByUserId(userId).status(req.getAssignedToOwnerId() != null ? "In Remediation" : "Open").build();
         Finding saved = repo.save(f);
         audit.log(userId, "finding_raised_manually", "finding", saved.getFindingId(),
             Map.of("severity", req.getSeverity()));
@@ -123,12 +129,20 @@ public class FindingService {
     @Transactional
     public Finding assign(Long id, RaiseRemediationRequest req, Integer userId) {
         Finding f = findById(id);
-        f.setAssignedToUserId(req.getAssignedToUserId());
+        f.setAssignedToOwnerId(req.getAssignedToOwnerId());
+        f.setAssignedToName(resolveOwnerName(req.getAssignedToOwnerId()));
         f.setRemediationDeadline(req.getRemediationDeadline());
         f.setStatus("In Remediation");
         f.setAssignedAt(Instant.now());
         audit.log(userId, "finding_assigned", "finding", id, Map.of());
         return repo.save(f);
+    }
+
+    private String resolveOwnerName(Integer ownerId) {
+        if (ownerId == null) return null;
+        return ownerRepo.findById(ownerId)
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
+            .getFullName();
     }
 
     @Transactional

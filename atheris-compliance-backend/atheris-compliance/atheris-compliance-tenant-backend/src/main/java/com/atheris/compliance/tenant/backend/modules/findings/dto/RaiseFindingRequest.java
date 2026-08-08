@@ -13,7 +13,6 @@ public class RaiseFindingRequest {
     private String rootCause;
     private Long linkedObligationId;
     private Integer linkedControlId;
-    private Integer assignedToUserId;
-    private String assignedToName;
+    private Integer assignedToOwnerId;
     @NotNull private LocalDate remediationDeadline;
 }

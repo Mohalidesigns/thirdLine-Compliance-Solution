@@ -13,8 +13,7 @@ public class CreateControlRequest {
     private String controlType;
     private String whatItDoes;
     private String howTested;
-    private Integer controlOwnerUserId;
-    private String controlOwnerName;
+    private Integer controlOwnerId;
     private String testFrequency;
     private Integer testFrequencyDays;
     private List<Long> linkedObligationIds;

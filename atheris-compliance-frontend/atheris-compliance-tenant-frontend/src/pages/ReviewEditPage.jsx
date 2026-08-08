@@ -11,6 +11,7 @@ import {
   Add, Delete, Save, Close,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken } from '../services/api';
+import OwnerPicker from '../components/org/OwnerPicker';
 
 const OBLIGATION_TYPES = [
   'reporting', 'disclosure', 'compliance', 'record_keeping',
@@ -27,8 +28,14 @@ const APPLICABILITY_OPTIONS = ['applicable', 'not_applicable'];
 const IMPACT_RATINGS = ['Critical', 'High', 'Medium', 'Low'];
 const LIKELIHOOD_RATINGS = ['Almost Certain', 'Likely', 'Possible', 'Unlikely', 'Rare'];
 
-function ObligationRow({ item, index, onChange, onRemove }) {
+function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated }) {
   const [open, setOpen] = useState(false);
+
+  function setOwner(idx, id, name, dept) {
+    onChange(idx, 'assignedOwnerId', id);
+    onChange(idx, 'assignedOwnerName', name || null);
+    onChange(idx, 'assignedDepartment', dept || null);
+  }
   return (
     <>
       <TableRow hover>
@@ -110,10 +117,10 @@ function ObligationRow({ item, index, onChange, onRemove }) {
                     <MenuItem value=""><em>None</em></MenuItem>
                     {LIKELIHOOD_RATINGS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </TextField>
-                  <TextField fullWidth size="small" label="Compliance Owner" value={item.assignedOwnerName || ''}
-                    onChange={e => onChange(index, 'assignedOwnerName', e.target.value)} />
-                  <TextField fullWidth size="small" label="Department" value={item.assignedDepartment || ''}
-                    onChange={e => onChange(index, 'assignedDepartment', e.target.value)} />
+                  <OwnerPicker value={item.assignedOwnerId} label="Compliance Owner"
+                    onOwnerCreated={(owner) => { setOwner(index, owner.ownerId, owner.fullName, owner.departmentName); onOwnerCreated?.(owner); }}
+                    onChange={id => { const o = owners.find(x => x.ownerId === id); setOwner(index, id, o?.fullName, o?.departmentName); }} />
+                  <TextField fullWidth size="small" label="Department" value={item.assignedDepartment || ''} disabled />
                 </Box>
                 <TextField fullWidth multiline rows={2} size="small" label="Applicability reasoning / risk justification"
                   value={item.applicabilityReasoning || ''}
@@ -151,8 +158,13 @@ export default function ReviewEditPage() {
   const [snack, setSnack] = useState(null);
 
   const [changeReason, setChangeReason] = useState('');
+  const [owners, setOwners] = useState([]);
 
   const notify = (severity, message) => setSnack({ severity, message });
+
+  useEffect(() => {
+    api.org.owners().then(setOwners).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -168,6 +180,7 @@ export default function ReviewEditPage() {
           riskJustification: '',
           impactRating: '',
           likelihoodRating: '',
+          assignedOwnerId: null,
           assignedOwnerName: '',
           assignedDepartment: '',
           hasGap: false,
@@ -177,6 +190,10 @@ export default function ReviewEditPage() {
       .catch(err => setError(err.message || 'Failed to load review.'))
       .finally(() => setLoading(false));
   }, [reviewId]);
+
+  function handleOwnerCreated(owner) {
+    setOwners(prev => prev.some(o => o.ownerId === owner.ownerId) ? prev : [...prev, owner]);
+  }
 
   function handleChange(idx, field, value) {
     setObligations(prev => {
@@ -204,6 +221,7 @@ export default function ReviewEditPage() {
       riskJustification: '',
       impactRating: '',
       likelihoodRating: '',
+      assignedOwnerId: null,
       assignedOwnerName: '',
       assignedDepartment: '',
       hasGap: false,
@@ -254,6 +272,7 @@ export default function ReviewEditPage() {
           riskJustification: o.riskJustification || undefined,
           impactRating: o.impactRating || undefined,
           likelihoodRating: o.likelihoodRating || undefined,
+          assignedOwnerId: o.assignedOwnerId ?? undefined,
           assignedOwnerName: o.assignedOwnerName || undefined,
           assignedDepartment: o.assignedDepartment || undefined,
           hasGap: o.hasGap,
@@ -408,7 +427,8 @@ export default function ReviewEditPage() {
               ) : (
                 obligations.map((o, i) => (
                   <ObligationRow key={o.obligationNumber ?? i} item={o} index={i}
-                    onChange={handleChange} onRemove={handleRemove} />
+                    onChange={handleChange} onRemove={handleRemove}
+                    owners={owners} onOwnerCreated={handleOwnerCreated} />
                 ))
               )}
             </TableBody>

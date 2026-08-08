@@ -96,6 +96,46 @@ public class ObligationController {
         return ResponseEntity.ok(service.classify(id, req, u.getUserId()));
     }
 
+    @PutMapping("/{id}/owner")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> assignOwner(
+            @PathVariable Long id,
+            @RequestBody AssignOwnerRequest req,
+            @AuthenticationPrincipal User u) {
+        service.assignOwner(id, req, u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/risk")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> updateRisk(
+            @PathVariable Long id,
+            @RequestBody RiskAssessmentRequest req,
+            @AuthenticationPrincipal User u) {
+        service.updateRisk(id, req, u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/gap")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> updateGap(
+            @PathVariable Long id,
+            @RequestBody GapRequest req,
+            @AuthenticationPrincipal User u) {
+        service.updateGap(id, req, u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}/controls")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> linkControls(
+            @PathVariable Long id,
+            @RequestBody LinkControlsRequest req,
+            @AuthenticationPrincipal User u) {
+        service.linkControls(id, req, u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/{id}/history")
     public ResponseEntity<List<?>> history(@PathVariable Long id) {
         return ResponseEntity.ok(service.getHistory(id));

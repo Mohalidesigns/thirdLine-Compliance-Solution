@@ -182,6 +182,18 @@ export const api = {
     linkReturns: (obligationId, linkedReturnIds) => request(`/obligations/obligation/${obligationId}/returns`, {
       method: 'PUT', body: JSON.stringify({ linkedReturnIds }),
     }),
+    assignOwner: (obligationId, data) => request(`/obligations/${obligationId}/owner`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    updateRisk: (obligationId, data) => request(`/obligations/${obligationId}/risk`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    updateGap: (obligationId, data) => request(`/obligations/${obligationId}/gap`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    linkControls: (obligationId, data) => request(`/obligations/${obligationId}/controls`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
     detail: (id) => request(`/obligations/${id}/detail`),
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
@@ -283,5 +295,49 @@ export const api = {
     updatePolling: (data) => request('/settings/polling', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+  },
+  org: {
+    tree: () => request('/org'),
+    departments: (activeOnly = false) => request(`/org/departments?activeOnly=${activeOnly}`),
+    createDepartment: (data) => request('/org/departments', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    updateDepartment: (id, data) => request(`/org/departments/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    deleteDepartment: (id) => request(`/org/departments/${id}`, { method: 'DELETE' }),
+    teams: (departmentId) => request(`/org/teams${departmentId ? `?departmentId=${departmentId}` : ''}`),
+    createTeam: (data) => request('/org/teams', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    updateTeam: (id, data) => request(`/org/teams/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    deleteTeam: (id) => request(`/org/teams/${id}`, { method: 'DELETE' }),
+    owners: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/org/owners${s ? '?' + s : ''}`);
+    },
+    createOwner: (data) => request('/org/owners', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    updateOwner: (id, data) => request(`/org/owners/${id}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    deleteOwner: (id) => request(`/org/owners/${id}`, { method: 'DELETE' }),
+  },
+  users: {
+    me: () => request('/users/me'),
+    list: () => request('/users'),
+    invite: (data) => request('/users/invite', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+    updateRole: (id, role) => request(`/users/${id}/role`, {
+      method: 'PUT', body: JSON.stringify({ role }),
+    }),
+    deactivate: (id) => request(`/users/${id}/deactivate`, { method: 'PUT' }),
+    reactivate: (id) => request(`/users/${id}/reactivate`, { method: 'PUT' }),
   },
 };
