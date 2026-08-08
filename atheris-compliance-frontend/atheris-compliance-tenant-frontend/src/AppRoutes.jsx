@@ -31,7 +31,8 @@ function Loading() {
 }
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <Loading />;
   if (!isAuthenticated) return <Navigate to="/login" />;
   return children;
 }

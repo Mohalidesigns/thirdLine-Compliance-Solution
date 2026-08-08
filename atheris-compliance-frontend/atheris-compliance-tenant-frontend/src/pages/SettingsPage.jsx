@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, CardHeader, TextField, Button, Alert,
   CircularProgress, Divider, Tabs, Tab, Table, TableHead, TableBody, TableRow,
@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST'];
 
@@ -173,14 +174,13 @@ function OrganizationTab({ isAdmin }) {
             avatar={<AccountBalance />}
             title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{dept.department.name}</Typography>
-              {dept.department.code && <Chip size="small" label={dept.department.code} variant="outlined" />}
               {dept.department.isActive === false && <Chip size="small" label="Inactive" color="default" />}
             </Box>}
             subheader={
               <Typography variant="caption" color="text.secondary">
-                {dept.department.teamCount ?? dept.teams.length} team(s) ·
+                {dept.department.teamCount ?? dept.teams.length} team(s) Â·
                 {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
-                {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
+                {dept.department.headOwnerName ? ` Â· Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
             action={isAdmin && (
@@ -199,7 +199,7 @@ function OrganizationTab({ isAdmin }) {
                   <Group fontSize="small" color="action" />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{team.team.name}</Typography>
                   {team.team.isActive === false && <Chip size="small" label="Inactive" color="default" />}
-                  <Typography variant="caption" color="text.secondary">· {team.owners.length} owner(s)</Typography>
+                  <Typography variant="caption" color="text.secondary">Â· {team.owners.length} owner(s)</Typography>
                   {isAdmin && (
                     <Box sx={{ ml: 'auto' }}>
                       <IconButton size="small" onClick={() => setTeamModal({ team: team.team, departmentId: dept.department.departmentId })}>
@@ -215,8 +215,8 @@ function OrganizationTab({ isAdmin }) {
                   <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
                     <Person fontSize="small" color="action" />
                     <Typography variant="body2">{owner.fullName}</Typography>
-                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
-                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">Â· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">Â· {owner.email}</Typography>}
                     {owner.isActive === false && <Chip size="small" label="Inactive" color="default" />}
                     {isAdmin && (
                       <Box sx={{ ml: 'auto' }}>
@@ -275,14 +275,14 @@ function OrganizationTab({ isAdmin }) {
 }
 
 function DepartmentDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
-  const [form, setForm] = useState({ name: '', code: '', headOwnerId: '' });
+  const [form, setForm] = useState({ name: '', headOwnerId: '' });
   const [owners, setOwners] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setForm({
-        name: initial.name || '', code: initial.code || '',
+        name: initial.name || '',
         headOwnerId: initial.headOwnerId?.toString() || '',
       });
       api.org.owners().then(setOwners).catch(() => {});
@@ -292,7 +292,7 @@ function DepartmentDialog({ open, onClose, initial, onSaved, onError, isAdmin })
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { name: form.name.trim(), code: form.code.trim() || null };
+      const body = { name: form.name.trim() };
       if (form.headOwnerId) body.headOwnerId = Number(form.headOwnerId);
       if (initial.departmentId) await api.org.updateDepartment(initial.departmentId, body);
       else await api.org.createDepartment(body);
@@ -306,19 +306,15 @@ function DepartmentDialog({ open, onClose, initial, onSaved, onError, isAdmin })
       <DialogTitle>{initial.departmentId ? 'Edit Department' : 'Add Department'}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
-          <Grid item xs={8}>
+          <Grid item xs={12}>
             <TextField label="Name" fullWidth size="small" required value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-          </Grid>
-          <Grid item xs={4}>
-            <TextField label="Code" fullWidth size="small" value={form.code}
-              onChange={e => setForm(f => ({ ...f, code: e.target.value }))} />
           </Grid>
           <Grid item xs={12}>
             <TextField select label="Department head (owner)" fullWidth size="small" value={form.headOwnerId}
               onChange={e => setForm(f => ({ ...f, headOwnerId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
-              {owners.map(o => <MenuItem key={o.ownerId} value={o.ownerId}>{o.fullName}</MenuItem>)}
+              {owners.map(o => <MenuItem key={o.ownerId} value={String(o.ownerId)}>{o.fullName}</MenuItem>)}
             </TextField>
           </Grid>
         </Grid>
@@ -364,7 +360,7 @@ function TeamDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
           <Grid item xs={12}>
             <TextField select label="Department" fullWidth size="small" required value={form.departmentId}
               onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
-              {departments.map(d => <MenuItem key={d.departmentId} value={d.departmentId}>{d.name}</MenuItem>)}
+              {departments.map(d => <MenuItem key={d.departmentId} value={String(d.departmentId)}>{d.name}</MenuItem>)}
             </TextField>
           </Grid>
           <Grid item xs={12}>
@@ -388,6 +384,8 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
   const [departments, setDepartments] = useState([]);
   const [teams, setTeams] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [deptOpen, setDeptOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -404,6 +402,11 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
   const departmentTeams = form.departmentId
     ? teams.filter(t => t.departmentId === Number(form.departmentId))
     : teams;
+
+  const reload = () => {
+    api.org.departments(false).then(setDepartments).catch(() => {});
+    api.org.teams().then(setTeams).catch(() => {});
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -424,41 +427,60 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{initial.owner?.ownerId ? 'Edit Owner' : 'Add Owner'}</DialogTitle>
       <DialogContent dividers>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <TextField label="Full name" fullWidth size="small" required value={form.fullName}
-              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Email" fullWidth size="small" type="email" value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
-              onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField select label="Department" fullWidth size="small" value={form.departmentId}
-              onChange={e => setForm(f => ({ ...f, departmentId: e.target.value, teamId: '' }))}>
-              <MenuItem value="">None</MenuItem>
-              {departments.map(d => <MenuItem key={d.departmentId} value={d.departmentId}>{d.name}</MenuItem>)}
-            </TextField>
-          </Grid>
-          <Grid item xs={6}>
-            <TextField select label="Team" fullWidth size="small" value={form.teamId}
-              onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              {departmentTeams.map(t => <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>)}
-            </TextField>
-          </Grid>
-        </Grid>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField label="Full name" fullWidth size="small" required value={form.fullName}
+            onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
+          <TextField label="Email" fullWidth size="small" type="email" value={form.email}
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
+            onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField select label="Department" fullWidth size="small" value={form.departmentId}
+                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value, teamId: '' }))}>
+                {form.departmentId !== '' && <MenuItem value="">None</MenuItem>}
+                {departments.map(d => <MenuItem key={d.departmentId} value={String(d.departmentId)}>{d.name}</MenuItem>)}
+                {departments.length === 0 && <MenuItem value="" disabled>No departments yet</MenuItem>}
+              </TextField>
+            </Box>
+            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }}
+              onClick={() => setDeptOpen(true)}>
+              {departments.length === 0 ? 'Add department' : 'Add new department'}
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField select label="Team" fullWidth size="small" value={form.teamId}
+                onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}>
+                {form.teamId !== '' && <MenuItem value="">None</MenuItem>}
+                {departmentTeams.map(t => <MenuItem key={t.teamId} value={String(t.teamId)}>{t.name}</MenuItem>)}
+                {departmentTeams.length === 0 && (
+                  <MenuItem value="" disabled>
+                    {form.departmentId ? 'No teams in this department' : 'Select a department first'}
+                  </MenuItem>
+                )}
+              </TextField>
+            </Box>
+            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }} disabled={!form.departmentId}
+              onClick={() => setTeamOpen(true)}>
+              {departmentTeams.length === 0 ? 'Add team' : 'Add new team'}
+            </Button>
+          </Box>
+        </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ justifyContent: 'center' }}>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !form.fullName.trim() || !isAdmin}>
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </DialogActions>
+
+      <QuickAddDepartmentDialog open={deptOpen} onClose={() => setDeptOpen(false)}
+        onCreated={(d) => { reload(); setForm(f => ({ ...f, departmentId: String(d.departmentId), teamId: '' })); setDeptOpen(false); }} />
+      <QuickAddTeamDialog open={teamOpen} onClose={() => setTeamOpen(false)} departmentId={form.departmentId}
+        onCreated={(t) => { reload(); setForm(f => ({ ...f, teamId: String(t.teamId) })); setTeamOpen(false); }} />
     </Dialog>
   );
 }

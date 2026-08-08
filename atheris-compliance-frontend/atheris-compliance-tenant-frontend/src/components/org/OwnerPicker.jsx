@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   TextField, MenuItem, Box, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, CircularProgress, Alert, Grid,
+  DialogActions, CircularProgress, Alert,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { api } from '../../services/api';
+import { QuickAddDepartmentDialog, QuickAddTeamDialog } from './QuickAddDialogs';
 
 export default function OwnerPicker({
   value, onChange, label = 'Compliance Owner', size = 'small', fullWidth = true,
@@ -61,6 +62,8 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
   const [teams, setTeams] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [deptOpen, setDeptOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -91,50 +94,74 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
     finally { setSaving(false); }
   };
 
+  const reload = () => {
+    api.org.departments(true).then(setDepartments).catch(() => {});
+    api.org.teams().then(setTeams).catch(() => {});
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add New Owner</DialogTitle>
       <DialogContent dividers>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <TextField label="Full name" fullWidth size="small" required value={form.fullName}
-              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Email" fullWidth size="small" type="email" value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
-              onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField select label="Department" fullWidth size="small" value={form.departmentId}
-              onChange={e => setForm(f => ({ ...f, departmentId: e.target.value, teamId: '' }))}>
-              <MenuItem value="">None</MenuItem>
-              {departments.map(d => (
-                <MenuItem key={d.departmentId} value={d.departmentId}>{d.name}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={6}>
-            <TextField select label="Team" fullWidth size="small" value={form.teamId}
-              onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              {departmentTeams.map(t => (
-                <MenuItem key={t.teamId} value={t.teamId}>{t.name}</MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-        </Grid>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField label="Full name" fullWidth size="small" required value={form.fullName}
+            onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
+          <TextField label="Email" fullWidth size="small" type="email" value={form.email}
+            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+          <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
+            onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField select label="Department" fullWidth size="small" value={form.departmentId}
+                onChange={e => setForm(f => ({ ...f, departmentId: e.target.value, teamId: '' }))}>
+                {form.departmentId !== '' && <MenuItem value="">None</MenuItem>}
+                {departments.map(d => (
+                  <MenuItem key={d.departmentId} value={String(d.departmentId)}>{d.name}</MenuItem>
+                ))}
+                {departments.length === 0 && <MenuItem value="" disabled>No departments yet</MenuItem>}
+              </TextField>
+            </Box>
+            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }}
+              onClick={() => { setError(''); setDeptOpen(true); }}>
+              {departments.length === 0 ? 'Add department' : 'Add new department'}
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField select label="Team" fullWidth size="small" value={form.teamId}
+                onChange={e => setForm(f => ({ ...f, teamId: e.target.value }))}>
+                {form.teamId !== '' && <MenuItem value="">None</MenuItem>}
+                {departmentTeams.map(t => (
+                  <MenuItem key={t.teamId} value={String(t.teamId)}>{t.name}</MenuItem>
+                ))}
+                {departmentTeams.length === 0 && (
+                  <MenuItem value="" disabled>
+                    {form.departmentId ? 'No teams in this department' : 'Select a department first'}
+                  </MenuItem>
+                )}
+              </TextField>
+            </Box>
+            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }} disabled={!form.departmentId}
+              onClick={() => { setError(''); setTeamOpen(true); }}>
+              {departmentTeams.length === 0 ? 'Add team' : 'Add new team'}
+            </Button>
+          </Box>
+        </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ justifyContent: 'center' }}>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Add Owner'}
         </Button>
       </DialogActions>
+
+      <QuickAddDepartmentDialog open={deptOpen} onClose={() => setDeptOpen(false)}
+        onCreated={(d) => { reload(); setForm(f => ({ ...f, departmentId: String(d.departmentId), teamId: '' })); setDeptOpen(false); }} />
+      <QuickAddTeamDialog open={teamOpen} onClose={() => setTeamOpen(false)} departmentId={form.departmentId}
+        onCreated={(t) => { reload(); setForm(f => ({ ...f, teamId: String(t.teamId) })); setTeamOpen(false); }} />
     </Dialog>
   );
 }

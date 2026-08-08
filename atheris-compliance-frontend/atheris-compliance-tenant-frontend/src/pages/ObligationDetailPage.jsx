@@ -109,8 +109,10 @@ export default function ObligationDetailPage() {
     } catch { notify('error', 'Failed to load PDF.'); }
   }
 
-  const actionEdit = setActiveModal => (
-    <Button size="small" variant="text" onClick={() => setActiveModal(true)} startIcon={<Edit sx={{ fontSize: 16 }} />}>Edit</Button>
+  const actionEdit = (setActiveModal, label = 'Edit') => (
+    <Button size="medium" variant="contained" onClick={() => setActiveModal(true)}
+      startIcon={<Edit sx={{ fontSize: 16 }} />}
+      sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>{label}</Button>
   );
 
   if (loading) {
@@ -133,9 +135,9 @@ export default function ObligationDetailPage() {
         <IconButton onClick={() => navigate('/obligations')}><ArrowBack /></IconButton>
         <Box sx={{ flex: 1 }} />
         <Button size="medium" variant="contained" onClick={handleViewPdf} startIcon={<Visibility />}
-          sx={{ height: 40, bgcolor: '#616161', color: '#fff', '&:hover': { bgcolor: '#424242' } }}>PDF</Button>
-        <Button size="medium" variant="outlined" onClick={scrollToHistory} startIcon={<History />}
-          sx={{ height: 40 }}>View History</Button>
+          sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>PDF</Button>
+        <Button size="medium" variant="contained" onClick={scrollToHistory} startIcon={<History />}
+          sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>View History</Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -178,7 +180,7 @@ export default function ObligationDetailPage() {
           {/* Risk Assessment */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Internal Risk Assessment"
-              action={actionEdit(() => setActiveModal('risk'))} />
+              action={actionEdit(() => setActiveModal('risk'), 'Assess Risk')} />
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 2, mb: 1.5 }}>
               <Box>
                 <Typography variant="caption" color="text.secondary">Inherent</Typography>
@@ -201,7 +203,7 @@ export default function ObligationDetailPage() {
           {/* Owner */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Compliance Owner"
-              action={actionEdit(() => setActiveModal('owner'))} />
+              action={actionEdit(() => setActiveModal('owner'), 'Assign Owner')} />
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {selected.assignedOwnerName || 'Unassigned'}
             </Typography>
@@ -213,8 +215,9 @@ export default function ObligationDetailPage() {
           {/* Controls */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Linked Controls"
-              action={<Button size="small" variant="text" onClick={() => setActiveModal('controls')}
-                startIcon={<Edit sx={{ fontSize: 16 }} />}>Link controls</Button>} />
+              action={<Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
+                startIcon={<Edit sx={{ fontSize: 16 }} />}
+                sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>} />
             {selected.linkedControls?.length > 0 ? (
               <List dense disablePadding>
                 {selected.linkedControls.map(c => (
@@ -233,8 +236,9 @@ export default function ObligationDetailPage() {
           {/* Returns */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Return Required"
-              action={<Button size="small" variant="text" onClick={() => setActiveModal('returns')}
-                startIcon={<Edit sx={{ fontSize: 16 }} />}>Map return</Button>} />
+              action={<Button size="medium" variant="contained" onClick={() => setActiveModal('returns')}
+                startIcon={<Edit sx={{ fontSize: 16 }} />}
+                sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Map return</Button>} />
             {selected.linkedReturns?.length > 0 ? (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {selected.linkedReturns.map(r => (
@@ -248,7 +252,7 @@ export default function ObligationDetailPage() {
           {/* Gap */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Control Gap"
-              action={actionEdit(() => setActiveModal('gap'))} />
+              action={actionEdit(() => setActiveModal('gap'), 'Identified Gaps')} />
             {selected.hasGap ? (
               <Alert severity="warning" sx={{ mt: -1, mb: 1 }}>
                 <strong>Gap identified:</strong> {selected.gapDescription || 'No control covers this obligation'}
@@ -261,8 +265,9 @@ export default function ObligationDetailPage() {
           {/* Evidence */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Evidence"
-              action={<Button size="small" variant="outlined" onClick={() => setActiveModal('evidence')}
-                startIcon={<UploadFile sx={{ fontSize: 16 }} />}>Upload</Button>} />
+              action={<Button size="medium" variant="contained" onClick={() => setActiveModal('evidence')}
+                startIcon={<UploadFile sx={{ fontSize: 16 }} />}
+                sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Upload</Button>} />
             {selected.evidence?.length > 0 ? (
               <List dense disablePadding>
                 {selected.evidence.map(ev => (
