@@ -4,14 +4,16 @@ import {
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   Paper, TextField, Box, Typography, CircularProgress, InputAdornment,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { Search, Add } from '@mui/icons-material';
 import { api } from '../../services/api';
+import CreateObligationDialog from './CreateObligationDialog';
 
 export default function LinkObligationsPicker({ open, onClose, initialIds = [], onSave }) {
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -28,6 +30,12 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
     }
   }, [open, initialIds]);
 
+  const reload = () => {
+    api.obligations.register({ size: 1000 })
+      .then(res => setRows(Array.isArray(res) ? res : (res.content || [])))
+      .catch(() => {});
+  };
+
   const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const filtered = rows.filter(r => {
@@ -42,12 +50,21 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
   });
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Link Obligations</DialogTitle>
       <DialogContent dividers>
-        <TextField size="small" fullWidth placeholder="Search obligation, section or regulator..."
-          value={search} onChange={e => setSearch(e.target.value)} sx={{ mb: 1.5 }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+          <Box sx={{ flex: 1 }}>
+            <TextField size="small" fullWidth placeholder="Search obligation, section or regulator..."
+              value={search} onChange={e => setSearch(e.target.value)}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+          </Box>
+          <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}
+            onClick={() => setCreateOpen(true)}>
+            Add New Obligation
+          </Button>
+        </Box>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
         ) : rows.length === 0 ? (
@@ -88,5 +105,9 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
         </Button>
       </DialogActions>
     </Dialog>
+
+    <CreateObligationDialog open={createOpen} onClose={() => setCreateOpen(false)}
+      onSaved={() => { setCreateOpen(false); reload(); }} />
+    </>
   );
 }

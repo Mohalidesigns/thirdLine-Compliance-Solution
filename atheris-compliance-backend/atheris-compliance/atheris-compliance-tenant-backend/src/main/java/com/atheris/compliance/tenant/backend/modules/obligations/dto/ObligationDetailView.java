@@ -9,6 +9,7 @@ import java.util.List;
 public class ObligationDetailView {
     private Long obligationId;
     private Integer obligationNumber;
+    private String name;
     private String description;
     private String sectionReference;
     private String obligationType;

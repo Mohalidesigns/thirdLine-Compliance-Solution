@@ -11,7 +11,8 @@ import java.time.LocalDate;
 public class Obligation {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long obligationId;
-    @Column(nullable = false) private Long instrumentId;
+    private Long instrumentId;
+    private String name;
     private Integer obligationNumber;
     @Column(columnDefinition = "text") private String description;
     private String sectionReference;

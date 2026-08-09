@@ -9,6 +9,7 @@ import java.util.List;
 @Data @Builder
 public class ObligationRegisterItem {
     private Long obligationId;
+    private String name;
     private Integer obligationNumber;
     private String description;
     private String sectionReference;

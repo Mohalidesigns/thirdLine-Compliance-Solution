@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS obligations (
     obligation_id            BIGSERIAL PRIMARY KEY,
-    instrument_id           BIGINT NOT NULL,
+    instrument_id           BIGINT,
+    name                    VARCHAR(255),
     obligation_number       INT,
     description             TEXT,
     section_reference       VARCHAR(255),

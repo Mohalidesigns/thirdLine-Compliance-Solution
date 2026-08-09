@@ -96,7 +96,9 @@ public class ObligationService {
     }
 
     private List<ObligationRegisterItem> buildRegisterRows() {
-        List<Obligation> allObligations = obligationRepo.findAll();
+        List<Obligation> allObligations = obligationRepo.findAll().stream()
+            .filter(o -> !"deleted".equals(o.getStatus()))
+            .toList();
         Map<Long, ObligationClassification> classByObligation = classifications.findAll().stream()
             .filter(c -> c.getObligationId() != null)
             .collect(Collectors.toMap(ObligationClassification::getObligationId, c -> c, (a, b) -> a));
@@ -112,13 +114,15 @@ public class ObligationService {
         List<ObligationRegisterItem> rows = new ArrayList<>();
         for (Obligation ob : allObligations) {
             ObligationClassification c = classByObligation.get(ob.getObligationId());
-            PlatformInstrumentDetail d = detailCache.computeIfAbsent(ob.getInstrumentId(), platform::getInstrumentDetail);
+            PlatformInstrumentDetail d = ob.getInstrumentId() != null
+                ? detailCache.computeIfAbsent(ob.getInstrumentId(), platform::getInstrumentDetail) : null;
             List<Long> linkedReturnIds = returnsByObligation.getOrDefault(ob.getObligationId(), List.of());
             List<String> returnNames = linkedReturnIds.stream()
                 .map(id -> returnNameById.get(id)).filter(Objects::nonNull).toList();
 
             rows.add(ObligationRegisterItem.builder()
                 .obligationId(ob.getObligationId())
+                .name(ob.getName())
                 .obligationNumber(ob.getObligationNumber())
                 .description(ob.getDescription())
                 .sectionReference(ob.getSectionReference())
@@ -126,7 +130,7 @@ public class ObligationService {
                 .recurringDeadlineType(ob.getRecurringDeadlineType())
                 .effectiveDate(ob.getEffectiveDate())
                 .instrumentId(ob.getInstrumentId())
-                .sourceTitle(d != null ? d.getSourceTitle() : "Instrument " + ob.getInstrumentId())
+                .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
                 .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
                 .regulatorName(d != null ? d.getRegulatorName() : null)
                 .applicability(c != null ? c.getApplicability() : null)
@@ -204,13 +208,132 @@ public class ObligationService {
 
     private static String nullSafe(String s) { return s != null ? s : ""; }
 
+    // ------------------------------------------------------------------ CRUD
+
+    @Transactional
+    public ObligationRegisterItem createObligation(ObligationRequest req, Integer userId) {
+        if (req.getInstrumentId() != null && !obligationRepo.existsById(req.getInstrumentId()))
+            throw new IllegalArgumentException("Instrument not found: " + req.getInstrumentId());
+        Obligation ob = Obligation.builder()
+            .instrumentId(req.getInstrumentId())
+            .name(req.getName())
+            .obligationNumber(nextObligationNumber())
+            .description(req.getDescription())
+            .obligationType(req.getObligationType())
+            .recurringDeadlineType(req.getRecurringDeadlineType())
+            .effectiveDate(req.getEffectiveDate())
+            .status("active")
+            .source("manual")
+            .build();
+        Obligation saved = obligationRepo.save(ob);
+
+        ObligationClassification c = ObligationClassification.builder()
+            .instrumentId(saved.getInstrumentId())
+            .obligationId(saved.getObligationId())
+            .status("active")
+            .classificationVersion(1)
+            .classifiedByUserId(userId)
+            .classifiedAt(Instant.now())
+            .hasGap(Boolean.TRUE.equals(req.getHasGap()))
+            .gapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null)
+            .linkedControlIds(req.getLinkedControlIds() == null
+                ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
+            .build();
+        classifications.save(c);
+
+        audit.log(userId, "obligation_created", "obligation", saved.getObligationId(),
+            java.util.Collections.singletonMap("instrumentId", saved.getInstrumentId()));
+        return toRegisterItem(saved, c, null, List.of(), List.of());
+    }
+
+    @Transactional
+    public ObligationRegisterItem updateObligation(Long obligationId, ObligationRequest req, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+        if ("deleted".equals(ob.getStatus()))
+            throw new IllegalArgumentException("Obligation is deleted: " + obligationId);
+        if (req.getInstrumentId() != null && !obligationRepo.existsById(req.getInstrumentId()))
+            throw new IllegalArgumentException("Instrument not found: " + req.getInstrumentId());
+        if (req.getName() != null) ob.setName(req.getName());
+        if (req.getDescription() != null) ob.setDescription(req.getDescription());
+        if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
+        if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
+        if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());
+        ob.setInstrumentId(req.getInstrumentId() != null ? req.getInstrumentId() : ob.getInstrumentId());
+        Obligation saved = obligationRepo.save(ob);
+
+        ObligationClassification c = loadOrCreateClassification(ob, userId);
+        recordHistory(c, ob, req.getChangeReason(), userId);
+        if (req.getHasGap() != null) {
+            c.setHasGap(req.getHasGap());
+            c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
+        }
+        if (req.getLinkedControlIds() != null) {
+            c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
+        }
+        classifications.save(c);
+        audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
+        return toRegisterItem(saved, c, null, List.of(), List.of());
+    }
+
+    @Transactional
+    public void deleteObligation(Long obligationId, Integer userId) {
+        Obligation ob = obligationRepo.findById(obligationId)
+            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+        ob.setStatus("deleted");
+        obligationRepo.save(ob);
+        audit.log(userId, "obligation_deleted", "obligation", obligationId, Map.of());
+    }
+
+    private Integer nextObligationNumber() {
+        long count = obligationRepo.count();
+        int candidate;
+        do {
+            candidate = (int) ++count;
+        } while (obligationRepo.existsByObligationNumber(candidate));
+        return candidate;
+    }
+
+    private ObligationRegisterItem toRegisterItem(Obligation ob, ObligationClassification c,
+            PlatformInstrumentDetail d, List<Long> linkedReturnIds, List<String> returnNames) {
+        return ObligationRegisterItem.builder()
+            .obligationId(ob.getObligationId())
+            .name(ob.getName())
+            .obligationNumber(ob.getObligationNumber())
+            .description(ob.getDescription())
+            .sectionReference(ob.getSectionReference())
+            .obligationType(ob.getObligationType())
+            .recurringDeadlineType(ob.getRecurringDeadlineType())
+            .effectiveDate(ob.getEffectiveDate())
+            .instrumentId(ob.getInstrumentId())
+            .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
+            .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
+            .regulatorName(d != null ? d.getRegulatorName() : null)
+            .applicability(c != null ? c.getApplicability() : null)
+            .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
+            .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
+            .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
+            .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+            .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
+            .status(c != null ? c.getStatus() : ob.getStatus())
+            .hasGap(c != null && Boolean.TRUE.equals(c.getHasGap()))
+            .gapDescription(c != null ? c.getGapDescription() : null)
+            .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
+            .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
+            .linkedReturnIds(linkedReturnIds)
+            .returnNames(returnNames)
+            .classificationVersion(c != null ? c.getClassificationVersion() : null)
+            .classifiedAt(c != null ? c.getClassifiedAt() : null)
+            .build();
+    }
+
     // ------------------------------------------------------------------ detail
 
     public ObligationDetailView getObligationDetail(Long obligationId) {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
         ObligationClassification c = classifications.findByObligationId(obligationId).orElse(null);
-        PlatformInstrumentDetail d = platform.getInstrumentDetail(ob.getInstrumentId());
+        PlatformInstrumentDetail d = ob.getInstrumentId() != null ? platform.getInstrumentDetail(ob.getInstrumentId()) : null;
 
         List<ObligationDetailView.ControlItem> controls = Collections.emptyList();
         if (c != null && c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) {
@@ -262,6 +385,7 @@ public class ObligationService {
         return ObligationDetailView.builder()
             .obligationId(ob.getObligationId())
             .obligationNumber(ob.getObligationNumber())
+            .name(ob.getName())
             .description(ob.getDescription())
             .sectionReference(ob.getSectionReference())
             .obligationType(ob.getObligationType())
@@ -311,7 +435,8 @@ public class ObligationService {
                 obligationRepo.insertReturnLink(obligationId, rid);
             }
         }
-        audit.log(userId, "link_returns", "obligation", obligationId, Map.of("returnIds", returnIds));
+        audit.log(userId, "link_returns", "obligation", obligationId,
+            java.util.Collections.singletonMap("returnIds", returnIds));
     }
 
     // ------------------------------------------------------------------ per-concern updates (owner / risk / gap / controls)
@@ -325,7 +450,7 @@ public class ObligationService {
         applyOwner(c, req.getAssignedOwnerId());
         classifications.save(c);
         audit.log(userId, "assign_owner", "obligation", obligationId,
-            Map.of("ownerId", req.getAssignedOwnerId()));
+            java.util.Collections.singletonMap("ownerId", req.getAssignedOwnerId()));
     }
 
     private void applyOwner(ObligationClassification c, Integer ownerId) {
@@ -364,7 +489,7 @@ public class ObligationService {
         if (req.getLikelihoodJustification() != null) c.setLikelihoodJustification(req.getLikelihoodJustification());
         classifications.save(c);
         audit.log(userId, "update_risk", "obligation", obligationId,
-            Map.of("tenantRiskRating", req.getTenantRiskRating()));
+            java.util.Collections.singletonMap("tenantRiskRating", req.getTenantRiskRating()));
     }
 
     @Transactional
@@ -377,7 +502,7 @@ public class ObligationService {
         c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
         classifications.save(c);
         audit.log(userId, "update_gap", "obligation", obligationId,
-            Map.of("hasGap", req.getHasGap()));
+            java.util.Collections.singletonMap("hasGap", req.getHasGap()));
     }
 
     @Transactional

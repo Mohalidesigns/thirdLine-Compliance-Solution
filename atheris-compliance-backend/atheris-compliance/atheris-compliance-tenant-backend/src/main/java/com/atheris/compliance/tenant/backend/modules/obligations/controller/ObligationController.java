@@ -47,6 +47,32 @@ public class ObligationController {
         return ResponseEntity.ok(service.getStats());
     }
 
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<ObligationRegisterItem> create(
+            @Valid @RequestBody ObligationRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.createObligation(req, u.getUserId()));
+    }
+
+    @PutMapping("/obligation/{obligationId}")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<ObligationRegisterItem> update(
+            @PathVariable Long obligationId,
+            @Valid @RequestBody ObligationRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateObligation(obligationId, req, u.getUserId()));
+    }
+
+    @DeleteMapping("/obligation/{obligationId}")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> delete(
+            @PathVariable Long obligationId,
+            @AuthenticationPrincipal User u) {
+        service.deleteObligation(obligationId, u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/obligation/{obligationId}")
     public ResponseEntity<ObligationDetailView> obligationDetail(@PathVariable Long obligationId) {
         return ResponseEntity.ok(service.getObligationDetail(obligationId));

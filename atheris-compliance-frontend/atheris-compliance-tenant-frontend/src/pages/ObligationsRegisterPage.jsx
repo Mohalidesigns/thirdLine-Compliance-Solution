@@ -4,13 +4,14 @@ import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, MenuItem, FormControlLabel, Checkbox, Tooltip,
-  TablePagination, TableSortLabel,
+  TablePagination, TableSortLabel, Snackbar, Alert as MuiAlert,
 } from '@mui/material';
 import {
-  Search, Refresh, Close,
+  Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
   Link as LinkIcon, Warning as WarningIcon, Article,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 
 const RISK_CONFIG = {
   Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
@@ -38,6 +39,7 @@ const COLUMNS = [
   { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
   { id: 'returns', label: 'Returns', minWidth: 110 },
+  { id: 'actions', label: 'Actions', minWidth: 90 },
 ];
 
 export default function ObligationsRegisterPage() {
@@ -61,6 +63,11 @@ export default function ObligationsRegisterPage() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
+
+  // dialogs
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
     || themeFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
@@ -103,6 +110,27 @@ export default function ObligationsRegisterPage() {
     navigate(`/obligations/${row.obligationId}`);
   }
 
+  function openCreate() { setEditTarget(null); setCreateOpen(true); }
+
+  function openEdit(row) {
+    setEditTarget(row);
+    setCreateOpen(true);
+  }
+
+  async function handleDelete(row) {
+    if (!window.confirm(`Delete obligation #${row.obligationNumber}?\n\n"${row.description}"`)) return;
+    try {
+      await api.obligations.remove(row.obligationId);
+      setSnackbar('Obligation deleted.');
+      loadList(); loadStats();
+    } catch (e) { setSnackbar(e.message || 'Failed to delete obligation.'); }
+  }
+
+  function handleSaved() {
+    setSnackbar('Obligation saved.');
+    loadList(); loadStats();
+  }
+
   function applyKpiFilter(type) {
     setPage(0);
     if (type === 'highRisk') { setRiskFilter('High'); setStatusFilter('All'); }
@@ -130,9 +158,15 @@ export default function ObligationsRegisterPage() {
             {total} obligation{total !== 1 ? 's' : ''} — assign owners, rate risk and track control gaps
           </Typography>
         </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Refresh">
+            <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
+          </Tooltip>
+          <Button variant="contained" startIcon={<Add />} size="medium" onClick={openCreate}
+            sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+            New Obligation
+          </Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -240,10 +274,10 @@ export default function ObligationsRegisterPage() {
                         borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent' }}>
                       <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
                       <TableCell>
-                        <Tooltip title={item.description || 'Untitled obligation'}>
+                        <Tooltip title={item.name || item.description || 'Untitled obligation'}>
                           <Typography variant="body2" sx={{ maxWidth: 360,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || 'Untitled obligation'}
+                            {item.name || item.description || 'Untitled obligation'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
@@ -281,6 +315,18 @@ export default function ObligationsRegisterPage() {
                             </Tooltip>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Tooltip title="Edit obligation">
+                            <IconButton size="small" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete obligation">
+                            <IconButton size="small" color="error" onClick={() => handleDelete(item)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -293,6 +339,14 @@ export default function ObligationsRegisterPage() {
         </Paper>
       )}
 
+    <CreateObligationDialog open={createOpen} onClose={() => setCreateOpen(false)}
+        onSaved={handleSaved} onSnackbar={setSnackbar}
+        editing={!!editTarget} initial={editTarget} />
+
+      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
+      </Snackbar>
     </Box>
   );
 }

@@ -168,6 +168,11 @@ export const api = {
     skip: (reviewId) => request(`/review/${reviewId}/skip`, { method: 'POST' }),
   },
   obligations: {
+    create: (data) => request('/obligations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (obligationId, data) => request(`/obligations/obligation/${obligationId}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    remove: (obligationId) => request(`/obligations/obligation/${obligationId}`, { method: 'DELETE' }),
     classify: (id, data) => request(`/obligations/${id}/classify`, {
       method: 'POST', body: JSON.stringify(data),
     }),

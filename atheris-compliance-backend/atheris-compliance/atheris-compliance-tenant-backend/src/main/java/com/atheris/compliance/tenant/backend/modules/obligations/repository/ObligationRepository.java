@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ObligationRepository extends JpaRepository<Obligation, Long> {
+    boolean existsByObligationNumber(Integer obligationNumber);
     List<Obligation> findByInstrumentId(Long instrumentId);
     long countByInstrumentId(Long instrumentId);
 
