@@ -53,7 +53,7 @@ public class ReviewService {
                 || contains(r.getRegulatorName(), needle)
                 || contains(r.getRegulatorAbbreviation(), needle)).collect(Collectors.toList());
         }
-        all.sort(Comparator.comparing(PendingReview::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        all.sort(reviewComparator(p));
 
         List<ReviewItem> items = all.stream()
             .map(this::toItem)
@@ -238,6 +238,29 @@ public class ReviewService {
                 obligationRepo.insertReturnLink(obligationId, rid);
             }
         }
+    }
+
+    private Comparator<PendingReview> reviewComparator(Pageable p) {
+        Comparator<PendingReview> cmp;
+        if (p.getSort().isSorted()) {
+            String field = p.getSort().iterator().next().getProperty();
+            boolean asc = p.getSort().iterator().next().isAscending();
+            cmp = switch (field) {
+                case "source" -> Comparator.comparing(r -> nullSafe(r.getSource()));
+                case "sourceTitle" -> Comparator.comparing(r -> nullSafe(r.getSourceTitle()));
+                case "regulatorAbbreviation" -> Comparator.comparing(
+                    r -> nullSafe(r.getRegulatorAbbreviation() != null ? r.getRegulatorAbbreviation() : r.getRegulatorName()));
+                case "riskRating" -> Comparator.comparing(r -> nullSafe(r.getRiskRating()));
+                case "createdAt" -> Comparator.comparing(PendingReview::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+                default -> Comparator.comparing(PendingReview::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()));
+            };
+            return asc ? cmp : cmp.reversed();
+        }
+        return Comparator.comparing(PendingReview::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()));
+    }
+
+    private static String nullSafe(String s) {
+        return s != null ? s : "";
     }
 
     private ReviewItem toItem(PendingReview r) {
