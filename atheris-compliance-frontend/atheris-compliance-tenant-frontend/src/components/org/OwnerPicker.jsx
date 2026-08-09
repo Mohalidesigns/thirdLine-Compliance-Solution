@@ -123,7 +123,7 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
                 {departments.length === 0 && <MenuItem value="" disabled>No departments yet</MenuItem>}
               </TextField>
             </Box>
-            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }}
+            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}
               onClick={() => { setError(''); setDeptOpen(true); }}>
               {departments.length === 0 ? 'Add department' : 'Add new department'}
             </Button>
@@ -144,7 +144,7 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
                 )}
               </TextField>
             </Box>
-            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }} disabled={!form.departmentId}
+            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }} disabled={!form.departmentId}
               onClick={() => { setError(''); setTeamOpen(true); }}>
               {departmentTeams.length === 0 ? 'Add team' : 'Add new team'}
             </Button>

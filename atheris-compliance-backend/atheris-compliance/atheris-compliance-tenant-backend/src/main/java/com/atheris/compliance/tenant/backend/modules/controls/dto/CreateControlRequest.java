@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class CreateControlRequest {
-    @NotBlank private String controlNumber;
+    private String controlNumber;
     @NotBlank private String name;
     private String description;
     private String theme;

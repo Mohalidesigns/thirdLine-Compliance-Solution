@@ -105,10 +105,14 @@ public class ControlService {
 
     @Transactional
     public ControlDto create(CreateControlRequest req, Integer userId) {
-        if (repo.existsByControlNumber(req.getControlNumber()))
+        String controlNumber = req.getControlNumber();
+        if (controlNumber == null || controlNumber.isBlank()) {
+            controlNumber = nextControlNumber();
+        }
+        if (repo.existsByControlNumber(controlNumber))
             throw new IllegalArgumentException("Control number already exists");
         Control c = Control.builder()
-            .controlNumber(req.getControlNumber()).name(req.getName())
+            .controlNumber(controlNumber).name(req.getName())
             .description(req.getDescription()).theme(req.getTheme())
             .controlType(req.getControlType()).whatItDoes(req.getWhatItDoes())
             .howTested(req.getHowTested())
@@ -151,6 +155,16 @@ public class ControlService {
         return ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
             .getFullName();
+    }
+
+    private String nextControlNumber() {
+        long count = repo.count();
+        String candidate;
+        do {
+            count++;
+            candidate = String.format("CTL-%04d", count);
+        } while (repo.existsByControlNumber(candidate));
+        return candidate;
     }
 
     public List<ControlDto> findAll() {

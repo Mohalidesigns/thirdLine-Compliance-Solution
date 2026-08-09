@@ -14,6 +14,7 @@ import {
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
 import OwnerPicker from '../components/org/OwnerPicker';
+import CreateControlDialog from '../components/modals/CreateControlDialog';
 
 const RISK_COLORS = { High: 'error', Medium: 'warning', Low: 'success' };
 
@@ -175,8 +176,8 @@ export default function ControlsPage() {
         )}
       </Card>
 
-      <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={() => { setCreateOpen(false); loadList(); }} onSnackbar={setSnackbar} saving={saving} setSaving={setSaving} />
+      <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
+        onSaved={() => { setCreateOpen(false); loadList(); }} onSnackbar={setSnackbar} />
 
       {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)} sx={{ position: 'fixed', bottom: 24, right: 24 }}>{snackbar}</Alert>}
     </Box>
@@ -352,117 +353,6 @@ function DetailRow({ label, value, chip }) {
         <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '-'}</Typography>
       )}
     </Box>
-  );
-}
-
-/* ---------- Create Dialog ---------- */
-function CreateDialog({ open, onClose, onSaved, onSnackbar, saving, setSaving }) {
-  const [form, setForm] = useState(emptyForm());
-  function emptyForm() {
-    return { controlNumber: '', name: '', description: '', theme: '', controlType: '',
-      whatItDoes: '', howTested: '', controlOwnerId: null, testFrequency: '',
-      testFrequencyDays: '', linkedObligationIds: '', inherentRisk: '' };
-  }
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const body = { ...form };
-      if (!body.controlOwnerId) body.controlOwnerId = null;
-      if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
-      if (body.linkedObligationIds) {
-        body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-      } else { body.linkedObligationIds = []; }
-      await api.controls.create(body);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); }
-    finally { setSaving(false); }
-  };
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>New Control</DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6}>
-            <TextField label="Control Number" fullWidth size="small" required value={form.controlNumber}
-              onChange={e => setForm(f => ({ ...f, controlNumber: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField label="Name" fullWidth size="small" required value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          </Grid>
-          <Grid item xs={4}>
-            <TextField select label="Theme" fullWidth size="small" value={form.theme}
-              onChange={e => setForm(f => ({ ...f, theme: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="IT">IT</MenuItem>
-              <MenuItem value="Financial">Financial</MenuItem>
-              <MenuItem value="Operational">Operational</MenuItem>
-              <MenuItem value="Compliance">Compliance</MenuItem>
-              <MenuItem value="Legal">Legal</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={4}>
-            <TextField select label="Control Type" fullWidth size="small" value={form.controlType}
-              onChange={e => setForm(f => ({ ...f, controlType: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Preventive">Preventive</MenuItem>
-              <MenuItem value="Detective">Detective</MenuItem>
-              <MenuItem value="Corrective">Corrective</MenuItem>
-              <MenuItem value="Directive">Directive</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={4}>
-            <TextField select label="Inherent Risk" fullWidth size="small" value={form.inherentRisk}
-              onChange={e => setForm(f => ({ ...f, inherentRisk: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
-              onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
-              onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} />
-          </Grid>
-          <Grid item xs={8}>
-            <OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))}
-              label="Owner" />
-          </Grid>
-          <Grid item xs={4}>
-            <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
-              onChange={e => setForm(f => ({ ...f, testFrequency: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Monthly">Monthly</MenuItem>
-              <MenuItem value="Quarterly">Quarterly</MenuItem>
-              <MenuItem value="Semi-Annual">Semi-Annual</MenuItem>
-              <MenuItem value="Annual">Annual</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={4}>
-            <TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
-              onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} />
-          </Grid>
-          <Grid item xs={8}>
-            <TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
-              onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} />
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.controlNumber || !form.name}>
-          {saving ? 'Saving...' : 'Create'}
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }
 

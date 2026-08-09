@@ -82,10 +82,18 @@ public class OrgService {
             .isActive(request.getIsActive() == null || request.getIsActive())
             .build());
 
-        return listDepartments(false).stream()
-            .filter(dto -> dto.getDepartmentId().equals(saved.getDepartmentId()))
-            .findFirst()
-            .orElseThrow(() -> new EntityNotFoundException("Department not found after save: " + saved.getDepartmentId()));
+        return DepartmentDto.builder()
+            .departmentId(saved.getDepartmentId())
+            .name(saved.getName())
+            .code(saved.getCode())
+            .headOwnerId(saved.getHeadOwnerId())
+            .headOwnerName(saved.getHeadOwnerId() != null
+                ? owners.findById(saved.getHeadOwnerId()).map(Owner::getFullName).orElse(null)
+                : null)
+            .isActive(saved.getIsActive())
+            .teamCount(0)
+            .ownerCount(0)
+            .build();
     }
 
     @Transactional
@@ -187,10 +195,16 @@ public class OrgService {
             .isActive(request.getIsActive() == null || request.getIsActive())
             .build());
 
-        return listTeams(request.getDepartmentId()).stream()
-            .filter(dto -> dto.getTeamId().equals(saved.getTeamId()))
-            .findFirst()
-            .orElseThrow(() -> new EntityNotFoundException("Team not found after save: " + saved.getTeamId()));
+        return TeamDto.builder()
+            .teamId(saved.getTeamId())
+            .departmentId(saved.getDepartmentId())
+            .departmentName(departments.findById(saved.getDepartmentId())
+                .map(Department::getName)
+                .orElse(null))
+            .name(saved.getName())
+            .isActive(saved.getIsActive())
+            .ownerCount(0)
+            .build();
     }
 
     @Transactional
