@@ -43,10 +43,10 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 ## How to Run
 
 ### Backend
-- Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris`/`changeme`
+- Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris` (password via `DB_PASSWORD` env, default only in local `application.yml`)
 - Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris/atheris-compliance-intelligence-backend` (port 9090)
 - Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris` (port 9091)
-- Default admin: `admin@atheris.ng` / `admin123`
+- Default admin login is set via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars (see `application.yml`) — never commit real credentials
 
 ### Frontend
 - `npm run dev` from `atheris-intelligence-frontend`
@@ -356,4 +356,4 @@ Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Desi
 - `api.js` — `returns.linkObligations` / `returns.linkedObligations`.
 
 ### Verified (live on 9091, test data cleaned up afterwards)
-Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >2d, L3 at >5d); submit flips to `Submitted Late` + resets escalation; quarterly return stepped Aug→Nov; return-to-obligation link `[8,5,1]` → join rows + `link_obligations` audit; obligation detail lists linked returns. Local admin creds (dev): `ma@gmail.com` / `Admin@123`.
+Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >2d, L3 at >5d); submit flips to `Submitted Late` + resets escalation; quarterly return stepped Aug→Nov; return-to-obligation link `[8,5,1]` → join rows + `link_obligations` audit; obligation detail lists linked returns.
