@@ -122,7 +122,7 @@ curl -X POST http://localhost:9091/api/v1/onboarding/institution \
 
 ### Step 3 — User Setup
 ```bash
-# Local admin
+# Local admin (use a throwaway dev-only password)
 curl -X POST http://localhost:9091/api/v1/onboarding/user-setup \
   -H "Content-Type: application/json" \
   -d '{
@@ -130,7 +130,7 @@ curl -X POST http://localhost:9091/api/v1/onboarding/user-setup \
     "localAdmin": {
       "fullName": "Admin User",
       "email": "admin@testbank.com",
-      "password": "SecurePass123!"
+      "password": "<dev-only-password>"
     }
   }'
 
@@ -269,7 +269,7 @@ All require header: `X-Internal-Api-Key: <value from application.yml>`
 ## Platform Admin UI (Intelligence Frontend :5173)
 
 1. Open `http://localhost:5173`
-2. Login: `admin@atheris.ng` / `admin123`
+2. Login with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set for the platform backend (see `application.yml`)
 3. Navigate to:
    - **Pipeline** → `/admin/pipeline` — view OCR/classify/eval jobs from uploaded docs
    - **Regulators** → `/admin/regulators` — manage central regulators
@@ -295,7 +295,7 @@ curl -s -X POST http://localhost:9091/api/v1/onboarding/institution \
 # 3. User setup
 curl -s -X POST http://localhost:9091/api/v1/onboarding/user-setup \
   -H "Content-Type: application/json" \
-  -d '{"authType":"local","localAdmin":{"fullName":"E2E Admin","email":"e2e@test.com","password":"Test123!"}}' | jq .
+  -d '{"authType":"local","localAdmin":{"fullName":"E2E Admin","email":"e2e@test.com","password":"<dev-only-password>"}}' | jq .
 
 # 4. Regulators
 curl -s -X POST http://localhost:9091/api/v1/onboarding/regulators \
