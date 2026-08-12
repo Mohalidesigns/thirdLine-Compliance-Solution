@@ -247,6 +247,10 @@ export const api = {
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
+    linkObligations: (returnId, linkedObligationIds) => request(`/returns/${returnId}/obligations`, {
+      method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
+    }),
+    linkedObligations: (returnId) => request(`/returns/${returnId}/obligations`),
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),

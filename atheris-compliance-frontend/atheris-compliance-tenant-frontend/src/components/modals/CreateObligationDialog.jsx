@@ -6,11 +6,12 @@ import {
 import { Link as LinkIcon } from '@mui/icons-material';
 import { api } from '../../services/api';
 import LinkControlsPicker from './LinkControlsPicker';
+import ReturnPicker from './ReturnPicker';
 
 const EMPTY = {
   instrumentId: '', name: '', description: '', obligationType: '',
   recurringDeadlineType: '', effectiveDate: '', hasGap: false, gapDescription: '',
-  linkedControlIds: [],
+  linkedControlIds: [], linkedReturnIds: [],
 };
 
 const OBLIGATION_TYPES = [
@@ -39,6 +40,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [returnPickerOpen, setReturnPickerOpen] = useState(false);
   const [instruments, setInstruments] = useState([]);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             hasGap: Boolean(initial.hasGap),
             gapDescription: initial.gapDescription || '',
             linkedControlIds: [...(initial.linkedControlIds || [])],
+            linkedReturnIds: [...(initial.linkedReturnIds || [])],
           }
         : { ...EMPTY };
       setForm(base);
@@ -81,6 +84,11 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       const saved = editing && initial
         ? await api.obligations.update(initial.obligationId, body)
         : await api.obligations.create(body);
+      const obligationId = editing && initial ? initial.obligationId : saved?.obligationId;
+      const returnIds = (form.linkedReturnIds || []).map(Number);
+      if (obligationId && returnIds.length > 0) {
+        await api.obligations.linkReturns(obligationId, returnIds);
+      }
       onSaved?.(saved);
       onClose();
     } catch (e) { const msg = e.message || 'Failed to save obligation.'; setError(msg); onSnackbar?.(msg); }
@@ -157,6 +165,22 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             )}
           </Field>
 
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Returns</Typography>
+          <Field label="Linked returns (optional)" sx={{ mb: 0 }}>
+            <Button variant="outlined" fullWidth sx={{ height: 40, justifyContent: 'flex-start', textTransform: 'none' }}
+              startIcon={<LinkIcon />} onClick={() => setReturnPickerOpen(true)}>
+              {form.linkedReturnIds.length > 0
+                ? `Linked returns (${form.linkedReturnIds.length})`
+                : 'Link returns'}
+            </Button>
+            {form.linkedReturnIds.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                <Chip size="small" label={`${form.linkedReturnIds.length} selected`} />
+              </Box>
+            )}
+          </Field>
+
           <Box sx={{ mt: 2 }}>
             <FormControlLabel control={
               <Checkbox size="small" checked={form.hasGap} onChange={e => set('hasGap', e.target.checked)} />
@@ -180,6 +204,8 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
 
       <LinkControlsPicker open={pickerOpen} onClose={() => setPickerOpen(false)}
         initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />
+      <ReturnPicker open={returnPickerOpen} onClose={() => setReturnPickerOpen(false)}
+        initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />
     </>
   );
 }

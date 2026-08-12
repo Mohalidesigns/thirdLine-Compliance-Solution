@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.dashboard.entity.DashboardS
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.DashboardSnapshotRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,8 @@ public class DashboardService {
     public Map<String, Object> getAttentionItems() {
         return Map.of(
             "high_risk_findings", findings.findByStatusAndSeverity("Open", "Critical").size(),
-            "overdue_returns", returnsRepo.findByStatusNotInAndDueDateBefore(List.of("Submitted", "Submitted Late"), LocalDate.now()).size(),
+            "overdue_returns", returnsRepo.findByStatusNotInAndDueDateBefore(
+                List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE), LocalDate.now()).size(),
             "obligations_no_control", obligations.findByHasGapTrue().size(),
             "controls_failing", controls.findByResidualRisk("High").size()
         );
@@ -65,9 +67,9 @@ public class DashboardService {
         long highFindings = findings.countBySeverity("High");
         long overdueFix = findings.findByStatusInAndRemediationDeadlineBefore(List.of("Open", "In Remediation"), LocalDate.now()).size();
         long totalReturns = returnsRepo.count();
-        long onTime = returnsRepo.countByStatus("Submitted");
-        long late = returnsRepo.countByStatus("Submitted Late");
-        long pending = returnsRepo.countByStatus("Not Started") + returnsRepo.countByStatus("In Progress");
+        long onTime = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED);
+        long late = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED_LATE);
+        long pending = returnsRepo.countByStatus(ReturnFilingStatus.NOT_STARTED) + returnsRepo.countByStatus(ReturnFilingStatus.IN_PROGRESS);
 
         Double score;
         if (totalActive + totalInapplicable == 0) {

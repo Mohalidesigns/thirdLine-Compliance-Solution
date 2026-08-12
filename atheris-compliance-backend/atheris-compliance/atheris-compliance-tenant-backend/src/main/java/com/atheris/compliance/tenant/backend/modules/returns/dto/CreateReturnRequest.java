@@ -7,6 +7,7 @@ import lombok.Data;
 public class CreateReturnRequest {
     @NotBlank private String returnName;
     private String filingRegulator;
+    private Long tenantRegulatorId;
     private String returnType;
     private String frequency;
     private Integer filingDueDayOfMonth;

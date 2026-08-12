@@ -3,14 +3,15 @@ import {
   Box, Typography, Chip, Button, IconButton, Card, CardContent, CardHeader,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer, Paper,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  CircularProgress, Alert, Breadcrumbs, Link, Grid, Tooltip, Divider,
+  CircularProgress, Alert, Breadcrumbs, Link, Grid, Tooltip,
   TablePagination, Stepper, Step, StepLabel
 } from '@mui/material';
 import {
-  Add, ArrowBack, CheckCircle, RadioButtonUnchecked, Schedule, Link as LinkIcon
+  Add, ArrowBack, CheckCircle, RadioButtonUnchecked, Schedule, Link as LinkIcon, WarningAmber
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
+import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 
 const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
@@ -18,6 +19,8 @@ const STATUS_COLORS = {
 };
 
 const STAGE_NAMES = ['Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
+
+const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
 
 export default function ReturnsPage() {
   const [view, setView] = useState('list');
@@ -116,6 +119,14 @@ export default function ReturnsPage() {
                     <Box sx={{ textAlign: 'right' }}>
                       <Chip label={item.overdue ? 'OVERDUE' : item.status} size="small"
                         color={item.overdue ? 'error' : STATUS_COLORS[item.status] || 'default'} />
+                      {item.escalationLevel > 0 && (
+                        <Box sx={{ mt: 0.5 }}>
+                          <Tooltip title={`Escalated since ${item.escalatedAt ? new Date(item.escalatedAt).toLocaleDateString() : '-'}`}>
+                            <Chip icon={<WarningAmber fontSize="small" />}
+                              label={`Escalated · L${item.escalationLevel}`} size="small" color="error" />
+                          </Tooltip>
+                        </Box>
+                      )}
                     </Box>
                   </Box>
 
@@ -161,7 +172,7 @@ export default function ReturnsPage() {
         </>
       )}
 
-      <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)}
+      <CreateReturnDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={() => { setCreateOpen(false); loadList(); }} onSnackbar={setSnackbar} />
 
       {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)}
@@ -202,6 +213,19 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, theme }) {
           </Box>
         </CardContent>
       </Card>
+
+      {detail.escalationLevel > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
+          </Typography>
+          {detail.escalatedAt && (
+            <Typography variant="caption">
+              Escalated since {new Date(detail.escalatedAt).toLocaleDateString()}
+            </Typography>
+          )}
+        </Alert>
+      )}
 
       {/* Stages */}
       <Card sx={{ mb: 2 }}>
@@ -271,67 +295,6 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, theme }) {
         instanceId={detail.instanceId}
         onSaved={() => { setSubmitOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
     </Box>
-  );
-}
-
-/* ---------- Create Return Dialog ---------- */
-function CreateDialog({ open, onClose, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({
-    returnName: '', filingRegulator: '', returnType: '', frequency: '',
-    filingDueDayOfMonth: '', filingDeadlineOffsetDays: '', filingChannel: '',
-    returnOwnerUserId: '', returnOwnerName: '',
-  });
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const body = { ...form };
-      if (body.filingDueDayOfMonth) body.filingDueDayOfMonth = parseInt(body.filingDueDayOfMonth, 10);
-      if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
-      if (body.returnOwnerUserId) body.returnOwnerUserId = parseInt(body.returnOwnerUserId, 10);
-      await api.returns.create(body);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
-  };
-  useEffect(() => { if (open) setForm({ returnName: '', filingRegulator: '', returnType: '', frequency: '', filingDueDayOfMonth: '', filingDeadlineOffsetDays: '', filingChannel: '', returnOwnerUserId: '', returnOwnerName: '' }); }, [open]);
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add Return</DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}><TextField label="Return Name" fullWidth size="small" required value={form.returnName}
-            onChange={e => setForm(f => ({ ...f, returnName: e.target.value }))} /></Grid>
-          <Grid item xs={6}><TextField label="Regulator" fullWidth size="small" value={form.filingRegulator}
-            onChange={e => setForm(f => ({ ...f, filingRegulator: e.target.value }))} /></Grid>
-          <Grid item xs={6}><TextField label="Return Type" fullWidth size="small" value={form.returnType}
-            onChange={e => setForm(f => ({ ...f, returnType: e.target.value }))} /></Grid>
-          <Grid item xs={6}><TextField select label="Frequency" fullWidth size="small" value={form.frequency}
-            onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Monthly">Monthly</MenuItem>
-              <MenuItem value="Quarterly">Quarterly</MenuItem>
-              <MenuItem value="Semi-Annual">Semi-Annual</MenuItem>
-              <MenuItem value="Annual">Annual</MenuItem>
-            </TextField></Grid>
-          <Grid item xs={6}><TextField label="Filing Channel" fullWidth size="small" value={form.filingChannel}
-            onChange={e => setForm(f => ({ ...f, filingChannel: e.target.value }))} /></Grid>
-          <Grid item xs={4}><TextField label="Due Day of Month" fullWidth size="small" type="number" value={form.filingDueDayOfMonth}
-            onChange={e => setForm(f => ({ ...f, filingDueDayOfMonth: e.target.value }))} /></Grid>
-          <Grid item xs={4}><TextField label="Prep Offset (days)" fullWidth size="small" type="number" value={form.filingDeadlineOffsetDays}
-            onChange={e => setForm(f => ({ ...f, filingDeadlineOffsetDays: e.target.value }))} /></Grid>
-          <Grid item xs={4}><TextField label="Owner User ID" fullWidth size="small" type="number" value={form.returnOwnerUserId}
-            onChange={e => setForm(f => ({ ...f, returnOwnerUserId: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Owner Name" fullWidth size="small" value={form.returnOwnerName}
-            onChange={e => setForm(f => ({ ...f, returnOwnerName: e.target.value }))} /></Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.returnName}>
-          {saving ? 'Creating...' : 'Create Return'}
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }
 

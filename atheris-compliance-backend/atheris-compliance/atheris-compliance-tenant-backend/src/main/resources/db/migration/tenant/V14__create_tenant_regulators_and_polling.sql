@@ -43,3 +43,18 @@ CREATE INDEX idx_uj_tenant ON upload_jobs(tenant_id);
 CREATE INDEX idx_uj_upload_id ON upload_jobs(upload_id);
 CREATE INDEX idx_uj_status ON upload_jobs(status);
 
+ALTER TABLE regulatory_returns
+    ADD CONSTRAINT fk_returns_regulator
+    FOREIGN KEY (tenant_regulator_id) REFERENCES tenant_regulators(id);
+
+CREATE INDEX idx_returns_regulator ON regulatory_returns(tenant_regulator_id);
+
+UPDATE regulatory_returns SET tenant_regulator_id = (
+    SELECT tr.id FROM tenant_regulators tr
+    WHERE tr.tenant_id = 1
+      AND tr.is_active = true
+      AND (LOWER(COALESCE(tr.abbreviation, '')) = LOWER(COALESCE(regulatory_returns.filing_regulator, ''))
+           OR LOWER(tr.name) = LOWER(COALESCE(regulatory_returns.filing_regulator, '')))
+    LIMIT 1
+) WHERE tenant_regulator_id IS NULL AND filing_regulator IS NOT NULL;
+

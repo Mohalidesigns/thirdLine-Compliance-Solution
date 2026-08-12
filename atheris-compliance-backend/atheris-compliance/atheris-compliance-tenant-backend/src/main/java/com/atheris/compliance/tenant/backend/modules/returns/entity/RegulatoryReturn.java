@@ -18,9 +18,10 @@ public class RegulatoryReturn {
     @Column(nullable = false)
     private String returnName;
     private String filingRegulator;
+    private Long tenantRegulatorId;
     private String returnType;
     private String frequency;
-    private String status = "Active";
+    private RegulatoryReturnStatus status = RegulatoryReturnStatus.ACTIVE;
     private Integer filingDueDayOfMonth;
     private Integer filingDeadlineOffsetDays;
     private String filingChannel;

@@ -25,9 +25,16 @@ public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     @Query(value = "SELECT return_id FROM obligation_returns WHERE obligation_id = :obligationId", nativeQuery = true)
     List<Long> findLinkedReturnIds(@Param("obligationId") Long obligationId);
 
+    @Query(value = "SELECT obligation_id FROM obligation_returns WHERE return_id = :returnId", nativeQuery = true)
+    List<Long> findLinkedObligationIds(@Param("returnId") Long returnId);
+
     @Modifying
     @Query(value = "DELETE FROM obligation_returns WHERE obligation_id = :obligationId", nativeQuery = true)
     void deleteReturnLinks(@Param("obligationId") Long obligationId);
+
+    @Modifying
+    @Query(value = "DELETE FROM obligation_returns WHERE return_id = :returnId", nativeQuery = true)
+    void deleteObligationLinks(@Param("returnId") Long returnId);
 
     @Modifying
     @Query(value = "INSERT INTO obligation_returns (obligation_id, return_id) VALUES (:obligationId, :returnId)", nativeQuery = true)

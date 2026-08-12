@@ -67,4 +67,20 @@ public class ReturnController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(service.create(req, u.getUserId()).getReturnId());
     }
+
+    @GetMapping("/{returnId}/obligations")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<List<Long>> linkedObligations(@PathVariable Long returnId) {
+        return ResponseEntity.ok(service.linkedObligationIds(returnId));
+    }
+
+    @PutMapping("/{returnId}/obligations")
+    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    public ResponseEntity<Void> linkObligations(
+            @PathVariable Long returnId,
+            @RequestBody LinkObligationsRequest req,
+            @AuthenticationPrincipal User u) {
+        service.linkObligations(returnId, req.getLinkedObligationIds(), u.getUserId());
+        return ResponseEntity.ok().build();
+    }
 }
