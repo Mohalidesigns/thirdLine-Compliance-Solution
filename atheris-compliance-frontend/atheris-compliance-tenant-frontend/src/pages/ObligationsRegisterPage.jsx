@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Link as LinkIcon, Warning as WarningIcon, Article,
+  Link as LinkIcon, Warning as WarningIcon, Article, Gavel,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
@@ -39,6 +39,7 @@ const COLUMNS = [
   { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
   { id: 'returns', label: 'Returns', minWidth: 110 },
+  { id: 'sanctions', label: 'Sanctions', minWidth: 110 },
   { id: 'actions', label: 'Actions', minWidth: 90 },
 ];
 
@@ -312,6 +313,15 @@ export default function ObligationsRegisterPage() {
                               <Chip size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
                                 label={`${item.returnNames.length} return${item.returnNames.length > 1 ? 's' : ''}`}
                                 variant="outlined" sx={{ height: 22 }} />
+                            </Tooltip>
+                          : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      </TableCell>
+                      <TableCell>
+                        {item.sanctions?.length > 0
+                          ? <Tooltip title={item.sanctions.map(s => s.sanctionType || 'Sanction').join(', ')}>
+                              <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
+                                label={`${item.sanctions.length} sanction${item.sanctions.length > 1 ? 's' : ''}`}
+                                color="error" variant="outlined" sx={{ height: 22 }} />
                             </Tooltip>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
