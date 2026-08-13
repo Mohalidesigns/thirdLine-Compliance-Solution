@@ -23,8 +23,16 @@ public class Instrument {
     private LocalDate dateSuperseded;
     private String areaOfFocus;
     private Integer themeId;
-    private String nature;              // Core | Secondary | Guidance
+    private String nature;              // Core | Topical/Pertinent | Secondary | Others
     private String riskRating;          // High | Medium | Low
+    private Long regulationId;
+    private String regulatoryItemType;  // Act | Circular | Guideline | Framework | ...
+    @Column(columnDefinition = "text") private String commentOnStatus;
+    @Column(columnDefinition = "text") private String riskRatingExplanation;
+    @Column(columnDefinition = "text") private String commercialBankRelevance;
+    @Column(columnDefinition = "text") private String commercialBankComplianceContext;
+    private String applicabilityToCommercialBanks; // Yes | No | Partially
+    @Column(columnDefinition = "text") private String documentUrl;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private List<String> licenceTypesApplicable;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")

@@ -15,6 +15,7 @@ public class SanctionsPenalty {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long sanctionId;
     @Column(nullable = false) private Long instrumentId;
+    private Long regulationId;
     private String sanctionType;
     private BigDecimal sanctionAmountNaira;
     private Boolean sanctionAmountPerDay;
@@ -27,6 +28,8 @@ public class SanctionsPenalty {
     private BigDecimal recentEnforcementAmount;
     @Column(columnDefinition = "text") private String description;
     private String sourceSectionReference;
+    @Column(columnDefinition = "text") private String riskExplanation;
+    @Column(columnDefinition = "text") private String penaltyDetails;
     private Instant createdAt;
     private Instant updatedAt;
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); }

@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SanctionsRepository extends JpaRepository<SanctionsPenalty, Long>, JpaSpecificationExecutor<SanctionsPenalty> {
     List<SanctionsPenalty> findByInstrumentId(Long instrumentId);
+    List<SanctionsPenalty> findByRegulationId(Long regulationId);
+    long countByRegulationId(Long regulationId);
 }

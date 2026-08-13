@@ -9,5 +9,7 @@ import java.util.List;
 @Repository
 public interface ObligationMappingRepository extends JpaRepository<ObligationMapping, Long>, JpaSpecificationExecutor<ObligationMapping> {
     List<ObligationMapping> findByInstrumentId(Long instrumentId);
+    List<ObligationMapping> findByRegulationId(Long regulationId);
     void deleteByInstrumentId(Long instrumentId);
+    long countByRegulationId(Long regulationId);
 }
