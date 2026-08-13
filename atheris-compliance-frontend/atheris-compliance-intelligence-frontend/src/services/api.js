@@ -388,6 +388,17 @@ export const api = {
       update: (id, data) => request(`/recommendations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
     },
+    regulations: {
+      list: (params = '') => request(`/admin/regulations${params ? '?' + params : ''}`),
+      get: (id) => request(`/admin/regulations/${id}`),
+      update: (id, data) => request(`/admin/regulations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      importToolkit: () => request('/admin/regulations/toolkit/import', { method: 'POST' }),
+    },
+    universe: {
+      instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
+      areasOfFocus: () => request('/admin/universe/areas-of-focus'),
+      stats: () => request('/admin/universe/stats'),
+    },
     uploads: {
       list: (status = '') => request(`/admin/uploads${status ? '?status=' + status : ''}`),
       get: (id) => request(`/admin/uploads/${id}`),
