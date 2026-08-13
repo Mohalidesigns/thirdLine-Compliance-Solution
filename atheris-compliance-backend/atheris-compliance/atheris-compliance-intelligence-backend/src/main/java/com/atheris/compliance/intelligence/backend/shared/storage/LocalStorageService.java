@@ -52,6 +52,7 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public String generatePresignedUrl(String key, int expirySeconds) {
+        if (key == null || key.isBlank()) return null;
         return resolve(key).toUri().toString();
     }
 

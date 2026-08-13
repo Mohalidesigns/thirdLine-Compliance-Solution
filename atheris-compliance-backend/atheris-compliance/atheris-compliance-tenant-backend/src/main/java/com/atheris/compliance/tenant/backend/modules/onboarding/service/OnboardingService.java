@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseAc
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import com.atheris.compliance.tenant.backend.modules.license.service.LicenseService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
@@ -43,6 +44,7 @@ public class OnboardingService {
     private final PasswordEncoder passwordEncoder;
     private final PlatformApiClient platformApi;
     private final ObligationSyncService syncService;
+    private final RegulationSeedService regulationSeedService;
 
     @Value("${atheris.tenant-id:}")
     private Long tenantId;
@@ -269,6 +271,9 @@ public class OnboardingService {
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
+                try { regulationSeedService.seedAll(); } catch (Exception e) {
+                    log.warn("Regulation seed failed: {}", e.getMessage());
+                }
                 try { syncService.syncNow(); } catch (Exception e) {
                     log.warn("Initial sync failed: {}", e.getMessage());
                 }

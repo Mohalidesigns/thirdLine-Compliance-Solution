@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.SubscriptionService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,15 @@ import java.util.*;
 public class SubscriptionController {
 
     private final SubscriptionService service;
+    private final RegulationSeedService regulationSeedService;
+
+    @PostMapping("/seed")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    public ResponseEntity<Map<String, Object>> seed() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("seededObligations", regulationSeedService.seedAll());
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> summary() {

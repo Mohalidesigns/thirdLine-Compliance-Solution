@@ -236,4 +236,24 @@ public class PlatformApiClient {
             return List.of();
         }
     }
+
+    public List<PlatformRegulationSeed> fetchRegulationSeeds(List<Integer> regulatorIds) {
+        if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
+        try {
+            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/regulations/seed");
+            boolean first = true;
+            for (Integer id : regulatorIds) {
+                url.append(first ? "?" : "&").append("regulatorIds=").append(id);
+                first = false;
+            }
+            HttpHeaders h = headers();
+            ResponseEntity<List<PlatformRegulationSeed>> resp = rest.exchange(
+                url.toString(), HttpMethod.GET, new HttpEntity<>(h),
+                new ParameterizedTypeReference<List<PlatformRegulationSeed>>() {});
+            return resp.getBody() != null ? resp.getBody() : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch regulation seeds: {}", e.getMessage());
+            return List.of();
+        }
+    }
 }

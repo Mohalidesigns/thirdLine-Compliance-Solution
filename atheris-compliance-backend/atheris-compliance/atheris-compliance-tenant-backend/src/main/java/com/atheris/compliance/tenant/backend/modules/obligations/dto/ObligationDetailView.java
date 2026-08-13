@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.obligations.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -49,6 +50,21 @@ public class ObligationDetailView {
     private List<ReturnItem> linkedReturns;
     private List<EvidenceItem> evidence;
     private List<HistoryItem> history;
+    private List<SanctionItem> sanctions;
+
+    @Data @Builder
+    public static class SanctionItem {
+        private String sanctionType;
+        private BigDecimal sanctionAmountNaira;
+        private Boolean sanctionAmountPerDay;
+        private List<String> liableRoles;
+        private Integer severityScore;
+        private Boolean hasBeenEnforced;
+        private String description;
+        private String sourceSectionReference;
+        private String riskExplanation;
+        private String penaltyDetails;
+    }
 
     @Data @Builder
     public static class ControlItem {

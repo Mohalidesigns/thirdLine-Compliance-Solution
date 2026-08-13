@@ -42,6 +42,7 @@ public class ObligationService {
     private final PlatformApiClient platform;
     private final OwnerRepository ownerRepo;
     private final DepartmentRepository departmentRepo;
+    private final RegulatorySanctionRepository sanctionRepo;
 
     private static final List<String> RISK_LEVELS = List.of("Extreme", "High", "Medium", "Low");
 
@@ -110,6 +111,9 @@ public class ObligationService {
         Set<Long> returnIds = returnsByObligation.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         Map<Long, String> returnNameById = returnRepo.findAllById(returnIds).stream()
             .collect(Collectors.toMap(RegulatoryReturn::getReturnId, RegulatoryReturn::getReturnName, (a, b) -> a));
+        Map<Long, List<RegulatorySanction>> sanctionsByInstrument = sanctionRepo.findAll().stream()
+            .filter(s -> s.getInstrumentId() != null)
+            .collect(Collectors.groupingBy(RegulatorySanction::getInstrumentId));
 
         List<ObligationRegisterItem> rows = new ArrayList<>();
         for (Obligation ob : allObligations) {
@@ -148,6 +152,9 @@ public class ObligationService {
                 .returnNames(returnNames)
                 .classificationVersion(c != null ? c.getClassificationVersion() : null)
                 .classifiedAt(c != null ? c.getClassifiedAt() : null)
+                .sanctions(ob.getInstrumentId() != null
+                    ? toSanctionItems(sanctionsByInstrument.getOrDefault(ob.getInstrumentId(), List.of()))
+                    : null)
                 .build());
         }
         return rows;
@@ -179,6 +186,42 @@ public class ObligationService {
 
     private static boolean contains(String s, String needle) {
         return s != null && s.toLowerCase().contains(needle);
+    }
+
+    private List<ObligationRegisterItem.SanctionItem> toSanctionItems(List<RegulatorySanction> list) {
+        if (list == null || list.isEmpty()) return null;
+        return list.stream()
+            .map(s -> ObligationRegisterItem.SanctionItem.builder()
+                .sanctionType(s.getSanctionType())
+                .sanctionAmountNaira(s.getSanctionAmountNaira())
+                .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                .liableRoles(s.getLiableRoles())
+                .severityScore(s.getSeverityScore())
+                .hasBeenEnforced(s.getHasBeenEnforced())
+                .description(s.getDescription())
+                .sourceSectionReference(s.getSourceSectionReference())
+                .riskExplanation(s.getRiskExplanation())
+                .penaltyDetails(s.getPenaltyDetails())
+                .build())
+            .toList();
+    }
+
+    private List<ObligationDetailView.SanctionItem> toDetailSanctionItems(List<RegulatorySanction> list) {
+        if (list == null || list.isEmpty()) return null;
+        return list.stream()
+            .map(s -> ObligationDetailView.SanctionItem.builder()
+                .sanctionType(s.getSanctionType())
+                .sanctionAmountNaira(s.getSanctionAmountNaira())
+                .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                .liableRoles(s.getLiableRoles())
+                .severityScore(s.getSeverityScore())
+                .hasBeenEnforced(s.getHasBeenEnforced())
+                .description(s.getDescription())
+                .sourceSectionReference(s.getSourceSectionReference())
+                .riskExplanation(s.getRiskExplanation())
+                .penaltyDetails(s.getPenaltyDetails())
+                .build())
+            .toList();
     }
 
     private Comparator<ObligationRegisterItem> registerComparator(Pageable p) {
@@ -422,6 +465,9 @@ public class ObligationService {
             .linkedReturns(returns)
             .evidence(evidence)
             .history(historyItems)
+            .sanctions(ob.getInstrumentId() != null
+                ? toDetailSanctionItems(sanctionRepo.findByInstrumentId(ob.getInstrumentId()))
+                : null)
             .build();
     }
 
