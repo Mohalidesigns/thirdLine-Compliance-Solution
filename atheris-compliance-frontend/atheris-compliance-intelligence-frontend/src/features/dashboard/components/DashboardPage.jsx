@@ -333,6 +333,95 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
+      {/* Row 2.5 — Tenant Overview */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Tenant Overview</Typography>
+            <Button size="small" endIcon={<Visibility sx={{ fontSize: 14 }} />} onClick={() => navigate('/admin/tenants')}>
+              Manage Tenants
+            </Button>
+          </Box>
+          <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+            <Grid item xs={6} sm={3}>
+              <Box sx={{ borderTop: '3px solid #1A365D', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">Active</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#1A365D' }}>{loading ? '...' : tenants.filter(t => t.isActive).length}</Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box sx={{ borderTop: '3px solid #2D7D46', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">Licence Types</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#2D7D46' }}>{loading ? '...' : new Set(tenants.map(t => t.licenceType).filter(Boolean)).size}</Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box sx={{ borderTop: '3px solid #D4AF37', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">Subscription Tiers</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#D4AF37' }}>{loading ? '...' : new Set(tenants.map(t => t.subscriptionTier).filter(Boolean)).size}</Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Box sx={{ borderTop: '3px solid #C53030', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">Regulator Subscriptions</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#C53030' }}>{loading ? '...' : tenants.reduce((n, t) => n + (t.regulators?.length || 0), 0)}</Typography>
+              </Box>
+            </Grid>
+          </Grid>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 260 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Licence</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Regulators</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Tier</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Onboarded</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">Loading...</Typography></TableCell></TableRow>
+                ) : tenants.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">No tenants onboarded yet</Typography></TableCell></TableRow>
+                ) : tenants.map((t) => (
+                  <TableRow key={t.tenantId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/tenants/${t.tenantId}`)}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>{t.legalName || '—'}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>#{t.tenantId}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem' }}>{t.licenceType || '—'}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {(t.regulatorAbbreviations || []).length > 0
+                          ? t.regulatorAbbreviations.slice(0, 3).map((ab, i) => (
+                            <Chip key={i} label={ab} size="small" sx={{ height: 16, fontSize: '0.55rem', bgcolor: '#EDF2F7', color: '#4A5568' }} />
+                          ))
+                          : <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>{(t.regulators || []).length} subscribed</Typography>}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={t.subscriptionTier || 'starter'} size="small" sx={{ height: 16, fontSize: '0.55rem', textTransform: 'capitalize', bgcolor: '#EBF8FF', color: '#3182CE' }} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={t.isActive ? 'active' : 'inactive'}
+                        size="small"
+                        sx={{ height: 16, fontSize: '0.55rem', fontWeight: 600, textTransform: 'capitalize', bgcolor: t.isActive ? '#E6F4EA' : '#FEE2E2', color: t.isActive ? '#2D7D46' : '#C53030' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096' }}>
+                      {t.onboardedAt ? new Date(t.onboardedAt).toLocaleDateString() : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
       {/* Row 3 — Bottom */}
       <Grid container spacing={2.5}>
         <Grid item xs={12} lg={6}>
