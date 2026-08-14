@@ -11,4 +11,7 @@ public interface SanctionsRepository extends JpaRepository<SanctionsPenalty, Lon
     List<SanctionsPenalty> findByInstrumentId(Long instrumentId);
     List<SanctionsPenalty> findByRegulationId(Long regulationId);
     long countByRegulationId(Long regulationId);
+    boolean existsByRegulationIdAndDescription(Long regulationId, String description);
+    boolean existsByRegulationIdAndSourceSectionReferenceAndDescription(Long regulationId, String sourceSectionReference, String description);
+    boolean existsByRegulationIdAndSourceSectionReferenceAndDescriptionAndPenaltyDetails(Long regulationId, String sourceSectionReference, String description, String penaltyDetails);
 }

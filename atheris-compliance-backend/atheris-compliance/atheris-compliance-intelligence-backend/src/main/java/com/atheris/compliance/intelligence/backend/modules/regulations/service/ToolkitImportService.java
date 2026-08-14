@@ -277,12 +277,20 @@ public class ToolkitImportService {
             Long regulationId = findOrCreateRegulation(source, null);
             Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
 
+            String statement = plain.trim();
+            String sectionRef = shorten(get(r, cSection), 100);
+            if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
+                    regulationId, statement, sectionRef)) {
+                log.debug("[ToolkitImport] Skipping duplicate obligation for {}: {}...", source, statement.substring(0, Math.min(60, statement.length())));
+                continue;
+            }
+
             obligations.save(ObligationMapping.builder()
                 .instrumentId(instrumentId)
                 .regulationId(regulationId)
                 .obligationNumber(++obligNumber)
-                .plainEnglishStatement(plain)
-                .specificSectionReference(shorten(get(r, cSection), 100))
+                .plainEnglishStatement(statement)
+                .specificSectionReference(sectionRef)
                 .obligationType(shorten(get(r, cType), 100))
                 .recurringDeadlineType(shorten(get(r, cDeadline), 50))
                 .build());
@@ -314,6 +322,13 @@ public class ToolkitImportService {
             Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
 
             String penalty = get(r, 4);
+            String violationTrim = violation.trim();
+            if (sanctions.existsByRegulationIdAndSourceSectionReferenceAndDescriptionAndPenaltyDetails(
+                    regulationId, section, violationTrim, penalty)) {
+                log.debug("[ToolkitImport] Skipping duplicate sanction for {}: {}...",
+                    regName, violationTrim.substring(0, Math.min(80, violationTrim.length())));
+                continue;
+            }
             sanctions.save(SanctionsPenalty.builder()
                 .instrumentId(instrumentId)
                 .regulationId(regulationId)

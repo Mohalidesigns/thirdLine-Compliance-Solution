@@ -12,4 +12,5 @@ public interface ObligationMappingRepository extends JpaRepository<ObligationMap
     List<ObligationMapping> findByRegulationId(Long regulationId);
     void deleteByInstrumentId(Long instrumentId);
     long countByRegulationId(Long regulationId);
+    boolean existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(Long regulationId, String plainEnglishStatement, String specificSectionReference);
 }
