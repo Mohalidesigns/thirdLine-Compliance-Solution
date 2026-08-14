@@ -18,12 +18,6 @@ public class CreateLicenseRequest {
     @Positive
     private Integer maxDevices;
     @Positive
-    private Integer maxRegulators;
-    @Positive
-    private Integer maxControls;
-    @Positive
-    private Integer maxReturns;
-    @Positive
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
     @NotNull

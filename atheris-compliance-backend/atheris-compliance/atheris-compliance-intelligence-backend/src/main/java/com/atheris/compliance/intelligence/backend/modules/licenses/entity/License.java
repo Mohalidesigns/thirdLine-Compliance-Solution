@@ -27,9 +27,6 @@ public class License {
     @Column(nullable = false)
     @Builder.Default
     private Integer maxDevices = 1;
-    private Integer maxRegulators;
-    private Integer maxControls;
-    private Integer maxReturns;
     @Builder.Default
     private Integer maxStorageMb = 500;
     @Column(nullable = false)

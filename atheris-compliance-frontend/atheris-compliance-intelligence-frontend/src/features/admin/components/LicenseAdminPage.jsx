@@ -113,8 +113,8 @@ export default function LicenseAdminPage() {
   const openEditDialog = (lic) => {
     setForm({
       tenantId: lic.tenantId, tier: lic.tier, intelligenceEnabled: lic.intelligenceEnabled, maxUsers: lic.maxUsers,
-      maxDevices: lic.maxDevices, maxRegulators: lic.maxRegulators, maxControls: lic.maxControls,
-      maxReturns: lic.maxReturns, maxStorageMb: lic.maxStorageMb,
+      maxDevices: lic.maxDevices,
+      maxStorageMb: lic.maxStorageMb,
       deviceFingerprintEnforced: lic.deviceFingerprintEnforced, expiresAt: lic.expiresAt?.slice(0, 16),
       gracePeriodDays: lic.gracePeriodDays, notes: lic.notes,
     });
@@ -309,9 +309,6 @@ export default function LicenseAdminPage() {
               {[
                 { label: 'Max Users', value: selectedLicense.maxUsers },
                 { label: 'Devices', value: `${selectedLicense.deviceCount} / ${selectedLicense.maxDevices}` },
-                { label: 'Max Regulators', value: selectedLicense.maxRegulators || '∞' },
-                { label: 'Max Controls', value: selectedLicense.maxControls || '∞' },
-                { label: 'Max Returns', value: selectedLicense.maxReturns || '∞' },
                 { label: 'Storage', value: `${selectedLicense.maxStorageMb} MB` },
                 { label: 'Grace Period', value: `${selectedLicense.gracePeriodDays} days` },
                 { label: 'Expires', value: selectedLicense.expiresAt ? new Date(selectedLicense.expiresAt).toLocaleDateString() : '—' },
@@ -375,15 +372,6 @@ function LicenseForm({ form, onChange }) {
         </Grid>
         <Grid item xs={4}>
           <TextField fullWidth size="small" label="Max Devices" type="number" value={form.maxDevices || ''} onChange={e => set('maxDevices', parseInt(e.target.value) || 0)} />
-        </Grid>
-        <Grid item xs={4}>
-          <TextField fullWidth size="small" label="Max Regulators" type="number" value={form.maxRegulators ?? ''} onChange={e => set('maxRegulators', e.target.value ? parseInt(e.target.value) : null)} />
-        </Grid>
-        <Grid item xs={4}>
-          <TextField fullWidth size="small" label="Max Controls" type="number" value={form.maxControls ?? ''} onChange={e => set('maxControls', e.target.value ? parseInt(e.target.value) : null)} />
-        </Grid>
-        <Grid item xs={4}>
-          <TextField fullWidth size="small" label="Max Returns" type="number" value={form.maxReturns ?? ''} onChange={e => set('maxReturns', e.target.value ? parseInt(e.target.value) : null)} />
         </Grid>
         <Grid item xs={6}>
           <TextField fullWidth size="small" label="Storage" type="number" value={form.maxStorageMb || ''} onChange={e => set('maxStorageMb', parseInt(e.target.value) || 0)} InputProps={{ endAdornment: <InputAdornment position="end">MB</InputAdornment> }} />
