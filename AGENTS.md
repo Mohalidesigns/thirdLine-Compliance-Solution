@@ -278,13 +278,14 @@ npm run dev
 ### E2E Testing
 See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference, and full testing script with curl commands.
 
-## Next — Backend Verification & Integration
-- [ ] Start both backends, verify clean startup (no seeder warnings, no auto-generated password)
-- [ ] Test onboarding E2E: open `:5173`, complete 6-step wizard → login at `:5174`
-- [ ] Wire up `evaluate_applicability` processor to send webhooks to tenant service
-- [ ] Add tenant dashboard widgets (active tenants, webhook health) in main platform
-- [ ] Cleanup: add `@Builder.Default` to entity fields flagged by Lombok warnings
-- [ ] Cleanup: `maxRegulators`, `maxControls`, `maxReturns` are stored in entity/DTO but never enforced. Remove from create/edit forms and DTOs, or wire up actual limit enforcement.
+## Done — Backend Verification & Cleanup (backlog completed)
+
+- [x] Start both backends, verify clean startup (no seeder warnings, no auto-generated password) — intel :9090 (pid via maven spring-boot:run) + tenant :9091, logs in `%TEMP%\opencode\{intel,tenant}-{out,err}.log`
+- [x] Test onboarding E2E on sacrificial tenant-2 (port 9092, `TENANT_ID=2`): all 6 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs
+- [x] ~~Wire up `evaluate_applicability` processor to send webhooks to tenant service~~ — CANCELLED by user; tenant delivers via polling (`ObligationSyncService`) instead. Webhook code left dormant.
+- [x] Add tenant dashboard widgets — "Tenant Overview" card in `DashboardPage.jsx` (active tenants, licence types, subscription tiers, regulator subscriptions; row → `/admin/tenants/{id}`)
+- [x] Cleanup: `@Builder.Default` added to all initialized entity/DTO fields (100 annotations across 35 files) — commit `5310dc3`
+- [x] Cleanup: `maxRegulators`, `maxControls`, `maxReturns` REMOVED everywhere (License entity, CreateLicenseRequest/UpdateLicenseRequest/LicenseDto, LicenseService, V12 migration edited in place, license admin form/detail drawer, demo mock data). They were never enforced — tenant backend manages its own limits. Commit `48ba65d`. Both DBs recreated fresh (15 intel + 25 tenant migrations re-applied) and re-seeded (toolkit import, Mam Corp tenant/license/api-key, tenant profile + regulators CBN/NDIC + admin user; sync verified: 6 pending reviews created).
 
 ## Done — Tenant Obligations Register Rebuilt (Per-Obligation)
 
