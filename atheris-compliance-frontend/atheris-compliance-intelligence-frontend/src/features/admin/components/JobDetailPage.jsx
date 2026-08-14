@@ -15,7 +15,6 @@ const jobTypeLabels = {
   ocr_document: { label: 'OCR', color: '#3182CE' },
   classify_instrument: { label: 'Classify', color: '#805AD5' },
   evaluate_applicability: { label: 'Applicability', color: '#DD6B20' },
-  send_webhooks: { label: 'Webhook', color: '#2D7D46' },
 };
 
 const statusConfig = {

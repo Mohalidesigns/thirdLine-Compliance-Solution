@@ -6,7 +6,7 @@ import {
   Divider, IconButton, Tooltip,
 } from '@mui/material';
 import {
-  ArrowBack, Language, Sync, Security, History, CheckCircle, Cancel,
+  ArrowBack, Language, Security, History, CheckCircle, Cancel,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
@@ -45,12 +45,6 @@ export default function TenantDetailPage() {
       .then(setWebhookHistory)
       .catch(() => setWebhookHistory([]))
       .finally(() => setHistLoading(false));
-  }
-
-  function handleTestWebhook() {
-    api.platform.tenants.testWebhook(id)
-      .then((res) => alert(res.message || 'Test sent'))
-      .catch((err) => alert('Test failed: ' + err.message));
   }
 
   if (loading) {
@@ -96,9 +90,6 @@ export default function TenantDetailPage() {
           <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.75rem' }}>
             ID: {tenant.tenantId} &middot; {tenant.licenceType || 'No licence type'}
           </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<Sync />} onClick={handleTestWebhook}>Test Webhook</Button>
         </Box>
       </Box>
 

@@ -124,7 +124,6 @@ function demoRequest(path, options = {}) {
         { id: 102, jobType: 'classify_instrument', status: 'pending', title: 'SEC Digital Assets Framework', regulator: 'SEC', createdAt: '2026-06-21T11:30:00Z', updatedAt: null, retryCount: 0 },
         { id: 103, jobType: 'ocr_document', status: 'processing', title: 'NAICOM Cyber Insurance Requirements', regulator: 'NAICOM', createdAt: '2026-06-21T10:00:00Z', updatedAt: null, retryCount: 0 },
         { id: 104, jobType: 'classify_instrument', status: 'processing', title: 'FIRS Transfer Pricing Guidelines', regulator: 'FIRS', createdAt: '2026-06-21T09:00:00Z', updatedAt: null, retryCount: 0 },
-        { id: 105, jobType: 'send_webhooks', status: 'completed', title: 'CBN AML/CFT Regulations', regulator: 'CBN', createdAt: '2026-06-20T16:00:00Z', updatedAt: '2026-06-20T16:05:00Z', retryCount: 0 },
         { id: 106, jobType: 'evaluate_applicability', status: 'completed', title: 'NCC Code of Practice', regulator: 'NCC', createdAt: '2026-06-20T14:00:00Z', updatedAt: '2026-06-20T14:02:00Z', retryCount: 0 },
         { id: 107, jobType: 'ocr_document', status: 'failed', title: 'CBN Circular on FOREX', regulator: 'CBN', createdAt: '2026-06-19T08:00:00Z', updatedAt: '2026-06-19T08:05:00Z', retryCount: 3 },
         { id: 108, jobType: 'classify_instrument', status: 'failed', title: 'SEC Rules Update March', regulator: 'SEC', createdAt: '2026-06-19T07:00:00Z', updatedAt: '2026-06-19T07:03:00Z', retryCount: 2 },
@@ -304,8 +303,6 @@ export const api = {
       list: () => request('/platform/tenants'),
       get: (id) => request(`/platform/tenants/${id}`),
       create: (data) => request('/platform/tenants', { method: 'POST', body: JSON.stringify(data) }),
-      testWebhook: (id) => request(`/platform/tenants/${id}/test-webhook`, { method: 'POST' }),
-      rotateSecret: (id) => request(`/platform/tenants/${id}/rotate-webhook-secret`, { method: 'POST' }),
       history: (id) => request(`/platform/tenants/${id}/webhook-history`),
     },
     regulators: {

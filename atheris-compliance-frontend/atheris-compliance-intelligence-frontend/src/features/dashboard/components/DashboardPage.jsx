@@ -69,7 +69,6 @@ function getPipelineStages(item) {
     if (item.jobType === 'ocr_document') stages.ocr = item.status === 'completed' ? 'completed' : item.status;
     if (item.jobType === 'classify_instrument') { stages.ocr = 'completed'; stages.classify = item.status === 'completed' ? 'completed' : item.status; }
     if (item.jobType === 'evaluate_applicability') { stages.ocr = 'completed'; stages.classify = 'completed'; stages.publish = item.status === 'completed' ? 'completed' : item.status; }
-    if (item.jobType === 'send_webhooks') { stages.ocr = 'completed'; stages.classify = 'completed'; stages.publish = item.status === 'completed' ? 'completed' : item.status; }
     return stages;
   }
   if (item._source === 'instrument') {

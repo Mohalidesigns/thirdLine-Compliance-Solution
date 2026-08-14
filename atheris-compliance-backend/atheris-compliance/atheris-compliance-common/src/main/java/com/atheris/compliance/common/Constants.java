@@ -94,7 +94,6 @@ public final class Constants {
     public static final String JOB_OCR = "ocr_document";
     public static final String JOB_CLASSIFY = "classify_instrument";
     public static final String JOB_APPLICABILITY = "evaluate_applicability";
-    public static final String JOB_WEBHOOK = "send_webhooks";
     public static final String JOB_CHANGE_NOTIFICATION = "deliver_change_notification";
 
     // ── Webhook ──

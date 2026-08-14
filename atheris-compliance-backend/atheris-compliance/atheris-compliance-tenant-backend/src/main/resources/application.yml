@@ -29,7 +29,6 @@ atheris:
     secret: ${JWT_SECRET:change-me-in-production-use-a-long-random-base64-secret}
     expiry-minutes: 1440
   tenant-id: ${TENANT_ID:1}
-  webhook-secret: ${WEBHOOK_SECRET:}
   returns:
     instance-lookahead-days: 120
     escalation-thresholds: "2,5"

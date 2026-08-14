@@ -5,7 +5,6 @@ import com.atheris.compliance.intelligence.backend.modules.tenants.dto.*;
 import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
 import com.atheris.compliance.intelligence.backend.modules.tenants.mapper.TenantMapper;
 import com.atheris.compliance.intelligence.backend.modules.tenants.repository.TenantRepository;
-import com.atheris.compliance.intelligence.backend.modules.webhooks.service.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,6 @@ import java.util.*;
 public class TenantService {
 
     private final TenantRepository repo;
-    private final WebhookService webhooks;
     private final TenantMapper mapper;
 
     public List<TenantDto> findAll(Boolean isActive) {
@@ -99,25 +97,8 @@ public class TenantService {
     }
 
     public WebhookTestResult testWebhook(Long tenantId) {
-        Tenant t = repo.findById(tenantId)
-            .orElseThrow(() -> new RuntimeException("Tenant not found"));
-        if (t.getWebhookUrl() == null)
-            return WebhookTestResult.builder().delivered(false)
-                .error("No webhook URL configured").build();
-
-        long start = System.currentTimeMillis();
-        try {
-            webhooks.deliver(tenantId, 0L,
-                Map.of("webhook_type", Constants.WEBHOOK_EVENT_PING, "message", "Atheris webhook test"),
-                Constants.WEBHOOK_EVENT_PING);
-            return WebhookTestResult.builder()
-                .delivered(true)
-                .latencyMs((int)(System.currentTimeMillis() - start))
-                .build();
-        } catch (Exception e) {
-            return WebhookTestResult.builder()
-                .delivered(false).error(e.getMessage()).build();
-        }
+        return WebhookTestResult.builder().delivered(false)
+            .error("Webhooks are disabled; tenant data is delivered via polling").build();
     }
 
     private String generateSecret(String prefix) {

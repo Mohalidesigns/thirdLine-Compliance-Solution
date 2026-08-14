@@ -38,7 +38,6 @@ public class SecurityConfig {
                     "/api/v1/auth/**",
                     "/api/v1/onboarding/**",
                     "/api/v1/recommendations/**",
-                    "/api/v1/webhooks/**",
                     "/api/v1/license/**",
                     "/actuator/health"
                 ).permitAll()
