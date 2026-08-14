@@ -49,9 +49,12 @@ public class Instrument {
     private LocalDate publishedAt;
     private Instant discoveredAt;
     private Instant firstPublishedAt;
+    @Builder.Default
     private String status = Constants.INST_TRIAGE;   // Triage | Published | Superseded | Withdrawn
+    @Builder.Default
     private String uploadSource = "scraper"; // scraper | manual_upload | backfill
     private Integer uploadedBy;
+    @Builder.Default
     private Boolean isHistoricalBackfill = false;
     @Column(columnDefinition = "text") private String aiSummary;
     private Instant createdAt;

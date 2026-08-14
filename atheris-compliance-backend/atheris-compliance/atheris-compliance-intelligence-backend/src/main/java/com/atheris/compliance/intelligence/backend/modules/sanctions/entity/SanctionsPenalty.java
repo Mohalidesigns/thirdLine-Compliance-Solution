@@ -23,6 +23,7 @@ public class SanctionsPenalty {
     private List<String> liableRoles;
     private BigDecimal personalLiabilityNaira;
     private Integer severityScore;
+    @Builder.Default
     private Boolean hasBeenEnforced = false;
     private LocalDate recentEnforcementDate;
     private BigDecimal recentEnforcementAmount;

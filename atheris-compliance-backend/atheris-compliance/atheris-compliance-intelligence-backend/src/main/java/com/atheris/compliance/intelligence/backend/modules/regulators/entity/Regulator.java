@@ -15,26 +15,34 @@ public class Regulator {
     private Integer regulatorId;
     @Column(nullable = false) private String name;
     @Column(nullable = false, unique = true, length = 20) private String abbreviation;
+    @Builder.Default
     private String country = "Nigeria";
     private String websiteUrl;
+    @Builder.Default
     private Boolean scraperEnabled = true;
     private String publicationPageUrl;
     private String scraperFrequency;      // daily | hourly | weekly | 15min
     private String scraperStrategy;       // html | headless | disabled
     private String pdfLinkSelector;
+    @Builder.Default
     private Boolean paginationEnabled = false;
     private String paginationSelector;
     private String paginationStrategy;   // NEXT_BUTTON | PAGE_PARAM | YEAR_FOLDERS
+    @Builder.Default
     private Integer maxPagesPerRun = 3;
+    @Builder.Default
     private Integer maxPdfSizeMb = 100;
+    @Builder.Default
     private Integer historicalStartYear = 2022;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private Map<String, String> requestHeaders;
     private Instant scraperLastRanAt;
+    @Builder.Default
     private Integer scraperLastFound = 0;
     private String logoUrl;
     private String description;
     private String scraperNotes;
+    @Builder.Default
     private Boolean isActive = true;
     private Integer createdBy;
     private Instant createdAt;

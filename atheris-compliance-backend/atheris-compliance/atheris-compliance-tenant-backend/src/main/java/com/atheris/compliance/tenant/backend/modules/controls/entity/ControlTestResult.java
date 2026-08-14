@@ -28,10 +28,12 @@ public class ControlTestResult {
     private String failureDetails;
     private String failureSeverity;
     private String evidenceUrl;
+    @Builder.Default
     private Boolean remediationRequired = false;
     private Integer remediationOwnerUserId;
     private Integer remediationOwnerId;
     private LocalDate remediationDeadline;
+    @Builder.Default
     private String reviewStatus = "Pending";
     private Integer reviewedByUserId;
     private String reviewedByName;

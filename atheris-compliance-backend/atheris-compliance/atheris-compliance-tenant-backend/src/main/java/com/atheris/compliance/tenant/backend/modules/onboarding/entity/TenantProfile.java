@@ -37,6 +37,7 @@ public class TenantProfile {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<String> productLines;
+    @Builder.Default
     private String notificationFrequency = "immediate";
     private String ccoName;
     private String ccoEmail;
@@ -45,23 +46,30 @@ public class TenantProfile {
     private String contactPhone;
     private String contactEmail;
     private String webhookUrl;
+    @Builder.Default
     private Boolean webhookEnabled = true;
+    @Builder.Default
     private String subscriptionTier = "starter";
+    @Builder.Default
     private Boolean isActive = true;
+    @Builder.Default
     private Integer onboardingStep = 1;
     private Instant onboardingCompletedAt;
 
     private String licenseKey;
+    @Builder.Default
     private String licenseStatus = LICENSE_INACTIVE;
     private String encryptedApiKey;
     private String apiKeyPrefix;
     private Instant licenseActivatedAt;
     private Instant licenseExpiresAt;
+    @Builder.Default
     private Boolean intelligenceEnabled = true;
     private String deviceFingerprint;
     private Instant deviceFingerprintProvisionedAt;
     private Instant lastLicenseCheckupAt;
     private Instant licenseGracePeriodEnd;
+    @Builder.Default
     private String authType = "local";
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

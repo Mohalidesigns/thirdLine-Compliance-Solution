@@ -11,6 +11,7 @@ public class TenantPollingConfig {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false, unique = true) private Long tenantId;
+    @Builder.Default
     private Integer pollingIntervalMinutes = 15;
     private Instant lastPolledAt;
     private Instant createdAt;

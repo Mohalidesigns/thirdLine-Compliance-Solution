@@ -30,6 +30,7 @@ public class Finding {
     private String assignedToName;
     private Integer assignedToOwnerId;
     private Instant assignedAt;
+    @Builder.Default
     private String status = "Open";
     private LocalDate remediationDeadline;
     private Integer slaDays;

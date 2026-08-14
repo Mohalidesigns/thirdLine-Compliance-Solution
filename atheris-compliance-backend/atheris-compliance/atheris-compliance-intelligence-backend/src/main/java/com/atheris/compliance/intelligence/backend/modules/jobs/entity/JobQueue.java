@@ -20,9 +20,13 @@ public class JobQueue {
     private Long subjectId;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> payload;
+    @Builder.Default
     private String status = Constants.STATUS_PENDING;  // pending | processing | completed | failed
+    @Builder.Default
     private Integer priority = 0;       // 1=HIGH (monitoring), 0=LOW (backfill)
+    @Builder.Default
     private Integer attemptCount = 0;
+    @Builder.Default
     private Integer maxAttempts = 3;
     private String lastError;
     private Instant nextRetryAt;

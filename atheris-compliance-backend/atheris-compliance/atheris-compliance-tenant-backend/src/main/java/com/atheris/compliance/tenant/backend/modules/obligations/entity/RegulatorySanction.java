@@ -26,6 +26,7 @@ public class RegulatorySanction {
     @Column(columnDefinition = "jsonb")
     private List<String> liableRoles;
     private Integer severityScore;
+    @Builder.Default
     private Boolean hasBeenEnforced = false;
     @Column(columnDefinition = "text") private String description;
     @Column(length = 255) private String sourceSectionReference;

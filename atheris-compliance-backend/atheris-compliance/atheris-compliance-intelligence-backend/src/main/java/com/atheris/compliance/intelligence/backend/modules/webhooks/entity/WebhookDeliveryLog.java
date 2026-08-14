@@ -17,6 +17,7 @@ public class WebhookDeliveryLog {
     private Long tenantId;
     private Long instrumentId;
     private String webhookType;
+    @Builder.Default
     private String status = Constants.STATUS_PENDING;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private Map<String, Object> requestPayload;
@@ -24,7 +25,9 @@ public class WebhookDeliveryLog {
     private Integer responseCode;
     @Column(columnDefinition = "text") private String responseBody;
     private Integer deliveryLatencyMs;
+    @Builder.Default
     private Integer attemptCount = 0;
+    @Builder.Default
     private Integer maxAttempts = 5;
     private String lastError;
     private Instant nextRetryAt;

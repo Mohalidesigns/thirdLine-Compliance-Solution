@@ -15,6 +15,7 @@ public class User {
     private String lastName;
     @Column(nullable = false) private String role;
     private Long tenantId;
+    @Builder.Default
     private Boolean isActive = true;
     private Instant createdAt;
     private Instant updatedAt;

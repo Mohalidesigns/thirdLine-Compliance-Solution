@@ -17,6 +17,7 @@ public class UploadJob {
     private String title;
     private Long platformInstrumentId;
     private Long platformJobId;
+    @Builder.Default
     private String status = "queued";
     @Column(columnDefinition = "text") private String errorMessage;
     private Instant createdAt;

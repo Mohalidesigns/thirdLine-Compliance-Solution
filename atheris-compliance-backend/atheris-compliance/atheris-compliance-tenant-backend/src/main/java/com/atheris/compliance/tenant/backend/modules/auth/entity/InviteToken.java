@@ -22,6 +22,7 @@ public class InviteToken {
     private String tokenHash;
     @Column(nullable = false)
     private String tokenType;
+    @Builder.Default
     private Boolean isUsed = false;
     private Instant usedAt;
     @Column(nullable = false)

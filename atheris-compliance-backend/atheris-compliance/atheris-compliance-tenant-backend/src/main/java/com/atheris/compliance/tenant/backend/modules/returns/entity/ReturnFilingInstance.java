@@ -23,7 +23,9 @@ public class ReturnFilingInstance {
     private String period;
     private LocalDate dueDate;
     private LocalDate prepStartDate;
+    @Builder.Default
     private ReturnStage currentStage = ReturnStage.NOT_STARTED;
+    @Builder.Default
     private ReturnFilingStatus status = ReturnFilingStatus.NOT_STARTED;
     private Integer stageOwnerUserId;
     @JdbcTypeCode(SqlTypes.JSON)
@@ -33,7 +35,9 @@ public class ReturnFilingInstance {
     private LocalDate submittedDate;
     private Integer submittedByUserId;
     private String submissionEvidenceUrl;
+    @Builder.Default
     private Integer daysLate = 0;
+    @Builder.Default
     private Integer escalationLevel = 0;
     private Instant escalatedAt;
     @Column(columnDefinition = "text")

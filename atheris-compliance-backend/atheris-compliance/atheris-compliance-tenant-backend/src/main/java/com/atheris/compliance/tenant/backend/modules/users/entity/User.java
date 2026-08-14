@@ -25,11 +25,16 @@ public class User {
     @Column(nullable = false)
     private String role;
     private Integer managerUserId;
+    @Builder.Default
     private Boolean isActive = true;
+    @Builder.Default
     private Boolean emailVerified = false;
+    @Builder.Default
     private String inviteStatus = "pending";
+    @Builder.Default
     private Boolean mfaEnabled = false;
     private String mfaSecret;
+    @Builder.Default
     private Integer failedLoginAttempts = 0;
     private Instant lockedUntil;
     private Integer invitedByUserId;

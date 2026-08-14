@@ -13,9 +13,13 @@ public class ScraperRunLog {
     @Column(nullable = false) private Integer regulatorId;
     private String mode;               // monitoring | backfill
     @Column(nullable = false) private Instant runAt;
+    @Builder.Default
     private Integer documentsFound = 0;
+    @Builder.Default
     private Integer newDocuments = 0;
+    @Builder.Default
     private Integer skippedDocuments = 0;
+    @Builder.Default
     private Integer failedDocuments = 0;
     private String status;             // success | partial_failure | failed
     @Column(columnDefinition = "text") private String errorMessage;

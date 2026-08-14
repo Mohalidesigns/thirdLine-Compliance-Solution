@@ -14,6 +14,7 @@ public class Regulation {
     @Column(columnDefinition = "text") private String description;
     private Integer regulatorId;
     private Long canonicalInstrumentId;
+    @Builder.Default
     private String status = "Active";
     private Instant createdAt;
     private Instant updatedAt;
