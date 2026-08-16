@@ -9,10 +9,17 @@ import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
 
 const EMPTY = {
-  instrumentId: '', name: '', description: '', obligationType: '',
+  instrumentId: '', name: '', description: '', areaOfFocus: '', obligationType: '',
   recurringDeadlineType: '', effectiveDate: '', hasGap: false, gapDescription: '',
   linkedControlIds: [], linkedReturnIds: [],
 };
+
+const AREAS_OF_FOCUS = [
+  'AML/CFT', 'Corporate Governance', 'Conduct Risk', 'Data Protection',
+  'Consumer Protection', 'Cybersecurity', 'Anti-Bribery & Corruption',
+  'Capital Market', 'Compliance Risk Management', 'ESG', 'Account Management',
+  'Cash Management', 'Financial Reporting',
+];
 
 const OBLIGATION_TYPES = [
   'reporting', 'disclosure', 'compliance', 'record_keeping',
@@ -50,6 +57,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             instrumentId: initial.instrumentId ?? '',
             name: initial.name || '',
             description: initial.description || '',
+            areaOfFocus: initial.areaOfFocus || '',
             obligationType: initial.obligationType || '',
             recurringDeadlineType: initial.recurringDeadlineType || '',
             effectiveDate: initial.effectiveDate || '',
@@ -116,6 +124,13 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           <Divider sx={{ my: 2 }} />
           <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Classification</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Field label="Area of focus" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.areaOfFocus}
+                onChange={e => set('areaOfFocus', e.target.value)}>
+                <MenuItem value=""><em>Select area</em></MenuItem>
+                {AREAS_OF_FOCUS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            </Field>
             <Field label="Obligation type" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.obligationType}
                 onChange={e => set('obligationType', e.target.value)}>
@@ -123,6 +138,8 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
                 {OBLIGATION_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
               </TextField>
             </Field>
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
             <Field label="Deadline type" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.recurringDeadlineType}
                 onChange={e => set('recurringDeadlineType', e.target.value)}>
@@ -130,14 +147,14 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
                 {DEADLINE_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
               </TextField>
             </Field>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
                 onChange={e => set('effectiveDate', e.target.value)} />
             </Field>
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <Field label="Instrument (optional)" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.instrumentId}
+              <TextField fullWidth size="small" select value={form.instrumentId}
                 onChange={e => set('instrumentId', e.target.value)}>
                 <MenuItem value=""><em>None — standalone obligation</em></MenuItem>
                 {instruments.map(ins => (

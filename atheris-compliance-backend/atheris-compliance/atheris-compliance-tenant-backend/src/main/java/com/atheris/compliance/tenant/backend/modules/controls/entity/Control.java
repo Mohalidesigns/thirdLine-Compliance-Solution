@@ -40,6 +40,7 @@ public class Control {
     private List<Long> linkedObligationIds;
     private String inherentRisk;
     private String residualRisk;
+    @Builder.Default
     private String status = "Active";
     private Integer createdByUserId;
     private Instant createdAt;

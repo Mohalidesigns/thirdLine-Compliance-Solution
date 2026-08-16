@@ -9,11 +9,11 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.mapper.TenantRegulatorMapper;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,12 +29,11 @@ public class RegulatorService {
     private final TenantRegulatorMapper mapper;
     private final TenantProfileRepository profiles;
     private final PlatformApiClient platform;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public Page<TenantRegulatorDto> list(String search, Pageable pageable) {
         syncFromProfile();
+        Long tenantId = tenantIdentity.currentTenantId();
         Specification<TenantRegulator> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("tenantId"), tenantId));
@@ -47,6 +46,7 @@ public class RegulatorService {
 
     @Transactional
     public void syncFromProfile() {
+        Long tenantId = tenantIdentity.currentTenantId();
         profiles.findByTenantId(tenantId).ifPresent(p -> {
             List<Integer> subscribed = p.getSubscribedRegulators();
             if (subscribed == null || subscribed.isEmpty()) return;
@@ -80,6 +80,7 @@ public class RegulatorService {
     }
 
     public TenantRegulatorDto getById(Long id) {
+        Long tenantId = tenantIdentity.currentTenantId();
         return repo.findByIdAndTenantId(id, tenantId)
             .map(mapper::toDto)
             .orElseThrow(() -> new RuntimeException("Regulator not found"));
@@ -87,6 +88,7 @@ public class RegulatorService {
 
     @Transactional
     public TenantRegulatorDto create(CreateRegulatorRequest req) {
+        Long tenantId = tenantIdentity.currentTenantId();
         if (repo.existsByTenantIdAndNameIgnoreCase(tenantId, req.getName()))
             throw new IllegalArgumentException("Regulator with this name already exists");
         TenantRegulator entity = mapper.toEntity(req);
@@ -96,6 +98,7 @@ public class RegulatorService {
 
     @Transactional
     public TenantRegulatorDto update(Long id, UpdateRegulatorRequest req) {
+        Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator entity = repo.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new RuntimeException("Regulator not found"));
         if (req.getName() != null && !req.getName().equalsIgnoreCase(entity.getName())
@@ -107,6 +110,7 @@ public class RegulatorService {
 
     @Transactional
     public void delete(Long id) {
+        Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator entity = repo.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new RuntimeException("Regulator not found"));
         repo.delete(entity);

@@ -21,6 +21,7 @@ public class ObligationChange {
     private Map<String, Object> changedFields;  // the diff
     @Column(columnDefinition = "text", nullable = false)
     private String changeSummary;
+    @Builder.Default
     private String changeSeverity = "medium";   // low | medium | high
     private String changedBy;
     // ai_reclassification | platform_admin | scraper

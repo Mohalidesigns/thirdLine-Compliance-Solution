@@ -12,15 +12,16 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Te
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentSummary;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -39,12 +40,10 @@ public class ObligationSyncService {
     private final TenantRegulatorRepository tenantRegulators;
     private final ObligationRepository obligationRepository;
     private final PendingReviewRepository pendingReviews;
+    private final TenantIdentityService tenantIdentity;
 
     @PersistenceContext
     private EntityManager em;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
 
     @EventListener(ApplicationReadyEvent.class)
     public void syncOnStartup() {
@@ -63,8 +62,9 @@ public class ObligationSyncService {
         syncNow();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void syncNow() {
+        Long tenantId = tenantIdentity.currentTenantId();
         TenantProfile p = profiles.findByTenantId(tenantId).orElse(null);
         if (p == null || !Boolean.TRUE.equals(p.getIsActive())) {
             log.info("Sync skipped: tenant {} not found or inactive", tenantId);
@@ -118,6 +118,7 @@ public class ObligationSyncService {
                         .obligationNumber(extObl.getObligationNumber())
                         .description(extObl.getPlainEnglishStatement())
                         .sectionReference(extObl.getSpecificSectionReference())
+                        .areaOfFocus(extObl.getAreaOfFocus())
                         .obligationType(extObl.getObligationType())
                         .recurringDeadlineType(extObl.getRecurringDeadlineType())
                         .applicable(true)

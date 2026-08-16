@@ -34,6 +34,9 @@ export const ROUTES = {
   ADMIN_UPLOADS: '/admin/uploads',
   ADMIN_LICENSES: '/admin/licenses',
   ADMIN_LICENSE_DETAIL: '/admin/licenses/:id',
+  ADMIN_REGULATIONS: '/admin/regulations',
+  ADMIN_REGULATION_DETAIL: '/admin/regulations/:id',
+  ADMIN_UNIVERSE: '/admin/universe',
 };
 
 export const STRINGS = {
@@ -63,6 +66,8 @@ export const LABELS = {
   LICENSES: 'License Management',
   INSTRUMENTS: 'Instruments',
   UPLOADS: 'Uploads',
+  REGULATIONS: 'Regulation Explorer',
+  UNIVERSE: 'Compliance Universe',
 };
 
 export const NAV_SECTIONS = [
@@ -79,6 +84,8 @@ export const NAV_SECTIONS = [
     { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
     { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
     { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
+    { text: 'Regulation Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATIONS },
+    { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
   ]},
 ];
 

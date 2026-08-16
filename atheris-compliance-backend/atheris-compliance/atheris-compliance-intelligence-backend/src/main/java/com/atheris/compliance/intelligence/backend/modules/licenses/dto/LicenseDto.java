@@ -15,9 +15,6 @@ public class LicenseDto {
     private Boolean intelligenceEnabled;
     private Integer maxUsers;
     private Integer maxDevices;
-    private Integer maxRegulators;
-    private Integer maxControls;
-    private Integer maxReturns;
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
     private String status;

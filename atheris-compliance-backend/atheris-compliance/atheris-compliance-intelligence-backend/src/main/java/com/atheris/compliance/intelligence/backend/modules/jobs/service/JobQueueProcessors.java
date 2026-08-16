@@ -7,7 +7,6 @@ import com.atheris.compliance.intelligence.backend.modules.regulators.service.Sc
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
 import com.atheris.compliance.intelligence.backend.modules.tenants.repository.TenantRepository;
-import com.atheris.compliance.intelligence.backend.modules.webhooks.service.WebhookService;
 import com.atheris.compliance.common.Constants;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
@@ -29,13 +28,11 @@ public class JobQueueProcessors {
     private static final int OCR_BATCH = 3;
     private static final int CLASSIFY_BATCH = 10;
     private static final int APPLICABILITY_BATCH = 10;
-    private static final int WEBHOOK_BATCH = 20;
 
     private final JobQueueService jobQueue;
     private final ScraperService scraperService;
     private final PdfExtractionService pdfExtractor;
     private final ClassificationService classifier;
-    private final WebhookService webhooks;
     private final RegulatorRepository regulators;
     private final TenantRepository tenants;
     private final StorageService storage;
@@ -165,55 +162,12 @@ public class JobQueueProcessors {
         }
     }
 
-    // ── Webhook sender: every 5 minutes ── (disabled, using polling instead)
-    // @Scheduled(fixedDelayString = "${atheris.jobs.webhook-sender-interval-ms:300000}")
-    // @Transactional
-    public void processWebhookQueue() {
-        for (int i = 0; i < WEBHOOK_BATCH; i++) {
-            var jobOpt = jobQueue.claimOne(Constants.JOB_WEBHOOK);
-            if (jobOpt.isEmpty()) break;
-            var job = jobOpt.get();
-            try {
-                Map<String, Object> p = job.getPayload();
-                Long instrumentId = Long.valueOf(p.get("instrument_id").toString());
-                @SuppressWarnings("unchecked")
-                List<Long> tenantIds = (List<Long>) p.get("matching_tenants");
-
-                Map<String, Object> payload = buildObligationPayload(instrumentId);
-                tenantIds.forEach(tid ->
-                    webhooks.deliver(tid, instrumentId, payload, Constants.WEBHOOK_EVENT_RECEIVED));
-
-                jobQueue.markCompleted(job.getJobId());
-                log.info("Webhook job {} done. Sent to {} tenants.", job.getJobId(), tenantIds.size());
-            } catch (Throwable e) {
-                log.error("Webhook job {} failed: {}", job.getJobId(), e.getMessage());
-                em.clear();
-                jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
-                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            }
-        }
-    }
-
-    // ── Webhook retry: every 30 minutes ── (disabled, using polling instead)
-    // @Scheduled(fixedDelayString = "${atheris.jobs.webhook-retry-interval-ms:1800000}")
-    public void retryFailedWebhooks() {
-        log.debug("Running webhook retry...");
-        webhooks.retryFailed(10);
-    }
+    // ── Webhook sender/retry: removed — tenant data delivered via polling only ──
 
     private List<Long> findMatchingTenants(Long instrumentId) {
         // Simplified — full implementation queries instruments + tenants tables
         return tenants.findByIsActiveTrue().stream()
             .map(Tenant::getTenantId)
             .toList();
-    }
-
-    private Map<String, Object> buildObligationPayload(Long instrumentId) {
-        return Map.of(
-            "webhook_type", Constants.WEBHOOK_EVENT_RECEIVED,
-            "webhook_id", Constants.WEBHOOK_KEY_PREFIX + Instant.now().toEpochMilli(),
-            "timestamp", Instant.now().toString(),
-            "obligation", Map.of("obligation_id", instrumentId)
-        );
     }
 }

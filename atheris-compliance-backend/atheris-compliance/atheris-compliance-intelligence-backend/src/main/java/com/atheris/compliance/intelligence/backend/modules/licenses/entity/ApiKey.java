@@ -27,6 +27,7 @@ public class ApiKey {
     @Column(length = 100)
     private String label;
 
+    @Builder.Default
     private Boolean isActive = true;
 
     private Instant lastUsedAt;

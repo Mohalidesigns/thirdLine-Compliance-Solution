@@ -103,6 +103,7 @@ public class InternalInstrumentService {
                     .obligationNumber(o.getObligationNumber())
                     .plainEnglishStatement(o.getPlainEnglishStatement())
                     .specificSectionReference(o.getSpecificSectionReference())
+                    .areaOfFocus(o.getAreaOfFocus())
                     .obligationType(o.getObligationType())
                     .recurringDeadlineType(o.getRecurringDeadlineType())
                     .build())

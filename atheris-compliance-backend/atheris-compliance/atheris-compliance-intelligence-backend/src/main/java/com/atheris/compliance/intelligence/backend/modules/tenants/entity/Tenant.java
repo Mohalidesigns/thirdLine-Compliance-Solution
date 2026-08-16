@@ -25,6 +25,7 @@ public class Tenant {
     private List<String> productLines;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private List<String> subscribedDocumentTypes;
+    @Builder.Default
     private String notificationFrequency = Constants.TENANT_PLAN_IMMEDIATE;
     private Integer employeeCount;
     private String stateOfHq;
@@ -36,8 +37,11 @@ public class Tenant {
     private String techEmail;
     private String webhookUrl;
     private String webhookSecret;
+    @Builder.Default
     private Boolean webhookEnabled = true;
+    @Builder.Default
     private String subscriptionTier = Constants.TENANT_PLAN_STARTER;
+    @Builder.Default
     private Boolean isActive = true;
     private Integer onboardedBy;
     private Instant onboardedAt;

@@ -163,7 +163,8 @@ public class InstrumentService {
     private InstrumentDto toDto(Instrument i) {
         return InstrumentDto.builder()
             .instrumentId(i.getInstrumentId()).regulatorId(i.getRegulatorId())
-            .sourceTitle(i.getSourceTitle()).areaOfFocus(i.getAreaOfFocus())
+            .sourceTitle(i.getSourceTitle()).sourceReferenceNumber(i.getSourceReferenceNumber())
+            .areaOfFocus(i.getAreaOfFocus())
             .nature(i.getNature()).riskRating(i.getRiskRating())
             .applicabilityConfidence(i.getApplicabilityConfidence())
             .aiSummary(i.getAiSummary()).licenceTypesApplicable(i.getLicenceTypesApplicable())

@@ -65,20 +65,20 @@ const DEMI_OBLIGATIONS = [
 const DEMO_WATCHES = DEMI_OBLIGATIONS.filter(o => o.isWatching);
 
 const DEMO_LICENSES = [
-  { id: 1, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-A1B2-C3D4-E5F6-G7H8', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxRegulators: 10, maxControls: 100, maxReturns: 50, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-01-15T00:00:00Z', expiresAt: '2027-01-15T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-01-22T00:00:00Z', issuedBy: 'Ada', notes: 'Enterprise license', deviceCount: 2, devices: [
+  { id: 1, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-A1B2-C3D4-E5F6-G7H8', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-01-15T00:00:00Z', expiresAt: '2027-01-15T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-01-22T00:00:00Z', issuedBy: 'Ada', notes: 'Enterprise license', deviceCount: 2, devices: [
     { id: 1, deviceFingerprint: 'fp_firstbank_001', deviceLabel: 'Server-01', lastSeenAt: '2026-06-21T10:00:00Z', lastIpAddress: '10.0.1.1', createdAt: '2026-01-15T00:00:00Z' },
     { id: 2, deviceFingerprint: 'fp_firstbank_002', deviceLabel: 'Server-02', lastSeenAt: '2026-06-20T08:00:00Z', lastIpAddress: '10.0.1.2', createdAt: '2026-02-01T00:00:00Z' },
   ], createdAt: '2026-01-15T00:00:00Z', updatedAt: '2026-06-15T00:00:00Z' },
-  { id: 2, tenantId: 2, legalName: 'Zenith Bank Plc', licenseKey: 'ATH-Z1Y2-X3W4-V5U6-T7S8', tier: 'custom', intelligenceEnabled: true, maxUsers: 25, maxDevices: 3, maxRegulators: 5, maxControls: 50, maxReturns: 25, maxStorageMb: 512, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-02-01T00:00:00Z', expiresAt: '2027-02-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-02-08T00:00:00Z', issuedBy: 'Ada', notes: null, deviceCount: 1, devices: [
+  { id: 2, tenantId: 2, legalName: 'Zenith Bank Plc', licenseKey: 'ATH-Z1Y2-X3W4-V5U6-T7S8', tier: 'custom', intelligenceEnabled: true, maxUsers: 25, maxDevices: 3, maxStorageMb: 512, deviceFingerprintEnforced: true, status: 'active', activatedAt: '2026-02-01T00:00:00Z', expiresAt: '2027-02-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-02-08T00:00:00Z', issuedBy: 'Ada', notes: null, deviceCount: 1, devices: [
     { id: 3, deviceFingerprint: 'fp_zenith_001', deviceLabel: 'Primary Server', lastSeenAt: '2026-06-19T12:00:00Z', lastIpAddress: '10.0.2.1', createdAt: '2026-02-01T00:00:00Z' },
   ], createdAt: '2026-02-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 3, tenantId: 4, legalName: 'Leadway Assurance Company Ltd', licenseKey: 'ATH-L8K9-J0H1-G2F3-D4E5', tier: 'custom', intelligenceEnabled: false, maxUsers: 10, maxDevices: 2, maxRegulators: 3, maxControls: 20, maxReturns: 10, maxStorageMb: 256, deviceFingerprintEnforced: false, status: 'active', activatedAt: '2026-04-05T00:00:00Z', expiresAt: '2027-04-05T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-04-12T00:00:00Z', issuedBy: 'Ada', notes: 'Insurance tier', deviceCount: 0, devices: [], createdAt: '2026-04-05T00:00:00Z', updatedAt: '2026-04-05T00:00:00Z' },
-  { id: 4, tenantId: 5, legalName: 'MTN Nigeria Communications Plc', licenseKey: 'ATH-M6N7-B8V9-C0X1-Z2A3', tier: 'custom', intelligenceEnabled: true, maxUsers: 100, maxDevices: 10, maxRegulators: 5, maxControls: 200, maxReturns: 100, maxStorageMb: 2048, deviceFingerprintEnforced: true, status: 'expired', activatedAt: '2025-05-20T00:00:00Z', expiresAt: '2026-05-20T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-05-27T00:00:00Z', issuedBy: 'Ada', notes: 'Expired - needs renewal', deviceCount: 3, devices: [
+  { id: 3, tenantId: 4, legalName: 'Leadway Assurance Company Ltd', licenseKey: 'ATH-L8K9-J0H1-G2F3-D4E5', tier: 'custom', intelligenceEnabled: false, maxUsers: 10, maxDevices: 2, maxStorageMb: 256, deviceFingerprintEnforced: false, status: 'active', activatedAt: '2026-04-05T00:00:00Z', expiresAt: '2027-04-05T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2027-04-12T00:00:00Z', issuedBy: 'Ada', notes: 'Insurance tier', deviceCount: 0, devices: [], createdAt: '2026-04-05T00:00:00Z', updatedAt: '2026-04-05T00:00:00Z' },
+  { id: 4, tenantId: 5, legalName: 'MTN Nigeria Communications Plc', licenseKey: 'ATH-M6N7-B8V9-C0X1-Z2A3', tier: 'custom', intelligenceEnabled: true, maxUsers: 100, maxDevices: 10, maxStorageMb: 2048, deviceFingerprintEnforced: true, status: 'expired', activatedAt: '2025-05-20T00:00:00Z', expiresAt: '2026-05-20T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-05-27T00:00:00Z', issuedBy: 'Ada', notes: 'Expired - needs renewal', deviceCount: 3, devices: [
     { id: 4, deviceFingerprint: 'fp_mtn_001', deviceLabel: 'API Server', lastSeenAt: '2026-05-19T10:00:00Z', lastIpAddress: '10.0.5.1', createdAt: '2025-05-20T00:00:00Z' },
     { id: 5, deviceFingerprint: 'fp_mtn_002', deviceLabel: 'Backup Server', lastSeenAt: '2026-05-18T14:00:00Z', lastIpAddress: '10.0.5.2', createdAt: '2025-06-01T00:00:00Z' },
     { id: 6, deviceFingerprint: 'fp_mtn_003', deviceLabel: 'Worker Node', lastSeenAt: '2026-05-17T08:00:00Z', lastIpAddress: '10.0.5.3', createdAt: '2025-07-01T00:00:00Z' },
   ], createdAt: '2025-05-20T00:00:00Z', updatedAt: '2026-05-20T00:00:00Z' },
-  { id: 5, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-Q4R5-S6T7-U8V9-W0X1', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxRegulators: 10, maxControls: 100, maxReturns: 50, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'revoked', activatedAt: '2025-01-01T00:00:00Z', expiresAt: '2026-01-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-01-08T00:00:00Z', issuedBy: 'Ada', notes: 'Replaced by new license', deviceCount: 0, devices: [], createdAt: '2025-01-01T00:00:00Z', updatedAt: '2026-01-15T00:00:00Z' },
+  { id: 5, tenantId: 1, legalName: 'First Bank of Nigeria Plc', licenseKey: 'ATH-Q4R5-S6T7-U8V9-W0X1', tier: 'custom', intelligenceEnabled: true, maxUsers: 50, maxDevices: 5, maxStorageMb: 1024, deviceFingerprintEnforced: true, status: 'revoked', activatedAt: '2025-01-01T00:00:00Z', expiresAt: '2026-01-01T00:00:00Z', gracePeriodDays: 7, gracePeriodEnd: '2026-01-08T00:00:00Z', issuedBy: 'Ada', notes: 'Replaced by new license', deviceCount: 0, devices: [], createdAt: '2025-01-01T00:00:00Z', updatedAt: '2026-01-15T00:00:00Z' },
 ];
 
 function demoRequest(path, options = {}) {
@@ -124,7 +124,6 @@ function demoRequest(path, options = {}) {
         { id: 102, jobType: 'classify_instrument', status: 'pending', title: 'SEC Digital Assets Framework', regulator: 'SEC', createdAt: '2026-06-21T11:30:00Z', updatedAt: null, retryCount: 0 },
         { id: 103, jobType: 'ocr_document', status: 'processing', title: 'NAICOM Cyber Insurance Requirements', regulator: 'NAICOM', createdAt: '2026-06-21T10:00:00Z', updatedAt: null, retryCount: 0 },
         { id: 104, jobType: 'classify_instrument', status: 'processing', title: 'FIRS Transfer Pricing Guidelines', regulator: 'FIRS', createdAt: '2026-06-21T09:00:00Z', updatedAt: null, retryCount: 0 },
-        { id: 105, jobType: 'send_webhooks', status: 'completed', title: 'CBN AML/CFT Regulations', regulator: 'CBN', createdAt: '2026-06-20T16:00:00Z', updatedAt: '2026-06-20T16:05:00Z', retryCount: 0 },
         { id: 106, jobType: 'evaluate_applicability', status: 'completed', title: 'NCC Code of Practice', regulator: 'NCC', createdAt: '2026-06-20T14:00:00Z', updatedAt: '2026-06-20T14:02:00Z', retryCount: 0 },
         { id: 107, jobType: 'ocr_document', status: 'failed', title: 'CBN Circular on FOREX', regulator: 'CBN', createdAt: '2026-06-19T08:00:00Z', updatedAt: '2026-06-19T08:05:00Z', retryCount: 3 },
         { id: 108, jobType: 'classify_instrument', status: 'failed', title: 'SEC Rules Update March', regulator: 'SEC', createdAt: '2026-06-19T07:00:00Z', updatedAt: '2026-06-19T07:03:00Z', retryCount: 2 },
@@ -304,8 +303,6 @@ export const api = {
       list: () => request('/platform/tenants'),
       get: (id) => request(`/platform/tenants/${id}`),
       create: (data) => request('/platform/tenants', { method: 'POST', body: JSON.stringify(data) }),
-      testWebhook: (id) => request(`/platform/tenants/${id}/test-webhook`, { method: 'POST' }),
-      rotateSecret: (id) => request(`/platform/tenants/${id}/rotate-webhook-secret`, { method: 'POST' }),
       history: (id) => request(`/platform/tenants/${id}/webhook-history`),
     },
     regulators: {
@@ -387,6 +384,17 @@ export const api = {
       create: (data) => request('/recommendations', { method: 'POST', body: JSON.stringify(data) }),
       update: (id, data) => request(`/recommendations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
+    },
+    regulations: {
+      list: (params = '') => request(`/admin/regulations${params ? '?' + params : ''}`),
+      get: (id) => request(`/admin/regulations/${id}`),
+      update: (id, data) => request(`/admin/regulations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      importToolkit: () => request('/admin/regulations/toolkit/import', { method: 'POST' }),
+    },
+    universe: {
+      instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
+      areasOfFocus: () => request('/admin/universe/areas-of-focus'),
+      stats: () => request('/admin/universe/stats'),
     },
     uploads: {
       list: (status = '') => request(`/admin/uploads${status ? '?status=' + status : ''}`),

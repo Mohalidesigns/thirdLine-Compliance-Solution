@@ -6,7 +6,7 @@ import {
 import {
   Dashboard, LibraryBooks, Inbox, Visibility, Settings,
   AdminPanelSettings, Shield, Logout, Security, AccountBalance,
-  AccountTree, VpnKey,
+  AccountTree, VpnKey, Public,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../features/auth/hooks/useAuth';
@@ -23,6 +23,7 @@ const iconMap = {
   AdminPanelSettings: <AdminPanelSettings />,
   AccountTree: <AccountTree />,
   VpnKey: <VpnKey />,
+  Public: <Public />,
 };
 
 export default function Sidebar() {

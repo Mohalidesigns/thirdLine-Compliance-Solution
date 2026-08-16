@@ -3,7 +3,6 @@ package com.atheris.compliance.intelligence.backend.modules.webhooks.controller;
 import com.atheris.compliance.common.Constants;
 import com.atheris.compliance.intelligence.backend.modules.webhooks.entity.WebhookDeliveryLog;
 import com.atheris.compliance.intelligence.backend.modules.webhooks.repository.WebhookDeliveryLogRepository;
-import com.atheris.compliance.intelligence.backend.modules.webhooks.service.WebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WebhookController {
 
-    private final WebhookService webhookService;
     private final WebhookDeliveryLogRepository deliveryLog;
 
     // Overall delivery health stats
@@ -52,12 +50,5 @@ public class WebhookController {
         );
         return ResponseEntity.ok(deliveryLog.findAll(spec,
             org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "nextRetryAt")));
-    }
-
-    // Manually trigger retry of a specific delivery
-    @PostMapping("/retry/{deliveryId}")
-    public ResponseEntity<?> retryDelivery(@PathVariable Long deliveryId) {
-        webhookService.retryFailed(1); // The implementation might need to be adjusted for specific deliveryId if needed
-        return ResponseEntity.ok(Map.of("message", "Retry queued for delivery " + deliveryId));
     }
 }

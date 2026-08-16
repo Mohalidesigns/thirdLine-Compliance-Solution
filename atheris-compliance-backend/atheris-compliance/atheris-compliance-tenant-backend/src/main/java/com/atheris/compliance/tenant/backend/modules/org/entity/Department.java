@@ -19,6 +19,7 @@ public class Department {
     private String name;
     private String code;
     private Integer headOwnerId;
+    @Builder.Default
     private Boolean isActive = true;
     private Instant createdAt;
     private Instant updatedAt;

@@ -23,6 +23,7 @@ public class ObligationNotification {
     private String changeSummary;
     @Column(columnDefinition = "text")
     private String changedFields;
+    @Builder.Default
     private String status = "unread";
     private Integer acknowledgedByUserId;
     private Instant readAt;

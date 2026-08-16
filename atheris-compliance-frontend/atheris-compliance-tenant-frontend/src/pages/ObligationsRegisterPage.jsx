@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Link as LinkIcon, Warning as WarningIcon, Article,
+  Link as LinkIcon, Warning as WarningIcon, Article, Gavel,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
@@ -39,6 +39,7 @@ const COLUMNS = [
   { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
   { id: 'returns', label: 'Returns', minWidth: 110 },
+  { id: 'sanctions', label: 'Sanctions', minWidth: 110 },
   { id: 'actions', label: 'Actions', minWidth: 90 },
 ];
 
@@ -54,7 +55,7 @@ export default function ObligationsRegisterPage() {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
-  const [themeFilter, setThemeFilter] = useState('All');
+  const [areaFilter, setAreaFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [hasGap, setHasGap] = useState(false);
@@ -70,7 +71,7 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || themeFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
+    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
 
   const loadStats = useCallback(async () => {
     try { setStats(await api.obligations.stats()); } catch { /* optional */ }
@@ -84,7 +85,7 @@ export default function ObligationsRegisterPage() {
       if (search) params.q = search;
       if (riskFilter !== 'All') params.risk = riskFilter;
       if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
-      if (themeFilter !== 'All') params.theme = themeFilter;
+      if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
       if (ownerFilter !== 'All') params.owner = ownerFilter;
       if (statusFilter !== 'All') params.status = statusFilter;
       if (hasGap) params.hasGap = 'true';
@@ -95,14 +96,14 @@ export default function ObligationsRegisterPage() {
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load obligations.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, riskFilter, regulatorFilter, themeFilter, ownerFilter, statusFilter, hasGap, noControl, sortField, sortDir]);
+  }, [page, rowsPerPage, search, riskFilter, regulatorFilter, areaFilter, ownerFilter, statusFilter, hasGap, noControl, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setThemeFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGap(false); setNoControl(false);
+    setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGap(false); setNoControl(false);
     setPage(0);
   }
 
@@ -199,8 +200,8 @@ export default function ObligationsRegisterPage() {
           <MenuItem value="All">All</MenuItem>
           {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
-        <TextField select size="small" value={themeFilter} onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
-          label="Theme" sx={{ minWidth: 120 }}>
+        <TextField select size="small" value={areaFilter} onChange={e => { setAreaFilter(e.target.value); setPage(0); }}
+          label="Area of Focus" sx={{ minWidth: 160 }}>
           <MenuItem value="All">All</MenuItem>
           {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
         </TextField>
@@ -312,6 +313,15 @@ export default function ObligationsRegisterPage() {
                               <Chip size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
                                 label={`${item.returnNames.length} return${item.returnNames.length > 1 ? 's' : ''}`}
                                 variant="outlined" sx={{ height: 22 }} />
+                            </Tooltip>
+                          : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      </TableCell>
+                      <TableCell>
+                        {item.sanctions?.length > 0
+                          ? <Tooltip title={item.sanctions.map(s => s.sanctionType || 'Sanction').join(', ')}>
+                              <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
+                                label={`${item.sanctions.length} sanction${item.sanctions.length > 1 ? 's' : ''}`}
+                                color="error" variant="outlined" sx={{ height: 22 }} />
                             </Tooltip>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>

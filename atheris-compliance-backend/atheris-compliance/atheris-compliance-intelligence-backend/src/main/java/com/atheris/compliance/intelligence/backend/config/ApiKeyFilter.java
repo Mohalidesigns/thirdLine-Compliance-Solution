@@ -31,7 +31,10 @@ public class ApiKeyFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest req) {
-        return !req.getRequestURI().startsWith("/api/v1/internal/");
+        // Filter only internal endpoints, EXCEPT self-provisioning: a tenant has no API key yet
+        // until it activates its license, so /provision must be reachable without a key.
+        return !req.getRequestURI().startsWith("/api/v1/internal/")
+            || req.getRequestURI().equals("/api/v1/internal/tenants/provision");
     }
 
     @Override

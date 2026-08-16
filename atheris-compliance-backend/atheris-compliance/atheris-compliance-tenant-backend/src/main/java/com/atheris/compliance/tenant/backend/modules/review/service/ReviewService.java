@@ -15,10 +15,10 @@ import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligat
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,12 +38,10 @@ public class ReviewService {
     private final AuditService audit;
     private final OwnerRepository ownerRepo;
     private final DepartmentRepository departmentRepo;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public Page<ReviewItem> list(String source, String status, String q, Pageable p) {
-        List<PendingReview> all = reviews.findByTenantIdAndStatus(tenantId, "pending");
+        List<PendingReview> all = reviews.findByTenantIdAndStatus(tenantIdentity.currentTenantId(), "pending");
         if ("intel".equals(source) || "upload".equals(source)) {
             all = all.stream().filter(r -> source.equals(r.getSource())).collect(Collectors.toList());
         }
@@ -66,10 +64,11 @@ public class ReviewService {
     }
 
     public ReviewStats stats() {
-        long pending = reviews.countByTenantIdAndStatus(tenantId, "pending");
-        long intel = reviews.countByTenantIdAndStatusAndSource(tenantId, "pending", "intel");
-        long upload = reviews.countByTenantIdAndStatusAndSource(tenantId, "pending", "upload");
-        List<String> regulators = reviews.findByTenantIdAndStatus(tenantId, "pending").stream()
+        Long tid = tenantIdentity.currentTenantId();
+        long pending = reviews.countByTenantIdAndStatus(tid, "pending");
+        long intel = reviews.countByTenantIdAndStatusAndSource(tid, "pending", "intel");
+        long upload = reviews.countByTenantIdAndStatusAndSource(tid, "pending", "upload");
+        List<String> regulators = reviews.findByTenantIdAndStatus(tid, "pending").stream()
             .map(r -> r.getRegulatorAbbreviation() != null ? r.getRegulatorAbbreviation() : r.getRegulatorName())
             .filter(Objects::nonNull).filter(s -> !s.isBlank())
             .collect(Collectors.toCollection(TreeSet::new)).stream().toList();
@@ -84,6 +83,7 @@ public class ReviewService {
                 .obligationNumber(o.getObligationNumber())
                 .description(o.getDescription())
                 .sectionReference(o.getSectionReference())
+                .areaOfFocus(o.getAreaOfFocus())
                 .obligationType(o.getObligationType())
                 .recurringDeadlineType(o.getRecurringDeadlineType())
                 .applicable(o.getApplicable() != null ? o.getApplicable() : true)
@@ -146,6 +146,7 @@ public class ReviewService {
                     .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
                     .description(o.getDescription())
                     .sectionReference(o.getSectionReference())
+                    .areaOfFocus(o.getAreaOfFocus())
                     .obligationType(o.getObligationType())
                     .recurringDeadlineType(o.getRecurringDeadlineType())
                     .effectiveDate(r.getEffectiveDate() != null ? r.getEffectiveDate() : r.getDateIssued())
@@ -227,7 +228,7 @@ public class ReviewService {
     }
 
     private PendingReview find(Long reviewId) {
-        return reviews.findByReviewIdAndTenantId(reviewId, tenantId)
+        return reviews.findByReviewIdAndTenantId(reviewId, tenantIdentity.currentTenantId())
             .orElseThrow(() -> new RuntimeException("Review not found: " + reviewId));
     }
 

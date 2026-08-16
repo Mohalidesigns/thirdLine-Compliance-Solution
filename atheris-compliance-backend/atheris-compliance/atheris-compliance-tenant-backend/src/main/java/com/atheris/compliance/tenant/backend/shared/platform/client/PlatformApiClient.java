@@ -36,7 +36,6 @@ public class PlatformApiClient {
 
     public PlatformApiClient(
             @Value("${atheris.platform.base-url:http://localhost:9090}") String baseUrl,
-            @Value("${atheris.tenant-id:1}") Long tenantId,
             TenantProfileRepository profiles,
             CryptoUtil crypto,
             RestTemplateBuilder builder) {
@@ -45,6 +44,29 @@ public class PlatformApiClient {
         this.crypto = crypto;
         this.rest = builder.build();
         this.mapper = new ObjectMapper();
+    }
+
+    /**
+     * Self-provision a tenant on the platform from its license key. Returns the platform-assigned
+     * tenant id (and webhook secret). This is how the tenant learns its own numeric id at the
+     * very first interaction (license activation) instead of reading it from config.
+     */
+    public ProvisionTenantResponse provisionTenant(String licenseKey) {
+        try {
+            HttpHeaders h = new HttpHeaders();
+            h.setContentType(MediaType.APPLICATION_JSON);
+            ResponseEntity<ProvisionTenantResponse> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/tenants/provision",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("licenseKey", licenseKey), h),
+                ProvisionTenantResponse.class);
+            return resp.getBody();
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.error("Platform provision failed ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("Failed to provision tenant on platform: {}", e.getMessage());
+        }
+        return null;
     }
 
     private HttpHeaders headers() {
@@ -233,6 +255,26 @@ public class PlatformApiClient {
             return List.of();
         } catch (Exception e) {
             log.error("Failed to fetch recent instruments: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    public List<PlatformRegulationSeed> fetchRegulationSeeds(List<Integer> regulatorIds) {
+        if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
+        try {
+            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/regulations/seed");
+            boolean first = true;
+            for (Integer id : regulatorIds) {
+                url.append(first ? "?" : "&").append("regulatorIds=").append(id);
+                first = false;
+            }
+            HttpHeaders h = headers();
+            ResponseEntity<List<PlatformRegulationSeed>> resp = rest.exchange(
+                url.toString(), HttpMethod.GET, new HttpEntity<>(h),
+                new ParameterizedTypeReference<List<PlatformRegulationSeed>>() {});
+            return resp.getBody() != null ? resp.getBody() : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch regulation seeds: {}", e.getMessage());
             return List.of();
         }
     }

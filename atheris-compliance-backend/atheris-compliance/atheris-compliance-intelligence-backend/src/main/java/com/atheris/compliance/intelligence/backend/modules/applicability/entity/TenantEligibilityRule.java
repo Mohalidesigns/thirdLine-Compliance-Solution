@@ -12,8 +12,10 @@ public class TenantEligibilityRule {
     @Column(nullable = false) private Long instrumentId;
     @Column(columnDefinition = "text") private String ruleCondition;
     private Integer targetTenantCount;
+    @Builder.Default
     private Boolean shouldRoute = true;
     private String routeWithConfidenceLevel; // High | Medium | Low
+    @Builder.Default
     private Boolean routeWithReviewFlag = false;
     private Instant lastEvaluatedAt;
     private Instant createdAt;

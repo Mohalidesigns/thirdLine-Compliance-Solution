@@ -15,6 +15,7 @@ public class TenantRegulator {
     private String abbreviation;
     private Integer platformRegulatorId;
     @Column(columnDefinition = "text") private String description;
+    @Builder.Default
     private Boolean isActive = true;
     private Instant createdAt;
     private Instant updatedAt;

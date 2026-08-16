@@ -34,6 +34,7 @@ public class ReviewDetail {
         private Integer obligationNumber;
         private String description;
         private String sectionReference;
+        private String areaOfFocus;
         private String obligationType;
         private String recurringDeadlineType;
         private Boolean applicable;

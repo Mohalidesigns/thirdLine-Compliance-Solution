@@ -86,8 +86,6 @@ function getJobStages(job) {
       return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
     case 'evaluate_applicability':
       return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
-    case 'send_webhooks':
-      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
     default:
       return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
   }

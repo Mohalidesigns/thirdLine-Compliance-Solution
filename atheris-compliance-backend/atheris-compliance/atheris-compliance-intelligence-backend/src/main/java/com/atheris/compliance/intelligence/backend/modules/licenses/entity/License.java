@@ -16,25 +16,30 @@ public class License {
     @Column(nullable = false, unique = true, length = 64)
     private String licenseKey;
     @Column(nullable = false, length = 50)
+    @Builder.Default
     private String tier = LICENSE_DEFAULT_TIER;
     @Column(nullable = false)
+    @Builder.Default
     private Boolean intelligenceEnabled = true;
     @Column(nullable = false)
+    @Builder.Default
     private Integer maxUsers = 5;
     @Column(nullable = false)
+    @Builder.Default
     private Integer maxDevices = 1;
-    private Integer maxRegulators;
-    private Integer maxControls;
-    private Integer maxReturns;
+    @Builder.Default
     private Integer maxStorageMb = 500;
     @Column(nullable = false)
+    @Builder.Default
     private Boolean deviceFingerprintEnforced = true;
     @Column(nullable = false, length = 50)
+    @Builder.Default
     private String status = LICENSE_INACTIVE;
     private Instant activatedAt;
     @Column(nullable = false)
     private Instant expiresAt;
     @Column(nullable = false)
+    @Builder.Default
     private Integer gracePeriodDays = 7;
     private Instant gracePeriodEnd;
     private Integer issuedBy;

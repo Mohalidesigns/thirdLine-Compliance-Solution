@@ -12,6 +12,7 @@ public interface RegulatorRepository extends JpaRepository<Regulator, Integer>, 
     List<Regulator> findByIsActiveTrue();
     List<Regulator> findByIsActiveTrueAndScraperEnabledTrue();
     Optional<Regulator> findByAbbreviation(String abbreviation);
+    Optional<Regulator> findByName(String name);
     List<Regulator> findByNameContainingIgnoreCase(String name);
     boolean existsByAbbreviation(String abbreviation);
 }

@@ -11,9 +11,9 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Up
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.IngestResponseDto;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,13 +31,12 @@ public class UploadService {
     private final TenantRegulatorRepository tenantRegulators;
     private final PlatformApiClient platformClient;
     private final PendingReviewRepository pendingReviews;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     @Transactional
     public UploadJobResponse uploadDocument(MultipartFile file, Long tenantRegulatorId,
                                             String title, String dateIssued) {
+        Long tenantId = tenantIdentity.currentTenantId();
         if (file.isEmpty()) throw new IllegalArgumentException("File is empty");
         if (!file.getContentType().contains("pdf"))
             throw new IllegalArgumentException("Only PDF files accepted");
@@ -85,6 +84,7 @@ public class UploadService {
     }
 
     public Page<UploadJob> list(Pageable pageable) {
+        Long tenantId = tenantIdentity.currentTenantId();
         Page<UploadJob> page = uploadJobs.findByTenantId(tenantId, pageable);
         List<UploadJob> changed = new ArrayList<>();
         for (UploadJob job : page.getContent()) {
@@ -108,6 +108,7 @@ public class UploadService {
     }
 
     public UploadReviewResponse getReview(UUID uploadId) {
+        Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
             .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
 
@@ -163,6 +164,7 @@ public class UploadService {
 
     @Transactional
     public UploadJobResponse confirm(UUID uploadId, ConfirmUploadRequest req) {
+        Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
             .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
 
@@ -216,6 +218,7 @@ public class UploadService {
     }
 
     public UploadJobResponse getUploadStatus(UUID uploadId) {
+        Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
             .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
 
@@ -242,6 +245,7 @@ public class UploadService {
     }
 
     private void backfillRegulator(UploadJob job, Long instrumentId) {
+        Long tenantId = tenantIdentity.currentTenantId();
         if (job.getTenantRegulatorId() != null) return;
         PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
         if (detail == null || detail.getRegulatorId() == null) return;
@@ -253,6 +257,7 @@ public class UploadService {
     }
 
     private void ensurePendingReview(UploadJob job, Long instrumentId) {
+        Long tenantId = tenantIdentity.currentTenantId();
         if (pendingReviews.findByInstrumentIdAndTenantId(instrumentId, tenantId).isPresent()) return;
         PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
         List<ReviewObligation> obligations = new ArrayList<>();

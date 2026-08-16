@@ -15,9 +15,13 @@ public class ObligationWatch {
     private String classification;   // applicable | not_applicable | under_review
     private Instant classifiedAt;
     private Integer classifiedByUserId;
+    @Builder.Default
     private Boolean isWatching = true;
+    @Builder.Default
     private Boolean notifyEmail = true;
+    @Builder.Default
     private Boolean notifyInApp = true;
+    @Builder.Default
     private Boolean notifyWebhook = true;
     private Instant createdAt;
     private Instant updatedAt;

@@ -9,6 +9,7 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.entity.Ob
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
+import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class ClassificationService {
           "licence_types_applicable": string[],
           "applicability_confidence": number (0.0 to 1.0),
           "ai_summary": string (3-5 plain English sentences),
+          "reference_number": string (the document's official reference/registration number if present in the text, e.g. \"FPR/DIR/CIR/GEN/01/011\" or \"CBN-2026-001\"; use null if none is found),
           "regulator": string (full name of the issuing regulatory body, e.g. "Central Bank of Nigeria"),
           "obligations": [
             {
@@ -45,7 +47,11 @@ public class ClassificationService {
               "statement": string,
               "section_reference": string,
               "type": "Operational" | "Reporting" | "Governance" | "One-time",
-              "recurring_deadline": "Continuous" | "Monthly" | "Quarterly" | "Annual" | "One-time"
+              "recurring_deadline": "Continuous" | "Monthly" | "Quarterly" | "Annual" | "One-time",
+              "area_of_focus": string (one of: AML/CFT, Corporate Governance, Conduct Risk,
+                Data Protection, Consumer Protection, Cybersecurity, Anti-Bribery & Corruption,
+                Capital Market, Compliance Risk Management, ESG, Account Management,
+                Cash Management, Financial Reporting)
             }
           ]
         }
@@ -66,7 +72,7 @@ public class ClassificationService {
                 return;
             }
             ClassificationResult result = callLLm(ocrText);
-            applyClassification(instrumentId, result);
+            applyClassification(instrumentId, result, ocrText);
             jobQueue.enqueue(Constants.JOB_APPLICABILITY, instrumentId,
                 Map.of("instrument_id", instrumentId), "classifier");
             log.info("Classified instrument {}: {} / {}", instrumentId,
@@ -79,7 +85,7 @@ public class ClassificationService {
 
     public ClassificationResult classifySync(Long instrumentId, String ocrText) {
         ClassificationResult result = callLLm(ocrText);
-        applyClassification(instrumentId, result);
+        applyClassification(instrumentId, result, ocrText);
         return result;
     }
 
@@ -95,7 +101,7 @@ public class ClassificationService {
         }
     }
 
-    private void applyClassification(Long instrumentId, ClassificationResult r) {
+    private void applyClassification(Long instrumentId, ClassificationResult r, String ocrText) {
         Instrument inst = instruments.findById(instrumentId)
             .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
         inst.setAreaOfFocus(r.getAreaOfFocus());
@@ -104,6 +110,12 @@ public class ClassificationService {
         inst.setLicenceTypesApplicable(r.getLicenceTypesApplicable());
         inst.setApplicabilityConfidence(r.getApplicabilityConfidence());
         inst.setAiSummary(r.getAiSummary());
+
+        String ref = r.getReferenceNumber();
+        if ((ref == null || ref.isBlank()) && ocrText != null) ref = extractReference(ocrText);
+        if (ref != null && !ref.isBlank()) {
+            inst.setSourceReferenceNumber(shorten(ref, 255));
+        }
 
         if (inst.getRegulatorId() == null && r.getRegulator() != null && !r.getRegulator().isBlank()) {
             regulators.findByNameContainingIgnoreCase(r.getRegulator())
@@ -119,12 +131,30 @@ public class ClassificationService {
                 ObligationMapping.builder()
                     .instrumentId(instrumentId)
                     .obligationNumber(o.getNumber())
-                    .plainEnglishStatement(o.getStatement())
+                    .plainEnglishStatement(TextCleaner.stripMarkdown(o.getStatement()))
                     .specificSectionReference(o.getSectionReference())
+                    .areaOfFocus(TextCleaner.stripMarkdown(o.getAreaOfFocus()))
                     .obligationType(o.getType())
                     .recurringDeadlineType(o.getRecurringDeadline())
                     .build()
             ));
         }
+    }
+
+    /**
+     * Regex fallback: pulls a CBN-style document reference out of the OCR text when the AI
+     * does not return one. Matches patterns like FPR/DIR/CIR/GEN/01/011 or BSD/DIR/GEN/LAB/08/016.
+     */
+    static String extractReference(String text) {
+        if (text == null || text.isBlank()) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+            "\\b[A-Z]{2,6}/DIR/[A-Z/0-9]+", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
+        if (m.find()) return m.group().trim();
+        return null;
+    }
+
+    private String shorten(String s, int max) {
+        if (s == null || s.length() <= max) return s;
+        return s.substring(0, max);
     }
 }

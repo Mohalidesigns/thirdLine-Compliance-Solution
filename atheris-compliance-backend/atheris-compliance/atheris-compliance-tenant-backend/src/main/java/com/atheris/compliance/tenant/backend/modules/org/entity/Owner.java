@@ -22,6 +22,7 @@ public class Owner {
     private Integer teamId;
     private Integer departmentId;
     private Integer userId;
+    @Builder.Default
     private Boolean isActive = true;
     private Instant createdAt;
     private Instant updatedAt;

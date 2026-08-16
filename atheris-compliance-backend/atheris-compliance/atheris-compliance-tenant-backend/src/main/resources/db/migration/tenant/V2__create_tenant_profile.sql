@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS tenant_profile (
     profile_id                 SERIAL PRIMARY KEY,
-    tenant_id                  BIGINT NOT NULL,
+    tenant_id                  BIGINT NOT NULL UNIQUE,
     legal_name                 VARCHAR(500) NOT NULL,
     short_name                 VARCHAR(100),
     licence_type               VARCHAR(100) NOT NULL,

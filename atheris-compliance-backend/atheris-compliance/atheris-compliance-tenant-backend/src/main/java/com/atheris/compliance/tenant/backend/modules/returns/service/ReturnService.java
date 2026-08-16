@@ -8,6 +8,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,10 +31,8 @@ public class ReturnService {
     private final TenantRegulatorRepository regulators;
     private final ObligationRepository obligations;
     private final AuditService audit;
+    private final TenantIdentityService tenantIdentity;
     private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    @Value("${atheris.tenant-id:1}")
-    private Long tenantId;
 
     @Value("${atheris.returns.instance-lookahead-days:120}")
     private int lookaheadDays;
@@ -156,6 +155,7 @@ public class ReturnService {
 
     @Transactional
     public RegulatoryReturn create(CreateReturnRequest req, Integer userId) {
+        Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator reg = req.getTenantRegulatorId() != null
             ? regulators.findByIdAndTenantId(req.getTenantRegulatorId(), tenantId).orElse(null)
             : null;
@@ -295,7 +295,7 @@ public class ReturnService {
         if (ret.getFilingRegulator() != null && !ret.getFilingRegulator().isBlank())
             return ret.getFilingRegulator();
         if (ret.getTenantRegulatorId() != null) {
-            return regulators.findByIdAndTenantId(ret.getTenantRegulatorId(), tenantId)
+            return regulators.findByIdAndTenantId(ret.getTenantRegulatorId(), tenantIdentity.currentTenantId())
                 .map(tr -> tr.getAbbreviation() != null ? tr.getAbbreviation() : tr.getName())
                 .orElse(null);
         }

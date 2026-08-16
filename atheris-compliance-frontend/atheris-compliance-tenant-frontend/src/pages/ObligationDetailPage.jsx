@@ -5,7 +5,7 @@ import {
   Paper, Snackbar, Tooltip, List, ListItem, ListItemText,
 } from '@mui/material';
 import {
-  Visibility, History, Download, Edit, UploadFile, Link as LinkIcon, CheckCircle, ArrowBack,
+  Visibility, History, Download, Edit, UploadFile, Link as LinkIcon, CheckCircle, ArrowBack, Gavel,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -33,6 +33,11 @@ function riskChip(rating) {
 function formatDate(d) {
   if (!d) return '-';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatNaira(a) {
+  if (a == null) return null;
+  return '₦' + Number(a).toLocaleString('en-NG', { maximumFractionDigits: 2 });
 }
 
 function SectionHeader({ title, action }) {
@@ -149,10 +154,13 @@ export default function ObligationDetailPage() {
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               {selected.regulatorAbbreviation || selected.regulatorName}
             </Typography>
+            {selected.areaOfFocus && (
+              <Chip size="small" label={selected.areaOfFocus} variant="outlined" sx={{ height: 22 }} />
+            )}
             <Chip size="small" label={selected.status || 'unknown'}
               color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
           </Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
             {selected.description || 'Untitled obligation'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{selected.sourceTitle}</Typography>
@@ -247,6 +255,49 @@ export default function ObligationDetailPage() {
                 ))}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">None mapped</Typography>}
+          </Paper>
+
+          {/* Sanctions */}
+          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+            <SectionHeader title="Regulatory Sanctions" />
+            {selected.sanctions?.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {selected.sanctions.map((s, i) => (
+                  <Paper key={i} variant="outlined" sx={{ p: 1.5, bgcolor: '#FFF5F5', borderColor: '#FEB2B2' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                      <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
+                        label={s.sanctionType || 'Sanction'} color="error" sx={{ height: 22 }} />
+                      {(s.sanctionAmountNaira != null && s.sanctionAmountNaira > 0) && (
+                        <Chip size="small" label={formatNaira(s.sanctionAmountNaira) + (s.sanctionAmountPerDay ? '/day' : '')}
+                          variant="outlined" color="error" sx={{ height: 22 }} />
+                      )}
+                      {s.hasBeenEnforced != null && (
+                        <Chip size="small" label={s.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
+                          variant="outlined" sx={{ height: 22 }} />
+                      )}
+                    </Box>
+                    {s.liableRoles?.length > 0 && (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>Liable: </Typography>
+                        {s.liableRoles.map((r, j) => (
+                          <Chip key={j} size="small" label={r} sx={{ height: 20 }} />
+                        ))}
+                      </Box>
+                    )}
+                    {s.sourceSectionReference && (
+                      <Typography variant="caption" color="text.secondary">Section: {s.sourceSectionReference}</Typography>
+                    )}
+                    {s.description && <Typography variant="body2" sx={{ mt: 0.5 }}>{s.description}</Typography>}
+                    {s.riskExplanation && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{s.riskExplanation}</Typography>
+                    )}
+                    {s.penaltyDetails && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>{s.penaltyDetails}</Typography>
+                    )}
+                  </Paper>
+                ))}
+              </Box>
+            ) : <Typography variant="body2" color="text.secondary">No sanctions recorded</Typography>}
           </Paper>
 
           {/* Gap */}

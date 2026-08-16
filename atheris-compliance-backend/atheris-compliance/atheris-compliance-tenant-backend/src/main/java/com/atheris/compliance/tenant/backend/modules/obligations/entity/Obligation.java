@@ -16,6 +16,7 @@ public class Obligation {
     private Integer obligationNumber;
     @Column(columnDefinition = "text") private String description;
     private String sectionReference;
+    private String areaOfFocus;
     private String obligationType;
     private String recurringDeadlineType;
     private LocalDate effectiveDate;

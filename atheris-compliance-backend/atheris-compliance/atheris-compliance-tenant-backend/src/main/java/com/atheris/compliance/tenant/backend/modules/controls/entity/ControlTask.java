@@ -24,7 +24,9 @@ public class ControlTask {
     private Integer assignedToUserId;
     private String assignedToName;
     private LocalDate dueDate;
+    @Builder.Default
     private String status = "Pending";
+    @Builder.Default
     private Integer escalationLevel = 0;
     private Instant escalatedAt;
     private Long completedByTestId;

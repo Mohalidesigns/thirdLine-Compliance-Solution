@@ -14,7 +14,6 @@ export const JOB_TYPES = {
   OCR_DOCUMENT: 'ocr_document',
   CLASSIFY_INSTRUMENT: 'classify_instrument',
   EVALUATE_APPLICABILITY: 'evaluate_applicability',
-  SEND_WEBHOOKS: 'send_webhooks',
 };
 
 export const STATUSES = {

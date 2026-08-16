@@ -13,8 +13,11 @@ import java.util.Optional;
 public interface InstrumentRepository extends JpaRepository<Instrument, Long>, JpaSpecificationExecutor<Instrument> {
     boolean existsByPdfHash(String pdfHash);
     boolean existsBySourceUrl(String sourceUrl);
+    boolean existsBySourceTitle(String sourceTitle);
+    Optional<Instrument> findBySourceTitle(String sourceTitle);
     Optional<Instrument> findByPdfHash(String pdfHash);
     Page<Instrument> findByStatus(String status, Pageable pageable);
     Page<Instrument> findByRegulatorIdAndStatus(Integer regulatorId, String status, Pageable pageable);
     List<Instrument> findByRegulatorIdOrderByDiscoveredAtDesc(Integer regulatorId);
+    long countByRegulationId(Long regulationId);
 }

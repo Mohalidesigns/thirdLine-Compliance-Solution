@@ -11,6 +11,7 @@ public class InstrumentDto {
     private Long instrumentId;
     private Integer regulatorId;
     private String sourceTitle;
+    private String sourceReferenceNumber;
     private String areaOfFocus;
     private String nature;
     private String riskRating;

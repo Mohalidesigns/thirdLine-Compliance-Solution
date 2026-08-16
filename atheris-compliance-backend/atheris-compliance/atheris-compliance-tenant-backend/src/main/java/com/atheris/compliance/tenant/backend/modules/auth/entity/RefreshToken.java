@@ -21,6 +21,7 @@ public class RefreshToken {
     private String tokenHash;
     private String deviceName;
     private String ipAddress;
+    @Builder.Default
     private Boolean isRevoked = false;
     private String revokedReason;
     private Instant revokedAt;

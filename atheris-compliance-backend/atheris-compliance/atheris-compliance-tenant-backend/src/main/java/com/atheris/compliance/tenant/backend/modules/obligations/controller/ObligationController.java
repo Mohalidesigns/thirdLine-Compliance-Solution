@@ -32,14 +32,14 @@ public class ObligationController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String risk,
             @RequestParam(required = false) String regulator,
-            @RequestParam(required = false) String theme,
+            @RequestParam(required = false) String areaOfFocus,
             @RequestParam(required = false) String owner,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Boolean hasGap,
             @RequestParam(required = false) Boolean noControl,
             Pageable p) {
         return ResponseEntity.ok(service.getRegisterList(
-            q, risk, regulator, theme, owner, status, hasGap, noControl, p));
+            q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, p));
     }
 
     @GetMapping("/stats")

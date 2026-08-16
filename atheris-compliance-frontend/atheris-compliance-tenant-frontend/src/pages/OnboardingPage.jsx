@@ -50,6 +50,16 @@ export default function OnboardingPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
+    if (!availableRegulators.length) return;
+    setSelectedRegulators(prev => {
+      if (prev.length > 0) return prev;
+      return availableRegulators
+        .filter(r => (r.obligationCount ?? 0) > 0)
+        .map(r => r.regulatorId);
+    });
+  }, [availableRegulators]);
+
+  useEffect(() => {
     loadStatus();
     const fp = localStorage.getItem('atheris_device_fp');
     if (fp) { setDeviceFingerprint(fp); return; }
@@ -78,7 +88,9 @@ export default function OnboardingPage() {
       if (resp.authType) setAuthType(resp.authType);
       if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
       if (resp.subscribedDocumentTypes) setSelectedDocTypes(resp.subscribedDocumentTypes);
-      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
+      if (resp.availableRegulators) {
+        setAvailableRegulators(resp.availableRegulators);
+      }
     } catch {
       setStep(0);
     } finally {

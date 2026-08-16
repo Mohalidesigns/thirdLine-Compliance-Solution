@@ -1,8 +1,8 @@
 package com.atheris.compliance.tenant.backend.shared.platform.client;
 
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -10,11 +10,11 @@ import org.springframework.stereotype.Component;
 public class PollingIntervalProvider {
 
     private final TenantPollingConfigRepository repo;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public long intervalMs() {
+        Long tenantId = tenantIdentity.currentTenantId();
+        if (tenantId == null) return 15 * 60 * 1000L;
         return repo.findByTenantId(tenantId)
             .map(c -> c.getPollingIntervalMinutes() != null
                 ? c.getPollingIntervalMinutes() * 60 * 1000L

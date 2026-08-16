@@ -21,6 +21,7 @@ public class ObligationClassification {
     private Long instrumentId;
     @Column(unique = true)
     private Long obligationId;
+    @Builder.Default
     private String applicability = "under_review";
     @Column(columnDefinition = "text")
     private String applicabilityReasoning;
@@ -45,12 +46,15 @@ public class ObligationClassification {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Integer> linkedControlIds;
+    @Builder.Default
     private Boolean hasGap = false;
     @Column(columnDefinition = "text")
     private String gapDescription;
+    @Builder.Default
     private Integer classificationVersion = 1;
     private Integer classifiedByUserId;
     private Instant classifiedAt;
+    @Builder.Default
     private String status = "unclassified";
     private String auditHash;
     private Instant createdAt;

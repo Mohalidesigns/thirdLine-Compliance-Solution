@@ -21,6 +21,7 @@ public class RegulatoryReturn {
     private Long tenantRegulatorId;
     private String returnType;
     private String frequency;
+    @Builder.Default
     private RegulatoryReturnStatus status = RegulatoryReturnStatus.ACTIVE;
     private Integer filingDueDayOfMonth;
     private Integer filingDeadlineOffsetDays;

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS obligation_mappings (
     obligation_number       INT,
     plain_english_statement TEXT NOT NULL,
     specific_section_reference VARCHAR(100),
+    area_of_focus             VARCHAR(100),
     obligation_type         VARCHAR(100),
     recurring_deadline_type VARCHAR(50),
     compliance_deadline_days INT,

@@ -13,12 +13,6 @@ public class UpdateLicenseRequest {
     @Positive
     private Integer maxDevices;
     @Positive
-    private Integer maxRegulators;
-    @Positive
-    private Integer maxControls;
-    @Positive
-    private Integer maxReturns;
-    @Positive
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
     private Instant expiresAt;
