@@ -12,10 +12,11 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformRegulationSeed;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -32,12 +33,11 @@ public class RegulationSeedService {
     private final ObligationClassificationRepository classifications;
     private final RegulatorySanctionRepository sanctions;
     private final RegulatoryReturnRepository returns;
+    private final TenantIdentityService tenantIdentity;
 
-    @Value("${atheris.tenant-id:1}")
-    private Long tenantId;
-
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int seedAll() {
+        Long tenantId = tenantIdentity.currentTenantId();
         List<TenantRegulator> regs = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
             .filter(r -> r.getPlatformRegulatorId() != null)
             .toList();
@@ -87,6 +87,7 @@ public class RegulationSeedService {
                     .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
                     .description(o.getPlainEnglishStatement())
                     .sectionReference(o.getSpecificSectionReference())
+                    .areaOfFocus(o.getAreaOfFocus())
                     .obligationType(o.getObligationType())
                     .recurringDeadlineType(o.getRecurringDeadlineType())
                     .effectiveDate(effDate)

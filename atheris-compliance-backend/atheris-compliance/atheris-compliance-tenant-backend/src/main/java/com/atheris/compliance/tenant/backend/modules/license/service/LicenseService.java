@@ -8,6 +8,9 @@ import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNo
 import com.atheris.compliance.tenant.backend.modules.license.repository.LicenseAuditLogRepository;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
+import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.platform.dto.ProvisionTenantResponse;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import com.atheris.compliance.tenant.backend.shared.util.CryptoUtil;
 import static com.atheris.compliance.common.Constants.*;
 
@@ -36,9 +39,8 @@ public class LicenseService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final CryptoUtil crypto;
-
-    @Value("${atheris.tenant-id:1}")
-    private Long tenantId;
+    private final PlatformApiClient platformClient;
+    private final TenantIdentityService tenantIdentity;
 
     @Value("${atheris.platform.base-url:http://localhost:9090}")
     private String platformBaseUrl;
@@ -47,9 +49,6 @@ public class LicenseService {
     public LicenseStatusResponse activate(ActivateLicenseRequest req, String ipAddress, String userAgent) {
         ValidateLicenseResponse platformResp = callPlatformValidate(req.getLicenseKey(),
             req.getDeviceFingerprint(), req.getDeviceLabel(), ipAddress);
-
-        TenantProfile profile = profiles.findByTenantId(tenantId)
-            .orElseThrow(() -> new ProfileNotFoundException("Tenant profile not found"));
 
         if (!platformResp.isValid()) {
             auditLog.save(LicenseAuditLog.builder()
@@ -61,9 +60,28 @@ public class LicenseService {
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)
                 .build());
-            return toStatusResponse(profile, platformResp);
+            TenantProfile existing = tenantIdentity.currentProfile().orElse(null);
+            return existing == null
+                ? LicenseStatusResponse.builder().valid(false).status(platformResp.getStatus()).message(platformResp.getMessage()).build()
+                : toStatusResponse(existing, platformResp);
         }
 
+        Long tenantId = tenantIdentity.currentTenantId();
+        if (tenantId == null) {
+            ProvisionTenantResponse provision = platformClient.provisionTenant(req.getLicenseKey());
+            if (provision == null || provision.getTenantId() == null) {
+                return LicenseStatusResponse.builder()
+                    .valid(false)
+                    .status(LICENSE_VALIDATION_ERROR)
+                    .message("Unable to provision tenant on platform. Please try again.")
+                    .build();
+            }
+            tenantId = provision.getTenantId();
+        }
+
+        final Long resolvedTenantId = tenantId;
+        TenantProfile profile = profiles.findByTenantId(resolvedTenantId)
+            .orElseGet(() -> profiles.save(TenantProfile.builder().tenantId(resolvedTenantId).build()));
         profile.setLicenseKey(req.getLicenseKey());
         profile.setLicenseStatus(platformResp.getStatus());
         profile.setLicenseActivatedAt(Instant.now());
@@ -96,7 +114,7 @@ public class LicenseService {
     }
 
     public LicenseStatusResponse getStatus() {
-        Optional<TenantProfile> opt = profiles.findByTenantId(tenantId);
+        Optional<TenantProfile> opt = tenantIdentity.currentProfile();
         if (opt.isEmpty() || opt.get().getLicenseKey() == null) {
             return LicenseStatusResponse.builder()
                 .valid(false)
@@ -121,7 +139,7 @@ public class LicenseService {
     }
 
     public LicenseStatusResponse checkup() {
-        Optional<TenantProfile> opt = profiles.findByTenantId(tenantId);
+        Optional<TenantProfile> opt = tenantIdentity.currentProfile();
         if (opt.isEmpty() || opt.get().getLicenseKey() == null) {
             return LicenseStatusResponse.builder()
                 .valid(false)
@@ -152,13 +170,13 @@ public class LicenseService {
             .build());
 
         log.info("License checkup for tenant {}: valid={}, status={}",
-            tenantId, platformResp.isValid(), platformResp.getStatus());
+            tenantIdentity.currentTenantId(), platformResp.isValid(), platformResp.getStatus());
 
         return toStatusResponse(profile, platformResp);
     }
 
     public void requireActiveLicense() {
-        Optional<TenantProfile> opt = profiles.findByTenantId(tenantId);
+        Optional<TenantProfile> opt = tenantIdentity.currentProfile();
         if (opt.isEmpty() || opt.get().getLicenseKey() == null) {
             throw new LicenseBlockedException("No license key configured. Activate a license first.");
         }
@@ -213,7 +231,7 @@ public class LicenseService {
 
     @Transactional
     public void deactivate() {
-        TenantProfile profile = profiles.findByTenantId(tenantId)
+        TenantProfile profile = tenantIdentity.currentProfile()
             .orElseThrow(() -> new ProfileNotFoundException("Tenant profile not found"));
         profile.setLicenseKey(null);
         profile.setLicenseStatus(LICENSE_INACTIVE);

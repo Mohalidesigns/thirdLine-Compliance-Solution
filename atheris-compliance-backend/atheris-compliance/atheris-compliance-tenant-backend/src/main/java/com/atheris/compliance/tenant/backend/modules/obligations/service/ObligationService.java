@@ -49,11 +49,11 @@ public class ObligationService {
     // ------------------------------------------------------------------ register
 
     public Page<ObligationRegisterItem> getRegisterList(
-            String q, String risk, String regulator, String theme, String owner,
+            String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean hasGap, Boolean noControl, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, theme, owner, status, hasGap, noControl))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl))
             .sorted(registerComparator(p))
             .toList();
         int total = filtered.size();
@@ -79,7 +79,7 @@ public class ObligationService {
             .filter(Objects::nonNull).filter(s -> !s.isBlank())
             .collect(Collectors.toCollection(TreeSet::new));
         Set<String> themes = rows.stream()
-            .map(ObligationRegisterItem::getObligationType)
+            .map(ObligationRegisterItem::getAreaOfFocus)
             .filter(Objects::nonNull).filter(s -> !s.isBlank())
             .collect(Collectors.toCollection(TreeSet::new));
         Set<String> owners = rows.stream()
@@ -128,10 +128,11 @@ public class ObligationService {
                 .obligationId(ob.getObligationId())
                 .name(ob.getName())
                 .obligationNumber(ob.getObligationNumber())
-                .description(ob.getDescription())
+.description(ob.getDescription())
                 .sectionReference(ob.getSectionReference())
+                .areaOfFocus(ob.getAreaOfFocus())
                 .obligationType(ob.getObligationType())
-                .recurringDeadlineType(ob.getRecurringDeadlineType())
+            .recurringDeadlineType(ob.getRecurringDeadlineType())
                 .effectiveDate(ob.getEffectiveDate())
                 .instrumentId(ob.getInstrumentId())
                 .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
@@ -161,7 +162,7 @@ public class ObligationService {
     }
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
-                            String theme, String owner, String status, Boolean hasGap, Boolean noControl) {
+                            String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl) {
         if (hasGap != null && hasGap && !Boolean.TRUE.equals(i.getHasGap())) return false;
         if (noControl != null && noControl && i.getControlCount() > 0) return false;
         if (risk != null && !risk.isBlank()
@@ -170,7 +171,7 @@ public class ObligationService {
             boolean regMatch = regulator.equals(i.getRegulatorAbbreviation()) || regulator.equals(i.getRegulatorName());
             if (!regMatch) return false;
         }
-        if (theme != null && !theme.isBlank() && !theme.equals(i.getObligationType())) return false;
+        if (areaOfFocus != null && !areaOfFocus.isBlank() && !areaOfFocus.equals(i.getAreaOfFocus())) return false;
         if (owner != null && !owner.isBlank() && !owner.equals(i.getAssignedOwnerName())) return false;
         if (status != null && !status.isBlank() && !status.equals(i.getStatus())) return false;
         if (q != null && !q.isBlank()) {
@@ -262,6 +263,7 @@ public class ObligationService {
             .name(req.getName())
             .obligationNumber(nextObligationNumber())
             .description(req.getDescription())
+            .areaOfFocus(req.getAreaOfFocus())
             .obligationType(req.getObligationType())
             .recurringDeadlineType(req.getRecurringDeadlineType())
             .effectiveDate(req.getEffectiveDate())
@@ -299,6 +301,7 @@ public class ObligationService {
             throw new IllegalArgumentException("Instrument not found: " + req.getInstrumentId());
         if (req.getName() != null) ob.setName(req.getName());
         if (req.getDescription() != null) ob.setDescription(req.getDescription());
+        if (req.getAreaOfFocus() != null) ob.setAreaOfFocus(req.getAreaOfFocus());
         if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
         if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
         if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());
@@ -345,6 +348,7 @@ public class ObligationService {
             .obligationNumber(ob.getObligationNumber())
             .description(ob.getDescription())
             .sectionReference(ob.getSectionReference())
+            .areaOfFocus(ob.getAreaOfFocus())
             .obligationType(ob.getObligationType())
             .recurringDeadlineType(ob.getRecurringDeadlineType())
             .effectiveDate(ob.getEffectiveDate())
@@ -605,6 +609,7 @@ public class ObligationService {
                     .description(o.getDescription())
                     .sectionReference(o.getSectionReference())
                     .obligationType(o.getObligationType())
+                    .areaOfFocus(o.getAreaOfFocus())
                     .effectiveDate(o.getEffectiveDate())
                     .status(o.getStatus())
                     .build())

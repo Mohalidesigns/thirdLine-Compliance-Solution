@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS obligations (
     obligation_number       INT,
     description             TEXT,
     section_reference       VARCHAR(255),
+    area_of_focus           VARCHAR(100),
     obligation_type         VARCHAR(100),
     recurring_deadline_type VARCHAR(100),
     effective_date          DATE,

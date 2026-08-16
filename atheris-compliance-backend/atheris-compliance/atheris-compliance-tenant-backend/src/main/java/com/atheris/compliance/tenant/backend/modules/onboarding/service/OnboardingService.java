@@ -16,11 +16,11 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Te
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import static com.atheris.compliance.common.Constants.*;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,13 +45,11 @@ public class OnboardingService {
     private final PlatformApiClient platformApi;
     private final ObligationSyncService syncService;
     private final RegulationSeedService regulationSeedService;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public OnboardingStatusResponse getStatus() {
         List<RegulatorSummary> regulators = platformApi.fetchRegulators();
-        return profiles.findByTenantId(tenantId)
+        return tenantIdentity.currentProfile()
             .map(p -> {
                 Integer step = p.getOnboardingStep();
                 boolean completed = p.getOnboardingCompletedAt() != null;
@@ -90,11 +88,6 @@ public class OnboardingService {
 
     @Transactional
     public OnboardingStatusResponse activateLicense(ActivateLicenseStepRequest req) {
-        TenantProfile p = profiles.findByTenantId(tenantId)
-            .orElse(profiles.save(TenantProfile.builder()
-                .tenantId(tenantId)
-                .build()));
-
         LicenseStatusResponse licenseResp = licenseService.activate(
             toActivateReq(req), null, null);
 
@@ -102,13 +95,8 @@ public class OnboardingService {
             throw new LicenseActivationException(licenseResp.getMessage());
         }
 
-        p.setLicenseKey(req.getLicenseKey());
-        p.setLicenseStatus(LICENSE_ACTIVE);
-        p.setLicenseActivatedAt(Instant.now());
-        if (req.getDeviceFingerprint() != null) {
-            p.setDeviceFingerprint(req.getDeviceFingerprint());
-            p.setDeviceFingerprintProvisionedAt(Instant.now());
-        }
+        TenantProfile p = tenantIdentity.currentProfile()
+            .orElseThrow(() -> new ProfileNotFoundException("Tenant profile not provisioned after license activation"));
         p.setOnboardingStep(1);
         profiles.save(p);
 
@@ -192,7 +180,8 @@ public class OnboardingService {
         }
 
         List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
-        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tenantId);
+        Long tid = tenantIdentity.currentTenantId();
+        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
 
         if (req.getSubscribedRegulators() != null) {
             for (Integer regId : req.getSubscribedRegulators()) {
@@ -204,7 +193,7 @@ public class OnboardingService {
                     .findFirst().orElse(null);
                 if (summary != null) {
                     tenantRegulatorRepo.save(TenantRegulator.builder()
-                        .tenantId(tenantId)
+                        .tenantId(tid)
                         .name(summary.getName())
                         .abbreviation(summary.getAbbreviation())
                         .platformRegulatorId(summary.getRegulatorId())
@@ -213,7 +202,7 @@ public class OnboardingService {
                 } else {
                     log.warn("Regulator {} not found on platform, creating with fallback name", regId);
                     tenantRegulatorRepo.save(TenantRegulator.builder()
-                        .tenantId(tenantId)
+                        .tenantId(tid)
                         .name("Regulator " + regId)
                         .platformRegulatorId(regId)
                         .isActive(true)
@@ -264,10 +253,10 @@ public class OnboardingService {
             tenantReq.put("webhookUrl", p.getWebhookUrl());
             platformApi.onboardTenant(tenantReq);
         } catch (Exception e) {
-            log.error("Failed to create tenant on platform for {}: {}", tenantId, e.getMessage());
+            log.error("Failed to create tenant on platform for {}", tenantIdentity.currentTenantId(), e.getMessage());
         }
 
-        log.info("Onboarding completed for tenant {}", tenantId);
+        log.info("Onboarding completed for tenant {}", tenantIdentity.currentTenantId());
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
@@ -290,7 +279,7 @@ public class OnboardingService {
     }
 
     private TenantProfile getProfile() {
-        return profiles.findByTenantId(tenantId)
+        return tenantIdentity.currentProfile()
             .orElseThrow(() -> new ProfileNotFoundException("Profile not found. Complete step 1 first."));
     }
 

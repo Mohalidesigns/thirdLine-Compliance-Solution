@@ -7,15 +7,15 @@ import {
 } from '@mui/material';
 import {
   Visibility, Search, Close, ExpandMore, ExpandLess,
-  Article, CalendarToday, CloudUpload as CloudUploadIcon, ArrowBack, Download,
+  Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
 } from '@mui/icons-material';
 import { api, getToken, API_BASE } from '../services/api';
 
 const COLUMNS = [
   { id: 'title', label: 'Title', minWidth: 280 },
+  { id: 'reference', label: 'Reference No', minWidth: 140 },
   { id: 'regulator', label: 'Regulator', minWidth: 100 },
   { id: 'obligations', label: 'Obligations', minWidth: 100 },
-  { id: 'published', label: 'Published', minWidth: 110 },
   { id: 'actions', label: 'Actions', minWidth: 100 },
 ];
 
@@ -335,6 +335,13 @@ export default function InstrumentsPage() {
                         </Tooltip>
                       </TableCell>
                       <TableCell>
+                        <Tooltip title={item.sourceReferenceNumber || '-'}>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.sourceReferenceNumber || '-'}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
                         <Tooltip title={item.regulatorAbbreviation || item.regulatorName || '-'}>
                           <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.regulatorAbbreviation || item.regulatorName || '-'}
@@ -343,12 +350,6 @@ export default function InstrumentsPage() {
                       </TableCell>
                       <TableCell>
                         <Chip size="small" label={item.obligationCount ?? 0} variant="outlined" sx={{ height: 22, fontWeight: 600 }} />
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <CalendarToday sx={{ fontSize: 13, color: 'text.secondary' }} />
-                          <Typography variant="body2">{formatDate(item.publishedAt || item.createdAt)}</Typography>
-                        </Box>
                       </TableCell>
                       <TableCell>
                         <Button size="small" variant="text" startIcon={<Visibility />}

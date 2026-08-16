@@ -154,10 +154,13 @@ export default function ObligationDetailPage() {
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               {selected.regulatorAbbreviation || selected.regulatorName}
             </Typography>
+            {selected.areaOfFocus && (
+              <Chip size="small" label={selected.areaOfFocus} variant="outlined" sx={{ height: 22 }} />
+            )}
             <Chip size="small" label={selected.status || 'unknown'}
               color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
           </Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
             {selected.description || 'Untitled obligation'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{selected.sourceTitle}</Typography>

@@ -14,6 +14,7 @@ public class ObligationRegisterItem {
     private Integer obligationNumber;
     private String description;
     private String sectionReference;
+    private String areaOfFocus;
     private String obligationType;
     private String recurringDeadlineType;
     private LocalDate effectiveDate;

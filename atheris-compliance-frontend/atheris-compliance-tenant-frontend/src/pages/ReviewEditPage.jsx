@@ -18,6 +18,13 @@ const OBLIGATION_TYPES = [
   'notification', 'approval', 'audit', 'other',
 ];
 
+const AREAS_OF_FOCUS = [
+  'AML/CFT', 'Corporate Governance', 'Conduct Risk', 'Data Protection',
+  'Consumer Protection', 'Cybersecurity', 'Anti-Bribery & Corruption',
+  'Capital Market', 'Compliance Risk Management', 'ESG', 'Account Management',
+  'Cash Management', 'Financial Reporting',
+];
+
 const DEADLINE_TYPES = [
   'monthly', 'quarterly', 'semi_annually', 'annually',
   'one_time', 'ongoing', 'ad_hoc',
@@ -92,6 +99,12 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                   <TextField size="small" label="Section Reference"
                     value={item.sectionReference || ''}
                     onChange={e => onChange(index, 'sectionReference', e.target.value)} sx={{ flex: 1 }} />
+                  <TextField select fullWidth size="small" label="Area of Focus"
+                    value={item.areaOfFocus || ''}
+                    onChange={e => onChange(index, 'areaOfFocus', e.target.value)} sx={{ width: 220 }}>
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {AREAS_OF_FOCUS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  </TextField>
                 </Box>
               </Paper>
 
@@ -212,6 +225,7 @@ export default function ReviewEditPage() {
       obligationNumber: prev.length + 1,
       description: '',
       sectionReference: '',
+      areaOfFocus: '',
       obligationType: 'other',
       recurringDeadlineType: 'ongoing',
       applicable: true,
@@ -263,6 +277,7 @@ export default function ReviewEditPage() {
           obligationNumber: o.obligationNumber ?? i + 1,
           description: o.description,
           sectionReference: o.sectionReference,
+          areaOfFocus: o.areaOfFocus || undefined,
           obligationType: o.obligationType,
           recurringDeadlineType: o.recurringDeadlineType,
           applicable: o.applicable !== false,

@@ -5,9 +5,9 @@ import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantPro
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulatorPreference;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorPreferenceRepository;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
@@ -20,9 +20,7 @@ public class SubscriptionService {
     private final TenantProfileRepository profiles;
     private final TenantRegulatorPreferenceRepository regPrefs;
     private final AuditService audit;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public Map<String, Object> getSummary() {
         TenantProfile p = getProfile();
@@ -126,7 +124,7 @@ public class SubscriptionService {
     }
 
     private TenantProfile getProfile() {
-        return profiles.findByTenantId(tenantId)
+        return profiles.findByTenantId(tenantIdentity.currentTenantId())
             .orElseThrow(() -> new RuntimeException("Tenant profile not found"));
     }
 }

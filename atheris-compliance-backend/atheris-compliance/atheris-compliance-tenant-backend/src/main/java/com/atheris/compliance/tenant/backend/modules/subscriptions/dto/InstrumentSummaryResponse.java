@@ -11,6 +11,7 @@ public class InstrumentSummaryResponse {
     private Long id;
     private String sourceTitle;
     private String title;
+    private String sourceReferenceNumber;
     private String regulatorAbbreviation;
     private String regulatorName;
     private String documentType;

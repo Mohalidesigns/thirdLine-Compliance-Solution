@@ -28,14 +28,12 @@ atheris:
   jwt:
     secret: ${JWT_SECRET:change-me-in-production-use-a-long-random-base64-secret}
     expiry-minutes: 1440
-  tenant-id: ${TENANT_ID:1}
   returns:
     instance-lookahead-days: 120
     escalation-thresholds: "2,5"
   platform:
     base-url: ${PLATFORM_BASE_URL:http://localhost:9090}
     encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
-
 logging:
   level:
     com.atheris.compliance: DEBUG

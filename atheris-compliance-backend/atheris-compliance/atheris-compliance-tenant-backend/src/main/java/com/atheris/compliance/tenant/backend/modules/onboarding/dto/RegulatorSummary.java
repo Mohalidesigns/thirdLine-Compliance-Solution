@@ -10,4 +10,5 @@ public class RegulatorSummary {
     private Integer regulatorId;
     private String name;
     private String abbreviation;
+    private Long obligationCount;
 }

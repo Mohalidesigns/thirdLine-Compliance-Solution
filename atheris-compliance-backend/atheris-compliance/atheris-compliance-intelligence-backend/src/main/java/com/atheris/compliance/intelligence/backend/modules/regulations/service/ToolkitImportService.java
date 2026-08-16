@@ -14,6 +14,7 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
+import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.atheris.compliance.common.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,20 @@ public class ToolkitImportService {
             "conduct_risk", "corporate_governance", "data_protection",
             "capital_market", "crmp", "esg", "cybersecurity", "consumer_protection",
             "abac", "amlcft", "actmgt", "cash_mgt");
+
+    private static final Map<String, String> SECTION_AREA_OF_FOCUS = Map.ofEntries(
+            Map.entry("conduct_risk", "Conduct Risk"),
+            Map.entry("corporate_governance", "Corporate Governance"),
+            Map.entry("data_protection", "Data Protection"),
+            Map.entry("capital_market", "Capital Market"),
+            Map.entry("crmp", "Compliance Risk Management"),
+            Map.entry("esg", "ESG"),
+            Map.entry("cybersecurity", "Cybersecurity"),
+            Map.entry("consumer_protection", "Consumer Protection"),
+            Map.entry("abac", "Anti-Bribery & Corruption"),
+            Map.entry("amlcft", "AML/CFT"),
+            Map.entry("actmgt", "Account Management"),
+            Map.entry("cash_mgt", "Cash Management"));
 
     private final List<String> unmapped = new ArrayList<>();
     private int regulatorCount = 0;
@@ -216,6 +231,7 @@ public class ToolkitImportService {
                 .uploadSource("toolkit_seed")
                 .aiSummary(get(r, cDesc))
                 .build();
+            inst.setSourceReferenceNumber(extractReference(r));
             instruments.save(inst);
             instrumentCount++;
 
@@ -277,7 +293,7 @@ public class ToolkitImportService {
             Long regulationId = findOrCreateRegulation(source, null);
             Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
 
-            String statement = plain.trim();
+            String statement = TextCleaner.stripMarkdown(plain.trim());
             String sectionRef = shorten(get(r, cSection), 100);
             if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
                     regulationId, statement, sectionRef)) {
@@ -291,6 +307,7 @@ public class ToolkitImportService {
                 .obligationNumber(++obligNumber)
                 .plainEnglishStatement(statement)
                 .specificSectionReference(sectionRef)
+                .areaOfFocus(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
                 .obligationType(shorten(get(r, cType), 100))
                 .recurringDeadlineType(shorten(get(r, cDeadline), 50))
                 .build());
@@ -559,6 +576,19 @@ public class ToolkitImportService {
         return s.toLowerCase(Locale.ROOT)
             .replaceAll("[^a-z0-9]", "")
             .trim();
+    }
+
+    /**
+     * Scans all cells of a toolkit row for a CBN-style document reference
+     * (e.g. FPR/DIR/CIR/GEN/01/011, BSD/DIR/GEN/LAB/08/016, COD/DIR/INT/CIR/001/025).
+     */
+    private String extractReference(List<String> row) {
+        for (String cell : row) {
+            if (cell == null || cell.isBlank()) continue;
+            Matcher m = Pattern.compile("\\b[A-Z]{2,6}/DIR/[A-Z/0-9]+", Pattern.CASE_INSENSITIVE).matcher(cell);
+            if (m.find()) return m.group().trim();
+        }
+        return null;
     }
 
     private String normalizeNature(String s) {

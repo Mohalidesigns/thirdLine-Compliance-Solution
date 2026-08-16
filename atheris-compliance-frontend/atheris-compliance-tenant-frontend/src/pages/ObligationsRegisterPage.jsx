@@ -55,7 +55,7 @@ export default function ObligationsRegisterPage() {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
-  const [themeFilter, setThemeFilter] = useState('All');
+  const [areaFilter, setAreaFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [hasGap, setHasGap] = useState(false);
@@ -71,7 +71,7 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || themeFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
+    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
 
   const loadStats = useCallback(async () => {
     try { setStats(await api.obligations.stats()); } catch { /* optional */ }
@@ -85,7 +85,7 @@ export default function ObligationsRegisterPage() {
       if (search) params.q = search;
       if (riskFilter !== 'All') params.risk = riskFilter;
       if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
-      if (themeFilter !== 'All') params.theme = themeFilter;
+      if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
       if (ownerFilter !== 'All') params.owner = ownerFilter;
       if (statusFilter !== 'All') params.status = statusFilter;
       if (hasGap) params.hasGap = 'true';
@@ -96,14 +96,14 @@ export default function ObligationsRegisterPage() {
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load obligations.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, riskFilter, regulatorFilter, themeFilter, ownerFilter, statusFilter, hasGap, noControl, sortField, sortDir]);
+  }, [page, rowsPerPage, search, riskFilter, regulatorFilter, areaFilter, ownerFilter, statusFilter, hasGap, noControl, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setThemeFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGap(false); setNoControl(false);
+    setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGap(false); setNoControl(false);
     setPage(0);
   }
 
@@ -200,8 +200,8 @@ export default function ObligationsRegisterPage() {
           <MenuItem value="All">All</MenuItem>
           {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
-        <TextField select size="small" value={themeFilter} onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
-          label="Theme" sx={{ minWidth: 120 }}>
+        <TextField select size="small" value={areaFilter} onChange={e => { setAreaFilter(e.target.value); setPage(0); }}
+          label="Area of Focus" sx={{ minWidth: 160 }}>
           <MenuItem value="All">All</MenuItem>
           {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
         </TextField>

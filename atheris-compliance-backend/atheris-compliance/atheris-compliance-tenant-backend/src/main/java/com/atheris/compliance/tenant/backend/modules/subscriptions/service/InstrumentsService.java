@@ -8,9 +8,9 @@ import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiC
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PagedResponse;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentSummary;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -29,11 +29,10 @@ public class InstrumentsService {
     private final PlatformApiClient platform;
     private final TenantRegulatorRepository tenantRegulators;
     private final ObligationRepository obligationRepo;
-
-    @Value("${atheris.tenant-id:}")
-    private Long tenantId;
+    private final TenantIdentityService tenantIdentity;
 
     public Page<InstrumentSummaryResponse> search(String q, Pageable pageable) {
+        Long tenantId = tenantIdentity.currentTenantId();
         List<Integer> platformRegIds = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId)
             .stream()
             .map(tr -> tr.getPlatformRegulatorId())
@@ -114,6 +113,7 @@ public class InstrumentsService {
             .id(s.getInstrumentId())
             .sourceTitle(s.getSourceTitle())
             .title(s.getSourceTitle())
+            .sourceReferenceNumber(s.getSourceReferenceNumber())
             .regulatorAbbreviation(s.getRegulatorAbbreviation())
             .regulatorName(s.getRegulatorName())
             .documentType(s.getDocumentType() != null ? s.getDocumentType() : s.getNature())

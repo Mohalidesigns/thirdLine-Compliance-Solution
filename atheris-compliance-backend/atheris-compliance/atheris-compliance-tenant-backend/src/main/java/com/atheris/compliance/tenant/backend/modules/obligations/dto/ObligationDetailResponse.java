@@ -51,6 +51,7 @@ public class ObligationDetailResponse {
         private String description;
         private String sectionReference;
         private String obligationType;
+        private String areaOfFocus;
         private LocalDate effectiveDate;
         private String status;
     }

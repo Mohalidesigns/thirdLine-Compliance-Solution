@@ -45,6 +45,7 @@ public class PlatformRegulationSeed {
         private Integer obligationNumber;
         private String plainEnglishStatement;
         private String specificSectionReference;
+        private String areaOfFocus;
         private String obligationType;
         private String recurringDeadlineType;
     }
