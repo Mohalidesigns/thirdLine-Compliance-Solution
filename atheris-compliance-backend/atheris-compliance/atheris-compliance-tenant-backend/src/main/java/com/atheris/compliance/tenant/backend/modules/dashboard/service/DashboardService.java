@@ -4,7 +4,9 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.DashboardSnapshot;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.DashboardSnapshotRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class DashboardService {
     private final ControlRepository controls;
     private final FindingRepository findings;
     private final ReturnFilingInstanceRepository returnsRepo;
+    private final RegulatorySanctionRepository sanctions;
 
     public DashboardSnapshot getLatest() {
         return snapshots.findTopByOrderBySnapshotDateDesc()
@@ -59,6 +62,11 @@ public class DashboardService {
         long totalActive = obligations.countByApplicability("applicable");
         long totalInapplicable = obligations.countByApplicability("not_applicable");
         long gaps = obligations.countByHasGapTrue();
+        long highRisk = obligations.findAll().stream()
+            .filter(c -> "applicable".equals(c.getApplicability()))
+            .map(c -> c.getInherentRiskRating() != null ? c.getInherentRiskRating() : c.getTenantRiskRating())
+            .filter(r -> "Extreme".equals(r) || "High".equals(r))
+            .count();
         long totalControls = controls.count();
         long failing = controls.findByResidualRisk("High").size();
         long passing = totalControls - failing;
@@ -70,6 +78,7 @@ public class DashboardService {
         long onTime = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED);
         long late = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED_LATE);
         long pending = returnsRepo.countByStatus(ReturnFilingStatus.NOT_STARTED) + returnsRepo.countByStatus(ReturnFilingStatus.IN_PROGRESS);
+        BigDecimal penaltyExposure = sanctions.sumExposure();
 
         Double score;
         if (totalActive + totalInapplicable == 0) {
@@ -85,7 +94,7 @@ public class DashboardService {
             .snapshotDate(LocalDate.now()).computedAt(Instant.now())
             .totalObligationsActive((int) totalActive)
             .totalObligationsInapplicable((int) totalInapplicable)
-            .obligationsHighRisk((int) totalActive)
+            .obligationsHighRisk((int) highRisk)
             .obligationsWithGaps((int) gaps)
             .controlsTotal((int) totalControls)
             .controlsPassing((int) passing)
@@ -98,7 +107,7 @@ public class DashboardService {
             .returnsSubmittedOnTime((int) onTime)
             .returnsSubmittedLate((int) late)
             .returnsPending((int) pending)
-            .totalPenaltyExposureNaira(BigDecimal.ZERO)
+            .totalPenaltyExposureNaira(penaltyExposure != null ? penaltyExposure : BigDecimal.ZERO)
             .complianceScore(score).build();
         return snapshots.save(s);
     }

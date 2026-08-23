@@ -39,7 +39,7 @@ public class ClassificationService {
           "licence_types_applicable": string[],
           "applicability_confidence": number (0.0 to 1.0),
           "ai_summary": string (3-5 plain English sentences),
-          "reference_number": string (the document's official reference/registration number if present in the text, e.g. \"FPR/DIR/CIR/GEN/01/011\" or \"CBN-2026-001\"; use null if none is found),
+          "reference_number": string (if the text contains an official reference/registration number, use it, e.g. \"FPR/DIR/CIR/GEN/01/011\" or \"CBN-2026-001\"; otherwise, for journal/publication documents, derive one from the header metadata — prefer the ISSN if present, else a compact volume/issue + period code, e.g. \"ISSN 1115-0807\" or \"Vol 39 No 3&4 (Sep/Dec 2024)\"; use null only if no identifier of any kind can be derived),
           "regulator": string (full name of the issuing regulatory body, e.g. "Central Bank of Nigeria"),
           "obligations": [
             {

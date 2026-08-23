@@ -298,6 +298,15 @@ export const api = {
     summary: () => request('/dashboard/summary'),
     trends: () => request('/dashboard/trends'),
     attentionItems: () => request('/dashboard/attention-items'),
+    v2: {
+      returnsByPeriod: (from, to) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`),
+      controlCoverage: (by = 'areaOfFocus') => request(`/dashboard/v2/control-coverage?by=${by}`),
+      riskProfile: () => request('/dashboard/v2/risk-profile'),
+      thresholds: (tenantId) => request(`/dashboard/v2/thresholds?tenantId=${tenantId}`),
+      saveThresholds: (tenantId, data) => request(`/dashboard/v2/thresholds?tenantId=${tenantId}`, {
+        method: 'PUT', body: JSON.stringify(data),
+      }),
+    },
   },
   settings: {
     polling: () => request('/settings/polling'),

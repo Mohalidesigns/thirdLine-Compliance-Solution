@@ -6,7 +6,7 @@ import { useAuth } from './contexts/AuthContext';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardV2Page'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
 const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));

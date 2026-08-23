@@ -46,6 +46,10 @@ public class ObligationService {
 
     private static final List<String> RISK_LEVELS = List.of("Extreme", "High", "Medium", "Low");
 
+    private volatile List<ObligationRegisterItem> cachedRows;
+    private volatile long cacheTimestamp;
+    private static final long CACHE_TTL_MS = 5000;
+
     // ------------------------------------------------------------------ register
 
     public Page<ObligationRegisterItem> getRegisterList(
@@ -97,13 +101,23 @@ public class ObligationService {
     }
 
     private List<ObligationRegisterItem> buildRegisterRows() {
+        long now = System.currentTimeMillis();
+        if (cachedRows != null && (now - cacheTimestamp) < CACHE_TTL_MS) {
+            return cachedRows;
+        }
+        List<ObligationRegisterItem> rows = buildRegisterRowsInternal();
+        cachedRows = rows;
+        cacheTimestamp = now;
+        return rows;
+    }
+
+    private List<ObligationRegisterItem> buildRegisterRowsInternal() {
         List<Obligation> allObligations = obligationRepo.findAll().stream()
             .filter(o -> !"deleted".equals(o.getStatus()))
             .toList();
         Map<Long, ObligationClassification> classByObligation = classifications.findAll().stream()
             .filter(c -> c.getObligationId() != null)
             .collect(Collectors.toMap(ObligationClassification::getObligationId, c -> c, (a, b) -> a));
-        Map<Long, PlatformInstrumentDetail> detailCache = new HashMap<>();
         Map<Long, List<Long>> returnsByObligation = obligationRepo.findAllReturnLinks().stream()
             .collect(Collectors.groupingBy(
                 ObligationRepository.ObligationReturnRow::getObligationId,
@@ -115,11 +129,15 @@ public class ObligationService {
             .filter(s -> s.getInstrumentId() != null)
             .collect(Collectors.groupingBy(RegulatorySanction::getInstrumentId));
 
+        Set<Long> uniqueInstrumentIds = allObligations.stream()
+            .map(Obligation::getInstrumentId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, PlatformInstrumentDetail> detailCache = platform.getInstrumentDetailsBulk(new ArrayList<>(uniqueInstrumentIds));
+
         List<ObligationRegisterItem> rows = new ArrayList<>();
         for (Obligation ob : allObligations) {
             ObligationClassification c = classByObligation.get(ob.getObligationId());
             PlatformInstrumentDetail d = ob.getInstrumentId() != null
-                ? detailCache.computeIfAbsent(ob.getInstrumentId(), platform::getInstrumentDetail) : null;
+                ? detailCache.get(ob.getInstrumentId()) : null;
             List<Long> linkedReturnIds = returnsByObligation.getOrDefault(ob.getObligationId(), List.of());
             List<String> returnNames = linkedReturnIds.stream()
                 .map(id -> returnNameById.get(id)).filter(Objects::nonNull).toList();

@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component @Slf4j
 public class PlatformApiClient {
@@ -33,6 +34,7 @@ public class PlatformApiClient {
     private final String baseUrl;
     private final TenantProfileRepository profiles;
     private final CryptoUtil crypto;
+    private volatile String cachedApiKey;
 
     public PlatformApiClient(
             @Value("${atheris.platform.base-url:http://localhost:9090}") String baseUrl,
@@ -71,14 +73,16 @@ public class PlatformApiClient {
 
     private HttpHeaders headers() {
         HttpHeaders h = new HttpHeaders();
-        Optional<TenantProfile> opt = profiles.findAll().stream().findFirst();
-        if (opt.isPresent() && opt.get().getEncryptedApiKey() != null) {
-            String decrypted = crypto.decrypt(opt.get().getEncryptedApiKey());
-            log.debug("API key prefix: {}...", decrypted.substring(0, Math.min(12, decrypted.length())));
-            h.set("X-Api-Key", decrypted);
+        if (cachedApiKey == null) {
+            Optional<TenantProfile> opt = profiles.findAll().stream().findFirst();
+            if (opt.isPresent() && opt.get().getEncryptedApiKey() != null) {
+                cachedApiKey = crypto.decrypt(opt.get().getEncryptedApiKey());
+            }
+        }
+        if (cachedApiKey != null) {
+            h.set("X-Api-Key", cachedApiKey);
         } else {
-            log.warn("No API key available for platform calls (profile present: {}, encryptedKey null: {})",
-                opt.isPresent(), opt.isPresent() ? opt.get().getEncryptedApiKey() == null : "N/A");
+            log.warn("No API key available for platform calls");
         }
         return h;
     }
@@ -181,6 +185,16 @@ public class PlatformApiClient {
             log.error("Failed to fetch instrument detail: {}", e.getMessage());
             return null;
         }
+    }
+
+    public Map<Long, PlatformInstrumentDetail> getInstrumentDetailsBulk(List<Long> instrumentIds) {
+        if (instrumentIds == null || instrumentIds.isEmpty()) return Map.of();
+        Map<Long, PlatformInstrumentDetail> result = new ConcurrentHashMap<>();
+        instrumentIds.parallelStream().forEach(id -> {
+            PlatformInstrumentDetail d = getInstrumentDetail(id);
+            if (d != null) result.put(id, d);
+        });
+        return result;
     }
 
     public byte[] getInstrumentPdf(Long instrumentId) {

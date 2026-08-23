@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -34,7 +34,8 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'obligation', label: 'Obligation', minWidth: 360, sortField: 'description' },
+  { id: 'obligation', label: 'Obligation', minWidth: 340, sortField: 'description' },
+  { id: 'areaOfFocus', label: 'Area of Focus', minWidth: 150 },
   { id: 'risk', label: 'Risk', minWidth: 110, sortField: 'tenantRiskRating' },
   { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
@@ -45,20 +46,21 @@ const COLUMNS = [
 
 export default function ObligationsRegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [stats, setStats] = useState(null);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // filters
+  // filters — initialize from URL params when navigated from dashboard
   const [search, setSearch] = useState('');
-  const [riskFilter, setRiskFilter] = useState('All');
-  const [regulatorFilter, setRegulatorFilter] = useState('All');
-  const [areaFilter, setAreaFilter] = useState('All');
-  const [ownerFilter, setOwnerFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [hasGap, setHasGap] = useState(false);
+  const [riskFilter, setRiskFilter] = useState(searchParams.get('risk') || 'All');
+  const [regulatorFilter, setRegulatorFilter] = useState(searchParams.get('regulator') || 'All');
+  const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
+  const [ownerFilter, setOwnerFilter] = useState(searchParams.get('owner') || 'All');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
+  const [hasGap, setHasGap] = useState(searchParams.get('hasGap') === 'true');
   const [noControl, setNoControl] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -281,6 +283,11 @@ export default function ObligationsRegisterPage() {
                             {item.name || item.description || 'Untitled obligation'}
                           </Typography>
                         </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        {item.areaOfFocus
+                          ? <Chip size="small" label={item.areaOfFocus} variant="outlined" sx={{ height: 22 }} />
+                          : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
