@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     return_name                VARCHAR(500) NOT NULL,
     filing_regulator           VARCHAR(100),
     tenant_regulator_id        BIGINT,
+    department_id              INT,
     return_type                VARCHAR(100),
     frequency                  VARCHAR(50),
     status                     VARCHAR(50) DEFAULT 'Active',

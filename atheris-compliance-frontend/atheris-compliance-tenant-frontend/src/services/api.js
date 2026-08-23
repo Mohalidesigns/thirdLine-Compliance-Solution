@@ -300,6 +300,9 @@ export const api = {
     attentionItems: () => request('/dashboard/attention-items'),
     v2: {
       returnsByPeriod: (from, to) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`),
+      renditionGrid: (from, to, groupBy = 'department') => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`),
+      riskHeatmap: (view = 'inherent') => request(`/dashboard/v2/risk-heatmap?view=${view}`),
+      escalationMatrix: () => request('/dashboard/v2/escalation-matrix'),
       controlCoverage: (by = 'areaOfFocus') => request(`/dashboard/v2/control-coverage?by=${by}`),
       riskProfile: () => request('/dashboard/v2/risk-profile'),
       thresholds: (tenantId) => request(`/dashboard/v2/thresholds?tenantId=${tenantId}`),
@@ -311,6 +314,10 @@ export const api = {
   settings: {
     polling: () => request('/settings/polling'),
     updatePolling: (data) => request('/settings/polling', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    riskMatrix: () => request('/settings/risk-matrix'),
+    updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
   },

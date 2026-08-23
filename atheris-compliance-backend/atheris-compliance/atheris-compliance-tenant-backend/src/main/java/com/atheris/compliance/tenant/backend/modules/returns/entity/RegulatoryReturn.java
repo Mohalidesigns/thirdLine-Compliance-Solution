@@ -19,6 +19,7 @@ public class RegulatoryReturn {
     private String returnName;
     private String filingRegulator;
     private Long tenantRegulatorId;
+    private Integer departmentId;
     private String returnType;
     private String frequency;
     @Builder.Default

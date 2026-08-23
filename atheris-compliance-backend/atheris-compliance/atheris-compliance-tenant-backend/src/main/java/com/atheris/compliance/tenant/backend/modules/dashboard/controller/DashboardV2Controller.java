@@ -37,6 +37,25 @@ public class DashboardV2Controller {
         return ResponseEntity.ok(service.getRiskProfile());
     }
 
+    @GetMapping("/rendition-grid")
+    public ResponseEntity<RenditionGridDto> renditionGrid(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "department") String groupBy) {
+        return ResponseEntity.ok(service.getRenditionGrid(from, to, groupBy));
+    }
+
+    @GetMapping("/risk-heatmap")
+    public ResponseEntity<RiskHeatmapDto> riskHeatmap(
+            @RequestParam(defaultValue = "inherent") String view) {
+        return ResponseEntity.ok(service.getRiskHeatmap(view));
+    }
+
+    @GetMapping("/escalation-matrix")
+    public ResponseEntity<EscalationMatrixDto> escalationMatrix() {
+        return ResponseEntity.ok(service.getEscalationMatrix());
+    }
+
     @GetMapping("/thresholds")
     public ResponseEntity<ThresholdDto> getThresholds(@RequestParam Long tenantId) {
         return ResponseEntity.ok(service.getThresholds(tenantId));

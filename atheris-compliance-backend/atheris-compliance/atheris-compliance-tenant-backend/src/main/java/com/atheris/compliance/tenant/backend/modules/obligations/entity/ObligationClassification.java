@@ -74,26 +74,27 @@ public class ObligationClassification {
     }
 
     public void computeInherentRisk() {
+        computeInherentRisk(null, null);
+    }
+
+    public void computeInherentRisk(java.util.List<String> impactLevels, java.util.List<String> likelihoodLevels) {
         if (impactRating == null || likelihoodRating == null) {
             this.inherentRiskRating = null;
             return;
         }
-        int impactIdx = switch (impactRating) {
-            case "Critical" -> 4; case "High" -> 3;
-            case "Medium" -> 2;  case "Low" -> 1;
-            default -> 0;
-        };
-        int likelihoodIdx = switch (likelihoodRating) {
-            case "Almost Certain" -> 5; case "Likely" -> 4;
-            case "Possible" -> 3;       case "Unlikely" -> 2;
-            case "Rare" -> 1;
-            default -> 0;
-        };
+        java.util.List<String> impacts = impactLevels != null ? impactLevels
+            : java.util.List.of("Insignificant", "Minor", "Moderate", "Major", "Severe");
+        java.util.List<String> likelihoods = likelihoodLevels != null ? likelihoodLevels
+            : java.util.List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
+
+        int impactIdx = impacts.indexOf(impactRating) + 1;
+        int likelihoodIdx = likelihoods.indexOf(likelihoodRating) + 1;
         if (impactIdx == 0 || likelihoodIdx == 0) { this.inherentRiskRating = null; return; }
+
         int score = impactIdx * likelihoodIdx;
-        if (score >= 16) this.inherentRiskRating = "Extreme";
-        else if (score >= 9) this.inherentRiskRating = "High";
-        else if (score >= 4) this.inherentRiskRating = "Medium";
+        if (score >= 18) this.inherentRiskRating = "Critical";
+        else if (score >= 12) this.inherentRiskRating = "High";
+        else if (score >= 6) this.inherentRiskRating = "Moderate";
         else this.inherentRiskRating = "Low";
     }
 
@@ -102,8 +103,8 @@ public class ObligationClassification {
         if (!controlsLinked || testStatus == null) return inherentRisk;
         return switch (testStatus) {
             case "Passed" -> switch (inherentRisk) {
-                case "Extreme" -> "High"; case "High" -> "Medium";
-                case "Medium" -> "Low";   default -> "Low";
+                case "Critical" -> "High"; case "High" -> "Moderate";
+                case "Moderate" -> "Low";  default -> "Low";
             };
             case "Failed" -> inherentRisk;
             default -> inherentRisk;
