@@ -4,7 +4,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import { TableChart, GridOn } from '@mui/icons-material';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 
 const BAND_COLORS = {
   Low: { bg: '#E8F5E9', border: '#4CAF50', text: '#2E7D32', badge: '#4CAF50' },

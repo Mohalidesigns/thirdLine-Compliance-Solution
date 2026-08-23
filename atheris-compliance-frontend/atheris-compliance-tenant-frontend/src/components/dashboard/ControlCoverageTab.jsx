@@ -4,7 +4,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   ToggleButton, ToggleButtonGroup, Chip, CircularProgress, Tooltip,
 } from '@mui/material';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 import RiskHeatmap from './RiskHeatmap';
 
 const COLOR_MAP = {
