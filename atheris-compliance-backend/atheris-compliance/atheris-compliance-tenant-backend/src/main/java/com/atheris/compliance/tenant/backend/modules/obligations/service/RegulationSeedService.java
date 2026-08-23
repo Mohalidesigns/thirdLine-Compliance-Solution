@@ -65,10 +65,7 @@ public class RegulationSeedService {
             || bundle.getCanonicalInstrument().getInstrumentId() == null) return 0;
         Long instrumentId = bundle.getCanonicalInstrument().getInstrumentId();
 
-        if (obligationRepo.countByInstrumentId(instrumentId) > 0) {
-            log.info("Seed skip: instrument {} already has obligations", instrumentId);
-            return 0;
-        }
+        boolean hasObligations = obligationRepo.countByInstrumentId(instrumentId) > 0;
         TenantRegulator reg = tenantRegs.stream()
             .filter(r -> bundle.getRegulatorId() != null
                 && bundle.getRegulatorId().equals(r.getPlatformRegulatorId()))
@@ -79,7 +76,7 @@ public class RegulationSeedService {
             : bundle.getCanonicalInstrument().getDateIssued();
 
         List<Obligation> createdObligations = new ArrayList<>();
-        if (bundle.getObligations() != null) {
+        if (!hasObligations && bundle.getObligations() != null) {
             int num = 1;
             for (PlatformRegulationSeed.ObligationItem o : bundle.getObligations()) {
                 Obligation ob = Obligation.builder()
@@ -123,10 +120,11 @@ public class RegulationSeedService {
                     .frequency(normalizeFrequency(r.getFrequency()))
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)
                     .build());
-                if (createdObligations != null) {
-                    for (Obligation ob : createdObligations) {
-                        obligationRepo.insertReturnLink(ob.getObligationId(), rt.getReturnId());
-                    }
+                List<Obligation> toLink = createdObligations.isEmpty()
+                    ? obligationRepo.findByInstrumentId(instrumentId)
+                    : createdObligations;
+                for (Obligation ob : toLink) {
+                    obligationRepo.insertReturnLink(ob.getObligationId(), rt.getReturnId());
                 }
             }
         }
