@@ -229,6 +229,7 @@ export const api = {
       const s = qs.toString();
       return request(`/controls/register${s ? '?' + s : ''}`);
     },
+    stats: () => request('/controls/stats'),
     detail: (id) => request(`/controls/${id}/detail`),
     get: (id) => request(`/controls/${id}`),
     create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
@@ -243,6 +244,7 @@ export const api = {
       const s = qs.toString();
       return request(`/returns/calendar${s ? '?' + s : ''}`);
     },
+    stats: () => request('/returns/stats'),
     detail: (id) => request(`/returns/instances/${id}/detail`),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -251,6 +253,15 @@ export const api = {
       method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
     }),
     linkedObligations: (returnId) => request(`/returns/${returnId}/obligations`),
+  },
+  sanctions: {
+    list: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/sanctions${s ? '?' + s : ''}`);
+    },
+    stats: () => request('/sanctions/stats'),
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),

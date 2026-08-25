@@ -182,6 +182,61 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
+## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
+
+Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix. Replaces the old V1 KPI dashboard (file `DashboardPage.jsx` is dead code, `DashboardV2Page.jsx` is active).
+
+### Architecture
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| Shell | `DashboardV2Page.jsx` | 2-tab MUI Tabs container |
+| Tab 1 | `RenditionTab.jsx` | Monthly rendition grid (by department or area of focus) + escalation matrix (L1/L2/L3) |
+| Tab 2 | `ControlCoverageTab.jsx` | 5×5 risk heatmap (inherent/residual) + control coverage table |
+| Shared | `RiskHeatmap.jsx` | Reusable Impact × Likelihood matrix (grid + table views) |
+
+### Backend (`DashboardV2Controller` + `DashboardV2Service`, 579 lines)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /dashboard/v2/rendition-grid?from=&to=&groupBy=` | `getRenditionGrid()` | Monthly grid: returns grouped by department or area of focus. Cells = SUBMITTED / IN_PROGRESS / SUBMITTED_LATE / NOT_STARTED / N/A |
+| `GET /dashboard/v2/escalation-matrix` | `getEscalationMatrix()` | All escalated filing instances (L1/L2/L3) enriched with return name, regulator, department, owner, dept head, days late |
+| `GET /dashboard/v2/risk-heatmap?view=inherent\|residual` | `getRiskHeatmap()` | 5×5 Impact × Likelihood matrix from `ObligationClassification` rows. Configurable thresholds via `risk_matrix_config` table |
+| `GET /dashboard/v2/control-coverage?by=areaOfFocus\|department` | `getControlCoverageBy*()` | Obligations grouped by area/department, split into covered (has controls) vs gaps (no controls), coverage % |
+| `GET /dashboard/v2/returns-by-period?from=&to=` | `getReturnsByPeriod()` | Returns grouped by period + regulator + frequency (submitted/late/in-progress/not-started counts) |
+| `GET /dashboard/v2/risk-profile` | `getRiskProfile()` | Risk-level breakdown + area-of-focus breakdown + gap count |
+| `GET/PUT /dashboard/v2/thresholds` | `getThresholds/saveThresholds()` | CRUD for green/amber/red threshold ranges per metric |
+
+### Database (V28, no new migration — inline in existing CREATE TABLE)
+
+- `risk_matrix_config` table: `tenant_id INT PK`, `levels JSONB` (Impact/Likelihood levels), `thresholds JSONB` (score→band mapping), `scoring_method = "multiplicative"`
+
+### Risk Rating System
+
+- **Impact**: Insignificant(1) → Minor(2) → Moderate(3) → Major(4) → Severe(5)
+- **Likelihood**: Rare(1) → Unlikely(2) → Possible(3) → Likely(4) → Almost Certain(5)
+- **Scoring**: `impact_idx × likelihood_idx` (1–25)
+- **Bands**: Low(0-6), Moderate(6-12), High(12-18), Critical(18+)
+- `computeInherentRisk()` on `ObligationClassification` is now dynamic (was hardcoded)
+- `computeResidualRisk()` activated but not yet wired into control test flow (Phase H pending)
+
+### Frontend Components
+
+- **RenditionTab**: Toggle Department/Area of Focus grouping, per-group submitted/total summary, escalation table with L1/L2/L3 chips and days-late counts
+- **RiskHeatmap**: Grid view (colored matrix) + Table view (flat list), inherent/residual toggle, gap indicators ("!" badge), click drills to `/obligations?impact=...&likelihood=...`
+- **ControlCoverageTab**: Overall coverage % chip (green/amber/red), per-row covered/gaps counts, click drills to `/obligations?areaOfFocus=...`
+
+### Unconsumed API Surface (ready, no UI yet)
+
+- `returnsByPeriod` — period-level return stats
+- `riskProfile` — risk breakdown
+- `thresholds` (GET/PUT) — admin-configurable threshold ranges
+
+### Returns Seeding Fix (filing_due_day_of_month)
+
+- **Root cause**: All 103 tenant `regulatory_returns` had `filing_due_day_of_month = NULL`. `ensureInstances()` skipped them silently (null guard at line 211).
+- **Fix**: (1) Removed null guard, (2) added `parseDueDayFromFrequency()` to both `RegulationSeedService` and `ToolkitImportService`, (3) added `filingDueDayOfMonth` field to intel entity + V15 migration, (4) data fix `UPDATE regulatory_returns SET filing_due_day_of_month = 1 WHERE filing_due_day_of_month IS NULL`, (5) `ALTER TABLE` on intel DB, (6) Flyway repair on `atheris_intel`.
+
 ## Done — Pipeline Stage Breakdown
 - **Per-regulator pipeline stage breakdown** — Backend: `InstrumentRepository` adds `findExtractedByRegulatorId` (non-null pdfOcrText) and `findClassifiedByRegulatorId` (status != Triage); `RegulatorService.getPipelineStats()` returns discovered/downloaded/extracted/classified counts + drill-down lists with `jobStatus` for uploaded items; new endpoint `GET /platform/regulators/{id}/pipeline-stats`. Frontend: RegulatorDetailPage shows 4 clickable pipeline stage cards with inline scrollable tables (Title | URL | Status | Action columns); uploaded docs appear alongside pending with green checkmark + job status chip (OCR Pending/Processing/Done/Failed); Scraper Config moved to modal.
 - **Dashboard Pipeline Health alert** — Banner between KPI cards and pipeline table shows total discovered vs processed vs pending downloads; amber Warning with "View Failed" link when pendings exist, green success when clear.
@@ -210,7 +265,7 @@ atheris-compliance-tenant-backend/
       findings/                         — Auto-raised from failed tests, remediation workflow
       returns/                          — Regulatory return calendar, stage-based filing
       notifications/                    — Obligation change alerts (read/acknowledge)
-      dashboard/                        — Compliance score, KPIs, daily snapshots
+      dashboard/                        — Compliance score, KPIs, daily snapshots, V2 rendition grid + risk heatmap
       audit/                            — Tamper-evident hash chain audit log
       webhook/                          — Webhook receiver from main platform
   src/main/resources/
@@ -256,7 +311,7 @@ Full tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-t
 | Route | Component | Description |
 |-------|-----------|-------------|
 | `/login` | LoginPage | Dark gradient, gold Shield icon, "Africa's Premier Compliance Solution" subtitle, "Get Started — Register Your Institution" link to `:5173/onboarding` |
-| `/dashboard` | DashboardPage | KPI cards (pending, classified, failed) + recent uploads table |
+| `/dashboard` | DashboardV2Page | Two tabs: Rendition Tracker (monthly grid + escalations) and Control Coverage (risk heatmap + coverage table) |
 | `/regulators` | RegulatorsPage | CRUD table with inline active toggle, add/edit dialog |
 | `/upload` | UploadPage | File picker + regulator/doc-type form, triggers `POST /subscriptions/upload-document` |
 | `/upload-history` | UploadStatusPage | Table with status chips (Processing/Done/Failed), polls upload status |

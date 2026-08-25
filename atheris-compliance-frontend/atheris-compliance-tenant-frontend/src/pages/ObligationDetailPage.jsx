@@ -26,7 +26,7 @@ const STATUS_COLOR = { active: 'success', classified: 'info', unclassified: 'war
 
 function riskChip(rating) {
   const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
+  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22 }} />;
   return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22 }} />;
 }
 
@@ -155,7 +155,7 @@ export default function ObligationDetailPage() {
               {selected.regulatorAbbreviation || selected.regulatorName}
             </Typography>
             {selected.areaOfFocus && (
-              <Chip size="small" label={selected.areaOfFocus} variant="outlined" sx={{ height: 22 }} />
+              <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />
             )}
             <Chip size="small" label={selected.status || 'unknown'}
               color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
@@ -251,7 +251,7 @@ export default function ObligationDetailPage() {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {selected.linkedReturns.map(r => (
                   <Chip key={r.returnId} size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                    label={`${r.returnName}${r.frequency ? ` (${r.frequency})` : ''}`} variant="outlined" sx={{ height: 22 }} />
+                            label={`${r.returnName}${r.frequency ? ` (${r.frequency})` : ''}`} sx={{ height: 22 }} />
                 ))}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">None mapped</Typography>}
@@ -269,11 +269,11 @@ export default function ObligationDetailPage() {
                         label={s.sanctionType || 'Sanction'} color="error" sx={{ height: 22 }} />
                       {(s.sanctionAmountNaira != null && s.sanctionAmountNaira > 0) && (
                         <Chip size="small" label={formatNaira(s.sanctionAmountNaira) + (s.sanctionAmountPerDay ? '/day' : '')}
-                          variant="outlined" color="error" sx={{ height: 22 }} />
+                          color="error" sx={{ height: 22 }} />
                       )}
                       {s.hasBeenEnforced != null && (
                         <Chip size="small" label={s.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
-                          variant="outlined" sx={{ height: 22 }} />
+                          sx={{ height: 22 }} />
                       )}
                     </Box>
                     {s.liableRoles?.length > 0 && (

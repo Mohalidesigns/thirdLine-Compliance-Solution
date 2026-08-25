@@ -1,63 +1,121 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  TablePagination, Chip, TextField, MenuItem, Button, IconButton,
-  Card, CardContent, CardHeader, TableContainer, Paper, Dialog,
-  DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Divider, Grid, Tooltip, Breadcrumbs, Link
+  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
+  Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid,
+  Card, CardContent, CardHeader, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
-  Add, ArrowBack, Edit, History, PlaylistAddCheck,
-  Gavel, Visibility, Science
+  Search, Refresh, Close, Add, Gavel, Visibility, History,
+  PlaylistAddCheck, Science,
 } from '@mui/icons-material';
 import { api } from '../services/api';
-import { useTheme } from '@mui/material/styles';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 
-const RISK_COLORS = { High: 'error', Medium: 'warning', Low: 'success' };
+const RISK_COLORS = { High: 'error', Medium: 'warning', Low: 'success', Extreme: 'error' };
+
+function formatDate(d) {
+  if (!d) return '-';
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const COLUMNS = [
+  { id: 'controlNumber', label: '#', minWidth: 90, sortField: 'controlNumber' },
+  { id: 'name', label: 'Control', minWidth: 300, sortField: 'name' },
+  { id: 'theme', label: 'Theme', minWidth: 120, sortField: 'theme' },
+  { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'controlOwnerName' },
+  { id: 'residualRisk', label: 'Residual Risk', minWidth: 120, sortField: 'residualRisk' },
+  { id: 'nextTest', label: 'Next Test Due', minWidth: 120, sortField: 'nextTestDueDate' },
+  { id: 'status', label: 'Status', minWidth: 100, sortField: 'status' },
+  { id: 'actions', label: '', minWidth: 80 },
+];
 
 export default function ControlsPage() {
   const [view, setView] = useState('list');
   const [detailId, setDetailId] = useState(null);
-  const [data, setData] = useState({ content: [], totalElements: 0 });
   const [detail, setDetail] = useState(null);
+
+  const [stats, setStats] = useState(null);
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [search, setSearch] = useState('');
+  const [themeFilter, setThemeFilter] = useState('All');
+  const [riskFilter, setRiskFilter] = useState('All');
+  const [ownerFilter, setOwnerFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [filters, setFilters] = useState({ theme: '', residualRisk: '', ownerId: null });
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [recordTestOpen, setRecordTestOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [snackbar, setSnackbar] = useState(null);
-  const theme = useTheme();
+  const [snackbar, setSnackbar] = useState('');
 
-  const loadList = useCallback(() => {
+  const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
+    || ownerFilter !== 'All' || statusFilter !== 'All';
+
+  const loadStats = useCallback(async () => {
+    try { setStats(await api.controls.stats()); } catch { /* optional */ }
+  }, []);
+
+  const loadList = useCallback(async () => {
     setLoading(true);
-    const p = { page, size: rowsPerPage };
-    if (filters.theme) p.theme = filters.theme;
-    if (filters.residualRisk) p.residualRisk = filters.residualRisk;
-    if (filters.ownerId) p.ownerId = filters.ownerId;
-    api.controls.register(p).then(res => {
-      setData(res);
-    }).catch(e => {
-      setSnackbar(e.message);
-    }).finally(() => setLoading(false));
-  }, [page, rowsPerPage, filters]);
+    setError('');
+    try {
+      const params = { page, size: rowsPerPage };
+      if (search) params.q = search;
+      if (themeFilter !== 'All') params.theme = themeFilter;
+      if (riskFilter !== 'All') params.residualRisk = riskFilter;
+      if (statusFilter !== 'All') params.status = statusFilter;
+      if (sortField) params.sort = `${sortField},${sortDir}`;
+      const data = await api.controls.register(params);
+      setItems(data.content || []);
+      setTotal(data.totalElements || 0);
+    } catch (e) { setError(e.message || 'Failed to load controls.'); }
+    finally { setLoading(false); }
+  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => { loadStats(); }, []);
 
-  const loadDetail = useCallback((id) => {
+  const loadDetail = useCallback(async (id) => {
     setLoading(true);
-    api.controls.detail(id).then(res => {
+    try {
+      const res = await api.controls.detail(id);
       setDetail(res);
-      setView('detail');
       setDetailId(id);
-    }).catch(e => setSnackbar(e.message))
-    .finally(() => setLoading(false));
+      setView('detail');
+    } catch (e) { setSnackbar(e.message); }
+    finally { setLoading(false); }
   }, []);
+
+  function clearFilters() {
+    setSearch(''); setThemeFilter('All'); setRiskFilter('All');
+    setOwnerFilter('All'); setStatusFilter('All');
+    setPage(0);
+  }
+
+  function applyKpiFilter(type) {
+    setPage(0);
+    if (type === 'highRisk') { setRiskFilter('High'); }
+    else if (type === 'testsDue') { setStatusFilter('Active'); /* TODO: filter by overdue tests */ }
+    else { setRiskFilter('All'); setStatusFilter('All'); }
+  }
+
+  const kpis = [
+    { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, color: '#2B6CB0', bg: '#EBF8FF' },
+    { key: 'active', label: 'Active', value: stats?.active ?? 0, color: '#38A169', bg: '#F0FFF4' },
+    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, color: '#E53E3E', bg: '#FFF5F5' },
+    { key: 'testsDue', label: 'Tests Due', value: stats?.testsDue ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
+  ];
 
   if (view === 'detail' && detail) {
     return (
@@ -67,130 +125,188 @@ export default function ControlsPage() {
         onRefresh={() => loadDetail(detailId)}
         onEdit={() => setEditOpen(true)}
         onRecordTest={() => setRecordTestOpen(true)}
-        editOpen={editOpen}
-        setEditOpen={setEditOpen}
-        recordTestOpen={recordTestOpen}
-        setRecordTestOpen={setRecordTestOpen}
-        onSnackbar={setSnackbar}
-        saving={saving}
-        setSaving={setSaving}
+        editOpen={editOpen} setEditOpen={setEditOpen}
+        recordTestOpen={recordTestOpen} setRecordTestOpen={setRecordTestOpen}
+        onSnackbar={setSnackbar} saving={saving} setSaving={setSaving}
       />
     );
   }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
         <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Controls</Typography>
-          <Typography variant="body2" color="text.secondary">Control inventory and testing schedule</Typography>
+          <Typography variant="h4">Controls Register</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {total} control{total !== 1 ? 's' : ''} — inventory, testing and risk assessment
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>
-          New Control
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Refresh">
+            <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
+          </Tooltip>
+          <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
+            sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+            New Control
+          </Button>
+        </Box>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+
+      {/* KPI cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
+        {kpis.map(k => (
+          <Paper key={k.key} elevation={0} variant="outlined"
+            onClick={() => applyKpiFilter(k.key)}
+            sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${k.color}`,
+              transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
+          </Paper>
+        ))}
       </Box>
 
       {/* Filters */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pb: '12px !important' }}>
-          <TextField select label="Theme" size="small" sx={{ minWidth: 140 }}
-            value={filters.theme} onChange={e => { setFilters(f => ({ ...f, theme: e.target.value })); setPage(0); }}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="IT">IT</MenuItem>
-            <MenuItem value="Financial">Financial</MenuItem>
-            <MenuItem value="Operational">Operational</MenuItem>
-            <MenuItem value="Compliance">Compliance</MenuItem>
-            <MenuItem value="Legal">Legal</MenuItem>
-          </TextField>
-          <TextField select label="Residual Risk" size="small" sx={{ minWidth: 140 }}
-            value={filters.residualRisk} onChange={e => { setFilters(f => ({ ...f, residualRisk: e.target.value })); setPage(0); }}>
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="High">High</MenuItem>
-            <MenuItem value="Medium">Medium</MenuItem>
-            <MenuItem value="Low">Low</MenuItem>
-          </TextField>
-          <OwnerPicker value={filters.ownerId} onChange={id => { setFilters(f => ({ ...f, ownerId: id })); setPage(0); }}
-            label="Owner" allowQuickAdd={false} sx={{ minWidth: 200 }} />
-        </CardContent>
-      </Card>
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField size="small" placeholder="Search control, number or owner..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
+          sx={{ minWidth: 260 }} />
+        <TextField select size="small" value={themeFilter} onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
+          label="Theme" sx={{ minWidth: 130 }}>
+          <MenuItem value="All">All</MenuItem>
+          {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+        </TextField>
+        <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
+          label="Residual Risk" sx={{ minWidth: 130 }}>
+          {['All', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+        </TextField>
+        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+          label="Status" sx={{ minWidth: 120 }}>
+          {['All', 'Active', 'Inactive'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+        </TextField>
+        {hasFilters && (
+          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
+        )}
+      </Paper>
 
       {/* Table */}
-      <Card>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-        ) : data.content.length === 0 ? (
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Gavel sx={{ fontSize: 48, color: theme.palette.action.disabled, mb: 1 }} />
-            <Typography color="text.secondary">No controls found</Typography>
-          </CardContent>
-        ) : (
-          <>
-            <TableContainer component={Paper} elevation={0}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Owner</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Residual Risk</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Next Test Due</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
+      ) : items.length === 0 ? (
+        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <Gavel sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <Typography variant="body1">No controls found.</Typography>
+        </Paper>
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  {COLUMNS.map(c => {
+                    const active = sortField === c.sortField;
+                    return (
+                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                        cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
+                        onClick={c.sortField ? () => {
+                          if (sortField === c.sortField) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+                          else { setSortField(c.sortField); setSortDir('asc'); }
+                          setPage(0);
+                        } : undefined}>
+                        {c.sortField
+                          ? <TableSortLabel active={active} direction={sortDir}
+                              sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
+                              {c.label}
+                            </TableSortLabel>
+                          : c.label}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {items.map((item, idx) => (
+                  <TableRow key={item.controlId} hover
+                    onClick={() => loadDetail(item.controlId)}
+                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
+                    <TableCell>
+                      <Tooltip title={item.name || 'Untitled'}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 320,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name || 'Untitled'}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      {item.theme
+                        ? <Chip size="small" label={item.theme} sx={{ height: 22 }} />
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {item.controlOwnerName
+                        ? <Tooltip title={item.controlOwnerName}>
+                            <Typography variant="body2" sx={{ maxWidth: 130, overflow: 'hidden',
+                              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.controlOwnerName}
+                            </Typography>
+                          </Tooltip>
+                        : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={item.residualRisk || '-'}
+                        color={RISK_COLORS[item.residualRisk] || 'default'} sx={{ height: 22 }} />
+                    </TableCell>
+                    <TableCell>
+                      {item.nextTestDueDate ? (
+                        <Typography variant="body2"
+                          color={new Date(item.nextTestDueDate) < new Date() ? 'error.main' : 'text.primary'}>
+                          {formatDate(item.nextTestDueDate)}
+                        </Typography>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={item.status || '-'}
+                        color={item.status === 'Active' ? 'success' : 'default'} sx={{ height: 22 }} />
+                    </TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <Tooltip title="View detail">
+                        <IconButton size="small" onClick={() => loadDetail(item.controlId)}>
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.content.map((row) => (
-                    <TableRow key={row.controlId} hover sx={{ cursor: 'pointer' }}
-                      onClick={() => loadDetail(row.controlId)}>
-                      <TableCell>{row.controlNumber}</TableCell>
-                      <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.name}
-                      </TableCell>
-                      <TableCell>{row.controlOwnerName || '-'}</TableCell>
-                      <TableCell>
-                        <Chip label={row.residualRisk || '-'}
-                          color={RISK_COLORS[row.residualRisk] || 'default'} size="small" />
-                      </TableCell>
-                      <TableCell>
-                        {row.nextTestDueDate ? (
-                          <Typography variant="body2"
-                            color={new Date(row.nextTestDueDate) < new Date() ? 'error.main' : 'text.primary'}>
-                            {new Date(row.nextTestDueDate).toLocaleDateString()}
-                          </Typography>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell><Chip label={row.status} size="small" color={row.status === 'Active' ? 'success' : 'default'} /></TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="View detail"><IconButton size="small" onClick={(e) => { e.stopPropagation(); loadDetail(row.controlId); }}><Visibility fontSize="small" /></IconButton></Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination component="div" count={data.totalElements} page={page}
-              onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-              rowsPerPageOptions={[10, 25, 50]} />
-          </>
-        )}
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
+            rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[10, 20, 50]} />
+        </Paper>
+      )}
 
       <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={() => { setCreateOpen(false); loadList(); }} onSnackbar={setSnackbar} />
+        onSaved={() => { setCreateOpen(false); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
 
-      {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)} sx={{ position: 'fixed', bottom: 24, right: 24 }}>{snackbar}</Alert>}
+      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
+      </Snackbar>
     </Box>
   );
 }
 
+/* ───────── Detail View ───────── */
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
-  const theme = useTheme();
-
   return (
     <Box>
       <Breadcrumbs sx={{ mb: 1 }}>
-        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={onBack}>Controls</Link>
+        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={onBack}>Controls Register</Link>
         <Typography color="text.primary">{detail.controlNumber}</Typography>
       </Breadcrumbs>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -205,7 +321,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
       </Box>
 
       <Grid container spacing={2}>
-        {/* About this Control */}
         <Grid item xs={12} md={8}>
           <Card>
             <CardHeader title="About this Control" />
@@ -231,7 +346,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
             </CardContent>
           </Card>
 
-          {/* Linked Obligations */}
           <Card sx={{ mt: 2 }}>
             <CardHeader title="Linked Obligations" />
             <CardContent>
@@ -263,7 +377,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           </Card>
         </Grid>
 
-        {/* Sidebar */}
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
@@ -278,13 +391,12 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Testing</Typography>
               <DetailRow label="Frequency" value={detail.testFrequency || 'Not set'} />
-              <DetailRow label="Next test due" value={detail.nextTestDueDate ? new Date(detail.nextTestDueDate).toLocaleDateString() : 'Not scheduled'} />
+              <DetailRow label="Next test due" value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Test History */}
       <Card sx={{ mt: 2 }}>
         <CardHeader title="Test History" />
         <CardContent>
@@ -296,7 +408,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                     <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Tester</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Result</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Failure Severity</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Review</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Evidence</TableCell>
                   </TableRow>
@@ -304,8 +416,8 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                 <TableBody>
                   {detail.testHistory.map((t) => (
                     <TableRow key={t.testId}>
-                      <TableCell>{new Date(t.testDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{t.testedByName || t.testedByUserId || '-'}</TableCell>
+                      <TableCell>{formatDate(t.testDate)}</TableCell>
+                      <TableCell>{t.testedByName || '-'}</TableCell>
                       <TableCell>
                         <Chip label={t.result} size="small"
                           color={t.result === 'Passed' ? 'success' : t.result === 'Failed' ? 'error' : t.result === 'Partial' ? 'warning' : 'default'} />
@@ -316,9 +428,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                           color={t.reviewStatus === 'Accepted' ? 'success' : t.reviewStatus === 'Rejected' ? 'error' : 'default'} />
                       </TableCell>
                       <TableCell>
-                        {t.evidenceUrl ? (
-                          <Link href={t.evidenceUrl} target="_blank" rel="noopener">View</Link>
-                        ) : '-'}
+                        {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener">View</Link> : '-'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -327,7 +437,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
             </TableContainer>
           ) : (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Science sx={{ fontSize: 40, color: theme.palette.action.disabled, mb: 1 }} />
+              <Science sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
               <Typography variant="body2" color="text.secondary">No tests recorded yet</Typography>
             </Box>
           )}
@@ -336,7 +446,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
 
       <EditDialog open={editOpen} onClose={() => setEditOpen(false)} control={detail}
         onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
-
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
     </Box>
@@ -347,28 +456,23 @@ function DetailRow({ label, value, chip }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
-      {chip ? (
-        <Chip label={value || '-'} size="small" color={RISK_COLORS[value] || 'default'} />
-      ) : (
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '-'}</Typography>
-      )}
+      {chip ? <Chip label={value || '-'} size="small" color={RISK_COLORS[value] || 'default'} />
+        : <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '-'}</Typography>}
     </Box>
   );
 }
 
-/* ---------- Edit Dialog ---------- */
+/* ───────── Edit Dialog ───────── */
 function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSaving }) {
   const [form, setForm] = useState({});
   useEffect(() => {
-    if (control) {
-      setForm({
-        name: control.name || '', description: control.description || '', whatItDoes: control.whatItDoes || '',
-        howTested: control.howTested || '', controlOwnerId: control.controlOwnerId ?? null, testFrequency: control.testFrequency || '',
-        testFrequencyDays: control.testFrequencyDays?.toString() || '',
-        linkedObligationIds: control.linkedObligations?.map(o => o.obligationId).join(', ') || '',
-        inherentRisk: control.inherentRisk || '',
-      });
-    }
+    if (control) setForm({
+      name: control.name || '', description: control.description || '', whatItDoes: control.whatItDoes || '',
+      howTested: control.howTested || '', controlOwnerId: control.controlOwnerId ?? null,
+      testFrequency: control.testFrequency || '', testFrequencyDays: control.testFrequencyDays?.toString() || '',
+      linkedObligationIds: control.linkedObligations?.map(o => o.obligationId).join(', ') || '',
+      inherentRisk: control.inherentRisk || '',
+    });
   }, [control]);
   const handleSave = async () => {
     setSaving(true);
@@ -376,39 +480,26 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
       const body = { ...form };
       if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
-      if (body.linkedObligationIds) {
-        body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-      } else { body.linkedObligationIds = []; }
+      if (body.linkedObligationIds) body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+      else body.linkedObligationIds = [];
       await api.controls.update(control.controlId, body);
       onSaved();
-    } catch (e) { onSnackbar(e.message); }
-    finally { setSaving(false); }
+    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Edit Control — {control?.controlNumber}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}>
-            <TextField label="Name" fullWidth size="small" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
-              onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
-              onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} />
-          </Grid>
-          <Grid item xs={8}>
-            <OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))}
-              label="Owner" />
-          </Grid>
+          <Grid item xs={12}><TextField label="Name" fullWidth size="small" value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Grid>
+          <Grid item xs={12}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></Grid>
+          <Grid item xs={12}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
+            onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} /></Grid>
+          <Grid item xs={12}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
+            onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} /></Grid>
+          <Grid item xs={8}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
           <Grid item xs={4}>
             <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
               onChange={e => setForm(f => ({ ...f, testFrequency: e.target.value }))}>
@@ -419,14 +510,10 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
               <MenuItem value="Annual">Annual</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={4}>
-            <TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
-              onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} />
-          </Grid>
-          <Grid item xs={8}>
-            <TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
-              onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} />
-          </Grid>
+          <Grid item xs={4}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
+            onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} /></Grid>
+          <Grid item xs={8}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
+            onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
@@ -437,12 +524,12 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
   );
 }
 
-/* ---------- Record Test Dialog ---------- */
+/* ───────── Record Test Dialog ───────── */
 function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, saving, setSaving }) {
   const [form, setForm] = useState({
-    testDate: new Date().toISOString().split('T')[0],
-    result: '', resultDescription: '', failureDetails: '', failureSeverity: '',
-    evidenceUrl: '', remediationRequired: false, remediationOwnerId: null, remediationDeadline: '',
+    testDate: new Date().toISOString().split('T')[0], result: '', resultDescription: '',
+    failureDetails: '', failureSeverity: '', evidenceUrl: '', remediationRequired: false,
+    remediationOwnerId: null, remediationDeadline: '',
   });
   const handleSave = async () => {
     setSaving(true);
@@ -452,19 +539,16 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
       if (!body.remediationDeadline) delete body.remediationDeadline;
       await api.controls.recordTest(controlId, body);
       onSaved();
-    } catch (e) { onSnackbar(e.message); }
-    finally { setSaving(false); }
+    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Record Test Result</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6}>
-            <TextField label="Test Date" type="date" fullWidth size="small" required
-              InputLabelProps={{ shrink: true }} value={form.testDate}
-              onChange={e => setForm(f => ({ ...f, testDate: e.target.value }))} />
-          </Grid>
+          <Grid item xs={6}><TextField label="Test Date" type="date" fullWidth size="small" required
+            InputLabelProps={{ shrink: true }} value={form.testDate}
+            onChange={e => setForm(f => ({ ...f, testDate: e.target.value }))} /></Grid>
           <Grid item xs={6}>
             <TextField select label="Result" fullWidth size="small" required value={form.result}
               onChange={e => setForm(f => ({ ...f, result: e.target.value }))}>
@@ -474,14 +558,10 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12}>
-            <TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
-              onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
-              onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} />
-          </Grid>
+          <Grid item xs={12}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+            onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
+          <Grid item xs={12}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
+            onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} /></Grid>
           <Grid item xs={6}>
             <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
               onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
@@ -492,19 +572,13 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={6}>
-            <TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
-              onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
-              onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField label="Remediation Deadline" type="date" fullWidth size="small"
-              InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
-              onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} />
-          </Grid>
+          <Grid item xs={6}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
+            onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
+          <Grid item xs={6}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+            onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
+          <Grid item xs={6}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+            InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
+            onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>
       <DialogActions>

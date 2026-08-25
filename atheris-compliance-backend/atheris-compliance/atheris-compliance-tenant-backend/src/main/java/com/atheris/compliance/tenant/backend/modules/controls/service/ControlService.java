@@ -29,7 +29,7 @@ public class ControlService {
     private final AuditService audit;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, Pageable p) {
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Pageable p) {
         var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status);
         Page<Control> page = repo.findAll(spec, p);
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
@@ -37,7 +37,33 @@ public class ControlService {
         List<ControlRegisterItem> items = page.getContent().stream()
             .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId())))
             .toList();
-        return new PageImpl<>(items, p, page.getTotalElements());
+        if (q != null && !q.isBlank()) {
+            String ql = q.toLowerCase();
+            items = items.stream().filter(i ->
+                (i.getName() != null && i.getName().toLowerCase().contains(ql)) ||
+                (i.getControlNumber() != null && i.getControlNumber().toLowerCase().contains(ql)) ||
+                (i.getControlOwnerName() != null && i.getControlOwnerName().toLowerCase().contains(ql))
+            ).toList();
+        }
+        return new PageImpl<>(items, p, items.size());
+    }
+
+    public ControlStatsDto getStats() {
+        List<Control> all = repo.findAll();
+        LocalDate today = LocalDate.now();
+        long active = all.stream().filter(c -> "Active".equals(c.getStatus())).count();
+        long highRisk = all.stream().filter(c -> "High".equals(c.getResidualRisk())).count();
+        long testsDue = all.stream().filter(c -> {
+            ControlTask t = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(c.getControlId(), "Pending");
+            return t != null && !t.getDueDate().isAfter(today);
+        }).count();
+        List<String> themes = all.stream().map(Control::getTheme).filter(Objects::nonNull)
+            .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
+        List<String> owners = all.stream().map(Control::getControlOwnerName).filter(Objects::nonNull)
+            .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
+        return ControlStatsDto.builder()
+            .total(all.size()).active(active).highRisk(highRisk).testsDue(testsDue)
+            .themes(themes).owners(owners).build();
     }
 
     private Map<Integer, ControlTask> getLatestPendingTasks(List<Integer> ids) {

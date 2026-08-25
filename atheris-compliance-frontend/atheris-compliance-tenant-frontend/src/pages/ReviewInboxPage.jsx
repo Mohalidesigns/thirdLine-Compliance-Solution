@@ -107,7 +107,7 @@ export default function ReviewInboxPage() {
 
   function riskChip(rating) {
     const cfg = RISK_CONFIG[rating];
-    if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
+    if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22 }} />;
     return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22 }} />;
   }
 

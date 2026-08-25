@@ -26,8 +26,14 @@ public class ControlController {
             @RequestParam(required = false) Integer ownerUserId,
             @RequestParam(required = false) Integer ownerId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegisterList(theme, residualRisk, ownerUserId, ownerId, status, p));
+        return ResponseEntity.ok(service.getRegisterList(theme, residualRisk, ownerUserId, ownerId, status, q, p));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ControlStatsDto> stats() {
+        return ResponseEntity.ok(service.getStats());
     }
 
     @GetMapping("/{id}/detail")

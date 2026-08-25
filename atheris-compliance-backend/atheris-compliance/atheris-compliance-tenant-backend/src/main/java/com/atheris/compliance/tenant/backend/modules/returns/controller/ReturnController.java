@@ -30,8 +30,16 @@ public class ReturnController {
             @RequestParam(required = false) String period,
             @RequestParam(required = false) Long returnId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String frequency,
+            @RequestParam(required = false) String regulator,
             Pageable p) {
-        return ResponseEntity.ok(service.getCalendar(period, returnId, status, p));
+        return ResponseEntity.ok(service.getCalendar(period, returnId, status, q, frequency, regulator, p));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ReturnStatsDto> stats() {
+        return ResponseEntity.ok(service.getStats());
     }
 
     @GetMapping("/instances/{id}/detail")

@@ -349,7 +349,7 @@ export default function InstrumentsPage() {
                         </Tooltip>
                       </TableCell>
                       <TableCell>
-                        <Chip size="small" label={item.obligationCount ?? 0} variant="outlined" sx={{ height: 22, fontWeight: 600 }} />
+                        <Chip size="small" label={item.obligationCount ?? 0} sx={{ height: 22, fontWeight: 600 }} />
                       </TableCell>
                       <TableCell>
                         <Button size="small" variant="text" startIcon={<Visibility />}

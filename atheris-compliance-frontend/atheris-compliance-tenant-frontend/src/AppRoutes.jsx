@@ -17,6 +17,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ControlsPage = lazy(() => import('./pages/ControlsPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
 const ReturnsPage = lazy(() => import('./pages/ReturnsPage'));
+const SanctionsPage = lazy(() => import('./pages/SanctionsPage'));
 const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
 const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPage'));
@@ -59,6 +60,7 @@ export default function AppRoutes() {
           <Route path="controls" element={<ControlsPage />} />
           <Route path="findings" element={<FindingsPage />} />
           <Route path="returns" element={<ReturnsPage />} />
+          <Route path="sanctions" element={<SanctionsPage />} />
           <Route path="audit" element={<AuditTrailPage />} />
           <Route path="evidence" element={<EvidenceVaultPage />} />
           <Route path="settings" element={<SettingsPage />} />

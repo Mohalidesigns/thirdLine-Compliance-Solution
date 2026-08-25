@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     frequency          VARCHAR(255),
     deadline           TEXT,
     remarks            TEXT,
+    filing_due_day_of_month INT,
     created_at         TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

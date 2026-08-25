@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks, Article,
-  Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder,
+  Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder, Policy,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { text: 'Controls', icon: <Gavel />, path: '/controls' },
   { text: 'Findings', icon: <Warning />, path: '/findings' },
   { text: 'Returns', icon: <CalendarMonth />, path: '/returns' },
+  { text: 'Sanctions', icon: <Policy />, path: '/sanctions' },
   { text: 'Audit Trail', icon: <Verified />, path: '/audit' },
   { text: 'Evidence Vault', icon: <Folder />, path: '/evidence' },
   { text: 'Settings', icon: <Settings />, path: '/settings' },

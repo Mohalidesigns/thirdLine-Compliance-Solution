@@ -118,6 +118,7 @@ public class RegulationSeedService {
                     .filingRegulator(label)
                     .tenantRegulatorId(regId)
                     .frequency(normalizeFrequency(r.getFrequency()))
+                    .filingDueDayOfMonth(parseDueDayFromFrequency(r.getFrequency()))
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)
                     .build());
                 List<Obligation> toLink = createdObligations.isEmpty()
@@ -155,6 +156,30 @@ public class RegulationSeedService {
             bundle.getSanctions() != null ? bundle.getSanctions().size() : 0,
             bundle.getReturns() != null ? bundle.getReturns().size() : 0);
         return createdObligations.size();
+    }
+
+    private Integer parseDueDayFromFrequency(String frequency) {
+        if (frequency == null || frequency.isBlank()) return 1;
+        String f = frequency.trim().toLowerCase();
+        // "Monthly, on or before 5th" / "on or before the 5th day"
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("on\\s+or\\s+before\\s+(?:the\\s+)?(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        // "by June 30" / "by 31st Dec" / "By March 15"
+        m = java.util.regex.Pattern.compile("by\\s+\\w+\\s+(\\d+)(?:st|nd|rd|th)?").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        // "by 31st Dec"
+        m = java.util.regex.Pattern.compile("by\\s+(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        // "Within 5 days after month-end"
+        m = java.util.regex.Pattern.compile("within\\s+(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        // bare number: "5th" / "the 5th"
+        m = java.util.regex.Pattern.compile("(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        // "5 days after month-end"
+        m = java.util.regex.Pattern.compile("(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        return 1;
     }
 
     private String normalizeFrequency(String frequency) {

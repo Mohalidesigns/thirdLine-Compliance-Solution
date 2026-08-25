@@ -18,6 +18,7 @@ public class RegulatoryReturn {
     @Column(length = 255) private String frequency;
     @Column(columnDefinition = "text") private String deadline;
     @Column(columnDefinition = "text") private String remarks;
+    private Integer filingDueDayOfMonth;
     private Instant createdAt;
     @PrePersist void onCreate() { createdAt = Instant.now(); }
 }

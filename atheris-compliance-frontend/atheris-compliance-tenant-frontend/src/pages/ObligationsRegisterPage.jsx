@@ -24,7 +24,7 @@ const STATUS_COLOR = { active: 'success', classified: 'info', unclassified: 'war
 
 function riskChip(rating) {
   const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
+  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22 }} />;
   return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22 }} />;
 }
 
@@ -35,7 +35,7 @@ function formatDate(d) {
 
 const COLUMNS = [
   { id: 'obligation', label: 'Obligation', minWidth: 340, sortField: 'description' },
-  { id: 'areaOfFocus', label: 'Area of Focus', minWidth: 150 },
+  { id: 'areaOfFocus', label: 'Domain', minWidth: 150 },
   { id: 'risk', label: 'Risk', minWidth: 110, sortField: 'tenantRiskRating' },
   { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
@@ -203,7 +203,7 @@ export default function ObligationsRegisterPage() {
           {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={areaFilter} onChange={e => { setAreaFilter(e.target.value); setPage(0); }}
-          label="Area of Focus" sx={{ minWidth: 160 }}>
+          label="Domain" sx={{ minWidth: 160 }}>
           <MenuItem value="All">All</MenuItem>
           {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
         </TextField>
@@ -286,7 +286,7 @@ export default function ObligationsRegisterPage() {
                       </TableCell>
                       <TableCell>
                         {item.areaOfFocus
-                          ? <Chip size="small" label={item.areaOfFocus} variant="outlined" sx={{ height: 22 }} />
+                          ? <Typography variant="body2">{item.areaOfFocus}</Typography>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
                       <TableCell>
@@ -319,7 +319,7 @@ export default function ObligationsRegisterPage() {
                           ? <Tooltip title={item.returnNames.join(', ')}>
                               <Chip size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
                                 label={`${item.returnNames.length} return${item.returnNames.length > 1 ? 's' : ''}`}
-                                variant="outlined" sx={{ height: 22 }} />
+                                sx={{ height: 22 }} />
                             </Tooltip>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
@@ -328,7 +328,7 @@ export default function ObligationsRegisterPage() {
                           ? <Tooltip title={item.sanctions.map(s => s.sanctionType || 'Sanction').join(', ')}>
                               <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
                                 label={`${item.sanctions.length} sanction${item.sanctions.length > 1 ? 's' : ''}`}
-                                color="error" variant="outlined" sx={{ height: 22 }} />
+                                color="error" sx={{ height: 22 }} />
                             </Tooltip>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>

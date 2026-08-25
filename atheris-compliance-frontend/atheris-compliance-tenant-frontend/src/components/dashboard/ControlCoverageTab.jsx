@@ -79,7 +79,7 @@ export default function ControlCoverageTab() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ToggleButtonGroup size="small" value={coverageBy} exclusive
                   onChange={(_, v) => { if (v) setCoverageBy(v); }}>
-                  <ToggleButton value="areaOfFocus">Area of Focus</ToggleButton>
+                  <ToggleButton value="areaOfFocus">Domain</ToggleButton>
                   <ToggleButton value="department">Department</ToggleButton>
                 </ToggleButtonGroup>
                 <PctChip pct={coverage?.summary?.overallCoveragePercentage ?? 0}

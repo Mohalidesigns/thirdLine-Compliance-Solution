@@ -393,6 +393,7 @@ public class ToolkitImportService {
                 .recipient(shorten(get(r, 6), 255))
                 .frequency(shorten(freq, 255))
                 .deadline(freq)
+                .filingDueDayOfMonth(parseDueDay(freq))
                 .build());
             returnCount++;
         }
@@ -681,5 +682,23 @@ public class ToolkitImportService {
             .map(String::trim)
             .filter(x -> !x.isBlank())
             .toList();
+    }
+
+    private Integer parseDueDay(String freq) {
+        if (freq == null || freq.isBlank()) return 1;
+        String f = freq.trim().toLowerCase();
+        Matcher m = Pattern.compile("on\\s+or\\s+before\\s+(?:the\\s+)?(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        m = Pattern.compile("by\\s+\\w+\\s+(\\d+)(?:st|nd|rd|th)?").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        m = Pattern.compile("by\\s+(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        m = Pattern.compile("within\\s+(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        m = Pattern.compile("(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        m = Pattern.compile("(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
+        if (m.find()) return Integer.parseInt(m.group(1));
+        return 1;
     }
 }

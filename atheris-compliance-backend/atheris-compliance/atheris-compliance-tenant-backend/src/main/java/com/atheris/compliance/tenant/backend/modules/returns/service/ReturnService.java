@@ -51,7 +51,8 @@ public class ReturnService {
     }
 
     @Transactional
-    public Page<ReturnInstanceItem> getCalendar(String period, Long returnId, String status, Pageable p) {
+    public Page<ReturnInstanceItem> getCalendar(String period, Long returnId, String status,
+                                                 String q, String frequency, String regulator, Pageable p) {
         ensureInstancesForActive();
         catchUpEscalations();
         Page<ReturnFilingInstance> page;
@@ -70,12 +71,72 @@ public class ReturnService {
             page = instances.findByDueDateBetweenOrderByDueDateAsc(
                 LocalDate.now().minusDays(60), LocalDate.now().plusDays(90), p);
         }
-        return page.map(inst -> {
+        // Build enriched list then apply q/frequency/regulator filters in-memory
+        List<ReturnInstanceItem> items = page.map(inst -> {
             RegulatoryReturn r = returns.findById(inst.getReturnId()).orElse(null);
             return ReturnInstanceItem.from(inst,
                 r != null ? r.getReturnName() : "Unknown",
                 r != null ? regulatorLabel(r) : null);
-        });
+        }).getContent();
+
+        if (q != null && !q.isBlank()) {
+            String ql = q.toLowerCase();
+            items = items.stream().filter(i ->
+                (i.getReturnName() != null && i.getReturnName().toLowerCase().contains(ql)) ||
+                (i.getFilingRegulator() != null && i.getFilingRegulator().toLowerCase().contains(ql))
+            ).toList();
+        }
+        if (frequency != null && !frequency.isBlank()) {
+            String fl = frequency.toLowerCase();
+            items = items.stream().filter(i -> {
+                RegulatoryReturn r = returns.findById(i.getReturnId()).orElse(null);
+                return r != null && r.getFrequency() != null && r.getFrequency().toLowerCase().contains(fl);
+            }).toList();
+        }
+        if (regulator != null && !regulator.isBlank()) {
+            String rl = regulator.toLowerCase();
+            items = items.stream().filter(i ->
+                i.getFilingRegulator() != null && i.getFilingRegulator().toLowerCase().contains(rl)
+            ).toList();
+        }
+
+        int start = (int) p.getOffset();
+        int end = Math.min(start + p.getPageSize(), items.size());
+        List<ReturnInstanceItem> sub = start > items.size() ? List.of() : items.subList(start, end);
+        return new PageImpl<>(sub, p, items.size());
+    }
+
+    public ReturnStatsDto getStats() {
+        List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
+        List<ReturnFilingInstance> allInstances = new ArrayList<>();
+        for (RegulatoryReturn r : allReturns) {
+            allInstances.addAll(instances.findByReturnId(r.getReturnId()));
+        }
+        LocalDate now = LocalDate.now();
+        long overdue = allInstances.stream().filter(i ->
+            !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) &&
+            !ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()) &&
+            i.getDueDate() != null && i.getDueDate().isBefore(now)).count();
+        long inProgress = allInstances.stream().filter(i ->
+            ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
+        long submitted = allInstances.stream().filter(i ->
+            ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) ||
+            ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus())).count();
+
+        List<String> frequencies = allReturns.stream()
+            .map(RegulatoryReturn::getFrequency).filter(Objects::nonNull)
+            .map(String::trim).filter(s -> !s.isBlank())
+            .distinct().sorted().toList();
+        List<String> regulators = allReturns.stream()
+            .map(RegulatoryReturn::getFilingRegulator).filter(Objects::nonNull)
+            .map(String::trim).filter(s -> !s.isBlank())
+            .distinct().sorted().toList();
+
+        return ReturnStatsDto.builder()
+            .total(allInstances.size())
+            .overdue(overdue).inProgress(inProgress).submitted(submitted)
+            .frequencies(frequencies).regulators(regulators)
+            .build();
     }
 
     @Transactional
@@ -208,7 +269,6 @@ public class ReturnService {
     }
 
     private void ensureInstances(RegulatoryReturn ret) {
-        if (ret.getFilingDueDayOfMonth() == null) return;
         int step = Math.max(1, monthsPerPeriod(ret.getFrequency()));
         LocalDate today = LocalDate.now();
         LocalDate earliest = today.minusDays(60);
