@@ -77,7 +77,7 @@ export default function RegulationDetailPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.platform.regulations.get(id)
+    api.platform.acts.get(id)
       .then(setReg)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -90,15 +90,15 @@ export default function RegulationDetailPage() {
   if (error || !reg) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_REGULATIONS)} sx={{ mb: 2 }}>Back to Regulations</Button>
-        <Alert severity="error">{error || 'Regulation not found'}</Alert>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_ACTS)} sx={{ mb: 2 }}>Back to Acts</Button>
+        <Alert severity="error">{error || 'Act not found'}</Alert>
       </Box>
     );
   }
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_REGULATIONS)} sx={{ mb: 2 }}>Back to Regulations</Button>
+      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_ACTS)} sx={{ mb: 2 }}>Back to Acts</Button>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={8}>
@@ -154,7 +154,7 @@ export default function RegulationDetailPage() {
         count={reg.instruments?.length || 0}
         icon={<Description sx={{ fontSize: 20 }} />}
         color="#3182CE"
-        emptyMsg="No instruments linked to this regulation"
+        emptyMsg="No instruments linked to this act"
         columns={[
           { key: 'sourceTitle', label: 'Title', sx: { maxWidth: 420 } },
           { key: 'nature', label: 'Nature', width: 110 },
@@ -188,7 +188,7 @@ export default function RegulationDetailPage() {
         icon={<Rule sx={{ fontSize: 20 }} />}
         color="#2D7D46"
         subtitle="Extracted compliance obligations for commercial banks"
-        emptyMsg="No obligations extracted for this regulation"
+        emptyMsg="No obligations extracted for this act"
         columns={[
           { key: 'sectionReference', label: 'Section', width: 120 },
           { key: 'statement', label: 'Plain-English Obligation' },
@@ -209,7 +209,7 @@ export default function RegulationDetailPage() {
         icon={<Gavel sx={{ fontSize: 20 }} />}
         color="#C53030"
         subtitle="Fines and enforcement exposure for non-compliance"
-        emptyMsg="No sanctions recorded for this regulation"
+        emptyMsg="No sanctions recorded for this act"
         columns={[
           { key: 'sectionReference', label: 'Section', width: 110 },
           { key: 'description', label: 'Violation / Penalty' },
@@ -249,12 +249,13 @@ export default function RegulationDetailPage() {
         icon={<EventRepeat sx={{ fontSize: 20 }} />}
         color="#6B46C1"
         subtitle="Periodic regulatory returns obligations"
-        emptyMsg="No returns recorded for this regulation"
+        emptyMsg="No returns recorded for this act"
         columns={[
-          { key: 'title', label: 'Return', sx: { maxWidth: 260 } },
+          { key: 'title', label: 'Return', sx: { maxWidth: 220 } },
           { key: 'sectionReference', label: 'Section', width: 110 },
-          { key: 'frequency', label: 'Frequency', width: 190 },
-          { key: 'recipient', label: 'Recipient', width: 180 },
+          { key: 'frequency', label: 'Frequency', width: 160 },
+          { key: 'responsibleUnit', label: 'Responsible Unit', width: 160 },
+          { key: 'responsiblePerson', label: 'Responsible Person', width: 140 },
           { key: 'statutoryBasis', label: 'Statutory Basis' },
         ]}
         rows={(reg.returns || []).map((rt) => ({ key: rt.returnId, ...rt }))}
@@ -262,7 +263,8 @@ export default function RegulationDetailPage() {
           if (key === 'title') return <Typography sx={{ fontWeight: 600, fontSize: '0.78rem' }}>{row.title}</Typography>;
           if (key === 'sectionReference') return row.sectionReference ? <Chip label={row.sectionReference} size="small" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.65rem', fontFamily: 'Roboto Mono' }} /> : '—';
           if (key === 'frequency') return <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'normal' }}>{row.frequency || '—'}</Typography>;
-          if (key === 'recipient') return <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#553C9A' }}>{row.recipient || '—'}</Typography>;
+          if (key === 'responsibleUnit') return <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#553C9A' }}>{row.responsibleUnit || '—'}</Typography>;
+          if (key === 'responsiblePerson') return <Typography sx={{ fontSize: '0.72rem', color: '#718096' }}>{row.responsiblePerson || '—'}</Typography>;
           if (key === 'statutoryBasis') return <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.4, color: '#4A5568' }}>{row.statutoryBasis || '—'}</Typography>;
           return row[key] ?? '—';
         }}

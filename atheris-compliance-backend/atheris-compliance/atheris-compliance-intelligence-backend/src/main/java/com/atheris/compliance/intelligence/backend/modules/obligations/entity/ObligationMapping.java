@@ -10,7 +10,7 @@ public class ObligationMapping {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long obligationId;
     @Column(nullable = false) private Long instrumentId;
-    private Long regulationId;
+    @Column(name = "act_id") private Long regulationId;
     private Integer obligationNumber;
     @Column(columnDefinition = "text", nullable = false) private String plainEnglishStatement;
     private String specificSectionReference;

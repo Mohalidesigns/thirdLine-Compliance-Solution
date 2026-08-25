@@ -4,11 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
 
-@Entity @Table(name = "regulations")
+@Entity @Table(name = "acts")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Regulation {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long regulationId;
+    @Column(name = "act_id") private Long regulationId;
     @Column(nullable = false, unique = true, length = 500) private String name;
     private String abbreviation;
     @Column(columnDefinition = "text") private String description;

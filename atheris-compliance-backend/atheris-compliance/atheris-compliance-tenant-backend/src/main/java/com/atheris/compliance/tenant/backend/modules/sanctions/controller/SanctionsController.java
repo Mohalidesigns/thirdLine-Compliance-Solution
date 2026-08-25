@@ -20,7 +20,7 @@ public class SanctionsController {
     public ResponseEntity<Page<SanctionListItem>> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String sanctionType,
-            @RequestParam(required = false) String regulationName,
+            @RequestParam(required = false) String actName,
             @RequestParam(required = false) Boolean enforced,
             Pageable p) {
         List<RegulatorySanction> all = repo.findAll();
@@ -29,7 +29,7 @@ public class SanctionsController {
         if (q != null && !q.isBlank()) {
             String ql = q.toLowerCase();
             items = items.stream().filter(i ->
-                (i.getRegulationName() != null && i.getRegulationName().toLowerCase().contains(ql)) ||
+                (i.getActName() != null && i.getActName().toLowerCase().contains(ql)) ||
                 (i.getSanctionType() != null && i.getSanctionType().toLowerCase().contains(ql)) ||
                 (i.getDescription() != null && i.getDescription().toLowerCase().contains(ql))
             ).toList();
@@ -37,10 +37,10 @@ public class SanctionsController {
         if (sanctionType != null && !sanctionType.isBlank()) {
             items = items.stream().filter(i -> sanctionType.equalsIgnoreCase(i.getSanctionType())).toList();
         }
-        if (regulationName != null && !regulationName.isBlank()) {
-            String rl = regulationName.toLowerCase();
+        if (actName != null && !actName.isBlank()) {
+            String rl = actName.toLowerCase();
             items = items.stream().filter(i ->
-                i.getRegulationName() != null && i.getRegulationName().toLowerCase().contains(rl)
+                i.getActName() != null && i.getActName().toLowerCase().contains(rl)
             ).toList();
         }
         if (enforced != null) {
@@ -60,18 +60,18 @@ public class SanctionsController {
         long highSeverity = all.stream().filter(s -> s.getSeverityScore() != null && s.getSeverityScore() >= 4).count();
         List<String> types = all.stream().map(RegulatorySanction::getSanctionType)
             .filter(t -> t != null && !t.isBlank()).distinct().sorted().toList();
-        List<String> regulations = all.stream().map(RegulatorySanction::getRegulationName)
+        List<String> acts = all.stream().map(RegulatorySanction::getRegulationName)
             .filter(r -> r != null && !r.isBlank()).distinct().sorted().toList();
         return ResponseEntity.ok(SanctionStatsDto.builder()
             .total(all.size()).enforced(enforced).highSeverity(highSeverity)
             .totalExposure(repo.sumExposure())
-            .sanctionTypes(types).regulationNames(regulations).build());
+            .sanctionTypes(types).actNames(acts).build());
     }
 
     private SanctionListItem toListItem(RegulatorySanction s) {
         return SanctionListItem.builder()
             .sanctionId(s.getSanctionId()).instrumentId(s.getInstrumentId())
-            .regulationId(s.getRegulationId()).regulationName(s.getRegulationName())
+            .actId(s.getRegulationId()).actName(s.getRegulationName())
             .sanctionType(s.getSanctionType()).sanctionAmountNaira(s.getSanctionAmountNaira())
             .sanctionAmountPerDay(s.getSanctionAmountPerDay()).liableRoles(s.getLiableRoles())
             .severityScore(s.getSeverityScore()).hasBeenEnforced(s.getHasBeenEnforced())

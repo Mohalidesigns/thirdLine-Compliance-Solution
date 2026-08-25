@@ -69,8 +69,10 @@ public class InternalRegulationSeed {
         private String title;
         private String sectionReference;
         private String statutoryBasis;
-        private String recipient;
+        private String responsibleUnit;
+        private String responsiblePerson;
         private String frequency;
         private String deadline;
+        private LocalDate filingDate;
     }
 }

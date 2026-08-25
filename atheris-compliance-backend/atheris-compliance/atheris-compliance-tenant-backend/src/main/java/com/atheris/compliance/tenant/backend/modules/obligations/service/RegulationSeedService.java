@@ -110,15 +110,19 @@ public class RegulationSeedService {
                 if (r.getTitle() == null || r.getTitle().isBlank()) continue;
                 Long regId = reg != null ? reg.getId() : null;
                 if (returns.existsByReturnNameAndTenantRegulatorId(r.getTitle(), regId)) continue;
-                String label = r.getRecipient() != null && !r.getRecipient().isBlank()
-                    ? r.getRecipient()
+                String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
+                    ? r.getResponsibleUnit()
                     : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
                 RegulatoryReturn rt = returns.save(RegulatoryReturn.builder()
                     .returnName(r.getTitle())
                     .filingRegulator(label)
                     .tenantRegulatorId(regId)
+                    .actId(bundle.getRegulationId())
+                    .actName(bundle.getRegulationName())
                     .frequency(normalizeFrequency(r.getFrequency()))
-                    .filingDueDayOfMonth(parseDueDayFromFrequency(r.getFrequency()))
+                    .filingDate(r.getFilingDate())
+                    .responsibleUnit(r.getResponsibleUnit())
+                    .responsiblePerson(r.getResponsiblePerson())
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)
                     .build());
                 List<Obligation> toLink = createdObligations.isEmpty()

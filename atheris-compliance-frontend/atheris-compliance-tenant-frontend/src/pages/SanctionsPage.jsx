@@ -29,7 +29,7 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'regulationName', label: 'Regulation', minWidth: 260, sortField: 'regulationName' },
+  { id: 'actName', label: 'Act', minWidth: 260, sortField: 'actName' },
   { id: 'sanctionType', label: 'Type', minWidth: 160, sortField: 'sanctionType' },
   { id: 'amount', label: 'Amount (₦)', minWidth: 140, sortField: 'sanctionAmountNaira' },
   { id: 'severity', label: 'Severity', minWidth: 100, sortField: 'severityScore' },
@@ -47,7 +47,7 @@ export default function SanctionsPage() {
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
-  const [regulationFilter, setRegulationFilter] = useState('All');
+  const [actFilter, setActFilter] = useState('All');
   const [enforcedFilter, setEnforcedFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -57,7 +57,7 @@ export default function SanctionsPage() {
 
   const [snackbar, setSnackbar] = useState('');
 
-  const hasFilters = search || typeFilter !== 'All' || regulationFilter !== 'All' || enforcedFilter !== 'All';
+  const hasFilters = search || typeFilter !== 'All' || actFilter !== 'All' || enforcedFilter !== 'All';
 
   const loadStats = useCallback(async () => {
     try { setStats(await api.sanctions.stats()); } catch { /* optional */ }
@@ -70,7 +70,7 @@ export default function SanctionsPage() {
       const params = { page, size: rowsPerPage };
       if (search) params.q = search;
       if (typeFilter !== 'All') params.sanctionType = typeFilter;
-      if (regulationFilter !== 'All') params.regulationName = regulationFilter;
+      if (actFilter !== 'All') params.actName = actFilter;
       if (enforcedFilter !== 'All') params.enforced = enforcedFilter === 'Yes';
       if (sortField) params.sort = `${sortField},${sortDir}`;
       const data = await api.sanctions.list(params);
@@ -78,13 +78,13 @@ export default function SanctionsPage() {
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load sanctions.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, typeFilter, regulationFilter, enforcedFilter, sortField, sortDir]);
+  }, [page, rowsPerPage, search, typeFilter, actFilter, enforcedFilter, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
 
   function clearFilters() {
-    setSearch(''); setTypeFilter('All'); setRegulationFilter('All'); setEnforcedFilter('All');
+    setSearch(''); setTypeFilter('All'); setActFilter('All'); setEnforcedFilter('All');
     setPage(0);
   }
 
@@ -133,7 +133,7 @@ export default function SanctionsPage() {
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search regulation, type or description..." value={search}
+        <TextField size="small" placeholder="Search act, type or description..." value={search}
           onChange={e => { setSearch(e.target.value); setPage(0); }}
           slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
           sx={{ minWidth: 280 }} />
@@ -142,10 +142,10 @@ export default function SanctionsPage() {
           <MenuItem value="All">All</MenuItem>
           {(stats?.sanctionTypes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
         </TextField>
-        <TextField select size="small" value={regulationFilter} onChange={e => { setRegulationFilter(e.target.value); setPage(0); }}
-          label="Regulation" sx={{ minWidth: 200 }}>
+        <TextField select size="small" value={actFilter} onChange={e => { setActFilter(e.target.value); setPage(0); }}
+          label="Act" sx={{ minWidth: 200 }}>
           <MenuItem value="All">All</MenuItem>
-          {(stats?.regulationNames || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          {(stats?.actNames || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={enforcedFilter} onChange={e => { setEnforcedFilter(e.target.value); setPage(0); }}
           label="Enforced" sx={{ minWidth: 120 }}>
@@ -204,10 +204,10 @@ export default function SanctionsPage() {
                       sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                       <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
                       <TableCell>
-                        <Tooltip title={item.regulationName || '-'}>
+                        <Tooltip title={item.actName || '-'}>
                           <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 280,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.regulationName || '-'}
+                            {item.actName || '-'}
                           </Typography>
                         </Tooltip>
                       </TableCell>

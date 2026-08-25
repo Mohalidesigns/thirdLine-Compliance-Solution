@@ -65,8 +65,10 @@ public class RegulationDetailDto {
         private String title;
         private String sectionReference;
         private String statutoryBasis;
-        private String recipient;
+        private String responsibleUnit;
+        private String responsiblePerson;
         private String frequency;
         private String deadline;
+        private java.time.LocalDate filingDate;
     }
 }

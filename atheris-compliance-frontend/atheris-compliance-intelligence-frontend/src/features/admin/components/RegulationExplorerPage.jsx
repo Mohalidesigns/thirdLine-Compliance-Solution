@@ -1,72 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, InputAdornment,
-  Select, MenuItem, FormControl, InputLabel,
+  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
+  TableSortLabel, IconButton, Button, MenuItem,
 } from '@mui/material';
-import { Search, ArrowUpward, ArrowDownward, UnfoldMore, AccountBalance } from '@mui/icons-material';
+import { Search, Refresh, Close, Balance, Gavel, RequestQuote, Assignment } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
-function useDebounce(value, delay) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(id);
-  }, [value, delay]);
-  return debounced;
-}
+const STATUS_COLOR = { Active: 'success', Superseded: 'default', Outdated: 'warning' };
 
 const COLUMNS = [
-  { key: 'name', label: 'Regulation', width: undefined },
-  { key: 'regulatorName', label: 'Regulator', width: 220 },
-  { key: 'status', label: 'Status', width: 110 },
-  { key: 'instrumentCount', label: 'Instruments', width: 110 },
-  { key: 'obligationCount', label: 'Obligations', width: 110 },
-  { key: 'sanctionCount', label: 'Sanctions', width: 110 },
-  { key: 'returnCount', label: 'Returns', width: 90 },
+  { id: 'name', label: 'Act', minWidth: 300, sortField: 'name' },
+  { id: 'regulatorName', label: 'Regulator', minWidth: 180, sortField: 'regulatorName' },
+  { id: 'status', label: 'Status', minWidth: 100, sortField: 'status' },
+  { id: 'instrumentCount', label: 'Instruments', minWidth: 100, sortField: 'instrumentCount' },
+  { id: 'obligationCount', label: 'Obligations', minWidth: 100, sortField: 'obligationCount' },
+  { id: 'sanctionCount', label: 'Sanctions', minWidth: 100, sortField: 'sanctionCount' },
+  { id: 'returnCount', label: 'Returns', minWidth: 90, sortField: 'returnCount' },
 ];
 
 export default function RegulationExplorerPage() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('name');
+  const [regulatorFilter, setRegulatorFilter] = useState('All');
+  const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('desc');
-  const [regulatorId, setRegulatorId] = useState('');
-  const [regulators, setRegulators] = useState([]);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const hasFilters = search || regulatorFilter !== 'All';
 
-  useEffect(() => {
-    api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' })
-      .then((data) => setRegulators(data.content || data || []))
-      .catch(() => {});
+  const loadStats = useCallback(async () => {
+    try { setStats(await api.platform.acts.stats()); } catch { /* optional */ }
   }, []);
 
-  function handleSort(key) {
-    if (sortBy === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortBy(key);
-      setSortDir('asc');
-    }
-  }
-
-  const fetchRows = useCallback(async () => {
+  const loadRows = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const params = new URLSearchParams({ page, size: rowsPerPage, sort: `${sortBy},${sortDir}` });
-      if (debouncedSearch) params.set('q', debouncedSearch);
-      if (regulatorId) params.set('regulatorId', regulatorId);
-      const data = await api.platform.regulations.list(params.toString());
+      const params = new URLSearchParams({ page, size: rowsPerPage, sort: `${sortField},${sortDir}` });
+      if (search) params.set('q', search);
+      if (regulatorFilter !== 'All') params.set('regulatorId', regulatorFilter);
+      const data = await api.platform.acts.list(params.toString());
       setRows(data.content || []);
       setTotal(data.totalElements || 0);
     } catch (err) {
@@ -74,120 +56,147 @@ export default function RegulationExplorerPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, sortBy, sortDir, regulatorId]);
+  }, [page, rowsPerPage, search, regulatorFilter, sortField, sortDir]);
 
-  useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+  useEffect(() => { loadRows(); }, [loadRows]);
+  useEffect(() => { loadStats(); }, []);
+
+  function clearFilters() {
+    setSearch(''); setRegulatorFilter('All'); setPage(0);
+  }
+
+  function handleSort(field) {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+    setPage(0);
+  }
+
+  const kpis = [
+    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, color: '#2B6CB0', bg: '#EBF8FF', icon: <Balance sx={{ fontSize: 20 }} /> },
+    { key: 'instruments', label: 'Instruments', value: stats?.totalInstruments ?? 0, color: '#2C7A7B', bg: '#E6FFFA', icon: <Assignment sx={{ fontSize: 20 }} /> },
+    { key: 'obligations', label: 'Obligations', value: stats?.totalObligations ?? 0, color: '#805AD5', bg: '#FAF5FF', icon: <Gavel sx={{ fontSize: 20 }} /> },
+    { key: 'sanctions', label: 'Sanctions', value: stats?.totalSanctions ?? 0, color: '#E53E3E', bg: '#FFF5F5', icon: <Gavel sx={{ fontSize: 20 }} /> },
+    { key: 'returns', label: 'Returns', value: stats?.totalReturns ?? 0, color: '#DD6B20', bg: '#FFFAF0', icon: <RequestQuote sx={{ fontSize: 20 }} /> },
+  ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulation Explorer</Typography>
+          <Typography variant="h4">Act Explorer</Typography>
           <Typography variant="body2" color="text.secondary">
-            Browse the curated Nigerian compliance universe — regulations with their instruments, obligations, and sanctions.
+            {total} act{total !== 1 ? 's' : ''} — browse the curated Nigerian compliance universe
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <TextField
-            size="small" placeholder="Search regulations..." value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            InputProps={{
-              startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
-            }}
-            sx={{ width: 280, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-          />
-          <FormControl size="small" sx={{ width: 220 }}>
-            <InputLabel id="reg-filter-label">Regulator</InputLabel>
-            <Select
-              labelId="reg-filter-label" label="Regulator"
-              value={regulatorId} onChange={(e) => { setRegulatorId(e.target.value); setPage(0); }}
-            >
-              <MenuItem value="">All regulators</MenuItem>
-              {regulators.map((r) => (
-                <MenuItem key={r.regulatorId || r.id} value={r.regulatorId || r.id}>{r.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
+        <Tooltip title="Refresh">
+          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
+        </Tooltip>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {COLUMNS.map((col) => (
-                  <TableCell
-                    key={col.key}
-                    sx={{
-                      fontWeight: 700, color: '#4A5568', fontSize: '0.7rem',
-                      textTransform: 'uppercase', letterSpacing: 1,
-                      cursor: 'pointer', userSelect: 'none', width: col.width,
-                      '&:hover': { color: '#1A365D' },
-                    }}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {col.label}
-                      {sortBy === col.key ? (
-                        sortDir === 'asc' ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />
-                      ) : (
-                        <UnfoldMore sx={{ fontSize: 14, color: '#CBD5E0' }} />
-                      )}
-                    </Box>
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                  <CircularProgress size={24} />
-                </TableCell></TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: '#A0AEC0', fontSize: '0.85rem' }}>
-                  {search || regulatorId ? 'No regulations match your filters' : 'No regulations found'}
-                </TableCell></TableRow>
-              ) : rows.map((row, i) => (
-                <TableRow
-                  key={row.regulationId}
-                  hover
-                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
-                  onClick={() => navigate(`${ROUTES.ADMIN_REGULATIONS}/${row.regulationId}`)}
-                >
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.82rem', maxWidth: 380 }}>
-                    {row.name}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem', color: '#4A5568' }}>
-                    {row.regulatorName || <Typography component="span" sx={{ color: '#A0AEC0' }}>—</Typography>}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={row.status || 'Active'} size="small"
-                      sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: row.status === 'Superseded' || row.status === 'Outdated' ? '#FED7D7' : '#E6FFFA', color: row.status === 'Superseded' || row.status === 'Outdated' ? '#C53030' : '#2C7A7B', borderRadius: 1 }} />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{row.instrumentCount ?? row.instruments ?? 0}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{row.obligationCount ?? 0}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{row.sanctionCount ?? 0}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{row.returnCount ?? 0}</TableCell>
+      {/* KPI cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
+        {kpis.map(k => (
+          <Paper key={k.key} elevation={0} variant="outlined"
+            sx={{ p: 2, borderLeft: `3px solid ${k.color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
+              <Box sx={{ color: k.color, opacity: 0.5 }}>{k.icon}</Box>
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
+          </Paper>
+        ))}
+      </Box>
+
+      {/* Filters */}
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField size="small" placeholder="Search acts..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
+          sx={{ minWidth: 240 }} />
+        <TextField select size="small" value={regulatorFilter}
+          onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
+          label="Regulator" sx={{ minWidth: 200 }}>
+          <MenuItem value="All">All regulators</MenuItem>
+          {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+        </TextField>
+        {hasFilters && (
+          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
+        )}
+      </Paper>
+
+      {/* Table */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
+      ) : rows.length === 0 ? (
+        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <Balance sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <Typography variant="body1">No acts found.</Typography>
+        </Paper>
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  {COLUMNS.map(c => (
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                      cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
+                      onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
+                      {c.sortField
+                        ? <TableSortLabel active={sortField === c.sortField} direction={sortField === c.sortField ? sortDir : 'asc'}
+                            sx={{ '& .MuiTableSortLabel-icon': { opacity: sortField === c.sortField ? 1 : 0.4 } }}>
+                            {c.label}
+                          </TableSortLabel>
+                        : c.label}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          component="div"
-          count={total}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-          rowsPerPageOptions={[10, 20, 50]}
-        />
-      </Card>
+              </TableHead>
+              <TableBody>
+                {rows.map((row, idx) => (
+                  <TableRow key={row.regulationId} hover
+                    onClick={() => navigate(`${ROUTES.ADMIN_ACTS}/${row.regulationId}`)}
+                    sx={{ cursor: 'pointer' }}>
+                    <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
+                    <TableCell>
+                      <Tooltip title={row.name || 'Untitled act'}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 360,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row.name}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      {row.regulatorName
+                        ? <Typography variant="body2">{row.regulatorName}</Typography>
+                        : <Typography variant="body2" color="text.secondary">-</Typography>}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={row.status || 'Active'}
+                        color={STATUS_COLOR[row.status] || 'default'} sx={{ height: 22 }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.instrumentCount ?? 0}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.obligationCount ?? 0}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.sanctionCount ?? 0}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.returnCount ?? 0}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
+            rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[10, 20, 50]} />
+        </Paper>
+      )}
     </Box>
   );
 }

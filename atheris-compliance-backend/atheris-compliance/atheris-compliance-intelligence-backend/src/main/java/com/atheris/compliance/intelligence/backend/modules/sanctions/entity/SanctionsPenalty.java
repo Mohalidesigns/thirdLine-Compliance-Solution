@@ -15,7 +15,7 @@ public class SanctionsPenalty {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long sanctionId;
     @Column(nullable = false) private Long instrumentId;
-    private Long regulationId;
+    @Column(name = "act_id") private Long regulationId;
     private String sanctionType;
     private BigDecimal sanctionAmountNaira;
     private Boolean sanctionAmountPerDay;

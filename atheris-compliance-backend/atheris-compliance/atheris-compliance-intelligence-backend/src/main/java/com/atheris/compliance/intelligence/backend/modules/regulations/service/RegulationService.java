@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service @RequiredArgsConstructor
 public class RegulationService {
@@ -50,7 +51,7 @@ public class RegulationService {
             .toList();
         List<ObligationMapping> obls = obligations.findByRegulationId(id);
         List<SanctionsPenalty> sans = sanctions.findByRegulationId(id);
-        List<RegulatoryReturn> rets = returns.findByRegulationId(id);
+        List<RegulatoryReturn> rets = returns.findByActId(id);
         String regName = reg.getRegulatorId() != null
             ? regulators.findById(reg.getRegulatorId()).map(r -> r.getName()).orElse(null)
             : null;
@@ -100,9 +101,11 @@ public class RegulationService {
                 .title(rt.getTitle())
                 .sectionReference(rt.getSectionReference())
                 .statutoryBasis(rt.getStatutoryBasis())
-                .recipient(rt.getRecipient())
+                .responsibleUnit(rt.getResponsibleUnit())
+                .responsiblePerson(rt.getResponsiblePerson())
                 .frequency(rt.getFrequency())
                 .deadline(rt.getDeadline())
+                .filingDate(rt.getFilingDate())
                 .build()).toList())
             .build();
     }
@@ -119,6 +122,33 @@ public class RegulationService {
         return toDto(regulationRepo.save(reg));
     }
 
+    public Map<String, Object> stats() {
+        long totalActs = regulationRepo.count();
+        long totalInstruments = instruments.count();
+        long totalObligations = obligations.count();
+        long totalSanctions = sanctions.count();
+        long totalReturns = returns.count();
+        long activeCount = regulationRepo.findAll().stream().filter(r -> "Active".equals(r.getStatus())).count();
+        long supersededCount = totalActs - activeCount;
+        List<String> regulatorNames = regulationRepo.findAll().stream()
+            .map(r -> r.getRegulatorId())
+            .distinct()
+            .map(id -> regulators.findById(id).map(x -> x.getName()).orElse(null))
+            .filter(java.util.Objects::nonNull)
+            .sorted()
+            .toList();
+        return Map.of(
+            "totalActs", totalActs,
+            "totalInstruments", totalInstruments,
+            "totalObligations", totalObligations,
+            "totalSanctions", totalSanctions,
+            "totalReturns", totalReturns,
+            "activeCount", activeCount,
+            "supersededCount", supersededCount,
+            "regulators", regulatorNames
+        );
+    }
+
     private RegulationDto toDto(Regulation r) {
         return RegulationDto.builder()
             .regulationId(r.getRegulationId())
@@ -133,7 +163,7 @@ public class RegulationService {
             .instrumentCount(instruments.countByRegulationId(r.getRegulationId()))
             .obligationCount(obligations.countByRegulationId(r.getRegulationId()))
             .sanctionCount(sanctions.countByRegulationId(r.getRegulationId()))
-            .returnCount(returns.countByRegulationId(r.getRegulationId()))
+            .returnCount(returns.countByActId(r.getRegulationId()))
             .build();
     }
 }

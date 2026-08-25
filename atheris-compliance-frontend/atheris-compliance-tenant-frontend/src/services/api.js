@@ -1,4 +1,4 @@
-export const API_BASE = 'http://localhost:9091/api/v1';
+export const API_BASE = '/api/v1';
 
 let authToken = null;
 let authRefreshToken = null;

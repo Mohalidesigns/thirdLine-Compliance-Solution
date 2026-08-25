@@ -9,8 +9,8 @@ import java.util.List;
 public class SanctionListItem {
     private Long sanctionId;
     private Long instrumentId;
-    private Long regulationId;
-    private String regulationName;
+    private Long actId;
+    private String actName;
     private String sanctionType;
     private BigDecimal sanctionAmountNaira;
     private Boolean sanctionAmountPerDay;

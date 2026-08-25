@@ -276,7 +276,7 @@ public class PlatformApiClient {
     public List<PlatformRegulationSeed> fetchRegulationSeeds(List<Integer> regulatorIds) {
         if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
         try {
-            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/regulations/seed");
+            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/acts/seed");
             boolean first = true;
             for (Integer id : regulatorIds) {
                 url.append(first ? "?" : "&").append("regulatorIds=").append(id);

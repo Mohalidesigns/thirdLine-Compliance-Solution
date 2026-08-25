@@ -28,13 +28,15 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'returnName', label: 'Return', minWidth: 300, sortField: 'returnName' },
-  { id: 'regulator', label: 'Regulator', minWidth: 140, sortField: 'filingRegulator' },
-  { id: 'period', label: 'Period', minWidth: 100, sortField: 'period' },
-  { id: 'dueDate', label: 'Due Date', minWidth: 110, sortField: 'dueDate' },
-  { id: 'status', label: 'Status', minWidth: 120, sortField: 'status' },
-  { id: 'escalation', label: 'Escalation', minWidth: 100 },
-  { id: 'stages', label: 'Stages', minWidth: 180 },
+  { id: 'returnName', label: 'Return', minWidth: 260, sortField: 'returnName' },
+  { id: 'actName', label: 'Act', minWidth: 180, sortField: 'actName' },
+  { id: 'regulator', label: 'Regulator', minWidth: 120, sortField: 'filingRegulator' },
+  { id: 'responsibleUnit', label: 'Responsible Unit', minWidth: 140 },
+  { id: 'period', label: 'Period', minWidth: 90, sortField: 'period' },
+  { id: 'dueDate', label: 'Due Date', minWidth: 100, sortField: 'dueDate' },
+  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
+  { id: 'escalation', label: 'Escalation', minWidth: 90 },
+  { id: 'stages', label: 'Stages', minWidth: 160 },
   { id: 'actions', label: '', minWidth: 80 },
 ];
 
@@ -240,9 +242,17 @@ export default function ReturnsPage() {
                       <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
                       <TableCell>
                         <Tooltip title={item.returnName || 'Untitled'}>
-                          <Typography variant="body2" sx={{ maxWidth: 320, fontWeight: 500,
+                          <Typography variant="body2" sx={{ maxWidth: 280, fontWeight: 500,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.returnName || 'Untitled'}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={item.actName || '-'}>
+                          <Typography variant="body2" sx={{ maxWidth: 200,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.actName || '-'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
@@ -250,6 +260,14 @@ export default function ReturnsPage() {
                         {item.filingRegulator
                           ? <Typography variant="body2">{item.filingRegulator}</Typography>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title={item.responsibleUnit || '-'}>
+                          <Typography variant="body2" sx={{ maxWidth: 160,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.responsibleUnit || '-'}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>{item.period || '-'}</TableCell>
                       <TableCell>{formatDate(item.dueDate)}</TableCell>

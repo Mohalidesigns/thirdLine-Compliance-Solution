@@ -9,8 +9,9 @@ import LinkObligationsPicker from './LinkObligationsPicker';
 
 const EMPTY = {
   returnName: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
-  filingDueDayOfMonth: '', filingDeadlineOffsetDays: '', filingChannel: '',
-  returnOwnerUserId: '', returnOwnerName: '', linkedObligationIds: [],
+  filingDate: '', filingDeadlineOffsetDays: '', filingChannel: '',
+  returnOwnerUserId: '', returnOwnerName: '', responsibleUnit: '', responsiblePerson: '',
+  linkedObligationIds: [],
 };
 
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
@@ -53,11 +54,13 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
     setError('');
     try {
       const body = { ...form };
-      if (body.filingDueDayOfMonth) body.filingDueDayOfMonth = parseInt(body.filingDueDayOfMonth, 10);
       if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
       if (body.returnOwnerUserId) body.returnOwnerUserId = parseInt(body.returnOwnerUserId, 10);
       if (body.tenantRegulatorId) body.tenantRegulatorId = parseInt(body.tenantRegulatorId, 10);
       else delete body.tenantRegulatorId;
+      if (!body.filingDate) delete body.filingDate;
+      if (!body.responsibleUnit) delete body.responsibleUnit;
+      if (!body.responsiblePerson) delete body.responsiblePerson;
       const created = await api.returns.create(body);
       if (form.linkedObligationIds?.length) {
         await api.returns.linkObligations(created, form.linkedObligationIds.map(Number));
@@ -120,9 +123,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
             </TextField>
           </Field>
-          <Field label="Due day of month" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="number" value={form.filingDueDayOfMonth}
-              onChange={e => set('filingDueDayOfMonth', e.target.value)} />
+          <Field label="Filing Date" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" type="date" value={form.filingDate}
+              onChange={e => set('filingDate', e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }} />
           </Field>
           <Field label="Prep offset (days)" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" type="number" value={form.filingDeadlineOffsetDays}
@@ -133,6 +137,19 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           <Field label="Filing Channel" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" value={form.filingChannel}
               onChange={e => set('filingChannel', e.target.value)} />
+          </Field>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Responsible</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Field label="Responsible Unit" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" value={form.responsibleUnit}
+              onChange={e => set('responsibleUnit', e.target.value)} />
+          </Field>
+          <Field label="Responsible Person" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" value={form.responsiblePerson}
+              onChange={e => set('responsiblePerson', e.target.value)} />
           </Field>
         </Box>
 

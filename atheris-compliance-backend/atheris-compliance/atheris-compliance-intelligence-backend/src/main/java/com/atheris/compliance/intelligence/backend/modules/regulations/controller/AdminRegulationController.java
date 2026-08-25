@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/admin/regulations")
+@RequestMapping("/api/v1/admin/acts")
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
 @RequiredArgsConstructor
 public class AdminRegulationController {
@@ -28,6 +28,11 @@ public class AdminRegulationController {
             @RequestParam(required = false) Integer regulatorId,
             Pageable pageable) {
         return ResponseEntity.ok(service.list(q, regulatorId, pageable));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> stats() {
+        return ResponseEntity.ok(service.stats());
     }
 
     @GetMapping("/{id}")

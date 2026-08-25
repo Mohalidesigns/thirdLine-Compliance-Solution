@@ -9,7 +9,7 @@ export const APP = {
   INITIALS: 'AH',
   DRAWER_WIDTH: 260,
   TOPBAR_HEIGHT: 56,
-  API_BASE: 'http://localhost:9090/api/v1',
+  API_BASE: '/api/v1',
   DEMO_TOKEN: 'demo-jwt-token',
 };
 
@@ -34,8 +34,8 @@ export const ROUTES = {
   ADMIN_UPLOADS: '/admin/uploads',
   ADMIN_LICENSES: '/admin/licenses',
   ADMIN_LICENSE_DETAIL: '/admin/licenses/:id',
-  ADMIN_REGULATIONS: '/admin/regulations',
-  ADMIN_REGULATION_DETAIL: '/admin/regulations/:id',
+  ADMIN_ACTS: '/admin/acts',
+  ADMIN_ACT_DETAIL: '/admin/acts/:id',
   ADMIN_UNIVERSE: '/admin/universe',
 };
 
@@ -66,7 +66,7 @@ export const LABELS = {
   LICENSES: 'License Management',
   INSTRUMENTS: 'Instruments',
   UPLOADS: 'Uploads',
-  REGULATIONS: 'Regulation Explorer',
+  ACTS: 'Act Explorer',
   UNIVERSE: 'Compliance Universe',
 };
 
@@ -84,7 +84,7 @@ export const NAV_SECTIONS = [
     { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
     { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
     { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
-    { text: 'Regulation Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATIONS },
+    { text: 'Act Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_ACTS },
     { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
   ]},
 ];

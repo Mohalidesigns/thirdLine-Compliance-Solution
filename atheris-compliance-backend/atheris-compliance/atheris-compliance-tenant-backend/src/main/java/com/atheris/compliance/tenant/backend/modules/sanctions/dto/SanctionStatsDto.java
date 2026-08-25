@@ -11,5 +11,5 @@ public class SanctionStatsDto {
     private long highSeverity;
     private java.math.BigDecimal totalExposure;
     private List<String> sanctionTypes;
-    private List<String> regulationNames;
+    private List<String> actNames;
 }

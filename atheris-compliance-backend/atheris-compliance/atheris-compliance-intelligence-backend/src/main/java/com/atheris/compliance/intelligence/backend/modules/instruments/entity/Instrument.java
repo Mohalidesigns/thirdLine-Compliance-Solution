@@ -25,7 +25,7 @@ public class Instrument {
     private Integer themeId;
     private String nature;              // Core | Topical/Pertinent | Secondary | Others
     private String riskRating;          // High | Medium | Low
-    private Long regulationId;
+    @Column(name = "act_id") private Long regulationId;
     private String regulatoryItemType;  // Act | Circular | Guideline | Framework | ...
     @Column(columnDefinition = "text") private String commentOnStatus;
     @Column(columnDefinition = "text") private String riskRatingExplanation;

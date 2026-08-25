@@ -1,5 +1,5 @@
-export const API_BASE = 'http://localhost:9090/api/v1';
-const TENANT_API_BASE = 'http://localhost:9091/api/v1';
+export const API_BASE = '/api/v1';
+const TENANT_API_BASE = '/api/v1';
 const DEMO_TOKEN = 'demo-jwt-token';
 
 let authToken = null;
@@ -385,11 +385,12 @@ export const api = {
       update: (id, data) => request(`/recommendations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
     },
-    regulations: {
-      list: (params = '') => request(`/admin/regulations${params ? '?' + params : ''}`),
-      get: (id) => request(`/admin/regulations/${id}`),
-      update: (id, data) => request(`/admin/regulations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-      importToolkit: () => request('/admin/regulations/toolkit/import', { method: 'POST' }),
+    acts: {
+      list: (params = '') => request(`/admin/acts${params ? '?' + params : ''}`),
+      stats: () => request('/admin/acts/stats'),
+      get: (id) => request(`/admin/acts/${id}`),
+      update: (id, data) => request(`/admin/acts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+      importToolkit: () => request('/admin/acts/toolkit/import', { method: 'POST' }),
     },
     universe: {
       instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),

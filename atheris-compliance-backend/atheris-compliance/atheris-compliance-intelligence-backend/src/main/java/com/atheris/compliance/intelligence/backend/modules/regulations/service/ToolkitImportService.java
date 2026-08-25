@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 public class ToolkitImportService {
 
     private final RegulatorRepository regulators;
-    private final RegulationRepository regulationRepo;
+    private final RegulationRepository actRepo;
     private final RegulationAliasRepository aliasRepo;
     private final InstrumentRepository instruments;
     private final ObligationMappingRepository obligations;
@@ -69,7 +69,7 @@ public class ToolkitImportService {
 
     private final List<String> unmapped = new ArrayList<>();
     private int regulatorCount = 0;
-    private int regulationCount = 0;
+    private int actCount = 0;
     private int instrumentCount = 0;
     private int obligationCount = 0;
     private int sanctionCount = 0;
@@ -79,7 +79,7 @@ public class ToolkitImportService {
 
     public Map<String, Object> importToolkit() {
         unmapped.clear();
-        regulatorCount = regulationCount = instrumentCount = obligationCount = sanctionCount = returnCount = 0;
+        regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = 0;
         try {
             return transactionTemplate.execute(status -> {
                 try {
@@ -109,7 +109,7 @@ public class ToolkitImportService {
             String cause = e.getCause() != null
                 ? String.valueOf(e.getCause().getMessage()) : "";
             return Map.of("error", e.getMessage(), "cause", cause,
-                "regulators", regulatorCount, "regulations", regulationCount,
+                "regulators", regulatorCount, "acts", actCount,
                 "instruments", instrumentCount, "obligations", obligationCount,
                 "sanctions", sanctionCount, "returns", returnCount);
         }
@@ -118,7 +118,7 @@ public class ToolkitImportService {
     private Map<String, Object> successResult() {
         return Map.of(
             "regulators", regulatorCount,
-            "regulations", regulationCount,
+            "acts", actCount,
             "instruments", instrumentCount,
             "obligations", obligationCount,
             "sanctions", sanctionCount,
@@ -131,7 +131,7 @@ public class ToolkitImportService {
     private Map<String, Object> errorResult(Exception e) {
         String cause = e.getCause() != null ? String.valueOf(e.getCause().getMessage()) : "";
         return Map.of("error", e.getMessage(), "cause", cause,
-            "regulators", regulatorCount, "regulations", regulationCount,
+            "regulators", regulatorCount, "acts", actCount,
             "instruments", instrumentCount, "obligations", obligationCount,
             "sanctions", sanctionCount, "returns", returnCount);
     }
@@ -235,11 +235,11 @@ public class ToolkitImportService {
             instruments.save(inst);
             instrumentCount++;
 
-            // Now that the instrument exists, resolve (or create) its regulation and link it as canonical
-            Long regulationId = findOrCreateRegulation(title, regulatorId);
-            inst.setRegulationId(regulationId);
+            // Now that the instrument exists, resolve (or create) its act and link it as canonical
+            Long actId = findOrCreateAct(title, regulatorId);
+            inst.setRegulationId(actId);
             instruments.save(inst);
-            linkCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
+            linkCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
             // Sanctions described in the universe row (free text)
             String sanText = get(r, cSanctions);
@@ -248,7 +248,7 @@ public class ToolkitImportService {
                 && !"Not specified".equalsIgnoreCase(sanText)) {
                 sanctions.save(SanctionsPenalty.builder()
                     .instrumentId(inst.getInstrumentId())
-                    .regulationId(regulationId)
+                    .regulationId(actId)
                     .sanctionType("Regulatory")
                     .description(sanText)
                     .hasBeenEnforced(false)
@@ -290,20 +290,20 @@ public class ToolkitImportService {
             if (plain == null || plain.isBlank()) plain = get(r, cDesc);
             if (plain == null || plain.isBlank()) continue;
 
-            Long regulationId = findOrCreateRegulation(source, null);
-            Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
+            Long actId = findOrCreateAct(source, null);
+            Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
             String statement = TextCleaner.stripMarkdown(plain.trim());
             String sectionRef = shorten(get(r, cSection), 100);
             if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
-                    regulationId, statement, sectionRef)) {
+                    actId, statement, sectionRef)) {
                 log.debug("[ToolkitImport] Skipping duplicate obligation for {}: {}...", source, statement.substring(0, Math.min(60, statement.length())));
                 continue;
             }
 
             obligations.save(ObligationMapping.builder()
                 .instrumentId(instrumentId)
-                .regulationId(regulationId)
+                .regulationId(actId)
                 .obligationNumber(++obligNumber)
                 .plainEnglishStatement(statement)
                 .specificSectionReference(sectionRef)
@@ -335,20 +335,20 @@ public class ToolkitImportService {
             String violation = get(r, 3);
             if (violation == null || violation.isBlank()) continue;
 
-            Long regulationId = findOrCreateRegulation(regName, null);
-            Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
+            Long actId = findOrCreateAct(regName, null);
+            Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
             String penalty = get(r, 4);
             String violationTrim = violation.trim();
             if (sanctions.existsByRegulationIdAndSourceSectionReferenceAndDescriptionAndPenaltyDetails(
-                    regulationId, section, violationTrim, penalty)) {
+                    actId, section, violationTrim, penalty)) {
                 log.debug("[ToolkitImport] Skipping duplicate sanction for {}: {}...",
                     regName, violationTrim.substring(0, Math.min(80, violationTrim.length())));
                 continue;
             }
             sanctions.save(SanctionsPenalty.builder()
                 .instrumentId(instrumentId)
-                .regulationId(regulationId)
+                .regulationId(actId)
                 .sanctionType("Regulatory")
                 .description(violation)
                 .sourceSectionReference(section)
@@ -366,63 +366,69 @@ public class ToolkitImportService {
     @Transactional
     public void importReturns(List<List<String>> rows) {
         if (rows.isEmpty()) return;
-        // cols: 1=regulation, 2=return title, 3=section, 4=description, 5=frequency/deadline, 6=responsible role
-        String lastReg = null;
+        // 8-column format: 0=SN(skip), 1=act, 2=title, 3=section, 4=description, 5=frequency, 6=responsible unit, 7=responsible person
+        String lastAct = null;
         for (List<String> r : rows) {
-            String regName = get(r, 1);
-            if (regName == null || regName.isBlank()) regName = lastReg;
-            if (regName == null || regName.isBlank()) continue;
-            lastReg = regName;
+            String actName = get(r, 1);
+            if (actName == null || actName.isBlank()) actName = lastAct;
+            if (actName == null || actName.isBlank()) continue;
+            lastAct = actName;
 
             String title = get(r, 2);
             if (title == null || title.isBlank()) continue;
 
-            Long regulationId = findOrCreateRegulation(regName, null);
-            if (returns.existsByTitleAndRegulationId(title, regulationId)) continue;
-            Long instrumentId = ensureCanonicalInstrument(regulationRepo.findById(regulationId).orElse(null));
+            Long actId = findOrCreateAct(actName, null);
+            if (returns.existsByTitleAndActId(title, actId)) continue;
+            Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
             String section = get(r, 3);
             String description = get(r, 4);
             String freq = get(r, 5);
+            String responsibleUnit = get(r, 6);
+            String responsiblePerson = get(r, 7);
+
+            LocalDate filingDate = parseFilingDate(freq);
+
             returns.save(RegulatoryReturn.builder()
-                .regulationId(regulationId)
+                .actId(actId)
                 .instrumentId(instrumentId)
                 .title(shorten(title, 500))
                 .sectionReference(shorten(section, 255))
                 .statutoryBasis(description)
-                .recipient(shorten(get(r, 6), 255))
+                .responsibleUnit(shorten(responsibleUnit, 255))
+                .responsiblePerson(shorten(responsiblePerson, 255))
                 .frequency(shorten(freq, 255))
                 .deadline(freq)
-                .filingDueDayOfMonth(parseDueDay(freq))
+                .filingDate(filingDate)
                 .build());
             returnCount++;
         }
     }
 
-    // ── Regulation resolution with alias map ──
-    private Long findOrCreateRegulation(String title, Integer regulatorId) {
+    // ── Act resolution with alias map ──
+    private Long findOrCreateAct(String title, Integer regulatorId) {
         if (title != null && title.length() > 500) {
-            log.warn("[ToolkitImport] Regulation name too long ({} chars): {}", title.length(), title.substring(0, 250));
+            log.warn("[ToolkitImport] Act name too long ({} chars): {}", title.length(), title.substring(0, 250));
         }
         String normalizedKey = normalize(title);
         // Direct alias match (explicit hand-written mapping)
         var alias = aliasRepo.findByAlias(normalizedKey);
         if (alias.isPresent()) {
-            Regulation reg = regulationRepo.findById(alias.get().getRegulationId()).orElse(null);
+            Regulation reg = actRepo.findById(alias.get().getRegulationId()).orElse(null);
             if (reg != null) {
                 if (reg.getCanonicalInstrumentId() == null) linkCanonicalInstrument(reg);
                 return reg.getRegulationId();
             }
         }
         // Title match
-        var byTitle = regulationRepo.findByName(title);
+        var byTitle = actRepo.findByName(title);
         if (byTitle.isPresent()) {
             Regulation reg = byTitle.get();
             if (reg.getCanonicalInstrumentId() == null) linkCanonicalInstrument(reg);
             return reg.getRegulationId();
         }
         // Normalized-name match
-        Optional<Regulation> byNorm = regulationRepo.findAll().stream()
+        Optional<Regulation> byNorm = actRepo.findAll().stream()
             .filter(r -> normalize(r.getName()).equals(normalizedKey))
             .findFirst();
         if (byNorm.isPresent()) {
@@ -436,8 +442,8 @@ public class ToolkitImportService {
             .regulatorId(regulatorId)
             .status("Active")
             .build();
-        regulationRepo.save(reg);
-        regulationCount++;
+        actRepo.save(reg);
+        actCount++;
         try {
             aliasRepo.save(RegulationAlias.builder().alias(normalizedKey).regulationId(reg.getRegulationId()).build());
         } catch (Exception e) {
@@ -459,11 +465,11 @@ public class ToolkitImportService {
         if (canon.isPresent()) {
             reg.setCanonicalInstrumentId(canon.get().getInstrumentId());
             reg.setRegulatorId(reg.getRegulatorId() != null ? reg.getRegulatorId() : canon.get().getRegulatorId());
-            regulationRepo.save(reg);
+            actRepo.save(reg);
         }
     }
 
-    // If the regulation has no canonical instrument (source appears only in CRMP/sanctions, not the universe),
+    // If the act has no canonical instrument (source appears only in CRMP/sanctions, not the universe),
     // create a stub instrument so obligations/sanctions have a home.
     private Long ensureCanonicalInstrument(Regulation reg) {
         if (reg == null) return null;
@@ -482,7 +488,7 @@ public class ToolkitImportService {
             instrumentCount++;
         }
         reg.setCanonicalInstrumentId(stub.getInstrumentId());
-        regulationRepo.save(reg);
+        actRepo.save(reg);
         String s = "no-universe-instrument=" + reg.getName();
         if (!unmapped.contains(s)) unmapped.add(s);
         return stub.getInstrumentId();
@@ -684,21 +690,64 @@ public class ToolkitImportService {
             .toList();
     }
 
-    private Integer parseDueDay(String freq) {
-        if (freq == null || freq.isBlank()) return 1;
+    /**
+     * Parses frequency text to extract a specific filing date (day of month).
+     * Returns null when the frequency doesn't specify a concrete day (e.g. "Monthly", "Upon request").
+     */
+    private LocalDate parseFilingDate(String freq) {
+        if (freq == null || freq.isBlank()) return null;
         String f = freq.trim().toLowerCase();
+
+        // Pattern: "on or before the Xth"
         Matcher m = Pattern.compile("on\\s+or\\s+before\\s+(?:the\\s+)?(\\d+)(?:st|nd|rd|th)").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
-        m = Pattern.compile("by\\s+\\w+\\s+(\\d+)(?:st|nd|rd|th)?").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
-        m = Pattern.compile("by\\s+(\\d+)(?:st|nd|rd|th)").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
-        m = Pattern.compile("within\\s+(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
+        if (m.find()) return dayOfMonth(Integer.parseInt(m.group(1)));
+
+        // Pattern: "by the Xth"
+        m = Pattern.compile("by\\s+(?:the\\s+)?(\\d+)(?:st|nd|rd|th)").matcher(f);
+        if (m.find()) return dayOfMonth(Integer.parseInt(m.group(1)));
+
+        // Pattern: "by end of the month" / "by the last working day"
+        if (f.contains("end of") && (f.contains("month") || f.contains("working day"))) {
+            return lastDayOfMonth();
+        }
+
+        // Pattern: "within X days after the month" → null (no specific day)
+        if (f.contains("within") && f.contains("days") && f.contains("after")) return null;
+
+        // Pattern: "upon request" / "as soon as possible" / "upon completion"
+        if (f.contains("upon") || f.contains("as soon as")) return null;
+
+        // Pattern: "X days after the board meeting" → null
+        if (f.contains("after") && f.contains("meeting")) return null;
+
+        // Pattern: "by end of first quarter" → March 31
+        if (f.contains("first quarter")) return LocalDate.of(LocalDate.now().getYear(), 3, 31);
+        if (f.contains("second quarter") || f.contains("half.year")) return null;
+        if (f.contains("third quarter")) return null;
+        if (f.contains("fourth quarter")) return null;
+
+        // Pattern: "within X months after the quarter" → null
+        if (f.contains("months") && f.contains("quarter")) return null;
+
+        // Pattern: "within 6 months after the end of half-year" → null
+        if (f.contains("months") && f.contains("half")) return null;
+
+        // Fallback: extract any number with ordinal suffix
         m = Pattern.compile("(\\d+)(?:st|nd|rd|th)").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
-        m = Pattern.compile("(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
-        if (m.find()) return Integer.parseInt(m.group(1));
-        return 1;
+        if (m.find()) return dayOfMonth(Integer.parseInt(m.group(1)));
+
+        // Fallback: "X days after the month" → null
+        return null;
+    }
+
+    private LocalDate dayOfMonth(int day) {
+        LocalDate now = LocalDate.now();
+        int maxDay = now.lengthOfMonth();
+        return now.withDayOfMonth(Math.min(day, maxDay));
+    }
+
+    private LocalDate lastDayOfMonth() {
+        LocalDate now = LocalDate.now();
+        return now.withDayOfMonth(now.lengthOfMonth());
     }
 }

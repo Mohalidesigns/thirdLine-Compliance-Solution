@@ -76,7 +76,10 @@ public class ReturnService {
             RegulatoryReturn r = returns.findById(inst.getReturnId()).orElse(null);
             return ReturnInstanceItem.from(inst,
                 r != null ? r.getReturnName() : "Unknown",
-                r != null ? regulatorLabel(r) : null);
+                r != null ? regulatorLabel(r) : null,
+                r != null ? r.getActName() : null,
+                r != null ? r.getResponsibleUnit() : null,
+                r != null ? r.getResponsiblePerson() : null);
         }).getContent();
 
         if (q != null && !q.isBlank()) {
@@ -228,12 +231,15 @@ public class ReturnService {
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
+            .actId(req.getActId())
             .returnType(req.getReturnType()).frequency(req.getFrequency())
-            .filingDueDayOfMonth(req.getFilingDueDayOfMonth())
+            .filingDate(req.getFilingDate())
             .filingDeadlineOffsetDays(req.getFilingDeadlineOffsetDays())
             .filingChannel(req.getFilingChannel())
             .returnOwnerUserId(req.getReturnOwnerUserId())
-            .returnOwnerName(req.getReturnOwnerName()).build();
+            .returnOwnerName(req.getReturnOwnerName())
+            .responsibleUnit(req.getResponsibleUnit())
+            .responsiblePerson(req.getResponsiblePerson()).build();
         RegulatoryReturn saved = returns.save(r);
         ensureInstances(saved);
         audit.log(userId, "return_created", "return", saved.getReturnId(),
@@ -296,7 +302,9 @@ public class ReturnService {
     }
 
     private void materialize(RegulatoryReturn ret, YearMonth ym, LocalDate earliest, LocalDate horizon) {
-        LocalDate due = safeDueDate(ym, ret.getFilingDueDayOfMonth());
+        LocalDate due = ret.getFilingDate() != null
+            ? ret.getFilingDate()
+            : safeDueDate(ym, null);
         if (due.isBefore(earliest) || due.isAfter(horizon)) return;
         String period = ym.toString();
         if (instances.existsByReturnIdAndPeriod(ret.getReturnId(), period)) return;

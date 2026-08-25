@@ -15,7 +15,10 @@ public class ReturnInstanceItem {
     private Long instanceId;
     private Long returnId;
     private String returnName;
+    private String actName;
     private String filingRegulator;
+    private String responsibleUnit;
+    private String responsiblePerson;
     private String period;
     private LocalDate dueDate;
     private LocalDate prepStartDate;
@@ -39,7 +42,8 @@ public class ReturnInstanceItem {
         List.of(ReturnStage.NOT_STARTED, ReturnStage.DATA_GATHERING, ReturnStage.DRAFT,
             ReturnStage.REVIEW, ReturnStage.SIGN_OFF, ReturnStage.SUBMITTED);
 
-    public static ReturnInstanceItem from(ReturnFilingInstance inst, String returnName, String filingRegulator) {
+    public static ReturnInstanceItem from(ReturnFilingInstance inst, String returnName, String filingRegulator,
+                                           String actName, String responsibleUnit, String responsiblePerson) {
         int currentIdx = STAGE_ORDER.indexOf(inst.getCurrentStage());
         List<StageSummary> stages = STAGE_ORDER.stream().map(s -> {
             int idx = STAGE_ORDER.indexOf(s);
@@ -56,7 +60,8 @@ public class ReturnInstanceItem {
 
         return ReturnInstanceItem.builder()
             .instanceId(inst.getInstanceId()).returnId(inst.getReturnId())
-            .returnName(returnName).filingRegulator(filingRegulator)
+            .returnName(returnName).actName(actName).filingRegulator(filingRegulator)
+            .responsibleUnit(responsibleUnit).responsiblePerson(responsiblePerson)
             .period(inst.getPeriod()).dueDate(inst.getDueDate())
             .prepStartDate(inst.getPrepStartDate())
             .currentStage(inst.getCurrentStage() != null ? inst.getCurrentStage().db() : null)
