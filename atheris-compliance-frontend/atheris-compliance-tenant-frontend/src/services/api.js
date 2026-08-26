@@ -244,6 +244,12 @@ export const api = {
       const s = qs.toString();
       return request(`/returns/calendar${s ? '?' + s : ''}`);
     },
+    register: (params = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/returns/register${s ? '?' + s : ''}`);
+    },
     stats: () => request('/returns/stats'),
     detail: (id) => request(`/returns/instances/${id}/detail`),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),

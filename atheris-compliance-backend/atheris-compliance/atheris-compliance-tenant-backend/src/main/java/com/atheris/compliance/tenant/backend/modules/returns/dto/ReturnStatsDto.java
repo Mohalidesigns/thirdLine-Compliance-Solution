@@ -12,4 +12,5 @@ public class ReturnStatsDto {
     private long submitted;
     private List<String> frequencies;
     private List<String> regulators;
+    private List<String> actNames;
 }

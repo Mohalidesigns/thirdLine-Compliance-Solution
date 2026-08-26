@@ -72,6 +72,7 @@ public class PlatformRegulationSeed {
         private String responsibleUnit;
         private String responsiblePerson;
         private String frequency;
+        private String frequencyType;
         private String deadline;
         private LocalDate filingDate;
     }

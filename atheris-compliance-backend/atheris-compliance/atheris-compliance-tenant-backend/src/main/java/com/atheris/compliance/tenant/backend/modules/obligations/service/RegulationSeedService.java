@@ -120,6 +120,7 @@ public class RegulationSeedService {
                     .actId(bundle.getRegulationId())
                     .actName(bundle.getRegulationName())
                     .frequency(normalizeFrequency(r.getFrequency()))
+                    .frequencyType(r.getFrequencyType() != null ? r.getFrequencyType() : "MONTHLY")
                     .filingDate(r.getFilingDate())
                     .responsibleUnit(r.getResponsibleUnit())
                     .responsiblePerson(r.getResponsiblePerson())
@@ -188,20 +189,15 @@ public class RegulationSeedService {
 
     private String normalizeFrequency(String frequency) {
         if (frequency == null || frequency.isBlank()) return null;
-        String f = frequency.trim();
-        if (f.length() <= 50) return f;
-        String lower = f.toLowerCase();
-        String[] tokens = lower.split("[\\s:;,–-]+");
-        if (tokens.length > 0) {
-            String head = tokens[0];
-            if ("quarterly".equals(head) || "monthly".equals(head) || "annually".equals(head)
-                || "semi".equals(head) || "weekly".equals(head) || "daily".equals(head)
-                || "within".equals(head) || "not".equals(head) || "as".equals(head)
-                || "on".equals(head) || "at".equals(head)) {
-                String keyword = "semi".equals(head) && tokens.length > 1 ? head + "-" + tokens[1] : head;
-                return keyword.substring(0, Math.min(50, keyword.length()));
-            }
-        }
-        return f.substring(0, 50);
+        String f = frequency.trim().toLowerCase();
+        if (f.contains("daily")) return "Daily";
+        if (f.contains("weekly")) return "Weekly";
+        if (f.contains("semi") || f.contains("twice yearly") || f.contains("every 6 months")) return "Semi-Annual";
+        if (f.contains("quarter")) return "Quarterly";
+        if (f.contains("every 2 years") || f.contains("biennial")) return "Biennial";
+        if (f.contains("annual") || f.contains("year")) return "Annually";
+        if (f.contains("monthly")) return "Monthly";
+        // Event-driven — keep first 50 chars
+        return frequency.length() <= 50 ? frequency.trim() : frequency.trim().substring(0, 50);
     }
 }

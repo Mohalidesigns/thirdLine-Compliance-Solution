@@ -239,27 +239,26 @@ public class OnboardingService {
         p.setOnboardingStep(6);
         profiles.save(p);
 
-        try {
-            Map<String, Object> tenantReq = new HashMap<>();
-            tenantReq.put("legalName", p.getLegalName());
-            tenantReq.put("address", p.getAddress());
-            tenantReq.put("contactPhone", p.getContactPhone());
-            tenantReq.put("contactEmail", p.getContactEmail());
-            tenantReq.put("ccoEmail", p.getCcoEmail());
-            tenantReq.put("regulators", p.getSubscribedRegulators());
-            tenantReq.put("subscribedDocumentTypes", p.getSubscribedDocumentTypes());
-            tenantReq.put("notificationFrequency", p.getNotificationFrequency());
-            tenantReq.put("subscriptionTier", p.getSubscriptionTier());
-            tenantReq.put("webhookUrl", p.getWebhookUrl());
-            platformApi.onboardTenant(tenantReq);
-        } catch (Exception e) {
-            log.error("Failed to create tenant on platform for {}", tenantIdentity.currentTenantId(), e.getMessage());
-        }
-
         log.info("Onboarding completed for tenant {}", tenantIdentity.currentTenantId());
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
+                try {
+                    Map<String, Object> tenantReq = new HashMap<>();
+                    tenantReq.put("legalName", p.getLegalName());
+                    tenantReq.put("address", p.getAddress());
+                    tenantReq.put("contactPhone", p.getContactPhone());
+                    tenantReq.put("contactEmail", p.getContactEmail());
+                    tenantReq.put("ccoEmail", p.getCcoEmail());
+                    tenantReq.put("regulators", p.getSubscribedRegulators());
+                    tenantReq.put("subscribedDocumentTypes", p.getSubscribedDocumentTypes());
+                    tenantReq.put("notificationFrequency", p.getNotificationFrequency());
+                    tenantReq.put("subscriptionTier", p.getSubscriptionTier());
+                    tenantReq.put("webhookUrl", p.getWebhookUrl());
+                    platformApi.onboardTenant(tenantReq);
+                } catch (Exception e) {
+                    log.error("Failed to create tenant on platform for {}", tenantIdentity.currentTenantId(), e.getMessage());
+                }
                 try { regulationSeedService.seedAll(); } catch (Exception e) {
                     log.warn("Regulation seed failed: {}", e.getMessage());
                 }

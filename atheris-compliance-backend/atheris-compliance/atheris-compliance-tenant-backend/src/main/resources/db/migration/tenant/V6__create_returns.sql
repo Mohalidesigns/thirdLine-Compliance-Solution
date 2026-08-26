@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     department_id              INT,
     return_type                VARCHAR(100),
     frequency                  VARCHAR(50),
+    frequency_type             VARCHAR(20) DEFAULT 'MONTHLY',
     status                     VARCHAR(50) DEFAULT 'Active',
     filing_date                DATE,
     filing_deadline_offset_days INT,

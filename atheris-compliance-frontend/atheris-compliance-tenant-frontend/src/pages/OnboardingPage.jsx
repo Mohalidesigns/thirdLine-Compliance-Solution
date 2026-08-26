@@ -107,7 +107,7 @@ export default function OnboardingPage() {
       if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
       if (nextStep === 6 && resp.onboardingCompleted) {
         setCompleted(true);
-        setTimeout(() => navigate('/login', { replace: true }), 2000);
+        setTimeout(() => navigate('/login', { replace: true }), 500);
       }
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -239,7 +239,7 @@ export default function OnboardingPage() {
             {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.85rem' }}>{error}</Alert>}
             {completed && (
               <Alert severity="success" sx={{ mb: 2 }}>
-                Onboarding complete! Redirecting to dashboard...
+                Onboarding complete! Redirecting to login...
               </Alert>
             )}
 

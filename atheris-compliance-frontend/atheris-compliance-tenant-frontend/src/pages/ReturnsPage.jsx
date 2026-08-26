@@ -5,11 +5,11 @@ import {
   TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
   Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid,
   Stepper, Step, StepLabel, Card, CardContent, CardHeader,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, WarningAmber, CheckCircle,
-  RadioButtonUnchecked, Link as LinkIcon, ArrowBack,
+  RadioButtonUnchecked, Link as LinkIcon, ArrowBack, ExpandMore, ExpandLess,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
@@ -30,13 +30,11 @@ function formatDate(d) {
 const COLUMNS = [
   { id: 'returnName', label: 'Return', minWidth: 260, sortField: 'returnName' },
   { id: 'actName', label: 'Act', minWidth: 180, sortField: 'actName' },
-  { id: 'regulator', label: 'Regulator', minWidth: 120, sortField: 'filingRegulator' },
-  { id: 'responsibleUnit', label: 'Responsible Unit', minWidth: 140 },
-  { id: 'period', label: 'Period', minWidth: 90, sortField: 'period' },
-  { id: 'dueDate', label: 'Due Date', minWidth: 100, sortField: 'dueDate' },
-  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
-  { id: 'escalation', label: 'Escalation', minWidth: 90 },
-  { id: 'stages', label: 'Stages', minWidth: 160 },
+  { id: 'regulator', label: 'Regulator', minWidth: 130, sortField: 'filingRegulator' },
+  { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
+  { id: 'period', label: 'Current Period', minWidth: 120, sortField: 'currentPeriod' },
+  { id: 'dueDate', label: 'Due Date', minWidth: 110, sortField: 'currentDueDate' },
+  { id: 'status', label: 'Status', minWidth: 110, sortField: 'currentStatus' },
   { id: 'actions', label: '', minWidth: 80 },
 ];
 
@@ -55,15 +53,18 @@ export default function ReturnsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [frequencyFilter, setFrequencyFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
+  const [actFilter, setActFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
+  const [expandedRow, setExpandedRow] = useState(null);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [snackbar, setSnackbar] = useState('');
 
-  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All';
+  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All';
 
   const loadStats = useCallback(async () => {
     try { setStats(await api.returns.stats()); } catch { /* optional */ }
@@ -78,13 +79,14 @@ export default function ReturnsPage() {
       if (statusFilter !== 'All') params.status = statusFilter;
       if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
       if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
+      if (actFilter !== 'All') params.act = actFilter;
       if (sortField) params.sort = `${sortField},${sortDir}`;
-      const data = await api.returns.calendar(params);
+      const data = await api.returns.register(params);
       setItems(data.content || []);
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load returns.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, statusFilter, frequencyFilter, regulatorFilter, sortField, sortDir]);
+  }, [page, rowsPerPage, search, statusFilter, frequencyFilter, regulatorFilter, actFilter, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
@@ -101,20 +103,20 @@ export default function ReturnsPage() {
   }, []);
 
   function clearFilters() {
-    setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All');
+    setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All'); setActFilter('All');
     setPage(0);
   }
 
   function applyKpiFilter(type) {
     setPage(0);
-    if (type === 'overdue') setStatusFilter('Not Started');
+    if (type === 'overdue') setStatusFilter('Overdue');
     else if (type === 'inProgress') setStatusFilter('In Progress');
     else if (type === 'submitted') setStatusFilter('Submitted');
     else setStatusFilter('All');
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Instances', value: stats?.total ?? 0, color: '#2B6CB0', bg: '#EBF8FF' },
+    { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, color: '#2B6CB0', bg: '#EBF8FF' },
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, color: '#E53E3E', bg: '#FFF5F5' },
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, color: '#38A169', bg: '#F0FFF4' },
@@ -138,7 +140,7 @@ export default function ReturnsPage() {
         <Box>
           <Typography variant="h4">Returns Register</Typography>
           <Typography variant="body2" color="text.secondary">
-            {total} filing instance{total !== 1 ? 's' : ''} — track deadlines and stage workflow
+            {total} return{total !== 1 ? 's' : ''} — track filing deadlines and status
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -169,24 +171,29 @@ export default function ReturnsPage() {
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search return or regulator..." value={search}
+        <TextField size="small" placeholder="Search return, act, or regulator..." value={search}
           onChange={e => { setSearch(e.target.value); setPage(0); }}
           slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
+          sx={{ minWidth: 260 }} />
         <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
           label="Status" sx={{ minWidth: 130 }}>
-          {['All', 'Not Started', 'In Progress', 'Submitted', 'Submitted Late'].map(s =>
+          {['All', 'Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue'].map(s =>
             <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={frequencyFilter} onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}
           label="Frequency" sx={{ minWidth: 130 }}>
-          <MenuItem value="All">All</MenuItem>
-          {(stats?.frequencies || []).map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+          {['All', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annually', 'Weekly', 'Daily'].map(f =>
+            <MenuItem key={f} value={f}>{f}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
           label="Regulator" sx={{ minWidth: 150 }}>
           <MenuItem value="All">All</MenuItem>
           {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+        </TextField>
+        <TextField select size="small" value={actFilter} onChange={e => { setActFilter(e.target.value); setPage(0); }}
+          label="Act" sx={{ minWidth: 200 }}>
+          <MenuItem value="All">All</MenuItem>
+          {(stats?.actNames || []).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
         </TextField>
         {hasFilters && (
           <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
@@ -227,80 +234,29 @@ export default function ReturnsPage() {
                       </TableCell>
                     );
                   })}
+                  <TableCell sx={{ minWidth: 40, bgcolor: '#F7FAFC' }} />
                 </TableRow>
               </TableHead>
               <TableBody>
                 {items.map((item, idx) => {
-                  const isOverdue = item.overdue;
+                  const isOverdue = item.hasOverdue;
+                  const isExpanded = expandedRow === item.returnId;
+                  const status = item.currentStatus || 'Not Started';
                   const rowBg = isOverdue ? '#FFF5F5' : 'inherit';
                   return (
-                    <TableRow key={item.instanceId} hover
-                      onClick={() => loadDetail(item.instanceId)}
-                      sx={{ cursor: 'pointer', bgcolor: rowBg,
-                        '&:hover': { bgcolor: isOverdue ? '#FEE2E2' : '#F7FAFC' },
-                        borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}>
-                      <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
-                      <TableCell>
-                        <Tooltip title={item.returnName || 'Untitled'}>
-                          <Typography variant="body2" sx={{ maxWidth: 280, fontWeight: 500,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.returnName || 'Untitled'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.actName || '-'}>
-                          <Typography variant="body2" sx={{ maxWidth: 200,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.actName || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        {item.filingRegulator
-                          ? <Typography variant="body2">{item.filingRegulator}</Typography>
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.responsibleUnit || '-'}>
-                          <Typography variant="body2" sx={{ maxWidth: 160,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.responsibleUnit || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>{item.period || '-'}</TableCell>
-                      <TableCell>{formatDate(item.dueDate)}</TableCell>
-                      <TableCell>
-                        <Chip size="small"
-                          label={isOverdue ? 'OVERDUE' : item.status}
-                          color={isOverdue ? 'error' : STATUS_COLORS[item.status] || 'default'}
-                          sx={{ height: 22 }} />
-                      </TableCell>
-                      <TableCell>
-                        {item.escalationLevel > 0
-                          ? <Chip size="small" label={`L${item.escalationLevel}`} color="error" sx={{ height: 22 }} />
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                          {item.stages && item.stages.map((s, i) => (
-                            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                              {s.completed
-                                ? <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
-                                : <RadioButtonUnchecked sx={{ fontSize: 14, color: s.name === item.currentStage ? 'info.main' : 'action.disabled' }} />}
-                              {i < item.stages.length - 1 && <Typography variant="caption" color="divider">-</Typography>}
-                            </Box>
-                          ))}
-                        </Box>
-                      </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <Button size="small" variant="outlined"
-                          onClick={() => loadDetail(item.instanceId)}>
-                          {item.status === 'Not Started' ? 'Start' : item.status === 'Submitted' || item.status === 'Submitted Late' ? 'View' : 'Advance'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <ReturnRow
+                      key={item.returnId}
+                      item={item}
+                      idx={idx}
+                      page={page}
+                      rowsPerPage={rowsPerPage}
+                      isOverdue={isOverdue}
+                      isExpanded={isExpanded}
+                      rowBg={rowBg}
+                      status={status}
+                      onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
+                      onDetail={() => loadDetail(item.currentInstanceId)}
+                    />
                   );
                 })}
               </TableBody>
@@ -320,6 +276,94 @@ export default function ReturnsPage() {
         <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
       </Snackbar>
     </Box>
+  );
+}
+
+/* ───────── Return Row (with expandable upcoming instances) ───────── */
+function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail }) {
+  return (
+    <>
+      <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
+        '&:hover': { bgcolor: isOverdue ? '#FEE2E2' : '#F7FAFC' },
+        borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}>
+        <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
+        <TableCell>
+          <Tooltip title={item.returnName || 'Untitled'}>
+            <Typography variant="body2" sx={{ maxWidth: 260, fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.returnName || 'Untitled'}
+            </Typography>
+          </Tooltip>
+        </TableCell>
+        <TableCell>
+          <Tooltip title={item.actName || '-'}>
+            <Typography variant="body2" sx={{ maxWidth: 180,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.actName || '-'}
+            </Typography>
+          </Tooltip>
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2">{item.filingRegulator || '-'}</Typography>
+        </TableCell>
+        <TableCell>
+          <Chip size="small" label={item.frequency || item.frequencyType || '-'}
+            variant="outlined" sx={{ height: 22 }} />
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.currentPeriod || '-'}</Typography>
+        </TableCell>
+        <TableCell>{formatDate(item.currentDueDate)}</TableCell>
+        <TableCell>
+          <Chip size="small"
+            label={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'OVERDUE' : status}
+            color={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'error' : STATUS_COLORS[status] || 'default'}
+            sx={{ height: 22 }} />
+        </TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <Button size="small" variant="outlined" onClick={onDetail}>
+            {status === 'Not Started' ? 'Start' : status === 'Submitted' || status === 'Submitted Late' ? 'View' : 'Advance'}
+          </Button>
+        </TableCell>
+        <TableCell>
+          {item.upcomingInstances && item.upcomingInstances.length > 0 && (
+            <IconButton size="small" onClick={onExpand}>
+              {isExpanded ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
+          )}
+        </TableCell>
+      </TableRow>
+      {/* Expandable upcoming instances */}
+      {isExpanded && item.upcomingInstances && item.upcomingInstances.length > 0 && (
+        <TableRow>
+          <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, bgcolor: '#FAFBFC' }}>
+            <Collapse in={isExpanded}>
+              <Box sx={{ py: 1.5, pl: 4 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                  Upcoming Periods
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                  {item.upcomingInstances.map(inst => (
+                    <Paper key={inst.instanceId} variant="outlined" sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period}</Typography>
+                      <Typography variant="caption" color="text.secondary">{formatDate(inst.dueDate)}</Typography>
+                      <Chip size="small" label={inst.status || 'Not Started'}
+                        color={STATUS_COLORS[inst.status] || 'default'}
+                        sx={{ height: 18, fontSize: '0.65rem' }} />
+                    </Paper>
+                  ))}
+                </Box>
+                {item.totalInstances > 1 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    {item.totalInstances} total instance{item.totalInstances !== 1 ? 's' : ''} · {item.overcomeCount || 0} overdue
+                  </Typography>
+                )}
+              </Box>
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 
@@ -495,5 +539,3 @@ function SubmitDialog({ open, onClose, instanceId, onSaved, onSnackbar }) {
     </Dialog>
   );
 }
-
-

@@ -398,6 +398,7 @@ public class ToolkitImportService {
                 .responsibleUnit(shorten(responsibleUnit, 255))
                 .responsiblePerson(shorten(responsiblePerson, 255))
                 .frequency(shorten(freq, 255))
+                .frequencyType(classifyFrequency(freq))
                 .deadline(freq)
                 .filingDate(filingDate)
                 .build());
@@ -691,8 +692,47 @@ public class ToolkitImportService {
     }
 
     /**
-     * Parses frequency text to extract a specific filing date (day of month).
-     * Returns null when the frequency doesn't specify a concrete day (e.g. "Monthly", "Upon request").
+     * Classifies a raw frequency string into a type for instance generation.
+     * Returns one of: DAILY, WEEKLY, MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, BIENNIAL, EVENT_DRIVEN.
+     */
+    private String classifyFrequency(String freq) {
+        if (freq == null || freq.isBlank()) return "MONTHLY";
+        String f = freq.trim().toLowerCase();
+
+        // Event-driven patterns (check FIRST — these override recurring)
+        if (f.contains("within") || f.contains("upon") || f.contains("on request")
+            || f.contains("as required") || f.contains("as directed")
+            || f.contains("immediately") || f.contains("no fixed timeline")
+            || f.contains("ongoing") || f.contains("continuous")
+            || f.contains("as detected") || f.contains("as disputes")
+            || f.contains("per risk") || f.contains("triggered")
+            || f.contains("from date") || f.contains("on-demand")
+            || f.contains("during") || f.contains("in advance")
+            || f.contains("at least") || f.contains("without delay")
+            || f.contains("not less than") || f.contains("not later than")
+                && !f.contains("month") && !f.contains("quarter") && !f.contains("year")
+            || f.contains("after the meeting")
+            || f.contains("upon request")) {
+            return "EVENT_DRIVEN";
+        }
+
+        // Recurring patterns
+        if (f.contains("daily")) return "DAILY";
+        if (f.contains("weekly")) return "WEEKLY";
+        if (f.contains("semi") || f.contains("twice yearly") || f.contains("every 6 months"))
+            return "SEMI_ANNUAL";
+        if (f.contains("quarter")) return "QUARTERLY";
+        if (f.contains("every 2 years") || f.contains("biennial")) return "BIENNIAL";
+        if (f.contains("annual") || f.contains("annually") || f.contains("once per calendar year"))
+            return "ANNUAL";
+        if (f.contains("monthly")) return "MONTHLY";
+
+        return "MONTHLY"; // default
+    }
+
+    /**
+     * Parses a frequency/deadline string and returns a concrete filing date (day of current month),
+     * or null when the frequency doesn't specify a concrete day (e.g. "Monthly", "Upon request").
      */
     private LocalDate parseFilingDate(String freq) {
         if (freq == null || freq.isBlank()) return null;

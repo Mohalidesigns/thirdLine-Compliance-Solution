@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     responsible_unit     VARCHAR(255),
     responsible_person   VARCHAR(255),
     frequency            VARCHAR(255),
+    frequency_type       VARCHAR(20) DEFAULT 'MONTHLY',
     deadline             TEXT,
     remarks              TEXT,
     filing_date          DATE,

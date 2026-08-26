@@ -26,6 +26,8 @@ public class RegulatoryReturn {
     private String returnType;
     private String frequency;
     @Builder.Default
+    private String frequencyType = "MONTHLY";
+    @Builder.Default
     private RegulatoryReturnStatus status = RegulatoryReturnStatus.ACTIVE;
     private LocalDate filingDate;
     private Integer filingDeadlineOffsetDays;

@@ -10,7 +10,7 @@ import java.util.List;
 public class ControlSpecification {
 
     public static Specification<Control> withFilters(
-            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status) {
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (theme != null && !theme.isEmpty())
@@ -23,6 +23,14 @@ public class ControlSpecification {
                 predicates.add(cb.equal(root.get("controlOwnerId"), ownerId));
             if (status != null && !status.isEmpty())
                 predicates.add(cb.equal(root.get("status"), status));
+            if (q != null && !q.isBlank()) {
+                String ql = "%" + q.toLowerCase() + "%";
+                predicates.add(cb.or(
+                    cb.like(cb.lower(root.get("name")), ql),
+                    cb.like(cb.lower(root.get("controlNumber")), ql),
+                    cb.like(cb.lower(root.get("controlOwnerName")), ql)
+                ));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

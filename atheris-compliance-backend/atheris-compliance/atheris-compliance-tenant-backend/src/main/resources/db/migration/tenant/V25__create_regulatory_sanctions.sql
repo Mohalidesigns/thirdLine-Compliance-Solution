@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS regulatory_sanctions (
     sanction_id             BIGSERIAL PRIMARY KEY,
     instrument_id           BIGINT NOT NULL,
-    regulation_id           BIGINT,
-    regulation_name         VARCHAR(500),
+    act_id                  BIGINT,
+    act_name                VARCHAR(500),
     sanction_type           VARCHAR(100),
     sanction_amount_naira   NUMERIC(15,2),
     sanction_amount_per_day BOOLEAN DEFAULT FALSE,

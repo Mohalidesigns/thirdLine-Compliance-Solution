@@ -33,8 +33,20 @@ public class ReturnController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String frequency,
             @RequestParam(required = false) String regulator,
+            @RequestParam(required = false) String act,
             Pageable p) {
-        return ResponseEntity.ok(service.getCalendar(period, returnId, status, q, frequency, regulator, p));
+        return ResponseEntity.ok(service.getCalendar(period, returnId, status, q, frequency, regulator, act, p));
+    }
+
+    @GetMapping("/register")
+    public ResponseEntity<Page<ReturnRegisterItem>> register(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String frequency,
+            @RequestParam(required = false) String regulator,
+            @RequestParam(required = false) String act,
+            @RequestParam(required = false) String status,
+            Pageable p) {
+        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, status, p));
     }
 
     @GetMapping("/stats")

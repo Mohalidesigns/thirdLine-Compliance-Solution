@@ -18,6 +18,7 @@ public class RegulatoryReturn {
     @Column(length = 255) private String responsibleUnit;
     @Column(length = 255) private String responsiblePerson;
     @Column(length = 255) private String frequency;
+    @Column(length = 20) private String frequencyType;
     @Column(columnDefinition = "text") private String deadline;
     @Column(columnDefinition = "text") private String remarks;
     private LocalDate filingDate;

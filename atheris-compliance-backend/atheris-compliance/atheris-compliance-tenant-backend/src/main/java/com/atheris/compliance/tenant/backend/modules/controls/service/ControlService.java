@@ -30,22 +30,14 @@ public class ControlService {
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status);
+        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q);
         Page<Control> page = repo.findAll(spec, p);
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
             page.getContent().stream().map(Control::getControlId).toList());
         List<ControlRegisterItem> items = page.getContent().stream()
             .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId())))
             .toList();
-        if (q != null && !q.isBlank()) {
-            String ql = q.toLowerCase();
-            items = items.stream().filter(i ->
-                (i.getName() != null && i.getName().toLowerCase().contains(ql)) ||
-                (i.getControlNumber() != null && i.getControlNumber().toLowerCase().contains(ql)) ||
-                (i.getControlOwnerName() != null && i.getControlOwnerName().toLowerCase().contains(ql))
-            ).toList();
-        }
-        return new PageImpl<>(items, p, items.size());
+        return new PageImpl<>(items, p, page.getTotalElements());
     }
 
     public ControlStatsDto getStats() {
