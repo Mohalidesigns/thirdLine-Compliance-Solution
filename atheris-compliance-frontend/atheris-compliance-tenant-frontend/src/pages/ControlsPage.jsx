@@ -22,7 +22,6 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'controlNumber', label: '#', minWidth: 90, sortField: 'controlNumber' },
   { id: 'name', label: 'Control', minWidth: 260, sortField: 'name' },
   { id: 'complianceArea', label: 'Compliance Area', minWidth: 140, sortField: 'complianceArea' },
   { id: 'regulatoryRequirement', label: 'Regulatory Requirement', minWidth: 200, sortField: 'regulatoryRequirement' },
@@ -215,7 +214,17 @@ export default function ControlsPage() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50, cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => {
+                      if (sortField === 'controlNumber') setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+                      else { setSortField('controlNumber'); setSortDir('asc'); }
+                      setPage(0);
+                    }}>
+                    <TableSortLabel active={sortField === 'controlNumber'} direction={sortDir}
+                      sx={{ '& .MuiTableSortLabel-icon': { opacity: sortField === 'controlNumber' ? 1 : 0.4 } }}>
+                      #
+                    </TableSortLabel>
+                  </TableCell>
                   {COLUMNS.map(c => {
                     const active = sortField === c.sortField;
                     return (
