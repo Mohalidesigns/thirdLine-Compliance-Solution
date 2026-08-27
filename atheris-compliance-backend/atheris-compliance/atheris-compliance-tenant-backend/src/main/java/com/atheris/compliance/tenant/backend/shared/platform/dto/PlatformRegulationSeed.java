@@ -23,6 +23,7 @@ public class PlatformRegulationSeed {
     private List<ObligationItem> obligations;
     private List<SanctionItem> sanctions;
     private List<ReturnItem> returns;
+    private List<ControlItem> controls;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class InstrumentItem {
@@ -75,5 +76,22 @@ public class PlatformRegulationSeed {
         private String frequencyType;
         private String deadline;
         private LocalDate filingDate;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ControlItem {
+        private String controlNumber;
+        private String theme;
+        private String regulatoryRequirement;
+        private String complianceArea;
+        private String riskLevel;
+        private String complianceControl;
+        private String monitoringActivity;
+        private String frequency;
+        private String responsibleOfficer;
+        private String dueDate;
+        private String status;
+        private String controlEffectivenessMeasure;
+        private Long obligationId;
     }
 }

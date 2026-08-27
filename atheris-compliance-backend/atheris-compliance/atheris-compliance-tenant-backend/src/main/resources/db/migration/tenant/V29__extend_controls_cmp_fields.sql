@@ -1,0 +1,7 @@
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS regulatory_requirement TEXT;
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS compliance_area VARCHAR(255);
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS monitoring_activity TEXT;
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS due_date VARCHAR(100);
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS control_effectiveness_measure TEXT;
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS act_id INT;
+ALTER TABLE controls ADD COLUMN IF NOT EXISTS obligation_id BIGINT;

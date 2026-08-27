@@ -6,6 +6,8 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Regulato
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
@@ -33,6 +35,7 @@ public class RegulationSeedService {
     private final ObligationClassificationRepository classifications;
     private final RegulatorySanctionRepository sanctions;
     private final RegulatoryReturnRepository returns;
+    private final ControlRepository controlRepo;
     private final TenantIdentityService tenantIdentity;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -155,11 +158,53 @@ public class RegulationSeedService {
             }
         }
 
-        log.info("Seeded instrument {} ({}): {} obligations, {} sanctions, returns {}",
+        int seededControls = 0;
+        if (bundle.getControls() != null) {
+            for (PlatformRegulationSeed.ControlItem c : bundle.getControls()) {
+                if (c.getControlNumber() == null || c.getControlNumber().isBlank()) continue;
+                if (controlRepo.existsByControlNumber(c.getControlNumber())) continue;
+
+                // Link all obligations from this instrument to the control
+                List<Long> linkedIds = createdObligations.stream()
+                    .map(Obligation::getObligationId)
+                    .toList();
+                if (linkedIds.isEmpty()) {
+                    linkedIds = obligationRepo.findByInstrumentId(instrumentId).stream()
+                        .map(Obligation::getObligationId)
+                        .toList();
+                }
+
+                controlRepo.save(Control.builder()
+                    .controlNumber(c.getControlNumber())
+                    .name(c.getComplianceControl() != null ? c.getComplianceControl() : c.getComplianceArea())
+                    .description(c.getComplianceControl())
+                    .theme(c.getTheme())
+                    .controlType("CMP")
+                    .whatItDoes(c.getMonitoringActivity())
+                    .howTested(c.getComplianceControl())
+                    .controlOwnerName(c.getResponsibleOfficer())
+                    .testFrequency(c.getFrequency())
+                    .inherentRisk(c.getRiskLevel())
+                    .residualRisk(c.getRiskLevel())
+                    .linkedObligationIds(linkedIds)
+                    .regulatoryRequirement(c.getRegulatoryRequirement())
+                    .complianceArea(c.getComplianceArea())
+                    .monitoringActivity(c.getMonitoringActivity())
+                    .dueDate(c.getDueDate())
+                    .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+                    .actId(bundle.getRegulationId() != null ? bundle.getRegulationId().intValue() : null)
+                    .status("Active")
+                    .build());
+                seededControls++;
+            }
+        }
+
+        log.info("Seeded instrument {} ({}): {} obligations, {} sanctions, returns {}, controls {}",
             instrumentId, bundle.getRegulationName(),
             createdObligations.size(),
             bundle.getSanctions() != null ? bundle.getSanctions().size() : 0,
-            bundle.getReturns() != null ? bundle.getReturns().size() : 0);
+            bundle.getReturns() != null ? bundle.getReturns().size() : 0,
+            seededControls);
         return createdObligations.size();
     }
 

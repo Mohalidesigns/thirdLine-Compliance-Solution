@@ -7,6 +7,7 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.common.Constants;
@@ -28,6 +29,7 @@ public class InternalRegulationSeedService {
     private final ObligationMappingRepository obligations;
     private final SanctionsRepository sanctions;
     private final RegulatoryReturnRepository returns;
+    private final ComplianceControlRepository complianceControls;
     private final RegulatorRepository regulatorRepo;
 
     public List<InternalRegulationSeed> seedForRegulators(List<Integer> regulatorIds) {
@@ -117,6 +119,23 @@ public class InternalRegulationSeedService {
                         .frequency(rt.getFrequency())
                         .deadline(rt.getDeadline())
                         .filingDate(rt.getFilingDate())
+                        .build())
+                    .toList())
+                .controls(complianceControls.findByActId(r.getRegulationId()).stream()
+                    .map(c -> InternalRegulationSeed.ControlItem.builder()
+                        .controlNumber(c.getControlNumber())
+                        .theme(c.getTheme())
+                        .regulatoryRequirement(c.getRegulatoryRequirement())
+                        .complianceArea(c.getComplianceArea())
+                        .riskLevel(c.getRiskLevel())
+                        .complianceControl(c.getComplianceControl())
+                        .monitoringActivity(c.getMonitoringActivity())
+                        .frequency(c.getFrequency())
+                        .responsibleOfficer(c.getResponsibleOfficer())
+                        .dueDate(c.getDueDate())
+                        .status(c.getStatus())
+                        .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+                        .obligationId(c.getObligationId())
                         .build())
                     .toList())
                 .build());

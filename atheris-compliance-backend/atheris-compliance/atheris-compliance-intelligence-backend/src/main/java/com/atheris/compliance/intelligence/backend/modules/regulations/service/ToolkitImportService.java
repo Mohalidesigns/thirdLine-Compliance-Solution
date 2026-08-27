@@ -6,9 +6,11 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.entity.Ob
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulationAlias;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationAliasRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
@@ -46,6 +48,7 @@ public class ToolkitImportService {
     private final ObligationMappingRepository obligations;
     private final SanctionsRepository sanctions;
     private final RegulatoryReturnRepository returns;
+    private final ComplianceControlRepository complianceControls;
     private final TransactionTemplate transactionTemplate;
 
     private static final List<String> CRMP_SECTIONS = List.of(
@@ -74,12 +77,13 @@ public class ToolkitImportService {
     private int obligationCount = 0;
     private int sanctionCount = 0;
     private int returnCount = 0;
+    private int controlCount = 0;
 
     private static final Pattern CELL_SPLIT = Pattern.compile("\\|");
 
     public Map<String, Object> importToolkit() {
         unmapped.clear();
-        regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = 0;
+        regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
         try {
             return transactionTemplate.execute(status -> {
                 try {
@@ -97,6 +101,7 @@ public class ToolkitImportService {
                         }
                         importSanctions(sections.getOrDefault("sanctions_and_penalties", List.of()));
                         importReturns(sections.getOrDefault("returns_and_remittance", List.of()));
+                        importCmpControls(sections.getOrDefault("compliance_monitoring_plan", List.of()));
                     }
                     return successResult();
                 } catch (Exception e) {
@@ -123,6 +128,7 @@ public class ToolkitImportService {
             "obligations", obligationCount,
             "sanctions", sanctionCount,
             "returns", returnCount,
+            "controls", controlCount,
             "unmappedSources", unmapped.size(),
             "unmappedList", List.copyOf(unmapped)
         );
@@ -133,7 +139,7 @@ public class ToolkitImportService {
         return Map.of("error", e.getMessage(), "cause", cause,
             "regulators", regulatorCount, "acts", actCount,
             "instruments", instrumentCount, "obligations", obligationCount,
-            "sanctions", sanctionCount, "returns", returnCount);
+            "sanctions", sanctionCount, "returns", returnCount, "controls", controlCount);
     }
 
     // ── Section parsing ──
@@ -856,5 +862,167 @@ public class ToolkitImportService {
     private LocalDate lastDayOfMonth() {
         LocalDate now = LocalDate.now();
         return now.withDayOfMonth(now.lengthOfMonth());
+    }
+
+    // ── CMP controls (Compliance Monitoring Plan) ──
+    @Transactional
+    public void importCmpControls(List<List<String>> rows) {
+        if (rows.isEmpty()) return;
+
+        String currentTheme = null;
+        for (List<String> r : rows) {
+            if (r.size() < 6) continue;
+
+            // Column 0: theme (may be empty if continuing same theme)
+            String themeCell = get(r, 0);
+            if (themeCell != null && !themeCell.isBlank()) {
+                // Skip sub-header rows (e.g., "Theme | ID | Regulatory Requirement | ...")
+                if ("theme".equalsIgnoreCase(themeCell) || "id".equalsIgnoreCase(get(r, 1))) continue;
+                currentTheme = themeCell.trim();
+            }
+            if (currentTheme == null) continue;
+
+            // Column 1: control number (e.g., ABAC001)
+            String controlNumber = get(r, 1);
+            if (controlNumber == null || controlNumber.isBlank()) continue;
+            controlNumber = controlNumber.trim();
+            // Skip header repeats
+            if ("id".equalsIgnoreCase(controlNumber)) continue;
+
+            // Skip if already seeded (re-runnable)
+            if (complianceControls.existsByControlNumber(controlNumber)) continue;
+
+            // Column 2: regulatory requirement
+            String regRequirement = get(r, 2);
+            // Column 3: compliance area
+            String complianceArea = get(r, 3);
+            // Column 4: risk level
+            String riskLevel = normalizeRisk(get(r, 4));
+            // Column 5: compliance control (description)
+            String complianceControl = get(r, 5);
+            // Column 6: monitoring activity
+            String monitoringActivity = get(r, 6);
+            // Column 7: frequency
+            String frequency = get(r, 7);
+            // Column 8: responsible officer
+            String responsibleOfficer = get(r, 8);
+            // Column 9: due date
+            String dueDate = get(r, 9);
+            // Column 10: status
+            String status = normalizeControlStatus(get(r, 10));
+            // Column 11: control effectiveness measure
+            String effectivenessMeasure = get(r, 11);
+
+            // Match act from regulatory requirement text
+            Long actId = null;
+            if (regRequirement != null && !regRequirement.isBlank()) {
+                String actName = extractActName(regRequirement);
+                if (actName != null) {
+                    actId = findOrCreateAct(actName, null);
+                }
+            }
+
+            // Match obligation by section reference
+            Long obligationId = null;
+            if (actId != null && regRequirement != null) {
+                String sectionRef = extractSectionRef(regRequirement);
+                if (sectionRef != null) {
+                    obligationId = obligations.findByRegulationId(actId).stream()
+                        .filter(o -> o.getSpecificSectionReference() != null
+                            && sectionRef.toLowerCase(Locale.ROOT)
+                                .contains(o.getSpecificSectionReference().toLowerCase(Locale.ROOT)))
+                        .findFirst()
+                        .map(ObligationMapping::getObligationId)
+                        .orElse(null);
+                }
+            }
+
+            complianceControls.save(ComplianceControl.builder()
+                .controlNumber(controlNumber)
+                .theme(currentTheme)
+                .regulatoryRequirement(regRequirement)
+                .complianceArea(complianceArea)
+                .riskLevel(riskLevel)
+                .complianceControl(complianceControl)
+                .monitoringActivity(monitoringActivity)
+                .frequency(frequency)
+                .responsibleOfficer(responsibleOfficer)
+                .dueDate(dueDate)
+                .status(status)
+                .controlEffectivenessMeasure(effectivenessMeasure)
+                .actId(actId)
+                .obligationId(obligationId)
+                .build());
+            controlCount++;
+        }
+        log.info("[ToolkitImport] CMP controls imported: {}", controlCount);
+    }
+
+    /**
+     * Extracts the act name from a regulatory requirement string.
+     * E.g., "EFCC Act 2004 - Section 34(3)" → "EFCC Act 2004"
+     *       "ICPC Act 2003 - Section 13(1)" → "ICPC Act 2003"
+     *       "CBN Cybersecurity Framework - Section 1.1" → "CBN Cybersecurity Framework"
+     */
+    private String extractActName(String regRequirement) {
+        if (regRequirement == null) return null;
+        // Try common delimiters: " - ", " — ", ": "
+        String[] delimiters = {" - ", " — ", ": ", " – "};
+        for (String d : delimiters) {
+            int idx = regRequirement.indexOf(d);
+            if (idx > 0) return regRequirement.substring(0, idx).trim();
+        }
+        // If no delimiter, try to find "Section" keyword
+        int secIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("section");
+        if (secIdx > 0) return regRequirement.substring(0, secIdx).trim();
+        // Try "Rule" keyword
+        int ruleIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("rule");
+        if (ruleIdx > 0) return regRequirement.substring(0, ruleIdx).trim();
+        // Try "Article" keyword
+        int artIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("article");
+        if (artIdx > 0) return regRequirement.substring(0, artIdx).trim();
+        // Try "Principle" keyword
+        int princIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("principle");
+        if (princIdx > 0) return regRequirement.substring(0, princIdx).trim();
+        // Try "Circular" keyword
+        int circIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("circular");
+        if (circIdx > 0) return regRequirement.substring(0, circIdx).trim();
+        // Try "Guidelines" keyword
+        int guidIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("guideline");
+        if (guidIdx > 0) return regRequirement.substring(0, guidIdx).trim();
+        return null;
+    }
+
+    /**
+     * Extracts the section reference from a regulatory requirement string.
+     * E.g., "EFCC Act 2004 - Section 34(3)" → "Section 34(3)"
+     *       "SEC Rule 38(1)" → "Rule 38(1)"
+     */
+    private String extractSectionRef(String regRequirement) {
+        if (regRequirement == null) return null;
+        // Find after the act name delimiter
+        String[] delimiters = {" - ", " — ", " – "};
+        for (String d : delimiters) {
+            int idx = regRequirement.indexOf(d);
+            if (idx > 0 && idx + d.length() < regRequirement.length()) {
+                return regRequirement.substring(idx + d.length()).trim();
+            }
+        }
+        // Try after "Section", "Rule", "Article", etc.
+        String lower = regRequirement.toLowerCase(Locale.ROOT);
+        String[] keywords = {"section", "rule", "article", "principle", "paragraph", "regulation"};
+        for (String kw : keywords) {
+            int idx = lower.indexOf(kw);
+            if (idx >= 0) return regRequirement.substring(idx).trim();
+        }
+        return null;
+    }
+
+    private String normalizeControlStatus(String s) {
+        if (s == null || s.isBlank()) return "Open";
+        String v = s.trim().toLowerCase(Locale.ROOT);
+        if (v.contains("completed") || v.contains("done")) return "Completed";
+        if (v.contains("progress") || v.contains("ongoing")) return "In Progress";
+        return "Open";
     }
 }

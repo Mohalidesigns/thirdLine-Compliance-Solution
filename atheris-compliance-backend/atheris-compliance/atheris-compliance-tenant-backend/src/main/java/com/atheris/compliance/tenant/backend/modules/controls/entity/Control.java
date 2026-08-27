@@ -38,6 +38,16 @@ public class Control {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Long> linkedObligationIds;
+    @Column(columnDefinition = "text")
+    private String regulatoryRequirement;
+    private String complianceArea;
+    @Column(columnDefinition = "text")
+    private String monitoringActivity;
+    private String dueDate;
+    @Column(columnDefinition = "text")
+    private String controlEffectivenessMeasure;
+    private Integer actId;
+    private Long obligationId;
     private String inherentRisk;
     private String residualRisk;
     @Builder.Default
