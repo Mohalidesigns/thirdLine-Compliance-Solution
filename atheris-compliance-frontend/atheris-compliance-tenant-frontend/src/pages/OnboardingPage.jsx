@@ -1,24 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup,
-  FormControl, FormLabel, FormControlLabel, Select, MenuItem, Chip, OutlinedInput, InputLabel,
-  Checkbox, ListItemText, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, InputAdornment,
+  FormControl, FormLabel, FormControlLabel,
 } from '@mui/material';
 import {
-  VpnKey, CheckCircle, ElectricBolt, Business, PeopleAlt,
-  AccountBalance, Description, HowToReg,
+  VpnKey, ElectricBolt,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 
-const DOCUMENT_TYPES = ['circulars', 'guidelines', 'directives', 'regulations', 'standards', 'frameworks'];
-const RISK_RATINGS = ['high', 'medium', 'low'];
-
-const STEPS = ['License', 'Institution', 'User Setup', 'Regulators', 'Doc Types', 'Confirm'];
+const STEPS = ['License', 'Institution', 'User Setup', 'Confirm'];
 
 export default function OnboardingPage() {
   const theme = useTheme();
@@ -28,7 +22,6 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [availableRegulators, setAvailableRegulators] = useState([]);
   const [completed, setCompleted] = useState(false);
 
   const [licenseKey, setLicenseKey] = useState('');
@@ -42,22 +35,7 @@ export default function OnboardingPage() {
   const [localAdmin, setLocalAdmin] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [ldapUrl, setLdapUrl] = useState('');
 
-  const [selectedRegulators, setSelectedRegulators] = useState([]);
-  const [regulatorSearch, setRegulatorSearch] = useState('');
-  const [docTypeSearch, setDocTypeSearch] = useState('');
-  const [selectedDocTypes, setSelectedDocTypes] = useState([]);
-  const [selectedRiskRatings, setSelectedRiskRatings] = useState(['high', 'medium']);
   const [webhookUrl, setWebhookUrl] = useState('');
-
-  useEffect(() => {
-    if (!availableRegulators.length) return;
-    setSelectedRegulators(prev => {
-      if (prev.length > 0) return prev;
-      return availableRegulators
-        .filter(r => (r.obligationCount ?? 0) > 0)
-        .map(r => r.regulatorId);
-    });
-  }, [availableRegulators]);
 
   useEffect(() => {
     loadStatus();
@@ -86,11 +64,6 @@ export default function OnboardingPage() {
       setStep(resp.currentStep || 0);
       if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName }));
       if (resp.authType) setAuthType(resp.authType);
-      if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
-      if (resp.subscribedDocumentTypes) setSelectedDocTypes(resp.subscribedDocumentTypes);
-      if (resp.availableRegulators) {
-        setAvailableRegulators(resp.availableRegulators);
-      }
     } catch {
       setStep(0);
     } finally {
@@ -104,7 +77,6 @@ export default function OnboardingPage() {
     try {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
-      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
       if (nextStep === 6 && resp.onboardingCompleted) {
         setCompleted(true);
         setTimeout(() => navigate('/login', { replace: true }), 500);
@@ -150,7 +122,7 @@ export default function OnboardingPage() {
     );
   }
 
-  function handleUserSetup() {
+  async function handleUserSetup() {
     if (authType === 'local') {
       const checks = [
         { v: validateName(localAdmin.fullName), label: 'Full name' },
@@ -164,33 +136,21 @@ export default function OnboardingPage() {
         return;
       }
     }
-    submit('userSetup',
-      api.onboarding.userSetup(
-        authType === 'local'
-          ? { authType: 'local', localAdmin }
-          : { authType: 'ldap', ldapConfig: { url: ldapUrl } }
-      ),
-      3
-    );
-  }
-
-  function handleRegulators() {
-    submit('regulators',
-      api.onboarding.regulators({
-        subscribedRegulators: selectedRegulators,
-      }),
-      4
-    );
-  }
-
-  function handleDocumentTypes() {
-    submit('documentTypes',
-      api.onboarding.documentTypes({
-        subscribedDocumentTypes: selectedDocTypes,
-        notificationRiskRatings: selectedRiskRatings,
-      }),
-      5
-    );
+    setSubmitting(true);
+    setError('');
+    try {
+      const authData = authType === 'local'
+        ? { authType: 'local', localAdmin }
+        : { authType: 'ldap', ldapConfig: { url: ldapUrl } };
+      await api.onboarding.userSetup(authData);
+      await api.onboarding.regulators({ subscribedRegulators: [] });
+      await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
+      setStep(5);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleConfirm() {
@@ -201,12 +161,8 @@ export default function OnboardingPage() {
   }
 
   function getActiveStep() {
-    if (step === 0) return 0;
-    if (step === 1) return 1;
-    if (step === 2) return 2;
-    if (step === 3) return 3;
-    if (step === 4) return 4;
-    return 5;
+    if (step <= 2) return step;
+    return 3;
   }
 
   if (loading) {
@@ -340,115 +296,6 @@ export default function OnboardingPage() {
             )}
 
             {getActiveStep() === 3 && (
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Select the regulators you want to monitor
-                </Typography>
-                <TextField fullWidth size="small" placeholder="Search by name or abbreviation..."
-                  value={regulatorSearch}
-                  onChange={e => setRegulatorSearch(e.target.value)}
-                  sx={{ mb: 1.5 }}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
-                  }} />
-                <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 260 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Regulator</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Abbreviation</TableCell>
-                        <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {availableRegulators.filter(r =>
-                        !regulatorSearch ||
-                        r.name.toLowerCase().includes(regulatorSearch.toLowerCase()) ||
-                        (r.abbreviation || '').toLowerCase().includes(regulatorSearch.toLowerCase())
-                      ).map(r => (
-                        <TableRow
-                          key={r.regulatorId}
-                          hover
-                          selected={selectedRegulators.includes(r.regulatorId)}
-                          onClick={() => {
-                            setSelectedRegulators(prev =>
-                              prev.includes(r.regulatorId)
-                                ? prev.filter(id => id !== r.regulatorId)
-                                : [...prev, r.regulatorId]
-                            );
-                          }}
-                          sx={{ cursor: 'pointer' }}>
-                          <TableCell>{r.name}</TableCell>
-                          <TableCell>{r.abbreviation}</TableCell>
-                          <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
-                            <Checkbox
-                              checked={selectedRegulators.includes(r.regulatorId)}
-                              onChange={() => {}}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                    </TableContainer>
-                <Button fullWidth variant="contained" size="large"
-                  onClick={handleRegulators} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
-                  {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
-                </Button>
-              </Box>
-            )}
-
-            {getActiveStep() === 4 && (
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Select the document types you want to track
-                </Typography>
-                <TextField fullWidth size="small" placeholder="Search document type..."
-                  value={docTypeSearch}
-                  onChange={e => setDocTypeSearch(e.target.value)}
-                  sx={{ mb: 1.5 }}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">🔍</InputAdornment>,
-                  }} />
-                <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 200 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Document Type</TableCell>
-                        <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {DOCUMENT_TYPES.filter(t =>
-                        !docTypeSearch || t.toLowerCase().includes(docTypeSearch.toLowerCase())
-                      ).map(t => (
-                        <TableRow key={t} hover
-                          selected={selectedDocTypes.includes(t)}
-                          onClick={() => {
-                            setSelectedDocTypes(prev =>
-                              prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
-                            );
-                          }}
-                          sx={{ cursor: 'pointer' }}>
-                          <TableCell sx={{ textTransform: 'capitalize' }}>{t}</TableCell>
-                          <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
-                            <Checkbox checked={selectedDocTypes.includes(t)} onChange={() => {}} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <Button fullWidth variant="contained" size="large"
-                  onClick={handleDocumentTypes} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
-                  {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
-                </Button>
-              </Box>
-            )}
-
-            {getActiveStep() === 5 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                   You're all set! Review your selections and complete setup.

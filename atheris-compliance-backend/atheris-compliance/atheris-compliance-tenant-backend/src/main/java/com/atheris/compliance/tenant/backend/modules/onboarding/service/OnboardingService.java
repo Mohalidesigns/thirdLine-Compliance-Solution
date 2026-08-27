@@ -163,71 +163,49 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse saveRegulators(RegulatorSubscriptionRequest req) {
         TenantProfile p = getProfile();
-        p.setSubscribedRegulators(req.getSubscribedRegulators());
         p.setOnboardingStep(4);
         profiles.save(p);
-
-        if (req.getPerRegulatorOverrides() != null) {
-            req.getPerRegulatorOverrides().forEach(o -> {
-                Integer id = (Integer) o.get("regulator_id");
-                if (id == null) return;
-                TenantRegulatorPreference pref = regPrefs.findByRegulatorId(id)
-                    .orElse(TenantRegulatorPreference.builder().regulatorId(id).build());
-                if (o.containsKey("notification_frequency_override"))
-                    pref.setNotificationFrequencyOverride((String) o.get("notification_frequency_override"));
-                regPrefs.save(pref);
-            });
-        }
 
         List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
         Long tid = tenantIdentity.currentTenantId();
         List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
+        List<Integer> existingIds = existing.stream()
+            .map(TenantRegulator::getPlatformRegulatorId)
+            .filter(Objects::nonNull)
+            .toList();
 
-        if (req.getSubscribedRegulators() != null) {
-            for (Integer regId : req.getSubscribedRegulators()) {
-                boolean alreadyExists = existing.stream()
-                    .anyMatch(e -> regId.equals(e.getPlatformRegulatorId()));
-                if (alreadyExists) continue;
-                RegulatorSummary summary = allRegs.stream()
-                    .filter(r -> regId.equals(r.getRegulatorId()))
-                    .findFirst().orElse(null);
-                if (summary != null) {
-                    tenantRegulatorRepo.save(TenantRegulator.builder()
-                        .tenantId(tid)
-                        .name(summary.getName())
-                        .abbreviation(summary.getAbbreviation())
-                        .platformRegulatorId(summary.getRegulatorId())
-                        .isActive(true)
-                        .build());
-                } else {
-                    log.warn("Regulator {} not found on platform, creating with fallback name", regId);
-                    tenantRegulatorRepo.save(TenantRegulator.builder()
-                        .tenantId(tid)
-                        .name("Regulator " + regId)
-                        .platformRegulatorId(regId)
-                        .isActive(true)
-                        .build());
-                }
-            }
+        for (RegulatorSummary summary : allRegs) {
+            if (existingIds.contains(summary.getRegulatorId())) continue;
+            tenantRegulatorRepo.save(TenantRegulator.builder()
+                .tenantId(tid)
+                .name(summary.getName())
+                .abbreviation(summary.getAbbreviation())
+                .platformRegulatorId(summary.getRegulatorId())
+                .isActive(true)
+                .build());
         }
+
+        List<Integer> allRegIds = allRegs.stream().map(RegulatorSummary::getRegulatorId).toList();
+        p.setSubscribedRegulators(allRegIds);
+        profiles.save(p);
 
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(4).nextStep(5)
             .licenseStatus(p.getLicenseStatus())
-            .subscribedRegulators(req.getSubscribedRegulators()).build();
+            .subscribedRegulators(allRegIds).build();
     }
 
     @Transactional
     public OnboardingStatusResponse saveDocumentTypes(DocumentTypeRequest req) {
         TenantProfile p = getProfile();
-        p.setSubscribedDocumentTypes(req.getSubscribedDocumentTypes());
-        p.setNotificationRiskRatings(req.getNotificationRiskRatings());
+        p.setSubscribedDocumentTypes(List.of("circulars", "guidelines", "directives", "regulations", "standards", "frameworks"));
+        p.setNotificationRiskRatings(List.of("high", "medium", "low"));
         p.setOnboardingStep(5);
         profiles.save(p);
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(5).nextStep(6)
             .licenseStatus(p.getLicenseStatus())
-            .subscribedDocumentTypes(req.getSubscribedDocumentTypes()).build();
+            .subscribedDocumentTypes(p.getSubscribedDocumentTypes()).build();
     }
 
     @Transactional

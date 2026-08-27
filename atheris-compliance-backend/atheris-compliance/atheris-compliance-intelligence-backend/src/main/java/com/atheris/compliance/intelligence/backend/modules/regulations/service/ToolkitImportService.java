@@ -377,7 +377,14 @@ public class ToolkitImportService {
             String title = get(r, 2);
             if (title == null || title.isBlank()) continue;
 
-            Long actId = findOrCreateAct(actName, null);
+            Integer inferredRegulator = inferRegulatorForAct(actName);
+            Long actId = findOrCreateAct(actName, inferredRegulator);
+            // backfill regulator on existing acts that were created with null
+            var actOpt = actRepo.findById(actId);
+            if (actOpt.isPresent() && actOpt.get().getRegulatorId() == null && inferredRegulator != null) {
+                actOpt.get().setRegulatorId(inferredRegulator);
+                actRepo.save(actOpt.get());
+            }
             if (returns.existsByTitleAndActId(title, actId)) continue;
             Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
@@ -487,6 +494,9 @@ public class ToolkitImportService {
                 .build();
             instruments.save(stub);
             instrumentCount++;
+        } else if (stub.getRegulatorId() == null && reg.getRegulatorId() != null) {
+            stub.setRegulatorId(reg.getRegulatorId());
+            instruments.save(stub);
         }
         reg.setCanonicalInstrumentId(stub.getInstrumentId());
         actRepo.save(reg);
@@ -496,6 +506,61 @@ public class ToolkitImportService {
     }
 
     // ── Helpers ──
+    private Integer inferRegulatorForAct(String actName) {
+        if (actName == null) return null;
+        String lower = actName.toLowerCase();
+        if (lower.contains("pension") || lower.contains("pencom")) return 5;
+        if (lower.contains("housing fund") || lower.contains("fmbn") || lower.contains("national housing")) return 34;
+        if (lower.contains("fccpa") || lower.contains("federal competition and consumer protection")) return 7;
+        if (lower.contains("stock exchange") || lower.contains("nse") || lower.contains("rulebook")) return 13;
+        if (lower.contains("ndpa") || lower.contains("data protection") || lower.contains("ndpr") || lower.contains("nitda")) return 8;
+        if (lower.contains("nimc") || lower.contains("national identity")) return 12;
+        if (lower.contains("bvn") || lower.contains("bank verification")) return 1;
+        if (lower.contains("tkyc") || lower.contains("three-tiered know your customer")) return 1;
+        if (lower.contains("fx code") || lower.contains("foreign exchange code")) return 1;
+        if (lower.contains("fx manual") || lower.contains("foreign exchange manual")) return 1;
+        if (lower.contains("icaap") || lower.contains("supervisory review")) return 1;
+        if (lower.contains("irrbb") || lower.contains("interest rate risk")) return 1;
+        if (lower.contains("reputational risk")) return 1;
+        if (lower.contains("stress testing")) return 1;
+        if (lower.contains("leverage ratio")) return 1;
+        if (lower.contains("lcr") || lower.contains("liquidity coverage")) return 1;
+        if (lower.contains("whistle")) return 1;
+        if (lower.contains("shared service")) return 1;
+        if (lower.contains("regulatory capital")) return 1;
+        if (lower.contains("basel")) return 1;
+        if (lower.contains("agent banking")) return 1;
+        if (lower.contains("sanef") || lower.contains("shared agency network")) return 1;
+        if (lower.contains("prudential guideline")) return 1;
+        if (lower.contains("efems") || lower.contains("electronic foreign exchange matching")) return 1;
+        if (lower.contains("imto") || lower.contains("international money transfer")) return 1;
+        if (lower.contains("diaspora remittance") || lower.contains("local currency liquidity")) return 1;
+        if (lower.contains("consumer protection")) return 1;
+        if (lower.contains("cybersecurity") || lower.contains("cybercrime")) return 1;
+        if (lower.contains("blacklist")) return 1;
+        if (lower.contains("corporate governance")) return 1;
+        if (lower.contains("branch") && lower.contains("establishment")) return 1;
+        if (lower.contains("minimum wage")) return 31;
+        if (lower.contains("employee compensation") || lower.contains("nsitf")) return 17;
+        if (lower.contains("trade union") || lower.contains("trade dispute")) return 31;
+        if (lower.contains("bank employee") || lower.contains("declaration of assets")) return 1;
+        if (lower.contains("ndic")) return 3;
+        if (lower.contains("aml") || lower.contains("cft") || lower.contains("cpf")) return 1;
+        if (lower.contains("pep") || lower.contains("politically exposed")) return 1;
+        if (lower.contains("proliferation financing") || lower.contains("terrorism financing") || lower.contains("targeted financial sanctions")) return 1;
+        if (lower.contains("frcn") || lower.contains("financial reporting council")) return 30;
+        if (lower.contains("advance fee fraud")) return 1;
+        if (lower.contains("cbn act")) return 1;
+        if (lower.contains("itf") || lower.contains("industrial training")) return 29;
+        if (lower.contains("cama") || lower.contains("companies and allied")) return 10;
+        if (lower.contains("bofia") || lower.contains("banks and other financial")) return 1;
+        if (lower.contains("foreign currency disclosure") || lower.contains("repatriation")) return 1;
+        if (lower.contains("circular") && lower.contains("tier 1")) return 1;
+        if (lower.contains("instant payment")) return 1;
+        if (lower.contains("terrorism") && lower.contains("prevention")) return 1;
+        return null;
+    }
+
     private Integer ensureRegulator(String body) {
         String name = body.trim();
         Regulator r = regulators.findByName(name).orElse(null);
@@ -702,6 +767,7 @@ public class ToolkitImportService {
         // Event-driven patterns (check FIRST — these override recurring)
         if (f.contains("within") || f.contains("upon") || f.contains("on request")
             || f.contains("as required") || f.contains("as directed")
+            || f.contains("as determined") || f.contains("as prescribed")
             || f.contains("immediately") || f.contains("no fixed timeline")
             || f.contains("ongoing") || f.contains("continuous")
             || f.contains("as detected") || f.contains("as disputes")
@@ -712,6 +778,7 @@ public class ToolkitImportService {
             || f.contains("not less than") || f.contains("not later than")
                 && !f.contains("month") && !f.contains("quarter") && !f.contains("year")
             || f.contains("after the meeting")
+            || f.contains("after commencement")
             || f.contains("upon request")) {
             return "EVENT_DRIVEN";
         }
