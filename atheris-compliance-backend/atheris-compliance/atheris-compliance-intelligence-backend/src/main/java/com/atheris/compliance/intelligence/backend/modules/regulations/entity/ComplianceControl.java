@@ -52,6 +52,9 @@ public class ComplianceControl {
     @Column(name = "act_id")
     private Long actId;
 
+    @Column(name = "act_name", length = 500)
+    private String actName;
+
     @Column(name = "obligation_id")
     private Long obligationId;
 

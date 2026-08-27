@@ -25,6 +25,13 @@ public class ControlDetailResponse {
     private String inherentRisk;
     private String residualRisk;
     private String status;
+    private String regulatoryRequirement;
+    private String complianceArea;
+    private String monitoringActivity;
+    private String dueDate;
+    private String controlEffectivenessMeasure;
+    private Integer actId;
+    private String actName;
     private Integer createdByUserId;
     private Instant createdAt;
     private Instant updatedAt;

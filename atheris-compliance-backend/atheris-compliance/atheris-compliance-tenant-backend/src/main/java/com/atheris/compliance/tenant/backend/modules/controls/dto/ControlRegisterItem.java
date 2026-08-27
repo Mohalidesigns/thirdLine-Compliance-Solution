@@ -14,4 +14,10 @@ public class ControlRegisterItem {
     private String residualRisk;
     private String status;
     private LocalDate nextTestDueDate;
+    private String complianceArea;
+    private String regulatoryRequirement;
+    private String frequency;
+    private String dueDate;
+    private Integer actId;
+    private String actName;
 }

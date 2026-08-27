@@ -12,4 +12,5 @@ public class ControlStatsDto {
     private long testsDue;
     private List<String> themes;
     private List<String> owners;
+    private List<String> acts;
 }

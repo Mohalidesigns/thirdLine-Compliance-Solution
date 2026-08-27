@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS controls (
     due_date                      VARCHAR(100),
     control_effectiveness_measure TEXT,
     act_id                        INT,
+    act_name                      VARCHAR(500),
     obligation_id                 BIGINT,
     status                        VARCHAR(50) DEFAULT 'Active',
     created_by_user_id            INT,

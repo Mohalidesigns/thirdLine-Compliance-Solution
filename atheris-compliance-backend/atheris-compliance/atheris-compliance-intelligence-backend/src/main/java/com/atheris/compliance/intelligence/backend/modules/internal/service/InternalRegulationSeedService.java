@@ -135,6 +135,7 @@ public class InternalRegulationSeedService {
                         .dueDate(c.getDueDate())
                         .status(c.getStatus())
                         .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+                        .actName(c.getActName())
                         .obligationId(c.getObligationId())
                         .build())
                     .toList())

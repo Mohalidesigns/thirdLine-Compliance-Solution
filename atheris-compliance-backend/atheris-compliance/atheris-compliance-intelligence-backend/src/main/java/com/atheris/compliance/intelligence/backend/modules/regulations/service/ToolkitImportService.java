@@ -951,6 +951,7 @@ public class ToolkitImportService {
                 .status(status)
                 .controlEffectivenessMeasure(effectivenessMeasure)
                 .actId(actId)
+                .actName(extractActName(regRequirement))
                 .obligationId(obligationId)
                 .build());
             controlCount++;

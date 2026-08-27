@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS compliance_controls (
     status                       VARCHAR(50) DEFAULT 'Open',
     control_effectiveness_measure TEXT,
     act_id                       BIGINT REFERENCES acts(act_id),
+    act_name                     VARCHAR(500),
     obligation_id                BIGINT REFERENCES obligation_mappings(obligation_id),
     created_at                   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

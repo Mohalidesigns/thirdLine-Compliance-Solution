@@ -23,11 +23,14 @@ function formatDate(d) {
 
 const COLUMNS = [
   { id: 'controlNumber', label: '#', minWidth: 90, sortField: 'controlNumber' },
-  { id: 'name', label: 'Control', minWidth: 300, sortField: 'name' },
+  { id: 'name', label: 'Control', minWidth: 260, sortField: 'name' },
+  { id: 'complianceArea', label: 'Compliance Area', minWidth: 140, sortField: 'complianceArea' },
+  { id: 'regulatoryRequirement', label: 'Regulatory Requirement', minWidth: 200, sortField: 'regulatoryRequirement' },
   { id: 'theme', label: 'Theme', minWidth: 120, sortField: 'theme' },
+  { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
   { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'controlOwnerName' },
-  { id: 'residualRisk', label: 'Residual Risk', minWidth: 120, sortField: 'residualRisk' },
-  { id: 'nextTest', label: 'Next Test Due', minWidth: 120, sortField: 'nextTestDueDate' },
+  { id: 'residualRisk', label: 'Risk', minWidth: 80, sortField: 'residualRisk' },
+  { id: 'dueDate', label: 'Due Date', minWidth: 100, sortField: 'dueDate' },
   { id: 'status', label: 'Status', minWidth: 100, sortField: 'status' },
   { id: 'actions', label: '', minWidth: 80 },
 ];
@@ -48,6 +51,7 @@ export default function ControlsPage() {
   const [riskFilter, setRiskFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [actFilter, setActFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
@@ -60,7 +64,7 @@ export default function ControlsPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
-    || ownerFilter !== 'All' || statusFilter !== 'All';
+    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All';
 
   const loadStats = useCallback(async () => {
     try { setStats(await api.controls.stats()); } catch { /* optional */ }
@@ -75,13 +79,14 @@ export default function ControlsPage() {
       if (themeFilter !== 'All') params.theme = themeFilter;
       if (riskFilter !== 'All') params.residualRisk = riskFilter;
       if (statusFilter !== 'All') params.status = statusFilter;
+      if (actFilter !== 'All') params.actName = actFilter;
       if (sortField) params.sort = `${sortField},${sortDir}`;
       const data = await api.controls.register(params);
       setItems(data.content || []);
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load controls.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, sortField, sortDir]);
+  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, actFilter, sortField, sortDir]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);
@@ -99,7 +104,7 @@ export default function ControlsPage() {
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All'); setRiskFilter('All');
-    setOwnerFilter('All'); setStatusFilter('All');
+    setOwnerFilter('All'); setStatusFilter('All'); setActFilter('All');
     setPage(0);
   }
 
@@ -186,6 +191,11 @@ export default function ControlsPage() {
           label="Status" sx={{ minWidth: 120 }}>
           {['All', 'Active', 'Inactive'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
+        <TextField select size="small" value={actFilter} onChange={e => { setActFilter(e.target.value); setPage(0); }}
+          label="Act" sx={{ minWidth: 150 }}>
+          <MenuItem value="All">All</MenuItem>
+          {(stats?.acts || []).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+        </TextField>
         {hasFilters && (
           <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
         )}
@@ -242,9 +252,24 @@ export default function ControlsPage() {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
+                      <Typography variant="body2" sx={{ maxWidth: 160, overflow: 'hidden',
+                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.complianceArea || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ maxWidth: 220, overflow: 'hidden',
+                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.regulatoryRequirement || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       {item.theme
                         ? <Chip size="small" label={item.theme} sx={{ height: 22 }} />
                         : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{item.frequency || '-'}</Typography>
                     </TableCell>
                     <TableCell>
                       {item.controlOwnerName
@@ -261,12 +286,7 @@ export default function ControlsPage() {
                         color={RISK_COLORS[item.residualRisk] || 'default'} sx={{ height: 22 }} />
                     </TableCell>
                     <TableCell>
-                      {item.nextTestDueDate ? (
-                        <Typography variant="body2"
-                          color={new Date(item.nextTestDueDate) < new Date() ? 'error.main' : 'text.primary'}>
-                          {formatDate(item.nextTestDueDate)}
-                        </Typography>
-                      ) : '-'}
+                      <Typography variant="body2">{item.dueDate || '-'}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip size="small" label={item.status || '-'}
@@ -384,6 +404,13 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <DetailRow label="Theme" value={detail.theme} />
               <DetailRow label="Type" value={detail.controlType} />
               <DetailRow label="Owner" value={detail.controlOwnerName || 'Unassigned'} />
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>CMP Information</Typography>
+              <DetailRow label="Compliance Area" value={detail.complianceArea} />
+              <DetailRow label="Regulatory Requirement" value={detail.regulatoryRequirement} />
+              <DetailRow label="Monitoring Activity" value={detail.monitoringActivity} />
+              <DetailRow label="Due Date" value={detail.dueDate} />
+              <DetailRow label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Risk Assessment</Typography>
               <DetailRow label="Inherent Risk" value={detail.inherentRisk} chip />

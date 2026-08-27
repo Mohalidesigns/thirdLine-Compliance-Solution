@@ -29,8 +29,8 @@ public class ControlService {
     private final AuditService audit;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q);
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Pageable p) {
+        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName);
         Page<Control> page = repo.findAll(spec, p);
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
             page.getContent().stream().map(Control::getControlId).toList());
@@ -53,9 +53,11 @@ public class ControlService {
             .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
         List<String> owners = all.stream().map(Control::getControlOwnerName).filter(Objects::nonNull)
             .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
+        List<String> acts = all.stream().filter(c -> c.getActName() != null && !c.getActName().isBlank())
+            .map(Control::getActName).distinct().sorted().toList();
         return ControlStatsDto.builder()
             .total(all.size()).active(active).highRisk(highRisk).testsDue(testsDue)
-            .themes(themes).owners(owners).build();
+            .themes(themes).owners(owners).acts(acts).build();
     }
 
     private Map<Integer, ControlTask> getLatestPendingTasks(List<Integer> ids) {
@@ -69,7 +71,14 @@ public class ControlService {
             .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
             .theme(c.getTheme()).controlOwnerName(c.getControlOwnerName())
             .residualRisk(c.getResidualRisk()).status(c.getStatus())
-            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null).build();
+            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
+            .complianceArea(c.getComplianceArea())
+            .regulatoryRequirement(c.getRegulatoryRequirement())
+            .frequency(c.getTestFrequency())
+            .dueDate(c.getDueDate())
+            .actId(c.getActId())
+            .actName(c.getActName())
+            .build();
     }
 
     public ControlDetailResponse getDetail(Integer id) {
@@ -113,6 +122,13 @@ public class ControlService {
             .testFrequency(c.getTestFrequency()).testFrequencyDays(c.getTestFrequencyDays())
             .linkedObligations(obligations).inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk()).status(c.getStatus())
+            .regulatoryRequirement(c.getRegulatoryRequirement())
+            .complianceArea(c.getComplianceArea())
+            .monitoringActivity(c.getMonitoringActivity())
+            .dueDate(c.getDueDate())
+            .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+            .actId(c.getActId())
+            .actName(c.getActName())
             .createdByUserId(c.getCreatedByUserId()).createdAt(c.getCreatedAt()).updatedAt(c.getUpdatedAt())
             .testHistory(tests).nextTestDueDate(nextTest).build();
     }

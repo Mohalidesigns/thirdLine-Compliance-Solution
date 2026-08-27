@@ -193,6 +193,7 @@ public class RegulationSeedService {
                     .dueDate(c.getDueDate())
                     .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
                     .actId(bundle.getRegulationId() != null ? bundle.getRegulationId().intValue() : null)
+                    .actName(c.getActName() != null ? c.getActName() : bundle.getRegulationName())
                     .status("Active")
                     .build());
                 seededControls++;

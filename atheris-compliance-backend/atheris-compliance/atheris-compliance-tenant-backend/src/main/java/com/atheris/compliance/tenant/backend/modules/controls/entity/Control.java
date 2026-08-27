@@ -47,6 +47,7 @@ public class Control {
     @Column(columnDefinition = "text")
     private String controlEffectivenessMeasure;
     private Integer actId;
+    private String actName;
     private Long obligationId;
     private String inherentRisk;
     private String residualRisk;

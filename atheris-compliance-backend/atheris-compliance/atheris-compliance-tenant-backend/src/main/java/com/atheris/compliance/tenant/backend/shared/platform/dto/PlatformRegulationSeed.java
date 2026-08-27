@@ -92,6 +92,7 @@ public class PlatformRegulationSeed {
         private String dueDate;
         private String status;
         private String controlEffectivenessMeasure;
+        private String actName;
         private Long obligationId;
     }
 }
