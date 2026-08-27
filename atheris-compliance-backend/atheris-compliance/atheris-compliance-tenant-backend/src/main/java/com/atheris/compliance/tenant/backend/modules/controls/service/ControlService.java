@@ -41,22 +41,16 @@ public class ControlService {
     }
 
     public ControlStatsDto getStats() {
-        List<Control> all = repo.findAll();
-        LocalDate today = LocalDate.now();
-        long active = all.stream().filter(c -> "Active".equals(c.getStatus())).count();
-        long highRisk = all.stream().filter(c -> "High".equals(c.getResidualRisk())).count();
-        long testsDue = all.stream().filter(c -> {
-            ControlTask t = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(c.getControlId(), "Pending");
-            return t != null && !t.getDueDate().isAfter(today);
-        }).count();
-        List<String> themes = all.stream().map(Control::getTheme).filter(Objects::nonNull)
-            .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
-        List<String> owners = all.stream().map(Control::getControlOwnerName).filter(Objects::nonNull)
-            .map(String::trim).filter(s -> !s.isBlank()).distinct().sorted().toList();
-        List<String> acts = all.stream().filter(c -> c.getActName() != null && !c.getActName().isBlank())
-            .map(Control::getActName).distinct().sorted().toList();
+        long total = repo.count();
+        long active = repo.countByStatus("Active");
+        long highRisk = repo.countByResidualRisk("High");
+        Set<Integer> overdueTaskControlIds = new HashSet<>(repo.findControlIdsWithOverdueTasks(LocalDate.now()));
+        long testsDue = overdueTaskControlIds.size();
+        List<String> themes = repo.findDistinctThemes();
+        List<String> owners = repo.findDistinctOwners();
+        List<String> acts = repo.findDistinctActNames();
         return ControlStatsDto.builder()
-            .total(all.size()).active(active).highRisk(highRisk).testsDue(testsDue)
+            .total(total).active(active).highRisk(highRisk).testsDue(testsDue)
             .themes(themes).owners(owners).acts(acts).build();
     }
 

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class InternalInstrumentService {
@@ -124,6 +125,68 @@ public class InternalInstrumentService {
         Instrument inst = instruments.findById(instrumentId)
             .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
         return storage.openReadStream(inst.getPdfUrl());
+    }
+
+    public Map<Long, InternalInstrumentDetail> getBatchDetail(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        List<Instrument> found = instruments.findAllById(ids);
+
+        Set<Integer> regulatorIds = found.stream().map(Instrument::getRegulatorId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Integer, Regulator> regMap = regulators.findAllById(regulatorIds).stream()
+            .collect(Collectors.toMap(Regulator::getRegulatorId, r -> r));
+
+        Map<Long, List<com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping>> obMap =
+            obligations.findByInstrumentIdIn(ids).stream()
+                .collect(Collectors.groupingBy(com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping::getInstrumentId));
+
+        Map<Long, List<com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty>> sanMap =
+            sanctions.findByInstrumentIdIn(ids).stream()
+                .collect(Collectors.groupingBy(s -> s.getInstrumentId()));
+
+        Map<Long, InternalInstrumentDetail> result = new LinkedHashMap<>();
+        for (Instrument inst : found) {
+            Regulator reg = inst.getRegulatorId() != null ? regMap.get(inst.getRegulatorId()) : null;
+            List<com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping> instOb = obMap.getOrDefault(inst.getInstrumentId(), List.of());
+            List<com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty> instSan = sanMap.getOrDefault(inst.getInstrumentId(), List.of());
+            result.put(inst.getInstrumentId(), InternalInstrumentDetail.builder()
+                .instrumentId(inst.getInstrumentId())
+                .sourceTitle(inst.getSourceTitle())
+                .sourceReferenceNumber(inst.getSourceReferenceNumber())
+                .regulatorId(inst.getRegulatorId())
+                .regulatorName(reg != null ? reg.getName() : null)
+                .regulatorAbbreviation(reg != null ? reg.getAbbreviation() : null)
+                .dateIssued(inst.getDateIssued())
+                .dateCommencement(inst.getDateCommencement())
+                .riskRating(inst.getRiskRating())
+                .nature(inst.getNature())
+                .areaOfFocus(inst.getAreaOfFocus())
+                .aiSummary(inst.getAiSummary())
+                .pdfUrl(storage.generatePresignedUrl(inst.getPdfUrl(), 3600))
+                .pdfOcrText(inst.getPdfOcrText())
+                .publishedAt(inst.getPublishedAt())
+                .status(inst.getStatus())
+                .obligations(instOb.stream()
+                    .map(o -> InternalInstrumentDetail.ObligationItem.builder()
+                        .obligationNumber(o.getObligationNumber())
+                        .plainEnglishStatement(o.getPlainEnglishStatement())
+                        .specificSectionReference(o.getSpecificSectionReference())
+                        .areaOfFocus(o.getAreaOfFocus())
+                        .obligationType(o.getObligationType())
+                        .recurringDeadlineType(o.getRecurringDeadlineType())
+                        .build())
+                    .toList())
+                .sanctions(instSan.stream()
+                    .map(s -> InternalInstrumentDetail.SanctionItem.builder()
+                        .sanctionType(s.getSanctionType())
+                        .amountNaira(s.getSanctionAmountNaira())
+                        .liableRoles(s.getLiableRoles())
+                        .severityScore(s.getSeverityScore())
+                        .hasBeenEnforced(s.getHasBeenEnforced())
+                        .build())
+                    .toList())
+                .build());
+        }
+        return result;
     }
 
     private InternalInstrumentSummary toSummary(Instrument i) {

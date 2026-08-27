@@ -4,11 +4,13 @@ import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.Sanc
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface SanctionsRepository extends JpaRepository<SanctionsPenalty, Long>, JpaSpecificationExecutor<SanctionsPenalty> {
     List<SanctionsPenalty> findByInstrumentId(Long instrumentId);
+    List<SanctionsPenalty> findByInstrumentIdIn(Collection<Long> instrumentIds);
     List<SanctionsPenalty> findByRegulationId(Long regulationId);
     long countByRegulationId(Long regulationId);
     boolean existsByRegulationIdAndDescription(Long regulationId, String description);

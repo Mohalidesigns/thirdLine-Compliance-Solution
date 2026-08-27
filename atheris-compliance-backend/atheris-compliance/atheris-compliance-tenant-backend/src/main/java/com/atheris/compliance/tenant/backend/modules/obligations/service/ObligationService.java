@@ -125,12 +125,14 @@ public class ObligationService {
         Set<Long> returnIds = returnsByObligation.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         Map<Long, String> returnNameById = returnRepo.findAllById(returnIds).stream()
             .collect(Collectors.toMap(RegulatoryReturn::getReturnId, RegulatoryReturn::getReturnName, (a, b) -> a));
-        Map<Long, List<RegulatorySanction>> sanctionsByInstrument = sanctionRepo.findAll().stream()
-            .filter(s -> s.getInstrumentId() != null)
-            .collect(Collectors.groupingBy(RegulatorySanction::getInstrumentId));
 
         Set<Long> uniqueInstrumentIds = allObligations.stream()
             .map(Obligation::getInstrumentId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<Long, List<RegulatorySanction>> sanctionsByInstrument = sanctionRepo.findByInstrumentIdIn(uniqueInstrumentIds).stream()
+            .filter(s -> s.getInstrumentId() != null)
+            .collect(Collectors.groupingBy(RegulatorySanction::getInstrumentId));
+
         Map<Long, PlatformInstrumentDetail> detailCache = platform.getInstrumentDetailsBulk(new ArrayList<>(uniqueInstrumentIds));
 
         List<ObligationRegisterItem> rows = new ArrayList<>();

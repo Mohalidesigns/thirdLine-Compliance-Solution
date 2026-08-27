@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal/instruments")
@@ -25,6 +26,11 @@ import java.util.List;
 public class InternalInstrumentController {
 
     private final InternalInstrumentService service;
+
+    @PostMapping("/batch")
+    public ResponseEntity<Map<Long, InternalInstrumentDetail>> batchDetail(@RequestBody List<Long> ids) {
+        return ResponseEntity.ok(service.getBatchDetail(ids));
+    }
 
     @GetMapping("/search")
     public ResponseEntity<Page<InternalInstrumentSummary>> search(

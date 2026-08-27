@@ -13,11 +13,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class ReturnService {
@@ -50,12 +52,16 @@ public class ReturnService {
         return out;
     }
 
+    @Scheduled(fixedDelay = 300000)
+    void scheduledMaintenance() {
+        try { ensureInstancesForActive(); } catch (Exception e) { log.warn("Scheduled ensureInstances failed: {}", e.getMessage()); }
+        try { catchUpEscalations(); } catch (Exception e) { log.warn("Scheduled catchUpEscalations failed: {}", e.getMessage()); }
+    }
+
     @Transactional
     public Page<ReturnInstanceItem> getCalendar(String period, Long returnId, String status,
                                                  String q, String frequency, String regulator,
                                                  String act, Pageable p) {
-        ensureInstancesForActive();
-        catchUpEscalations();
 
         // When filtering by a specific return, short-circuit
         if (returnId != null) {
@@ -110,9 +116,12 @@ public class ReturnService {
         java.util.Map<Long, RegulatoryReturn> returnMap = filteredReturns.stream()
             .collect(java.util.stream.Collectors.toMap(RegulatoryReturn::getReturnId, r -> r));
 
+        Map<Long, List<ReturnFilingInstance>> instsByReturn = instances.findByReturnIdIn(filteredReturnIds).stream()
+            .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+
         List<ReturnFilingInstance> allInstances = new ArrayList<>();
         for (RegulatoryReturn r : filteredReturns) {
-            allInstances.addAll(instances.findByReturnId(r.getReturnId()));
+            allInstances.addAll(instsByReturn.getOrDefault(r.getReturnId(), List.of()));
         }
 
         // Step 3: Apply status filter
@@ -160,8 +169,6 @@ public class ReturnService {
     @Transactional
     public Page<ReturnRegisterItem> getRegister(String q, String frequency, String regulator,
                                                  String act, String status, Pageable p) {
-        ensureInstancesForActive();
-        catchUpEscalations();
 
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
 
@@ -190,10 +197,16 @@ public class ReturnService {
         }
 
         LocalDate now = LocalDate.now();
+
+        Set<Long> returnIds = allReturns.stream().map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
+        List<ReturnFilingInstance> allInsts = instances.findByReturnIdIn(returnIds);
+        Map<Long, List<ReturnFilingInstance>> instsByReturn = allInsts.stream()
+            .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+
         List<ReturnRegisterItem> items = new ArrayList<>();
 
         for (RegulatoryReturn r : allReturns) {
-            List<ReturnFilingInstance> insts = instances.findByReturnId(r.getReturnId());
+            List<ReturnFilingInstance> insts = instsByReturn.getOrDefault(r.getReturnId(), List.of());
             if (insts.isEmpty()) continue;
 
             // Find current instance: closest non-submitted instance with dueDate >= today,
@@ -293,10 +306,8 @@ public class ReturnService {
 
     public ReturnStatsDto getStats() {
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
-        List<ReturnFilingInstance> allInstances = new ArrayList<>();
-        for (RegulatoryReturn r : allReturns) {
-            allInstances.addAll(instances.findByReturnId(r.getReturnId()));
-        }
+        Set<Long> allReturnIds = allReturns.stream().map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
+        List<ReturnFilingInstance> allInstances = instances.findByReturnIdIn(allReturnIds);
         LocalDate now = LocalDate.now();
         long overdue = allInstances.stream().filter(i ->
             !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) &&
@@ -334,8 +345,6 @@ public class ReturnService {
             .orElseThrow(() -> new RuntimeException("Instance not found: " + instanceId)).getReturnId();
         RegulatoryReturn r = returns.findById(returnId)
             .orElseThrow(() -> new RuntimeException("Return not found: " + returnId));
-        ensureInstances(r);
-        catchUpEscalations();
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> new RuntimeException("Instance not found: " + instanceId));
         return ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());

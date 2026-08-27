@@ -14,6 +14,7 @@ import java.util.Optional;
 @Repository
 public interface ReturnFilingInstanceRepository extends JpaRepository<ReturnFilingInstance, Long>, JpaSpecificationExecutor<ReturnFilingInstance> {
     List<ReturnFilingInstance> findByReturnId(Long returnId);
+    List<ReturnFilingInstance> findByReturnIdIn(java.util.Collection<Long> returnIds);
     List<ReturnFilingInstance> findByStatus(ReturnFilingStatus status);
     Page<ReturnFilingInstance> findByStatus(ReturnFilingStatus status, Pageable p);
     long countByStatus(ReturnFilingStatus status);

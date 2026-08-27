@@ -29,12 +29,17 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component @Slf4j
 public class PlatformApiClient {
 
+    private static final long DETAIL_CACHE_TTL_MS = 300_000; // 5 minutes
+
     private final RestTemplate rest;
     private final ObjectMapper mapper;
     private final String baseUrl;
     private final TenantProfileRepository profiles;
     private final CryptoUtil crypto;
     private volatile String cachedApiKey;
+    private final ConcurrentHashMap<Long, CacheEntry<PlatformInstrumentDetail>> detailCache = new ConcurrentHashMap<>();
+
+    private record CacheEntry<T>(T value, long timestamp) {}
 
     public PlatformApiClient(
             @Value("${atheris.platform.base-url:http://localhost:9090}") String baseUrl,
@@ -189,12 +194,58 @@ public class PlatformApiClient {
 
     public Map<Long, PlatformInstrumentDetail> getInstrumentDetailsBulk(List<Long> instrumentIds) {
         if (instrumentIds == null || instrumentIds.isEmpty()) return Map.of();
+
+        long now = System.currentTimeMillis();
+        List<Long> uncached = new java.util.ArrayList<>();
         Map<Long, PlatformInstrumentDetail> result = new ConcurrentHashMap<>();
-        instrumentIds.parallelStream().forEach(id -> {
-            PlatformInstrumentDetail d = getInstrumentDetail(id);
-            if (d != null) result.put(id, d);
-        });
+        for (Long id : instrumentIds) {
+            CacheEntry<PlatformInstrumentDetail> entry = detailCache.get(id);
+            if (entry != null && (now - entry.timestamp()) < DETAIL_CACHE_TTL_MS) {
+                result.put(id, entry.value());
+            } else {
+                uncached.add(id);
+            }
+        }
+
+        if (!uncached.isEmpty()) {
+            try {
+                HttpHeaders h = headers();
+                h.setContentType(MediaType.APPLICATION_JSON);
+                ResponseEntity<Map<Long, PlatformInstrumentDetail>> resp = rest.exchange(
+                    baseUrl + "/api/v1/internal/instruments/batch",
+                    HttpMethod.POST,
+                    new HttpEntity<>(uncached, h),
+                    new ParameterizedTypeReference<Map<Long, PlatformInstrumentDetail>>() {});
+                Map<Long, PlatformInstrumentDetail> fetched = resp.getBody();
+                if (fetched != null) {
+                    result.putAll(fetched);
+                    fetched.forEach((id, d) -> detailCache.put(id, new CacheEntry<>(d, now)));
+                }
+            } catch (Exception e) {
+                log.error("Batch instrument detail failed, falling back to individual: {}", e.getMessage());
+                for (Long id : uncached) {
+                    PlatformInstrumentDetail d = getInstrumentDetailSingle(id);
+                    if (d != null) {
+                        result.put(id, d);
+                        detailCache.put(id, new CacheEntry<>(d, now));
+                    }
+                }
+            }
+        }
         return result;
+    }
+
+    private PlatformInstrumentDetail getInstrumentDetailSingle(Long instrumentId) {
+        try {
+            HttpHeaders h = headers();
+            ResponseEntity<PlatformInstrumentDetail> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/instruments/" + instrumentId + "/detail",
+                HttpMethod.GET, new HttpEntity<>(h), PlatformInstrumentDetail.class);
+            return resp.getBody();
+        } catch (Exception e) {
+            log.error("Failed to fetch instrument detail: {}", e.getMessage());
+            return null;
+        }
     }
 
     public byte[] getInstrumentPdf(Long instrumentId) {

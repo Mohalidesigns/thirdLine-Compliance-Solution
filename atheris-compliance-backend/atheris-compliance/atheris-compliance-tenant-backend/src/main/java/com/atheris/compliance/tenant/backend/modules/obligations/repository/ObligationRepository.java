@@ -5,12 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 import java.util.List;
 
 public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     boolean existsByObligationNumber(Integer obligationNumber);
     List<Obligation> findByInstrumentId(Long instrumentId);
     long countByInstrumentId(Long instrumentId);
+
+    @Query(value = "SELECT instrument_id, COUNT(*) AS cnt FROM obligations WHERE instrument_id IN (:ids) GROUP BY instrument_id", nativeQuery = true)
+    java.util.List<Object[]> countByInstrumentIdIn(@Param("ids") Collection<Long> ids);
 
     @Query("SELECT DISTINCT o.instrumentId FROM Obligation o")
     List<Long> findDistinctInstrumentIds();

@@ -45,9 +45,20 @@ public class InstrumentsService {
         PagedResponse<PlatformInstrumentSummary> platformPage =
             platform.searchInstruments(q, platformRegIds, PageRequest.of(0, fetchSize));
 
-        List<InstrumentSummaryResponse> all = platformPage.getContent().stream()
+        List<PlatformInstrumentSummary> filtered = platformPage.getContent().stream()
             .filter(s -> confirmed.contains(s.getInstrumentId()))
-            .map(this::toSummary)
+            .toList();
+
+        List<Long> filteredIds = filtered.stream().map(PlatformInstrumentSummary::getInstrumentId).toList();
+        Map<Long, Integer> countMap = new java.util.HashMap<>();
+        if (!filteredIds.isEmpty()) {
+            for (Object[] row : obligationRepo.countByInstrumentIdIn(filteredIds)) {
+                countMap.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
+            }
+        }
+
+        List<InstrumentSummaryResponse> all = filtered.stream()
+            .map(s -> toSummary(s, countMap))
             .toList();
 
         int from = (int) pageable.getOffset();
@@ -108,7 +119,7 @@ public class InstrumentsService {
         return bytes;
     }
 
-    private InstrumentSummaryResponse toSummary(PlatformInstrumentSummary s) {
+    private InstrumentSummaryResponse toSummary(PlatformInstrumentSummary s, Map<Long, Integer> countMap) {
         return InstrumentSummaryResponse.builder()
             .id(s.getInstrumentId())
             .sourceTitle(s.getSourceTitle())
@@ -121,7 +132,7 @@ public class InstrumentsService {
             .status(s.getStatus())
             .publishedAt(s.getPublishedAt() != null ? s.getPublishedAt() : s.getDateIssued())
             .pdfUrl(s.getPdfUrl())
-            .obligationCount((int) obligationRepo.countByInstrumentId(s.getInstrumentId()))
+            .obligationCount(countMap.getOrDefault(s.getInstrumentId(), 0))
             .build();
     }
 }
