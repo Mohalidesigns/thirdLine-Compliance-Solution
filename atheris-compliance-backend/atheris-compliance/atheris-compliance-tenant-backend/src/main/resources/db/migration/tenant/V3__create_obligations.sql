@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS obligations (
     effective_date          DATE,
     status                  VARCHAR(50) DEFAULT 'active',
     source                  VARCHAR(50) DEFAULT 'ai_extracted',
+    risk_description        TEXT,
+    inherent_likelihood     VARCHAR(50),
+    inherent_impact         VARCHAR(50),
+    inherent_risk_rating    VARCHAR(50),
+    control_owner           VARCHAR(255),
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

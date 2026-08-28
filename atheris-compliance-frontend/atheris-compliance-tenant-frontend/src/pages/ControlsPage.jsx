@@ -23,12 +23,12 @@ function formatDate(d) {
 
 const COLUMNS = [
   { id: 'name', label: 'Control', minWidth: 260, sortField: 'name' },
+  { id: 'controlType', label: 'Type', minWidth: 90, sortField: 'controlType' },
   { id: 'complianceArea', label: 'Compliance Area', minWidth: 140, sortField: 'complianceArea' },
-  { id: 'regulatoryRequirement', label: 'Regulatory Requirement', minWidth: 200, sortField: 'regulatoryRequirement' },
   { id: 'theme', label: 'Theme', minWidth: 120, sortField: 'theme' },
+  { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'ownerName' },
+  { id: 'residualRiskRating', label: 'Risk', minWidth: 90, sortField: 'residualRiskRating' },
   { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
-  { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'controlOwnerName' },
-  { id: 'residualRisk', label: 'Risk', minWidth: 80, sortField: 'residualRisk' },
   { id: 'dueDate', label: 'Due Date', minWidth: 100, sortField: 'dueDate' },
   { id: 'status', label: 'Status', minWidth: 100, sortField: 'status' },
   { id: 'actions', label: '', minWidth: 80 },
@@ -261,15 +261,13 @@ export default function ControlsPage() {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
+                      <Chip size="small" label={item.controlType || 'CMP'}
+                        color={item.controlType === 'ADDITIONAL' ? 'info' : 'default'} sx={{ height: 22 }} />
+                    </TableCell>
+                    <TableCell>
                       <Typography variant="body2" sx={{ maxWidth: 160, overflow: 'hidden',
                         textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.complianceArea || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 220, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.regulatoryRequirement || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -278,21 +276,21 @@ export default function ControlsPage() {
                         : '-'}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{item.frequency || '-'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {item.controlOwnerName
-                        ? <Tooltip title={item.controlOwnerName}>
+                      {(item.ownerName || item.controlOwnerName)
+                        ? <Tooltip title={item.ownerName || item.controlOwnerName}>
                             <Typography variant="body2" sx={{ maxWidth: 130, overflow: 'hidden',
                               textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.controlOwnerName}
+                              {item.ownerName || item.controlOwnerName}
                             </Typography>
                           </Tooltip>
                         : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={item.residualRisk || '-'}
-                        color={RISK_COLORS[item.residualRisk] || 'default'} sx={{ height: 22 }} />
+                      <Chip size="small" label={item.residualRiskRating || item.residualRisk || '-'}
+                        color={RISK_COLORS[item.residualRiskRating || item.residualRisk] || 'default'} sx={{ height: 22 }} />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{item.frequency || '-'}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{item.dueDate || '-'}</Typography>
@@ -424,6 +422,10 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Risk Assessment</Typography>
               <DetailRow label="Inherent Risk" value={detail.inherentRisk} chip />
               <DetailRow label="Residual Risk" value={detail.residualRisk} chip />
+              <DetailRow label="Residual Likelihood" value={detail.residualLikelihood} />
+              <DetailRow label="Residual Impact" value={detail.residualImpact} />
+              <DetailRow label="Residual Risk Rating" value={detail.residualRiskRating} chip />
+              <DetailRow label="Owner" value={detail.ownerName || detail.controlOwnerName} />
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Testing</Typography>
               <DetailRow label="Frequency" value={detail.testFrequency || 'Not set'} />

@@ -51,6 +51,10 @@ public class Control {
     private Long obligationId;
     private String inherentRisk;
     private String residualRisk;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualRiskRating;
+    private String ownerName;
     @Builder.Default
     private String status = "Active";
     private Integer createdByUserId;

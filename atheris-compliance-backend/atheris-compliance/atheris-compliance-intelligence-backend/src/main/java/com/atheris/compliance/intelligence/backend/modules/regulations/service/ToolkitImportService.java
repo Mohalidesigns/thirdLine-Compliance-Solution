@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j @Service @RequiredArgsConstructor
 public class ToolkitImportService {
@@ -102,6 +103,7 @@ public class ToolkitImportService {
                         importSanctions(sections.getOrDefault("sanctions_and_penalties", List.of()));
                         importReturns(sections.getOrDefault("returns_and_remittance", List.of()));
                         importCmpControls(sections.getOrDefault("compliance_monitoring_plan", List.of()));
+                        importCmpControlsFromSections(sections);
                     }
                     return successResult();
                 } catch (Exception e) {
@@ -281,6 +283,13 @@ public class ToolkitImportService {
         int cType = col(idx, "obligationtype");
         int cDeadline = col(idx, "recurringdeadlinetype", "duedate");
 
+        // Risk + owner columns (positional — consistent across all CRMP sections)
+        // Col 7=Risk Description, 8=Likelihood(Inherent), 9=Impact(Inherent), 10=Responsibility(Control Owner)
+        int cRiskDesc = colFormat ? 7 : 7;
+        int cLikelihoodInherent = colFormat ? 8 : 8;
+        int cImpactInherent = colFormat ? 9 : 9;
+        int cControlOwner = colFormat ? 10 : 10;
+
         int obligNumber = 0;
         String lastSource = null;
         for (int i = 1; i < rows.size(); i++) {
@@ -307,6 +316,10 @@ public class ToolkitImportService {
                 continue;
             }
 
+            String likelihoodInherent = normalizeRiskLabel(get(r, cLikelihoodInherent));
+            String impactInherent = normalizeRiskLabel(get(r, cImpactInherent));
+            String inherentRiskRating = computeRiskBand(likelihoodInherent, impactInherent);
+
             obligations.save(ObligationMapping.builder()
                 .instrumentId(instrumentId)
                 .regulationId(actId)
@@ -316,6 +329,11 @@ public class ToolkitImportService {
                 .areaOfFocus(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
                 .obligationType(shorten(get(r, cType), 100))
                 .recurringDeadlineType(shorten(get(r, cDeadline), 50))
+                .riskDescription(get(r, cRiskDesc))
+                .inherentLikelihood(likelihoodInherent)
+                .inherentImpact(impactInherent)
+                .inherentRiskRating(inherentRiskRating)
+                .controlOwner(get(r, cControlOwner))
                 .build());
             obligationCount++;
         }
@@ -689,6 +707,40 @@ public class ToolkitImportService {
         return null;
     }
 
+    private String normalizeRiskLabel(String s) {
+        if (s == null) return null;
+        String v = s.toLowerCase(Locale.ROOT).trim();
+        if (v.contains("very high") || v.contains("veryhigh")) return "Very High";
+        if (v.contains("very low") || v.contains("verylow")) return "Very Low";
+        if (v.contains("high")) return "High";
+        if (v.contains("medium") || v.contains("moderate")) return "Medium";
+        if (v.contains("low")) return "Low";
+        return null;
+    }
+
+    private String computeRiskBand(String likelihood, String impact) {
+        int l = riskScore(likelihood);
+        int i = riskScore(impact);
+        if (l <= 0 || i <= 0) return null;
+        int score = l * i;
+        if (score <= 3) return "Low";
+        if (score <= 6) return "Moderate";
+        if (score <= 9) return "High";
+        return "Critical";
+    }
+
+    private int riskScore(String label) {
+        if (label == null) return 0;
+        return switch (label.toLowerCase(Locale.ROOT).trim()) {
+            case "very low" -> 1;
+            case "low" -> 2;
+            case "medium", "moderate" -> 3;
+            case "high" -> 4;
+            case "very high" -> 5;
+            default -> 0;
+        };
+    }
+
     private String normalizeYesNo(String s) {
         if (s == null) return null;
         String v = s.toLowerCase(Locale.ROOT);
@@ -1025,5 +1077,122 @@ public class ToolkitImportService {
         if (v.contains("completed") || v.contains("done")) return "Completed";
         if (v.contains("progress") || v.contains("ongoing")) return "In Progress";
         return "Open";
+    }
+
+    // ── CRMP sections → extract Control + Additional Control ──
+    @Transactional
+    public void importCmpControlsFromSections(Map<String, List<List<String>>> sections) {
+        int cmpCount = 0;
+        for (String sectionName : CRMP_SECTIONS) {
+            List<List<String>> rows = sections.getOrDefault(sectionName, List.of());
+            if (rows.isEmpty()) continue;
+            Map<String, Integer> idx = headerIndex(rows.get(0));
+            boolean colFormat = idx.containsKey("col0");
+
+            int cSource = colFormat ? 2 : col(idx, "complianceobligationsource", "acts");
+            int cSection = colFormat ? 3 : col(idx, "section");
+            int cTitle = colFormat ? 4 : col(idx, "title");
+            int cDesc = colFormat ? 5 : col(idx, "descriptionincludespecificsection", "description");
+
+            // Col 11=Control, 12=Residual Likelihood, 13=Residual Impact, 14=Additional Control, 16=Responsibility
+            int cControl = 11;
+            int cLikelihoodResidual = 12;
+            int cImpactResidual = 13;
+            int cAdditionalControl = 14;
+            int cControlOwner = 16;
+
+            String lastSource = null;
+            for (int i = 1; i < rows.size(); i++) {
+                List<String> r = rows.get(i);
+                if (isSubHeader(r, cTitle, cDesc)) continue;
+
+                String source = get(r, cSource);
+                if (source == null || source.isBlank()) source = lastSource;
+                if (source == null || source.isBlank()) continue;
+                lastSource = source;
+
+                // Resolve regulation
+                Long actId = findOrCreateAct(source, null);
+                String sectionRef = get(r, cSection);
+
+                // Match ALL obligations by section reference for this regulation
+                List<Long> matchedObligationIds = matchObligationsBySection(actId, sectionRef);
+                String linkedIds = matchedObligationIds.isEmpty() ? null
+                    : matchedObligationIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+
+                // Residual risk
+                String likelihoodResidual = normalizeRiskLabel(get(r, cLikelihoodResidual));
+                String impactResidual = normalizeRiskLabel(get(r, cImpactResidual));
+                String residualRiskRating = computeRiskBand(likelihoodResidual, impactResidual);
+
+                // Primary Control (col 11)
+                String controlText = get(r, cControl);
+                if (controlText != null && !controlText.isBlank()) {
+                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "C" + String.format("%03d", cmpCount + 1);
+                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
+                        complianceControls.save(ComplianceControl.builder()
+                            .controlNumber(ctrlNum)
+                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
+                            .regulatoryRequirement(source)
+                            .complianceArea(sectionName)
+                            .riskLevel(normalizeRisk(get(r, cTitle)))
+                            .complianceControl(controlText)
+                            .controlType("PRIMARY")
+                            .residualLikelihood(likelihoodResidual)
+                            .residualImpact(impactResidual)
+                            .residualRiskRating(residualRiskRating)
+                            .ownerName(get(r, cControlOwner))
+                            .actId(actId)
+                            .actName(source)
+                            .linkedObligationIds(linkedIds)
+                            .status("Open")
+                            .build());
+                        cmpCount++;
+                    }
+                }
+
+                // Additional Control (col 14)
+                String additionalText = get(r, cAdditionalControl);
+                if (additionalText != null && !additionalText.isBlank()) {
+                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "A" + String.format("%03d", cmpCount + 1);
+                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
+                        complianceControls.save(ComplianceControl.builder()
+                            .controlNumber(ctrlNum)
+                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
+                            .regulatoryRequirement(source)
+                            .complianceArea(sectionName)
+                            .riskLevel(normalizeRisk(get(r, cTitle)))
+                            .complianceControl(additionalText)
+                            .controlType("ADDITIONAL")
+                            .residualLikelihood(likelihoodResidual)
+                            .residualImpact(impactResidual)
+                            .residualRiskRating(residualRiskRating)
+                            .ownerName(get(r, cControlOwner))
+                            .actId(actId)
+                            .actName(source)
+                            .linkedObligationIds(linkedIds)
+                            .status("Open")
+                            .build());
+                        cmpCount++;
+                    }
+                }
+            }
+        }
+        controlCount += cmpCount;
+        log.info("[ToolkitImport] CRMP section controls imported: {}", cmpCount);
+    }
+
+    private List<Long> matchObligationsBySection(Long regulationId, String sectionRef) {
+        if (sectionRef == null || sectionRef.isBlank()) return List.of();
+        return obligations.findByRegulationId(regulationId).stream()
+            .filter(o -> {
+                String oRef = o.getSpecificSectionReference();
+                if (oRef == null || oRef.isBlank()) return false;
+                String norm = sectionRef.toLowerCase(Locale.ROOT).trim();
+                return norm.contains(oRef.toLowerCase(Locale.ROOT).trim())
+                    || oRef.toLowerCase(Locale.ROOT).trim().contains(norm);
+            })
+            .map(ObligationMapping::getObligationId)
+            .toList();
     }
 }

@@ -24,6 +24,10 @@ public class ControlDetailResponse {
     private List<LinkedObligation> linkedObligations;
     private String inherentRisk;
     private String residualRisk;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualRiskRating;
+    private String ownerName;
     private String status;
     private String regulatoryRequirement;
     private String complianceArea;

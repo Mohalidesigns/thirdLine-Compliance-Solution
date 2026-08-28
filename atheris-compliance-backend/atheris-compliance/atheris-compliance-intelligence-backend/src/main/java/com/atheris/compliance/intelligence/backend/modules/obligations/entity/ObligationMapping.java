@@ -18,6 +18,11 @@ public class ObligationMapping {
     private String obligationType;          // Operational | Reporting | Governance | One-time
     private String recurringDeadlineType;   // Continuous | Daily | Monthly | Annual | One-time
     private Integer complianceDeadlineDays;
+    private String riskDescription;
+    private String inherentLikelihood;
+    private String inherentImpact;
+    private String inherentRiskRating;
+    private String controlOwner;
     private Instant createdAt;
     @PrePersist void onCreate() { createdAt = Instant.now(); }
 }
