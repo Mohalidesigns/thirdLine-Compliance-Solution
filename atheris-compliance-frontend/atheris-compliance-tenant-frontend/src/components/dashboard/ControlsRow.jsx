@@ -26,7 +26,7 @@ function RingProgress({ value, color, size = 64 }) {
       <Box sx={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Typography variant="body2" fontWeight={700}>{Math.round(value)}%</Typography>
+        <Typography variant="body2" fontWeight={700}>{value.toFixed(2)}%</Typography>
       </Box>
     </Box>
   );
@@ -41,7 +41,7 @@ export default function ControlsRow({ snapshot = {} }) {
   const failing = snapshot.controlsFailing || 0;
   const testRate = snapshot.controlsTestCompletionRate || 0;
 
-  const effectivenessPct = total > 0 ? Math.round((passing / total) * 100) : 0;
+  const effectivenessPct = total > 0 ? ((passing / total) * 100) : 0;
   const effectColor = effectivenessPct >= 90 ? '#4caf50' : effectivenessPct >= 70 ? '#ed6c02' : '#d32f2f';
 
   const stats = [
@@ -122,7 +122,7 @@ export default function ControlsRow({ snapshot = {} }) {
           <Box sx={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden' }}>
             <Box sx={{ width: `${effectivenessPct}%`, bgcolor: '#4caf50', transition: 'width 0.5s' }} />
             {failing > 0 && (
-              <Box sx={{ width: `${Math.round((failing / total) * 100)}%`, bgcolor: '#d32f2f', transition: 'width 0.5s' }} />
+              <Box sx={{ width: `${((failing / total) * 100).toFixed(2)}%`, bgcolor: '#d32f2f', transition: 'width 0.5s' }} />
             )}
           </Box>
         </Box>

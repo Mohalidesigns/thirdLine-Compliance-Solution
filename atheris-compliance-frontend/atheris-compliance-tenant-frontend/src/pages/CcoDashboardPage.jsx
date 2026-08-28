@@ -88,7 +88,17 @@ export default function CcoDashboardPage() {
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Section 2: Compliance Trend */}
+        {/* Section 2: Returns Status */}
+        <SectionHeader
+          title="Regulatory Returns Status"
+          subtitle="Filing progress and upcoming deadlines"
+          color="#2e7d32"
+        />
+        <ReturnsStatusSection stats={returnsStats} calendar={calendar} />
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Section 3: Compliance Trend */}
         <SectionHeader
           title="Compliance Trend"
           subtitle="Score and control performance over time"
@@ -98,7 +108,7 @@ export default function CcoDashboardPage() {
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Section 3: Controls Effectiveness */}
+        {/* Section 4: Controls Effectiveness */}
         <SectionHeader
           title="Controls Effectiveness"
           subtitle="Control performance and remediation status"
@@ -108,23 +118,13 @@ export default function CcoDashboardPage() {
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Section 4: Sanctions & Penalty Exposure */}
+        {/* Section 5: Sanctions & Penalty Exposure */}
         <SectionHeader
           title="Sanctions & Penalty Exposure"
           subtitle="Regulatory penalties and enforcement status"
           color="#d32f2f"
         />
         <SanctionsExposureRow stats={sanctionsStats} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 5: Returns Status */}
-        <SectionHeader
-          title="Regulatory Returns Status"
-          subtitle="Filing progress and upcoming deadlines"
-          color="#2e7d32"
-        />
-        <ReturnsStatusSection stats={returnsStats} calendar={calendar} />
       </Box>
     </Fade>
   );

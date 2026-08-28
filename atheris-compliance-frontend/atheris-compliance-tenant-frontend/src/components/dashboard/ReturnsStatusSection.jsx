@@ -9,7 +9,7 @@ import {
 function StatusCard({ title, count, total, icon: Icon, color, items, drillLabel }) {
   const theme = useTheme();
   const navigate = useNavigate();
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const pct = total > 0 ? ((count / total) * 100) : 0;
   const chipColor = pct >= 90 ? 'success' : pct >= 70 ? 'warning' : 'error';
 
   return (
@@ -36,7 +36,7 @@ function StatusCard({ title, count, total, icon: Icon, color, items, drillLabel 
       </Box>
       {total > 0 && (
         <Chip
-          label={`${pct}%`}
+          label={`${pct.toFixed(2)}%`}
           size="small"
           color={chipColor}
           sx={{ mt: 1, fontWeight: 600, fontSize: 12 }}

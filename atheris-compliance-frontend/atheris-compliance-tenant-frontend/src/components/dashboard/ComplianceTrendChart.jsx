@@ -32,10 +32,10 @@ export default function ComplianceTrendChart({ trend = [] }) {
         date: s.snapshotDate,
         score: s.complianceScore ?? 0,
         returnsOnTime: s.returnsTotal > 0
-          ? Math.round((s.returnsSubmittedOnTime / s.returnsTotal) * 100)
+          ? (s.returnsSubmittedOnTime / s.returnsTotal) * 100
           : 0,
         controlsPassing: s.controlsTotal > 0
-          ? Math.round((s.controlsPassing / s.controlsTotal) * 100)
+          ? (s.controlsPassing / s.controlsTotal) * 100
           : 0,
       }));
   }, [trend]);
@@ -77,7 +77,7 @@ export default function ComplianceTrendChart({ trend = [] }) {
                   tickFormatter={v => `${v}%`}
                 />
                 <Tooltip
-                  formatter={(value, name) => [`${value}%`, name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing']}
+                  formatter={(value, name) => [`${Number(value).toFixed(2)}%`, name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing']}
                   labelFormatter={d => formatDate(d)}
                   contentStyle={{ borderRadius: 8, border: 'none', boxShadow: theme.shadows[2] }}
                 />
@@ -103,9 +103,9 @@ export default function ComplianceTrendChart({ trend = [] }) {
           </Box>
           {latest && (
             <Box sx={{ display: 'flex', gap: 3, mt: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-              <MiniStat label="Current Score" value={`${latest.score}%`} color={latest.score >= 90 ? '#4caf50' : latest.score >= 70 ? '#ed6c02' : '#d32f2f'} />
-              <MiniStat label="Returns On Time" value={`${latest.returnsOnTime}%`} color="#4caf50" />
-              <MiniStat label="Controls Passing" value={`${latest.controlsPassing}%`} color="#9c27b0" />
+              <MiniStat label="Current Score" value={`${Number(latest.score).toFixed(2)}%`} color={latest.score >= 90 ? '#4caf50' : latest.score >= 70 ? '#ed6c02' : '#d32f2f'} />
+              <MiniStat label="Returns On Time" value={`${latest.returnsOnTime.toFixed(2)}%`} color="#4caf50" />
+              <MiniStat label="Controls Passing" value={`${latest.controlsPassing.toFixed(2)}%`} color="#9c27b0" />
             </Box>
           )}
         </>

@@ -38,7 +38,7 @@ export default function SanctionsExposureRow({ stats = {} }) {
       icon: EnforcedIcon,
       color: '#d32f2f',
       route: '/sanctions',
-      chip: total > 0 ? `${Math.round((enforced / total) * 100)}%` : null,
+      chip: total > 0 ? `${((enforced / total) * 100).toFixed(2)}%` : null,
     },
     {
       label: 'High Severity',
@@ -46,7 +46,7 @@ export default function SanctionsExposureRow({ stats = {} }) {
       icon: HighSevIcon,
       color: '#ed6c02',
       route: '/sanctions',
-      chip: total > 0 ? `${Math.round((highSeverity / total) * 100)}%` : null,
+      chip: total > 0 ? `${((highSeverity / total) * 100).toFixed(2)}%` : null,
     },
   ];
 
