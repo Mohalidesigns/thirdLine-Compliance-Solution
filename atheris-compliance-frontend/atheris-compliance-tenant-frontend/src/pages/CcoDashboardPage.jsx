@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, Grid, CircularProgress, Typography, Fade } from '@mui/material';
 import { api } from '../services/api';
 import AttentionSection from '../components/dashboard/AttentionSection';
-import ActivityFeed from '../components/dashboard/ActivityFeed';
 import ComplianceTrendChart from '../components/dashboard/ComplianceTrendChart';
 import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 
@@ -10,7 +9,6 @@ const POLL_INTERVAL = 30000;
 
 export default function CcoDashboardPage() {
   const [attention, setAttention] = useState({});
-  const [events, setEvents] = useState([]);
   const [trend, setTrend] = useState([]);
   const [returnsStats, setReturnsStats] = useState({});
   const [calendar, setCalendar] = useState([]);
@@ -18,18 +16,13 @@ export default function CcoDashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [att, evts, trnd, rStats, cal] = await Promise.allSettled([
+      const [att, trnd, rStats, cal] = await Promise.allSettled([
         api.dashboard.attentionItems(),
-        api.audit.register({ size: 10, sort: 'occurredAt,desc' }),
         api.dashboard.trends(),
         api.returns.stats(),
         api.returns.calendar({ days: 90 }),
       ]);
       if (att.status === 'fulfilled') setAttention(att.value || {});
-      if (evts.status === 'fulfilled') {
-        const d = evts.value;
-        setEvents(Array.isArray(d) ? d : d?.content || []);
-      }
       if (trnd.status === 'fulfilled') setTrend(Array.isArray(trnd.value) ? trnd.value : []);
       if (rStats.status === 'fulfilled') setReturnsStats(rStats.value || {});
       if (cal.status === 'fulfilled') setCalendar(Array.isArray(cal.value) ? cal.value : []);
@@ -62,12 +55,9 @@ export default function CcoDashboardPage() {
         </Typography>
 
         <Grid container spacing={2.5}>
-          {/* Row 1: Attention + Activity Feed */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          {/* Row 1: Attention */}
+          <Grid size={{ xs: 12 }}>
             <AttentionSection items={attention} />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <ActivityFeed events={events} />
           </Grid>
 
           {/* Row 2: Compliance Trend (full width) */}
