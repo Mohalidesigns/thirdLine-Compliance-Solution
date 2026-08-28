@@ -71,7 +71,7 @@ public class ComplianceControl {
     @Column(length = 50)
     private String residualRiskRating;
 
-    @Column(length = 255)
+    @Column(columnDefinition = "text")
     private String ownerName;
 
     @Column(columnDefinition = "text")

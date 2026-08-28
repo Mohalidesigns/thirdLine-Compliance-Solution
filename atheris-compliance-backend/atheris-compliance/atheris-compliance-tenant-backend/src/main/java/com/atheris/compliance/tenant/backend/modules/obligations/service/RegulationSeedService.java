@@ -18,9 +18,13 @@ import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -37,10 +41,23 @@ public class RegulationSeedService {
     private final RegulatoryReturnRepository returns;
     private final ControlRepository controlRepo;
     private final TenantIdentityService tenantIdentity;
+    private final PlatformTransactionManager txManager;
+
+    // Each regulation bundle is seeded in its own REQUIRES_NEW transaction via a TransactionTemplate,
+    // so a single failing bundle rolls back only itself (not the whole seed run). This also avoids
+    // the self-injection/proxy pitfalls of annotating a private method with @Transactional.
+    private TransactionTemplate txTemplate;
+
+    @PostConstruct
+    void init() {
+        txTemplate = new TransactionTemplate(txManager);
+        txTemplate.setPropagationBehavior(Propagation.REQUIRES_NEW.value());
+    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int seedAll() {
         Long tenantId = tenantIdentity.currentTenantId();
+        log.info("[SeedDebug] seedAll start tenantId={}", tenantId);
         List<TenantRegulator> regs = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
             .filter(r -> r.getPlatformRegulatorId() != null)
             .toList();
@@ -49,15 +66,24 @@ public class RegulationSeedService {
             .sorted()
             .distinct()
             .toList();
+        log.info("[SeedDebug] active regs with platformRegulatorId={} platformIds={}", platformIds.size(), platformIds);
         if (platformIds.isEmpty()) {
             log.info("Seed skipped: no active regulators for tenant {}", tenantId);
             return 0;
         }
 
         List<PlatformRegulationSeed> bundles = platform.fetchRegulationSeeds(platformIds);
+        log.info("[SeedDebug] fetchRegulationSeeds returned bundles={}", bundles == null ? "null" : bundles.size());
         int seeded = 0;
         for (PlatformRegulationSeed bundle : bundles) {
-            seeded += seedBundle(bundle, regs);
+            try {
+                seeded += txTemplate.execute(status -> seedBundle(bundle, regs));
+            } catch (Exception e) {
+                log.error("[SeedDebug] seedBundle transaction rolled back for regulationId={} instrumentId={}: {}",
+                    bundle.getRegulationId(),
+                    bundle.getCanonicalInstrument() != null ? bundle.getCanonicalInstrument().getInstrumentId() : null,
+                    e.getMessage());
+            }
         }
         log.info("Seed complete for tenant {}: {} regulation bundles processed", tenantId, bundles.size());
         return seeded;
@@ -65,10 +91,20 @@ public class RegulationSeedService {
 
     private int seedBundle(PlatformRegulationSeed bundle, List<TenantRegulator> tenantRegs) {
         if (bundle.getCanonicalInstrument() == null
-            || bundle.getCanonicalInstrument().getInstrumentId() == null) return 0;
+            || bundle.getCanonicalInstrument().getInstrumentId() == null) {
+            log.warn("[SeedDebug] seedBundle SKIPPED: canonicalInstrument null for regulationId={}", bundle.getRegulationId());
+            return 0;
+        }
         Long instrumentId = bundle.getCanonicalInstrument().getInstrumentId();
+        log.info("[SeedDebug] seedBundle reg={} instrumentId={} obligations={} returns={} sanctions={} controls={}",
+            bundle.getRegulationId(), instrumentId,
+            bundle.getObligations() == null ? 0 : bundle.getObligations().size(),
+            bundle.getReturns() == null ? 0 : bundle.getReturns().size(),
+            bundle.getSanctions() == null ? 0 : bundle.getSanctions().size(),
+            bundle.getControls() == null ? 0 : bundle.getControls().size());
 
         boolean hasObligations = obligationRepo.countByInstrumentId(instrumentId) > 0;
+        log.info("[SeedDebug] seedBundle instrumentId={} hasObligations={} willCreate={}", instrumentId, hasObligations, !hasObligations && bundle.getObligations() != null);
         TenantRegulator reg = tenantRegs.stream()
             .filter(r -> bundle.getRegulatorId() != null
                 && bundle.getRegulatorId().equals(r.getPlatformRegulatorId()))
@@ -231,22 +267,16 @@ public class RegulationSeedService {
     private Integer parseDueDayFromFrequency(String frequency) {
         if (frequency == null || frequency.isBlank()) return 1;
         String f = frequency.trim().toLowerCase();
-        // "Monthly, on or before 5th" / "on or before the 5th day"
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("on\\s+or\\s+before\\s+(?:the\\s+)?(\\d+)(?:st|nd|rd|th)").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
-        // "by June 30" / "by 31st Dec" / "By March 15"
         m = java.util.regex.Pattern.compile("by\\s+\\w+\\s+(\\d+)(?:st|nd|rd|th)?").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
-        // "by 31st Dec"
         m = java.util.regex.Pattern.compile("by\\s+(\\d+)(?:st|nd|rd|th)").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
-        // "Within 5 days after month-end"
         m = java.util.regex.Pattern.compile("within\\s+(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
-        // bare number: "5th" / "the 5th"
         m = java.util.regex.Pattern.compile("(\\d+)(?:st|nd|rd|th)").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
-        // "5 days after month-end"
         m = java.util.regex.Pattern.compile("(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
         return 1;
@@ -262,7 +292,6 @@ public class RegulationSeedService {
         if (f.contains("every 2 years") || f.contains("biennial")) return "Biennial";
         if (f.contains("annual") || f.contains("year")) return "Annually";
         if (f.contains("monthly")) return "Monthly";
-        // Event-driven — keep first 50 chars
         return frequency.length() <= 50 ? frequency.trim() : frequency.trim().substring(0, 50);
     }
 }

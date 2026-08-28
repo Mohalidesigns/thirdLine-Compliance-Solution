@@ -325,7 +325,10 @@ public class PlatformApiClient {
     }
 
     public List<PlatformRegulationSeed> fetchRegulationSeeds(List<Integer> regulatorIds) {
-        if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
+        if (regulatorIds == null || regulatorIds.isEmpty()) {
+            log.info("[SeedDebug] fetchRegulationSeeds called with empty regulatorIds");
+            return List.of();
+        }
         try {
             StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/acts/seed");
             boolean first = true;
@@ -334,12 +337,14 @@ public class PlatformApiClient {
                 first = false;
             }
             HttpHeaders h = headers();
+            log.info("[SeedDebug] fetchRegulationSeeds GET {} (apiKeyPresent={})", url, h.containsKey("X-Api-Key"));
             ResponseEntity<List<PlatformRegulationSeed>> resp = rest.exchange(
                 url.toString(), HttpMethod.GET, new HttpEntity<>(h),
                 new ParameterizedTypeReference<List<PlatformRegulationSeed>>() {});
+            log.info("[SeedDebug] fetchRegulationSeeds status={} bodySize={}", resp.getStatusCode(), resp.getBody() != null ? resp.getBody().size() : -1);
             return resp.getBody() != null ? resp.getBody() : List.of();
         } catch (Exception e) {
-            log.error("Failed to fetch regulation seeds: {}", e.getMessage());
+            log.error("[SeedDebug] fetchRegulationSeeds FAILED: {}", e.getMessage(), e);
             return List.of();
         }
     }

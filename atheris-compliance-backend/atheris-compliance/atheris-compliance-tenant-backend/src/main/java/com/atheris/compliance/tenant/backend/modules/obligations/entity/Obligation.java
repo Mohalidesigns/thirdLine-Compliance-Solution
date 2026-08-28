@@ -26,7 +26,7 @@ public class Obligation {
     private String inherentLikelihood;
     private String inherentImpact;
     private String inherentRiskRating;
-    private String controlOwner;
+    @Column(columnDefinition = "text") private String controlOwner;
     private Instant createdAt;
     private Instant updatedAt;
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); }

@@ -20,7 +20,7 @@ public class Control {
     private Integer controlId;
     @Column(nullable = false, unique = true)
     private String controlNumber;
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "text")
     private String name;
     @Column(columnDefinition = "text")
     private String description;
@@ -47,6 +47,7 @@ public class Control {
     @Column(columnDefinition = "text")
     private String controlEffectivenessMeasure;
     private Integer actId;
+    @Column(columnDefinition = "text")
     private String actName;
     private Long obligationId;
     private String inherentRisk;
@@ -54,7 +55,7 @@ public class Control {
     private String residualLikelihood;
     private String residualImpact;
     private String residualRiskRating;
-    private String ownerName;
+    @Column(columnDefinition = "text") private String ownerName;
     @Builder.Default
     private String status = "Active";
     private Integer createdByUserId;

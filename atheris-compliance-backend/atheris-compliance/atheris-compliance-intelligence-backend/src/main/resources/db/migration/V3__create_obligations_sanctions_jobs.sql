@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS obligation_mappings (
     obligation_type         VARCHAR(100),
     recurring_deadline_type VARCHAR(50),
     compliance_deadline_days INT,
+    risk_description        TEXT,
+    inherent_likelihood     VARCHAR(50),
+    inherent_impact         VARCHAR(50),
+    inherent_risk_rating    VARCHAR(50),
+    control_owner           TEXT,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

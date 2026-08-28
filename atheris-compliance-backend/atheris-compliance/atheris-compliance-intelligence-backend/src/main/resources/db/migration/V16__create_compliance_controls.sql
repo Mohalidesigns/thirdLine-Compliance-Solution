@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS compliance_controls (
     residual_likelihood          VARCHAR(50),
     residual_impact              VARCHAR(50),
     residual_risk_rating         VARCHAR(50),
-    owner_name                   VARCHAR(255),
+    owner_name                   TEXT,
     linked_obligation_ids        TEXT,
     created_at                   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

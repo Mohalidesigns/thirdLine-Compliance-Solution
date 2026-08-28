@@ -1,10 +1,10 @@
 CREATE TABLE IF NOT EXISTS regulatory_returns (
     return_id                  BIGSERIAL PRIMARY KEY,
-    return_name                VARCHAR(500) NOT NULL,
+    return_name                TEXT NOT NULL,
     filing_regulator           VARCHAR(100),
     tenant_regulator_id        BIGINT,
     act_id                     BIGINT,
-    act_name                   VARCHAR(500),
+    act_name                   TEXT,
     department_id              INT,
     return_type                VARCHAR(100),
     frequency                  VARCHAR(50),
@@ -12,11 +12,11 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     status                     VARCHAR(50) DEFAULT 'Active',
     filing_date                DATE,
     filing_deadline_offset_days INT,
-    filing_channel             VARCHAR(255),
+    filing_channel             TEXT,
     return_owner_user_id       INT,
-    return_owner_name          VARCHAR(255),
-    responsible_unit           VARCHAR(255),
-    responsible_person         VARCHAR(255),
+    return_owner_name          TEXT,
+    responsible_unit           TEXT,
+    responsible_person         TEXT,
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

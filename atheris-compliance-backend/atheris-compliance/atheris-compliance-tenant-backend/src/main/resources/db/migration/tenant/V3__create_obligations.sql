@@ -1,10 +1,10 @@
 CREATE TABLE IF NOT EXISTS obligations (
     obligation_id            BIGSERIAL PRIMARY KEY,
     instrument_id           BIGINT,
-    name                    VARCHAR(255),
+    name                    TEXT,
     obligation_number       INT,
     description             TEXT,
-    section_reference       VARCHAR(255),
+    section_reference       TEXT,
     area_of_focus           VARCHAR(100),
     obligation_type         VARCHAR(100),
     recurring_deadline_type VARCHAR(100),
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS obligations (
     inherent_likelihood     VARCHAR(50),
     inherent_impact         VARCHAR(50),
     inherent_risk_rating    VARCHAR(50),
-    control_owner           VARCHAR(255),
+    control_owner           TEXT,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
