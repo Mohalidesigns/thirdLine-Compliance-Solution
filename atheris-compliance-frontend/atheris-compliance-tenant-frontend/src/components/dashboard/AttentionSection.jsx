@@ -20,10 +20,7 @@ export default function AttentionSection({ items = {} }) {
 
   return (
     <Paper sx={{ p: 3, height: '100%' }}>
-      <Typography variant="h6" gutterBottom fontWeight={600}>
-        Needs Attention
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
         {ITEMS.map(({ key, label, icon: Icon, color, route }) => {
           const count = items[key] || 0;
           return (

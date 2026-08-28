@@ -44,9 +44,6 @@ export default function ComplianceTrendChart({ trend = [] }) {
 
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom fontWeight={600}>
-        Compliance Trend
-      </Typography>
       {data.length === 0 ? (
         <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="body2" color="text.secondary">
