@@ -9,6 +9,7 @@ import java.time.Instant;
 public class AuditEventItem {
     private Long eventId;
     private Integer actorUserId;
+    private String actorName;
     private String action;
     private String actionDescription;
     private String subjectType;
@@ -17,8 +18,12 @@ public class AuditEventItem {
     private Instant occurredAt;
 
     public static AuditEventItem from(AuditEvent e) {
+        return from(e, null);
+    }
+
+    public static AuditEventItem from(AuditEvent e, String actorName) {
         return AuditEventItem.builder()
-            .eventId(e.getEventId()).actorUserId(e.getActorUserId())
+            .eventId(e.getEventId()).actorUserId(e.getActorUserId()).actorName(actorName)
             .action(e.getAction()).actionDescription(humanAction(e))
             .subjectType(e.getSubjectType()).subjectId(e.getSubjectId())
             .evidenceUrl(e.getEvidenceUrl()).occurredAt(e.getOccurredAt()).build();

@@ -4,6 +4,8 @@ import com.atheris.compliance.tenant.backend.modules.audit.dto.AuditEventItem;
 import com.atheris.compliance.tenant.backend.modules.audit.entity.AuditEvent;
 import com.atheris.compliance.tenant.backend.modules.audit.repository.AuditEventRepository;
 import com.atheris.compliance.tenant.backend.modules.audit.repository.AuditSpecification;
+import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.*;
 public class AuditService {
 
     private final AuditEventRepository repo;
+    private final UserRepository users;
     private final ObjectMapper mapper;
 
     public AuditEvent log(Integer actorUserId, String action, String subjectType, Long subjectId, Map<String, Object> afterData) {
@@ -53,7 +56,19 @@ public class AuditService {
             String subjectType, Long subjectId, Integer actorUserId,
             Instant dateFrom, Instant dateTo, Pageable p) {
         var spec = AuditSpecification.withFilters(subjectType, subjectId, actorUserId, dateFrom, dateTo);
-        return repo.findAll(spec, p).map(AuditEventItem::from);
+        Page<AuditEventItem> page = repo.findAll(spec, p).map(e -> AuditEventItem.from(e));
+        Set<Integer> userIds = new HashSet<>();
+        page.forEach(item -> { if (item.getActorUserId() != null) userIds.add(item.getActorUserId()); });
+        Map<Integer, String> nameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            users.findAllById(userIds).forEach(u -> nameMap.put(u.getUserId(), u.getFullName()));
+        }
+        return page.map(item -> AuditEventItem.builder()
+            .eventId(item.getEventId()).actorUserId(item.getActorUserId())
+            .actorName(nameMap.getOrDefault(item.getActorUserId(), "System"))
+            .action(item.getAction()).actionDescription(item.getActionDescription())
+            .subjectType(item.getSubjectType()).subjectId(item.getSubjectId())
+            .evidenceUrl(item.getEvidenceUrl()).occurredAt(item.getOccurredAt()).build());
     }
 
     public Page<AuditEvent> findBySubject(String subjectType, Long subjectId, Pageable p) {
