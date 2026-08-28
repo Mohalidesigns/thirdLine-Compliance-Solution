@@ -49,6 +49,11 @@ public class InternalRegulationSeed {
         private String areaOfFocus;
         private String obligationType;
         private String recurringDeadlineType;
+        private String riskDescription;
+        private String inherentLikelihood;
+        private String inherentImpact;
+        private String inherentRiskRating;
+        private String controlOwner;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -93,5 +98,11 @@ public class InternalRegulationSeed {
         private String controlEffectivenessMeasure;
         private String actName;
         private Long obligationId;
+        private String controlType;
+        private String residualLikelihood;
+        private String residualImpact;
+        private String residualRiskRating;
+        private String ownerName;
+        private String linkedObligationIds;
     }
 }

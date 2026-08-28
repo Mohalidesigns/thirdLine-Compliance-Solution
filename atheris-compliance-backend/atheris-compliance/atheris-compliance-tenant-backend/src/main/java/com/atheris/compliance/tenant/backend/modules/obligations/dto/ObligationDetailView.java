@@ -33,12 +33,16 @@ public class ObligationDetailView {
     private String likelihoodRating;
     private String likelihoodJustification;
     private String inherentRiskRating;
+    private String inherentLikelihood;
+    private String inherentImpact;
+    private String riskDescription;
     private String residualRiskRating;
     private Integer assignedOwnerUserId;
     private Integer assignedOwnerId;
     private Integer assignedTeamId;
     private Integer assignedDepartmentId;
     private String assignedOwnerName;
+    private String controlOwner;
     private String assignedDepartment;
     private Boolean hasGap;
     private String gapDescription;

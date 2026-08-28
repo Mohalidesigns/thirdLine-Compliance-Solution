@@ -93,6 +93,11 @@ public class RegulationSeedService {
                     .effectiveDate(effDate)
                     .status("active")
                     .source("seeded")
+                    .riskDescription(o.getRiskDescription())
+                    .inherentLikelihood(o.getInherentLikelihood())
+                    .inherentImpact(o.getInherentImpact())
+                    .inherentRiskRating(o.getInherentRiskRating())
+                    .controlOwner(o.getControlOwner())
                     .build();
                 ob = obligationRepo.save(ob);
                 classifications.save(ObligationClassification.builder()
@@ -164,10 +169,20 @@ public class RegulationSeedService {
                 if (c.getControlNumber() == null || c.getControlNumber().isBlank()) continue;
                 if (controlRepo.existsByControlNumber(c.getControlNumber())) continue;
 
-                // Link all obligations from this instrument to the control
-                List<Long> linkedIds = createdObligations.stream()
-                    .map(Obligation::getObligationId)
-                    .toList();
+                // Link obligations — prefer platform-provided linkedObligationIds
+                List<Long> linkedIds = null;
+                if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isBlank()) {
+                    linkedIds = java.util.Arrays.stream(c.getLinkedObligationIds().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(Long::parseLong)
+                        .toList();
+                }
+                if (linkedIds == null || linkedIds.isEmpty()) {
+                    linkedIds = createdObligations.stream()
+                        .map(Obligation::getObligationId)
+                        .toList();
+                }
                 if (linkedIds.isEmpty()) {
                     linkedIds = obligationRepo.findByInstrumentId(instrumentId).stream()
                         .map(Obligation::getObligationId)
@@ -179,13 +194,17 @@ public class RegulationSeedService {
                     .name(c.getComplianceControl() != null ? c.getComplianceControl() : c.getComplianceArea())
                     .description(c.getComplianceControl())
                     .theme(c.getTheme())
-                    .controlType("CMP")
+                    .controlType(c.getControlType() != null ? c.getControlType() : "CMP")
                     .whatItDoes(c.getMonitoringActivity())
                     .howTested(c.getComplianceControl())
                     .controlOwnerName(c.getResponsibleOfficer())
+                    .ownerName(c.getOwnerName())
                     .testFrequency(c.getFrequency())
                     .inherentRisk(c.getRiskLevel())
                     .residualRisk(c.getRiskLevel())
+                    .residualLikelihood(c.getResidualLikelihood())
+                    .residualImpact(c.getResidualImpact())
+                    .residualRiskRating(c.getResidualRiskRating())
                     .linkedObligationIds(linkedIds)
                     .regulatoryRequirement(c.getRegulatoryRequirement())
                     .complianceArea(c.getComplianceArea())

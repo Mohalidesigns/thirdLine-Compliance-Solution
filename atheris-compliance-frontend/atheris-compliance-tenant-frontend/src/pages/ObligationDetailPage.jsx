@@ -199,10 +199,17 @@ export default function ObligationDetailPage() {
                 <Box sx={{ mt: 0.5 }}>{riskChip(selected.residualRiskRating)}</Box>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Impact / Likelihood</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.impactRating || '-'} / {selected.likelihoodRating || '-'}</Typography>
+                <Typography variant="caption" color="text.secondary">Likelihood</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.inherentLikelihood || selected.likelihoodRating || '-'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Impact</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.inherentImpact || selected.impactRating || '-'}</Typography>
               </Box>
             </Box>
+            {selected.riskDescription && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selected.riskDescription}</Typography>
+            )}
             {selected.riskJustification && (
               <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
             )}
@@ -213,7 +220,7 @@ export default function ObligationDetailPage() {
             <SectionHeader title="Compliance Owner"
               action={actionEdit(() => setActiveModal('owner'), 'Assign Owner')} />
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {selected.assignedOwnerName || 'Unassigned'}
+              {selected.controlOwner || selected.assignedOwnerName || 'Unassigned'}
             </Typography>
             {selected.assignedDepartment && (
               <Typography variant="caption" color="text.secondary">{selected.assignedDepartment}</Typography>

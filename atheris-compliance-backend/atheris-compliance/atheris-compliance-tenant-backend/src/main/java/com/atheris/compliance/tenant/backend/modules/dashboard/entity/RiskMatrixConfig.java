@@ -25,12 +25,12 @@ public class RiskMatrixConfig {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     @Builder.Default
-    private List<String> impactLevels = List.of("Insignificant", "Minor", "Moderate", "Major", "Severe");
+    private List<String> impactLevels = List.of("Low", "Medium", "High", "Very High");
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     @Builder.Default
-    private List<String> likelihoodLevels = List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
+    private List<String> likelihoodLevels = List.of("Very Low", "Low", "Medium", "High");
 
     @Builder.Default
     private String scoringFormula = "product";
@@ -38,5 +38,5 @@ public class RiskMatrixConfig {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default
-    private Map<String, Integer> bandThresholds = Map.of("moderate", 6, "high", 12, "critical", 18);
+    private Map<String, Integer> bandThresholds = Map.of("moderate", 6, "high", 9, "critical", 9);
 }

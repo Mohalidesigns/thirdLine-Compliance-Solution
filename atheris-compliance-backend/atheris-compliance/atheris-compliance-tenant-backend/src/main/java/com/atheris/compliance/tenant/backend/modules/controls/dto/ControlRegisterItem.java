@@ -11,7 +11,12 @@ public class ControlRegisterItem {
     private String name;
     private String theme;
     private String controlOwnerName;
+    private String ownerName;
+    private String controlType;
     private String residualRisk;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualRiskRating;
     private String status;
     private LocalDate nextTestDueDate;
     private String complianceArea;

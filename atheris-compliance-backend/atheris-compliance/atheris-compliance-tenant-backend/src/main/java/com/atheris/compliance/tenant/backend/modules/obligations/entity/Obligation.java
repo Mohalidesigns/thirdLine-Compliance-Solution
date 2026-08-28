@@ -22,6 +22,11 @@ public class Obligation {
     private LocalDate effectiveDate;
     @Builder.Default private String status = "active";
     @Builder.Default private String source = "ai_extracted";
+    @Column(columnDefinition = "text") private String riskDescription;
+    private String inherentLikelihood;
+    private String inherentImpact;
+    private String inherentRiskRating;
+    private String controlOwner;
     private Instant createdAt;
     private Instant updatedAt;
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); }

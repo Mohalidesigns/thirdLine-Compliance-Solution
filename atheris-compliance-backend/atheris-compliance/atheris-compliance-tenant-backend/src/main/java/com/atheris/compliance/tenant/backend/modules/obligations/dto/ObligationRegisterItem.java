@@ -27,8 +27,11 @@ public class ObligationRegisterItem {
     private String applicability;
     private String tenantRiskRating;
     private String inherentRiskRating;
+    private String inherentLikelihood;
+    private String inherentImpact;
     private String residualRiskRating;
     private String assignedOwnerName;
+    private String controlOwner;
     private String assignedDepartment;
     private String status;
     private Boolean hasGap;
