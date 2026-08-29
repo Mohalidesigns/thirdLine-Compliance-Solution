@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { api } from '../../services/api';
 
-const RISK_LEVELS = ['Extreme', 'High', 'Medium', 'Low'];
+const RISK_LEVELS = ['Critical', 'High', 'Moderate', 'Low'];
 const IMPACT_LEVELS = ['Critical', 'High', 'Medium', 'Low'];
 const LIKELIHOOD_LEVELS = ['Almost Certain', 'Likely', 'Possible', 'Unlikely', 'Rare'];
 

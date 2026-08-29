@@ -429,3 +429,41 @@ Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Desi
 
 ### Verified (live on 9091, test data cleaned up afterwards)
 Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >2d, L3 at >5d); submit flips to `Submitted Late` + resets escalation; quarterly return stepped Aug→Nov; return-to-obligation link `[8,5,1]` → join rows + `link_obligations` audit; obligation detail lists linked returns.
+
+# CRITICAL RULES - MUST FOLLOW
+## PLANNING MODE
+
+- Always ask clarifying questions
+- Use deep-dive sub-agents to assist with research
+- Use deep-dive sub-agents to review the different aspects of your plan before presenting to the user
+
+## CHANGE / EDIT MODE
+
+- Never implement features yourself when possible - use sub-agents!
+- Identify changes from the plan that can be implemented in parallel, and use sub-agents to implement the features efficiently
+- When using sub-agents to implement features, act as a coordinator only
+
+## CODING STYLE
+
+- controllers must be using thin and delegate to service classes
+- always try to use jpa query methods where possible
+- for filtering and searching, use jpa criteria unless otherwise
+- avoid n+1 queries
+
+## DATABASE SCHEMA CHANGES
+
+- Whenever you are recreating and dropping databases, ALWAYS use POSTGRES superuser
+- Whenever you make changes to the database schema, ALWAYS edit the existing migrations if they are the ones updated
+- Only create new migration files where necessary for new entities/tables added later
+
+## TESTING
+
+- Use any testing tools, libraries available to the project for testing your changes
+- Never assume your changes simply work, always test!
+- If the project does not have any testing tools, scripts, MCP tools, skills, etc. available for testing, ask the user whether testing should be skipped.
+
+## UI DESIGN
+
+- in pages with tables, use similar styling as the obligations register pages
+- in the tables use maximum of five columns to ensure visibility
+- the card stats should have a drop down

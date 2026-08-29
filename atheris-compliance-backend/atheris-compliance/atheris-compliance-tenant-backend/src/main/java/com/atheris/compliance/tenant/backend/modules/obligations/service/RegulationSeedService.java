@@ -28,7 +28,9 @@ import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class RegulationSeedService {
@@ -57,7 +59,6 @@ public class RegulationSeedService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int seedAll() {
         Long tenantId = tenantIdentity.currentTenantId();
-        log.info("[SeedDebug] seedAll start tenantId={}", tenantId);
         List<TenantRegulator> regs = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
             .filter(r -> r.getPlatformRegulatorId() != null)
             .toList();
@@ -66,14 +67,12 @@ public class RegulationSeedService {
             .sorted()
             .distinct()
             .toList();
-        log.info("[SeedDebug] active regs with platformRegulatorId={} platformIds={}", platformIds.size(), platformIds);
         if (platformIds.isEmpty()) {
             log.info("Seed skipped: no active regulators for tenant {}", tenantId);
             return 0;
         }
 
         List<PlatformRegulationSeed> bundles = platform.fetchRegulationSeeds(platformIds);
-        log.info("[SeedDebug] fetchRegulationSeeds returned bundles={}", bundles == null ? "null" : bundles.size());
         int seeded = 0;
         for (PlatformRegulationSeed bundle : bundles) {
             try {
@@ -96,15 +95,7 @@ public class RegulationSeedService {
             return 0;
         }
         Long instrumentId = bundle.getCanonicalInstrument().getInstrumentId();
-        log.info("[SeedDebug] seedBundle reg={} instrumentId={} obligations={} returns={} sanctions={} controls={}",
-            bundle.getRegulationId(), instrumentId,
-            bundle.getObligations() == null ? 0 : bundle.getObligations().size(),
-            bundle.getReturns() == null ? 0 : bundle.getReturns().size(),
-            bundle.getSanctions() == null ? 0 : bundle.getSanctions().size(),
-            bundle.getControls() == null ? 0 : bundle.getControls().size());
-
         boolean hasObligations = obligationRepo.countByInstrumentId(instrumentId) > 0;
-        log.info("[SeedDebug] seedBundle instrumentId={} hasObligations={} willCreate={}", instrumentId, hasObligations, !hasObligations && bundle.getObligations() != null);
         TenantRegulator reg = tenantRegs.stream()
             .filter(r -> bundle.getRegulatorId() != null
                 && bundle.getRegulatorId().equals(r.getPlatformRegulatorId()))
@@ -115,12 +106,14 @@ public class RegulationSeedService {
             : bundle.getCanonicalInstrument().getDateIssued();
 
         List<Obligation> createdObligations = new ArrayList<>();
+        List<ObligationClassification> createdClassifications = new ArrayList<>();
         if (!hasObligations && bundle.getObligations() != null) {
             int num = 1;
             for (PlatformRegulationSeed.ObligationItem o : bundle.getObligations()) {
                 Obligation ob = Obligation.builder()
                     .instrumentId(instrumentId)
                     .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
+                    .name(deriveObligationName(o, num))
                     .description(o.getPlainEnglishStatement())
                     .sectionReference(o.getSpecificSectionReference())
                     .areaOfFocus(o.getAreaOfFocus())
@@ -136,15 +129,21 @@ public class RegulationSeedService {
                     .controlOwner(o.getControlOwner())
                     .build();
                 ob = obligationRepo.save(ob);
-                classifications.save(ObligationClassification.builder()
+                ObligationClassification c = classifications.save(ObligationClassification.builder()
                     .instrumentId(instrumentId)
                     .obligationId(ob.getObligationId())
                     .applicability("applicable")
                     .status("active")
                     .classificationVersion(1)
                     .classifiedAt(Instant.now())
+                    .impactRating(o.getInherentImpact())
+                    .likelihoodRating(o.getInherentLikelihood())
+                    .inherentRiskRating(o.getInherentRiskRating())
+                    .tenantRiskRating(o.getInherentRiskRating())
+                    .assignedOwnerName(o.getControlOwner())
                     .build());
                 createdObligations.add(ob);
+                createdClassifications.add(c);
                 num++;
             }
         }
@@ -200,32 +199,34 @@ public class RegulationSeedService {
         }
 
         int seededControls = 0;
+        // Maps each obligation -> the control IDs created in this bundle that link to it.
+        Map<Long, List<Integer>> controlsByObligation = new HashMap<>();
         if (bundle.getControls() != null) {
             for (PlatformRegulationSeed.ControlItem c : bundle.getControls()) {
                 if (c.getControlNumber() == null || c.getControlNumber().isBlank()) continue;
                 if (controlRepo.existsByControlNumber(c.getControlNumber())) continue;
 
-                // Link obligations — prefer platform-provided linkedObligationIds
-                List<Long> linkedIds = null;
+                // Controls belong to the bundle's regulation, so they attach to ALL obligations of that
+                // instrument (the toolkit links controls at the act_id/regulation level). This guarantees every
+                // obligation carries its regulation's controls + additional controls.
+                List<Long> linkedIds = createdObligations.isEmpty()
+                    ? obligationRepo.findByInstrumentId(instrumentId).stream()
+                        .map(Obligation::getObligationId)
+                        .toList()
+                    : createdObligations.stream()
+                        .map(Obligation::getObligationId)
+                        .toList();
+                // Union in any platform-supplied explicit links (a subset of the same instrument).
                 if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isBlank()) {
-                    linkedIds = java.util.Arrays.stream(c.getLinkedObligationIds().split(","))
+                    java.util.Set<Long> merged = new java.util.LinkedHashSet<>(linkedIds);
+                    java.util.Arrays.stream(c.getLinkedObligationIds().split(","))
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())
-                        .map(Long::parseLong)
-                        .toList();
-                }
-                if (linkedIds == null || linkedIds.isEmpty()) {
-                    linkedIds = createdObligations.stream()
-                        .map(Obligation::getObligationId)
-                        .toList();
-                }
-                if (linkedIds.isEmpty()) {
-                    linkedIds = obligationRepo.findByInstrumentId(instrumentId).stream()
-                        .map(Obligation::getObligationId)
-                        .toList();
+                        .forEach(s -> merged.add(Long.parseLong(s)));
+                    linkedIds = new ArrayList<>(merged);
                 }
 
-                controlRepo.save(Control.builder()
+                Control saved = controlRepo.save(Control.builder()
                     .controlNumber(c.getControlNumber())
                     .name(c.getComplianceControl() != null ? c.getComplianceControl() : c.getComplianceArea())
                     .description(c.getComplianceControl())
@@ -252,6 +253,18 @@ public class RegulationSeedService {
                     .status("Active")
                     .build());
                 seededControls++;
+                for (Long oid : linkedIds) {
+                    controlsByObligation.computeIfAbsent(oid, k -> new ArrayList<>()).add(saved.getControlId());
+                }
+            }
+        }
+
+        // Wire each obligation's classification to the controls that target it.
+        for (ObligationClassification c : createdClassifications) {
+            List<Integer> ids = controlsByObligation.get(c.getObligationId());
+            if (ids != null && !ids.isEmpty()) {
+                c.setLinkedControlIds(new ArrayList<>(ids));
+                classifications.save(c);
             }
         }
 
@@ -262,6 +275,16 @@ public class RegulationSeedService {
             bundle.getReturns() != null ? bundle.getReturns().size() : 0,
             seededControls);
         return createdObligations.size();
+    }
+
+    private String deriveObligationName(PlatformRegulationSeed.ObligationItem o, int num) {
+        String base = o.getAreaOfFocus();
+        if (base == null || base.isBlank()) base = o.getObligationType();
+        if (base == null || base.isBlank()) base = o.getPlainEnglishStatement();
+        if (base == null || base.isBlank()) base = "Obligation " + num;
+        base = base.trim();
+        if (base.length() > 120) base = base.substring(0, 117) + "...";
+        return base;
     }
 
     private Integer parseDueDayFromFrequency(String frequency) {

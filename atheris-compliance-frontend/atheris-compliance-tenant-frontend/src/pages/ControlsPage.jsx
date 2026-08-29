@@ -14,7 +14,7 @@ import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 
-const RISK_COLORS = { High: 'error', Medium: 'warning', Low: 'success', Extreme: 'error' };
+const RISK_COLORS = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success', Extreme: 'error' };
 
 function formatDate(d) {
   if (!d) return '-';
@@ -184,7 +184,7 @@ export default function ControlsPage() {
         </TextField>
         <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
           label="Residual Risk" sx={{ minWidth: 130 }}>
-          {['All', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          {['All', 'Critical', 'High', 'Moderate', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
           label="Status" sx={{ minWidth: 120 }}>

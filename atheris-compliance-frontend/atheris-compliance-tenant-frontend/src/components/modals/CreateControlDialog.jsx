@@ -16,7 +16,7 @@ const EMPTY = {
 
 const THEMES = ['IT', 'Financial', 'Operational', 'Compliance', 'Legal'];
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
-const RISKS = ['High', 'Medium', 'Low'];
+const RISKS = ['Critical', 'High', 'Moderate', 'Low'];
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 
 function Field({ label, children, sx }) {

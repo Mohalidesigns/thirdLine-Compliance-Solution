@@ -44,7 +44,7 @@ public class ObligationService {
     private final DepartmentRepository departmentRepo;
     private final RegulatorySanctionRepository sanctionRepo;
 
-    private static final List<String> RISK_LEVELS = List.of("Extreme", "High", "Medium", "Low");
+    private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
     private volatile List<ObligationRegisterItem> cachedRows;
     private volatile long cacheTimestamp;
@@ -71,8 +71,8 @@ public class ObligationService {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         long total = rows.size();
         long highRisk = rows.stream().filter(i ->
-                "Extreme".equals(i.getInherentRiskRating()) || "High".equals(i.getInherentRiskRating())
-                    || "Extreme".equals(i.getTenantRiskRating()) || "High".equals(i.getTenantRiskRating())).count();
+                "Critical".equals(i.getInherentRiskRating()) || "High".equals(i.getInherentRiskRating())
+                    || "Critical".equals(i.getTenantRiskRating()) || "High".equals(i.getTenantRiskRating())).count();
         long gaps = rows.stream().filter(i -> i.getControlCount() == 0).count();
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
                 || !i.getApplicability().equals("applicable")
@@ -266,7 +266,7 @@ public class ObligationService {
     }
 
     private static Comparator<ObligationRegisterItem> riskComparator() {
-        Map<String, Integer> order = Map.of("Extreme", 4, "High", 3, "Medium", 2, "Low", 1);
+        Map<String, Integer> order = Map.of("Critical", 4, "High", 3, "Moderate", 2, "Low", 1);
         return Comparator.comparingInt(i -> {
             String key = i.getTenantRiskRating() != null ? i.getTenantRiskRating() : i.getInherentRiskRating();
             return key != null ? order.getOrDefault(key, 0) : 0;

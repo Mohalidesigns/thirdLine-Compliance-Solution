@@ -30,7 +30,7 @@ const DEADLINE_TYPES = [
   'one_time', 'ongoing', 'ad_hoc',
 ];
 
-const RISK_LEVELS = ['Extreme', 'High', 'Medium', 'Low'];
+const RISK_LEVELS = ['Critical', 'High', 'Moderate', 'Low'];
 const APPLICABILITY_OPTIONS = ['applicable', 'not_applicable'];
 const IMPACT_RATINGS = ['Critical', 'High', 'Medium', 'Low'];
 const LIKELIHOOD_RATINGS = ['Almost Certain', 'Likely', 'Possible', 'Unlikely', 'Rare'];

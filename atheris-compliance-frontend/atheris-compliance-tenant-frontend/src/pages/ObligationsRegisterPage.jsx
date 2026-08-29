@@ -8,19 +8,19 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Link as LinkIcon, Warning as WarningIcon, Article, Gavel,
+  Warning as WarningIcon, Article,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 
 const RISK_CONFIG = {
+  Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
   Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
   High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
+  Moderate: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
   Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
   Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
 };
-
-const STATUS_COLOR = { active: 'success', classified: 'info', unclassified: 'warning', under_review: 'default' };
 
 function riskChip(rating) {
   const cfg = RISK_CONFIG[rating];
@@ -37,10 +37,6 @@ const COLUMNS = [
   { id: 'obligation', label: 'Obligation', minWidth: 340, sortField: 'description' },
   { id: 'areaOfFocus', label: 'Domain', minWidth: 150 },
   { id: 'risk', label: 'Risk', minWidth: 110, sortField: 'tenantRiskRating' },
-  { id: 'owner', label: 'Owner', minWidth: 130, sortField: 'assignedOwnerName' },
-  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
-  { id: 'returns', label: 'Returns', minWidth: 110 },
-  { id: 'sanctions', label: 'Sanctions', minWidth: 110 },
   { id: 'actions', label: 'Actions', minWidth: 90 },
 ];
 
@@ -149,7 +145,7 @@ export default function ObligationsRegisterPage() {
     { key: 'underReview', label: 'Under Review', value: stats?.underReview ?? 0, color: '#805AD5', bg: '#FAF5FF' },
   ];
 
-  const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Extreme', 'High', 'Medium', 'Low'];
+  const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];
 
   return (
     <Box>
@@ -299,38 +295,6 @@ export default function ObligationsRegisterPage() {
                             </Tooltip>
                           )}
                         </Box>
-                      </TableCell>
-                      <TableCell>
-                        {item.assignedOwnerName
-                          ? <Tooltip title={item.assignedOwnerName}>
-                              <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden',
-                                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {item.assignedOwnerName}
-                              </Typography>
-                            </Tooltip>
-                          : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" label={item.status || 'unknown'}
-                          color={STATUS_COLOR[item.status] || 'default'} sx={{ height: 22 }} />
-                      </TableCell>
-                      <TableCell>
-                        {item.returnNames?.length > 0
-                          ? <Tooltip title={item.returnNames.join(', ')}>
-                              <Chip size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                                label={`${item.returnNames.length} return${item.returnNames.length > 1 ? 's' : ''}`}
-                                sx={{ height: 22 }} />
-                            </Tooltip>
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        {item.sanctions?.length > 0
-                          ? <Tooltip title={item.sanctions.map(s => s.sanctionType || 'Sanction').join(', ')}>
-                              <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
-                                label={`${item.sanctions.length} sanction${item.sanctions.length > 1 ? 's' : ''}`}
-                                color="error" sx={{ height: 22 }} />
-                            </Tooltip>
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
                       <TableCell onClick={e => e.stopPropagation()}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

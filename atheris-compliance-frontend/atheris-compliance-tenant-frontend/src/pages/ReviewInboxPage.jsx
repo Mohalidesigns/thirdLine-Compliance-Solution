@@ -11,8 +11,10 @@ import {
 import { api, API_BASE, getToken } from '../services/api';
 
 const RISK_CONFIG = {
+  Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
   Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
   High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
+  Moderate: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
   Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
   Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
 };
