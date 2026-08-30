@@ -14,6 +14,7 @@ import LinkControlsModal from '../components/modals/LinkControlsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
 import GapModal from '../components/modals/GapModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
+import FormattedText from '../components/FormattedText';
 
 const RISK_CONFIG = {
   Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
@@ -162,10 +163,17 @@ export default function ObligationDetailPage() {
             <Chip size="small" label={selected.status || 'unknown'}
               color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
           </Box>
-          <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-            {selected.description || 'Untitled obligation'}
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            {selected.name || 'Untitled obligation'}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{selected.sourceTitle}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{selected.sourceTitle}</Typography>
+
+          {selected.description && (
+            <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+              <SectionHeader title="Obligation Statement" />
+              <FormattedText text={selected.description} />
+            </Paper>
+          )}
 
           {/* Classification */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
@@ -232,9 +240,15 @@ export default function ObligationDetailPage() {
           {/* Controls */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title="Linked Controls"
-              action={<Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
-                startIcon={<Edit sx={{ fontSize: 16 }} />}
-                sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>} />
+              action={
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" variant="text" onClick={() => navigate(`/controls?obligationId=${obligationId}`)}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View controls</Button>
+                  <Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
+                    startIcon={<Edit sx={{ fontSize: 16 }} />}
+                    sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>
+                </Box>
+              } />
             {selected.linkedControls?.length > 0 ? (
               <List dense disablePadding>
                 {selected.linkedControls.map(c => (

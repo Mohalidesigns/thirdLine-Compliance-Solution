@@ -10,7 +10,7 @@ import java.util.List;
 public class ControlSpecification {
 
     public static Specification<Control> withFilters(
-            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName) {
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (theme != null && !theme.isEmpty())
@@ -27,6 +27,10 @@ public class ControlSpecification {
                 predicates.add(cb.equal(root.get("actId"), actId));
             if (actName != null && !actName.isEmpty())
                 predicates.add(cb.equal(root.get("actName"), actName));
+            if (obligationId != null)
+                predicates.add(cb.isTrue(cb.function("jsonb_contains", Boolean.class,
+                    root.get("linkedObligationIds"),
+                    cb.literal("[" + obligationId + "]"))));
             if (q != null && !q.isBlank()) {
                 String ql = "%" + q.toLowerCase() + "%";
                 predicates.add(cb.or(

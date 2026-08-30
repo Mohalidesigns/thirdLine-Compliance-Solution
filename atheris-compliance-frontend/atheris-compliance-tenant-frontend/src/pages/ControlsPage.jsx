@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -35,6 +36,9 @@ const COLUMNS = [
 ];
 
 export default function ControlsPage() {
+  const [searchParams] = useSearchParams();
+  const obligationIdParam = searchParams.get('obligationId');
+
   const [view, setView] = useState('list');
   const [detailId, setDetailId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -79,13 +83,14 @@ export default function ControlsPage() {
       if (riskFilter !== 'All') params.residualRisk = riskFilter;
       if (statusFilter !== 'All') params.status = statusFilter;
       if (actFilter !== 'All') params.actName = actFilter;
+      if (obligationIdParam) params.obligationId = obligationIdParam;
       if (sortField) params.sort = `${sortField},${sortDir}`;
       const data = await api.controls.register(params);
       setItems(data.content || []);
       setTotal(data.totalElements || 0);
     } catch (e) { setError(e.message || 'Failed to load controls.'); }
     finally { setLoading(false); }
-  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, actFilter, sortField, sortDir]);
+  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, actFilter, sortField, sortDir, obligationIdParam]);
 
   useEffect(() => { loadList(); }, [loadList]);
   useEffect(() => { loadStats(); }, []);

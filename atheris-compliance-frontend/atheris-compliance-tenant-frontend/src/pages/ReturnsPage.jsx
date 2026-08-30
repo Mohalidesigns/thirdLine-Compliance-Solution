@@ -32,10 +32,8 @@ const COLUMNS = [
   { id: 'actName', label: 'Act', minWidth: 180, sortField: 'actName' },
   { id: 'regulator', label: 'Regulator', minWidth: 130, sortField: 'filingRegulator' },
   { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
-  { id: 'period', label: 'Current Period', minWidth: 120, sortField: 'currentPeriod' },
   { id: 'dueDate', label: 'Due Date', minWidth: 110, sortField: 'currentDueDate' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'currentStatus' },
-  { id: 'actions', label: '', minWidth: 80 },
 ];
 
 export default function ReturnsPage() {
@@ -285,7 +283,8 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
         '&:hover': { bgcolor: isOverdue ? '#FEE2E2' : '#F7FAFC' },
-        borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}>
+        borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}
+        onClick={onDetail}>
         <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
         <TableCell>
           <Tooltip title={item.returnName || 'Untitled'}>
@@ -310,9 +309,6 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
           <Chip size="small" label={item.frequency || item.frequencyType || '-'}
             variant="outlined" sx={{ height: 22 }} />
         </TableCell>
-        <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.currentPeriod || '-'}</Typography>
-        </TableCell>
         <TableCell>{formatDate(item.currentDueDate)}</TableCell>
         <TableCell>
           <Chip size="small"
@@ -320,14 +316,9 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
             color={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'error' : STATUS_COLORS[status] || 'default'}
             sx={{ height: 22 }} />
         </TableCell>
-        <TableCell onClick={e => e.stopPropagation()}>
-          <Button size="small" variant="outlined" onClick={onDetail}>
-            {status === 'Not Started' ? 'Start' : status === 'Submitted' || status === 'Submitted Late' ? 'View' : 'Advance'}
-          </Button>
-        </TableCell>
         <TableCell>
           {item.upcomingInstances && item.upcomingInstances.length > 0 && (
-            <IconButton size="small" onClick={onExpand}>
+            <IconButton size="small" onClick={e => { e.stopPropagation(); onExpand(); }}>
               {isExpanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
           )}

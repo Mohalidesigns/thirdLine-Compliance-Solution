@@ -29,8 +29,8 @@ public class ControlService {
     private final AuditService audit;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName);
+            String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
+        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
         Page<Control> page = repo.findAll(spec, p);
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
             page.getContent().stream().map(Control::getControlId).toList());
