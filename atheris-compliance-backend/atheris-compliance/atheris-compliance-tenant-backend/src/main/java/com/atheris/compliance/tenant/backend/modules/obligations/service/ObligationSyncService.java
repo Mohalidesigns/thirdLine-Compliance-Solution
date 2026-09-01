@@ -85,7 +85,14 @@ public class ObligationSyncService {
 
         var pollingConfig = pollingConfigs.findByTenantId(tenantId)
             .orElse(null);
-        LocalDate since = pollingConfig != null && pollingConfig.getLastPolledAt() != null
+        if (pollingConfig == null) {
+            pollingConfig = com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantPollingConfig.builder()
+                .tenantId(tenantId)
+                .pollingIntervalMinutes(15)
+                .build();
+            pollingConfigs.save(pollingConfig);
+        }
+        LocalDate since = pollingConfig.getLastPolledAt() != null
             ? pollingConfig.getLastPolledAt().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
 
         try {
@@ -151,10 +158,8 @@ public class ObligationSyncService {
 
             log.info("Sync complete: {} created, {} skipped (already exist)", created, skipped);
 
-            if (pollingConfig != null) {
-                pollingConfig.setLastPolledAt(Instant.now());
-                pollingConfigs.save(pollingConfig);
-            }
+            pollingConfig.setLastPolledAt(Instant.now());
+            pollingConfigs.save(pollingConfig);
         } catch (Exception e) {
             log.error("Obligation sync failed: {}", e.getMessage(), e);
             em.clear();

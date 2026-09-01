@@ -37,4 +37,5 @@ atheris:
 logging:
   level:
     com.atheris.compliance: DEBUG
-    org.springframework.web.client: DEBUG
+    org.springframework.web.client: WARN
+    org.springframework.http.client: WARN
