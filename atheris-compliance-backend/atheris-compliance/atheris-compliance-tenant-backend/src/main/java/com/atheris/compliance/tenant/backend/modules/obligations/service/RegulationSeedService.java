@@ -278,9 +278,9 @@ public class RegulationSeedService {
     }
 
     private String deriveObligationName(PlatformRegulationSeed.ObligationItem o, int num) {
-        String base = o.getAreaOfFocus();
+        String base = o.getPlainEnglishStatement();
+        if (base == null || base.isBlank()) base = o.getAreaOfFocus();
         if (base == null || base.isBlank()) base = o.getObligationType();
-        if (base == null || base.isBlank()) base = o.getPlainEnglishStatement();
         if (base == null || base.isBlank()) base = "Obligation " + num;
         base = base.trim();
         if (base.length() > 120) base = base.substring(0, 117) + "...";

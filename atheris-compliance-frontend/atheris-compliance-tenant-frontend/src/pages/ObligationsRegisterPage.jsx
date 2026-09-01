@@ -273,10 +273,10 @@ export default function ObligationsRegisterPage() {
                         borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent' }}>
                       <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
                       <TableCell>
-                        <Tooltip title={item.name || item.description || 'Untitled obligation'}>
+                        <Tooltip title={item.description || item.name || 'Untitled obligation'}>
                           <Typography variant="body2" sx={{ maxWidth: 360,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.name || item.description || 'Untitled obligation'}
+                            {item.description || item.name || 'Untitled obligation'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
