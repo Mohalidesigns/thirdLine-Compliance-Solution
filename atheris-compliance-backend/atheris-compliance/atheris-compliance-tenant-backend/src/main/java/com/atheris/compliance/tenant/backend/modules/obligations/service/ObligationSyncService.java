@@ -108,7 +108,7 @@ public class ObligationSyncService {
                     skipped++;
                     continue;
                 }
-                if (pendingReviews.findByInstrumentIdAndTenantId(item.getInstrumentId(), tenantId).isPresent()) {
+                if (pendingReviews.findTop1ByInstrumentIdAndTenantIdOrderByIdDesc(item.getInstrumentId(), tenantId).isPresent()) {
                     skipped++;
                     continue;
                 }

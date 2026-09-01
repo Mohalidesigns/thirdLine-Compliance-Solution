@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Repository
 public interface PendingReviewRepository extends JpaRepository<PendingReview, Long> {
-    Optional<PendingReview> findByInstrumentIdAndTenantId(Long instrumentId, Long tenantId);
+    Optional<PendingReview> findTop1ByInstrumentIdAndTenantIdOrderByIdDesc(Long instrumentId, Long tenantId);
     Optional<PendingReview> findByUploadIdAndTenantId(UUID uploadId, Long tenantId);
     Optional<PendingReview> findByReviewIdAndTenantId(Long reviewId, Long tenantId);
     Page<PendingReview> findByTenantId(Long tenantId, Pageable pageable);
