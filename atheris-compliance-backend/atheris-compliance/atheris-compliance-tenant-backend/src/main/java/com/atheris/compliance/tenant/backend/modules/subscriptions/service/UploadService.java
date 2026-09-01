@@ -258,7 +258,7 @@ public class UploadService {
 
     private void ensurePendingReview(UploadJob job, Long instrumentId) {
         Long tenantId = tenantIdentity.currentTenantId();
-        if (pendingReviews.findTop1ByInstrumentIdAndTenantIdOrderByIdDesc(instrumentId, tenantId).isPresent()) return;
+        if (pendingReviews.existsByInstrumentIdAndTenantId(instrumentId, tenantId)) return;
         PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
         List<ReviewObligation> obligations = new ArrayList<>();
         if (detail != null && detail.getObligations() != null) {
