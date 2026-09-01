@@ -268,7 +268,7 @@ public class RegulationSeedService {
             }
         }
 
-        log.info("Seeded instrument {} ({}): {} obligations, {} sanctions, returns {}, controls {}",
+        log.debug("Seeded instrument {} ({}): {} obligations, {} sanctions, returns {}, controls {}",
             instrumentId, bundle.getRegulationName(),
             createdObligations.size(),
             bundle.getSanctions() != null ? bundle.getSanctions().size() : 0,

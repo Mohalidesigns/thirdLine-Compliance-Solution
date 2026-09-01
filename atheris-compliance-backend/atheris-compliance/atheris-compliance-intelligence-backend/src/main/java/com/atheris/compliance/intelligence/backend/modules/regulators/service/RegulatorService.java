@@ -238,6 +238,8 @@ public class RegulatorService {
             .isActive(r.getIsActive())
             .scraperLastRanAt(r.getScraperLastRanAt())
             .scraperLastFound(r.getScraperLastFound())
+            .scraperConsecutiveFailures(r.getScraperConsecutiveFailures())
+            .scraperDisabledReason(r.getScraperDisabledReason())
             .scraperNotes(r.getScraperNotes())
             .instrumentCount(stats != null ? (int) stats[0] : 0)
             .pendingDownloadCount(stats != null ? (int) stats[2] : 0)

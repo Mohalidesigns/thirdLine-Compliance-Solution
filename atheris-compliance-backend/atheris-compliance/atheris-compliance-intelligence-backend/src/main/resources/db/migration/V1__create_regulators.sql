@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS regulators (
     request_headers      JSONB,
     scraper_last_ran_at  TIMESTAMP WITH TIME ZONE,
     scraper_last_found   INT DEFAULT 0,
+    scraper_consecutive_failures INT DEFAULT 0,
+    scraper_disabled_reason TEXT,
     logo_url             TEXT,
     description          TEXT,
     scraper_notes        TEXT,

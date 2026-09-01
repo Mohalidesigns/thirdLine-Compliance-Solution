@@ -21,6 +21,7 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -300,24 +301,39 @@ public class PlatformApiClient {
     public List<PlatformInstrumentSummary> findRecentInstruments(Long tenantId, List<Integer> regulatorIds,
                                                                    String licenceType, LocalDate since) {
         try {
-            StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/instruments/recent")
-                .append("?tenantId=").append(tenantId)
-                .append("&licenceType=").append(licenceType)
-                .append("&size=20");
-            if (since != null) url.append("&since=").append(since.toString());
-            for (Integer id : regulatorIds) {
-                url.append("&regulatorIds=").append(id);
+            List<PlatformInstrumentSummary> all = new ArrayList<>();
+            int page = 0;
+            int size = 50;
+
+            while (true) {
+                StringBuilder url = new StringBuilder(baseUrl + "/api/v1/internal/instruments/recent")
+                    .append("?tenantId=").append(tenantId)
+                    .append("&licenceType=").append(licenceType)
+                    .append("&page=").append(page)
+                    .append("&size=").append(size);
+                if (since != null) url.append("&since=").append(since.toString());
+                for (Integer id : regulatorIds) {
+                    url.append("&regulatorIds=").append(id);
+                }
+
+                HttpHeaders h = headers();
+                ResponseEntity<PagedResponse<PlatformInstrumentSummary>> resp = rest.exchange(
+                    url.toString(), HttpMethod.GET, new HttpEntity<>(h),
+                    new ParameterizedTypeReference<PagedResponse<PlatformInstrumentSummary>>() {});
+
+                if (resp.getBody() == null || resp.getBody().getContent() == null || resp.getBody().getContent().isEmpty()) {
+                    break;
+                }
+
+                all.addAll(resp.getBody().getContent());
+
+                if (resp.getBody().getContent().size() < size) {
+                    break;
+                }
+                page++;
             }
 
-            HttpHeaders h = headers();
-            ResponseEntity<PagedResponse<PlatformInstrumentSummary>> resp = rest.exchange(
-                url.toString(), HttpMethod.GET, new HttpEntity<>(h),
-                new ParameterizedTypeReference<PagedResponse<PlatformInstrumentSummary>>() {});
-
-            if (resp.getBody() != null && resp.getBody().getContent() != null) {
-                return resp.getBody().getContent();
-            }
-            return List.of();
+            return all;
         } catch (Exception e) {
             log.error("Failed to fetch recent instruments: {}", e.getMessage());
             return List.of();

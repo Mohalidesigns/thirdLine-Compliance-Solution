@@ -1,6 +1,13 @@
 spring:
   application:
     name: atheris-compliance-intelligence-backend
+  threads:
+    virtual:
+      enabled: true
+  task:
+    scheduling:
+      pool:
+        size: 4
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:atheris_intel}
     username: ${DB_USER:atheris}

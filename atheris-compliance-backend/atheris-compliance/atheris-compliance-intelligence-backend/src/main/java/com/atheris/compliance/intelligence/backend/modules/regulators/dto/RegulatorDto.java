@@ -24,6 +24,8 @@ public class RegulatorDto {
     private Boolean isActive;
     private Instant scraperLastRanAt;
     private Integer scraperLastFound;
+    private Integer scraperConsecutiveFailures;
+    private String scraperDisabledReason;
     private String scraperNotes;
     private Integer instrumentCount;
     private Integer pendingDownloadCount;

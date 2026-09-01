@@ -27,11 +27,14 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class ScraperService {
+
+    private static final int MAX_SCRAPER_FAILURES = 5;
 
     private final RegulatorRepository regulators;
     private final ScraperRunLogRepository scraperLogs;
@@ -66,15 +69,63 @@ public class ScraperService {
     }
 
     public void scrapeAllDue() {
-        regulators.findByIsActiveTrueAndScraperEnabledTrue().forEach(r -> {
-            if (isDue(r)) {
-                try { scrape(r, Constants.MODE_MONITORING); }
-                catch (Exception e) {
-                    log.error("Scraper failed for {}: {}", r.getAbbreviation(), e.getMessage());
-                    logRun(r, Constants.MODE_MONITORING, 0, 0, 0, e.getMessage());
+        List<Regulator> due = regulators.findByIsActiveTrueAndScraperEnabledTrue().stream()
+            .filter(this::isDue)
+            .toList();
+
+        if (due.isEmpty()) return;
+
+        log.info("Scraping {} due regulators in parallel", due.size());
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Void>> futures = new ArrayList<>();
+            for (Regulator r : due) {
+                futures.add(executor.submit(() -> { scrapeSingle(r); return null; }));
+            }
+            for (Future<?> f : futures) {
+                try { f.get(); } catch (ExecutionException e) {
+                    log.error("Parallel scrape task failed: {}", e.getCause().getMessage());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
-        });
+        }
+    }
+
+    private void scrapeSingle(Regulator r) {
+        try {
+            ScraperRunResult result = scrape(r, Constants.MODE_MONITORING);
+            if (result.getFailedDocuments() > 0 && result.getNewDocuments() == 0) {
+                int failures = (r.getScraperConsecutiveFailures() != null ? r.getScraperConsecutiveFailures() : 0) + 1;
+                r.setScraperConsecutiveFailures(failures);
+                if (failures >= MAX_SCRAPER_FAILURES) {
+                    r.setScraperEnabled(false);
+                    r.setScraperDisabledReason("Auto-disabled after " + MAX_SCRAPER_FAILURES + " consecutive failures: " +
+                        (result.getErrors() != null && !result.getErrors().isEmpty() ? result.getErrors().get(0) : "all downloads failed"));
+                    log.warn("Scraper for {} auto-disabled after {} consecutive failures: all {} links failed",
+                        r.getAbbreviation(), failures, result.getFailedDocuments());
+                }
+                regulators.save(r);
+            } else {
+                r.setScraperConsecutiveFailures(0);
+                r.setScraperDisabledReason(null);
+                regulators.save(r);
+            }
+        }
+        catch (Exception e) {
+            log.error("Scraper failed for {}: {}", r.getAbbreviation(), e.getMessage());
+            logRun(r, Constants.MODE_MONITORING, 0, 0, 0, e.getMessage());
+            int failures = (r.getScraperConsecutiveFailures() != null ? r.getScraperConsecutiveFailures() : 0) + 1;
+            r.setScraperConsecutiveFailures(failures);
+            if (failures >= MAX_SCRAPER_FAILURES) {
+                r.setScraperEnabled(false);
+                r.setScraperDisabledReason("Auto-disabled after " + MAX_SCRAPER_FAILURES + " consecutive failures: " + e.getMessage());
+                log.warn("Scraper for {} auto-disabled after {} consecutive failures: {}",
+                    r.getAbbreviation(), failures, e.getMessage());
+            }
+            regulators.save(r);
+        }
     }
 
     public ScraperRunResult scrape(Regulator regulator, String mode) {
@@ -118,6 +169,8 @@ public class ScraperService {
         regulators.findById(regulator.getRegulatorId()).ifPresent(r -> {
             r.setScraperLastRanAt(Instant.now());
             r.setScraperLastFound(finalNewCount);
+            r.setScraperConsecutiveFailures(0);
+            r.setScraperDisabledReason(null);
             regulators.save(r);
         });
 

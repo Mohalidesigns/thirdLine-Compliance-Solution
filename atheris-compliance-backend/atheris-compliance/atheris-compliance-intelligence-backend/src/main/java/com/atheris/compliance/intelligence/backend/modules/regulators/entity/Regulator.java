@@ -39,6 +39,9 @@ public class Regulator {
     private Instant scraperLastRanAt;
     @Builder.Default
     private Integer scraperLastFound = 0;
+    @Builder.Default
+    private Integer scraperConsecutiveFailures = 0;
+    private String scraperDisabledReason;
     private String logoUrl;
     private String description;
     private String scraperNotes;
