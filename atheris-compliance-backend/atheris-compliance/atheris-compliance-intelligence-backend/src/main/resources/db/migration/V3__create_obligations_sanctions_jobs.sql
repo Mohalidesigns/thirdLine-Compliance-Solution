@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS obligation_mappings (
     obligation_id           BIGSERIAL PRIMARY KEY,
     instrument_id           BIGINT NOT NULL REFERENCES instruments(instrument_id),
     obligation_number       INT,
+    title                   VARCHAR(500),
     plain_english_statement TEXT NOT NULL,
     specific_section_reference VARCHAR(100),
     area_of_focus             VARCHAR(100),

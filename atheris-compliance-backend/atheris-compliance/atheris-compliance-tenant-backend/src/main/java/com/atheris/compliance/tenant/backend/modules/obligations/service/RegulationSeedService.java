@@ -114,6 +114,7 @@ public class RegulationSeedService {
                     .instrumentId(instrumentId)
                     .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
                     .name(deriveObligationName(o, num))
+                    .title(o.getTitle())
                     .description(o.getPlainEnglishStatement())
                     .sectionReference(o.getSpecificSectionReference())
                     .areaOfFocus(o.getAreaOfFocus())
@@ -278,6 +279,10 @@ public class RegulationSeedService {
     }
 
     private String deriveObligationName(PlatformRegulationSeed.ObligationItem o, int num) {
+        if (o.getTitle() != null && !o.getTitle().isBlank()) {
+            String t = o.getTitle().trim();
+            return t.length() > 120 ? t.substring(0, 117) + "..." : t;
+        }
         String base = o.getPlainEnglishStatement();
         if (base == null || base.isBlank()) base = o.getAreaOfFocus();
         if (base == null || base.isBlank()) base = o.getObligationType();

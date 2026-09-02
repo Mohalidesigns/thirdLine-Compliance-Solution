@@ -13,6 +13,7 @@ public class Obligation {
     private Long obligationId;
     private Long instrumentId;
     private String name;
+    private String title;
     private Integer obligationNumber;
     @Column(columnDefinition = "text") private String description;
     private String sectionReference;

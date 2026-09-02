@@ -93,7 +93,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - **Verify clean startup** — Both backends boot with no seeder warnings / no auto-generated password (logs `%TEMP%\opencode\{intel,tenant}-{out,err}.log`).
 - **Dormant webhook delivery code removed** — Tenant `WebhookReceiverController`/`WebhookReceiverService` (wrote stale per-instrument `ObligationClassification`) deleted; intel `WebhookService`, `JOB_WEBHOOK`, commented schedulers + `WEBHOOK_BATCH` gone; `WebhookController` retry endpoint dropped (stats/failed kept); `TenantService.testWebhook` returns a polling-disabled stub; tenant `SecurityConfig`/`LicenseFilter` `/api/v1/webhooks/**` permits removed; frontend `send_webhooks` labels/cases + `testWebhook`/`rotateSecret` helpers + mock job removed. Commit `09cccd1`.
 - **Toolkit import made idempotent** — Re-running `POST /admin/regulations/toolkit/import` previously duplicated obligation_mappings and sanctions (no dedup in `importCrmp`/`importSanctions`). Now dedups by natural key: obligations = regulation+statement+section; sanctions = regulation+section+description+penalty. Fresh import restores the full seed; re-run is a clean 0/0 no-op with an empty UNMAPPED report. Dedup also collapses genuine duplicate rows in the source register (counts now **1541 obligations**, **597 sanctions** instead of 1638/601). Commit `520d70e`.
-- **Onboarding E2E verified** — Tested on a sacrificial tenant-2 (:9092, `TENANT_ID=2`): all 6 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs. Tenant data delivery is polling-only via `ObligationSyncService` (webhooks CANCELLED by user; dormant code retained).
+- **Onboarding E2E verified** — Tested on a sacrificial tenant-2 (:9092, `TENANT_ID=2`): all 4 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs. Tenant data delivery is polling-only via `ObligationSyncService` (webhooks CANCELLED by user; dormant code retained).
 - **Dashboard "Tenant Overview" widget** — `DashboardPage.jsx` added card with 4 KPI mini-cards (Active, Licence Types, Subscription Tiers, Regulator Subscriptions) + sticky-header table driving `/admin/tenants/{id}`. Commit `8d423c8`.
 - **`@Builder.Default` cleanup** — 100 annotations across 35 entity/DTO files so Lombok builders no longer drop field initializers (status/tier/counters/enums). Commit `5310dc3`.
 - **`maxRegulators`/`maxControls`/`maxReturns` removed** — never enforced; removed from License entity, CreateLicenseRequest/UpdateLicenseRequest/LicenseDto, LicenseService, V12 migration (edited in place), license admin form/detail drawer, and demo mock data. Commit `48ba65d`. Both DBs recreated fresh (15 intel + 25 tenant migrations) and re-seeded (toolkit import; Mam Corp tenant/license `ATH-263D-A80D-AD15-561C`/api-key; tenant profile + regulators CBN/NDIC + admin user). Sync verified: 6 pending reviews created.
@@ -258,7 +258,7 @@ atheris-compliance-tenant-backend/
     modules/
       auth/                             — JWT login/refresh/logout, invite tokens, password reset
       users/                            — CRUD, invite flow, role management, password change
-      onboarding/                       — Multi-step wizard (institution → regulators → doc types → confirm)
+      onboarding/                       — 4-step wizard (license → institution → user setup → confirm; regulators + doc types auto-skipped)
       subscriptions/                    — Regulator subscriptions, per-regulator overrides
       obligations/                      — Per-instrument classification, CCO approval, versioned history
       controls/                         — Control inventory, test scheduling, test result recording
@@ -322,7 +322,7 @@ Full tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-t
 - No webhooks — tenant polls platform via `ObligationSyncService` at configurable interval (DB-backed `tenant_polling_config` table)
 - Upload flow: `POST /api/v1/subscriptions/upload-document` → platform `POST /api/v1/internal/instruments/ingest` (SHA-256 dedup) → async processing → tenant polls `GET /api/v1/subscriptions/upload-status/{id}`
 - Tenant regulators stored in `tenant_regulators` table (optional `platform_regulator_id` FK)
-- Single license covers everything; 6-step onboarding (license → institution → user → regulators → doc types → confirm)
+- Single license covers everything; 4-step onboarding (license → institution → user setup → confirm; regulators + doc types auto-skipped with empty arrays)
 
 ### Fixes
 - `LicenseAdminPage.jsx` — handle paginated API responses (`.content \|\| data`, `Array.isArray(data) ? data : data.content \|\| []`)
@@ -349,7 +349,7 @@ See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference,
 ## Done — Backend Verification & Cleanup (backlog completed)
 
 - [x] Start both backends, verify clean startup (no seeder warnings, no auto-generated password) — intel :9090 (pid via maven spring-boot:run) + tenant :9091, logs in `%TEMP%\opencode\{intel,tenant}-{out,err}.log`
-- [x] Test onboarding E2E on sacrificial tenant-2 (port 9092, `TENANT_ID=2`): all 6 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs
+- [x] Test onboarding E2E on sacrificial tenant-2 (port 9092, `TENANT_ID=2`): all 4 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs
 - [x] ~~Wire up `evaluate_applicability` processor to send webhooks to tenant service~~ — CANCELLED by user; tenant delivers via polling (`ObligationSyncService`) instead. Webhook code left dormant.
 - [x] Add tenant dashboard widgets — "Tenant Overview" card in `DashboardPage.jsx` (active tenants, licence types, subscription tiers, regulator subscriptions; row → `/admin/tenants/{id}`)
 - [x] Cleanup: `@Builder.Default` added to all initialized entity/DTO fields (100 annotations across 35 files) — commit `5310dc3`
@@ -448,6 +448,7 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 - controllers must be using thin and delegate to service classes
 - always try to use jpa query methods where possible
 - for filtering and searching, use jpa criteria unless otherwise
+- avoid using jpql no matter what, when necessary use native query after prompting me for approval
 - avoid n+1 queries
 
 ## DATABASE SCHEMA CHANGES
@@ -455,6 +456,7 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 - Whenever you are recreating and dropping databases, ALWAYS use POSTGRES superuser
 - Whenever you make changes to the database schema, ALWAYS edit the existing migrations if they are the ones updated
 - Only create new migration files where necessary for new entities/tables added later
+- drop and recreate the tables and check the databases and intel backends and verify that the fix is correct, prompt me to onboard and then we test on the Tenant
 
 ## TESTING
 

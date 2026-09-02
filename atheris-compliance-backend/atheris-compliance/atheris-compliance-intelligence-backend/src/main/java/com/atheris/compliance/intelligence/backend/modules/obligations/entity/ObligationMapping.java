@@ -12,6 +12,7 @@ public class ObligationMapping {
     @Column(nullable = false) private Long instrumentId;
     @Column(name = "act_id") private Long regulationId;
     private Integer obligationNumber;
+    private String title;
     @Column(columnDefinition = "text", nullable = false) private String plainEnglishStatement;
     private String specificSectionReference;
     private String areaOfFocus;

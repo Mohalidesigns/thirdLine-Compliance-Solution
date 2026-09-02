@@ -44,6 +44,7 @@ public class PlatformRegulationSeed {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ObligationItem {
         private Integer obligationNumber;
+        private String title;
         private String plainEnglishStatement;
         private String specificSectionReference;
         private String areaOfFocus;

@@ -284,11 +284,12 @@ public class ToolkitImportService {
         int cDeadline = col(idx, "recurringdeadlinetype", "duedate");
 
         // Risk + owner columns (positional — consistent across all CRMP sections)
-        // Col 7=Risk Description, 8=Likelihood(Inherent), 9=Impact(Inherent), 10=Responsibility(Control Owner)
-        int cRiskDesc = colFormat ? 7 : 7;
-        int cLikelihoodInherent = colFormat ? 8 : 8;
-        int cImpactInherent = colFormat ? 9 : 9;
-        int cControlOwner = colFormat ? 10 : 10;
+        // 17-col sections have Theme at index 1; 16-col sections don't → all indices shift by -1
+        boolean hasTheme = idx.containsKey("theme");
+        int cRiskDesc = colFormat ? 7 : (hasTheme ? 7 : 6);
+        int cLikelihoodInherent = colFormat ? 8 : (hasTheme ? 8 : 7);
+        int cImpactInherent = colFormat ? 9 : (hasTheme ? 9 : 8);
+        int cControlOwner = colFormat ? 10 : (hasTheme ? 10 : 9);
 
         int obligNumber = 0;
         String lastSource = null;
@@ -324,6 +325,7 @@ public class ToolkitImportService {
                 .instrumentId(instrumentId)
                 .regulationId(actId)
                 .obligationNumber(++obligNumber)
+                .title(shorten(get(r, cTitle), 500))
                 .plainEnglishStatement(statement)
                 .specificSectionReference(sectionRef)
                 .areaOfFocus(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
