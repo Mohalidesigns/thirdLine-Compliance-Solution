@@ -65,6 +65,10 @@ public class TenantProfile {
     private Instant licenseExpiresAt;
     @Builder.Default
     private Boolean intelligenceEnabled = true;
+    @Builder.Default
+    private Boolean autoSubscribeRegulators = false;
+    @Builder.Default
+    private Boolean autoSeedObligations = false;
     private String deviceFingerprint;
     private Instant deviceFingerprintProvisionedAt;
     private Instant lastLicenseCheckupAt;

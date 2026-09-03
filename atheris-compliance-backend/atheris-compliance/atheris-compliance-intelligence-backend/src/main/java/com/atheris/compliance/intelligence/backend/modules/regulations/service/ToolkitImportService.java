@@ -214,6 +214,12 @@ public class ToolkitImportService {
             if (title == null || title.isBlank()) continue;
             String regBody = get(r, cReg);
             Integer regulatorId = regBody == null ? null : ensureRegulator(regBody);
+            if (regulatorId == null && title != null) {
+                regulatorId = inferRegulatorFromTitle(title);
+            }
+            if (regulatorId == null) regulatorId = inferRegulatorForAct(title);
+            if (regulatorId == null) regulatorId = mapAreaToRegulator(get(r, cArea));
+            if (regulatorId == null) regulatorId = ensureRegulator("Federal Government of Nigeria");
 
             if (instruments.existsBySourceTitle(title)) {
                 log.info("[ToolkitImport] Skipping duplicate instrument: {}", title);
@@ -441,6 +447,10 @@ public class ToolkitImportService {
 
     // ── Act resolution with alias map ──
     private Long findOrCreateAct(String title, Integer regulatorId) {
+        if (regulatorId == null) {
+            regulatorId = inferRegulatorForAct(title);
+            if (regulatorId == null) regulatorId = inferRegulatorFromTitle(title);
+        }
         if (title != null && title.length() > 500) {
             log.warn("[ToolkitImport] Act name too long ({} chars): {}", title.length(), title.substring(0, 250));
         }
@@ -501,18 +511,42 @@ public class ToolkitImportService {
             reg.setRegulatorId(reg.getRegulatorId() != null ? reg.getRegulatorId() : canon.get().getRegulatorId());
             actRepo.save(reg);
         }
+        if (reg.getRegulatorId() == null) {
+            Integer inf = inferRegulatorForAct(reg.getName());
+            if (inf == null) inf = inferRegulatorFromTitle(reg.getName());
+            if (inf == null) inf = mapAreaToRegulator(null);
+            if (inf != null) {
+                reg.setRegulatorId(inf);
+                actRepo.save(reg);
+            }
+        }
     }
 
     // If the act has no canonical instrument (source appears only in CRMP/sanctions, not the universe),
     // create a stub instrument so obligations/sanctions have a home.
     private Long ensureCanonicalInstrument(Regulation reg) {
         if (reg == null) return null;
+        if (reg.getRegulatorId() == null) {
+            Integer inf = inferRegulatorForAct(reg.getName());
+            if (inf == null) inf = inferRegulatorFromTitle(reg.getName());
+            if (inf == null) inf = mapAreaToRegulator(null);
+            if (inf != null) {
+                reg.setRegulatorId(inf);
+                actRepo.save(reg);
+            }
+        }
         if (reg.getCanonicalInstrumentId() != null) return reg.getCanonicalInstrumentId();
         Instrument stub = instruments.findBySourceTitle(reg.getName()).orElse(null);
         if (stub == null) {
+            Integer stubRegId = reg.getRegulatorId();
+            if (stubRegId == null) {
+                stubRegId = inferRegulatorForAct(reg.getName());
+                if (stubRegId == null) stubRegId = inferRegulatorFromTitle(reg.getName());
+                if (stubRegId == null) stubRegId = mapAreaToRegulator(null);
+            }
             stub = Instrument.builder()
                 .sourceTitle(reg.getName())
-                .regulatorId(reg.getRegulatorId())
+                .regulatorId(stubRegId)
                 .regulationId(reg.getRegulationId())
                 .nature("Others")
                 .status(Constants.INST_PUBLISHED)
@@ -523,6 +557,18 @@ public class ToolkitImportService {
         } else if (stub.getRegulatorId() == null && reg.getRegulatorId() != null) {
             stub.setRegulatorId(reg.getRegulatorId());
             instruments.save(stub);
+        } else if (stub.getRegulatorId() == null) {
+            Integer inf2 = inferRegulatorForAct(reg.getName());
+            if (inf2 == null) inf2 = inferRegulatorFromTitle(reg.getName());
+            if (inf2 == null) inf2 = mapAreaToRegulator(null);
+            if (inf2 != null) {
+                stub.setRegulatorId(inf2);
+                instruments.save(stub);
+                if (reg.getRegulatorId() == null) {
+                    reg.setRegulatorId(inf2);
+                    actRepo.save(reg);
+                }
+            }
         }
         reg.setCanonicalInstrumentId(stub.getInstrumentId());
         actRepo.save(reg);
@@ -584,6 +630,36 @@ public class ToolkitImportService {
         if (lower.contains("circular") && lower.contains("tier 1")) return 1;
         if (lower.contains("instant payment")) return 1;
         if (lower.contains("terrorism") && lower.contains("prevention")) return 1;
+        // Tax family → FIRS
+        if (lower.contains("cita") || lower.contains("companies income tax") || lower.contains("company income tax")
+            || lower.contains("pita") || lower.contains("personal income tax")
+            || lower.contains("cgta") || lower.contains("capital gains tax") || lower.contains("capital gains act")
+            || lower.contains("stamp duties") || lower.contains("stamp duty")
+            || lower.contains("value added tax") || lower.contains(" vat ") || lower.equals("vat") || lower.contains("vat act")
+            || lower.contains("finance act") || lower.contains("petroleum profit") || lower.contains("petroleum profits")
+            || lower.contains("tertiary education tax") || lower.contains("education tax")
+            || lower.contains("withholding tax") || lower.contains("company income") || lower.contains("capital gains")) {
+            return ensureRegulator("Federal Inland Revenue Service");
+        }
+        // Investment / Securities → SEC
+        if (lower.contains("investment and securities") || lower.contains("securities act")
+            || lower.contains("isa ") || lower.contains(" isa") || lower.trim().equals("isa") || lower.contains("securities and exchange")) {
+            return ensureRegulator("Securities and Exchange Commission");
+        }
+        // Money laundering / proceeds of crime → NFIU (CBN as fallback for banks)
+        if (lower.contains("money laundering") || lower.contains("proceeds of crime") || lower.contains("anti-money laundering")) {
+            return ensureRegulator("Nigerian Financial Intelligence Unit");
+        }
+        // Constitution / evidence / arbitration / disability → Federal Govt
+        if (lower.contains("constitution") || lower.contains("evidence act") || lower.contains("arbitration")
+            || lower.contains("disability act") || lower.contains("discrimination against persons with disabilities")) {
+            return ensureRegulator("Federal Government of Nigeria");
+        }
+        // Labour / employment catch-all
+        if (lower.contains("labour") || lower.contains("labor") || lower.contains("employees compensation")
+            || lower.contains("industrial training") || lower.contains("trade dispute")) {
+            return ensureRegulator("Federal Ministry of Labour and Employment");
+        }
         return null;
     }
 
@@ -616,6 +692,87 @@ public class ToolkitImportService {
             regulatorCount++;
         }
         return r.getRegulatorId();
+    }
+
+    private Integer inferRegulatorFromTitle(String title) {
+        String t = title.toLowerCase(Locale.ROOT);
+        if (t.contains("cbn") || t.contains("central bank")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("sec ") || t.contains("securities and exchange")) return ensureRegulator("Securities and Exchange Commission");
+        if (t.contains("ndpc") || t.contains("data protection")) return ensureRegulator("Nigeria Data Protection Commission");
+        if (t.contains("nimc") || t.contains("national identity")) return ensureRegulator("National Identity Management Commission");
+        if (t.contains("fccpc") || t.contains("federal competition") || t.contains("consumer protection")) return ensureRegulator("Federal Competition and Consumer Protection Commission");
+        if (t.contains("pencom") || t.contains("pension")) return ensureRegulator("National Pension Commission");
+        if (t.contains("efcc") || t.contains("advance fee fraud")) return ensureRegulator("Economic and Financial Crimes Commission");
+        if (t.contains("itf") || t.contains("industrial training fund")) return ensureRegulator("Industrial Training Fund");
+        if (t.contains("fmbn") || t.contains("national housing fund") || t.contains("mortgage bank")) return ensureRegulator("Federal Mortgage Bank of Nigeria (FMBN)");
+        if (t.contains("nse") || t.contains("nigerian stock exchange") || t.contains("ngx") || t.contains("nigerian exchange")) return ensureRegulator("Nigerian Stock Exchange (NSE)");
+        if (t.contains("nitda") || t.contains("cybercrime")) return ensureRegulator("National Information Technology Development Agency (NITDA)");
+        if (t.contains("firs") || t.contains("revenue service")) return ensureRegulator("Federal Inland Revenue Service");
+        if (t.contains("ndic") || t.contains("deposit insurance")) return ensureRegulator("National Deposit Insurance Corporation");
+        if (t.contains("naicom") || t.contains("insurance commission")) return ensureRegulator("National Insurance Commission");
+        if (t.contains("frc") || t.contains("financial reporting council")) return ensureRegulator("Financial Reporting Council of Nigeria");
+        if (t.contains("nfiu") || t.contains("financial intelligence")) return ensureRegulator("Nigerian Financial Intelligence Unit");
+        if (t.contains("cac") || t.contains("corporate affairs")) return ensureRegulator("Corporate Affairs Commission");
+        if (t.contains("dmo") || t.contains("debt management")) return ensureRegulator("Debt Management Office");
+        if (t.contains("nipc") || t.contains("investment promotion")) return ensureRegulator("Nigerian Investment Promotion Commission (NIPC)");
+        if (t.contains("nsitf") || t.contains("social insurance trust")) return ensureRegulator("Nigeria Social Insurance Trust Fund (NSITF)");
+        if (t.contains("nctc") || t.contains("counter-terrorism")) return ensureRegulator("National Counter-Terrorism Centre (NCTC)");
+        if (t.contains("nis") || t.contains("immigration")) return ensureRegulator("Nigeria Immigration Service (NIS)");
+        if (t.contains("ndlea") || t.contains("drug law")) return ensureRegulator("National Drug Law Enforcement Agency (NDLEA)");
+        if (t.contains("icpc")) return ensureRegulator("ICPC");
+        if (t.contains("fgn") || t.contains("federal government")) return ensureRegulator("Federal Government of Nigeria");
+        // ── Extended inference mirroring inferRegulatorForAct ──
+        if (t.contains("cama") || t.contains("companies and allied")) return ensureRegulator("Corporate Affairs Commission");
+        if (t.contains("bofia") || t.contains("banks and other financial")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("fccpa") || t.contains("fccpc") || t.contains("federal competition")) return ensureRegulator("Federal Competition and Consumer Protection Commission");
+        if (t.contains("bvn") || t.contains("bank verification")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("tkyc") || t.contains("three-tiered know your customer")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("fx code") || t.contains("foreign exchange code") || t.contains("fx manual") || t.contains("foreign exchange manual")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("icaap") || t.contains("supervisory review")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("irrbb") || t.contains("interest rate risk")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("reputational risk") || t.contains("stress testing") || t.contains("leverage ratio") || t.contains("lcr") || t.contains("liquidity coverage")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("whistle") || t.contains("shared service") || t.contains("regulatory capital") || t.contains("basel")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("agent banking") || t.contains("sanef") || t.contains("shared agency network") || t.contains("prudential guideline")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("efems") || t.contains("electronic foreign exchange matching") || t.contains("imto") || t.contains("international money transfer") || t.contains("diaspora remittance") || t.contains("local currency liquidity")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("consumer protection")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("cybersecurity") || t.contains("cybercrime")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("blacklist") || t.contains("corporate governance") || (t.contains("branch") && t.contains("establishment"))) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("minimum wage") || t.contains("trade union") || t.contains("trade dispute") || t.contains("labour") || t.contains("labor")) return ensureRegulator("Federal Ministry of Labour and Employment");
+        if (t.contains("employee compensation") || t.contains("nsitf")) return ensureRegulator("Nigeria Social Insurance Trust Fund (NSITF)");
+        if (t.contains("aml") || t.contains("cft") || t.contains("cpf") || t.contains("proliferation financing") || t.contains("terrorism financing") || t.contains("targeted financial sanctions")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("advance fee fraud") || t.contains("cbn act") || t.contains("foreign currency disclosure") || t.contains("repatriation") || t.contains("instant payment") || t.contains("terrorism") && t.contains("prevention")) return ensureRegulator("Central Bank of Nigeria");
+        if (t.contains("cita") || t.contains("companies income tax") || t.contains("company income tax") || t.contains("pita") || t.contains("personal income tax") || t.contains("cgta") || t.contains("capital gains") || t.contains("stamp duties") || t.contains("stamp duty") || t.contains("value added tax") || t.contains(" vat ") || t.contains("finance act") || t.contains("petroleum profit") || t.contains("tertiary education tax") || t.contains("education tax")) return ensureRegulator("Federal Inland Revenue Service");
+        if (t.contains("investment and securities") || t.contains("isa") || t.contains("securities act") || t.contains("securities and exchange")) return ensureRegulator("Securities and Exchange Commission");
+        if (t.contains("money laundering") || t.contains("proceeds of crime") || t.contains("anti-money laundering")) return ensureRegulator("Nigerian Financial Intelligence Unit");
+        if (t.contains("constitution") || t.contains("evidence act") || t.contains("arbitration") || t.contains("disability") || t.contains("discrimination against persons")) return ensureRegulator("Federal Government of Nigeria");
+        if (t.contains("firs") || t.contains("revenue service")) return ensureRegulator("Federal Inland Revenue Service");
+        if (t.contains("lawfulness of purpose") || t.contains("ndpa") || t.contains("data protection")) return ensureRegulator("Nigeria Data Protection Commission");
+        return null;
+    }
+
+    private Integer mapAreaToRegulator(String area) {
+        if (area == null || area.isBlank()) return ensureRegulator("Federal Government of Nigeria");
+        String a = area.toLowerCase(Locale.ROOT).trim();
+        if (a.contains("tax")) return ensureRegulator("Federal Inland Revenue Service");
+        if (a.contains("capital market")) return ensureRegulator("Securities and Exchange Commission");
+        if (a.contains("labour") || a.contains("labor") || a.contains("employment") || a.contains("industrial relations")) return ensureRegulator("Federal Ministry of Labour and Employment");
+        if (a.contains("pension")) return ensureRegulator("National Pension Commission");
+        if (a.contains("data protection")) return ensureRegulator("Nigeria Data Protection Commission");
+        if (a.contains("insurance") && !a.contains("deposit")) return ensureRegulator("National Insurance Commission");
+        if (a.contains("deposit insurance")) return ensureRegulator("National Deposit Insurance Corporation");
+        if (a.contains("financial reporting") || a.contains("frc")) return ensureRegulator("Financial Reporting Council of Nigeria");
+        if (a.contains("consumer protection") || a.contains("competition")) return ensureRegulator("Federal Competition and Consumer Protection Commission");
+        if (a.contains("aml") || a.contains("cft") || a.contains("cpf") || a.contains("financial intelligence")) return ensureRegulator("Nigerian Financial Intelligence Unit");
+        if (a.contains("housing") || a.contains("mortgage")) return ensureRegulator("Federal Mortgage Bank of Nigeria (FMBN)");
+        if (a.contains("identity") || a.contains("nimc")) return ensureRegulator("National Identity Management Commission");
+        if (a.contains("cybersecurity") || a.contains("cybercrime") || a.contains("information technology")) return ensureRegulator("National Information Technology Development Agency (NITDA)");
+        if (a.contains("payment") || a.contains("cash management") || a.contains("liquidity") || a.contains("monetary")
+            || a.contains("credit risk") || a.contains("risk management") || a.contains("foreign exchange")
+            || a.contains("account management") || a.contains("financial inclusion") || a.contains("mobile banking")
+            || a.contains("licensing") || a.contains("capital adequacy") || a.contains("trade compliance")
+            || a.contains("conduct risk") || a.contains("corporate governance") || a.contains("people and conduct")
+            || a.contains("esg") || a.contains("anti-bribery") || a.contains("abac")) return ensureRegulator("Central Bank of Nigeria");
+        return ensureRegulator("Federal Government of Nigeria");
     }
 
     private String abbreviate(String name) {

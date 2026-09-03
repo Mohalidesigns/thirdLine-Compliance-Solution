@@ -16,6 +16,8 @@ public class ValidateLicenseResponse {
     private Instant gracePeriodEnd;
     private Integer gracePeriodDays;
     private Boolean deviceRegistered;
+    private Boolean autoSubscribeRegulators;
+    private Boolean autoSeedObligations;
     private Integer deviceCount;
     private Integer deviceLimit;
     private String apiKey;

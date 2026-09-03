@@ -37,5 +37,6 @@ atheris:
 logging:
   level:
     com.atheris.compliance: DEBUG
+    com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService: INFO
     org.springframework.web.client: WARN
     org.springframework.http.client: WARN

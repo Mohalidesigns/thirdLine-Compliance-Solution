@@ -166,33 +166,37 @@ public class OnboardingService {
         p.setOnboardingStep(4);
         profiles.save(p);
 
-        List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
         Long tid = tenantIdentity.currentTenantId();
-        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
-        List<Integer> existingIds = existing.stream()
-            .map(TenantRegulator::getPlatformRegulatorId)
-            .filter(Objects::nonNull)
-            .toList();
+        List<Integer> selectedIds = req.getSubscribedRegulators();
 
-        for (RegulatorSummary summary : allRegs) {
-            if (existingIds.contains(summary.getRegulatorId())) continue;
-            tenantRegulatorRepo.save(TenantRegulator.builder()
-                .tenantId(tid)
-                .name(summary.getName())
-                .abbreviation(summary.getAbbreviation())
-                .platformRegulatorId(summary.getRegulatorId())
-                .isActive(true)
-                .build());
+        if (Boolean.TRUE.equals(p.getAutoSubscribeRegulators()) || selectedIds == null || selectedIds.isEmpty()) {
+            List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
+            List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
+            List<Integer> existingIds = existing.stream()
+                .map(TenantRegulator::getPlatformRegulatorId)
+                .filter(Objects::nonNull)
+                .toList();
+
+            for (RegulatorSummary summary : allRegs) {
+                if (existingIds.contains(summary.getRegulatorId())) continue;
+                tenantRegulatorRepo.save(TenantRegulator.builder()
+                    .tenantId(tid)
+                    .name(summary.getName())
+                    .abbreviation(summary.getAbbreviation())
+                    .platformRegulatorId(summary.getRegulatorId())
+                    .isActive(true)
+                    .build());
+            }
+            selectedIds = allRegs.stream().map(RegulatorSummary::getRegulatorId).toList();
         }
 
-        List<Integer> allRegIds = allRegs.stream().map(RegulatorSummary::getRegulatorId).toList();
-        p.setSubscribedRegulators(allRegIds);
+        p.setSubscribedRegulators(selectedIds);
         profiles.save(p);
 
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(4).nextStep(5)
             .licenseStatus(p.getLicenseStatus())
-            .subscribedRegulators(allRegIds).build();
+            .subscribedRegulators(selectedIds).build();
     }
 
     @Transactional
@@ -215,6 +219,24 @@ public class OnboardingService {
         p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(6);
+
+        if (p.getSubscribedRegulators() == null || p.getSubscribedRegulators().isEmpty()) {
+            if (Boolean.TRUE.equals(p.getAutoSubscribeRegulators())) {
+                List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
+                Long tid = tenantIdentity.currentTenantId();
+                for (RegulatorSummary summary : allRegs) {
+                    tenantRegulatorRepo.save(TenantRegulator.builder()
+                        .tenantId(tid)
+                        .name(summary.getName())
+                        .abbreviation(summary.getAbbreviation())
+                        .platformRegulatorId(summary.getRegulatorId())
+                        .isActive(true)
+                        .build());
+                }
+                p.setSubscribedRegulators(allRegs.stream().map(RegulatorSummary::getRegulatorId).toList());
+            }
+        }
+
         profiles.save(p);
 
         log.info("Onboarding completed for tenant {}", tenantIdentity.currentTenantId());
@@ -237,7 +259,7 @@ public class OnboardingService {
                 } catch (Exception e) {
                     log.error("Failed to create tenant on platform for {}", tenantIdentity.currentTenantId(), e.getMessage());
                 }
-                try { regulationSeedService.seedAll(); } catch (Exception e) {
+                try { if (Boolean.TRUE.equals(p.getAutoSeedObligations())) regulationSeedService.seedAll(); } catch (Exception e) {
                     log.warn("Regulation seed failed: {}", e.getMessage());
                 }
                 try { syncService.syncNow(); } catch (Exception e) {

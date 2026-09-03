@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS licenses (
     max_devices     INT NOT NULL DEFAULT 1,
     max_storage_mb  INT DEFAULT 500,
     device_fingerprint_enforced BOOLEAN NOT NULL DEFAULT true,
+    auto_subscribe_regulators BOOLEAN NOT NULL DEFAULT false,
+    auto_seed_obligations BOOLEAN NOT NULL DEFAULT false,
     status          VARCHAR(50) NOT NULL DEFAULT 'inactive',
     activated_at    TIMESTAMPTZ DEFAULT NULL,
     expires_at      TIMESTAMPTZ NOT NULL,

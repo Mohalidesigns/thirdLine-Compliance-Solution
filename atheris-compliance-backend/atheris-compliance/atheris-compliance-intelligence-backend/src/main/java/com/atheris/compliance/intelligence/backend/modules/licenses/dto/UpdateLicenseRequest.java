@@ -15,6 +15,8 @@ public class UpdateLicenseRequest {
     @Positive
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
+    private Boolean autoSubscribeRegulators;
+    private Boolean autoSeedObligations;
     private Instant expiresAt;
     @Positive
     private Integer gracePeriodDays;

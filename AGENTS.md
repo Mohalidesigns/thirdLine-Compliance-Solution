@@ -84,6 +84,35 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - Classification: `unclassified`, `applicable`, `not_applicable`, `under_review`
 - Retry backoff (minutes): `[5, 15, 60, 240, 1440]`
 
+## Sub-Agents
+
+MUST use these sub-agents for all non-trivial tasks. MUST NEVER do the work directly — act as a coordinator only.
+
+| Task | Agent | When to Use |
+|------|-------|-------------|
+| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) |
+| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair |
+| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed |
+| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches |
+
+Full agent definitions: `.opencode/agents/`
+
+### Agent Conventions
+- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`.
+- **db-migration**: Always edit existing migrations in place. Only create new V<next> files for genuinely new tables. Run Flyway repair after editing. Use POSTGRES superuser for drops.
+- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers.
+- **api-sync**: Scans all `@RestController` classes vs all `api.js` files. Reports missing frontend calls, dead calls, parameter/auth/shape mismatches.
+
+## MCP Servers
+
+| Server | Package | Scope |
+|--------|---------|-------|
+| postgres | `@modelcontextprotocol/server-postgres` | Direct SQL on `atheris_intel` |
+| playwright | `@playwright/mcp` | Browser automation (Chromium) |
+| filesystem | `@modelcontextprotocol/server-filesystem` | File read/write (scoped to project) |
+
+Config: `opencode.json`
+
 ## Recent Changes
 
 ### Backend Verification & Cleanup (latest)
@@ -282,14 +311,6 @@ atheris-compliance-tenant-backend/
       V9__create_dashboard.sql          — dashboard_snapshots
 ```
 
-### Code Practices Applied
-- **All queries are native SQL** (`nativeQuery = true`) — zero JPQL
-- **All business logic in service layer** — controllers are thin (just delegate + return)
-- **Repository methods use JPA `findBy` naming** where possible
-- **No JPQL `@Query` annotations** — only native queries where `findBy` naming isn't enough
-- **WebhookReceiverService** extracted from inline controller logic
-- **NotificationController** delegates status filtering to service
-
 ### How to Run
 ```bash
 # Create tenant database
@@ -430,6 +451,21 @@ Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Desi
 ### Verified (live on 9091, test data cleaned up afterwards)
 Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >2d, L3 at >5d); submit flips to `Submitted Late` + resets escalation; quarterly return stepped Aug→Nov; return-to-obligation link `[8,5,1]` → join rows + `link_obligations` audit; obligation detail lists linked returns.
 
+## Done — Configurable License Seed & Toolkit Regulator Fix
+
+**Seed stays ungated when licensed.** Toolkit seeds go straight to Register (`RegulationSeedService.seedBundle` `source=seeded` `active`) — Inbox 0 is expected when `autoSeedObligations=true`. AI/uploads remain gated via `ObligationSyncService` → `PendingReview` → `ReviewService.save()`.
+
+### Configurable License (`autoSubscribeRegulators` / `autoSeedObligations`)
+- **Intel**: `License.java:37,40` `@Builder.Default false`, `V12` `BOOLEAN NOT NULL DEFAULT false`, DTOs `Create/Update/LicenseDto/ValidateLicenseResponse`, `LicenseService.java:75 create()/151 update() via LicenseMapper /306 validate()`, `AdminLicenseController.java:42,53,24`.
+- **Tenant**: `TenantProfile.java:69,71`, `V28` `ALTER TABLE`, `ValidateLicenseResponse.java:19`, `LicenseStatusResponse.java:19`, `LicenseService.java:48 activate()` `94 setAuto*` from `platformResp` + `277 toStatusResponse`.
+- **Onboarding**: `OnboardingService.java:172 saveRegulators()` `if(autoSubscribe||empty)` bulk `TenantRegulator`, `216 confirm()` second salvage + `244 afterCommit` `262 if(autoSeed) regulationSeedService.seedAll()` `265 syncNow()` (both `REQUIRES_NEW`).
+- **Frontend**: `LicenseAdminPage.jsx:110 defaults false /119 edit populate /418 Onboarding Features checkboxes` (`Checkbox`+`FormControlLabel`).
+
+### Toolkit Regulator `-` Fix (29 → 0 null)
+- **Root cause**: `ToolkitImportService.java:215 importUniverse` left `regulatorId=null` when `regulatoryenforcementbody` blank and title generic (tax/ISA/CAMA/BOFIA/Labour etc). `InternalInstrumentService.java:148/156` leaked null → `ObligationService.java:159` rendered `-`. 29/419 instruments null, 1544 obligations affected.
+- **Patch**: `importUniverse:217-222` chain `inferRegulatorFromTitle→inferRegulatorForAct→mapAreaToRegulator→Federal Govt`; `findOrCreateAct:447` infer before create; `linkCanonicalInstrument:511` + `ensureCanonicalInstrument:518` heal null `regulatorId` (mirrors `importReturns:412`); new helper `mapAreaToRegulator` (Tax→FIRS, Capital Market→SEC, Labour→31, Data Protection→NDPC 8, etc); extended `inferRegulatorForAct:538` (cita/pita/cgta/stamp duties/vat/finance act/money laundering/isa) and `inferRegulatorFromTitle:697` (cama/bofia/fccpa/bvn/tkyc/fx code/icaap/irrbb...).
+- **Verified**: fresh DB `atheris_intel.instruments 395/395 has_reg` (0 null) + `obligation_mappings 1544/1544` via `instruments` join; intel `:9090` + tenant `:9091` restarted, toolkit re-import idempotent. Register now shows chips `CBN/SEC/NDPC/FIRS` not `-`.
+
 # CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE
 
@@ -439,9 +475,9 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 
 ## CHANGE / EDIT MODE
 
-- Never implement features yourself when possible - use sub-agents!
-- Identify changes from the plan that can be implemented in parallel, and use sub-agents to implement the features efficiently
-- When using sub-agents to implement features, act as a coordinator only
+- MUST use sub-agents — never implement features yourself when possible
+- MUST identify changes from the plan that can be implemented in parallel, and use sub-agents to implement the features efficiently
+- when using sub-agents to implement features, act as a coordinator only
 
 ## CODING STYLE
 
@@ -450,22 +486,77 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 - for filtering and searching, use jpa criteria unless otherwise
 - avoid using jpql no matter what, when necessary use native query after prompting me for approval
 - avoid n+1 queries
+- use `@Builder.Default` on all initialized entity/DTO fields
+- all `@Transactional` catch blocks must call `setRollbackOnly()`
+- catch `Throwable` (not `Exception`) in processor/scheduler code
+- use `em.clear()` in catch blocks to prevent Hibernate stale-state issues
+- frontend must use TanStack Query (`@tanstack/react-query`) for all data fetching — never raw useEffect + fetch
+- wrap fetch calls in AbortController to prevent race conditions on unmounted components
+- all mutation endpoints must validate inputs server-side and return the updated entity for cache invalidation
+- testing E2E flows: MUST use Playwright via the frontend UI — NEVER curl to simulate frontend calls
 
 ## DATABASE SCHEMA CHANGES
 
 - Whenever you are recreating and dropping databases, ALWAYS use POSTGRES superuser
 - Whenever you make changes to the database schema, ALWAYS edit the existing migrations if they are the ones updated
 - Only create new migration files where necessary for new entities/tables added later
+- MUST NEVER insert/update data via raw SQL — always use the application APIs (controllers/endpoints) to create or modify data. Direct SQL mutations bypass business logic, validation, and audit trails, and will produce incorrect test results
 - drop and recreate the tables and check the databases and intel backends and verify that the fix is correct, prompt me to onboard and then we test on the Tenant
 
 ## TESTING
 
-- Use any testing tools, libraries available to the project for testing your changes
-- Never assume your changes simply work, always test!
-- If the project does not have any testing tools, scripts, MCP tools, skills, etc. available for testing, ask the user whether testing should be skipped.
+- MUST use Playwright (`@playwright/test`) for ALL E2E testing — open `http://localhost:5174`, walk through the UI flow
+- MUST NEVER use manual curl/PowerShell to test API endpoints that are called through the frontend — this bypasses the real request chain and produces misleading results
+- ONLY use curl for pure backend-only internal endpoints (e.g. `/api/v1/internal/` server-to-server callbacks) that have no frontend path
+- MUST NEVER assume changes work — always run the full onboarding flow via Playwright to verify
+- MUST always check backend logs for errors after onboarding (`%TEMP%\opencode\{intel,tenant}-{out,err}.log`)
+- if onboarding fails, MUST STOP and fix before proceeding with any new work
+- after every database drop/recreate and backend restart, MUST ask the user whether they want to test themselves — do NOT proceed with automated testing without user confirmation
+- use the following onboarding parameters
+ organization name: Mam Corp
+ address: No 121, Lewis Street, Lagos Island, Lagos
+ email: ikhaleepha@mamcorp.com
+ cco email: cco @mamcorp.com
+ user type: local 
+ local user email: environmental variable: TENANT_USERNAME
+ local user password: environmental variable: TENANT_USERNAME
+ after onboarding: MUST inform me to check the UI and verify
+
+## VERIFICATION
+
+- after every backend restart, MUST run the full onboarding flow to verify the system is functional
+- after onboarding, MUST verify the UI loads and check the backend logs for errors
+- if onboarding fails, MUST STOP and fix before proceeding with any new work
+- use the following onboarding parameters
+ organization name: Mam Corp
+ address: No 121, Lewis Street, Lagos Island, Lagos
+ email: ikhaleepha@mamcorp.com
+ cco email: cco @mamcorp.com
+ user type: local 
+ local user email: environmental variable: TENANT_USERNAME
+ local user password: environmental variable: TENANT_USERNAME
+ after onboarding: MUST inform me to check the UI and verify
+- for testing, MUST use Playwright to walk through the tenant UI at `http://localhost:5174`
+- admin login (intel backend): `admin@gmail.com` / env var `ADMIN_PASSWORD`
+
+## MAINTENANCE
+
+- after every confirmed feature completion, update AGENTS.md:
+  - add a `## Done — <feature name>` section with architecture, backend changes, frontend changes
+  - remove any stale "planned" or "in-progress" references
+  - compress old Done sections into 1-2 line summaries if the file exceeds 600 lines
+- keep the context window fresh — the AI reads AGENTS.md at session start, so it must reflect current state
+
+## GIT WORKFLOW
+
+- always create a feature branch before starting work: `feature/<short-description>` or `bugfix/<short-description>`
+- never commit directly to `main`
+- after completing a feature, ask the user for approval before committing and pushing
+- commit message format: `<type>: <description>` (e.g. `feature: add TanStack Query to obligations page`)
+- only push after the user explicitly confirms
 
 ## UI DESIGN
 
-- in pages with tables, use similar styling as the obligations register pages
-- in the tables use maximum of five columns to ensure visibility
-- the card stats should have a drop down
+- in pages with tables, MUST use similar styling as the obligations register pages
+- in the tables MUST use maximum of five columns to ensure visibility
+- the card stats MUST have a drop down
