@@ -37,7 +37,7 @@ public class PlaywrightHeadlessStrategy {
                 route -> route.abort());
 
             while (currentUrl != null && pageCount < maxPages) {
-                log.info("[Playwright] Scraping page {} for {}: {}",
+                log.debug("[Playwright] Scraping page {} for {}: {}",
                     pageCount + 1, regulator.getAbbreviation(), currentUrl);
                 try {
                     page.navigate(currentUrl, new Page.NavigateOptions()

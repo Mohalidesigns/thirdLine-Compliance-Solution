@@ -75,7 +75,7 @@ public class ScraperService {
 
         if (due.isEmpty()) return;
 
-        log.info("Scraping {} due regulators in parallel", due.size());
+        log.debug("Scraping {} due regulators in parallel", due.size());
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Void>> futures = new ArrayList<>();
@@ -130,7 +130,7 @@ public class ScraperService {
 
     public ScraperRunResult scrape(Regulator regulator, String mode) {
         long start = System.currentTimeMillis();
-        log.info("[{}] Scraping {} ({})", mode, regulator.getAbbreviation(), regulator.getScraperStrategy());
+        log.debug("[{}] Scraping {} ({})", mode, regulator.getAbbreviation(), regulator.getScraperStrategy());
 
         List<PdfLink> found = findPdfLinks(regulator, 1);
         int newCount = 0, skipped = 0, failed = 0;
@@ -174,7 +174,7 @@ public class ScraperService {
             regulators.save(r);
         });
 
-        log.info("[{}] Done {}. Found:{} New:{} Skipped:{} Failed:{} {}ms",
+        log.debug("[{}] Done {}. Found:{} New:{} Skipped:{} Failed:{} {}ms",
             mode, regulator.getAbbreviation(), found.size(), newCount, skipped, failed, duration);
 
         return ScraperRunResult.builder()

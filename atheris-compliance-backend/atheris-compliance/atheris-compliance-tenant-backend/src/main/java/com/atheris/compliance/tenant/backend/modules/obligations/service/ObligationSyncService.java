@@ -128,11 +128,20 @@ public class ObligationSyncService {
                 for (var extObl : detail.getObligations()) {
                     extracted.add(ReviewObligation.builder()
                         .obligationNumber(extObl.getObligationNumber())
-                        .description(extObl.getPlainEnglishStatement())
-                        .sectionReference(extObl.getSpecificSectionReference())
+                        .title(shorten(extObl.getTitle(), 500))
+                        .description(extObl.getDescription())
+                        .plainEnglishStatement(shorten(extObl.getPlainEnglishStatement(), 500))
+                        .sectionReference(shorten(extObl.getSpecificSectionReference(), 100))
                         .areaOfFocus(extObl.getAreaOfFocus())
                         .obligationType(extObl.getObligationType())
                         .recurringDeadlineType(extObl.getRecurringDeadlineType())
+                        .riskDescription(extObl.getRiskDescription())
+                        .inherentLikelihood(extObl.getInherentLikelihood())
+                        .inherentImpact(extObl.getInherentImpact())
+                        .inherentRiskRating(extObl.getInherentRiskRating())
+                        .controlOwner(shorten(extObl.getControlOwner(), 500))
+                        .regulationId(extObl.getRegulationId())
+                        .actName(shorten(extObl.getActName(), 500))
                         .applicable(true)
                         .build());
                 }
@@ -163,16 +172,20 @@ public class ObligationSyncService {
 
             log.info("Sync complete: {} created, {} skipped (already exist)", created, skipped);
 
-            // Only advance watermark after successful fetch+process; if results was null (error) we already returned early
             pollingConfig.setLastPolledAt(Instant.now());
             pollingConfigs.save(pollingConfig);
         } catch (Throwable e) {
             log.error("Obligation sync failed: {}", e.getMessage(), e);
             try { em.clear(); } catch (Exception ex) { log.warn("em.clear failed: {}", ex.getMessage()); }
-            // Do NOT advance watermark on error - will retry with same 'since' next poll
             try {
                 org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             } catch (Exception ex) { /* no transaction */ }
         }
+    }
+
+    private static String shorten(String s, int max) {
+        if (s == null) return null;
+        if (s.length() <= max) return s;
+        return s.substring(0, max);
     }
 }

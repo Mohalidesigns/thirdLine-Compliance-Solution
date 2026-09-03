@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDate;
@@ -7,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Data @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ReviewDetail {
     private Long reviewId;
     private String source;
@@ -30,13 +32,23 @@ public class ReviewDetail {
     private List<ReviewObligationDto> obligations;
 
     @Data @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ReviewObligationDto {
         private Integer obligationNumber;
+        private String title;
         private String description;
+        private String plainEnglishStatement;
         private String sectionReference;
         private String areaOfFocus;
         private String obligationType;
         private String recurringDeadlineType;
+        private String riskDescription;
+        private String inherentLikelihood;
+        private String inherentImpact;
+        private String inherentRiskRating;
+        private String controlOwner;
+        private Long regulationId;
+        private String actName;
         private Boolean applicable;
     }
 }

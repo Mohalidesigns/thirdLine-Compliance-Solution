@@ -6,10 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-@Component @Slf4j @RequiredArgsConstructor
+@Component @Slf4j @RequiredArgsConstructor @Order(0)
 public class AdminUserSeeder implements CommandLineRunner {
 
     private final UserRepository userRepo;
