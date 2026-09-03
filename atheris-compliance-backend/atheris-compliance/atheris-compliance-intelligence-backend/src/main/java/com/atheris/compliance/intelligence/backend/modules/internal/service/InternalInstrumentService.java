@@ -35,15 +35,25 @@ public class InternalInstrumentService {
     private final RegulatorRepository regulators;
 
     public Page<InternalInstrumentSummary> findRecentForTenant(Long tenantId, List<Integer> regulatorIds,
-                                                                String licenceType, LocalDate since, Pageable pageable) {
+                                                                 String licenceType, LocalDate since, Pageable pageable) {
         if (regulatorIds.isEmpty()) return Page.empty();
 
         Specification<Instrument> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
             predicates.add(root.get("regulatorId").in(regulatorIds));
-            if (since != null)
-                predicates.add(cb.greaterThan(root.get("publishedAt"), since));
+            if (since != null) {
+                // AGENTS.md: published_at NEVER populated, real date is dateIssued
+                // Use coalesce(publishedAt, dateIssued) so NULL publishedAt rows are not silently filtered out.
+                // Include rows where both dates are NULL so they still surface on incremental sync (deduped downstream).
+                jakarta.persistence.criteria.Expression<LocalDate> effectiveDate =
+                        cb.coalesce(root.get("publishedAt"), root.get("dateIssued"));
+                Predicate datePredicate = cb.greaterThan(effectiveDate, since);
+                Predicate nullDatePredicate = cb.and(
+                        cb.isNull(root.get("publishedAt")),
+                        cb.isNull(root.get("dateIssued")));
+                predicates.add(cb.or(datePredicate, nullDatePredicate));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 

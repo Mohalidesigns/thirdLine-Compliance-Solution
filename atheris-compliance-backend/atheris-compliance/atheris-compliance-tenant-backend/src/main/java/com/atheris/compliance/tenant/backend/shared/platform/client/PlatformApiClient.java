@@ -77,12 +77,26 @@ public class PlatformApiClient {
         return null;
     }
 
+    public void clearCache() {
+        cachedApiKey = null;
+        detailCache.clear();
+        log.info("PlatformApiClient cache cleared (apiKey + detailCache)");
+    }
+
+    public void invalidateApiKeyCache() {
+        cachedApiKey = null;
+    }
+
     private HttpHeaders headers() {
         HttpHeaders h = new HttpHeaders();
         if (cachedApiKey == null) {
             Optional<TenantProfile> opt = profiles.findAll().stream().findFirst();
             if (opt.isPresent() && opt.get().getEncryptedApiKey() != null) {
-                cachedApiKey = crypto.decrypt(opt.get().getEncryptedApiKey());
+                try {
+                    cachedApiKey = crypto.decrypt(opt.get().getEncryptedApiKey());
+                } catch (Exception e) {
+                    log.warn("Failed to decrypt API key: {}", e.getMessage());
+                }
             }
         }
         if (cachedApiKey != null) {
@@ -335,8 +349,9 @@ public class PlatformApiClient {
 
             return all;
         } catch (Exception e) {
-            log.error("Failed to fetch recent instruments: {}", e.getMessage());
-            return List.of();
+            log.error("Failed to fetch recent instruments: {}", e.getMessage(), e);
+            // Return null to signal error vs legitimate empty result - caller must NOT advance watermark on error
+            return null;
         }
     }
 

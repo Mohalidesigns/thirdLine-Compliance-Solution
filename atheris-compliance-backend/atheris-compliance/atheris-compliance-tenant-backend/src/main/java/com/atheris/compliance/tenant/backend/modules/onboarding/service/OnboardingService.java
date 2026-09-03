@@ -221,20 +221,29 @@ public class OnboardingService {
         p.setOnboardingStep(6);
 
         if (p.getSubscribedRegulators() == null || p.getSubscribedRegulators().isEmpty()) {
-            if (Boolean.TRUE.equals(p.getAutoSubscribeRegulators())) {
-                List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
-                Long tid = tenantIdentity.currentTenantId();
-                for (RegulatorSummary summary : allRegs) {
-                    tenantRegulatorRepo.save(TenantRegulator.builder()
-                        .tenantId(tid)
-                        .name(summary.getName())
-                        .abbreviation(summary.getAbbreviation())
-                        .platformRegulatorId(summary.getRegulatorId())
-                        .isActive(true)
-                        .build());
-                }
+            // Salvage unconditional when empty - ensures 40 tenant_regulators even when license flag false
+            // Mirrors saveRegulators logic: if (autoSubscribe || empty) bulk create; idempotent via existingIds
+            List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
+            Long tid = tenantIdentity.currentTenantId();
+            List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
+            List<Integer> existingIds = existing.stream()
+                .map(TenantRegulator::getPlatformRegulatorId)
+                .filter(Objects::nonNull)
+                .toList();
+            for (RegulatorSummary summary : allRegs) {
+                if (existingIds.contains(summary.getRegulatorId())) continue;
+                tenantRegulatorRepo.save(TenantRegulator.builder()
+                    .tenantId(tid)
+                    .name(summary.getName())
+                    .abbreviation(summary.getAbbreviation())
+                    .platformRegulatorId(summary.getRegulatorId())
+                    .isActive(true)
+                    .build());
+            }
+            if (!allRegs.isEmpty()) {
                 p.setSubscribedRegulators(allRegs.stream().map(RegulatorSummary::getRegulatorId).toList());
             }
+            log.info("Salvaged {} regulators for tenant {} (existing {} -> now {})", allRegs.size(), tid, existingIds.size(), p.getSubscribedRegulators() != null ? p.getSubscribedRegulators().size() : 0);
         }
 
         profiles.save(p);
@@ -243,27 +252,31 @@ public class OnboardingService {
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
+                // Re-fetch fresh profile inside afterCommit to get up-to-date autoSeed flag and ensure API key is visible
+                TenantProfile fresh = profiles.findByTenantId(tenantIdentity.currentTenantId()).orElse(p);
+                // Invalidate PlatformApiClient cachedApiKey after license activation so headers() re-reads encryptedApiKey
+                try { platformApi.clearCache(); } catch (Exception ce) { log.warn("clearCache failed: {}", ce.getMessage()); }
                 try {
                     Map<String, Object> tenantReq = new HashMap<>();
-                    tenantReq.put("legalName", p.getLegalName());
-                    tenantReq.put("address", p.getAddress());
-                    tenantReq.put("contactPhone", p.getContactPhone());
-                    tenantReq.put("contactEmail", p.getContactEmail());
-                    tenantReq.put("ccoEmail", p.getCcoEmail());
-                    tenantReq.put("regulators", p.getSubscribedRegulators());
-                    tenantReq.put("subscribedDocumentTypes", p.getSubscribedDocumentTypes());
-                    tenantReq.put("notificationFrequency", p.getNotificationFrequency());
-                    tenantReq.put("subscriptionTier", p.getSubscriptionTier());
-                    tenantReq.put("webhookUrl", p.getWebhookUrl());
+                    tenantReq.put("legalName", fresh.getLegalName());
+                    tenantReq.put("address", fresh.getAddress());
+                    tenantReq.put("contactPhone", fresh.getContactPhone());
+                    tenantReq.put("contactEmail", fresh.getContactEmail());
+                    tenantReq.put("ccoEmail", fresh.getCcoEmail());
+                    tenantReq.put("regulators", fresh.getSubscribedRegulators());
+                    tenantReq.put("subscribedDocumentTypes", fresh.getSubscribedDocumentTypes());
+                    tenantReq.put("notificationFrequency", fresh.getNotificationFrequency());
+                    tenantReq.put("subscriptionTier", fresh.getSubscriptionTier());
+                    tenantReq.put("webhookUrl", fresh.getWebhookUrl());
                     platformApi.onboardTenant(tenantReq);
-                } catch (Exception e) {
-                    log.error("Failed to create tenant on platform for {}", tenantIdentity.currentTenantId(), e.getMessage());
+                } catch (Throwable e) {
+                    log.error("Failed to create tenant on platform for {}: {}", tenantIdentity.currentTenantId(), e.getMessage(), e);
                 }
-                try { if (Boolean.TRUE.equals(p.getAutoSeedObligations())) regulationSeedService.seedAll(); } catch (Exception e) {
-                    log.warn("Regulation seed failed: {}", e.getMessage());
+                try { if (Boolean.TRUE.equals(fresh.getAutoSeedObligations())) regulationSeedService.seedAll(); } catch (Throwable e) {
+                    log.warn("Regulation seed failed: {}", e.getMessage(), e);
                 }
-                try { syncService.syncNow(); } catch (Exception e) {
-                    log.warn("Initial sync failed: {}", e.getMessage());
+                try { syncService.syncNow(); } catch (Throwable e) {
+                    log.warn("Initial sync failed: {}", e.getMessage(), e);
                 }
             }
         });

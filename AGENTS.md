@@ -466,6 +466,11 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 - **Patch**: `importUniverse:217-222` chain `inferRegulatorFromTitle→inferRegulatorForAct→mapAreaToRegulator→Federal Govt`; `findOrCreateAct:447` infer before create; `linkCanonicalInstrument:511` + `ensureCanonicalInstrument:518` heal null `regulatorId` (mirrors `importReturns:412`); new helper `mapAreaToRegulator` (Tax→FIRS, Capital Market→SEC, Labour→31, Data Protection→NDPC 8, etc); extended `inferRegulatorForAct:538` (cita/pita/cgta/stamp duties/vat/finance act/money laundering/isa) and `inferRegulatorFromTitle:697` (cama/bofia/fccpa/bvn/tkyc/fx code/icaap/irrbb...).
 - **Verified**: fresh DB `atheris_intel.instruments 395/395 has_reg` (0 null) + `obligation_mappings 1544/1544` via `instruments` join; intel `:9090` + tenant `:9091` restarted, toolkit re-import idempotent. Register now shows chips `CBN/SEC/NDPC/FIRS` not `-`.
 
+### Review Inbox AI Sync Fix (`pending_reviews` 0 → 5)
+- **Root cause**: `InternalInstrumentService.java:37-46` `findRecentForTenant` used `publishedAt > since` but `published_at` is `NULL` for all scraped/AI docs (`AGENTS.md: published_at NEVER populated, dateIssued is real`). After first `ObligationSyncService.syncNow` set `lastPolledAt=today`, every poll returned 0. Plus `OnboardingService.java:223` salvage required `autoSubscribe=true` → 0 `tenant_regulators` → `Sync skipped: no active regulators`.
+- **Patch**: `InternalInstrumentService:37` `coalesce(publishedAt,dateIssued) > since` + `OR (both null)`; `OnboardingService:223` salvage now unconditional when `subscribedRegulators` empty (mirrors `saveRegulators:172` `autoSubscribe||empty` → 40 regs); `afterCommit` re-fetches fresh `TenantProfile` + `PlatformApiClient.clearCache()` for `X-Api-Key`; `ObligationSyncService:101` `foundRecent` returns `null` on error so watermark not advanced, `em.clear()` + `Throwable`.
+- **Verified**: fresh DB after restart — `Seed complete 390 bundles` + `Sync check: 40 regulatorIds` + `Received 391` (toolkit skipped `already exist`) + next poll queued 5 scraper `Published` (396/397 FCCPC + 398-400 NDIC) → `pending_reviews 5 pending` visible at `http://localhost:5174/review`. Toolkit `391` stays ungated to Register as intended.
+
 # CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE
 
