@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS pending_reviews (
     published_at           DATE,
     pdf_url                VARCHAR(500),
     obligations_json       JSONB,
+    sanctions              JSONB,
     status                 VARCHAR(20) DEFAULT 'pending',
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW()

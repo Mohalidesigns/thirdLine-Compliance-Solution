@@ -519,43 +519,43 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 - Whenever you make changes to the database schema, ALWAYS edit the existing migrations if they are the ones updated
 - Only create new migration files where necessary for new entities/tables added later
 - MUST NEVER insert/update data via raw SQL — always use the application APIs (controllers/endpoints) to create or modify data. Direct SQL mutations bypass business logic, validation, and audit trails, and will produce incorrect test results
-- drop and recreate the tables and check the databases and intel backends and verify that the fix is correct, prompt me to onboard and then we test on the Tenant
+- drop and recreate the tables and check the databases and intel backends and verify that the fix is correct, prompt me to start backends and onboard and then we test on the Tenant
 
 ## TESTING
 
-- MUST use Playwright (`@playwright/test`) for ALL E2E testing — open `http://localhost:5174`, walk through the UI flow
+- MUST use Playwright (`@playwright/test`) ONLY for single-page UI checks (e.g. verify one table, drawer, or chip renders at `http://localhost:5174/<page>`) — do NOT use Playwright for multi-step onboarding wizard (`/onboarding` 4 steps) which is flaky in headless automation
+- For onboarding E2E, prompt the user to test manually via the browser using the parameters below; do NOT automate it with Playwright
 - MUST NEVER use manual curl/PowerShell to test API endpoints that are called through the frontend — this bypasses the real request chain and produces misleading results
 - ONLY use curl for pure backend-only internal endpoints (e.g. `/api/v1/internal/` server-to-server callbacks) that have no frontend path
-- MUST NEVER assume changes work — always run the full onboarding flow via Playwright to verify
-- MUST always check backend logs for errors after onboarding (`%TEMP%\opencode\{intel,tenant}-{out,err}.log`)
+- MUST NEVER assume changes work — always verify builds compile (`mvn clean compile`, `npm run build`) and check backend logs for errors after any manual onboarding (`%TEMP%\opencode\{intel,tenant}-{out,err}.log`)
 - if onboarding fails, MUST STOP and fix before proceeding with any new work
-- after every database drop/recreate and backend restart, MUST ask the user whether they want to test themselves — do NOT proceed with automated testing without user confirmation
-- use the following onboarding parameters
+- after every database drop/recreate, MUST prompt the user to start the backends themselves and then run manual onboarding — NEVER start backends automatically; do NOT proceed with automated testing without user confirmation
+- use the following onboarding parameters (values are examples; credentials via env vars only)
  organization name: Mam Corp
  address: No 121, Lewis Street, Lagos Island, Lagos
- email: ikhaleepha@mamcorp.com
- cco email: cco @mamcorp.com
+ email: env var `ORG_EMAIL`
+ cco email: env var `CCO_EMAIL`
  user type: local 
- local user email: environmental variable: TENANT_USERNAME
- local user password: environmental variable: TENANT_USERNAME
+ local user email: env var `TENANT_USERNAME`
+ local user password: env var `TENANT_PASSWORD`
  after onboarding: MUST inform me to check the UI and verify
 
 ## VERIFICATION
 
-- after every backend restart, MUST run the full onboarding flow to verify the system is functional
+- after every backend restart, MUST verify builds compile and prompt user to start backends + run manual onboarding (do NOT start backends or automate onboarding with Playwright)
 - after onboarding, MUST verify the UI loads and check the backend logs for errors
 - if onboarding fails, MUST STOP and fix before proceeding with any new work
-- use the following onboarding parameters
+- use the following onboarding parameters (values are examples; credentials via env vars only)
  organization name: Mam Corp
  address: No 121, Lewis Street, Lagos Island, Lagos
- email: ikhaleepha@mamcorp.com
- cco email: cco @mamcorp.com
+ email: env var `ORG_EMAIL`
+ cco email: env var `CCO_EMAIL`
  user type: local 
- local user email: environmental variable: TENANT_USERNAME
- local user password: environmental variable: TENANT_USERNAME
+ local user email: env var `TENANT_USERNAME`
+ local user password: env var `TENANT_PASSWORD`
  after onboarding: MUST inform me to check the UI and verify
-- for testing, MUST use Playwright to walk through the tenant UI at `http://localhost:5174`
-- admin login (intel backend): `admin@gmail.com` / env var `ADMIN_PASSWORD`
+- for frontend single-page checks, MAY use Playwright to verify one table/drawer/chip at `http://localhost:5174/<page>` — never for full onboarding flow
+- admin login (intel backend): env var `ADMIN_USERNAME` / env var `ADMIN_PASSWORD`
 
 ## MAINTENANCE
 

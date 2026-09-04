@@ -48,10 +48,20 @@ public class ObligationDetailResponse {
     public static class ObligationItem {
         private Long obligationId;
         private Integer obligationNumber;
+        private String title;
         private String description;
+        private String plainEnglishStatement;
         private String sectionReference;
-        private String obligationType;
         private String areaOfFocus;
+        private String obligationType;
+        private String recurringDeadlineType;
+        private String riskDescription;
+        private String inherentLikelihood;
+        private String inherentImpact;
+        private String inherentRiskRating;
+        private String controlOwner;
+        private Long regulationId;
+        private String actName;
         private LocalDate effectiveDate;
         private String status;
     }

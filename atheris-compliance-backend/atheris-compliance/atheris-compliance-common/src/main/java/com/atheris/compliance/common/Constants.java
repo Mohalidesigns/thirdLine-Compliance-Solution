@@ -65,6 +65,7 @@ public final class Constants {
     public static final String MIME_OCTET_STREAM = "octet-stream";
 
     // ── Storage / S3 ──
+    // Defaults below are overridden by env via application.yml: ${AWS_REGION:af-south-1}, ${S3_BUCKET:...}
     public static final String AWS_REGION = "af-south-1";
     public static final String S3_KEY_RAW_PREFIX = "raw/";
     public static final String S3_KEY_INSTRUMENTS_PREFIX = "instruments/";
@@ -145,6 +146,7 @@ public final class Constants {
     public static final String LICENSE_EVENT_DEVICE_REJECTED = "device_rejected";
 
     // ── Email ──
+    // Defaults below are overridden by env via application.yml: ${EMAIL_FROM:...}, ${BASE_URL:...}
     public static final String EMAIL_FROM = "noreply@atheris.com";
     public static final String EMAIL_BASE_URL = "https://app.atheris.com";
 

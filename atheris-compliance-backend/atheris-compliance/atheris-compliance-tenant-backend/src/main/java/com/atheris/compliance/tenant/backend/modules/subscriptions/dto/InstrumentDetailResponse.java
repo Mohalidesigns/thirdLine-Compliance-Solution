@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -27,16 +28,39 @@ public class InstrumentDetailResponse {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ObligationItem {
         private Long obligationId;
+        private Integer obligationNumber;
+        private String title;
         private String description;
-        private String section;
-        private String type;
+        private String plainEnglishStatement;
+        private String sectionReference;
+        private String areaOfFocus;
+        private String obligationType;
+        private String recurringDeadlineType;
+        private String riskDescription;
+        private String inherentLikelihood;
+        private String inherentImpact;
+        private String inherentRiskRating;
+        private String controlOwner;
+        private Long regulationId;
+        private String actName;
         private LocalDate effectiveDate;
         private String status;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class SanctionItem {
+        private Long sanctionId;
+        private String sanctionType;
+        private BigDecimal amountNaira;
+        private Boolean sanctionAmountPerDay;
+        private List<String> liableRoles;
+        private Integer severityScore;
+        private Boolean hasBeenEnforced;
         private String description;
-        private String type;
+        private String sourceSectionReference;
+        private String riskExplanation;
+        private String penaltyDetails;
+        private Long regulationId;
+        private String actName;
     }
 }

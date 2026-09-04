@@ -20,7 +20,7 @@ public class PlaywrightBrowserPool {
 
     @PostConstruct
     public void init() {
-        log.info("Launching Playwright Chromium browser...");
+        log.debug("Launching Playwright Chromium browser...");
         playwright = Playwright.create();
         browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
             .setHeadless(true)
@@ -32,12 +32,12 @@ public class PlaywrightBrowserPool {
                 Constants.PW_DISABLE_BG_NETWORKING,
                 Constants.PW_WINDOW_SIZE
             )));
-        log.info("Playwright Chromium browser ready.");
+        log.debug("Playwright Chromium browser ready.");
     }
 
     @PreDestroy
     public void destroy() {
-        log.info("Shutting down Playwright browser...");
+        log.debug("Shutting down Playwright browser...");
         if (browser != null) browser.close();
         if (playwright != null) playwright.close();
     }

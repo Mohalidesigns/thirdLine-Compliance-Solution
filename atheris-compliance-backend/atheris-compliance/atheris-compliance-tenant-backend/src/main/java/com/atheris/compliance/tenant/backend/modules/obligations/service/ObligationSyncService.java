@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantPro
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewSanction;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
@@ -146,6 +147,26 @@ public class ObligationSyncService {
                         .build());
                 }
 
+                List<ReviewSanction> extractedSanctions = new ArrayList<>();
+                if (detail.getSanctions() != null) {
+                    for (var s : detail.getSanctions()) {
+                        extractedSanctions.add(ReviewSanction.builder()
+                            .sanctionType(s.getSanctionType())
+                            .amountNaira(s.getAmountNaira())
+                            .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                            .liableRoles(s.getLiableRoles())
+                            .severityScore(s.getSeverityScore())
+                            .hasBeenEnforced(s.getHasBeenEnforced())
+                            .description(s.getDescription())
+                            .sourceSectionReference(s.getSourceSectionReference())
+                            .riskExplanation(s.getRiskExplanation())
+                            .penaltyDetails(s.getPenaltyDetails())
+                            .regulationId(s.getRegulationId())
+                            .actName(shorten(s.getActName(), 500))
+                            .build());
+                    }
+                }
+
                 LocalDate effDate = detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued();
                 pendingReviews.save(PendingReview.builder()
                     .tenantId(tenantId)
@@ -163,6 +184,7 @@ public class ObligationSyncService {
                     .publishedAt(detail.getPublishedAt())
                     .pdfUrl(detail.getPdfUrl())
                     .obligations(extracted)
+                    .sanctions(extractedSanctions)
                     .status("pending")
                     .build());
                 created++;

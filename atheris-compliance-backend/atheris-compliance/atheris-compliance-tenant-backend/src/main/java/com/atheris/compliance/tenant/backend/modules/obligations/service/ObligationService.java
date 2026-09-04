@@ -43,6 +43,7 @@ public class ObligationService {
     private final OwnerRepository ownerRepo;
     private final DepartmentRepository departmentRepo;
     private final RegulatorySanctionRepository sanctionRepo;
+    private final ObligationSanctionRepository obligationSanctionRepo;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -129,6 +130,15 @@ public class ObligationService {
         Set<Long> uniqueInstrumentIds = allObligations.stream()
             .map(Obligation::getInstrumentId).filter(Objects::nonNull).collect(Collectors.toSet());
 
+        // per-obligation sanction links (V29 join) — fallback to instrument-wide if none linked yet
+        Map<Long, List<Long>> sanctionIdsByObligation = obligationSanctionRepo.findAllSanctionLinks().stream()
+            .collect(Collectors.groupingBy(
+                ObligationSanctionRepository.ObligationSanctionRow::getObligationId,
+                Collectors.mapping(ObligationSanctionRepository.ObligationSanctionRow::getSanctionId, Collectors.toList())));
+        Set<Long> allLinkedSanctionIds = sanctionIdsByObligation.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Map<Long, RegulatorySanction> sanctionById = allLinkedSanctionIds.isEmpty() ? Map.of()
+            : sanctionRepo.findAllById(allLinkedSanctionIds).stream()
+                .collect(Collectors.toMap(RegulatorySanction::getSanctionId, s -> s, (a, b) -> a));
         Map<Long, List<RegulatorySanction>> sanctionsByInstrument = sanctionRepo.findByInstrumentIdIn(uniqueInstrumentIds).stream()
             .filter(s -> s.getInstrumentId() != null)
             .collect(Collectors.groupingBy(RegulatorySanction::getInstrumentId));
@@ -144,16 +154,31 @@ public class ObligationService {
             List<String> returnNames = linkedReturnIds.stream()
                 .map(id -> returnNameById.get(id)).filter(Objects::nonNull).toList();
 
+            List<RegulatorySanction> sanctionsForRow;
+            List<Long> linkedSids = sanctionIdsByObligation.get(ob.getObligationId());
+            if (linkedSids != null && !linkedSids.isEmpty()) {
+                sanctionsForRow = linkedSids.stream().map(sanctionById::get).filter(Objects::nonNull).toList();
+            } else {
+                sanctionsForRow = ob.getInstrumentId() != null
+                    ? sanctionsByInstrument.getOrDefault(ob.getInstrumentId(), List.of())
+                    : List.of();
+            }
+
             rows.add(ObligationRegisterItem.builder()
                 .obligationId(ob.getObligationId())
                 .name(ob.getName())
+                .title(ob.getTitle())
                 .obligationNumber(ob.getObligationNumber())
-.description(ob.getDescription())
+                .description(ob.getDescription())
+                .plainEnglishStatement(ob.getPlainEnglishStatement())
                 .sectionReference(ob.getSectionReference())
                 .areaOfFocus(ob.getAreaOfFocus())
                 .obligationType(ob.getObligationType())
-            .recurringDeadlineType(ob.getRecurringDeadlineType())
+                .recurringDeadlineType(ob.getRecurringDeadlineType())
+                .riskDescription(ob.getRiskDescription())
                 .effectiveDate(ob.getEffectiveDate())
+                .actName(ob.getActName())
+                .regulationId(ob.getRegulationId())
                 .instrumentId(ob.getInstrumentId())
                 .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
                 .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
@@ -176,9 +201,7 @@ public class ObligationService {
                 .returnNames(returnNames)
                 .classificationVersion(c != null ? c.getClassificationVersion() : null)
                 .classifiedAt(c != null ? c.getClassifiedAt() : null)
-                .sanctions(ob.getInstrumentId() != null
-                    ? toSanctionItems(sanctionsByInstrument.getOrDefault(ob.getInstrumentId(), List.of()))
-                    : null)
+                .sanctions(toSanctionItems(sanctionsForRow))
                 .build());
         }
         return rows;
@@ -200,6 +223,9 @@ public class ObligationService {
         if (q != null && !q.isBlank()) {
             String needle = q.toLowerCase();
             boolean match = contains(i.getDescription(), needle)
+                || contains(i.getPlainEnglishStatement(), needle)
+                || contains(i.getTitle(), needle)
+                || contains(i.getActName(), needle)
                 || contains(i.getSourceTitle(), needle)
                 || contains(i.getRegulatorAbbreviation(), needle)
                 || contains(i.getRegulatorName(), needle);
@@ -226,6 +252,8 @@ public class ObligationService {
                 .sourceSectionReference(s.getSourceSectionReference())
                 .riskExplanation(s.getRiskExplanation())
                 .penaltyDetails(s.getPenaltyDetails())
+                .regulationId(s.getRegulationId())
+                .actName(s.getRegulationName())
                 .build())
             .toList();
     }
@@ -234,6 +262,7 @@ public class ObligationService {
         if (list == null || list.isEmpty()) return null;
         return list.stream()
             .map(s -> ObligationDetailView.SanctionItem.builder()
+                .sanctionId(s.getSanctionId())
                 .sanctionType(s.getSanctionType())
                 .sanctionAmountNaira(s.getSanctionAmountNaira())
                 .sanctionAmountPerDay(s.getSanctionAmountPerDay())
@@ -244,6 +273,8 @@ public class ObligationService {
                 .sourceSectionReference(s.getSourceSectionReference())
                 .riskExplanation(s.getRiskExplanation())
                 .penaltyDetails(s.getPenaltyDetails())
+                .regulationId(s.getRegulationId())
+                .actName(s.getRegulationName())
                 .build())
             .toList();
     }
@@ -368,13 +399,18 @@ public class ObligationService {
         return ObligationRegisterItem.builder()
             .obligationId(ob.getObligationId())
             .name(ob.getName())
+            .title(ob.getTitle())
             .obligationNumber(ob.getObligationNumber())
             .description(ob.getDescription())
+            .plainEnglishStatement(ob.getPlainEnglishStatement())
             .sectionReference(ob.getSectionReference())
             .areaOfFocus(ob.getAreaOfFocus())
             .obligationType(ob.getObligationType())
             .recurringDeadlineType(ob.getRecurringDeadlineType())
+            .riskDescription(ob.getRiskDescription())
             .effectiveDate(ob.getEffectiveDate())
+            .actName(ob.getActName())
+            .regulationId(ob.getRegulationId())
             .instrumentId(ob.getInstrumentId())
             .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
             .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
@@ -455,14 +491,30 @@ public class ObligationService {
                 .changedAt(h.getChangedAt()).build())
             .toList();
 
+        List<ObligationDetailView.SanctionItem> sanctions;
+        List<Long> linkedSanctionIds = obligationSanctionRepo.findLinkedSanctionIds(obligationId);
+        if (linkedSanctionIds != null && !linkedSanctionIds.isEmpty()) {
+            sanctions = toDetailSanctionItems(sanctionRepo.findAllById(linkedSanctionIds));
+        } else {
+            sanctions = ob.getInstrumentId() != null
+                ? toDetailSanctionItems(sanctionRepo.findByInstrumentId(ob.getInstrumentId()))
+                : null;
+        }
+
         return ObligationDetailView.builder()
             .obligationId(ob.getObligationId())
             .obligationNumber(ob.getObligationNumber())
             .name(ob.getName())
+            .title(ob.getTitle())
             .description(ob.getDescription())
+            .plainEnglishStatement(ob.getPlainEnglishStatement())
             .sectionReference(ob.getSectionReference())
+            .areaOfFocus(ob.getAreaOfFocus())
             .obligationType(ob.getObligationType())
             .recurringDeadlineType(ob.getRecurringDeadlineType())
+            .actName(ob.getActName())
+            .regulationId(ob.getRegulationId())
+            .effectiveDate(ob.getEffectiveDate())
             .instrumentId(ob.getInstrumentId())
             .sourceTitle(d != null ? d.getSourceTitle() : null)
             .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
@@ -499,9 +551,7 @@ public class ObligationService {
             .linkedReturns(returns)
             .evidence(evidence)
             .history(historyItems)
-            .sanctions(ob.getInstrumentId() != null
-                ? toDetailSanctionItems(sanctionRepo.findByInstrumentId(ob.getInstrumentId()))
-                : null)
+            .sanctions(sanctions)
             .build();
     }
 
@@ -637,6 +687,7 @@ public class ObligationService {
                     .obligationId(o.getObligationId())
                     .obligationNumber(o.getObligationNumber())
                     .description(o.getDescription())
+                    .plainEnglishStatement(o.getPlainEnglishStatement())
                     .sectionReference(o.getSectionReference())
                     .obligationType(o.getObligationType())
                     .areaOfFocus(o.getAreaOfFocus())

@@ -107,7 +107,7 @@ export default function LicenseAdminPage() {
   const openCreateDialog = () => {
     const defaultExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const expiresAt = defaultExpiry.toISOString().slice(0, 16);
-    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, autoSubscribeRegulators: false, autoSeedObligations: false, expiresAt });
+    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, autoSubscribeRegulators: true, autoSeedObligations: true, expiresAt });
     setOpenCreate(true);
   };
 
@@ -117,8 +117,8 @@ export default function LicenseAdminPage() {
       maxDevices: lic.maxDevices,
       maxStorageMb: lic.maxStorageMb,
       deviceFingerprintEnforced: lic.deviceFingerprintEnforced,
-      autoSubscribeRegulators: lic.autoSubscribeRegulators || false,
-      autoSeedObligations: lic.autoSeedObligations || false,
+      autoSubscribeRegulators: lic.autoSubscribeRegulators ?? true,
+      autoSeedObligations: lic.autoSeedObligations ?? true,
       expiresAt: lic.expiresAt?.slice(0, 16),
       gracePeriodDays: lic.gracePeriodDays, notes: lic.notes,
     });

@@ -33,6 +33,9 @@ public class PendingReview {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "obligations_json", columnDefinition = "jsonb")
     private List<ReviewObligation> obligations;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "sanctions", columnDefinition = "jsonb")
+    @Builder.Default private List<ReviewSanction> sanctions = new java.util.ArrayList<>();
     @Builder.Default private String status = "pending";
     private Instant createdAt;
     private Instant updatedAt;

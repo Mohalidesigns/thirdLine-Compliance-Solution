@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data @Builder
@@ -11,11 +12,16 @@ public class ObligationDetailView {
     private Long obligationId;
     private Integer obligationNumber;
     private String name;
+    private String title;
     private String description;
+    private String plainEnglishStatement;
     private String sectionReference;
     private String areaOfFocus;
     private String obligationType;
     private String recurringDeadlineType;
+    private String actName;
+    private Long regulationId;
+    private LocalDate effectiveDate;
 
     private Long instrumentId;
     private String sourceTitle;
@@ -59,6 +65,7 @@ public class ObligationDetailView {
 
     @Data @Builder
     public static class SanctionItem {
+        private Long sanctionId;
         private String sanctionType;
         private BigDecimal sanctionAmountNaira;
         private Boolean sanctionAmountPerDay;
@@ -69,6 +76,8 @@ public class ObligationDetailView {
         private String sourceSectionReference;
         private String riskExplanation;
         private String penaltyDetails;
+        private Long regulationId;
+        private String actName;
     }
 
     @Data @Builder
