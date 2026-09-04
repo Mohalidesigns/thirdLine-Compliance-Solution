@@ -4,10 +4,14 @@ import com.atheris.compliance.intelligence.backend.modules.instruments.entity.In
 import com.atheris.compliance.intelligence.backend.modules.instruments.repository.InstrumentRepository;
 import com.atheris.compliance.intelligence.backend.modules.internal.dto.InternalInstrumentDetail;
 import com.atheris.compliance.intelligence.backend.modules.internal.dto.InternalInstrumentSummary;
+import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.common.Constants;
+import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
 import jakarta.persistence.criteria.Predicate;
@@ -33,17 +37,25 @@ public class InternalInstrumentService {
     private final SanctionsRepository sanctions;
     private final StorageService storage;
     private final RegulatorRepository regulators;
+    private final RegulationRepository actRepository;
 
     public Page<InternalInstrumentSummary> findRecentForTenant(Long tenantId, List<Integer> regulatorIds,
-                                                                String licenceType, LocalDate since, Pageable pageable) {
+                                                                 String licenceType, LocalDate since, Pageable pageable) {
         if (regulatorIds.isEmpty()) return Page.empty();
 
         Specification<Instrument> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
             predicates.add(root.get("regulatorId").in(regulatorIds));
-            if (since != null)
-                predicates.add(cb.greaterThan(root.get("publishedAt"), since));
+            if (since != null) {
+                jakarta.persistence.criteria.Expression<LocalDate> effectiveDate =
+                        cb.coalesce(root.get("publishedAt"), root.get("dateIssued"));
+                Predicate datePredicate = cb.greaterThan(effectiveDate, since);
+                Predicate nullDatePredicate = cb.and(
+                        cb.isNull(root.get("publishedAt")),
+                        cb.isNull(root.get("dateIssued")));
+                predicates.add(cb.or(datePredicate, nullDatePredicate));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -82,6 +94,10 @@ public class InternalInstrumentService {
             }
         }
 
+        List<ObligationMapping> obList = obligations.findByInstrumentId(instrumentId);
+        List<SanctionsPenalty> sanList = sanctions.findByInstrumentId(instrumentId);
+        Map<Long, String> actNameMap = buildActNameMap(obList, sanList);
+
         return InternalInstrumentDetail.builder()
             .instrumentId(inst.getInstrumentId())
             .sourceTitle(inst.getSourceTitle())
@@ -99,25 +115,8 @@ public class InternalInstrumentService {
             .pdfOcrText(inst.getPdfOcrText())
             .publishedAt(inst.getPublishedAt())
             .status(inst.getStatus())
-            .obligations(obligations.findByInstrumentId(instrumentId).stream()
-                .map(o -> InternalInstrumentDetail.ObligationItem.builder()
-                    .obligationNumber(o.getObligationNumber())
-                    .plainEnglishStatement(o.getPlainEnglishStatement())
-                    .specificSectionReference(o.getSpecificSectionReference())
-                    .areaOfFocus(o.getAreaOfFocus())
-                    .obligationType(o.getObligationType())
-                    .recurringDeadlineType(o.getRecurringDeadlineType())
-                    .build())
-                .toList())
-            .sanctions(sanctions.findByInstrumentId(instrumentId).stream()
-                .map(s -> InternalInstrumentDetail.SanctionItem.builder()
-                    .sanctionType(s.getSanctionType())
-                    .amountNaira(s.getSanctionAmountNaira())
-                    .liableRoles(s.getLiableRoles())
-                    .severityScore(s.getSeverityScore())
-                    .hasBeenEnforced(s.getHasBeenEnforced())
-                    .build())
-                .toList())
+            .obligations(obList.stream().map(o -> toObligationItem(o, actNameMap)).toList())
+            .sanctions(sanList.stream().map(s -> toSanctionItem(s, actNameMap)).toList())
             .build();
     }
 
@@ -135,19 +134,24 @@ public class InternalInstrumentService {
         Map<Integer, Regulator> regMap = regulators.findAllById(regulatorIds).stream()
             .collect(Collectors.toMap(Regulator::getRegulatorId, r -> r));
 
-        Map<Long, List<com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping>> obMap =
+        Map<Long, List<ObligationMapping>> obMap =
             obligations.findByInstrumentIdIn(ids).stream()
-                .collect(Collectors.groupingBy(com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping::getInstrumentId));
+                .collect(Collectors.groupingBy(ObligationMapping::getInstrumentId));
 
-        Map<Long, List<com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty>> sanMap =
+        Map<Long, List<SanctionsPenalty>> sanMap =
             sanctions.findByInstrumentIdIn(ids).stream()
-                .collect(Collectors.groupingBy(s -> s.getInstrumentId()));
+                .collect(Collectors.groupingBy(SanctionsPenalty::getInstrumentId));
+
+        // batch act names for all obligations + sanctions across the batch
+        List<ObligationMapping> allObs = obMap.values().stream().flatMap(List::stream).toList();
+        List<SanctionsPenalty> allSans = sanMap.values().stream().flatMap(List::stream).toList();
+        Map<Long, String> actNameMap = buildActNameMap(allObs, allSans);
 
         Map<Long, InternalInstrumentDetail> result = new LinkedHashMap<>();
         for (Instrument inst : found) {
             Regulator reg = inst.getRegulatorId() != null ? regMap.get(inst.getRegulatorId()) : null;
-            List<com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping> instOb = obMap.getOrDefault(inst.getInstrumentId(), List.of());
-            List<com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty> instSan = sanMap.getOrDefault(inst.getInstrumentId(), List.of());
+            List<ObligationMapping> instOb = obMap.getOrDefault(inst.getInstrumentId(), List.of());
+            List<SanctionsPenalty> instSan = sanMap.getOrDefault(inst.getInstrumentId(), List.of());
             result.put(inst.getInstrumentId(), InternalInstrumentDetail.builder()
                 .instrumentId(inst.getInstrumentId())
                 .sourceTitle(inst.getSourceTitle())
@@ -165,28 +169,62 @@ public class InternalInstrumentService {
                 .pdfOcrText(inst.getPdfOcrText())
                 .publishedAt(inst.getPublishedAt())
                 .status(inst.getStatus())
-                .obligations(instOb.stream()
-                    .map(o -> InternalInstrumentDetail.ObligationItem.builder()
-                        .obligationNumber(o.getObligationNumber())
-                        .plainEnglishStatement(o.getPlainEnglishStatement())
-                        .specificSectionReference(o.getSpecificSectionReference())
-                        .areaOfFocus(o.getAreaOfFocus())
-                        .obligationType(o.getObligationType())
-                        .recurringDeadlineType(o.getRecurringDeadlineType())
-                        .build())
-                    .toList())
-                .sanctions(instSan.stream()
-                    .map(s -> InternalInstrumentDetail.SanctionItem.builder()
-                        .sanctionType(s.getSanctionType())
-                        .amountNaira(s.getSanctionAmountNaira())
-                        .liableRoles(s.getLiableRoles())
-                        .severityScore(s.getSeverityScore())
-                        .hasBeenEnforced(s.getHasBeenEnforced())
-                        .build())
-                    .toList())
+                .obligations(instOb.stream().map(o -> toObligationItem(o, actNameMap)).toList())
+                .sanctions(instSan.stream().map(s -> toSanctionItem(s, actNameMap)).toList())
                 .build());
         }
         return result;
+    }
+
+    private InternalInstrumentDetail.ObligationItem toObligationItem(ObligationMapping o, Map<Long, String> actNameMap) {
+        return InternalInstrumentDetail.ObligationItem.builder()
+            .obligationNumber(o.getObligationNumber())
+            .title(shorten(o.getTitle(), 500))
+            .description(o.getDescription())
+            .plainEnglishStatement(shorten(o.getPlainEnglishStatement(), 500))
+            .specificSectionReference(shorten(o.getSpecificSectionReference(), 100))
+            .areaOfFocus(o.getAreaOfFocus())
+            .obligationType(o.getObligationType())
+            .recurringDeadlineType(o.getRecurringDeadlineType())
+            .riskDescription(o.getRiskDescription())
+            .inherentLikelihood(o.getInherentLikelihood())
+            .inherentImpact(o.getInherentImpact())
+            .inherentRiskRating(o.getInherentRiskRating())
+            .controlOwner(shorten(o.getControlOwner(), 500))
+            .regulationId(o.getRegulationId())
+            .actName(o.getRegulationId() != null ? actNameMap.get(o.getRegulationId()) : null)
+            .build();
+    }
+
+    private InternalInstrumentDetail.SanctionItem toSanctionItem(SanctionsPenalty s, Map<Long, String> actNameMap) {
+        return InternalInstrumentDetail.SanctionItem.builder()
+            .sanctionType(s.getSanctionType())
+            .amountNaira(s.getSanctionAmountNaira())
+            .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+            .liableRoles(s.getLiableRoles())
+            .severityScore(s.getSeverityScore())
+            .hasBeenEnforced(s.getHasBeenEnforced())
+            .description(s.getDescription())
+            .sourceSectionReference(s.getSourceSectionReference())
+            .riskExplanation(s.getRiskExplanation())
+            .penaltyDetails(s.getPenaltyDetails())
+            .regulationId(s.getRegulationId())
+            .actName(s.getRegulationId() != null ? actNameMap.get(s.getRegulationId()) : null)
+            .build();
+    }
+
+    private Map<Long, String> buildActNameMap(List<ObligationMapping> obs, List<SanctionsPenalty> sans) {
+        Set<Long> ids = new HashSet<>();
+        for (ObligationMapping o : obs) if (o.getRegulationId() != null) ids.add(o.getRegulationId());
+        for (SanctionsPenalty s : sans) if (s.getRegulationId() != null) ids.add(s.getRegulationId());
+        if (ids.isEmpty()) return Map.of();
+        try {
+            return actRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Regulation::getRegulationId, Regulation::getName, (a, b) -> a));
+        } catch (Exception e) {
+            log.warn("Failed to fetch act names for {} ids: {}", ids.size(), e.getMessage());
+            return Map.of();
+        }
     }
 
     private InternalInstrumentSummary toSummary(Instrument i) {
@@ -215,5 +253,11 @@ public class InternalInstrumentService {
             .publishedAt(i.getPublishedAt())
             .pdfUrl(storage.generatePresignedUrl(i.getPdfUrl(), 3600))
             .build();
+    }
+
+    private static String shorten(String s, int max) {
+        if (s == null) return null;
+        if (s.length() <= max) return s;
+        return s.substring(0, max);
     }
 }

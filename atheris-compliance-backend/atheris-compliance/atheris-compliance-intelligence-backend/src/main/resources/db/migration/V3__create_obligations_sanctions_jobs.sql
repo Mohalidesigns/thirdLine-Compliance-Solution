@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS obligation_mappings (
     instrument_id           BIGINT NOT NULL REFERENCES instruments(instrument_id),
     obligation_number       INT,
     title                   VARCHAR(500),
+    description             TEXT,
     plain_english_statement TEXT NOT NULL,
     specific_section_reference VARCHAR(100),
     area_of_focus             VARCHAR(100),

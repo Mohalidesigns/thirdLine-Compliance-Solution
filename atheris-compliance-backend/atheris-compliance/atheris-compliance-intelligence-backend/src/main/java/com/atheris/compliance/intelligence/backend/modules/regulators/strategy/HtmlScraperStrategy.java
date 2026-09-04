@@ -23,7 +23,7 @@ public class HtmlScraperStrategy {
 
         while (pageUrl != null && pageCount < maxPages) {
             try {
-                log.info("[HTML] Scraping page {} for {}: {}", pageCount + 1,
+                log.debug("[HTML] Scraping page {} for {}: {}", pageCount + 1,
                     regulator.getAbbreviation(), pageUrl);
 
                 Document doc = Jsoup.connect(pageUrl)

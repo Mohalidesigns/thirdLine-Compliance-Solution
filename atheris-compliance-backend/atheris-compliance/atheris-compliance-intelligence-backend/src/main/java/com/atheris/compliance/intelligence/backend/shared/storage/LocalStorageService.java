@@ -81,7 +81,7 @@ public class LocalStorageService implements StorageService {
                 out.write(buffer, 0, bytesRead);
             }
         }
-        log.info("Stored {} bytes at {}", totalBytes, target);
+        log.debug("Stored {} bytes at {}", totalBytes, target);
         return key;
     }
 
@@ -91,7 +91,7 @@ public class LocalStorageService implements StorageService {
             Path target = resolve(key);
             Files.createDirectories(target.getParent());
             Files.write(target, bytes);
-            log.info("Stored {} bytes at {}", bytes.length, target);
+            log.debug("Stored {} bytes at {}", bytes.length, target);
         } catch (IOException e) {
             throw new RuntimeException("Local storage write failed: " + e.getMessage(), e);
         }

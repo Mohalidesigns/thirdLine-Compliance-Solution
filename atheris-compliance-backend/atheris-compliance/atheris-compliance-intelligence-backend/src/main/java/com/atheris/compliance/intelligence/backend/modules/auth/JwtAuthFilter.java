@@ -24,6 +24,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Value("${atheris.jwt.secret}")
     private String jwtSecret;
 
+    @Value("${atheris.demo-jwt-token:demo-jwt-token}")
+    private String demoToken;
+
     @Override
     protected void doFilterInternal(HttpServletRequest req,
                                     HttpServletResponse res,
@@ -34,8 +37,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         String token = header.substring(7);
 
-        // demo-jwt-token is client-side only (frontend returns mock data, never hits backend)
-        if ("demo-jwt-token".equals(token)) {
+        // demo token is client-side only (frontend returns mock data, never hits backend); env-overridable
+        if (demoToken.equals(token)) {
             chain.doFilter(req, res); return;
         }
 

@@ -45,13 +45,15 @@ function clearAuth() {
 }
 
 async function request(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const { headers: optHeaders, signal, ...rest } = options;
+  const headers = { 'Content-Type': 'application/json', ...optHeaders };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
   let res;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  } catch {
+    res = await fetch(`${API_BASE}${path}`, { ...rest, headers, ...(signal ? { signal } : {}) });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
     throw new Error('Cannot connect to server. Please try again.');
   }
 
@@ -147,21 +149,21 @@ export const api = {
     confirm: (uploadId, data) => request(`/subscriptions/uploads/${uploadId}/confirm`, { method: 'POST', body: JSON.stringify(data) }),
   },
   instruments: {
-    list: (page = 0, size = 20, q = '') => request(`/subscriptions/instruments?page=${page}&size=${size}&q=${encodeURIComponent(q)}`),
-    get: (id) => request(`/subscriptions/instruments/${id}`),
+    list: (page = 0, size = 20, q = '', opts = {}) => request(`/subscriptions/instruments?page=${page}&size=${size}&q=${encodeURIComponent(q)}`, { signal: opts.signal }),
+    get: (id, opts = {}) => request(`/subscriptions/instruments/${id}`, { signal: opts.signal }),
   },
   inbox: {
     list: (page = 0, size = 20) => request(`/obligations/inbox?page=${page}&size=${size}`),
   },
   review: {
-    list: (params = {}) => {
+    list: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/review${s ? '?' + s : ''}`);
+      return request(`/review${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/review/stats'),
-    get: (reviewId) => request(`/review/${reviewId}`),
+    stats: (opts = {}) => request('/review/stats', { signal: opts.signal }),
+    get: (reviewId, opts = {}) => request(`/review/${reviewId}`, { signal: opts.signal }),
     save: (reviewId, data) => request(`/review/${reviewId}/save`, {
       method: 'POST', body: JSON.stringify(data),
     }),
@@ -176,14 +178,14 @@ export const api = {
     classify: (id, data) => request(`/obligations/${id}/classify`, {
       method: 'POST', body: JSON.stringify(data),
     }),
-    register: (params = {}) => {
+    register: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/obligations/register${s ? '?' + s : ''}`);
+      return request(`/obligations/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/obligations/stats'),
-    obligationDetail: (obligationId) => request(`/obligations/obligation/${obligationId}`),
+    stats: (opts = {}) => request('/obligations/stats', { signal: opts.signal }),
+    obligationDetail: (obligationId, opts = {}) => request(`/obligations/obligation/${obligationId}`, { signal: opts.signal }),
     linkReturns: (obligationId, linkedReturnIds) => request(`/obligations/obligation/${obligationId}/returns`, {
       method: 'PUT', body: JSON.stringify({ linkedReturnIds }),
     }),
@@ -356,11 +358,11 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     deleteTeam: (id) => request(`/org/teams/${id}`, { method: 'DELETE' }),
-    owners: (params = {}) => {
+    owners: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/org/owners${s ? '?' + s : ''}`);
+      return request(`/org/owners${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     createOwner: (data) => request('/org/owners', {
       method: 'POST', body: JSON.stringify(data),

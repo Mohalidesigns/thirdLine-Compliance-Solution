@@ -14,18 +14,18 @@ import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 
 const RISK_CONFIG = {
-  Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Moderate: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
+  Critical: { color: 'error' },
+  Extreme: { color: 'error' },
+  High: { color: 'error' },
+  Moderate: { color: 'warning' },
+  Medium: { color: 'warning' },
+  Low: { color: 'success' },
 };
 
 function riskChip(rating) {
   const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22 }} />;
+  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22, borderRadius: '4px' }} />;
+  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px' }} />;
 }
 
 function formatDate(d) {
@@ -34,10 +34,12 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'obligation', label: 'Obligation', minWidth: 340, sortField: 'description' },
-  { id: 'areaOfFocus', label: 'Domain', minWidth: 150 },
-  { id: 'risk', label: 'Risk', minWidth: 110, sortField: 'tenantRiskRating' },
-  { id: 'actions', label: 'Actions', minWidth: 90 },
+  { id: 'obligation', label: 'Obligation', minWidth: 280, sortField: 'name' },
+  { id: 'regulator', label: 'Regulator', minWidth: 100 },
+  { id: 'risk', label: 'Risk', minWidth: 100, sortField: 'tenantRiskRating' },
+  { id: 'owner', label: 'Owner', minWidth: 120 },
+  { id: 'controls', label: 'Controls', minWidth: 140 },
+  { id: 'actions', label: 'Actions', minWidth: 80 },
 ];
 
 export default function ObligationsRegisterPage() {
@@ -264,37 +266,45 @@ export default function ObligationsRegisterPage() {
               <TableBody>
                 {items.map((item, idx) => {
                   const rating = item.tenantRiskRating || item.inherentRiskRating;
-                  const rc = RISK_CONFIG[rating] || {};
+                  const controlCount = item.controlCount ?? 0;
+                  const hasGap = item.hasGap;
                   return (
                     <TableRow key={item.obligationId} hover
                       onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', bgcolor: rc.bg || 'inherit',
-                        '&:hover': { bgcolor: rc.bg || '#F7FAFC' },
-                        borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent' }}>
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                       <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
                       <TableCell>
-                        <Tooltip title={item.description || item.name || 'Untitled obligation'}>
-                          <Typography variant="body2" sx={{ maxWidth: 360,
+                        <Tooltip title={item.name || item.description || 'Untitled obligation'}>
+                          <Typography variant="body2" sx={{ maxWidth: 300,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.description || item.name || 'Untitled obligation'}
+                            {item.name || item.description || 'Untitled obligation'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
                       <TableCell>
-                        {item.areaOfFocus
-                          ? <Typography variant="body2">{item.areaOfFocus}</Typography>
+                        {item.regulatorAbbreviation
+                          ? <Chip size="small" label={item.regulatorAbbreviation}
+                              sx={{ height: 22, fontWeight: 600, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff' }} />
+                          : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      </TableCell>
+                      <TableCell>{riskChip(rating)}</TableCell>
+                      <TableCell>
+                        {item.assignedOwnerName
+                          ? <Typography variant="body2">{item.assignedOwnerName}</Typography>
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          {riskChip(rating)}
-                          {item.hasGap && (
-                            <Tooltip title="Gap identified — no control covers this">
-                              <Chip size="small" icon={<WarningIcon sx={{ fontSize: 14 }} />} label="Gap"
-                                color="warning" sx={{ height: 22 }} />
-                            </Tooltip>
-                          )}
-                        </Box>
+                        {controlCount === 0 ? (
+                          <Chip size="small" label="No controls" color="error"
+                            icon={<WarningIcon sx={{ fontSize: 14 }} />}
+                            sx={{ height: 22, borderRadius: '4px', border: 'none' }} />
+                        ) : hasGap ? (
+                          <Chip size="small" label={`${controlCount} controls`} color="warning"
+                            icon={<WarningIcon sx={{ fontSize: 14 }} />}
+                            sx={{ height: 22, borderRadius: '4px', border: 'none' }} />
+                        ) : (
+                          <Typography variant="body2" color="black">{controlCount} controls</Typography>
+                        )}
                       </TableCell>
                       <TableCell onClick={e => e.stopPropagation()}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

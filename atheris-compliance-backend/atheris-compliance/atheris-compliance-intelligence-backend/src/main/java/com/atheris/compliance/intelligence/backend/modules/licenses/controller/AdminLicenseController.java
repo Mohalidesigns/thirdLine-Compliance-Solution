@@ -16,13 +16,20 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin/licenses")
-@PreAuthorize("hasRole('PLATFORM_ADMIN')")
 @RequiredArgsConstructor
 public class AdminLicenseController {
 
     private final LicenseService service;
 
+    @PostMapping("/validate")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<ValidateLicenseResponse> validate(
+            @Valid @RequestBody ValidateLicenseRequest req) {
+        return ResponseEntity.ok(service.validate(req));
+    }
+
     @GetMapping
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<Page<LicenseDto>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long tenantId,
@@ -32,16 +39,19 @@ public class AdminLicenseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<LicenseDto> create(@Valid @RequestBody CreateLicenseRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<LicenseDto> getOne(@PathVariable Integer id) {
         return ResponseEntity.ok(service.getById(id));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<LicenseDto> update(
             @PathVariable Integer id,
             @Valid @RequestBody UpdateLicenseRequest req) {
@@ -49,26 +59,22 @@ public class AdminLicenseController {
     }
 
     @PostMapping("/{id}/revoke")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<Map<String, String>> revoke(@PathVariable Integer id) {
         service.revoke(id);
         return ResponseEntity.ok(Map.of("message", "License revoked"));
     }
 
     @PostMapping("/{id}/renew")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<LicenseDto> renew(
             @PathVariable Integer id,
             @Valid @RequestBody RenewLicenseRequest req) {
         return ResponseEntity.ok(service.renew(id, req.getExpiresAt(), req.getGracePeriodDays()));
     }
 
-    @PostMapping("/validate")
-    @PreAuthorize("permitAll()")
-    public ResponseEntity<ValidateLicenseResponse> validate(
-            @Valid @RequestBody ValidateLicenseRequest req) {
-        return ResponseEntity.ok(service.validate(req));
-    }
-
     @DeleteMapping("/{licenseId}/devices/{deviceId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<Map<String, String>> removeDevice(
             @PathVariable Integer licenseId,
             @PathVariable Integer deviceId) {
@@ -77,6 +83,7 @@ public class AdminLicenseController {
     }
 
     @GetMapping("/stats")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<LicenseStatsDto> stats() {
         return ResponseEntity.ok(service.getStats());
     }

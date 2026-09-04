@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.shared.platform.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,6 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PlatformInstrumentDetail {
     private Long instrumentId;
     private String sourceTitle;
@@ -30,22 +32,40 @@ public class PlatformInstrumentDetail {
     private List<SanctionItem> sanctions;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ObligationItem {
         private Integer obligationNumber;
+        private String title;
+        private String description;
         private String plainEnglishStatement;
         private String specificSectionReference;
         private String areaOfFocus;
         private String obligationType;
         private String recurringDeadlineType;
+        private String riskDescription;
+        private String inherentLikelihood;
+        private String inherentImpact;
+        private String inherentRiskRating;
+        private String controlOwner;
+        private Long regulationId;
+        private String actName;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SanctionItem {
         private String sanctionType;
         private BigDecimal amountNaira;
+        private Boolean sanctionAmountPerDay;
         private List<String> liableRoles;
         private Integer severityScore;
         private Boolean hasBeenEnforced;
+        private String description;
+        private String sourceSectionReference;
+        private String riskExplanation;
+        private String penaltyDetails;
+        private Long regulationId;
+        private String actName;
     }
 
     public boolean isCompleted() {

@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantPro
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewSanction;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
@@ -78,6 +79,7 @@ public class ObligationSyncService {
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
+        log.info("Sync check: tenant {} has {} active platform regulatorIds: {}", tenantId, platformRegulatorIds.size(), platformRegulatorIds);
         if (platformRegulatorIds.isEmpty()) {
             log.info("Sync skipped: no active regulators for tenant {}", tenantId);
             return;
@@ -96,9 +98,13 @@ public class ObligationSyncService {
             ? pollingConfig.getLastPolledAt().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
 
         try {
-            log.info("Syncing instruments for tenant {} (regulators: {}, since: {})", tenantId, platformRegulatorIds, since);
+            log.info("Syncing instruments for tenant {} (regulators: count={}, ids={}, since: {})", tenantId, platformRegulatorIds.size(), platformRegulatorIds, since);
             List<PlatformInstrumentSummary> results = platformClient.findRecentInstruments(
                 tenantId, platformRegulatorIds, p.getLicenceType(), since);
+            if (results == null) {
+                log.warn("Sync aborted: platform returned null (error) for tenant {} - watermark NOT advanced (since={})", tenantId, since);
+                return;
+            }
 
             log.info("Received {} instruments from platform", results.size());
             int created = 0, skipped = 0;
@@ -123,13 +129,42 @@ public class ObligationSyncService {
                 for (var extObl : detail.getObligations()) {
                     extracted.add(ReviewObligation.builder()
                         .obligationNumber(extObl.getObligationNumber())
-                        .description(extObl.getPlainEnglishStatement())
-                        .sectionReference(extObl.getSpecificSectionReference())
+                        .title(shorten(extObl.getTitle(), 500))
+                        .description(extObl.getDescription())
+                        .plainEnglishStatement(shorten(extObl.getPlainEnglishStatement(), 500))
+                        .sectionReference(shorten(extObl.getSpecificSectionReference(), 100))
                         .areaOfFocus(extObl.getAreaOfFocus())
                         .obligationType(extObl.getObligationType())
                         .recurringDeadlineType(extObl.getRecurringDeadlineType())
+                        .riskDescription(extObl.getRiskDescription())
+                        .inherentLikelihood(extObl.getInherentLikelihood())
+                        .inherentImpact(extObl.getInherentImpact())
+                        .inherentRiskRating(extObl.getInherentRiskRating())
+                        .controlOwner(shorten(extObl.getControlOwner(), 500))
+                        .regulationId(extObl.getRegulationId())
+                        .actName(shorten(extObl.getActName(), 500))
                         .applicable(true)
                         .build());
+                }
+
+                List<ReviewSanction> extractedSanctions = new ArrayList<>();
+                if (detail.getSanctions() != null) {
+                    for (var s : detail.getSanctions()) {
+                        extractedSanctions.add(ReviewSanction.builder()
+                            .sanctionType(s.getSanctionType())
+                            .amountNaira(s.getAmountNaira())
+                            .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                            .liableRoles(s.getLiableRoles())
+                            .severityScore(s.getSeverityScore())
+                            .hasBeenEnforced(s.getHasBeenEnforced())
+                            .description(s.getDescription())
+                            .sourceSectionReference(s.getSourceSectionReference())
+                            .riskExplanation(s.getRiskExplanation())
+                            .penaltyDetails(s.getPenaltyDetails())
+                            .regulationId(s.getRegulationId())
+                            .actName(shorten(s.getActName(), 500))
+                            .build());
+                    }
                 }
 
                 LocalDate effDate = detail.getDateCommencement() != null ? detail.getDateCommencement() : detail.getDateIssued();
@@ -149,6 +184,7 @@ public class ObligationSyncService {
                     .publishedAt(detail.getPublishedAt())
                     .pdfUrl(detail.getPdfUrl())
                     .obligations(extracted)
+                    .sanctions(extractedSanctions)
                     .status("pending")
                     .build());
                 created++;
@@ -160,9 +196,18 @@ public class ObligationSyncService {
 
             pollingConfig.setLastPolledAt(Instant.now());
             pollingConfigs.save(pollingConfig);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Obligation sync failed: {}", e.getMessage(), e);
-            em.clear();
+            try { em.clear(); } catch (Exception ex) { log.warn("em.clear failed: {}", ex.getMessage()); }
+            try {
+                org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            } catch (Exception ex) { /* no transaction */ }
         }
+    }
+
+    private static String shorten(String s, int max) {
+        if (s == null) return null;
+        if (s.length() <= max) return s;
+        return s.substring(0, max);
     }
 }

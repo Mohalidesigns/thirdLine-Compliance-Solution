@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewSanction;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
@@ -187,6 +188,25 @@ public class UploadService {
                     .build());
             }
         }
+        List<ReviewSanction> sanctions = new ArrayList<>();
+        if (detail != null && detail.getSanctions() != null) {
+            for (var s : detail.getSanctions()) {
+                sanctions.add(ReviewSanction.builder()
+                    .sanctionType(s.getSanctionType())
+                    .amountNaira(s.getAmountNaira())
+                    .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                    .liableRoles(s.getLiableRoles())
+                    .severityScore(s.getSeverityScore())
+                    .hasBeenEnforced(s.getHasBeenEnforced())
+                    .description(s.getDescription())
+                    .sourceSectionReference(s.getSourceSectionReference())
+                    .riskExplanation(s.getRiskExplanation())
+                    .penaltyDetails(s.getPenaltyDetails())
+                    .regulationId(s.getRegulationId())
+                    .actName(s.getActName())
+                    .build());
+            }
+        }
 
         PendingReview review = pendingReviews.findByUploadIdAndTenantId(uploadId, tenantId)
             .orElseGet(() -> PendingReview.builder().tenantId(tenantId).source("upload").uploadId(uploadId).build());
@@ -204,6 +224,7 @@ public class UploadService {
         review.setPublishedAt(detail != null ? detail.getPublishedAt() : null);
         review.setPdfUrl(detail != null ? detail.getPdfUrl() : null);
         review.setObligations(obligations);
+        review.setSanctions(sanctions);
         review.setStatus("pending");
         pendingReviews.save(review);
 
@@ -273,6 +294,25 @@ public class UploadService {
                     .build());
             }
         }
+        List<ReviewSanction> sanctions = new ArrayList<>();
+        if (detail != null && detail.getSanctions() != null) {
+            for (var s : detail.getSanctions()) {
+                sanctions.add(ReviewSanction.builder()
+                    .sanctionType(s.getSanctionType())
+                    .amountNaira(s.getAmountNaira())
+                    .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                    .liableRoles(s.getLiableRoles())
+                    .severityScore(s.getSeverityScore())
+                    .hasBeenEnforced(s.getHasBeenEnforced())
+                    .description(s.getDescription())
+                    .sourceSectionReference(s.getSourceSectionReference())
+                    .riskExplanation(s.getRiskExplanation())
+                    .penaltyDetails(s.getPenaltyDetails())
+                    .regulationId(s.getRegulationId())
+                    .actName(s.getActName())
+                    .build());
+            }
+        }
         pendingReviews.save(PendingReview.builder()
             .tenantId(tenantId)
             .source("upload")
@@ -291,6 +331,7 @@ public class UploadService {
             .publishedAt(detail != null ? detail.getPublishedAt() : null)
             .pdfUrl(detail != null ? detail.getPdfUrl() : null)
             .obligations(obligations)
+            .sanctions(sanctions)
             .status("pending")
             .build());
         log.info("Queued {} obligations for review from upload {} (instrument {})",

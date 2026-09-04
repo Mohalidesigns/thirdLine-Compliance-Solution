@@ -16,6 +16,9 @@ public class Obligation {
     private String title;
     private Integer obligationNumber;
     @Column(columnDefinition = "text") private String description;
+    @Column(columnDefinition = "text") private String plainEnglishStatement;
+    private String actName;
+    private Long regulationId;
     private String sectionReference;
     private String areaOfFocus;
     private String obligationType;

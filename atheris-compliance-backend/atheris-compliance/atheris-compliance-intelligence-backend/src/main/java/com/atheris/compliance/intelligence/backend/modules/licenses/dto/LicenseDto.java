@@ -17,6 +17,8 @@ public class LicenseDto {
     private Integer maxDevices;
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
+    private Boolean autoSubscribeRegulators;
+    private Boolean autoSeedObligations;
     private String status;
     private Instant activatedAt;
     private Instant expiresAt;

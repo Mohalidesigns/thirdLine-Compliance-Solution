@@ -3,8 +3,11 @@ package com.atheris.compliance.tenant.backend.modules.review.service;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.RegulatorySanction;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationSanctionRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
@@ -12,11 +15,14 @@ import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerReposit
 import com.atheris.compliance.tenant.backend.modules.review.dto.*;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
+import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewSanction;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -24,7 +30,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,11 +39,16 @@ public class ReviewService {
     private final PendingReviewRepository reviews;
     private final ObligationRepository obligationRepo;
     private final ObligationClassificationRepository classifications;
+    private final RegulatorySanctionRepository sanctionRepo;
+    private final ObligationSanctionRepository obligationSanctionRepo;
     private final PlatformApiClient platform;
     private final AuditService audit;
     private final OwnerRepository ownerRepo;
     private final DepartmentRepository departmentRepo;
     private final TenantIdentityService tenantIdentity;
+
+    @PersistenceContext
+    private EntityManager em;
 
     public Page<ReviewItem> list(String source, String status, String q, Pageable p) {
         List<PendingReview> all = reviews.findByTenantIdAndStatus(tenantIdentity.currentTenantId(), "pending");
@@ -81,12 +91,38 @@ public class ReviewService {
         List<ReviewDetail.ReviewObligationDto> obligations = r.getObligations() != null
             ? r.getObligations().stream().map(o -> ReviewDetail.ReviewObligationDto.builder()
                 .obligationNumber(o.getObligationNumber())
+                .title(o.getTitle())
                 .description(o.getDescription())
+                .plainEnglishStatement(o.getPlainEnglishStatement())
                 .sectionReference(o.getSectionReference())
                 .areaOfFocus(o.getAreaOfFocus())
                 .obligationType(o.getObligationType())
                 .recurringDeadlineType(o.getRecurringDeadlineType())
+                .riskDescription(o.getRiskDescription())
+                .inherentLikelihood(o.getInherentLikelihood())
+                .inherentImpact(o.getInherentImpact())
+                .inherentRiskRating(o.getInherentRiskRating())
+                .controlOwner(o.getControlOwner())
+                .regulationId(o.getRegulationId())
+                .actName(o.getActName())
                 .applicable(o.getApplicable() != null ? o.getApplicable() : true)
+                .build()).collect(Collectors.toList())
+            : List.of();
+
+        List<ReviewDetail.ReviewSanctionDto> sanctions = r.getSanctions() != null
+            ? r.getSanctions().stream().map(s -> ReviewDetail.ReviewSanctionDto.builder()
+                .sanctionType(s.getSanctionType())
+                .amountNaira(s.getAmountNaira())
+                .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                .liableRoles(s.getLiableRoles())
+                .severityScore(s.getSeverityScore())
+                .hasBeenEnforced(s.getHasBeenEnforced())
+                .description(s.getDescription())
+                .sourceSectionReference(s.getSourceSectionReference())
+                .riskExplanation(s.getRiskExplanation())
+                .penaltyDetails(s.getPenaltyDetails())
+                .regulationId(s.getRegulationId())
+                .actName(s.getActName())
                 .build()).collect(Collectors.toList())
             : List.of();
 
@@ -99,6 +135,42 @@ public class ReviewService {
                 if (r.getPdfUrl() == null) r.setPdfUrl(d.getPdfUrl());
                 aiSummary = d.getAiSummary();
                 pdfOcrText = d.getPdfOcrText();
+                if ((sanctions == null || sanctions.isEmpty()) && d.getSanctions() != null && !d.getSanctions().isEmpty()) {
+                    sanctions = d.getSanctions().stream().map(s -> ReviewDetail.ReviewSanctionDto.builder()
+                        .sanctionType(s.getSanctionType())
+                        .amountNaira(s.getAmountNaira())
+                        .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                        .liableRoles(s.getLiableRoles())
+                        .severityScore(s.getSeverityScore())
+                        .hasBeenEnforced(s.getHasBeenEnforced())
+                        .description(s.getDescription())
+                        .sourceSectionReference(s.getSourceSectionReference())
+                        .riskExplanation(s.getRiskExplanation())
+                        .penaltyDetails(s.getPenaltyDetails())
+                        .regulationId(s.getRegulationId())
+                        .actName(s.getActName())
+                        .build()).collect(Collectors.toList());
+                    try {
+                        List<ReviewSanction> toPersist = d.getSanctions().stream().map(s -> ReviewSanction.builder()
+                            .sanctionType(s.getSanctionType())
+                            .amountNaira(s.getAmountNaira())
+                            .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                            .liableRoles(s.getLiableRoles())
+                            .severityScore(s.getSeverityScore())
+                            .hasBeenEnforced(s.getHasBeenEnforced())
+                            .description(s.getDescription())
+                            .sourceSectionReference(s.getSourceSectionReference())
+                            .riskExplanation(s.getRiskExplanation())
+                            .penaltyDetails(s.getPenaltyDetails())
+                            .regulationId(s.getRegulationId())
+                            .actName(s.getActName())
+                            .build()).collect(Collectors.toList());
+                        r.setSanctions(toPersist);
+                        reviews.save(r);
+                    } catch (Throwable ignored) {
+                        log.warn("Lazy sanction backfill failed for review {}: {}", reviewId, ignored.getMessage());
+                    }
+                }
             }
         }
 
@@ -123,76 +195,131 @@ public class ReviewService {
             .status(r.getStatus())
             .createdAt(r.getCreatedAt())
             .obligations(obligations)
+            .sanctions(sanctions != null ? sanctions : List.of())
             .build();
     }
 
     @Transactional
     public void save(Long reviewId, SaveReviewRequest req, Integer userId) {
-        PendingReview r = find(reviewId);
-        if (r.getInstrumentId() == null) {
-            throw new IllegalArgumentException("Cannot save: instrument not ready yet");
-        }
-        Long instrumentId = r.getInstrumentId();
-        obligationRepo.deleteByInstrumentId(instrumentId);
-        classifications.deleteByInstrumentId(instrumentId);
-
-        List<Obligation> savedObligations = new ArrayList<>();
-        if (req.getObligations() != null) {
-            int num = 1;
-            for (SaveReviewRequest.ObligationDto o : req.getObligations()) {
-                if (o.getApplicable() != null && !o.getApplicable()) continue;
-                Obligation ob = Obligation.builder()
-                    .instrumentId(instrumentId)
-                    .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
-                    .description(o.getDescription())
-                    .sectionReference(o.getSectionReference())
-                    .areaOfFocus(o.getAreaOfFocus())
-                    .obligationType(o.getObligationType())
-                    .recurringDeadlineType(o.getRecurringDeadlineType())
-                    .effectiveDate(r.getEffectiveDate() != null ? r.getEffectiveDate() : r.getDateIssued())
-                    .source("ai_extracted".equals(r.getSource()) ? "ai_extracted" : "manual_upload")
-                    .build();
-                ob = obligationRepo.save(ob);
-
-                ObligationClassification c = classifications.findByObligationId(ob.getObligationId())
-                    .orElse(ObligationClassification.builder()
-                        .instrumentId(instrumentId)
-                        .obligationId(ob.getObligationId())
-                        .build());
-                c.setApplicability(o.getApplicability() != null ? o.getApplicability() : "applicable");
-                if (o.getApplicabilityReasoning() != null) c.setApplicabilityReasoning(o.getApplicabilityReasoning());
-                if (o.getTenantRiskRating() != null) c.setTenantRiskRating(o.getTenantRiskRating());
-                if (o.getRiskJustification() != null) c.setRiskJustification(o.getRiskJustification());
-                if (o.getRiskType() != null) c.setRiskType(o.getRiskType());
-                if (o.getImpactRating() != null) c.setImpactRating(o.getImpactRating());
-                if (o.getImpactJustification() != null) c.setImpactJustification(o.getImpactJustification());
-                if (o.getLikelihoodRating() != null) c.setLikelihoodRating(o.getLikelihoodRating());
-                if (o.getLikelihoodJustification() != null) c.setLikelihoodJustification(o.getLikelihoodJustification());
-                if (o.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(o.getAssignedOwnerUserId());
-                applyOwner(c, o);
-                if (o.getHasGap() != null) c.setHasGap(o.getHasGap());
-                if (o.getGapDescription() != null) c.setGapDescription(o.getGapDescription());
-                c.setClassifiedByUserId(userId);
-                c.setClassifiedAt(Instant.now());
-                c.setStatus("active");
-                if (c.getClassificationVersion() == null) c.setClassificationVersion(1);
-                classifications.save(c);
-
-                if (o.getLinkedReturnIds() != null && !o.getLinkedReturnIds().isEmpty()) {
-                    linkReturns(ob.getObligationId(), o.getLinkedReturnIds());
-                }
-                savedObligations.add(ob);
-                num++;
+        try {
+            PendingReview r = find(reviewId);
+            if (r.getInstrumentId() == null) {
+                throw new IllegalArgumentException("Cannot save: instrument not ready yet");
             }
+            Long instrumentId = r.getInstrumentId();
+            obligationRepo.deleteByInstrumentId(instrumentId);
+            classifications.deleteByInstrumentId(instrumentId);
+            // clean existing sanctions for this instrument (join cascades via obligation delete, sanctions remain orphaned — keep deduped rows)
+            // we keep sanction rows for dedup but remove stale join already cascaded
+
+            List<Obligation> savedObligations = new ArrayList<>();
+            if (req.getObligations() != null) {
+                int num = 1;
+                for (SaveReviewRequest.ObligationDto o : req.getObligations()) {
+                    if (o.getApplicable() != null && !o.getApplicable()) continue;
+
+                    Obligation ob = Obligation.builder()
+                        .instrumentId(instrumentId)
+                        .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
+                        .title(shorten(o.getTitle(), 500))
+                        .description(shorten(o.getDescription(), 2000))
+                        .plainEnglishStatement(shorten(o.getPlainEnglishStatement(), 2000))
+                        .actName(shorten(o.getActName(), 500))
+                        .regulationId(o.getRegulationId())
+                        .sectionReference(shorten(o.getSectionReference(), 255))
+                        .areaOfFocus(o.getAreaOfFocus())
+                        .obligationType(o.getObligationType())
+                        .recurringDeadlineType(o.getRecurringDeadlineType())
+                        .effectiveDate(r.getEffectiveDate() != null ? r.getEffectiveDate() : r.getDateIssued())
+                        .source("ai_extracted".equals(r.getSource()) ? "ai_extracted" : "manual_upload")
+                        .riskDescription(o.getRiskDescription())
+                        .inherentLikelihood(o.getInherentLikelihood())
+                        .inherentImpact(o.getInherentImpact())
+                        .inherentRiskRating(o.getInherentRiskRating())
+                        .controlOwner(shorten(o.getControlOwner(), 500))
+                        .build();
+                    ob = obligationRepo.save(ob);
+
+                    ObligationClassification c = classifications.findByObligationId(ob.getObligationId())
+                        .orElse(ObligationClassification.builder()
+                            .instrumentId(instrumentId)
+                            .obligationId(ob.getObligationId())
+                            .build());
+                    c.setApplicability(o.getApplicability() != null ? o.getApplicability() : "applicable");
+                    if (o.getApplicabilityReasoning() != null) c.setApplicabilityReasoning(o.getApplicabilityReasoning());
+                    if (o.getTenantRiskRating() != null) c.setTenantRiskRating(o.getTenantRiskRating());
+                    if (o.getRiskJustification() != null) c.setRiskJustification(o.getRiskJustification());
+                    if (o.getRiskType() != null) c.setRiskType(o.getRiskType());
+                    if (o.getImpactRating() != null) c.setImpactRating(o.getImpactRating());
+                    if (o.getImpactJustification() != null) c.setImpactJustification(o.getImpactJustification());
+                    if (o.getLikelihoodRating() != null) c.setLikelihoodRating(o.getLikelihoodRating());
+                    if (o.getLikelihoodJustification() != null) c.setLikelihoodJustification(o.getLikelihoodJustification());
+                    if (o.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(o.getAssignedOwnerUserId());
+                    applyOwner(c, o);
+                    if (o.getHasGap() != null) c.setHasGap(o.getHasGap());
+                    if (o.getGapDescription() != null) c.setGapDescription(o.getGapDescription());
+                    c.setClassifiedByUserId(userId);
+                    c.setClassifiedAt(Instant.now());
+                    c.setStatus("active");
+                    if (c.getClassificationVersion() == null) c.setClassificationVersion(1);
+                    classifications.save(c);
+
+                    if (o.getLinkedReturnIds() != null && !o.getLinkedReturnIds().isEmpty()) {
+                        linkReturns(ob.getObligationId(), o.getLinkedReturnIds());
+                    }
+                    savedObligations.add(ob);
+                    num++;
+                }
+            }
+
+            // persist sanctions: for each ReviewSanction in PendingReview.sanctions, upsert into regulatory_sanctions and link to each created obligation
+            List<ReviewSanction> pendingSanctions = r.getSanctions() != null ? r.getSanctions() : List.of();
+            // also consider platform-supplied sanctions fallback if pending empty but platform detail has them
+            if (pendingSanctions.isEmpty() && r.getInstrumentId() != null) {
+                PlatformInstrumentDetail d = platform.getInstrumentDetail(r.getInstrumentId());
+                if (d != null && d.getSanctions() != null && !d.getSanctions().isEmpty()) {
+                    pendingSanctions = d.getSanctions().stream().map(s -> ReviewSanction.builder()
+                        .sanctionType(s.getSanctionType())
+                        .amountNaira(s.getAmountNaira())
+                        .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                        .liableRoles(s.getLiableRoles())
+                        .severityScore(s.getSeverityScore())
+                        .hasBeenEnforced(s.getHasBeenEnforced())
+                        .description(s.getDescription())
+                        .sourceSectionReference(s.getSourceSectionReference())
+                        .riskExplanation(s.getRiskExplanation())
+                        .penaltyDetails(s.getPenaltyDetails())
+                        .regulationId(s.getRegulationId())
+                        .actName(s.getActName())
+                        .build()).collect(Collectors.toList());
+                }
+            }
+            if (!pendingSanctions.isEmpty() && !savedObligations.isEmpty()) {
+                for (ReviewSanction rs : pendingSanctions) {
+                    RegulatorySanction persisted = findOrCreateSanction(rs, instrumentId);
+                    for (Obligation ob : savedObligations) {
+                        try {
+                            obligationSanctionRepo.insertSanctionLink(ob.getObligationId(), persisted.getSanctionId());
+                        } catch (Throwable ex) {
+                            log.warn("Failed to link sanction {} to obligation {}: {}", persisted.getSanctionId(), ob.getObligationId(), ex.getMessage());
+                        }
+                    }
+                }
+            }
+
+            r.setStatus("saved");
+            reviews.save(r);
+
+            audit.log(userId, "review_saved", "instrument", instrumentId,
+                Map.of("applicability", "active", "obligations", savedObligations.size(), "sanctions", pendingSanctions.size()));
+            log.info("Review {} saved: {} obligations, {} sanctions linked for instrument {}",
+                reviewId, savedObligations.size(), pendingSanctions.size(), instrumentId);
+        } catch (Throwable e) {
+            log.error("Review save failed for {}: {}", reviewId, e.getMessage(), e);
+            try { if (em != null) em.clear(); } catch (Throwable ignored) {}
+            try { org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); } catch (Throwable ignored) {}
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
         }
-
-        r.setStatus("saved");
-        reviews.save(r);
-
-        audit.log(userId, "review_saved", "instrument", instrumentId,
-            Map.of("applicability", "active", "obligations", savedObligations.size()));
-        log.info("Review {} saved: {} obligations with per-obligation classification for instrument {}",
-            reviewId, savedObligations.size(), instrumentId);
     }
 
     @Transactional
@@ -207,6 +334,40 @@ public class ReviewService {
     }
 
     // -------------------------------------------------------------- helpers
+
+    private RegulatorySanction findOrCreateSanction(ReviewSanction rs, Long instrumentId) {
+        String descNorm = normalize(rs.getDescription());
+        String secNorm = normalize(rs.getSourceSectionReference());
+        String actNorm = normalize(rs.getActName());
+        List<RegulatorySanction> existing = sanctionRepo.findByInstrumentId(instrumentId);
+        for (RegulatorySanction s : existing) {
+            if (normalize(s.getDescription()).equals(descNorm)
+                && normalize(s.getSourceSectionReference()).equals(secNorm)
+                && normalize(s.getRegulationName()).equals(actNorm)) {
+                return s;
+            }
+        }
+        RegulatorySanction news = RegulatorySanction.builder()
+            .instrumentId(instrumentId)
+            .regulationId(rs.getRegulationId())
+            .regulationName(shorten(rs.getActName(), 500))
+            .sanctionType(shorten(rs.getSanctionType(), 100))
+            .sanctionAmountNaira(rs.getAmountNaira())
+            .sanctionAmountPerDay(rs.getSanctionAmountPerDay() != null ? rs.getSanctionAmountPerDay() : false)
+            .liableRoles(rs.getLiableRoles())
+            .severityScore(rs.getSeverityScore())
+            .hasBeenEnforced(rs.getHasBeenEnforced() != null ? rs.getHasBeenEnforced() : false)
+            .description(rs.getDescription())
+            .sourceSectionReference(shorten(rs.getSourceSectionReference(), 255))
+            .riskExplanation(rs.getRiskExplanation())
+            .penaltyDetails(rs.getPenaltyDetails())
+            .build();
+        return sanctionRepo.save(news);
+    }
+
+    private static String normalize(String s) {
+        return s != null ? s.trim().toLowerCase() : "";
+    }
 
     private void applyOwner(ObligationClassification c, SaveReviewRequest.ObligationDto o) {
         if (o.getAssignedOwnerId() == null) {
@@ -262,6 +423,12 @@ public class ReviewService {
 
     private static String nullSafe(String s) {
         return s != null ? s : "";
+    }
+
+    private static String shorten(String s, int max) {
+        if (s == null) return null;
+        if (s.length() <= max) return s;
+        return s.substring(0, max);
     }
 
     private ReviewItem toItem(PendingReview r) {

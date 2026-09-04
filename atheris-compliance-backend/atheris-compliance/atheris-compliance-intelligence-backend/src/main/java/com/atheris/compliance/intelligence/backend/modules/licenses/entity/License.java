@@ -32,6 +32,12 @@ public class License {
     @Column(nullable = false)
     @Builder.Default
     private Boolean deviceFingerprintEnforced = true;
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean autoSubscribeRegulators = false;
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean autoSeedObligations = false;
     @Column(nullable = false, length = 50)
     @Builder.Default
     private String status = LICENSE_INACTIVE;

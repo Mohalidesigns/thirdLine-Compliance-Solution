@@ -46,7 +46,7 @@ spring:
           options:
             model: gemini-3.1-flash-lite
             temperature: 0.0
-            max-output-tokens: 1500
+            max-output-tokens: 3500
 
 server:
   port: ${PORT:9090}
@@ -95,6 +95,6 @@ atheris:
 
 logging:
   level:
-    com.atheris.compliance: DEBUG
+    com.atheris.compliance: INFO
     org.springframework.security: WARN
     org.hibernate.SQL: WARN

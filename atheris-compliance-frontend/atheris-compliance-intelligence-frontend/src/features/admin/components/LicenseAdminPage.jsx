@@ -4,6 +4,7 @@ import {
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   TablePagination, Drawer, Divider, InputAdornment, Snackbar, Alert,
+  Checkbox, FormControlLabel,
 } from '@mui/material';
 import {
   Add, VpnKey, CheckCircle, Cancel, Warning, Refresh,
@@ -106,7 +107,7 @@ export default function LicenseAdminPage() {
   const openCreateDialog = () => {
     const defaultExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const expiresAt = defaultExpiry.toISOString().slice(0, 16);
-    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, expiresAt });
+    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, autoSubscribeRegulators: true, autoSeedObligations: true, expiresAt });
     setOpenCreate(true);
   };
 
@@ -115,7 +116,10 @@ export default function LicenseAdminPage() {
       tenantId: lic.tenantId, tier: lic.tier, intelligenceEnabled: lic.intelligenceEnabled, maxUsers: lic.maxUsers,
       maxDevices: lic.maxDevices,
       maxStorageMb: lic.maxStorageMb,
-      deviceFingerprintEnforced: lic.deviceFingerprintEnforced, expiresAt: lic.expiresAt?.slice(0, 16),
+      deviceFingerprintEnforced: lic.deviceFingerprintEnforced,
+      autoSubscribeRegulators: lic.autoSubscribeRegulators ?? true,
+      autoSeedObligations: lic.autoSeedObligations ?? true,
+      expiresAt: lic.expiresAt?.slice(0, 16),
       gracePeriodDays: lic.gracePeriodDays, notes: lic.notes,
     });
     setOpenEdit(lic.id);
@@ -401,6 +405,24 @@ function LicenseForm({ form, onChange }) {
             <MenuItem value="true">Enforced</MenuItem>
             <MenuItem value="false">Not Enforced</MenuItem>
           </TextField>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ mb: 2 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Autorenew sx={{ fontSize: 20, color: '#D4AF37' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Onboarding Features</Typography>
+      </Box>
+      <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+        <Grid item xs={6}>
+          <FormControlLabel control={
+            <Checkbox size="small" checked={form.autoSubscribeRegulators || false} onChange={e => set('autoSubscribeRegulators', e.target.checked)} />
+          } label={<Typography variant="body2">Auto-subscribe regulators</Typography>} />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={
+            <Checkbox size="small" checked={form.autoSeedObligations || false} onChange={e => set('autoSeedObligations', e.target.checked)} />
+          } label={<Typography variant="body2">Auto-seed obligations</Typography>} />
         </Grid>
       </Grid>
 

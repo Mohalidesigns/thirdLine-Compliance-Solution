@@ -11,13 +11,18 @@ import java.util.List;
 public class ObligationRegisterItem {
     private Long obligationId;
     private String name;
+    private String title;
     private Integer obligationNumber;
     private String description;
+    private String plainEnglishStatement;
     private String sectionReference;
     private String areaOfFocus;
     private String obligationType;
     private String recurringDeadlineType;
+    private String riskDescription;
     private LocalDate effectiveDate;
+    private String actName;
+    private Long regulationId;
 
     private Long instrumentId;
     private String sourceTitle;
@@ -56,5 +61,7 @@ public class ObligationRegisterItem {
         private String sourceSectionReference;
         private String riskExplanation;
         private String penaltyDetails;
+        private Long regulationId;
+        private String actName;
     }
 }

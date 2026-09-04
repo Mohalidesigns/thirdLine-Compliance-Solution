@@ -20,6 +20,8 @@ public class CreateLicenseRequest {
     @Positive
     private Integer maxStorageMb;
     private Boolean deviceFingerprintEnforced;
+    private Boolean autoSubscribeRegulators;
+    private Boolean autoSeedObligations;
     @NotNull
     private Instant expiresAt;
     @Positive
