@@ -52,6 +52,36 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - `npm run dev` from `atheris-intelligence-frontend`
 - Proxies API to `http://localhost:9090/api/v1`
 
+## How to Use System
+
+- **Prerequisites**
+  - Docker PostgreSQL `atheris` on `5432`
+  - Java 21, Maven, Node 18+, npm
+  - Copy `cp .env.example .env` (see `.env.example` and `application.yml` for `DB_*`, `PORT`, `ADMIN_*`, `JWT_SECRET`, `ENCRYPTION_KEY`, `GEMINI_API_KEY`, `PLATFORM_BASE_URL`, storage, email)
+- **Start databases**
+  - `docker run --name db -e POSTGRES_USER=atheris -e POSTGRES_PASSWORD=changeme -p 5432:5432 -d postgres:17` or use existing `db` container
+  - `psql -U postgres -c "CREATE DATABASE atheris_intel OWNER atheris"`
+  - `psql -U postgres -c "CREATE DATABASE atheris_tenant OWNER atheris"`
+- **Start backends**
+  - Intel `atheris-compliance-intelligence-backend` → `mvn spring-boot:run` `:9090`
+  - Tenant `atheris-compliance-tenant-backend` → `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` `:9091`
+  - Flyway `15+25` auto-migrates; toolkit `~390` instruments seeds on first start (`ToolkitStartupSeeder`)
+- **Start frontends**
+  - Intel `atheris-compliance-intelligence-frontend` → `npm run dev` `:5173` (`VITE_INTEL_TARGET=http://localhost:9090`)
+  - Tenant `atheris-compliance-tenant-frontend` → `npm run dev` `:5174` (`VITE_TENANT_TARGET=http://localhost:9091`)
+- **First admin**
+  - Login `:5173` with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (env vars)
+  - Manage regulators, tenants, licenses; run `POST /admin/acts/toolkit/import` if seed missing
+- **Tenant use**
+  - Onboard organization on `:5174` (license → institution → user setup → confirm)
+  - Use dashboard, Review Inbox/Edit, Instruments, Obligations Register/Details, Controls, Returns, Sanctions, Findings
+- **Verify**
+  - `mvn clean compile` + `npm run build`
+  - Check logs `%TEMP%\opencode\{intel,tenant}-{out,err}.log` for clean start
+  - Manual onboarding via browser; verify UI loads at `http://localhost:5174`
+- **Reference**
+  - See `ARCHITECTURE.md` and `ATERHIS_ONBOARDING_E2E_TESTING.md` for full system and API details
+
 ## Pipeline Flow
 
 | Step | Schedule | Batch | Job Type | Description |
@@ -210,6 +240,30 @@ Config: `opencode.json`
 - Instruments have unique constraint on `source_url` (`idx_instruments_source_url`)
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
+
+## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
+
+**Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
+- Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
+- Review Details (`ReviewEditPage.jsx`) — reference, inbox will mirror
+- Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
+- Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
+- Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
+- Controls Register/Details (`ControlsPage.jsx`) — show act/regulation and linked obligations — why: register hides act column and traceability now available
+- Sanctions Register/Details (`SanctionsPage.jsx`) — show expandable violation/penalty/impact — why: register is collapsed, violation context now stored but not surfaced
+- Returns Register/Details (`ReturnsPage.jsx`) — show linked obligations and responsible party — why: hides linkage and owner now linked
+
+**Intel (`:5173`) — `atheris-compliance-intelligence-frontend/src/features/admin/*`**
+- Needs explorer pages for obligations, sanctions, returns, controls — why: toolkit enrichment added tables (`obligation_mappings 1541`, `sanctions 597`, `regulatory_returns 139`, `compliance_controls 300-600`) but intel only has Acts/Instruments explorers, those entities have no standalone UI
+
+**Dashboards**
+- Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
+
+**Skill**
+- Create reusable skill for the above — why: intel explorers should follow the same register/details pattern once tenant revamp is approved
+
+**Data migration**
+- Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
 
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
