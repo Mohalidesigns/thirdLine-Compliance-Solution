@@ -241,11 +241,26 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
+## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
+
+Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Commit `0ad5e72`.
+
+### Backend (`ReviewDetail.java` + `ReviewService.java`)
+- `ReviewDetail` DTO gains `dateCommencement`, `nature` (from `PlatformInstrumentDetail`)
+- `ReviewObligationDto` gains `linkedReturnIds`, `linkedReturnNames` — populated from `obligationRepo.findLinkedReturnIds()` for re-reviews (saved obligations exist)
+
+### Frontend (`ReviewEditPage.jsx` — 763 lines)
+- **Removed**: AI Summary card, OCR/Extracted Text collapsible section, `ocrOpen` state
+- **Obligations table (5 cols)**: `#` | `Obligation` (title conditional + verbatim inline) | `Interpreted` (inline) | `Risk` (editable dropdown) | `Actions` (apply + delete)
+- **Title**: conditional — shows bold text when present, hidden when empty; clicks into TextField for editing
+- **Risk**: editable `TextField select` in table row (Critical/High/Moderate/Low) — analyst overrides AI assessment directly
+- **Expanded section**: Area of Focus / Obligation Type / Deadline dropdowns, AI Risk Assessment (likelihood/impact/risk + description + control owner + act name), Classification tenant overrides (applicability, risk, impact, likelihood, owner, gap), Linked Regulatory Returns (Autocomplete multi-select via `api.returns.list()`)
+- **Header**: `dateCommencement` + `nature` in metadata grid; re-review chip when `status !== 'pending'`
+
 ## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
 
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
 - Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
-- Review Details (`ReviewEditPage.jsx`) — reference, inbox will mirror
 - Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
 - Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
 - Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
