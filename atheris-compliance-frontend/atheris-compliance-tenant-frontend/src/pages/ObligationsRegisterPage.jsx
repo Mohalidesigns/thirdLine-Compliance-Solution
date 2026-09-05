@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -8,12 +9,13 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Warning as WarningIcon, Article,
+  Warning as WarningIcon, Article, InfoOutlined,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 
-const RISK_CONFIG = {
+// harmonized with ReviewEditPage / ReviewInboxPage
+const INHERENT_RISK_CONFIG = {
   Critical: { color: 'error' },
   Extreme: { color: 'error' },
   High: { color: 'error' },
@@ -22,20 +24,24 @@ const RISK_CONFIG = {
   Low: { color: 'success' },
 };
 
-function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22, borderRadius: '4px' }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px' }} />;
+function inherentRiskChip(rating, likelihood, impact) {
+  const cfg = INHERENT_RISK_CONFIG[rating];
+  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  const tip = likelihood || impact ? `${likelihood || '-'} × ${impact || '-'}` : rating;
+  return (
+    <Tooltip title={tip}>
+      <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+    </Tooltip>
+  );
 }
 
-function formatDate(d) {
-  if (!d) return '-';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function prettify(v) {
+  return v ? String(v).replace(/_/g, ' ') : '';
 }
 
 const COLUMNS = [
-  { id: 'obligation', label: 'Obligation', minWidth: 280, sortField: 'name' },
-  { id: 'regulator', label: 'Regulator', minWidth: 100 },
+  { id: 'obligation', label: 'Obligation (Title + Interpreted)', minWidth: 340, sortField: 'name' },
+  { id: 'source', label: 'Regulator / Act', minWidth: 160 },
   { id: 'risk', label: 'Risk', minWidth: 100, sortField: 'tenantRiskRating' },
   { id: 'owner', label: 'Owner', minWidth: 120 },
   { id: 'controls', label: 'Controls', minWidth: 140 },
@@ -45,11 +51,7 @@ const COLUMNS = [
 export default function ObligationsRegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [stats, setStats] = useState(null);
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
 
   // filters — initialize from URL params when navigated from dashboard
   const [search, setSearch] = useState('');
@@ -58,7 +60,7 @@ export default function ObligationsRegisterPage() {
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [ownerFilter, setOwnerFilter] = useState(searchParams.get('owner') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [hasGap, setHasGap] = useState(searchParams.get('hasGap') === 'true');
+  const [hasGapFilter, setHasGapFilter] = useState(searchParams.get('hasGap') === 'true');
   const [noControl, setNoControl] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -71,39 +73,52 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGap || noControl;
+    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl;
 
-  const loadStats = useCallback(async () => {
-    try { setStats(await api.obligations.stats()); } catch { /* optional */ }
-  }, []);
+  const params = { page, size: rowsPerPage };
+  if (search) params.q = search;
+  if (riskFilter !== 'All') params.risk = riskFilter;
+  if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
+  if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
+  if (ownerFilter !== 'All') params.owner = ownerFilter;
+  if (statusFilter !== 'All') params.status = statusFilter;
+  if (hasGapFilter) params.hasGap = 'true';
+  if (noControl) params.noControl = 'true';
+  if (sortField) params.sort = `${sortField},${sortDir}`;
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = { page, size: rowsPerPage };
-      if (search) params.q = search;
-      if (riskFilter !== 'All') params.risk = riskFilter;
-      if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
-      if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
-      if (ownerFilter !== 'All') params.owner = ownerFilter;
-      if (statusFilter !== 'All') params.status = statusFilter;
-      if (hasGap) params.hasGap = 'true';
-      if (noControl) params.noControl = 'true';
-      if (sortField) params.sort = `${sortField},${sortDir}`;
-      const data = await api.obligations.register(params);
-      setItems(data.content || []);
-      setTotal(data.totalElements || 0);
-    } catch (e) { setError(e.message || 'Failed to load obligations.'); }
-    finally { setLoading(false); }
-  }, [page, rowsPerPage, search, riskFilter, regulatorFilter, areaFilter, ownerFilter, statusFilter, hasGap, noControl, sortField, sortDir]);
+  const listQuery = useQuery({
+    queryKey: ['obligations', 'register', params],
+    queryFn: ({ signal }) => api.obligations.register(params, { signal }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadList(); }, [loadList]);
-  useEffect(() => { loadStats(); }, []);
+  const statsQuery = useQuery({
+    queryKey: ['obligations', 'stats'],
+    queryFn: ({ signal }) => api.obligations.stats({ signal }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (obligationId) => api.obligations.remove(obligationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['obligations'] });
+      setSnackbar('Obligation deleted.');
+    },
+    onError: (e) => setSnackbar(e.message || 'Failed to delete obligation.'),
+  });
+
+  const items = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements || 0;
+  const stats = statsQuery.data;
+  const loading = listQuery.isPending;
+  const error = listQuery.error?.message || '';
+
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: ['obligations'] });
+  }
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGap(false); setNoControl(false);
+    setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGapFilter(false); setNoControl(false);
     setPage(0);
   }
 
@@ -118,26 +133,22 @@ export default function ObligationsRegisterPage() {
     setCreateOpen(true);
   }
 
-  async function handleDelete(row) {
-    if (!window.confirm(`Delete obligation #${row.obligationNumber}?\n\n"${row.description}"`)) return;
-    try {
-      await api.obligations.remove(row.obligationId);
-      setSnackbar('Obligation deleted.');
-      loadList(); loadStats();
-    } catch (e) { setSnackbar(e.message || 'Failed to delete obligation.'); }
+  function handleDelete(row) {
+    if (!window.confirm(`Delete obligation #${row.obligationNumber}?\n\n"${row.title || row.name || row.description}"`)) return;
+    deleteMutation.mutate(row.obligationId);
   }
 
   function handleSaved() {
     setSnackbar('Obligation saved.');
-    loadList(); loadStats();
+    refresh();
   }
 
   function applyKpiFilter(type) {
     setPage(0);
     if (type === 'highRisk') { setRiskFilter('High'); setStatusFilter('All'); }
-    else if (type === 'gaps') { setNoControl(true); setHasGap(false); }
-    else if (type === 'underReview') { setStatusFilter('unclassified'); setHasGap(false); setNoControl(false); }
-    else { setRiskFilter('All'); setHasGap(false); setNoControl(false); setStatusFilter('All'); }
+    else if (type === 'gaps') { setNoControl(true); setHasGapFilter(false); }
+    else if (type === 'underReview') { setStatusFilter('unclassified'); setHasGapFilter(false); setNoControl(false); }
+    else { setRiskFilter('All'); setHasGapFilter(false); setNoControl(false); setStatusFilter('All'); }
   }
 
   const kpis = [
@@ -161,7 +172,7 @@ export default function ObligationsRegisterPage() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Refresh">
-            <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
+            <IconButton onClick={refresh}><Refresh /></IconButton>
           </Tooltip>
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={openCreate}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
@@ -170,7 +181,7 @@ export default function ObligationsRegisterPage() {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* KPI cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
@@ -216,7 +227,7 @@ export default function ObligationsRegisterPage() {
             <MenuItem key={s} value={s}>{s === 'All' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}</MenuItem>)}
         </TextField>
         <FormControlLabel control={
-          <Checkbox size="small" checked={hasGap} onChange={e => { setHasGap(e.target.checked); setPage(0); }} />
+          <Checkbox size="small" checked={hasGapFilter} onChange={e => { setHasGapFilter(e.target.checked); setPage(0); }} />
         } label={<Typography variant="body2">Has gap</Typography>} />
         {hasFilters && (
           <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
@@ -267,27 +278,67 @@ export default function ObligationsRegisterPage() {
                 {items.map((item, idx) => {
                   const rating = item.tenantRiskRating || item.inherentRiskRating;
                   const controlCount = item.controlCount ?? 0;
-                  const hasGap = item.hasGap;
+                  const rowHasGap = item.hasGap;
+                  const heading = item.title || item.name;
                   return (
                     <TableRow key={item.obligationId} hover
                       onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                      sx={{ cursor: 'pointer', '& > td': { py: 1 }, '&:hover': { bgcolor: '#F7FAFC' } }}>
                       <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
-                      <TableCell>
-                        <Tooltip title={item.name || item.description || 'Untitled obligation'}>
-                          <Typography variant="body2" sx={{ maxWidth: 300,
+                      <TableCell sx={{ minWidth: 340, maxWidth: 420 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2, maxWidth: 360,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.name || item.description || 'Untitled obligation'}
+                            {heading || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
                           </Typography>
-                        </Tooltip>
+                          {item.description && (
+                            <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{item.description}</Box>}>
+                              <InfoOutlined sx={{ fontSize: 14, color: '#A0AEC0', flexShrink: 0 }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                        {item.plainEnglishStatement ? (
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 400,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.plainEnglishStatement}
+                          </Typography>
+                        ) : (
+                          <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
+                        )}
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {item.sectionReference && (
+                            <Chip size="small" variant="outlined" label={item.sectionReference.slice(0, 24)}
+                              sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
+                          )}
+                          {item.areaOfFocus && (
+                            <Chip size="small" variant="outlined" label={item.areaOfFocus}
+                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 150 }} />
+                          )}
+                          {item.obligationType && (
+                            <Chip size="small" variant="outlined" label={prettify(item.obligationType)}
+                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
+                          )}
+                          {item.recurringDeadlineType && (
+                            <Chip size="small" variant="outlined" label={prettify(item.recurringDeadlineType)}
+                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
+                          )}
+                        </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ maxWidth: 200 }}>
                         {item.regulatorAbbreviation
                           ? <Chip size="small" label={item.regulatorAbbreviation}
                               sx={{ height: 22, fontWeight: 600, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff' }} />
                           : <Typography variant="body2" color="text.secondary">-</Typography>}
+                        {(item.actName || item.regulationId) && (
+                          <Tooltip title={item.actName || `Reg #${item.regulationId}`}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.25, maxWidth: 180,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.actName || `Reg #${item.regulationId}`}
+                            </Typography>
+                          </Tooltip>
+                        )}
                       </TableCell>
-                      <TableCell>{riskChip(rating)}</TableCell>
+                      <TableCell>{inherentRiskChip(rating, item.inherentLikelihood, item.inherentImpact)}</TableCell>
                       <TableCell>
                         {item.assignedOwnerName
                           ? <Typography variant="body2">{item.assignedOwnerName}</Typography>
@@ -298,7 +349,7 @@ export default function ObligationsRegisterPage() {
                           <Chip size="small" label="No controls" color="error"
                             icon={<WarningIcon sx={{ fontSize: 14 }} />}
                             sx={{ height: 22, borderRadius: '4px', border: 'none' }} />
-                        ) : hasGap ? (
+                        ) : rowHasGap ? (
                           <Chip size="small" label={`${controlCount} controls`} color="warning"
                             icon={<WarningIcon sx={{ fontSize: 14 }} />}
                             sx={{ height: 22, borderRadius: '4px', border: 'none' }} />

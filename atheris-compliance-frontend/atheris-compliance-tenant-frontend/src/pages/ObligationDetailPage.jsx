@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Paper, Snackbar, Tooltip, List, ListItem, ListItemText,
 } from '@mui/material';
 import {
   Visibility, History, Download, Edit, UploadFile, Link as LinkIcon, CheckCircle, ArrowBack, Gavel,
+  InfoOutlined,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -16,21 +18,43 @@ import GapModal from '../components/modals/GapModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import FormattedText from '../components/FormattedText';
 
-const RISK_CONFIG = {
-  Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Extreme: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Moderate: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
-};
-
 const STATUS_COLOR = { active: 'success', classified: 'info', unclassified: 'warning', under_review: 'default' };
 
-function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22 }} />;
+// harmonized with ReviewEditPage / ReviewInboxPage
+const INHERENT_RISK_CONFIG = {
+  Critical: { color: 'error' },
+  Extreme: { color: 'error' },
+  High: { color: 'error' },
+  Moderate: { color: 'warning' },
+  Medium: { color: 'warning' },
+  Low: { color: 'success' },
+};
+
+function inherentRiskChip(rating, likelihood, impact) {
+  const cfg = INHERENT_RISK_CONFIG[rating];
+  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  const tip = likelihood || impact ? `${likelihood || '-'} × ${impact || '-'}` : rating;
+  return (
+    <Tooltip title={tip}>
+      <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+    </Tooltip>
+  );
+}
+
+function prettify(v) {
+  return v ? String(v).replace(/_/g, ' ') : '';
+}
+
+function MetaField({ title, value, mono }) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary">{title}</Typography>
+      <Typography variant="body2" sx={{ mt: 0.25, fontWeight: 500, wordBreak: 'break-word',
+        fontFamily: mono ? 'Roboto Mono, monospace' : 'inherit', fontSize: mono ? '0.8rem' : undefined }}>
+        {value || '-'}
+      </Typography>
+    </Box>
+  );
 }
 
 function formatDate(d) {
@@ -56,36 +80,25 @@ export default function ObligationDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const obligationId = Number(id);
+  const queryClient = useQueryClient();
 
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [activeModal, setActiveModal] = useState(null);
 
   const [snack, setSnack] = useState(null);
   const notify = (severity, message) => setSnack({ severity, message });
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
-    api.obligations.obligationDetail(obligationId)
-      .then(d => { if (active) setSelected(d); })
-      .catch(e => { if (active) setError(e.message || 'Failed to load obligation detail.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [obligationId]);
+  const detailQuery = useQuery({
+    queryKey: ['obligations', 'detail', String(id)],
+    queryFn: ({ signal }) => api.obligations.obligationDetail(obligationId, { signal }),
+  });
 
-  async function reload() {
-    try {
-      const d = await api.obligations.obligationDetail(obligationId);
-      setSelected(d);
-    } catch { /* keep current */ }
-  }
+  const selected = detailQuery.data;
+  const loading = detailQuery.isPending;
+  const error = detailQuery.error?.message || '';
 
   function onSaved(message) {
     return async () => {
-      await reload();
+      await queryClient.invalidateQueries({ queryKey: ['obligations'] });
       notify('success', message);
     };
   }
@@ -148,32 +161,86 @@ export default function ObligationDetailPage() {
           sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>View History</Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {selected && (
         <Box sx={{ maxWidth: 900 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            {riskChip(selected.tenantRiskRating || selected.inherentRiskRating)}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+            {inherentRiskChip(selected.tenantRiskRating || selected.inherentRiskRating,
+              selected.inherentLikelihood || selected.likelihoodRating,
+              selected.inherentImpact || selected.impactRating)}
             <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               {selected.regulatorAbbreviation || selected.regulatorName}
             </Typography>
             {selected.areaOfFocus && (
               <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />
             )}
+            {selected.sectionReference && (
+              <Chip size="small" variant="outlined" label={selected.sectionReference}
+                sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
+            )}
             <Chip size="small" label={selected.status || 'unknown'}
               color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
+            {selected.obligationNumber != null && (
+              <Typography variant="caption" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
+                #{selected.obligationNumber}
+              </Typography>
+            )}
           </Box>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-            {selected.name || 'Untitled obligation'}
+            {selected.title || selected.name || 'Untitled obligation'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{selected.sourceTitle}</Typography>
 
-          {selected.description && (
+          {/* Verbatim vs Interpreted - side by side on md+ */}
+          {(selected.description || selected.plainEnglishStatement) && (
             <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-              <SectionHeader title="Obligation Statement" />
-              <FormattedText text={selected.description} />
+              <SectionHeader title={
+                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <InfoOutlined sx={{ fontSize: 16 }} /> Obligation Texts (harmonized)
+                </Box>
+              } />
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                    Verbatim (from document)
+                  </Typography>
+                  <Box sx={{ mt: 0.75 }}>
+                    {selected.description
+                      ? <FormattedText text={selected.description} />
+                      : <Typography variant="body2" sx={{ color: '#CBD5E0' }}>No verbatim text</Typography>}
+                  </Box>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                    Interpreted (plain English)
+                  </Typography>
+                  <Box sx={{ mt: 0.75 }}>
+                    {selected.plainEnglishStatement
+                      ? <Typography variant="body2">{selected.plainEnglishStatement}</Typography>
+                      : <Typography variant="body2" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>}
+                  </Box>
+                </Box>
+              </Box>
             </Paper>
           )}
+
+          {/* Obligation Metadata */}
+          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+            <SectionHeader title="Obligation Metadata" />
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 2 }}>
+              <MetaField title="Obligation No." value={selected.obligationNumber != null ? `#${selected.obligationNumber}` : null} mono />
+              <MetaField title="Section" value={selected.sectionReference} mono />
+              <MetaField title="Area of Focus" value={selected.areaOfFocus} />
+              <MetaField title="Obligation Type" value={prettify(selected.obligationType)} />
+              <MetaField title="Deadline" value={prettify(selected.recurringDeadlineType)} />
+              <MetaField title="Act / Regulation"
+                value={selected.actName || (selected.regulationId ? `Reg #${selected.regulationId}` : null)} />
+              <MetaField title="Effective Date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : null} />
+              <MetaField title="Classification Version"
+                value={selected.classificationVersion != null ? `v${selected.classificationVersion}` : null} />
+            </Box>
+          </Paper>
 
           {/* Classification */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
@@ -202,11 +269,13 @@ export default function ObligationDetailPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 2, mb: 1.5 }}>
               <Box>
                 <Typography variant="caption" color="text.secondary">Inherent</Typography>
-                <Box sx={{ mt: 0.5 }}>{riskChip(selected.inherentRiskRating)}</Box>
+                <Box sx={{ mt: 0.5 }}>
+                  {inherentRiskChip(selected.inherentRiskRating, selected.inherentLikelihood, selected.inherentImpact)}
+                </Box>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Residual</Typography>
-                <Box sx={{ mt: 0.5 }}>{riskChip(selected.residualRiskRating)}</Box>
+                <Box sx={{ mt: 0.5 }}>{inherentRiskChip(selected.residualRiskRating)}</Box>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">Likelihood</Typography>
@@ -216,12 +285,26 @@ export default function ObligationDetailPage() {
                 <Typography variant="caption" color="text.secondary">Impact</Typography>
                 <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.inherentImpact || selected.impactRating || '-'}</Typography>
               </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Risk Type</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>{prettify(selected.riskType) || '-'}</Typography>
+              </Box>
             </Box>
             {selected.riskDescription && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selected.riskDescription}</Typography>
             )}
             {selected.riskJustification && (
               <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
+            )}
+            {selected.likelihoodJustification && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <strong>Likelihood:</strong> {selected.likelihoodJustification}
+              </Typography>
+            )}
+            {selected.impactJustification && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                <strong>Impact:</strong> {selected.impactJustification}
+              </Typography>
             )}
           </Paper>
 
