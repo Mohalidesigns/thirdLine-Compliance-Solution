@@ -266,10 +266,33 @@ Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Comm
 - **Expanded section**: Area of Focus / Obligation Type / Deadline dropdowns, AI Risk Assessment (likelihood/impact/risk + description + control owner + act name), Classification tenant overrides (applicability, risk, impact, likelihood, owner, gap), Linked Regulatory Returns (Autocomplete multi-select via `api.returns.list()`)
 - **Header**: `dateCommencement` + `nature` in metadata grid; re-review chip when `status !== 'pending'`
 
+## Done — Instruments Page Overhaul (KPIs, risk filter, enriched detail)
+
+Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-page` skill pattern. Commit `71d9097`.
+
+### List View
+- 4 KPI stats cards (Total, Critical, High, Published) — client-side computed from list, clickable → set risk filter
+- Filters: search + risk dropdown + regulator dropdown + clear button
+- Table (5 cols): Title | Regulator (chip) | Risk (colored chip) | Obligations (count) | Actions (View)
+- Sortable by Title and Risk via `TableSortLabel`
+
+### Detail View
+- Header: regulator, document type chip, risk chip, source title, metadata grid (regulator, type, issued, commencement, nature)
+- AI Summary kept (blue border-left)
+- Obligations table (5 cols): # | Obligation (title+description) | Risk (chip) | Act | Owner — all correct DTO field names
+- Sanctions table (5 cols): Type (chip) | Penalty (naira formatted) | Section | Liable Roles (chips) | Risk (severity score)
+- OCR/Extracted Text section removed
+
+### Field Name Fixes
+- `obl.section` → `obl.sectionReference`
+- `obl.type` → `obl.obligationType`
+- `s.type` → `s.sanctionType`
+
 ## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
 
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
 - Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
+- Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
 - Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
 - Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
 - Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
