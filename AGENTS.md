@@ -241,12 +241,11 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Harmonization: tenant pages done, intel + dashboards remain
+## TODO / Next — Harmonization: tenant + intel done; dashboards, skill, bulk import remain
 
 **Tenant (`:5174`)** — DONE. All six pages harmonized against the `ReviewEditPage.jsx` reference; see the Done sections below.
 
-**Intel (`:5173`) — `atheris-compliance-intelligence-frontend/src/features/admin/*`**
-- Needs explorer pages for obligations, sanctions, returns, controls — scoped 2026-09-05: this is 4 vertical slices, NOT greenfield. All four entities AND repositories already exist on intel (`ObligationMapping`, `SanctionsPenalty`, `RegulatoryReturn`, `ComplianceControl` over `obligation_mappings`, `sanctions_and_penalties`, `regulatory_returns`, `compliance_controls`). Missing is only the admin controller/service/DTO layer plus the pages. Follow the existing `AdminRegulationController` + `ActExplorerPage`/`ActDetailPage` pattern — why: toolkit enrichment added tables (`obligation_mappings 1541`, `sanctions 597`, `regulatory_returns 139`, `compliance_controls 300-600`) but intel only has Acts/Instruments explorers, those entities have no standalone UI
+**Intel (`:5173`)** — DONE. All four explorers built; see the Done section below.
 
 **Dashboards**
 - Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
@@ -256,6 +255,32 @@ Config: `opencode.json`
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+## Done — Intel Explorers (obligations, sanctions, returns, controls)
+
+Four vertical slices, each a `GET /api/v1/admin/<entity>` + `/stats` + `/{id}` behind `@PreAuthorize("hasRole('PLATFORM_ADMIN')")`, following the `AdminRegulationController` pattern, plus an explorer and detail page following `RegulationExplorerPage`/`RegulationDetailPage`. Routes, nav and API client live in one shared commit made up front.
+
+### Entity naming differs per module — check before copying code between them
+| Entity | Act FK | Section field | actName |
+|---|---|---|---|
+| `ObligationMapping` | `regulationId` → column `act_id` | **`specificSectionReference`** | resolved (batch-loaded) |
+| `SanctionsPenalty` | `regulationId` → column `act_id` | `sourceSectionReference` | resolved (batch-loaded) |
+| `RegulatoryReturn` | **`actId`** directly | `sectionReference` | resolved (batch-loaded) |
+| `ComplianceControl` | **`actId`** directly | — | **denormalised on the row** |
+
+The tenant obligation DTOs use `sectionReference`, so intel's `specificSectionReference` is a genuine trap when porting a page across.
+
+### Sorting on a service-resolved field throws at runtime
+`actName` is not persisted on `ObligationMapping`, `SanctionsPenalty` or `RegulatoryReturn` — it is resolved in the service. Passing `sort=actName` into `Pageable` raises `PropertyReferenceException`. The explorers therefore sort Act on `regulationId`/`actId`, or leave it unsortable. `ComplianceControl` is the exception: `actName` IS a column there, so it sorts normally.
+
+### N+1 avoided
+Act names are resolved by collecting the page's distinct act ids into a `Set` and issuing one `findAllById` — one extra query per page regardless of page size. Obligation stats aggregate in SQL via new group-by queries rather than loading all ~1541 rows.
+
+### The Intel frontend has NO TanStack Query
+`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
+
+### Known lint debt (pre-existing, not new)
+The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
 
 ## Done — Returns Register/Details Harmonized (incl. backend linkage)
 
