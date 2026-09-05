@@ -7,6 +7,7 @@ import { useAuth } from './contexts/AuthContext';
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazy(() => import('./pages/CcoDashboardPage'));
+const DashboardV2Page = lazy(() => import('./pages/DashboardV2Page'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
 const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
@@ -49,6 +50,7 @@ export default function AppRoutes() {
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="dashboard/v2" element={<DashboardV2Page />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />
           <Route path="instruments" element={<InstrumentsPage />} />
