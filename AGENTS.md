@@ -280,6 +280,27 @@ See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboar
 ### Only link to filters a page actually reads
 `ObligationsRegisterPage` reads `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap` from `useSearchParams` — and nothing else. Links passing `impact`, `likelihood` or `act` are silent no-ops that dump the unfiltered register. **Adding act/impact/likelihood filters to that register is an open follow-up.**
 
+## Done — Risk Matrix Defaults Repaired
+
+Chasing the unreachable "High" band found the root cause of the all-zero heatmap. **The `RiskMatrixConfig` entity's `@Builder.Default` values were the sole outlier** — V28's column defaults and `ObligationClassification.computeInherentRisk` (the canonical scorer) already agreed with each other:
+
+| | canonical (V28 + computeInherentRisk) | entity `@Builder.Default` (wrong) |
+|---|---|---|
+| impacts | Insignificant, Minor, Moderate, Major, Severe | Low, Medium, High, Very High |
+| likelihoods | Rare, Unlikely, Possible, Likely, Almost Certain | Very Low, Low, Medium, High |
+| bands | `>=18` / `>=12` / `>=6` | `{moderate:6, high:9, critical:9}` |
+
+**Why the correct column defaults never applied:** rows are created through JPA (`RiskMatrixConfig.builder()...build()`, three call sites), so Hibernate writes the entity's values and the DB column defaults are bypassed entirely. A correct column default is NOT protection when the entity supplies its own.
+
+Three defects:
+1. `high == critical == 9` made the **High band mathematically unreachable** (`resolveBand` tests critical first).
+2. The entity's likelihood axis shares **no value** with the ratings actually stored, so no obligation could match a heatmap cell — the root cause of the all-zero heatmap. `resolveAxis` is kept as defence-in-depth for genuinely customised axes.
+3. `resolveBand` used `>` where `computeInherentRisk` uses `>=`, so they **disagreed at every boundary**: score 12 was "High" on the obligation but "Moderate" on the heatmap; 6 was "Moderate" vs "Low".
+
+`V30__repair_risk_matrix_defaults.sql` repairs existing rows, matching only the exact broken values so real customisation survives. V28 was left alone — it was already right.
+
+**Rule:** when a JSONB/enum default exists in BOTH a migration and an entity `@Builder.Default`, they must agree; the entity always wins for JPA-created rows.
+
 ## Done — MUI 7 Grid Migration
 
 19 files used the v1 Grid API (`<Grid item xs={12} md={6}>`) on `@mui/material` **7.3.11**, where `Grid` IS v2: there is no `Grid2` directory and `Grid.d.ts` declares only `container`, `offset`, `size`, `spacing`. The legacy props were passed through as unrecognised attributes and **ignored for layout** — silently wrong, never an error.
