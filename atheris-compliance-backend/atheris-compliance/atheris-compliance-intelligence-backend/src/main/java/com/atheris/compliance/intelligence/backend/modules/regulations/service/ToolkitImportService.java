@@ -316,6 +316,7 @@ public class ToolkitImportService {
             Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
             String statement = TextCleaner.stripMarkdown(plain.trim());
+            String descriptionText = TextCleaner.stripMarkdown(get(r, cDesc).trim());
             String sectionRef = shorten(get(r, cSection), 100);
             if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
                     actId, statement, sectionRef)) {
@@ -332,6 +333,7 @@ public class ToolkitImportService {
                 .regulationId(actId)
                 .obligationNumber(++obligNumber)
                 .title(shorten(get(r, cTitle), 500))
+                .description(descriptionText)
                 .plainEnglishStatement(statement)
                 .specificSectionReference(sectionRef)
                 .areaOfFocus(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))

@@ -89,6 +89,7 @@ public class InternalRegulationSeedService {
                     .map(o -> InternalRegulationSeed.ObligationItem.builder()
                         .obligationNumber(o.getObligationNumber())
                         .title(o.getTitle())
+                        .description(o.getDescription())
                         .plainEnglishStatement(o.getPlainEnglishStatement())
                         .specificSectionReference(o.getSpecificSectionReference())
                         .areaOfFocus(o.getAreaOfFocus())
