@@ -364,9 +364,9 @@ public class DashboardV2Service {
         int critical = bands.getOrDefault("critical", 18);
         int high = bands.getOrDefault("high", 12);
         int moderate = bands.getOrDefault("moderate", 6);
-        if (score > critical) return "Critical";
-        if (score > high) return "High";
-        if (score > moderate) return "Moderate";
+        if (score >= critical) return "Critical";
+        if (score >= high) return "High";
+        if (score >= moderate) return "Moderate";
         return "Low";
     }
 
