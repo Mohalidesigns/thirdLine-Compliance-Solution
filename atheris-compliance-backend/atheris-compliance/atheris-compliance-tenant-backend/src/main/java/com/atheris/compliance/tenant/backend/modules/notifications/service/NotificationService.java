@@ -26,10 +26,14 @@ public class NotificationService {
     }
 
     public Map<String, Long> getCount() {
-        return Map.of(
-            "unread", repo.countByStatus("unread"),
-            "high_severity_unread", (long) repo.findByChangeSeverityAndStatus("high", "unread").size()
-        );
+        long unread = repo.countByStatus("unread");
+        long highUnread;
+        try {
+            highUnread = repo.countByChangeSeverityAndStatus("high", "unread");
+        } catch (Exception e) {
+            highUnread = 0L;
+        }
+        return Map.of("unread", unread, "high_severity_unread", highUnread);
     }
 
     public ObligationNotification findById(Long id) {

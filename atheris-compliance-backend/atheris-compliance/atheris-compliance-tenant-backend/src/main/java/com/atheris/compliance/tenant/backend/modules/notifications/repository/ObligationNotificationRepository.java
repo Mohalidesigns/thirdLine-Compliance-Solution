@@ -11,4 +11,5 @@ public interface ObligationNotificationRepository extends JpaRepository<Obligati
     List<ObligationNotification> findByStatusOrderByCreatedAtDesc(String status);
     List<ObligationNotification> findByChangeSeverityAndStatus(String severity, String status);
     long countByStatus(String status);
+    long countByChangeSeverityAndStatus(String severity, String status);
 }
