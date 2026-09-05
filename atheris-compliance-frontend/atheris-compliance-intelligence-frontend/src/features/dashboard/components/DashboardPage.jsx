@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import RegulatoryCoverage from './RegulatoryCoverage';
 
 const stageColors = {
   completed: { bg: '#E6F4EA', color: '#2D7D46' },
@@ -232,6 +233,9 @@ export default function DashboardPage() {
           </Typography>
         </Alert>
       </Box>}
+
+      {/* Row 1.75 — Regulatory Coverage Analytics */}
+      <RegulatoryCoverage />
 
       {/* Row 2 — Document Pipeline Table */}
       <Card sx={{ mb: 3 }}>
