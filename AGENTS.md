@@ -241,19 +241,12 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
+## TODO / Next — Harmonization: tenant pages done, intel + dashboards remain
 
-**Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
-- Review Details (`ReviewEditPage.jsx`) — reference, inbox mirrors it
-- Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
-- Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
-- Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
-- Controls Register/Details (`ControlsPage.jsx`) — show act/regulation and linked obligations — why: register hides act column and traceability now available
-- Sanctions Register/Details (`SanctionsPage.jsx`) — show expandable violation/penalty/impact — why: register is collapsed, violation context now stored but not surfaced
-- Returns Register/Details (`ReturnsPage.jsx`) — show linked obligations and responsible party — why: hides linkage and owner now linked
+**Tenant (`:5174`)** — DONE. All six pages harmonized against the `ReviewEditPage.jsx` reference; see the Done sections below.
 
 **Intel (`:5173`) — `atheris-compliance-intelligence-frontend/src/features/admin/*`**
-- Needs explorer pages for obligations, sanctions, returns, controls — why: toolkit enrichment added tables (`obligation_mappings 1541`, `sanctions 597`, `regulatory_returns 139`, `compliance_controls 300-600`) but intel only has Acts/Instruments explorers, those entities have no standalone UI
+- Needs explorer pages for obligations, sanctions, returns, controls — scoped 2026-09-05: this is 4 vertical slices, NOT greenfield. All four entities AND repositories already exist on intel (`ObligationMapping`, `SanctionsPenalty`, `RegulatoryReturn`, `ComplianceControl` over `obligation_mappings`, `sanctions_and_penalties`, `regulatory_returns`, `compliance_controls`). Missing is only the admin controller/service/DTO layer plus the pages. Follow the existing `AdminRegulationController` + `ActExplorerPage`/`ActDetailPage` pattern — why: toolkit enrichment added tables (`obligation_mappings 1541`, `sanctions 597`, `regulatory_returns 139`, `compliance_controls 300-600`) but intel only has Acts/Instruments explorers, those entities have no standalone UI
 
 **Dashboards**
 - Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
@@ -263,6 +256,46 @@ Config: `opencode.json`
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+## Done — Returns Register/Details Harmonized (incl. backend linkage)
+
+The linked-obligations half was NOT achievable from the frontend: `GET /returns/{returnId}/obligations` returned `List<Long>` — bare ids, no detail. That GET had **zero frontend callers** (only the id-based `PUT` is used, by `CreateReturnDialog.jsx`), so it was enriched in place rather than growing a parallel `/detail` endpoint.
+
+- **Backend** — `ObligationRepository.findLinkedObligationDetails` (native projection joining `obligation_returns` to `obligations`), new `LinkedObligationItem` DTO, `ReturnService.linkedObligationIds` → `linkedObligations`, controller returns the rich list. `@PreAuthorize` unchanged, read-only so **no Flyway migration**. The `PUT` and `LinkObligationsRequest` are untouched.
+- **Frontend** — rows lazily fetch their linked obligations on expand (collapsed rows fire no request); responsible party (`responsibleUnit` / `responsiblePerson`) gets its own column.
+- **Bug fixed** — `item.overcomeCount` was a typo for `overdueCount`, so the overdue count always rendered 0.
+- **Known, left as-is (out of scope)** — `ReturnService.getRegister` ignores the `Pageable` sort entirely and always sorts in-memory by `currentDueDate`. This page's sort headers were already decorative before this change.
+
+## Done — Controls Register/Details Harmonized
+
+`ControlsPage.jsx` now reads `actName`/`actId`, which it never did before — meaning the existing Act filter dropdown had been filtering on a value the user could not see. Act appears as the secondary line under the control name and in a new "Act / Regulation" detail section beside `regulatoryRequirement`.
+
+Linked obligations became traceable: rows navigate to `/obligations/{obligationId}` instead of being inert text. Only `description` and `instrumentTitle` are shown — `ControlDetailResponse.LinkedObligation` genuinely carries nothing else, so nothing is invented.
+
+9 data columns trimmed to 5: Control (name + controlNumber + act), Classification (controlType + theme + complianceArea), Owner, Risk & Status, Testing (frequency + dueDate). Nothing displayed was lost, but four standalone sort headers went — `controlType`, `theme`, `frequency`, `status`; `status` and `theme` are still reachable through their filter dropdowns.
+
+Note `api.controls.*` takes no `opts` argument, so these queries pass no abort signal.
+
+## Done — Instruments / Obligations / Sanctions Harmonized
+
+All three surface enrichment the DTOs already carried; the pages simply never read it. Each mirrors `ReviewEditPage.jsx` / `ReviewInboxPage.jsx`.
+
+- **Instruments** (`InstrumentsPage.jsx`) — obligations table matches `ObligationSummary` (title + interpreted + verbatim tooltip / Section / Area / Risk / Act, with type, deadline, effective date and status as chips); `SanctionCard` replaces the old "Penalties" block with an expandable Violation / Penalty / Impact panel.
+- **Obligations Register** (`ObligationsRegisterPage.jsx`) — verbatim vs interpreted split, plus section/area/type/deadline chips and act linkage folded into the Regulator cell.
+- **Obligations Detail** (`ObligationDetailPage.jsx`) — read-only "Obligation Texts (harmonized)" section, a new metadata block, and riskType / impactJustification / likelihoodJustification.
+- **Sanctions** (`SanctionsPage.jsx`) — expandable violation/penalty/impact from data already in the list response (no fetch on expand); 7 columns trimmed to 5.
+
+### Bugs found and fixed along the way
+- **Instruments drawer read three non-existent fields** — `obl.section`, `obl.type`, `s.type` instead of `sectionReference`, `obligationType`, `sanctionType`, so those cells always rendered `-`.
+- **Instruments pagination was broken** — the page fetched server page N then re-sliced `[N*20:(N+1)*20]` from a 20-item array (empty for N≥1) and passed `count={items.length}`, capping the pager at one page. No instrument past the first 20 was reachable.
+- **Register `hasGap` filter state was shadowed** by a row-scoped `hasGap` inside the table map; renamed `hasGapFilter`.
+
+### Gotcha — the sanction amount field is spelled differently per DTO
+`InstrumentDetailResponse.SanctionItem` uses **`amountNaira`**. `ObligationRegisterItem.SanctionItem`, `ObligationDetailView.SanctionItem` and `SanctionListItem` all use **`sanctionAmountNaira`**. Copying a sanctions block between pages without changing this silently renders a blank amount.
+
+### Convention notes
+- Query keys for by-id details must be **stringified** (`['x', String(id)]`): `useParams()` yields a string while list ids arrive as JSON numbers, and TanStack hashes `['x',12]` and `['x','12']` differently — unstringified, a page will not share cache with its own detail view.
+- Concurrent agents must not share the `dist/` output; verify with `npx vite build --outDir dist-verify-<name> --emptyOutDir`.
 
 ## Done — Review Inbox Harmonized (enriched obligation summary)
 
