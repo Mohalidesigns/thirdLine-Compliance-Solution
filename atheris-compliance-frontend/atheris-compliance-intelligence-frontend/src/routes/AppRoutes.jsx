@@ -28,6 +28,14 @@ const UploadsPage = lazy(() => import('../features/admin/components/UploadsPage'
 const ActExplorerPage = lazy(() => import('../features/admin/components/RegulationExplorerPage'));
 const ActDetailPage = lazy(() => import('../features/admin/components/RegulationDetailPage'));
 const UniversePage = lazy(() => import('../features/admin/components/UniversePage'));
+const ObligationExplorerPage = lazy(() => import('../features/admin/components/ObligationExplorerPage'));
+const ObligationDetailPage = lazy(() => import('../features/admin/components/ObligationDetailPage'));
+const SanctionExplorerPage = lazy(() => import('../features/admin/components/SanctionExplorerPage'));
+const SanctionDetailPage = lazy(() => import('../features/admin/components/SanctionDetailPage'));
+const ReturnExplorerPage = lazy(() => import('../features/admin/components/ReturnExplorerPage'));
+const ReturnDetailPage = lazy(() => import('../features/admin/components/ReturnDetailPage'));
+const ControlExplorerPage = lazy(() => import('../features/admin/components/ControlExplorerPage'));
+const ControlDetailPage = lazy(() => import('../features/admin/components/ControlDetailPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -75,6 +83,14 @@ export default function AppRoutes() {
           <Route path="admin/acts" element={<ActExplorerPage />} />
           <Route path="admin/acts/:id" element={<ActDetailPage />} />
           <Route path="admin/universe" element={<UniversePage />} />
+          <Route path="admin/obligations" element={<ObligationExplorerPage />} />
+          <Route path="admin/obligations/:id" element={<ObligationDetailPage />} />
+          <Route path="admin/sanctions" element={<SanctionExplorerPage />} />
+          <Route path="admin/sanctions/:id" element={<SanctionDetailPage />} />
+          <Route path="admin/returns" element={<ReturnExplorerPage />} />
+          <Route path="admin/returns/:id" element={<ReturnDetailPage />} />
+          <Route path="admin/controls" element={<ControlExplorerPage />} />
+          <Route path="admin/controls/:id" element={<ControlDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} />} />
       </Routes>
