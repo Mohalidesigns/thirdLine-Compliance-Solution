@@ -458,8 +458,21 @@ public class ReturnService {
             Collections.singletonMap("obligationIds", obligationIds));
     }
 
-    public List<Long> linkedObligationIds(Long returnId) {
-        return obligations.findLinkedObligationIds(returnId);
+    public List<LinkedObligationItem> linkedObligations(Long returnId) {
+        return obligations.findLinkedObligationDetails(returnId).stream()
+            .map(r -> LinkedObligationItem.builder()
+                .obligationId(r.getObligationId())
+                .title(r.getTitle())
+                .name(r.getName())
+                .plainEnglishStatement(r.getPlainEnglishStatement())
+                .sectionReference(r.getSectionReference())
+                .areaOfFocus(r.getAreaOfFocus())
+                .inherentRiskRating(r.getInherentRiskRating())
+                .actName(r.getActName())
+                .obligationType(r.getObligationType())
+                .recurringDeadlineType(r.getRecurringDeadlineType())
+                .build())
+            .collect(Collectors.toList());
     }
 
     private void ensureInstancesForActive() {

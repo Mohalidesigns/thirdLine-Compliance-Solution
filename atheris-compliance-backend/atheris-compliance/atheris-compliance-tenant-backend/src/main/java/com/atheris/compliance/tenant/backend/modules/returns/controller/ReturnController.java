@@ -90,8 +90,8 @@ public class ReturnController {
 
     @GetMapping("/{returnId}/obligations")
     @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
-    public ResponseEntity<List<Long>> linkedObligations(@PathVariable Long returnId) {
-        return ResponseEntity.ok(service.linkedObligationIds(returnId));
+    public ResponseEntity<List<LinkedObligationItem>> linkedObligations(@PathVariable Long returnId) {
+        return ResponseEntity.ok(service.linkedObligations(returnId));
     }
 
     @PutMapping("/{returnId}/obligations")

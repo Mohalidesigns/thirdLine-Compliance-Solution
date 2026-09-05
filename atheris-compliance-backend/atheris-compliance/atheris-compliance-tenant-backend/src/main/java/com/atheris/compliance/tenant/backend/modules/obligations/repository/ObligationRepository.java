@@ -32,6 +32,14 @@ public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     @Query(value = "SELECT obligation_id FROM obligation_returns WHERE return_id = :returnId", nativeQuery = true)
     List<Long> findLinkedObligationIds(@Param("returnId") Long returnId);
 
+    @Query(value = "SELECT o.obligation_id AS obligationId, o.title AS title, o.name AS name, "
+        + "o.plain_english_statement AS plainEnglishStatement, o.section_reference AS sectionReference, "
+        + "o.area_of_focus AS areaOfFocus, o.inherent_risk_rating AS inherentRiskRating, o.act_name AS actName, "
+        + "o.obligation_type AS obligationType, o.recurring_deadline_type AS recurringDeadlineType "
+        + "FROM obligation_returns orr JOIN obligations o ON o.obligation_id = orr.obligation_id "
+        + "WHERE orr.return_id = :returnId ORDER BY o.obligation_id", nativeQuery = true)
+    List<LinkedObligationRow> findLinkedObligationDetails(@Param("returnId") Long returnId);
+
     @Modifying
     @Query(value = "DELETE FROM obligation_returns WHERE obligation_id = :obligationId", nativeQuery = true)
     void deleteReturnLinks(@Param("obligationId") Long obligationId);
@@ -47,5 +55,18 @@ public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     interface ObligationReturnRow {
         Long getObligationId();
         Long getReturnId();
+    }
+
+    interface LinkedObligationRow {
+        Long getObligationId();
+        String getTitle();
+        String getName();
+        String getPlainEnglishStatement();
+        String getSectionReference();
+        String getAreaOfFocus();
+        String getInherentRiskRating();
+        String getActName();
+        String getObligationType();
+        String getRecurringDeadlineType();
     }
 }

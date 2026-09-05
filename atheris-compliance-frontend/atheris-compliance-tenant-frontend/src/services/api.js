@@ -246,13 +246,13 @@ export const api = {
       const s = qs.toString();
       return request(`/returns/calendar${s ? '?' + s : ''}`);
     },
-    register: (params = {}) => {
+    register: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/returns/register${s ? '?' + s : ''}`);
+      return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/returns/stats'),
+    stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
     detail: (id) => request(`/returns/instances/${id}/detail`),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -260,7 +260,7 @@ export const api = {
     linkObligations: (returnId, linkedObligationIds) => request(`/returns/${returnId}/obligations`, {
       method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
     }),
-    linkedObligations: (returnId) => request(`/returns/${returnId}/obligations`),
+    linkedObligations: (returnId, opts = {}) => request(`/returns/${returnId}/obligations`, { signal: opts.signal }),
   },
   sanctions: {
     list: (params = {}, opts = {}) => {
