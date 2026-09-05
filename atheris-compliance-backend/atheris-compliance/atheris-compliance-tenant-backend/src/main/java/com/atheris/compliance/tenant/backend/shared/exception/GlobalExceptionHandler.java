@@ -9,7 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
+import java.io.IOException;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -49,6 +51,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleBadArgument(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(Map.of("error", "bad_request", "message", e.getMessage()));
+    }
+
+    @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
+    public ResponseEntity<Void> handleClientDisconnected(Exception e) {
+        log.debug("Client disconnected during response write: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     @ExceptionHandler(Exception.class)
