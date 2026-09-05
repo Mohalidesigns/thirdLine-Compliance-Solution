@@ -244,8 +244,7 @@ Config: `opencode.json`
 ## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
 
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
-- Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
-- Review Details (`ReviewEditPage.jsx`) — reference, inbox will mirror
+- Review Details (`ReviewEditPage.jsx`) — reference, inbox mirrors it
 - Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
 - Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
 - Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
@@ -264,6 +263,16 @@ Config: `opencode.json`
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+## Done — Review Inbox Harmonized (enriched obligation summary)
+
+`ReviewInboxPage.jsx` now mirrors `ReviewEditPage.jsx` (the harmonization reference).
+
+- **Expandable rows** — each review row has a chevron; expanding lazily calls `GET /review/{reviewId}` (`api.review.get`) and renders a read-only enriched obligation table: `#`, Obligation (bold title + grey `plainEnglishStatement` caption, verbatim `description` behind an `InfoOutlined` tooltip), Section (mono chip), Area (`areaOfFocus`), Risk (`inherentRiskChip` with `likelihood × impact` tooltip), Act (`actName`, falls back to `Reg #{regulationId}`). `applicable === false` renders at 0.45 opacity with a "Not applicable" chip.
+- **No backend change** — `ReviewItem` (list DTO) stays instrument-level; enrichment comes from the existing detail endpoint. `enabled: open` means collapsed rows fire no request (no N+1 on list load); `staleTime: 5min` makes re-expanding free.
+- **Shared detail cache** — query key is `['review', String(reviewId)]`, matching `ReviewEditPage`'s `useParams()` string key, so expanding a row warms the detail page and vice-versa. The key must be stringified: `useParams()` gives a string while `item.reviewId` is a JSON number, and TanStack hashes `['review',12]` and `['review','12']` differently.
+- **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the `frontend-page` convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
+- **Outer table trimmed to 5 data columns** (+ chevron + actions): Document (Source chip folded inline before the title), Regulator, Risk, Obligations, Received. Nothing previously shown was dropped; the standalone `source` sort header is gone, but source remains filterable via the dropdown and the Intel/Upload KPI cards.
 
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
