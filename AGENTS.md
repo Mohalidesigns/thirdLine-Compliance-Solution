@@ -247,14 +247,46 @@ Config: `opencode.json`
 
 **Intel (`:5173`)** — DONE. All four explorers built; see the Done section below.
 
-**Dashboards**
-- Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
+**Dashboards** — DONE. See the Done section below.
 
 **Skill**
 - Create reusable skill for the above — why: intel explorers should follow the same register/details pattern once tenant revamp is approved
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+## Done — Dashboards Harmonized (risk / area / act)
+
+### Dashboard V2 was shipped but unreachable — now routed and fixed
+See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboard/v2`. Because it had **never rendered**, it carried real bugs:
+
+- **Rendition grid always requested an inverted date range.** `qEnd` was `new Date(y, floor(month/3) + 3, 0)` — missing the `*3`. In September that gives `from=Jul-01, to=May-31`, so the grid read "No rendition data for this quarter" in **every quarter except Q1**. `toISOString()` also shifted the boundary for UTC-negative offsets.
+- **Risk heatmap always rendered zeros.** `getRiskHeatmap` dropped obligations whose ratings fell outside `RiskMatrixConfig`'s seeded axes, but the seeded likelihood axis (`Very Low..High`) shares **no value** with the real data vocabulary (`Almost Certain/Likely/Possible/Unlikely/Rare`), so nothing could ever match.
+- `GroupSummary.total` counted returns while `submitted`/`overdue` counted instances ("7/3 submitted").
+- Saved thresholds were never applied — `resolveColor` took a `metric` argument and ignored it.
+- `escalation-matrix` re-ran `findAllReturnLinks()` per escalated row.
+- Two dead drill-downs silently dumped the unfiltered register.
+
+### Security fix
+`/dashboard/v2/thresholds` took `tenantId` as a **request param**, so any authenticated tenant user could read or overwrite another tenant's thresholds. Now resolved server-side via `TenantIdentityService`, matching the sibling `RiskMatrixSettingsController`.
+
+### Act dimension
+`control-coverage` supported only `department` and `areaOfFocus`; added `by=act`. `RiskProfileDto` gained `byAct` mirroring `byAreaOfFocus`.
+
+### Live dashboards
+- **Tenant** `CcoDashboardPage` (the page actually served at `/dashboard`) gained Inherent Risk Profile, Risk by Area of Focus and Risk by Act, driven by existing v2 endpoints. Migrated to TanStack Query; eight independent queries replace `Promise.allSettled`, `refetchInterval` preserves the 30s poll.
+- **Intel** `DashboardPage` was 100% pipeline-focused; gained a `RegulatoryCoverage` section from the four explorer `stats` endpoints.
+
+### Only link to filters a page actually reads
+`ObligationsRegisterPage` reads `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap` from `useSearchParams` — and nothing else. Links passing `impact`, `likelihood` or `act` are silent no-ops that dump the unfiltered register. **Adding act/impact/likelihood filters to that register is an open follow-up.**
+
+## Done — MUI 7 Grid Migration
+
+19 files used the v1 Grid API (`<Grid item xs={12} md={6}>`) on `@mui/material` **7.3.11**, where `Grid` IS v2: there is no `Grid2` directory and `Grid.d.ts` declares only `container`, `offset`, `size`, `spacing`. The legacy props were passed through as unrecognised attributes and **ignored for layout** — silently wrong, never an error.
+
+154 occurrences converted to `size={{ xs: 12, md: 6 }}`. `<Grid container>` is unchanged (still valid). Excludes tenant `pages/DashboardPage.jsx` (dead code, 3 occurrences).
+
+**When checking this class of problem, verify against the INSTALLED package** (`node_modules/@mui/material/Grid/Grid.d.ts`), not from memory of MUI versions.
 
 ## Done — Intel Explorers (obligations, sanctions, returns, controls)
 
