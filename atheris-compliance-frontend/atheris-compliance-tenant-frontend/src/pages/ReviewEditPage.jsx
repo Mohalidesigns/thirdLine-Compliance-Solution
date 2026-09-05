@@ -5,11 +5,11 @@ import {
   Box, Typography, Button, TextField, MenuItem, FormControlLabel,
   Alert, CircularProgress, Collapse, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Checkbox,
-  IconButton, Snackbar, Tooltip, Chip, Skeleton,
+  IconButton, Snackbar, Tooltip, Chip, Skeleton, Autocomplete,
 } from '@mui/material';
 import {
-  KeyboardArrowDown, KeyboardArrowUp, ArrowBack, Visibility,
-  Add, Delete, Save, Close, Gavel, InfoOutlined,
+  KeyboardArrowDown, KeyboardArrowUp, ArrowBack,
+  Add, Delete, Save, Close, Gavel,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
@@ -36,7 +36,6 @@ const APPLICABILITY_OPTIONS = ['applicable', 'not_applicable'];
 const IMPACT_RATINGS = ['Critical', 'High', 'Medium', 'Low'];
 const LIKELIHOOD_RATINGS = ['Almost Certain', 'Likely', 'Possible', 'Unlikely', 'Rare'];
 
-// harmonized inherent risk config - same palette but distinct
 const INHERENT_RISK_CONFIG = {
   Critical: { color: 'error', label: 'Critical' },
   High: { color: 'error', label: 'High' },
@@ -65,8 +64,9 @@ function formatNaira(amount) {
   } catch { return String(amount); }
 }
 
-function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated }) {
+function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated, returns: returnsList }) {
   const [open, setOpen] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
 
   function setOwner(idx, id, name, dept) {
     onChange(idx, 'assignedOwnerId', id);
@@ -74,103 +74,90 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
     onChange(idx, 'assignedDepartment', dept || null);
   }
 
-  const titlePreview = (item.title || '').slice(0, 80);
-  const plainPreview = (item.plainEnglishStatement || item.description || '').slice(0, 70);
+  const linkedReturns = (item.linkedReturnIds || [])
+    .map(id => returnsList.find(r => r.returnId === id))
+    .filter(Boolean);
+
+  const titleText = item.title || '';
 
   return (
     <>
       <TableRow hover sx={{ '& > td': { py: 1 } }}>
-        <TableCell sx={{ width: 36, p: 0.5 }}>
-          <IconButton size="small" onClick={() => setOpen(!open)}>
-            {open ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
-          </IconButton>
-        </TableCell>
-        <TableCell sx={{ width: 36, color: 'text.secondary', fontWeight: 600 }}>{index + 1}</TableCell>
-        {/* Title + plain preview (max 5 col design: Title col merges both harmonized texts) */}
-        <TableCell sx={{ minWidth: 260, maxWidth: 380 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>
-            {titlePreview || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
-          </Typography>
-          {plainPreview ? (
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>
-              {plainPreview}
+        <TableCell sx={{ width: 40, p: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <IconButton size="small" onClick={() => setOpen(!open)}>
+              {open ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+            </IconButton>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontFamily: 'Roboto Mono, monospace' }}>
+              {item.obligationNumber ?? index + 1}
             </Typography>
-          ) : (
-            <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
-          )}
-          {item.obligationNumber != null && (
-            <Typography variant="caption" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>#{item.obligationNumber}</Typography>
-          )}
+          </Box>
         </TableCell>
-        <TableCell sx={{ width: 110 }}>
-          {item.sectionReference ? (
-            <Chip size="small" label={item.sectionReference.slice(0, 24)} variant="outlined"
-              sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
-          ) : (
-            <Typography variant="caption" color="text.secondary">-</Typography>
-          )}
+        <TableCell sx={{ minWidth: 240 }}>
+          {editingTitle ? (
+            <TextField fullWidth size="small" placeholder="Title (3-8 words)" autoFocus
+              value={titleText}
+              onChange={e => onChange(index, 'title', e.target.value)}
+              onBlur={() => setEditingTitle(false)}
+              onKeyDown={e => { if (e.key === 'Enter') setEditingTitle(false); }}
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+              sx={{ mb: 0.5, '& .MuiInputBase-root': { fontSize: '0.85rem', fontWeight: 600 } }} />
+          ) : titleText ? (
+            <Typography
+              variant="body2"
+              onClick={() => setEditingTitle(true)}
+              sx={{ fontWeight: 700, lineHeight: 1.3, cursor: 'text', mb: 0.5,
+                minHeight: 24, px: 0.5, py: 0.25, borderRadius: '4px',
+                color: 'text.primary',
+                '&:hover': { bgcolor: 'action.hover' } }}>
+              {titleText}
+            </Typography>
+          ) : null}
+          <TextField fullWidth multiline rows={2} size="small"
+            placeholder="Verbatim text from document (exact wording)"
+            value={item.description || ''}
+            onChange={e => onChange(index, 'description', e.target.value)}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            sx={{ '& .MuiInputBase-root': { fontSize: '0.8rem' } }} />
         </TableCell>
-        <TableCell sx={{ width: 120 }}>
-          {inherentRiskChip(item.inherentRiskRating, item.inherentLikelihood, item.inherentImpact)}
+        <TableCell sx={{ minWidth: 200 }}>
+          <TextField fullWidth multiline rows={2} size="small"
+            placeholder="Plain English interpretation"
+            value={item.plainEnglishStatement || ''}
+            onChange={e => onChange(index, 'plainEnglishStatement', e.target.value)}
+            slotProps={{ htmlInput: { maxLength: 250 } }}
+            sx={{ '& .MuiInputBase-root': { fontSize: '0.8rem' } }} />
         </TableCell>
-        <TableCell sx={{ width: 120 }}>
-          {item.actName ? (
-            <Chip size="small" variant="outlined" label={item.actName.slice(0, 22)}
-              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
-          ) : item.regulationId ? (
-            <Chip size="small" variant="outlined" label={`Reg #${item.regulationId}`} sx={{ height: 22, borderRadius: '4px' }} />
-          ) : (
-            <Typography variant="caption" color="text.secondary">-</Typography>
-          )}
+        <TableCell sx={{ width: 100 }}>
+          <TextField select fullWidth size="small"
+            value={item.inherentRiskRating || 'Moderate'}
+            onChange={e => onChange(index, 'inherentRiskRating', e.target.value)}
+            sx={{ '& .MuiInputBase-root': { fontSize: '0.78rem' } }}>
+            {RISK_LEVELS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          </TextField>
         </TableCell>
-        <TableCell sx={{ width: 56, textAlign: 'center' }}>
-          <Tooltip title="Include this obligation in the register">
-            <Checkbox checked={item.applicable !== false}
-              onChange={e => onChange(index, 'applicable', e.target.checked)} size="small" />
-          </Tooltip>
-        </TableCell>
-        <TableCell sx={{ width: 40, textAlign: 'center' }}>
-          <IconButton size="small" color="error" onClick={() => onRemove(index)}><Delete fontSize="small" /></IconButton>
+        <TableCell sx={{ width: 80, textAlign: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title="Include in register">
+              <Checkbox checked={item.applicable !== false}
+                onChange={e => onChange(index, 'applicable', e.target.checked)} size="small" />
+            </Tooltip>
+            <IconButton size="small" color="error" onClick={() => onRemove(index)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+        <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ p: 2, bgcolor: '#F7FAFC' }}>
-              {/* Verbatim vs Interpreted - side by side on md+ */}
               <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <InfoOutlined sx={{ fontSize: 16 }} /> Obligation Texts (harmonized)
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                  <TextField fullWidth multiline rows={3} size="small"
-                    label="Verbatim (from document ≤500)"
-                    placeholder="Exact wording from the instrument"
-                    value={item.description || ''}
-                    onChange={e => onChange(index, 'description', e.target.value)}
-                    helperText={`${(item.description || '').length}/500`}
-                    slotProps={{ htmlInput: { maxLength: 500 } }} />
-                  <TextField fullWidth multiline rows={3} size="small"
-                    label="Interpreted (plain English ≤250)"
-                    placeholder="Plain English interpretation"
-                    value={item.plainEnglishStatement || ''}
-                    onChange={e => onChange(index, 'plainEnglishStatement', e.target.value)}
-                    helperText={`${(item.plainEnglishStatement || '').length}/250`}
-                    slotProps={{ htmlInput: { maxLength: 250 } }} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 2 }}>
-                  <TextField fullWidth size="small" label="Title (short phrase 3-8 words)"
-                    placeholder="e.g. Limit suspension of payment"
-                    value={item.title || ''}
-                    onChange={e => onChange(index, 'title', e.target.value)}
-                    helperText={`${(item.title || '').length}/500`} />
-                  <TextField size="small" label="Section Reference"
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Details</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField fullWidth size="small" label="Section Reference"
                     value={item.sectionReference || ''}
                     onChange={e => onChange(index, 'sectionReference', e.target.value)} />
-                </Box>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, mt: 2 }}>
                   <TextField select fullWidth size="small" label="Area of Focus"
                     value={item.areaOfFocus || ''}
                     onChange={e => onChange(index, 'areaOfFocus', e.target.value)}>
@@ -190,7 +177,6 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                 </Box>
               </Paper>
 
-              {/* AI Risk Assessment */}
               <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Risk Assessment</Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
@@ -224,8 +210,7 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                     placeholder="e.g. Head Compliance"
                     value={item.controlOwner || ''}
                     onChange={e => onChange(index, 'controlOwner', e.target.value)}
-                    helperText="Free text or pick: CCO, CRO, CFO, Head Compliance..."
-                  />
+                    helperText="Free text or pick: CCO, CRO, CFO, Head Compliance..." />
                   <TextField fullWidth size="small" label="Act Name"
                     placeholder="e.g. BOFIA 2020"
                     value={item.actName || ''}
@@ -238,7 +223,7 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                 )}
               </Paper>
 
-              <Paper variant="outlined" sx={{ p: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Classification (tenant overrides)</Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 2, mb: 2 }}>
                   <TextField select fullWidth size="small" label="Applicability" value={item.applicability || 'applicable'}
@@ -280,6 +265,46 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                   )}
                 </Box>
               </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Linked Regulatory Returns</Typography>
+                <Autocomplete multiple
+                  options={returnsList}
+                  value={linkedReturns}
+                  getOptionLabel={opt => opt.title || `Return #${opt.returnId}`}
+                  isOptionEqualToValue={(opt, val) => opt.returnId === val.returnId}
+                  onChange={(_, newValue) => {
+                    onChange(index, 'linkedReturnIds', newValue.map(v => v.returnId));
+                  }}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, i) => {
+                      const { key, ...tagProps } = getTagProps({ index });
+                      return (
+                        <Chip key={option.returnId} label={option.title || `Return #${option.returnId}`}
+                          size="small" {...tagProps}
+                          sx={{ height: 22, borderRadius: '4px' }} />
+                      );
+                    })
+                  }
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.returnId}>
+                      <Box>
+                        <Typography variant="body2">{option.title || `Return #${option.returnId}`}</Typography>
+                        <Typography variant="caption" color="text.secondary">{option.frequency || '-'}</Typography>
+                      </Box>
+                    </li>
+                  )}
+                  renderInput={params => (
+                    <TextField {...params} size="small" placeholder="Link regulatory returns..." />
+                  )}
+                  slotProps={{ paper: { sx: { maxHeight: 240 } } }}
+                  sx={{ '& .MuiAutocomplete-tag': { m: 0.25 } }} />
+                {linkedReturns.length === 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    No linked returns
+                  </Typography>
+                )}
+              </Paper>
             </Box>
           </Collapse>
         </TableCell>
@@ -294,28 +319,30 @@ export default function ReviewEditPage() {
   const queryClient = useQueryClient();
 
   const [obligations, setObligations] = useState([]);
-  const [ocrOpen, setOcrOpen] = useState(true);
   const [sanctionsOpen, setSanctionsOpen] = useState(true);
   const [snack, setSnack] = useState(null);
   const [changeReason, setChangeReason] = useState('');
 
   const notify = (severity, message) => setSnack({ severity, message });
 
-  // --- TanStack Query: review detail with AbortController via signal ---
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['review', reviewId],
     queryFn: ({ signal }) => api.review.get(reviewId, { signal }),
     enabled: !!reviewId,
   });
 
-  // --- TanStack Query: owners (was useEffect) ---
   const ownersQuery = useQuery({
     queryKey: ['owners'],
     queryFn: ({ signal }) => api.org.owners({}, { signal }),
   });
   const owners = Array.isArray(ownersQuery.data) ? ownersQuery.data : [];
 
-  // Sync obligations local state when data arrives (harmonized mapping)
+  const returnsQuery = useQuery({
+    queryKey: ['returns-list'],
+    queryFn: ({ signal }) => api.returns.list({ signal }),
+  });
+  const returnsList = Array.isArray(returnsQuery.data) ? returnsQuery.data : [];
+
   useEffect(() => {
     if (data) {
       setObligations((data.obligations || []).map(o => ({
@@ -429,20 +456,17 @@ export default function ReviewEditPage() {
       : null;
   }
 
-  async function fetchPdfBlob(url) {
-    const token = getToken();
-    const res = await fetch(url, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error('PDF load failed');
-    return await res.blob();
-  }
-
   async function handleViewInstrument() {
     const url = pdfEndpoint();
     if (!url) { notify('warning', 'No PDF available for this document yet.'); return; }
     try {
-      const blob = await fetchPdfBlob(url);
+      const token = getToken();
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('PDF load failed');
+      const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
     } catch { notify('error', 'Failed to load PDF.'); }
   }
@@ -478,7 +502,7 @@ export default function ReviewEditPage() {
         assignedDepartment: o.assignedDepartment || undefined,
         hasGap: o.hasGap,
         gapDescription: o.gapDescription || undefined,
-        linkedReturnIds: o.linkedReturnIds || undefined,
+        linkedReturnIds: o.linkedReturnIds?.length ? o.linkedReturnIds : undefined,
       })),
     };
     saveMutation.mutate(payload);
@@ -506,6 +530,7 @@ export default function ReviewEditPage() {
   const applicableCount = obligations.filter(o => o.applicable !== false).length;
   const sanctions = Array.isArray(data.sanctions) ? data.sanctions : [];
   const headerActNames = [...new Set([...obligations.map(o => o.actName).filter(Boolean), ...sanctions.map(s => s.actName).filter(Boolean)])].slice(0, 3);
+  const isReReview = data.status && data.status !== 'pending';
 
   return (
     <Box>
@@ -517,12 +542,16 @@ export default function ReviewEditPage() {
             {data.regulatorAbbreviation && data.regulatorName && data.regulatorAbbreviation !== data.regulatorName && (
               <Chip size="small" label={data.regulatorAbbreviation} sx={{ height: 22, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff', fontWeight: 600 }} />
             )}
+            {isReReview && (
+              <Chip size="small" label={`Re-review (previously ${data.status})`} color="warning"
+                sx={{ height: 22, borderRadius: '4px' }} />
+            )}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Review document — edit obligations and classify before saving to the register
           </Typography>
         </Box>
-        <Button variant="contained" size="medium" onClick={handleViewInstrument} startIcon={<Visibility />}
+        <Button variant="contained" size="medium" onClick={handleViewInstrument}
           sx={{ height: 40, bgcolor: '#616161', color: '#fff', '&:hover': { bgcolor: '#424242' } }}>View PDF</Button>
       </Box>
 
@@ -532,7 +561,6 @@ export default function ReviewEditPage() {
         </Alert>
       )}
 
-      {/* Metadata - instrument header with Reference No, chips for docType/riskRating/industry */}
       <Paper sx={{ p: 3, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
           <Chip label={data.source === 'intel' ? 'Intel' : data.source === 'upload' ? 'Upload' : data.source} color={data.source === 'intel' ? 'default' : 'info'} size="small" sx={{ borderRadius: '4px' }} />
@@ -582,6 +610,12 @@ export default function ReviewEditPage() {
               <Typography variant="body2">{data.dateIssued}</Typography>
             </Box>
           )}
+          {data.dateCommencement && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">Commencement</Typography>
+              <Typography variant="body2">{data.dateCommencement}</Typography>
+            </Box>
+          )}
           {data.effectiveDate && (
             <Box>
               <Typography variant="caption" color="text.secondary">Effective Date</Typography>
@@ -594,42 +628,15 @@ export default function ReviewEditPage() {
               <Typography variant="body2">{data.publishedAt}</Typography>
             </Box>
           )}
+          {data.nature && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">Nature</Typography>
+              <Typography variant="body2">{data.nature}</Typography>
+            </Box>
+          )}
         </Box>
       </Paper>
 
-      {/* AI Summary */}
-      {data.aiSummary && (
-        <Paper sx={{ p: 3, mb: 2, borderLeft: '4px solid', borderColor: 'primary.main', bgcolor: '#F8FAFF' }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>AI Summary</Typography>
-          <Typography variant="body1" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{data.aiSummary}</Typography>
-        </Paper>
-      )}
-
-      {/* OCR */}
-      {data.pdfOcrText && (
-        <Paper sx={{ mb: 2 }}>
-          <Box onClick={() => setOcrOpen(!ocrOpen)}
-            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              px: 2, py: 1.25, bgcolor: '#F7FAFC', cursor: 'pointer', userSelect: 'none',
-              '&:hover': { bgcolor: '#EDF2F7' } }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Extracted Text</Typography>
-            {ocrOpen ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-          </Box>
-          <Collapse in={ocrOpen}>
-            <Box sx={{ p: 2.5, maxHeight: 400, overflow: 'auto', bgcolor: '#FAFBFD', borderTop: '1px solid', borderColor: 'divider' }}>
-              <Typography component="pre" sx={{
-                m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                fontFamily: "'Roboto Mono', 'SFMono-Regular', Consolas, monospace",
-                fontSize: '0.8rem', lineHeight: 1.7, color: '#334155',
-              }}>
-                {data.pdfOcrText}
-              </Typography>
-            </Box>
-          </Collapse>
-        </Paper>
-      )}
-
-      {/* Obligations - max 5 visible data columns + # + actions */}
       <Paper sx={{ mb: 2 }}>
         <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -641,24 +648,22 @@ export default function ReviewEditPage() {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 36 }} />
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 36 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 260 }}>Obligation (Title + Interpreted)</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 110 }}>Section</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 120 }}>Risk</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 120 }}>Act</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 56 }}>Apply</TableCell>
-                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 40 }} />
+                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 40 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 240 }}>Obligation</TableCell>
+                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 200 }}>Interpreted</TableCell>
+                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 100 }}>Risk</TableCell>
+                <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 80 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {obligations.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4, color: '#A0AEC0' }}>No obligations extracted.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: '#A0AEC0' }}>No obligations extracted.</TableCell></TableRow>
               ) : (
                 obligations.map((o, i) => (
                   <ObligationRow key={o.obligationNumber ?? i} item={o} index={i}
                     onChange={handleChange} onRemove={handleRemove}
-                    owners={owners} onOwnerCreated={handleOwnerCreated} />
+                    owners={owners} onOwnerCreated={handleOwnerCreated}
+                    returns={returnsList} />
                 ))
               )}
             </TableBody>
@@ -666,7 +671,6 @@ export default function ReviewEditPage() {
         </TableContainer>
       </Paper>
 
-      {/* Sanctions - harmonized section */}
       <Paper sx={{ mb: 2 }}>
         <Box onClick={() => setSanctionsOpen(!sanctionsOpen)}
           sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',

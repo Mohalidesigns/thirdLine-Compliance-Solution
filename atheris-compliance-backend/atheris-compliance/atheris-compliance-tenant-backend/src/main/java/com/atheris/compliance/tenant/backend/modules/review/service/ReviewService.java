@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -128,6 +129,8 @@ public class ReviewService {
 
         String aiSummary = null;
         String pdfOcrText = null;
+        LocalDate dateCommencement = null;
+        String nature = null;
         if (r.getInstrumentId() != null) {
             PlatformInstrumentDetail d = platform.getInstrumentDetail(r.getInstrumentId());
             if (d != null) {
@@ -135,6 +138,8 @@ public class ReviewService {
                 if (r.getPdfUrl() == null) r.setPdfUrl(d.getPdfUrl());
                 aiSummary = d.getAiSummary();
                 pdfOcrText = d.getPdfOcrText();
+                dateCommencement = d.getDateCommencement();
+                nature = d.getNature();
                 if ((sanctions == null || sanctions.isEmpty()) && d.getSanctions() != null && !d.getSanctions().isEmpty()) {
                     sanctions = d.getSanctions().stream().map(s -> ReviewDetail.ReviewSanctionDto.builder()
                         .sanctionType(s.getSanctionType())
@@ -174,6 +179,42 @@ public class ReviewService {
             }
         }
 
+        // Enrich obligations with linked return IDs from saved Obligation records (re-review case)
+        Map<Integer, List<Long>> obligationReturnMap = Map.of();
+        if (r.getInstrumentId() != null && !obligations.isEmpty()) {
+            List<Obligation> savedObs = obligationRepo.findByInstrumentId(r.getInstrumentId());
+            obligationReturnMap = savedObs.stream()
+                .filter(o -> o.getObligationNumber() != null)
+                .collect(Collectors.toMap(
+                    Obligation::getObligationNumber,
+                    o -> obligationRepo.findLinkedReturnIds(o.getObligationId()),
+                    (a, b) -> a));
+        }
+        Map<Integer, List<Long>> finalReturnMap = obligationReturnMap;
+        obligations = obligations.stream().map(o -> {
+            List<Long> retIds = finalReturnMap.getOrDefault(o.getObligationNumber(), List.of());
+            if (retIds.isEmpty()) return o;
+            return ReviewDetail.ReviewObligationDto.builder()
+                .obligationNumber(o.getObligationNumber())
+                .title(o.getTitle())
+                .description(o.getDescription())
+                .plainEnglishStatement(o.getPlainEnglishStatement())
+                .sectionReference(o.getSectionReference())
+                .areaOfFocus(o.getAreaOfFocus())
+                .obligationType(o.getObligationType())
+                .recurringDeadlineType(o.getRecurringDeadlineType())
+                .riskDescription(o.getRiskDescription())
+                .inherentLikelihood(o.getInherentLikelihood())
+                .inherentImpact(o.getInherentImpact())
+                .inherentRiskRating(o.getInherentRiskRating())
+                .controlOwner(o.getControlOwner())
+                .regulationId(o.getRegulationId())
+                .actName(o.getActName())
+                .applicable(o.getApplicable())
+                .linkedReturnIds(retIds)
+                .build();
+        }).collect(Collectors.toList());
+
         return ReviewDetail.builder()
             .reviewId(r.getReviewId())
             .source(r.getSource())
@@ -188,7 +229,9 @@ public class ReviewService {
             .riskRating(r.getRiskRating())
             .dateIssued(r.getDateIssued())
             .effectiveDate(r.getEffectiveDate())
+            .dateCommencement(dateCommencement)
             .publishedAt(r.getPublishedAt())
+            .nature(nature)
             .pdfUrl(r.getPdfUrl())
             .aiSummary(aiSummary)
             .pdfOcrText(pdfOcrText)

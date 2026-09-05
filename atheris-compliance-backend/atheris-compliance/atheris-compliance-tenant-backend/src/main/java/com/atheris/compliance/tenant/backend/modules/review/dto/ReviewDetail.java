@@ -26,7 +26,9 @@ public class ReviewDetail {
     private String riskRating;
     private LocalDate dateIssued;
     private LocalDate effectiveDate;
+    private LocalDate dateCommencement;
     private LocalDate publishedAt;
+    private String nature;
     private String pdfUrl;
     private String aiSummary;
     private String pdfOcrText;
@@ -54,6 +56,8 @@ public class ReviewDetail {
         private Long regulationId;
         private String actName;
         private Boolean applicable;
+        @Builder.Default private List<Long> linkedReturnIds = List.of();
+        @Builder.Default private List<String> linkedReturnNames = List.of();
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
