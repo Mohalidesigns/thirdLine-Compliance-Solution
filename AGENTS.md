@@ -334,7 +334,15 @@ All three surface enrichment the DTOs already carried; the pages simply never re
 
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
-Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix. Replaces the old V1 KPI dashboard (file `DashboardPage.jsx` is dead code, `DashboardV2Page.jsx` is active).
+Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix.
+
+**CORRECTION (2026-09-05):** the claim that "`DashboardV2Page.jsx` is active" was wrong, and it hid a real problem. `DashboardV2Page.jsx` was imported by NOTHING — the whole V2 feature (8 `/dashboard/v2/*` endpoints, the 579-line `DashboardV2Service`, rendition grid, control coverage, risk heatmap, escalation matrix) was unreachable from the UI. `RenditionTab`/`ControlCoverageTab` hung off that dead page; `RiskHeatmap`/`ActivityFeed` were orphaned outright.
+
+The live tenant dashboard at `/dashboard` is **`CcoDashboardPage.jsx`**, imported in `AppRoutes.jsx` under the alias `DashboardPage` — which is what made the dead `DashboardPage.jsx` file look wired. Both `DashboardPage.jsx` and `DashboardV2Page.jsx` were in fact dead.
+
+V2 is now routed at `/dashboard/v2` ("Rendition & Coverage" in the sidebar). `api.dashboard.v2.*` had always been fully wired, so only the route was missing.
+
+**How to check this properly:** grep for the import PATH (`pages/DashboardV2Page'`), not the identifier — the identifier is aliased, so an identifier grep gives a false positive.
 
 ### Architecture
 
