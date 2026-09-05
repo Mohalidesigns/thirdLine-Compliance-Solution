@@ -64,7 +64,6 @@ const SANCTION_COLUMNS = [
 
 export default function InstrumentsPage() {
   const navigate = useNavigate();
-  const abortRef = useRef(null);
 
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
@@ -79,13 +78,17 @@ export default function InstrumentsPage() {
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All';
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimer = useRef(null);
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(searchTimer.current);
+  }, [search]);
+
   const { data: listData, isLoading: listLoading, error: listError } = useQuery({
-    queryKey: ['instruments', page, rowsPerPage, search],
-    queryFn: async ({ signal }) => {
-      if (abortRef.current) abortRef.current.abort();
-      abortRef.current = signal;
-      return api.instruments.list(page, rowsPerPage, search, { signal });
-    },
+    queryKey: ['instruments', page, rowsPerPage, debouncedSearch],
+    queryFn: ({ signal }) => api.instruments.list(page, rowsPerPage, debouncedSearch, { signal }),
     keepPreviousData: true,
   });
 
