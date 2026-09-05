@@ -2,6 +2,7 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.reposito
 
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ComplianceControlRepository extends JpaRepository<ComplianceControl, Long> {
+public interface ComplianceControlRepository extends JpaRepository<ComplianceControl, Long>, JpaSpecificationExecutor<ComplianceControl> {
     Optional<ComplianceControl> findByControlNumber(String controlNumber);
     boolean existsByControlNumber(String controlNumber);
     List<ComplianceControl> findByActId(Long actId);
