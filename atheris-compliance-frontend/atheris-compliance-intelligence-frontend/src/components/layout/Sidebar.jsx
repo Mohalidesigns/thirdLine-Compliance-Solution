@@ -6,7 +6,7 @@ import {
 import {
   Dashboard, LibraryBooks, Inbox, Visibility, Settings,
   AdminPanelSettings, Shield, Logout, Security, AccountBalance,
-  AccountTree, VpnKey, Public,
+  AccountTree, VpnKey, Public, Gavel, Warning, RequestQuote, FactCheck,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../features/auth/hooks/useAuth';
@@ -24,6 +24,10 @@ const iconMap = {
   AccountTree: <AccountTree />,
   VpnKey: <VpnKey />,
   Public: <Public />,
+  Gavel: <Gavel />,
+  Warning: <Warning />,
+  RequestQuote: <RequestQuote />,
+  FactCheck: <FactCheck />,
 };
 
 export default function Sidebar() {

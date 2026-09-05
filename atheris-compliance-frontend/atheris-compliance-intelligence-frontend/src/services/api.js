@@ -392,6 +392,26 @@ export const api = {
       update: (id, data) => request(`/admin/acts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       importToolkit: () => request('/admin/acts/toolkit/import', { method: 'POST' }),
     },
+    obligations: {
+      list: (params = '') => request(`/admin/obligations${params ? '?' + params : ''}`),
+      stats: () => request('/admin/obligations/stats'),
+      get: (id) => request(`/admin/obligations/${id}`),
+    },
+    sanctions: {
+      list: (params = '') => request(`/admin/sanctions${params ? '?' + params : ''}`),
+      stats: () => request('/admin/sanctions/stats'),
+      get: (id) => request(`/admin/sanctions/${id}`),
+    },
+    returns: {
+      list: (params = '') => request(`/admin/returns${params ? '?' + params : ''}`),
+      stats: () => request('/admin/returns/stats'),
+      get: (id) => request(`/admin/returns/${id}`),
+    },
+    controls: {
+      list: (params = '') => request(`/admin/controls${params ? '?' + params : ''}`),
+      stats: () => request('/admin/controls/stats'),
+      get: (id) => request(`/admin/controls/${id}`),
+    },
     universe: {
       instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
       areasOfFocus: () => request('/admin/universe/areas-of-focus'),
