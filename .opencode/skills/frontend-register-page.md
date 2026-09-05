@@ -153,26 +153,40 @@ const kpis = [
 
 ### 7. Data Fetching
 
+**Always use TanStack Query.** Raw `useEffect` + fetch causes request cancellation noise (`AsyncRequestNotUsableException`). Wrap search/filter params in a debounced state to avoid rapid refires.
+
 ```jsx
+import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+
+// Debounce search to avoid request cancellation (350ms)
+const [searchInput, setSearchInput] = useState('');
+const [search, setSearch] = useState('');
+useEffect(() => {
+  const t = setTimeout(() => setSearch(searchInput), 350);
+  return () => clearTimeout(t);
+}, [searchInput]);
+
 // List with filters + pagination
-const loadData = useCallback(async () => {
-  setLoading(true);
-  try {
+const { data, isLoading } = useQuery({
+  queryKey: ['entities', page, rowsPerPage, search, riskFilter, sortField, sortDir],
+  queryFn: async ({ signal }) => {
     const params = { page, size: rowsPerPage };
     if (search) params.q = search;
     if (riskFilter !== 'All') params.risk = riskFilter;
     if (sortField) params.sort = `${sortField},${sortDir}`;
-    const data = await api.{entity}.list(params);
-    setItems(data.content || []);
-    setTotal(data.totalElements || 0);
-  } catch (e) { setError(e.message); }
-  finally { setLoading(false); }
-}, [page, rowsPerPage, search, riskFilter, sortField, sortDir]);
+    return api.entity.list(params, { signal });
+  },
+});
 
-// Stats
-const loadStats = useCallback(async () => {
-  try { setStats(await api.{entity}.stats()); } catch { /* optional */ }
-}, []);
+const items = data?.content || [];
+const total = data?.totalElements || 0;
+
+// Stats (separate query)
+const { data: stats } = useQuery({
+  queryKey: ['entity-stats'],
+  queryFn: () => api.entity.stats(),
+});
 ```
 
 ## API Conventions
