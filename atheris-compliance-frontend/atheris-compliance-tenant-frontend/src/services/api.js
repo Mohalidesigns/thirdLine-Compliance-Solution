@@ -263,13 +263,13 @@ export const api = {
     linkedObligations: (returnId) => request(`/returns/${returnId}/obligations`),
   },
   sanctions: {
-    list: (params = {}) => {
+    list: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/sanctions${s ? '?' + s : ''}`);
+      return request(`/sanctions${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/sanctions/stats'),
+    stats: (opts = {}) => request('/sanctions/stats', { signal: opts.signal }),
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
