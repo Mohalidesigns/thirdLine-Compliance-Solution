@@ -293,8 +293,6 @@ Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
 - Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
 - Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
-- Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
-- Obligations Register (`ObligationsRegisterPage.jsx`) — show split verbatim vs interpreted and act linkage — why: register conflates statements and hides act/section/area now persisted
 - Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
 - Controls Register/Details (`ControlsPage.jsx`) — show act/regulation and linked obligations — why: register hides act column and traceability now available
 - Sanctions Register/Details (`SanctionsPage.jsx`) — show expandable violation/penalty/impact — why: register is collapsed, violation context now stored but not surfaced
