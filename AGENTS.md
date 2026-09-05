@@ -118,20 +118,29 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 MUST use these sub-agents for all non-trivial tasks. MUST NEVER do the work directly — act as a coordinator only.
 
-| Task | Agent | When to Use |
-|------|-------|-------------|
-| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) |
-| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair |
-| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed |
-| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches |
+| Task | Agent | When to Use | Skill |
+|------|-------|-------------|-------|
+| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) | `frontend-register-page` |
+| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair | — |
+| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed | `backend-module-scaffold` |
+| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches | — |
 
 Full agent definitions: `.opencode/agents/`
 
 ### Agent Conventions
-- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`.
+- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`. Load `frontend-register-page` skill for register/details pages.
 - **db-migration**: Always edit existing migrations in place. Only create new V<next> files for genuinely new tables. Run Flyway repair after editing. Use POSTGRES superuser for drops.
-- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers.
+- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers. Load `backend-module-scaffold` skill for new modules.
 - **api-sync**: Scans all `@RestController` classes vs all `api.js` files. Reports missing frontend calls, dead calls, parameter/auth/shape mismatches.
+
+## Skills
+
+Reusable patterns loaded by sub-agents during implementation.
+
+| Skill | File | Purpose |
+|-------|------|---------|
+| `frontend-register-page` | `.opencode/skills/frontend-register-page.md` | UI pattern: stats cards → filters → sortable table (5 cols) → detail drawer. Used by `frontend-page` agent. |
+| `backend-module-scaffold` | `.opencode/skills/backend-module-scaffold.md` | Entity + repository + service + controller + DTOs + Flyway migration. Used by `backend-scaffold` agent. |
 
 ## MCP Servers
 
