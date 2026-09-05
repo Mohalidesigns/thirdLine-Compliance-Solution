@@ -241,7 +241,7 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Harmonization: tenant + intel done; dashboards, skill, bulk import remain
+## TODO / Next — Harmonization: only bulk import remains
 
 **Tenant (`:5174`)** — DONE. All six pages harmonized against the `ReviewEditPage.jsx` reference; see the Done sections below.
 
@@ -249,8 +249,7 @@ Config: `opencode.json`
 
 **Dashboards** — DONE. See the Done section below.
 
-**Skill**
-- Create reusable skill for the above — why: intel explorers should follow the same register/details pattern once tenant revamp is approved
+**Skill** — DONE. See the Done section below.
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
@@ -279,6 +278,18 @@ See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboar
 
 ### Only link to filters a page actually reads
 `ObligationsRegisterPage` reads `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap` from `useSearchParams` — and nothing else. Links passing `impact`, `likelihood` or `act` are silent no-ops that dump the unfiltered register. **Adding act/impact/likelihood filters to that register is an open follow-up.**
+
+## Done — `atheris-register-page` Skill
+
+`.claude/skills/atheris-register-page/` encodes the register/details pattern and the defects found building it. `.opencode/agents/frontend-page.md` points at it, so both toolchains share one source of truth.
+
+- **SKILL.md** — the per-app fork (tenant has TanStack Query; intel has neither the dependency nor a provider and must not get one as a side effect), the page recipe, the five highest-frequency traps, and a verification checklist that does not stop at a green build.
+- **references/traps.md** — the full catalogue with evidence, grouped by failure mode.
+- **references/data-model.md** — the field drift table and the canonical risk vocabulary.
+- **scripts/check_dto_binding.py** — mechanises the field-vs-DTO diff. Validated against the pre-fix `InstrumentsPage`: catches all three real bugs, zero false positives, and reports OK on the fixed version. Supply **all** backing types (list + detail + stats DTO) — under-supplying them is the main source of false positives.
+- **scripts/grid_codemod.py** — the MUI 7 Grid conversion.
+
+**Note:** the skill was verified factually (every claim re-checked against the code) but has NOT been through the skill-creator's eval loop — no with-skill vs baseline runs, no trigger-description optimization. Worth doing before relying on it to trigger on its own.
 
 ## Done — Risk Matrix Defaults Repaired
 
