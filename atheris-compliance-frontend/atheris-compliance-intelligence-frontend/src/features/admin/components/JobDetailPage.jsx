@@ -100,7 +100,7 @@ export default function JobDetailPage() {
 
       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>JOB DETAILS</Typography>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Type</Typography>
@@ -108,7 +108,7 @@ export default function JobDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Attempts</Typography>
@@ -116,7 +116,7 @@ export default function JobDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Created</Typography>
@@ -124,7 +124,7 @@ export default function JobDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Service</Typography>
@@ -133,7 +133,7 @@ export default function JobDetailPage() {
           </Card>
         </Grid>
         {detail.startedAt && (
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="caption" color="text.secondary">Started</Typography>
@@ -143,7 +143,7 @@ export default function JobDetailPage() {
           </Grid>
         )}
         {detail.completedAt && (
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="caption" color="text.secondary">Completed</Typography>
@@ -184,30 +184,30 @@ export default function JobDetailPage() {
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>RELATED INSTRUMENT</Typography>
           <Card variant="outlined" sx={{ p: 2, mb: 2 }}>
             <Grid container spacing={1.5}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">Title</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.sourceTitle}</Typography>
               </Grid>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <Typography variant="caption" color="text.secondary">Status</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.status}</Typography>
               </Grid>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <Typography variant="caption" color="text.secondary">Risk</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.riskRating || '—'}</Typography>
               </Grid>
-              <Grid item xs={4}>
+              <Grid size={{ xs: 4 }}>
                 <Typography variant="caption" color="text.secondary">Nature</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.nature || '—'}</Typography>
               </Grid>
               {detail.instrument.dateIssued && (
-                <Grid item xs={4}>
+                <Grid size={{ xs: 4 }}>
                   <Typography variant="caption" color="text.secondary">Date Issued</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatLocalDate(detail.instrument.dateIssued)}</Typography>
                 </Grid>
               )}
               {detail.instrument.aiSummary && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="caption" color="text.secondary">AI Summary</Typography>
                   <Typography variant="body2" sx={{ fontSize: '0.8rem', mt: 0.3 }}>{detail.instrument.aiSummary}</Typography>
                 </Grid>

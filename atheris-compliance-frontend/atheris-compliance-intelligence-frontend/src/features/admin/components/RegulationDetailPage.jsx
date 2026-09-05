@@ -101,7 +101,7 @@ export default function RegulationDetailPage() {
       <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_ACTS)} sx={{ mb: 2 }}>Back to Acts</Button>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -125,7 +125,7 @@ export default function RegulationDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>Coverage</Typography>
@@ -136,7 +136,7 @@ export default function RegulationDetailPage() {
                   { label: 'Sanctions', value: reg.sanctionCount, color: '#C53030' },
                   { label: 'Returns', value: reg.returnCount, color: '#6B46C1' },
                 ].map((c) => (
-                  <Grid item xs={3} key={c.label}>
+                  <Grid size={{ xs: 3 }} key={c.label}>
                     <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1.5, bgcolor: '#F7FAFC' }}>
                       <Typography variant="h5" sx={{ fontWeight: 700, color: c.color, lineHeight: 1.2 }}>{c.value}</Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem' }}>{c.label}</Typography>

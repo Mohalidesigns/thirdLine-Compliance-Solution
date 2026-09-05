@@ -28,7 +28,7 @@ export default function ApiSettingsPage() {
 
       <Grid container spacing={3}>
         {/* API Credentials */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -107,7 +107,7 @@ export default function ApiSettingsPage() {
         </Grid>
 
         {/* Webhook Configuration */}
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -135,7 +135,7 @@ export default function ApiSettingsPage() {
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>EVENTS TO SUBSCRIBE</Typography>
                 <Grid container spacing={1}>
                   {['new_instrument', 'obligation_flagged', 'sanction_alert', 'backfill_completed'].map(event => (
-                    <Grid item key={event}>
+                    <Grid key={event}>
                       <Chip label={event} size="small" onClick={() => {}} sx={{ fontSize: '0.7rem' }} />
                     </Grid>
                   ))}
@@ -150,7 +150,7 @@ export default function ApiSettingsPage() {
         </Grid>
 
         {/* Quick Guide / Snippet */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card sx={{ bgcolor: '#1A202C', color: '#E2E8F0' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>

@@ -85,7 +85,7 @@ export default function InboxPage() {
           { label: 'AI Confirmed', value: inboxItems.filter(i => i.applicabilityConfidence > 0.9).length, color: '#2D7D46' },
           { label: 'Total Inbox', value: inboxItems.length, color: '#1A365D' },
         ].map((s) => (
-          <Grid item xs={6} md={3} key={s.label}>
+          <Grid size={{ xs: 6, md: 3 }} key={s.label}>
             <Card>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="caption" color="text.secondary">{s.label}</Typography>
@@ -197,17 +197,17 @@ export default function InboxPage() {
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Classification Actions</Typography>
             <Grid container spacing={1.5} sx={{ mb: 4 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Button fullWidth variant="contained" sx={{ bgcolor: '#2D7D46', '&:hover': { bgcolor: '#276749' } }} startIcon={<CheckCircle />}>
                   Confirm as Applicable
                 </Button>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Button fullWidth variant="outlined" color="error" startIcon={<Cancel />}>
                   Not Applicable
                 </Button>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <Button fullWidth variant="outlined" sx={{ color: '#DD6B20', borderColor: '#DD6B20' }} startIcon={<InfoOutlined />}>
                   Under Review
                 </Button>

@@ -630,9 +630,9 @@ function AdvanceDialog({ open, onClose, instanceId, stageName, nextStageName, on
           Mark "{stageName}" complete and advance to "{nextStageName}"
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
+          <Grid size={{ xs: 12 }}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
             onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
+          <Grid size={{ xs: 12 }}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
             onChange={e => setForm(f => ({ ...f, completedByName: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>

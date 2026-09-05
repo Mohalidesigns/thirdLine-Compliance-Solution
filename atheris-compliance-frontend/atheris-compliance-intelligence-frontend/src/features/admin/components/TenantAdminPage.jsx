@@ -70,7 +70,7 @@ export default function TenantAdminPage() {
         {KPI_CARDS.map((s) => {
           const isActive = filterStatus === s.value;
           return (
-            <Grid item xs={6} md={3} key={s.label}>
+            <Grid size={{ xs: 6, md: 3 }} key={s.label}>
               <Card
                 onClick={() => handleFilterClick(s.value)}
                 sx={{
@@ -161,10 +161,10 @@ export default function TenantAdminPage() {
         <DialogTitle sx={{ fontWeight: 700 }}>Add New Tenant</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField fullWidth size="small" label="Organisation Name" placeholder="e.g. Zenith Bank PLC" />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField fullWidth select size="small" label="Industry" defaultValue="Banking">
                 <MenuItem value="Banking">Banking</MenuItem>
                 <MenuItem value="Fintech">Fintech</MenuItem>
@@ -172,7 +172,7 @@ export default function TenantAdminPage() {
                 <MenuItem value="Telecoms">Telecoms</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <TextField fullWidth select size="small" label="Licence Tier" defaultValue="Commercial">
                 <MenuItem value="Commercial">Commercial Bank</MenuItem>
                 <MenuItem value="Merchant">Merchant Bank</MenuItem>
@@ -180,7 +180,7 @@ export default function TenantAdminPage() {
                 <MenuItem value="Fintech">Fintech / PSP</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="caption" color="text.secondary">
                 The tenant will be generated with a unique secret and API key upon creation.
               </Typography>

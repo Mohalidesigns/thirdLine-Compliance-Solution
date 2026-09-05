@@ -156,7 +156,7 @@ export default function LicenseAdminPage() {
           const isActive = filterStatus === s.value;
           const statKey = s.value ? s.value.replace(/_(.)/g, (_, c) => c.toUpperCase()) : 'total';
           return (
-            <Grid item xs={6} sm={4} md={2} key={s.label}>
+            <Grid size={{ xs: 6, sm: 4, md: 2 }} key={s.label}>
               <Card
                 onClick={() => handleFilterClick(s.value)}
                 sx={{
@@ -317,7 +317,7 @@ export default function LicenseAdminPage() {
                 { label: 'Grace Period', value: `${selectedLicense.gracePeriodDays} days` },
                 { label: 'Expires', value: selectedLicense.expiresAt ? new Date(selectedLicense.expiresAt).toLocaleDateString() : '—' },
               ].map(s => (
-                <Grid item xs={6} key={s.label}>
+                <Grid size={{ xs: 6 }} key={s.label}>
                   <Typography variant="caption" color="text.secondary">{s.label}</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.value}</Typography>
                 </Grid>
@@ -368,19 +368,19 @@ function LicenseForm({ form, onChange }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Plan Limits</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-        <Grid item xs={4}>
+        <Grid size={{ xs: 4 }}>
           <TextField fullWidth size="small" label="Tier" value={form.tier || ''} onChange={e => set('tier', e.target.value)} placeholder="e.g. enterprise" />
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={{ xs: 4 }}>
           <TextField fullWidth size="small" label="Max Users" type="number" value={form.maxUsers || ''} onChange={e => set('maxUsers', parseInt(e.target.value) || 0)} />
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={{ xs: 4 }}>
           <TextField fullWidth size="small" label="Max Devices" type="number" value={form.maxDevices || ''} onChange={e => set('maxDevices', parseInt(e.target.value) || 0)} />
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <TextField fullWidth size="small" label="Storage" type="number" value={form.maxStorageMb || ''} onChange={e => set('maxStorageMb', parseInt(e.target.value) || 0)} InputProps={{ endAdornment: <InputAdornment position="end">MB</InputAdornment> }} />
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <TextField fullWidth select size="small" label="Intelligence" value={form.intelligenceEnabled !== false ? 'true' : 'false'} onChange={e => set('intelligenceEnabled', e.target.value === 'true')}>
             <MenuItem value="true">Enabled</MenuItem>
             <MenuItem value="false">Disabled</MenuItem>
@@ -394,13 +394,13 @@ function LicenseForm({ form, onChange }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Validity</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <TextField fullWidth size="small" label="Expires At" type="datetime-local" value={form.expiresAt || ''} onChange={e => set('expiresAt', e.target.value)} InputLabelProps={{ shrink: true }} />
         </Grid>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <TextField fullWidth size="small" label="Grace Period" type="number" value={form.gracePeriodDays || ''} onChange={e => set('gracePeriodDays', parseInt(e.target.value) || 7)} InputProps={{ endAdornment: <InputAdornment position="end">days</InputAdornment> }} />
         </Grid>
-        <Grid item xs={3}>
+        <Grid size={{ xs: 3 }}>
           <TextField fullWidth select size="small" label="Device Enforce" value={form.deviceFingerprintEnforced !== false ? 'true' : 'false'} onChange={e => set('deviceFingerprintEnforced', e.target.value === 'true')}>
             <MenuItem value="true">Enforced</MenuItem>
             <MenuItem value="false">Not Enforced</MenuItem>
@@ -414,12 +414,12 @@ function LicenseForm({ form, onChange }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Onboarding Features</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <FormControlLabel control={
             <Checkbox size="small" checked={form.autoSubscribeRegulators || false} onChange={e => set('autoSubscribeRegulators', e.target.checked)} />
           } label={<Typography variant="body2">Auto-subscribe regulators</Typography>} />
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <FormControlLabel control={
             <Checkbox size="small" checked={form.autoSeedObligations || false} onChange={e => set('autoSeedObligations', e.target.checked)} />
           } label={<Typography variant="body2">Auto-seed obligations</Typography>} />

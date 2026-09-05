@@ -306,11 +306,11 @@ function DepartmentDialog({ open, onClose, initial, onSaved, onError, isAdmin })
       <DialogTitle>{initial.departmentId ? 'Edit Department' : 'Add Department'}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Name" fullWidth size="small" required value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField select label="Department head (owner)" fullWidth size="small" value={form.headOwnerId}
               onChange={e => setForm(f => ({ ...f, headOwnerId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
@@ -357,13 +357,13 @@ function TeamDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
       <DialogTitle>{initial.team?.teamId ? 'Edit Team' : 'Add Team'}</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField select label="Department" fullWidth size="small" required value={form.departmentId}
               onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
               {departments.map(d => <MenuItem key={d.departmentId} value={String(d.departmentId)}>{d.name}</MenuItem>)}
             </TextField>
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Team name" fullWidth size="small" required value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </Grid>
@@ -615,23 +615,23 @@ function InviteUserDialog({ open, onClose, onSaved, onError }) {
       <DialogTitle>Invite User</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Full name" fullWidth size="small" required value={form.fullName}
               onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
               onChange={e => setForm(f => ({ ...f, jobTitle: e.target.value }))} />
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField label="Department" fullWidth size="small" value={form.department}
               onChange={e => setForm(f => ({ ...f, department: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField select label="Role" fullWidth size="small" required value={form.role}
               onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
               {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}

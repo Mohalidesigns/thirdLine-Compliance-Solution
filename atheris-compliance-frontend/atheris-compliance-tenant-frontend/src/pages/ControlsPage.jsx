@@ -399,7 +399,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
       </Box>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardHeader title="About this Control" />
             <CardContent>
@@ -487,7 +487,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Control Details</Typography>
@@ -618,16 +618,16 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
       <DialogTitle>Edit Control — {control?.controlNumber}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}><TextField label="Name" fullWidth size="small" value={form.name}
+          <Grid size={{ xs: 12 }}><TextField label="Name" fullWidth size="small" value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
+          <Grid size={{ xs: 12 }}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
+          <Grid size={{ xs: 12 }}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
             onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
+          <Grid size={{ xs: 12 }}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
             onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} /></Grid>
-          <Grid item xs={8}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
-          <Grid item xs={4}>
+          <Grid size={{ xs: 8 }}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
+          <Grid size={{ xs: 4 }}>
             <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
               onChange={e => setForm(f => ({ ...f, testFrequency: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
@@ -637,9 +637,9 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
               <MenuItem value="Annual">Annual</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={4}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
+          <Grid size={{ xs: 4 }}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
             onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} /></Grid>
-          <Grid item xs={8}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
+          <Grid size={{ xs: 8 }}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
             onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>
@@ -673,10 +673,10 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
       <DialogTitle>Record Test Result</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6}><TextField label="Test Date" type="date" fullWidth size="small" required
+          <Grid size={{ xs: 6 }}><TextField label="Test Date" type="date" fullWidth size="small" required
             InputLabelProps={{ shrink: true }} value={form.testDate}
             onChange={e => setForm(f => ({ ...f, testDate: e.target.value }))} /></Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Result" fullWidth size="small" required value={form.result}
               onChange={e => setForm(f => ({ ...f, result: e.target.value }))}>
               <MenuItem value="">Select...</MenuItem>
@@ -685,11 +685,11 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+          <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
+          <Grid size={{ xs: 12 }}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
             onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} /></Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
               onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
@@ -699,11 +699,11 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={6}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
+          <Grid size={{ xs: 6 }}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
             onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid item xs={6}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+          <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
             onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
-          <Grid item xs={6}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+          <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
             InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
             onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
         </Grid>

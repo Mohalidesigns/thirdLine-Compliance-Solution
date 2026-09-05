@@ -97,13 +97,13 @@ export default function ControlDetailPage() {
           <Divider sx={{ mb: 2 }} />
 
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Theme" value={ctl.theme} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Compliance Area" value={ctl.complianceArea} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Frequency" value={ctl.frequency} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Due Date" value={ctl.dueDate} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Responsible Officer" value={ctl.responsibleOfficer} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Act ID" value={ctl.actId} /></Grid>
-            <Grid item xs={12} sm={6} md={3}><Meta label="Control ID" value={ctl.complianceControlId} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Theme" value={ctl.theme} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Compliance Area" value={ctl.complianceArea} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Frequency" value={ctl.frequency} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Due Date" value={ctl.dueDate} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Responsible Officer" value={ctl.responsibleOfficer} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Act ID" value={ctl.actId} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Control ID" value={ctl.complianceControlId} /></Grid>
           </Grid>
         </CardContent>
       </Card>

@@ -90,7 +90,7 @@ export default function SanctionDetailPage() {
       </Button>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
@@ -130,7 +130,7 @@ export default function SanctionDetailPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', mb: 2 }}>
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>
@@ -175,24 +175,24 @@ export default function SanctionDetailPage() {
           Metadata
         </Typography>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Sanction ID"><Typography variant="body2">{sanction.sanctionId}</Typography></Field>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Act ID"><Typography variant="body2">{sanction.regulationId ?? '-'}</Typography></Field>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Instrument ID"><Typography variant="body2">{sanction.instrumentId ?? '-'}</Typography></Field>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Instrument">
               <Typography variant="body2">{sanction.instrumentTitle || '-'}</Typography>
             </Field>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Created"><Typography variant="body2">{formatDate(sanction.createdAt)}</Typography></Field>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Field label="Updated"><Typography variant="body2">{formatDate(sanction.updatedAt)}</Typography></Field>
           </Grid>
         </Grid>

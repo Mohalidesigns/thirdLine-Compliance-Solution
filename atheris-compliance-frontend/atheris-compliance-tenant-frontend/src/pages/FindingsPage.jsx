@@ -238,7 +238,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
       </Card>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           {/* Timeline */}
           <Card>
             <CardHeader title="Timeline" />
@@ -269,7 +269,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           {/* Details sidebar */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
@@ -338,7 +338,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
       <DialogTitle>Raise New Finding</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Finding type" fullWidth size="small" required value={form.findingType}
               onChange={e => setForm(f => ({ ...f, findingType: e.target.value }))}>
               <MenuItem value="">Select...</MenuItem>
@@ -347,7 +347,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
               <MenuItem value="Process Weakness">Process weakness</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Severity" fullWidth size="small" required value={form.severity}
               onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
               <MenuItem value="">Select...</MenuItem>
@@ -357,27 +357,27 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} required value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Root cause" fullWidth size="small" multiline minRows={2} value={form.rootCause}
               onChange={e => setForm(f => ({ ...f, rootCause: e.target.value }))} />
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField label="Linked Obligation ID" fullWidth size="small" type="number" value={form.linkedObligationId}
               onChange={e => setForm(f => ({ ...f, linkedObligationId: e.target.value }))} />
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField label="Linked Control ID" fullWidth size="small" type="number" value={form.linkedControlId}
               onChange={e => setForm(f => ({ ...f, linkedControlId: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
               onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
               InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
               onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} />
@@ -414,11 +414,11 @@ function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
       <DialogTitle>Assign Finding</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
               onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
               InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
               onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} />
@@ -452,11 +452,11 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
       <DialogTitle>Submit Remediation</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Remediation notes" fullWidth size="small" multiline minRows={3} value={form.remediationNotes}
               onChange={e => setForm(f => ({ ...f, remediationNotes: e.target.value }))} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
               onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
           </Grid>

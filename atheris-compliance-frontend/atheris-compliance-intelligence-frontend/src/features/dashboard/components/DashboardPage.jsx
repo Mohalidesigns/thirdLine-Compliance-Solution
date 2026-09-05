@@ -190,27 +190,27 @@ export default function DashboardPage() {
 
       {/* Row 1 — KPI Cards */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="Active Regulators" value={regulators.filter(r => r.isActive && r.scraperEnabled).length} icon={<LibraryBooks sx={{ fontSize: 20 }} />} color="#1A365D" loading={loading}
             onClick={() => navigate('/admin/regulators')} />
         </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="Active Tenants" value={tenants.filter(t => t.isActive).length} icon={<CheckCircle sx={{ fontSize: 20 }} />} color="#2D7D46" loading={loading}
             onClick={() => navigate('/admin/tenants')} />
         </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="System Failures" value={pendings.length + (stats?.perType?.ocr_document?.failed || 0)} icon={<BugReport sx={{ fontSize: 20 }} />} color={(pendings.length + (stats?.perType?.ocr_document?.failed || 0)) > 0 ? '#C53030' : '#2D7D46'} loading={loading}
             onClick={() => navigate('/admin/pipeline?tab=system')} />
         </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="Awaiting AI" value={stats?.perType?.classify_instrument?.pending || 0} icon={<HourglassEmpty sx={{ fontSize: 20 }} />} color={(stats?.perType?.classify_instrument?.pending || 0) > 0 ? '#DD6B20' : '#2D7D46'} loading={loading}
             onClick={() => navigate('/admin/pipeline?tab=ai')} />
         </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="Awaiting Tenant" value={instruments.filter(i => i.status === 'published').length} icon={<Group sx={{ fontSize: 20 }} />} color={instruments.filter(i => i.status === 'published').length > 0 ? '#3182CE' : '#2D7D46'} loading={loading}
             onClick={() => navigate('/admin/pipeline?tab=tenant')} />
         </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <KpiCard title="Pipeline Queue" value={stats?.totalPending || 0} icon={<AccountTree sx={{ fontSize: 20 }} />} color={(stats?.totalPending || 0) > 0 ? '#D4AF37' : '#2D7D46'} loading={loading}
             onClick={() => navigate('/admin/pipeline')} />
         </Grid>
@@ -346,25 +346,25 @@ export default function DashboardPage() {
             </Button>
           </Box>
           <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{ xs: 6, sm: 3 }}>
               <Box sx={{ borderTop: '3px solid #1A365D', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">Active</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#1A365D' }}>{loading ? '...' : tenants.filter(t => t.isActive).length}</Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{ xs: 6, sm: 3 }}>
               <Box sx={{ borderTop: '3px solid #2D7D46', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">Licence Types</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#2D7D46' }}>{loading ? '...' : new Set(tenants.map(t => t.licenceType).filter(Boolean)).size}</Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{ xs: 6, sm: 3 }}>
               <Box sx={{ borderTop: '3px solid #D4AF37', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">Subscription Tiers</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#D4AF37' }}>{loading ? '...' : new Set(tenants.map(t => t.subscriptionTier).filter(Boolean)).size}</Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{ xs: 6, sm: 3 }}>
               <Box sx={{ borderTop: '3px solid #C53030', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary">Regulator Subscriptions</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#C53030' }}>{loading ? '...' : tenants.reduce((n, t) => n + (t.regulators?.length || 0), 0)}</Typography>
@@ -427,7 +427,7 @@ export default function DashboardPage() {
 
       {/* Row 3 — Bottom */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card>
             <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
               <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -483,30 +483,30 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Quick Actions</Typography>
               <Grid container spacing={1.5}>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Button variant="outlined" size="small" fullWidth startIcon={<Visibility />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                     onClick={() => navigate('/admin/regulators')}>
                     Test Scraper
                   </Button>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Button variant="outlined" size="small" fullWidth startIcon={<AssignmentTurnedIn />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                     onClick={() => navigate('/admin/pipeline')}>
                     View Pipeline
                   </Button>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Button variant="outlined" size="small" fullWidth startIcon={<LibraryBooks />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                     onClick={() => navigate('/inbox')}>
                     Review Inbox
                   </Button>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <Button variant="outlined" size="small" fullWidth startIcon={<Description />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                     onClick={() => navigate('/admin/regulators')}>
                     Upload Document

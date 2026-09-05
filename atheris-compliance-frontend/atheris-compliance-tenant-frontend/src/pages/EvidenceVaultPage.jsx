@@ -169,13 +169,13 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
       <DialogTitle>Upload Evidence</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" fullWidth sx={{ py: 3, borderStyle: 'dashed' }}>
               {file ? file.name : 'Click to select file'}
               <input type="file" hidden onChange={e => setFile(e.target.files[0])} />
             </Button>
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Source type" fullWidth size="small" value={sourceType}
               onChange={e => setSourceType(e.target.value)}>
               <MenuItem value="">None</MenuItem>
@@ -185,11 +185,11 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
               <MenuItem value="control_test">Test</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField label="Source ID" fullWidth size="small" type="number" value={sourceId}
               onChange={e => setSourceId(e.target.value)} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} value={description}
               onChange={e => setDescription(e.target.value)} />
           </Grid>
