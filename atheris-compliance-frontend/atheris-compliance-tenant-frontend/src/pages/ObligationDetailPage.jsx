@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Paper, Snackbar, Tooltip, Drawer, TextField, Divider,
 } from '@mui/material';
 import {
-  Visibility, History, Download, Edit, UploadFile, Link as LinkIcon,
-  CheckCircle, ArrowBack, Gavel, Close, Search,
+  Visibility, Download, Edit, UploadFile, Link as LinkIcon,
+  ArrowBack, Gavel, Close, Search,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -249,52 +249,38 @@ export default function ObligationDetailPage() {
             </Paper>
           )}
 
-          {/* Classification */}
+          {/* Metadata table */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title="Your Classification" />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CheckCircle sx={{ color: selected.applicability === 'applicable' ? '#38A169' : '#CBD5E0', fontSize: 18 }} />
-              <Typography variant="body2" sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                {selected.applicability || 'Not classified'}
-              </Typography>
-              {selected.classifiedByName && (
-                <Typography variant="caption" color="text.secondary">— {selected.classifiedByName}</Typography>
-              )}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '6px 16px', alignItems: 'baseline' }}>
+              {[
+                ['Status', <Chip key="s" size="small" label={selected.status || 'unknown'} color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />],
+                ['Applicability', selected.applicability ? <Chip key="a" size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22 }} /> : '-'],
+                ['Risk Rating', riskChip(selected.tenantRiskRating)],
+                ['Risk Justification', selected.riskJustification || '-'],
+                ['Owner', selected.controlOwner || selected.assignedOwnerName || 'Unassigned'],
+                ['Department', selected.assignedDepartment || '-'],
+                ['Act', selected.actName || '-'],
+                ['Section', selected.sectionReference || '-'],
+                ['Obligation Type', selected.obligationType || '-'],
+                ['Deadline', selected.recurringDeadlineType || '-'],
+                ['Effective Date', selected.effectiveDate ? formatDate(selected.effectiveDate) : '-'],
+                ['Area of Focus', selected.areaOfFocus || '-'],
+                ['Classified By', selected.classifiedByName || '-'],
+                ['Classified Date', selected.classifiedAt ? formatDate(selected.classifiedAt) : '-'],
+              ].filter(([, val]) => val && val !== '-').map(([label, value], i) => (
+                <Fragment key={label}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>{label}</Typography>
+                  <Typography variant="body2">{value}</Typography>
+                </Fragment>
+              ))}
             </Box>
-            {selected.classifiedAt && (
-              <Typography variant="caption" color="text.secondary">{formatDate(selected.classifiedAt)}</Typography>
-            )}
             {selected.applicabilityReasoning && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selected.applicabilityReasoning}</Typography>
-            )}
-          </Paper>
-
-          {/* Risk Assessment — user's assessment only */}
-          {(selected.tenantRiskRating || selected.riskJustification) && (
-            <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-              <SectionHeader title="Risk Assessment"
-                action={actionEdit('risk', 'Assess Risk')} />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Rating</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(selected.tenantRiskRating)}</Box>
-                </Box>
+              <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Reasoning
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{selected.applicabilityReasoning}</Typography>
               </Box>
-              {selected.riskJustification && (
-                <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
-              )}
-            </Paper>
-          )}
-
-          {/* Owner */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title="Compliance Owner"
-              action={actionEdit('owner', 'Assign Owner')} />
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {selected.controlOwner || selected.assignedOwnerName || 'Unassigned'}
-            </Typography>
-            {selected.assignedDepartment && (
-              <Typography variant="caption" color="text.secondary">{selected.assignedDepartment}</Typography>
             )}
           </Paper>
 
