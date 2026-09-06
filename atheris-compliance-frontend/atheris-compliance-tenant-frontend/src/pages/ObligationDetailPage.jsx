@@ -269,41 +269,22 @@ export default function ObligationDetailPage() {
             )}
           </Paper>
 
-          {/* Risk Assessment */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title="Internal Risk Assessment"
-              action={actionEdit('risk', 'Assess Risk')} />
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 2, mb: 1.5 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Inherent</Typography>
-                <Box sx={{ mt: 0.5 }}>{riskChip(selected.inherentRiskRating)}</Box>
+          {/* Risk Assessment — user's assessment only */}
+          {(selected.tenantRiskRating || selected.riskJustification) && (
+            <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+              <SectionHeader title="Risk Assessment"
+                action={actionEdit('risk', 'Assess Risk')} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Rating</Typography>
+                  <Box sx={{ mt: 0.5 }}>{riskChip(selected.tenantRiskRating)}</Box>
+                </Box>
               </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Residual</Typography>
-                <Box sx={{ mt: 0.5 }}>{riskChip(selected.residualRiskRating)}</Box>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Likelihood</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.inherentLikelihood || '-'}</Typography>
-                {selected.likelihoodJustification && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{selected.likelihoodJustification}</Typography>
-                )}
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Impact</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.inherentImpact || '-'}</Typography>
-                {selected.impactJustification && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{selected.impactJustification}</Typography>
-                )}
-              </Box>
-            </Box>
-            {selected.riskDescription && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{selected.riskDescription}</Typography>
-            )}
-            {selected.riskJustification && (
-              <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
-            )}
-          </Paper>
+              {selected.riskJustification && (
+                <Typography variant="body2" color="text.secondary">{selected.riskJustification}</Typography>
+              )}
+            </Paper>
+          )}
 
           {/* Owner */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
@@ -317,7 +298,7 @@ export default function ObligationDetailPage() {
             )}
           </Paper>
 
-          {/* Controls — table preview */}
+          {/* Controls — name-only list */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
             <SectionHeader title={`Linked Controls (${selected.linkedControls?.length || 0})`}
               action={
@@ -332,42 +313,18 @@ export default function ObligationDetailPage() {
                 </Box>
               } />
             {selected.linkedControls?.length > 0 ? (
-              <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
-                <Box component="thead">
-                  <Box component="tr" sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 30 }}>#</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600 }}>Control</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 100 }}>Type</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 100 }}>Risk</Box>
-                    <Box component="td" sx={{ py: 0.75, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 120 }}>Owner</Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {selected.linkedControls.slice(0, 5).map((c, i) => (
+                  <Box key={c.controlId || i}
+                    onClick={() => navigate(`/controls?controlId=${c.controlId}`)}
+                    sx={{ py: 0.75, borderBottom: i < Math.min(selected.linkedControls.length, 5) - 1 ? '1px solid' : 'none',
+                      borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 400,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.name || 'Untitled'}
+                    </Typography>
                   </Box>
-                </Box>
-                <Box component="tbody">
-                  {selected.linkedControls.slice(0, 5).map((c, i) => (
-                    <Box component="tr" key={c.controlId || i}
-                      onClick={() => navigate(`/controls?controlId=${c.controlId}`)}
-                      sx={{ cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                      <Box component="td" sx={{ py: 1, pr: 1, color: 'text.secondary', fontSize: 13 }}>{i + 1}</Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        <Typography variant="body2" sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.name || 'Untitled'}
-                        </Typography>
-                      </Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        <Chip size="small" label={c.controlType || 'CMP'}
-                          color={c.controlType === 'ADDITIONAL' ? 'info' : 'default'} sx={{ height: 22 }} />
-                      </Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        {riskChip(c.residualRisk || c.inherentRisk)}
-                      </Box>
-                      <Box component="td" sx={{ py: 1 }}>
-                        <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.controlOwnerName || '-'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
+                ))}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">No controls linked</Typography>}
           </Paper>
@@ -527,45 +484,16 @@ export default function ObligationDetailPage() {
             )}
 
             {/* Controls drawer */}
-            {drawerSection === 'controls' && (
-              <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
-                <Box component="thead">
-                  <Box component="tr" sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 30 }}>#</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600 }}>Control</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 90 }}>Type</Box>
-                    <Box component="td" sx={{ py: 0.75, pr: 1, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 80 }}>Risk</Box>
-                    <Box component="td" sx={{ py: 0.75, color: 'text.secondary', fontSize: 12, fontWeight: 600, width: 100 }}>Owner</Box>
-                  </Box>
-                </Box>
-                <Box component="tbody">
-                  {drawerFilteredItems.map((c, i) => (
-                    <Box component="tr" key={c.controlId || i}
-                      onClick={() => { setDrawerSection(null); navigate(`/controls?controlId=${c.controlId}`); }}
-                      sx={{ cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                      <Box component="td" sx={{ py: 1, pr: 1, color: 'text.secondary', fontSize: 13 }}>{i + 1}</Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        <Typography variant="body2" sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.name || 'Untitled'}
-                        </Typography>
-                      </Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        <Chip size="small" label={c.controlType || 'CMP'}
-                          color={c.controlType === 'ADDITIONAL' ? 'info' : 'default'} sx={{ height: 22 }} />
-                      </Box>
-                      <Box component="td" sx={{ py: 1, pr: 1 }}>
-                        {riskChip(c.residualRisk || c.inherentRisk)}
-                      </Box>
-                      <Box component="td" sx={{ py: 1 }}>
-                        <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.controlOwnerName || '-'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
+            {drawerSection === 'controls' && drawerFilteredItems.map((c, i) => (
+              <Box key={c.controlId || i}
+                onClick={() => { setDrawerSection(null); navigate(`/controls?controlId=${c.controlId}`); }}
+                sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 420,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.name || 'Untitled'}
+                </Typography>
               </Box>
-            )}
+            ))}
 
             {/* Returns drawer */}
             {drawerSection === 'returns' && drawerFilteredItems.map((r, i) => (
