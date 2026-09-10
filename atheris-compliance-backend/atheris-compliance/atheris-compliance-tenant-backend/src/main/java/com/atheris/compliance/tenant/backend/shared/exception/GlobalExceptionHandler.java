@@ -39,6 +39,12 @@ public class GlobalExceptionHandler {
             .body(Map.of("error", "not_found", "message", e.getMessage()));
     }
 
+    @ExceptionHandler(DocumentUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleDocumentUnavailable(DocumentUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("error", "document_unavailable", "message", e.getMessage()));
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

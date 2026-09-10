@@ -13,6 +13,8 @@ import com.atheris.compliance.intelligence.backend.modules.regulators.repository
 import com.atheris.compliance.common.Constants;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
+import com.atheris.compliance.intelligence.backend.shared.exception.DocumentUnavailableException;
+import com.atheris.compliance.intelligence.backend.shared.exception.ResourceNotFoundException;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.NoSuchFileException;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -122,8 +125,19 @@ public class InternalInstrumentService {
 
     public InputStream openPdfStream(Long instrumentId) throws IOException {
         Instrument inst = instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
-        return storage.openReadStream(inst.getPdfUrl());
+            .orElseThrow(() -> new ResourceNotFoundException("Instrument not found: " + instrumentId));
+        String key = inst.getPdfUrl();
+        if (key == null || key.isBlank()) {
+            throw new DocumentUnavailableException(
+                "No document stored for instrument " + instrumentId);
+        }
+        try {
+            return storage.openReadStream(key);
+        } catch (NoSuchFileException e) {
+            log.warn("Instrument {} points at missing document {}", instrumentId, key);
+            throw new DocumentUnavailableException(
+                "No document stored for instrument " + instrumentId);
+        }
     }
 
     public Map<Long, InternalInstrumentDetail> getBatchDetail(List<Long> ids) {

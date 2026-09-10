@@ -11,7 +11,7 @@ import {
   Search, Refresh, Visibility, ArrowForward, Close, Article,
   KeyboardArrowDown, KeyboardArrowUp, InfoOutlined,
 } from '@mui/icons-material';
-import { api, API_BASE, getToken } from '../services/api';
+import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 
 const RISK_CONFIG = {
   Critical: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
@@ -335,10 +335,10 @@ export default function ReviewInboxPage() {
       const res = await fetch(`${API_BASE}/subscriptions/instruments/${id}/pdf`, {
         headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {},
       });
-      if (!res.ok) throw new Error('PDF load failed');
+      if (!res.ok) throw new Error(await pdfErrorMessage(res));
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
-    } catch { notify('error', 'Failed to load PDF.'); }
+    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
   }
 
   const regulators = Array.isArray(stats?.regulators) ? stats.regulators : [];

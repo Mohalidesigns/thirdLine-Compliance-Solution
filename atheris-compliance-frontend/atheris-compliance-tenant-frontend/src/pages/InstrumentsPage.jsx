@@ -11,7 +11,7 @@ import {
   Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
   InfoOutlined, Gavel, KeyboardArrowDown, KeyboardArrowUp,
 } from '@mui/icons-material';
-import { api, getToken, API_BASE } from '../services/api';
+import { api, getToken, API_BASE, pdfErrorMessage } from '../services/api';
 
 const COLUMNS = [
   { id: 'title', label: 'Title', minWidth: 280 },
@@ -290,7 +290,7 @@ export default function InstrumentsPage() {
     const res = await fetch(`${API_BASE}/subscriptions/instruments/${instrumentId}/pdf`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
-    if (!res.ok) throw new Error('Failed to load PDF');
+    if (!res.ok) throw new Error(await pdfErrorMessage(res));
     return await res.blob();
   }
 
@@ -299,8 +299,8 @@ export default function InstrumentsPage() {
       const blob = await fetchPdfBlob(item.id);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch {
-      setError('Failed to load PDF.');
+    } catch (e) {
+      setError(e.message || 'Failed to load PDF.');
     }
   }
 
@@ -315,8 +315,8 @@ export default function InstrumentsPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      setError('Failed to download PDF.');
+    } catch (e) {
+      setError(e.message || 'Failed to download PDF.');
     }
   }
 

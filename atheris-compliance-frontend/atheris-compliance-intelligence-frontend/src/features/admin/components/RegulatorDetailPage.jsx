@@ -10,7 +10,7 @@ import {
   ArrowBack, Search, Language, Refresh, OpenInNew, Description, Close, Save,
   CloudDownload, CheckCircle, TextSnippet, Category,
 } from '@mui/icons-material';
-import api, { getToken, API_BASE } from '../../../services/api';
+import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
 import { ROUTES, APP } from '../../../utils/constants';
 
 const riskColors = { High: '#C53030', Medium: '#DD6B20', Low: '#2D7D46' };
@@ -118,12 +118,12 @@ export default function RegulatorDetailPage() {
       const res = await fetch(`${API_BASE}/intelligence/obligations/${inst.instrumentId}/pdf`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) throw new Error(await pdfErrorMessage(res, 'Failed to load PDF'));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch {
-      alert('Failed to load PDF');
+    } catch (e) {
+      alert(e.message || 'Failed to load PDF');
     }
   }
 

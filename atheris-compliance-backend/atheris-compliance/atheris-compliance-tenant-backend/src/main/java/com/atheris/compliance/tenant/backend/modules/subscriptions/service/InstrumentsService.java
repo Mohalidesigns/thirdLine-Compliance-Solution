@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.Instrumen
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentSummaryResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.exception.DocumentUnavailableException;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PagedResponse;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentSummary;
@@ -137,7 +138,8 @@ public class InstrumentsService {
 
     public byte[] pdfBytes(Long id) {
         byte[] bytes = platform.getInstrumentPdf(id);
-        if (bytes == null || bytes.length == 0) throw new RuntimeException("Instrument PDF not available");
+        if (bytes == null || bytes.length == 0)
+            throw new DocumentUnavailableException("No document stored for instrument " + id);
         return bytes;
     }
 

@@ -10,6 +10,20 @@ export const setToken = (token) => { authToken = token; };
 export const getToken = () => authToken;
 export const setRefreshToken = (token) => { authRefreshToken = token; };
 
+// A PDF endpoint answers 404 with {error, message} when the record has no stored
+// document (common: toolkit-imported instruments never carry one). Turn that into
+// a message worth showing, and fall back to the generic one for real failures.
+export async function pdfErrorMessage(res, fallback = 'Failed to load PDF.') {
+  try {
+    const body = await res.clone().json();
+    const code = String(body?.error || '').toLowerCase();
+    if (code === 'document_unavailable') return 'No document is available for this instrument.';
+  } catch {
+    // non-JSON body (proxy/network error) — fall through
+  }
+  return fallback;
+}
+
 const STORAGE_KEY_TOKEN = 'atheris_token';
 const STORAGE_KEY_REFRESH = 'atheris_refresh_token';
 

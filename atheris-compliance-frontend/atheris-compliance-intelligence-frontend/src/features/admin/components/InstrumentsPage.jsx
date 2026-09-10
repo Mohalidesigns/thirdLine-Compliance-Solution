@@ -9,7 +9,7 @@ import {
   Visibility, Search, Close, ExpandMore, ExpandLess,
   Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
 } from '@mui/icons-material';
-import api, { getToken, API_BASE } from '../../../services/api';
+import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
 
 const RISK_CONFIG = {
   High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
@@ -103,6 +103,7 @@ export default function InstrumentsPage() {
     setDetailLoading(true);
     setDetailData(null);
     setShowOcr(false);
+    setError('');
     try {
       const data = await api.platform.instruments.get(item.instrumentId);
       setDetailData(data);
@@ -115,6 +116,7 @@ export default function InstrumentsPage() {
     setDetailItem(null);
     setDetailData(null);
     setShowOcr(false);
+    setError('');
   }
 
   async function fetchPdfBlob(instrumentId) {
@@ -122,7 +124,7 @@ export default function InstrumentsPage() {
     const res = await fetch(`${API_BASE}/intelligence/obligations/${instrumentId}/pdf`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
     });
-    if (!res.ok) throw new Error('Failed to load PDF');
+    if (!res.ok) throw new Error(await pdfErrorMessage(res));
     return await res.blob();
   }
 
@@ -131,8 +133,8 @@ export default function InstrumentsPage() {
       const blob = await fetchPdfBlob(item.instrumentId);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch {
-      setError('Failed to load PDF.');
+    } catch (e) {
+      setError(e.message || 'Failed to load PDF.');
     }
   }
 
@@ -147,8 +149,8 @@ export default function InstrumentsPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      setError('Failed to download PDF.');
+    } catch (e) {
+      setError(e.message || 'Failed to download PDF.');
     }
   }
 
@@ -167,6 +169,8 @@ export default function InstrumentsPage() {
             Download
           </Button>
         </Box>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
         {detailLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>

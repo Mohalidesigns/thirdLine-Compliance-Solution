@@ -15,6 +15,11 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException e) {
+        return build(HttpStatus.NOT_FOUND, e.getErrorCode(), e.getMessage());
+    }
+
     @ExceptionHandler(InvalidFileException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidFile(InvalidFileException e) {
         return build(HttpStatus.BAD_REQUEST, e.getErrorCode(), e.getMessage());
