@@ -38,15 +38,16 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
   ai:
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        project-id: atheris-platform
-        chat:
-          options:
-            model: gemini-3.1-flash-lite
-            temperature: 0.0
-            max-output-tokens: 3500
+    # OpenAI-compatible client pointed at OpenRouter. base-url omits /v1 —
+    # Spring AI appends the default completions-path /v1/chat/completions.
+    openai:
+      api-key: ${OPENROUTER_API_KEY}
+      base-url: ${AI_BASE_URL:https://openrouter.ai/api}
+      chat:
+        options:
+          model: ${AI_MODEL:google/gemini-2.5-flash-lite}
+          temperature: 0.0
+          max-tokens: 3500
 
 server:
   port: ${PORT:9090}

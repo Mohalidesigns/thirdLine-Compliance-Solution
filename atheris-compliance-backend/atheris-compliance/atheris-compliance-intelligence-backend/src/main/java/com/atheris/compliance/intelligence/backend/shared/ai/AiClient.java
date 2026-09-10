@@ -16,7 +16,14 @@ public class AiClient {
         try {
             Prompt prompt = new Prompt(promptText);
             ChatResponse response = chatModel.call(prompt);
-            return response.getResult().getOutput().getText();
+            String text = response.getResult().getOutput().getText();
+            if (text == null || text.isBlank()) {
+                // A model can return an empty completion (content filter, token
+                // limit reached while still emitting reasoning, provider hiccup).
+                // Fail loudly here rather than handing null to every caller.
+                throw new RuntimeException("AI returned an empty completion");
+            }
+            return text;
         } catch (Exception e) {
             log.error("AI call failed: {}", e.getMessage());
             throw new RuntimeException("AI classification failed", e);
