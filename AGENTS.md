@@ -254,6 +254,20 @@ Config: `opencode.json`
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
 
+## Done — PDF Routes Return 404 Instead of 500
+
+`Instrument.pdfUrl` is null for every toolkit-imported instrument (395 of 397 rows in the dev DB — only scraped documents get a file), and both PDF routes passed it straight to storage. `LocalStorageService.resolve` then called `storageDir.resolve(null)` and threw a raw NullPointerException, so a routine click produced a 500 plus a full stack trace in the log.
+
+- **Two identical call sites, not one.** `ObligationBrowserService.openPdfStream` (frontend route) and `InternalInstrumentService.openPdfStream` (the `/api/v1/internal/` route the tenant backend proxies through) had the same defect. Fixing only the first leaves the tenant app broken.
+- **Error-code contract.** New `ResourceNotFoundException` (code `NOT_FOUND`) and `DocumentUnavailableException` (code `DOCUMENT_UNAVAILABLE`) in intel `shared/exception`, following the existing `UploadException`/`InvalidFileException` shape, mapped to 404 by `GlobalExceptionHandler`. Tenant mirrors it with its own `DocumentUnavailableException` -> `{"error":"document_unavailable"}`, because `PlatformApiClient` returns null on a platform 404 and `pdfBytes` previously threw a bare RuntimeException — an opaque `internal_error` 500 the UI could not key off.
+- **A stale pointer 404s too.** `NoSuchFileException` (row references a file no longer on disk) maps to the same 404. Under `STORAGE_PROVIDER=s3` the SDK throws `NoSuchKeyException` instead and would still 500 — untranslated.
+- **Frontend.** `pdfErrorMessage(res, fallback)` in each app's `services/api.js` turns the code into "No document is available for this instrument."; wired into all six call sites. The intel Instruments **detail view rendered no `<Alert>` at all**, so its error state had always been invisible — the list view had one, the detail view did not.
+
+### Verified (live, both apps)
+Instrument 2 (no document) -> 404 `DOCUMENT_UNAVAILABLE`, message shown at `:5173` and at `:5174` (tenant chain confirmed by `PlatformApiClient` logging the proxied 404). Instrument 396 -> 200 `application/pdf`, 89,798 bytes, matching the file on disk. Zero NPEs / unhandled exceptions in either backend afterwards.
+
+**Remaining 500s of the same class:** `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
+
 ## Done — Dashboards Harmonized (risk / area / act)
 
 ### Dashboard V2 was shipped but unreachable — now routed and fixed
