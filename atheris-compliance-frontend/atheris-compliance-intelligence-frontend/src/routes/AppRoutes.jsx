@@ -28,6 +28,8 @@ const UploadsPage = lazy(() => import('../features/admin/components/UploadsPage'
 const ActExplorerPage = lazy(() => import('../features/admin/components/RegulationExplorerPage'));
 const ActDetailPage = lazy(() => import('../features/admin/components/RegulationDetailPage'));
 const UniversePage = lazy(() => import('../features/admin/components/UniversePage'));
+const ObligationsExplorerPage = lazy(() => import('../features/admin/ObligationsExplorerPage'));
+const ObligationExplorerDetailPage = lazy(() => import('../features/admin/ObligationExplorerDetailPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -75,6 +77,8 @@ export default function AppRoutes() {
           <Route path="admin/acts" element={<ActExplorerPage />} />
           <Route path="admin/acts/:id" element={<ActDetailPage />} />
           <Route path="admin/universe" element={<UniversePage />} />
+          <Route path="admin/obligations" element={<ObligationsExplorerPage />} />
+          <Route path="admin/obligations/:id" element={<ObligationExplorerDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} />} />
       </Routes>

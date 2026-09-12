@@ -120,6 +120,7 @@ export const api = {
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
+    seedStatus: (opts = {}) => request('/onboarding/seed-status', opts),
   },
   regulators: {
     list: () => request('/subscriptions/regulators'),

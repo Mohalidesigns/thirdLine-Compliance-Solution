@@ -100,6 +100,7 @@ public class InternalRegulationSeedService {
                         .inherentImpact(o.getInherentImpact())
                         .inherentRiskRating(o.getInherentRiskRating())
                         .controlOwner(o.getControlOwner())
+                        .points(o.getPoints())
                         .build())
                     .toList())
                 .sanctions(sanctions.findByRegulationId(r.getRegulationId()).stream()

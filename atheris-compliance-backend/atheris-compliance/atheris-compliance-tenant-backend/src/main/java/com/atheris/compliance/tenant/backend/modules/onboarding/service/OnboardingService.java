@@ -46,6 +46,7 @@ public class OnboardingService {
     private final ObligationSyncService syncService;
     private final RegulationSeedService regulationSeedService;
     private final TenantIdentityService tenantIdentity;
+    private final SeedService seedService;
 
     public OnboardingStatusResponse getStatus() {
         List<RegulatorSummary> regulators = platformApi.fetchRegulators();
@@ -221,8 +222,6 @@ public class OnboardingService {
         p.setOnboardingStep(6);
 
         if (p.getSubscribedRegulators() == null || p.getSubscribedRegulators().isEmpty()) {
-            // Salvage unconditional when empty - ensures 40 tenant_regulators even when license flag false
-            // Mirrors saveRegulators logic: if (autoSubscribe || empty) bulk create; idempotent via existingIds
             List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
             Long tid = tenantIdentity.currentTenantId();
             List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
@@ -252,9 +251,7 @@ public class OnboardingService {
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
-                // Re-fetch fresh profile inside afterCommit to get up-to-date autoSeed flag and ensure API key is visible
                 TenantProfile fresh = profiles.findByTenantId(tenantIdentity.currentTenantId()).orElse(p);
-                // Invalidate PlatformApiClient cachedApiKey after license activation so headers() re-reads encryptedApiKey
                 try { platformApi.clearCache(); } catch (Exception ce) { log.warn("clearCache failed: {}", ce.getMessage()); }
                 try {
                     Map<String, Object> tenantReq = new HashMap<>();
@@ -270,13 +267,12 @@ public class OnboardingService {
                     tenantReq.put("webhookUrl", fresh.getWebhookUrl());
                     platformApi.onboardTenant(tenantReq);
                 } catch (Throwable e) {
-                    log.error("Failed to create tenant on platform for {}: {}", tenantIdentity.currentTenantId(), e.getMessage(), e);
+                    log.error("Failed to onboard tenant on platform for {}: {}", tenantIdentity.currentTenantId(), e.getMessage(), e);
                 }
-                try { if (Boolean.TRUE.equals(fresh.getAutoSeedObligations())) regulationSeedService.seedAll(); } catch (Throwable e) {
-                    log.warn("Regulation seed failed: {}", e.getMessage(), e);
-                }
-                try { syncService.syncNow(); } catch (Throwable e) {
-                    log.warn("Initial sync failed: {}", e.getMessage(), e);
+                try {
+                    seedService.seedAsync();
+                } catch (Exception e) {
+                    log.warn("Async seed submit failed: {}", e.getMessage());
                 }
             }
         });

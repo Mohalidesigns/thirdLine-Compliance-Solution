@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS obligation_mappings (
     inherent_impact         VARCHAR(50),
     inherent_risk_rating    VARCHAR(50),
     control_owner           TEXT,
+    points                  JSONB DEFAULT '[]'::jsonb,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

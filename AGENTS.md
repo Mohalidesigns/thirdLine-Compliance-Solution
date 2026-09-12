@@ -293,7 +293,7 @@ Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
 - Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
 - Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
-- Obligations Details (`ObligationDetailPage.jsx`) — show full obligation metadata (section, area, type, deadline, act/regulation, dates) — why: detail shows single statement block, missing enriched metadata now stored
+- ~~Obligations Details (`ObligationDetailPage.jsx`) — DONE: unified header (chips+title+metadata grid), verbatim+interpreted split, controls full-detail drawer, risk+controls-only sections~~
 - Controls Register/Details (`ControlsPage.jsx`) — show act/regulation and linked obligations — why: register hides act column and traceability now available
 - Sanctions Register/Details (`SanctionsPage.jsx`) — show expandable violation/penalty/impact — why: register is collapsed, violation context now stored but not surfaced
 - Returns Register/Details (`ReturnsPage.jsx`) — show linked obligations and responsible party — why: hides linkage and owner now linked
@@ -582,6 +582,36 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 | Propagation | `InternalInstrumentService`/`PlatformInstrumentDetail` 5 cols | `InternalInstrumentDetail.java`/`PlatformInstrumentDetail.java` 14-col `ObligationItem` + `actName` batched `RegulationRepository`, `ObligationSyncService.java:129` + `ReviewObligation.java`/`SaveReviewRequest.java`/`ReviewDetail.java` + `ReviewService.java:save()` `em.clear()+Throwable setRollbackOnly` persist `title/description/risk/owner/regulationId/actName` |
 | Logging/order | `AdminUserSeeder` unordered, `ScraperService/Playwright/Storage` `INFO` flood | `AdminUserSeeder.java:13 @Order(0)` → `ToolkitStartupSeeder.java:25 @Order(1)`, `ScraperService.java` `Scraping/Done` `INFO→DEBUG`, `HtmlScraperStrategy.java:26` / `PlaywrightHeadlessStrategy.java:40` `Scraping page` `INFO→DEBUG`, `LocalStorageService.java` `Stored` `INFO→DEBUG`, `application.yml:98 com.atheris.compliance DEBUG→INFO` (only `ERROR 404/403/timeout` + `WARN Failed to download` remain) |
 | Verified | `FPR/DIR/PUB/CIR/001/015 41pp` bundled 1 row | `FMD/DIR/PUB/CIR/001/029` `instrument 403 Published` `act 422 BOFIA 2020` → `obligation_mappings 1549 title="Limit suspension of payment..." verbatim="The suspension..." plain="Banks must ensure..." Para 1(a) Low/Medium→Moderate Chief Risk Officer` + `1550 Para 1(b)`; tenant `GET /api/v1/review/4` `ILLUSTRATED GUIDE pbor FCCPC` `Consumer Protection Governance Critical Head Compliance act 421 FCCPA 2018` harmonized; stale `reviewId 1` (pre-restart) to be `Skip`+re-upload via API (no SQL) |
+
+## Done — Points Batch Processing (LLM under Gemini free tier)
+
+**Problem:** 1,541 obligations × 1 LLM call each = 1,541 requests. Gemini free tier = 500/day. Sequential with 2s delay = 51 min. Rate limit kills it after ~500 calls.
+
+**Solution:** Batch 25 obligations per LLM call. 1,541 ÷ 25 = ~62 calls. ~2 min total. Well under 500/day limit.
+
+### Changes
+- **`application.yml`** — `atheris.points.batch-size: 25`, `atheris.points.delay-ms: 2000`
+- **`ToolkitImportService.java`** — New `POINTS_BATCH_PROMPT` (JSON keyed by `obligationId`). `generatePointsForToolkit()` rewritten: chunks obligations into batches, builds a single prompt per batch (`ID {id} | Title: ... | Desc: ... | Statement: ...`), parses `Map<String, List<PointItem>>` response, saves each obligation's points individually. `truncate()` helper caps desc/statement at 200 chars in prompt.
+- **`ToolkitStartupSeeder`** — Always calls `generatePointsForToolkit()` (not just on first import).
+
+### Timing
+| Step | Duration | When |
+|------|----------|------|
+| Toolkit import | ~60s | Intel startup |
+| Points generation (62 batches × 2s) | ~2 min | Intel startup |
+| Tenant onboarding `seedAll()` | ~5-10s | User triggers |
+
+**Impact on onboarding workspace load: ZERO.** Points are pre-computed on intel before anyone onboards. Tenant just fetches bundles (which already include points).
+
+### LLM Response Format (batch)
+```json
+{
+  "123": [
+    { "marker": "1", "text": "...", "level": 0, "children": [] }
+  ],
+  "124": []
+}
+```
 
 # CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE

@@ -413,6 +413,16 @@ export const api = {
         });
       },
     },
+    obligations: {
+      list: (params = {}, signal) => {
+        const qs = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, String(v)); });
+        const s = qs.toString();
+        return request(`/admin/obligations${s ? '?' + s : ''}`, { signal });
+      },
+      stats: (signal) => request('/admin/obligations/stats', { signal }),
+      get: (id, signal) => request(`/admin/obligations/${id}`, { signal }),
+    },
   },
   license: {
     activate: (data) => tenantRequest('/license/activate', { method: 'POST', body: JSON.stringify(data) }),

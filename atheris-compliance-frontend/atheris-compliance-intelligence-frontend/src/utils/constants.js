@@ -37,6 +37,8 @@ export const ROUTES = {
   ADMIN_ACTS: '/admin/acts',
   ADMIN_ACT_DETAIL: '/admin/acts/:id',
   ADMIN_UNIVERSE: '/admin/universe',
+  ADMIN_OBLIGATIONS: '/admin/obligations',
+  ADMIN_OBLIGATION_DETAIL: '/admin/obligations/:id',
 };
 
 export const STRINGS = {
@@ -68,6 +70,7 @@ export const LABELS = {
   UPLOADS: 'Uploads',
   ACTS: 'Act Explorer',
   UNIVERSE: 'Compliance Universe',
+  OBLIGATIONS: 'Obligations',
 };
 
 export const NAV_SECTIONS = [
@@ -86,6 +89,7 @@ export const NAV_SECTIONS = [
     { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
     { text: 'Act Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_ACTS },
     { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
+    { text: 'Obligations', icon: 'Assignment', path: ROUTES.ADMIN_OBLIGATIONS },
   ]},
 ];
 

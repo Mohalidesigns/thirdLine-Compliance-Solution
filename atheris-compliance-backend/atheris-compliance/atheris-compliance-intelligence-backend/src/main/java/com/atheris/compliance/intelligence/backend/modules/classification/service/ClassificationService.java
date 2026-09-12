@@ -90,7 +90,15 @@ public class ClassificationService {
               "risk_description": string | null (what risk materialises if breached),
               "likelihood": "Very Low" | "Low" | "Medium" | "High" | "Very High" | null,
               "impact": "Very Low" | "Low" | "Medium" | "High" | "Very High" | null,
-              "control_owner": string | null (role like "CCO", "Head IT", "Treasurer", "Chief Risk Officer", "MD/CEO")
+              "control_owner": string | null (role like "CCO", "Head IT", "Treasurer", "Chief Risk Officer", "MD/CEO"),
+              "points": [
+                {
+                  "marker": "1" | "1.1" | "a" | null (original label from source text),
+                  "text": "string (the enforceable text of this sub-point, <=300 chars)",
+                  "level": 0 | 1 | 2 (0=top-level, 1=sub-point, 2=sub-sub-point),
+                  "children": []
+                }
+              ]
             }
           ],
           "sanctions": [
@@ -116,6 +124,7 @@ public class ClassificationService {
         - Populate "sanctions" array whenever penalties/fines/sanctions are mentioned; leave empty [] otherwise.
         - Provide "act_name" for the parent Act/Regulation this instrument belongs to (e.g. "BOFIA 2020"); null if purely standalone circular with no parent Act.
         - "area_of_focus" must be one of the 12 allowed values listed above.
+        - "points": Split obligation text into structured points. Each point = one enforceable duty. Use `level` for nesting (0=top, 1=sub, 2=sub-sub). `marker` = original label ("1", "a", "(i)"). `children` for nested sub-points. If obligation is a single duty with no sub-clauses, return empty `children`.
 
         JSON EXAMPLE (both description verbatim and statement interpreted):
         {
@@ -146,7 +155,15 @@ public class ClassificationService {
               "risk_description": "Breach exposes bank to regulatory sanctions and potential licence withdrawal.",
               "likelihood": "Medium",
               "impact": "High",
-              "control_owner": "Chief Risk Officer"
+              "control_owner": "Chief Risk Officer",
+              "points": [
+                {
+                  "marker": "1",
+                  "text": "Banks must maintain a minimum capital adequacy ratio of 15%% at all times.",
+                  "level": 0,
+                  "children": []
+                }
+              ]
             }
           ],
           "sanctions": [
@@ -380,9 +397,9 @@ public class ClassificationService {
                 for (ClassificationResult.ObligationItem o : r.getObligations()) {
                     String rawStatement = o.getStatement();
                     String rawDescription = o.getDescription();
-                    String statement = rawStatement != null ? TextCleaner.stripMarkdown(rawStatement.trim()) : null;
+                    String statement = rawStatement != null ? stripQuotes(TextCleaner.stripMarkdown(rawStatement.trim())) : null;
                     if (statement != null && statement.length() > 250) statement = shorten(statement, 250);
-                    String verbatim = rawDescription != null ? TextCleaner.stripMarkdown(rawDescription.trim()) : null;
+                    String verbatim = rawDescription != null ? stripQuotes(TextCleaner.stripMarkdown(rawDescription.trim())) : null;
                     if (verbatim != null && verbatim.length() > 500) verbatim = shorten(verbatim, 500);
                     // fallback: if statement blank use verbatim
                     if ((statement == null || statement.isBlank()) && verbatim != null && !verbatim.isBlank()) statement = verbatim;
@@ -433,6 +450,9 @@ public class ClassificationService {
                         .inherentRiskRating(riskBand)
                         .controlOwner(controlOwner)
                         .build();
+                    if (o.getPoints() != null && !o.getPoints().isEmpty()) {
+                        mapping.setPoints(convertPoints(o.getPoints()));
+                    }
                     obligations.save(mapping);
                 }
             }
@@ -698,6 +718,24 @@ public class ClassificationService {
             else if (suffix.equalsIgnoreCase("k")) v = v.multiply(ONE_THOUSAND);
         }
         return v;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> convertPoints(List<ClassificationResult.PointItem> points) {
+        return points.stream().map(p -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("marker", p.getMarker());
+            map.put("text", p.getText());
+            map.put("level", p.getLevel());
+            map.put("children", p.getChildren() != null ? convertPoints(p.getChildren()) : List.of());
+            return map;
+        }).toList();
+    }
+
+    private static String stripQuotes(String s) {
+        if (s == null || s.length() < 2) return s;
+        if (s.startsWith("\"") && s.endsWith("\"")) return s.substring(1, s.length() - 1);
+        return s;
     }
 
     private List<String> splitRoles(String s) {

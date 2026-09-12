@@ -37,6 +37,14 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 55MB
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
   ai:
     google:
       genai:
@@ -64,6 +72,14 @@ atheris:
     username: ${ADMIN_USERNAME}
     password: ${ADMIN_PASSWORD}
   encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
+
+  ai:
+    fallback-enabled: true
+    cooldown-initial-ms: 300000    # 5 minutes initial cooldown on rate limit
+    cooldown-max-ms: 3600000       # 60 minutes max cooldown
+    cooldown-multiplier: 3         # multiply cooldown by 3 each consecutive failure
+    primary-model: gemini-3.1-flash-lite
+    fallback-model: gemini-3.5-flash-lite
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
@@ -93,8 +109,17 @@ atheris:
     webhook-sender-interval-ms: 300000 # 5 minutes
     webhook-retry-interval-ms: 1800000 # 30 minutes
 
+  points:
+    batch-size: 25        # obligations per LLM call (max ~30 for Gemini Flash Lite 8k output tokens)
+    delay-ms: 1000        # delay between batches (ms) — used by PointsRetryScheduler sequential fallback
+    retry-interval-ms: 1800000  # 30 minutes — how often to retry failed obligations
+    concurrency: 5        # max parallel LLM calls in batch generation
+    stagger-ms: 500       # delay between submitting each batch (prevents burst rate limit)
+    retry-attempts: 3     # per-batch retry attempts before marking as failed
+    retry-delays-ms: 2000,5000  # delays between retries (ms)
+
 logging:
   level:
-    com.atheris.compliance: INFO
+    com.atheris.compliance: DEBUG
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
