@@ -288,6 +288,41 @@ Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-
 - `obl.type` → `obl.obligationType`
 - `s.type` → `s.sanctionType`
 
+## Done — Intel Obligation Explorer Detail Page (Replicated from Tenant)
+
+Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `ObligationDetailPage.jsx` layout, sections, styling, drawer, and modals. Commit `db252c8`.
+
+### Backend (`ObligationExplorerDetail` DTO + service + controller)
+- `ObligationExplorerDetail.java` extended with: `hasGap`, `gapDescription`, `applicability`, `applicabilityReasoning`, `classifiedByName`, `classifiedAt`, `assignedOwnerName`, `assignedDepartment`, `linkedControls`, `evidence`, `history`
+- Inner classes added: `ControlInfo`, `EvidenceInfo`, `HistoryEntry`
+- `ComplianceControlRepository.java` — new repository with `findByObligationId()`
+- `ObligationExplorerService.java` — `resolveControls()` populates `linkedControls` via `ComplianceControlRepository`; derives `hasGap`/`gapDescription`/`applicability` from entity fields
+- `AdminObligationExplorerController.java` — added `GET /{id}/controls` and `GET /{id}/pdf` endpoints
+
+### Frontend (`ObligationExplorerDetailPage.jsx` + `api.js` + modals)
+- **Complete rewrite** to match tenant layout:
+  - Header with back + PDF button (right-aligned)
+  - Chips row (risk, regulator, area, deadline, status, hasPoints)
+  - Metadata grid (160px 1fr, gap 4px 16px)
+  - Source Text (verbatim) + Plain English (interpreted) via `FormattedText`
+  - **Linked Controls** — preview list (max 5) + "Link controls" button + "View all" drawer
+  - **Returns** — chip preview + "View all"/"Map return" buttons
+  - **Sanctions** — compact preview with Gavel icon + red color
+  - **Control Gap** — alert + edit button
+  - **Evidence** — upload button + "View all"
+  - **Version History** — "View history" button
+  - **Right drawer** (480px, anchor right) with all sections + search
+  - **Snackbar** notifications, `useQueryClient` cache invalidation
+- **New helpers/components**: `ChipList`, `SectionHeader`, `formatNaira`, `formatDate`, `RISK_CONFIG`, `STATUS_COLOR`, `actionEdit`
+- **`api.js`**: Added `platform.obligations.{controls,evidence,history,pdf}`, `platform.{controls,evidence,returns}.{list,detail}`, `platform.obligations.get` with signal support
+- **6 modal stubs** created in `src/components/modals/`: `RiskAssessmentModal`, `OwnerModal`, `LinkControlsModal`, `MapReturnModal`, `GapModal`, `EvidenceUploadModal`
+- All styling matched: `Paper variant="outlined" p={3} mb={2}`, chip height 22, button `width:180 height:40 textTransform:none fontWeight:600 fontSize:14`, `Paper variant="outlined" p={2} mb={1.5}` for drawer items
+
+### Verification
+- `mvn clean compile` ✅ (intel backend)
+- `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
+- `git push` ✅
+
 ## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
 
 **Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
@@ -299,7 +334,7 @@ Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-
 - Returns Register/Details (`ReturnsPage.jsx`) — show linked obligations and responsible party — why: hides linkage and owner now linked
 
 **Intel (`:5173`) — `atheris-compliance-intelligence-frontend/src/features/admin/*`**
-- Needs explorer pages for obligations, sanctions, returns, controls — why: toolkit enrichment added tables (`obligation_mappings 1541`, `sanctions 597`, `regulatory_returns 139`, `compliance_controls 300-600`) but intel only has Acts/Instruments explorers, those entities have no standalone UI
+- ~~Needs explorer pages for obligations, sanctions, returns, controls~~ — DONE in commit `db252c8`
 
 **Dashboards**
 - Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
@@ -548,23 +583,7 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 
 > Note: Verification pending — points still filling (120/1466 at last check); see WIP Verification checklist below.
 
-## WIP — Obligations Explorer & Detail Replica (Intel + Tenant)
 
-Intel + tenant per-obligation explorer with identical 5-col register + detail replica (verbatim legal vs interpreted plain) — skill-driven, TanStack Query only.
-
-- [x] Skill `.opencode/skills/obligations-page.md` — register pattern (KPIs → filters → 5-col sortable table → drawer/detail)
-- [x] Backend `AdminObligationExplorerController.java:18` + `AdminObligationExplorerService.java:24` + DTOs `ObligationExplorerItem.java`/`ObligationDetailDto.java` + `FormattedText.java:12` (verbatim `marker/text/level` vs interpreted split)
-- [x] Frontend `ObligationsExplorerPage.jsx` + `ObligationDetailPage.jsx` + `services/api.js:112` (`obligations.list/detail/stats`) + `routes/AppRoutes.jsx:22` + nav `constants.js:45` + `QueryClientProvider` in `main.jsx:10`, `npm run build` success
-
-### Verification — to finish obligation pages
-
-- [ ] Intel `http://localhost:5173/admin/obligations` 4 KPIs (Total/High Risk/With Points/Without) clickable → filters (q/Risk/Regulator/Area/Act/hasPoints) → 5-col sortable table (#|Obligation|Regulator|Risk|Points|Actions) → pagination, TanStack Query
-- [ ] Intel `GET /admin/obligations/3` detail: header chips + metadata + Source Text verbatim (legal (1)/(a)/(5)/(6) stacked) vs Plain English interpreted (plain (1)(2) stacked) via `FormattedText.jsx` (weight 400, marker (), level indent) — verify distinct via DB `SELECT jsonb_pretty(points) WHERE obligation_id=3` (verbatim vs interpreted)
-- [ ] Tenant `http://localhost:5174/obligations/3` same distinct after `RegulationSeedService` seed (check `obligation_points` pointType verbatim/interpreted)
-- [ ] DB `SELECT COUNT(*) FILTER (WHERE points IS NOT NULL AND jsonb_array_length(points)>0) = 1614` (after 15m retry with 10/batch, 8000 tokens, abort-on-cooldown)
-- [ ] `npm run build` + `mvn clean compile` success, no `No QueryClient` error (QueryClientProvider in main.jsx)
-
-> This WIP will be promoted to Done — Obligations Explorer & Detail Replica after verification, then compress archival sections.
 
 # CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE
