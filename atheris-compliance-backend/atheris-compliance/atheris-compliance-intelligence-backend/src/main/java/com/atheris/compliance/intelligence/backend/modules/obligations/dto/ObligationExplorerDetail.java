@@ -39,12 +39,62 @@ public class ObligationExplorerDetail {
     private Boolean hasPoints;
     @Builder.Default
     private List<Map<String, Object>> points = List.of();
+    private Boolean hasGap;
+    private String gapDescription;
+    private String applicability;
+    private String applicabilityReasoning;
+    private String classifiedByName;
+    private Instant classifiedAt;
+    private String assignedOwnerName;
+    private String assignedDepartment;
+    @Builder.Default
+    private List<ControlInfo> linkedControls = List.of();
+    @Builder.Default
+    private List<EvidenceInfo> evidence = List.of();
+    @Builder.Default
+    private List<HistoryEntry> history = List.of();
     private Instant createdAt;
     private InstrumentInfo instrument;
     @Builder.Default
     private List<SanctionInfo> sanctions = List.of();
     @Builder.Default
     private List<ReturnInfo> returns = List.of();
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ControlInfo {
+        private Long controlId;
+        private String name;
+        private String description;
+        private String controlType;
+        private String controlOwnerName;
+        private String testFrequency;
+        private String status;
+        private String theme;
+        private String controlNumber;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class EvidenceInfo {
+        private Long fileId;
+        private String originalName;
+        private String uploadedByName;
+        private Instant createdAt;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class HistoryEntry {
+        private Integer classificationVersion;
+        private Instant changedAt;
+        private String changedByName;
+        private Integer changedByUserId;
+        private String applicability;
+        private String tenantRiskRating;
+        private Boolean hasGap;
+        private String changeReason;
+    }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)

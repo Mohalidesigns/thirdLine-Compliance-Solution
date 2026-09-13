@@ -319,6 +319,8 @@ export const api = {
       getBackfillStatus: (regId, backfillId) => request(`/platform/regulators/${regId}/backfill/${backfillId}`),
       testScraper: (id, dryRun) => request(`/platform/regulators/${id}/test-scraper?dryRun=${dryRun}`, { method: 'POST' }),
       getPipelineStats: (id) => request(`/platform/regulators/${id}/pipeline-stats`),
+      disable: (id) => request(`/platform/regulators/${id}/disable`, { method: 'PUT' }),
+      bulkDisable: (ids) => request('/platform/regulators/bulk-disable', { method: 'PUT', body: JSON.stringify(ids) }),
     },
     jobs: {
       list: (params = '') => request(`/admin/jobs${params ? '?' + params : ''}`),
@@ -422,6 +424,22 @@ export const api = {
       },
       stats: (signal) => request('/admin/obligations/stats', { signal }),
       get: (id, signal) => request(`/admin/obligations/${id}`, { signal }),
+      controls: (id) => request(`/admin/obligations/${id}/controls`),
+      evidence: (id) => request(`/admin/obligations/${id}/evidence`),
+      evidenceDownload: (id) => request(`/admin/obligations/${id}/evidence/${id}/download`),
+      history: (id) => request(`/admin/obligations/${id}/history`),
+      pdf: (id) => request(`/admin/obligations/${id}/pdf`),
+    },
+    controls: {
+      list: () => request('/admin/controls'),
+      detail: (id) => request(`/admin/controls/${id}/detail`),
+    },
+    returns: {
+      list: () => request('/admin/regulatory-returns'),
+    },
+    evidence: {
+      list: () => request('/admin/evidence'),
+      download: (id) => request(`/admin/evidence/${id}/download`),
     },
   },
   license: {

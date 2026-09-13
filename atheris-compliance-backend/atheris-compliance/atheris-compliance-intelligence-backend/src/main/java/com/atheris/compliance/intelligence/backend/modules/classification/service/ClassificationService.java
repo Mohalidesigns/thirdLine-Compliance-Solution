@@ -59,6 +59,7 @@ public class ClassificationService {
 
     private static final String PROMPT = """
         You are a Nigerian financial regulatory compliance expert.
+        CRITICAL: NEVER hallucinate, NEVER invent, NEVER guess, NEVER paraphrase description verbatim. Copy verbatim EXACTLY from source text. If field not in document, return null. Fail-closed. Do not add laws/markers not present.
         Analyse the regulatory document text and return ONLY valid JSON with these fields:
         {
           "act_name": string | null (parent Act/Regulation name, e.g. "Banks and Other Financial Institutions Act 2020", "CBN Circular on Cybersecurity"),

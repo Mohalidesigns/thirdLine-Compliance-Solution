@@ -323,30 +323,27 @@ public class RegulationSeedService {
         List<ObligationPoint> result = new ArrayList<>();
         int sort = parentSortOrder;
         for (Map<String, Object> p : points) {
-            String content = (String) p.get("text");
+            String pt = (String) p.get("pointType");
+            if (pt == null || pt.isBlank()) pt = "verbatim";
+            String raw = (String) p.get("text");
+            if (raw == null) raw = (String) p.get("content");
             int level = p.get("level") != null ? ((Number) p.get("level")).intValue() : 0;
             String marker = (String) p.get("marker");
-            ObligationPoint verbatim = ObligationPoint.builder()
+            ObligationPoint point = ObligationPoint.builder()
                 .obligationId(obligationId)
-                .pointType("verbatim")
+                .pointType(pt)
                 .marker(marker)
-                .content(content)
+                .content(raw)
                 .level(level)
                 .sortOrder(++sort)
                 .build();
-            result.add(verbatim);
-            ObligationPoint interpreted = ObligationPoint.builder()
-                .obligationId(obligationId)
-                .pointType("interpreted")
-                .marker(marker)
-                .content(content)
-                .level(level)
-                .sortOrder(++sort)
-                .build();
-            result.add(interpreted);
+            result.add(point);
             List<Map<String, Object>> children = (List<Map<String, Object>>) p.get("children");
             if (children != null && !children.isEmpty()) {
-                result.addAll(convertPoints(children, obligationId, sort));
+                List<ObligationPoint> childPoints = convertPoints(children, obligationId, sort);
+                result.addAll(childPoints);
+                // advance sort to last child's sortOrder
+                if (!childPoints.isEmpty()) sort = childPoints.get(childPoints.size() - 1).getSortOrder();
             }
         }
         return result;

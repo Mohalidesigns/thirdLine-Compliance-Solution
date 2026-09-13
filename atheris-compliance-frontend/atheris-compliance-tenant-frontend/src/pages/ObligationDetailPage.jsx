@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Paper, Snackbar, Tooltip, Drawer, TextField, Divider,
@@ -106,9 +107,13 @@ export default function ObligationDetailPage() {
   const { id } = useParams();
   const obligationId = Number(id);
 
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
+  const { data: selected, isLoading: loading, error } = useQuery({
+    queryKey: ['obligation', obligationId],
+    queryFn: ({ signal }) => api.obligations.obligationDetail(obligationId, signal),
+    enabled: !!obligationId,
+  });
+
   const [activeModal, setActiveModal] = useState(null);
   const [drawerSection, setDrawerSection] = useState(null);
   const [drawerSearch, setDrawerSearch] = useState('');
@@ -118,23 +123,11 @@ export default function ObligationDetailPage() {
   const [snack, setSnack] = useState(null);
   const notify = (severity, message) => setSnack({ severity, message });
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
-    api.obligations.obligationDetail(obligationId)
-      .then(d => { if (active) setSelected(d); })
-      .catch(e => { if (active) setError(e.message || 'Failed to load obligation detail.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [obligationId]);
-
-  async function reload() {
-    try { const d = await api.obligations.obligationDetail(obligationId); setSelected(d); } catch {}
-  }
-
   function onSaved(message) {
-    return async () => { await reload(); notify('success', message); };
+    return async () => {
+      await queryClient.invalidateQueries({ queryKey: ['obligation', obligationId] });
+      notify('success', message);
+    };
   }
 
   async function handleDownloadEvidence(ev) {
@@ -196,7 +189,7 @@ export default function ObligationDetailPage() {
   if (error && !selected) return (
     <Box>
       <IconButton onClick={() => navigate('/obligations')} sx={{ mb: 2 }}><ArrowBack /></IconButton>
-      <Alert severity="error">{error}</Alert>
+      <Alert severity="error">{error?.message || 'Failed to load obligation detail.'}</Alert>
     </Box>
   );
 
@@ -210,7 +203,7 @@ export default function ObligationDetailPage() {
           sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>PDF</Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error?.message}</Alert>}
 
       {selected && (
         <Box sx={{ maxWidth: 900 }}>

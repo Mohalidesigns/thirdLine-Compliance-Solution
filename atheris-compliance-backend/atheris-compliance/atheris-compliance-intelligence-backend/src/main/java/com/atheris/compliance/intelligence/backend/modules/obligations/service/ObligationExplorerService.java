@@ -7,8 +7,10 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.dto.Oblig
 import com.atheris.compliance.intelligence.backend.modules.obligations.dto.ObligationExplorerStats;
 import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
@@ -23,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,7 @@ public class ObligationExplorerService {
     private final RegulatorRepository regulatorRepo;
     private final SanctionsRepository sanctionsRepo;
     private final RegulatoryReturnRepository returnRepo;
+    private final ComplianceControlRepository controlRepo;
 
     public Page<ObligationExplorerItem> list(
             String q,
@@ -172,6 +176,21 @@ public class ObligationExplorerService {
         List<ObligationExplorerDetail.SanctionInfo> sanctions = resolveSanctions(ob, inst);
         List<ObligationExplorerDetail.ReturnInfo> returns = resolveReturns(ob);
 
+        boolean hasGap = ob.getControlOwner() == null || ob.getControlOwner().isBlank();
+        String gapDescription = hasGap ? ob.getRiskDescription() : null;
+        String applicability = ob.getInherentRiskRating() != null ? "applicable" : null;
+        String applicabilityReasoning = ob.getInherentRiskRating() != null
+                ? "Obligation has been assessed with inherent risk rating: " + ob.getInherentRiskRating()
+                : null;
+        String classifiedByName = ob.getControlOwner();
+        Instant classifiedAt = ob.getCreatedAt();
+        String assignedOwnerName = ob.getControlOwner();
+        String assignedDepartment = ob.getAreaOfFocus();
+
+        List<ObligationExplorerDetail.ControlInfo> linkedControls = resolveControls(ob);
+        List<ObligationExplorerDetail.EvidenceInfo> evidence = List.of();
+        List<ObligationExplorerDetail.HistoryEntry> history = List.of();
+
         return ObligationExplorerDetail.builder()
                 .obligationId(ob.getObligationId())
                 .title(ob.getTitle())
@@ -187,6 +206,17 @@ public class ObligationExplorerService {
                 .inherentLikelihood(ob.getInherentLikelihood())
                 .inherentImpact(ob.getInherentImpact())
                 .controlOwner(ob.getControlOwner())
+                .hasGap(hasGap)
+                .gapDescription(gapDescription)
+                .applicability(applicability)
+                .applicabilityReasoning(applicabilityReasoning)
+                .classifiedByName(classifiedByName)
+                .classifiedAt(classifiedAt)
+                .assignedOwnerName(assignedOwnerName)
+                .assignedDepartment(assignedDepartment)
+                .linkedControls(linkedControls)
+                .evidence(evidence)
+                .history(history)
                 .regulatorAbbreviation(regulatorAbbr)
                 .regulatorName(regulatorName)
                 .regulatorId(resolvedRegulatorId)
@@ -377,6 +407,25 @@ public class ObligationExplorerService {
                         .responsiblePerson(r.getResponsiblePerson())
                         .frequency(r.getFrequency())
                         .deadline(r.getDeadline())
+                        .build())
+                .toList();
+    }
+
+    private List<ObligationExplorerDetail.ControlInfo> resolveControls(ObligationMapping ob) {
+        if (ob.getObligationId() == null) return List.of();
+        List<ComplianceControl> controls = controlRepo.findByObligationId(ob.getObligationId());
+        if (controls.isEmpty()) return List.of();
+        return controls.stream()
+                .map(cc -> ObligationExplorerDetail.ControlInfo.builder()
+                        .controlId(cc.getComplianceControlId())
+                        .name(cc.getControlNumber())
+                        .description(cc.getRegulatoryRequirement())
+                        .controlType(cc.getControlType())
+                        .controlOwnerName(cc.getOwnerName())
+                        .testFrequency(cc.getFrequency())
+                        .status(cc.getStatus())
+                        .theme(cc.getTheme())
+                        .controlNumber(cc.getControlNumber())
                         .build())
                 .toList();
     }
