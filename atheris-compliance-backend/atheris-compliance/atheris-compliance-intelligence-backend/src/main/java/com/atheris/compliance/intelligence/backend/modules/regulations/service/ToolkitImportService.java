@@ -7,10 +7,12 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulationAlias;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationAliasRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
@@ -59,6 +61,7 @@ public class ToolkitImportService {
     private final SanctionsRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ComplianceControlRepository complianceControls;
+    private final ObligationControlRepository obligationControlRepo;
     private final TransactionTemplate transactionTemplate;
     private final AiClient aiClient;
     private final ModelHealthTracker healthTracker;
@@ -1431,22 +1434,15 @@ public class ToolkitImportService {
                 }
             }
 
-            // Match obligation by section reference
-            Long obligationId = null;
+            List<Long> matched = List.of();
             if (actId != null && regRequirement != null) {
                 String sectionRef = extractSectionRef(regRequirement);
                 if (sectionRef != null) {
-                    obligationId = obligations.findByRegulationId(actId).stream()
-                        .filter(o -> o.getSpecificSectionReference() != null
-                            && sectionRef.toLowerCase(Locale.ROOT)
-                                .contains(o.getSpecificSectionReference().toLowerCase(Locale.ROOT)))
-                        .findFirst()
-                        .map(ObligationMapping::getObligationId)
-                        .orElse(null);
+                    matched = matchObligationsBySection(actId, sectionRef);
                 }
             }
 
-            complianceControls.save(ComplianceControl.builder()
+            ComplianceControl saved = complianceControls.save(ComplianceControl.builder()
                 .controlNumber(controlNumber)
                 .theme(currentTheme)
                 .regulatoryRequirement(regRequirement)
@@ -1461,8 +1457,14 @@ public class ToolkitImportService {
                 .controlEffectivenessMeasure(effectivenessMeasure)
                 .actId(actId)
                 .actName(extractActName(regRequirement))
-                .obligationId(obligationId)
                 .build());
+            if (!matched.isEmpty()) {
+                List<ObligationControl> links = matched.stream()
+                        .filter(id -> !obligationControlRepo.existsByObligationIdAndComplianceControlId(id, saved.getComplianceControlId()))
+                        .map(id -> ObligationControl.builder().obligationId(id).complianceControlId(saved.getComplianceControlId()).build())
+                        .toList();
+                if (!links.isEmpty()) obligationControlRepo.saveAll(links);
+            }
             controlCount++;
         }
         log.info("[ToolkitImport] CMP controls imported: {}", controlCount);
@@ -1574,8 +1576,6 @@ public class ToolkitImportService {
 
                 // Match ALL obligations by section reference for this regulation
                 List<Long> matchedObligationIds = matchObligationsBySection(actId, sectionRef);
-                String linkedIds = matchedObligationIds.isEmpty() ? null
-                    : matchedObligationIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 
                 // Residual risk
                 String likelihoodResidual = normalizeRiskLabel(get(r, cLikelihoodResidual));
@@ -1587,7 +1587,7 @@ public class ToolkitImportService {
                 if (controlText != null && !controlText.isBlank()) {
                     String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "C" + String.format("%03d", cmpCount + 1);
                     if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
+                        ComplianceControl saved = complianceControls.save(ComplianceControl.builder()
                             .controlNumber(ctrlNum)
                             .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
                             .regulatoryRequirement(source)
@@ -1601,9 +1601,15 @@ public class ToolkitImportService {
                             .ownerName(get(r, cControlOwner))
                             .actId(actId)
                             .actName(source)
-                            .linkedObligationIds(linkedIds)
                             .status("Open")
                             .build());
+                        if (!matchedObligationIds.isEmpty()) {
+                            List<ObligationControl> links = matchedObligationIds.stream()
+                                    .filter(id -> !obligationControlRepo.existsByObligationIdAndComplianceControlId(id, saved.getComplianceControlId()))
+                                    .map(id -> ObligationControl.builder().obligationId(id).complianceControlId(saved.getComplianceControlId()).build())
+                                    .toList();
+                            if (!links.isEmpty()) obligationControlRepo.saveAll(links);
+                        }
                         cmpCount++;
                     }
                 }
@@ -1613,7 +1619,7 @@ public class ToolkitImportService {
                 if (additionalText != null && !additionalText.isBlank()) {
                     String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "A" + String.format("%03d", cmpCount + 1);
                     if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
+                        ComplianceControl savedAdditional = complianceControls.save(ComplianceControl.builder()
                             .controlNumber(ctrlNum)
                             .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
                             .regulatoryRequirement(source)
@@ -1627,9 +1633,15 @@ public class ToolkitImportService {
                             .ownerName(get(r, cControlOwner))
                             .actId(actId)
                             .actName(source)
-                            .linkedObligationIds(linkedIds)
                             .status("Open")
                             .build());
+                        if (!matchedObligationIds.isEmpty()) {
+                            List<ObligationControl> links = matchedObligationIds.stream()
+                                    .filter(id -> !obligationControlRepo.existsByObligationIdAndComplianceControlId(id, savedAdditional.getComplianceControlId()))
+                                    .map(id -> ObligationControl.builder().obligationId(id).complianceControlId(savedAdditional.getComplianceControlId()).build())
+                                    .toList();
+                            if (!links.isEmpty()) obligationControlRepo.saveAll(links);
+                        }
                         cmpCount++;
                     }
                 }

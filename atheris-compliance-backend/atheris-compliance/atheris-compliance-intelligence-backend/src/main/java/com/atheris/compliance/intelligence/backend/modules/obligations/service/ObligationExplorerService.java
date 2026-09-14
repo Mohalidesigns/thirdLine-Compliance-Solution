@@ -8,9 +8,11 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.dto.Oblig
 import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
@@ -39,6 +41,7 @@ public class ObligationExplorerService {
     private final SanctionsRepository sanctionsRepo;
     private final RegulatoryReturnRepository returnRepo;
     private final ComplianceControlRepository controlRepo;
+    private final ObligationControlRepository obligationControlRepo;
 
     public Page<ObligationExplorerItem> list(
             String q,
@@ -413,7 +416,10 @@ public class ObligationExplorerService {
 
     private List<ObligationExplorerDetail.ControlInfo> resolveControls(ObligationMapping ob) {
         if (ob.getObligationId() == null) return List.of();
-        List<ComplianceControl> controls = controlRepo.findByObligationId(ob.getObligationId());
+        List<ObligationControl> links = obligationControlRepo.findByObligationId(ob.getObligationId());
+        if (links.isEmpty()) return List.of();
+        List<Long> ids = links.stream().map(ObligationControl::getComplianceControlId).toList();
+        List<ComplianceControl> controls = controlRepo.findByComplianceControlIdIn(ids);
         if (controls.isEmpty()) return List.of();
         return controls.stream()
                 .map(cc -> ObligationExplorerDetail.ControlInfo.builder()

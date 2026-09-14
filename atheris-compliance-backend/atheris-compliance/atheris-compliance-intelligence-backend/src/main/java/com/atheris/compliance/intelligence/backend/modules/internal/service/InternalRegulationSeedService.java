@@ -6,8 +6,10 @@ import com.atheris.compliance.intelligence.backend.modules.internal.dto.Internal
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
-import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.common.Constants;
@@ -20,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class InternalRegulationSeedService {
@@ -30,6 +33,7 @@ public class InternalRegulationSeedService {
     private final SanctionsRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ComplianceControlRepository complianceControls;
+    private final ObligationControlRepository obligationControlRepo;
     private final RegulatorRepository regulatorRepo;
 
     public List<InternalRegulationSeed> seedForRegulators(List<Integer> regulatorIds) {
@@ -130,28 +134,34 @@ public class InternalRegulationSeedService {
                         .build())
                     .toList())
                 .controls(complianceControls.findByActId(r.getRegulationId()).stream()
-                    .map(c -> InternalRegulationSeed.ControlItem.builder()
-                        .controlNumber(c.getControlNumber())
-                        .theme(c.getTheme())
-                        .regulatoryRequirement(c.getRegulatoryRequirement())
-                        .complianceArea(c.getComplianceArea())
-                        .riskLevel(c.getRiskLevel())
-                        .complianceControl(c.getComplianceControl())
-                        .monitoringActivity(c.getMonitoringActivity())
-                        .frequency(c.getFrequency())
-                        .responsibleOfficer(c.getResponsibleOfficer())
-                        .dueDate(c.getDueDate())
-                        .status(c.getStatus())
-                        .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
-                        .actName(c.getActName())
-                        .obligationId(c.getObligationId())
-                        .controlType(c.getControlType())
-                        .residualLikelihood(c.getResidualLikelihood())
-                        .residualImpact(c.getResidualImpact())
-                        .residualRiskRating(c.getResidualRiskRating())
-                        .ownerName(c.getOwnerName())
-                        .linkedObligationIds(c.getLinkedObligationIds())
-                        .build())
+                    .map(c -> {
+                        List<Long> linkedIds = obligationControlRepo.findByComplianceControlId(c.getComplianceControlId())
+                                .stream().map(ObligationControl::getObligationId).toList();
+                        Long firstId = linkedIds.isEmpty() ? null : linkedIds.get(0);
+                        String csv = linkedIds.isEmpty() ? null : linkedIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+                        return InternalRegulationSeed.ControlItem.builder()
+                                .controlNumber(c.getControlNumber())
+                                .theme(c.getTheme())
+                                .regulatoryRequirement(c.getRegulatoryRequirement())
+                                .complianceArea(c.getComplianceArea())
+                                .riskLevel(c.getRiskLevel())
+                                .complianceControl(c.getComplianceControl())
+                                .monitoringActivity(c.getMonitoringActivity())
+                                .frequency(c.getFrequency())
+                                .responsibleOfficer(c.getResponsibleOfficer())
+                                .dueDate(c.getDueDate())
+                                .status(c.getStatus())
+                                .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+                                .actName(c.getActName())
+                                .obligationId(firstId)
+                                .controlType(c.getControlType())
+                                .residualLikelihood(c.getResidualLikelihood())
+                                .residualImpact(c.getResidualImpact())
+                                .residualRiskRating(c.getResidualRiskRating())
+                                .ownerName(c.getOwnerName())
+                                .linkedObligationIds(csv)
+                                .build();
+                    })
                     .toList())
                 .build());
         }

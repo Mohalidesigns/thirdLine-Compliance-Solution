@@ -14,13 +14,11 @@ CREATE TABLE IF NOT EXISTS compliance_controls (
     control_effectiveness_measure TEXT,
     act_id                       BIGINT REFERENCES acts(act_id),
     act_name                     VARCHAR(500),
-    obligation_id                BIGINT REFERENCES obligation_mappings(obligation_id),
     control_type                 VARCHAR(50) DEFAULT 'PRIMARY',
     residual_likelihood          VARCHAR(50),
     residual_impact              VARCHAR(50),
     residual_risk_rating         VARCHAR(50),
     owner_name                   TEXT,
-    linked_obligation_ids        TEXT,
     created_at                   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

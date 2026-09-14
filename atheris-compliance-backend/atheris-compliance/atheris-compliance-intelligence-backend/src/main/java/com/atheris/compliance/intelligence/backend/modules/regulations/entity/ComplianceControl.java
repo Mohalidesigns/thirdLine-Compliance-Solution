@@ -55,9 +55,6 @@ public class ComplianceControl {
     @Column(name = "act_name", length = 500)
     private String actName;
 
-    @Column(name = "obligation_id")
-    private Long obligationId;
-
     @Column(length = 50)
     @Builder.Default
     private String controlType = "PRIMARY";
@@ -73,9 +70,6 @@ public class ComplianceControl {
 
     @Column(columnDefinition = "text")
     private String ownerName;
-
-    @Column(columnDefinition = "text")
-    private String linkedObligationIds;
 
     @Builder.Default
     private Instant createdAt = Instant.now();
