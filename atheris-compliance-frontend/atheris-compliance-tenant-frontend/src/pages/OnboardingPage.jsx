@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup,
-  FormControl, FormLabel, FormControlLabel,
+  FormControl, FormLabel, FormControlLabel, LinearProgress,
 } from '@mui/material';
 import {
-  VpnKey, ElectricBolt,
+  VpnKey, ElectricBolt, CheckCircle,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
@@ -23,6 +23,11 @@ export default function OnboardingPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedCount, setSeedCount] = useState(0);
+  const [seedTotal, setSeedTotal] = useState(0);
+  const seedTimerRef = useRef(null);
+  const seedTimeoutRef = useRef(null);
 
   const [licenseKey, setLicenseKey] = useState('');
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
@@ -71,6 +76,38 @@ export default function OnboardingPage() {
     }
   }
 
+  const pollSeedStatus = useCallback(async () => {
+    try {
+      const status = await api.onboarding.seedStatus({ signal: AbortSignal.timeout(5000) });
+      setSeedCount(status.obligationCount || 0);
+      if (status.isSeeded) {
+        if (seedTimerRef.current) clearInterval(seedTimerRef.current);
+        if (seedTimeoutRef.current) clearTimeout(seedTimeoutRef.current);
+        setSeeding(false);
+        setCompleted(true);
+        setTimeout(() => navigate('/login', { replace: true }), 1500);
+      }
+    } catch {
+      // ignore poll errors, keep polling
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!seeding) return;
+    seedTimerRef.current = setInterval(pollSeedStatus, 3000);
+    pollSeedStatus();
+    seedTimeoutRef.current = setTimeout(() => {
+      if (seedTimerRef.current) clearInterval(seedTimerRef.current);
+      setSeeding(false);
+      setCompleted(true);
+      setTimeout(() => navigate('/login', { replace: true }), 1500);
+    }, 120000);
+    return () => {
+      if (seedTimerRef.current) clearInterval(seedTimerRef.current);
+      if (seedTimeoutRef.current) clearTimeout(seedTimeoutRef.current);
+    };
+  }, [seeding, pollSeedStatus, navigate]);
+
   async function submit(path, data, nextStep) {
     setSubmitting(true);
     setError('');
@@ -78,8 +115,7 @@ export default function OnboardingPage() {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
       if (nextStep === 6 && resp.onboardingCompleted) {
-        setCompleted(true);
-        setTimeout(() => navigate('/login', { replace: true }), 500);
+        setSeeding(true);
       }
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -193,13 +229,31 @@ export default function OnboardingPage() {
             </Stepper>
 
             {error && <Alert severity="error" sx={{ mb: 2, fontSize: '0.85rem' }}>{error}</Alert>}
+            {seeding && (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress size={48} sx={{ mb: 2 }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  Setting up your workspace
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Seeding obligations from the compliance toolkit...
+                </Typography>
+                <LinearProgress variant="determinate" value={seedCount > 0 ? 80 : 20} sx={{ mb: 1, borderRadius: 1 }} />
+                <Typography variant="caption" color="text.secondary">
+                  {seedCount > 0 ? `${seedCount} obligations loaded` : 'Preparing...'}
+                </Typography>
+              </Box>
+            )}
             {completed && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                Onboarding complete! Redirecting to login...
-              </Alert>
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Onboarding complete! Redirecting to login...
+                </Alert>
+              </Box>
             )}
 
-            {getActiveStep() === 0 && (
+            {!seeding && !completed && getActiveStep() === 0 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   Enter the license key provided by your Atheris administrator
@@ -219,7 +273,7 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {getActiveStep() === 1 && (
+            {!seeding && !completed && getActiveStep() === 1 && (
               <Box>
                 <TextField fullWidth size="small" label="Legal Name" required
                   value={institution.legalName}
@@ -250,7 +304,7 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {getActiveStep() === 2 && (
+            {!seeding && !completed && getActiveStep() === 2 && (
               <Box>
                 <FormControl sx={{ mb: 2 }}>
                   <FormLabel>Authentication Type</FormLabel>
@@ -295,7 +349,7 @@ export default function OnboardingPage() {
               </Box>
             )}
 
-            {getActiveStep() === 3 && (
+            {!seeding && !completed && getActiveStep() === 3 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                   You're all set! Review your selections and complete setup.

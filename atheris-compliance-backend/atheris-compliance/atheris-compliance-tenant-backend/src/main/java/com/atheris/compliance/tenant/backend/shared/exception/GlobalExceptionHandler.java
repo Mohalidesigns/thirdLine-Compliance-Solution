@@ -53,6 +53,12 @@ public class GlobalExceptionHandler {
             .body(Map.of("error", "bad_request", "message", e.getMessage()));
     }
 
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, String>> handleRuntime(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(Map.of("error", "unauthorized", "message", e.getMessage()));
+    }
+
     @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
     public ResponseEntity<Void> handleClientDisconnected(Exception e) {
         log.debug("Client disconnected during response write: {}", e.getMessage());

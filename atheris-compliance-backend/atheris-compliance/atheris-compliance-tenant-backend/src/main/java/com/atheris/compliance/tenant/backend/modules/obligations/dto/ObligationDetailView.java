@@ -62,6 +62,7 @@ public class ObligationDetailView {
     private List<EvidenceItem> evidence;
     private List<HistoryItem> history;
     private List<SanctionItem> sanctions;
+    private List<PointItem> points;
 
     @Data @Builder
     public static class SanctionItem {
@@ -125,5 +126,16 @@ public class ObligationDetailView {
         private Integer changedByUserId;
         private String changedByName;
         private Instant changedAt;
+    }
+
+    @Data @Builder
+    public static class PointItem {
+        private Long id;
+        private Long parentId;
+        private Integer sortOrder;
+        private String marker;
+        private Integer level;
+        private String content;
+        private String pointType;
     }
 }

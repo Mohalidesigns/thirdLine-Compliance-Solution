@@ -16,10 +16,15 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.SanctionsPenalty;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.BatchPointsResponse;
+import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
+import com.atheris.compliance.intelligence.backend.shared.ai.ModelHealthTracker;
 import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.atheris.compliance.common.Constants;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -51,6 +60,9 @@ public class ToolkitImportService {
     private final RegulatoryReturnRepository returns;
     private final ComplianceControlRepository complianceControls;
     private final TransactionTemplate transactionTemplate;
+    private final AiClient aiClient;
+    private final ModelHealthTracker healthTracker;
+    private final ObjectMapper mapper;
 
     private static final List<String> CRMP_SECTIONS = List.of(
             "conduct_risk", "corporate_governance", "data_protection",
@@ -80,7 +92,37 @@ public class ToolkitImportService {
     private int returnCount = 0;
     private int controlCount = 0;
 
+    @Value("${atheris.points.batch-size:25}")
+    private int pointsBatchSize;
+
+    @Value("${atheris.points.delay-ms:2000}")
+    private long pointsDelayMs;
+
+    @Value("${atheris.points.concurrency:5}")
+    private int pointsConcurrency;
+
+    @Value("${atheris.points.stagger-ms:500}")
+    private long pointsStaggerMs;
+
+    @Value("${atheris.points.retry-attempts:3}")
+    private int pointsRetryAttempts;
+
+    @Value("${atheris.points.retry-delays-ms:2000,5000}")
+    private List<Long> pointsRetryDelays;
+
     private static final Pattern CELL_SPLIT = Pattern.compile("\\|");
+
+    private static final String POINTS_BATCH_PROMPT = """
+        You are a Nigerian financial regulatory compliance expert.
+        Given batch of obligations (ID | Title | Desc | Statement), split each into points.
+
+        Return ONLY valid JSON: {"obligations":{"122":{"verbatim":[{"marker":"a","level":1,"children":[]}],"interpreted":[{"marker":"1","text":"plain...","level":0,"children":[]}]}}}
+
+        CRITICAL: NEVER hallucinate, NEVER invent, NEVER guess. verbatim = markers/levels/children ONLY, NEVER text. interpreted = plain_english_statement only. NEVER invent markers/text not in input. If Desc has (a)-(d), return 4 verbatim items. If not in input, return empty. Fail-closed.
+        Rules: Keys are ID numbers only. Include ALL IDs. marker without parentheses. level 0 top,1 sub,2 sub-sub. No preamble. Pure JSON only.
+
+        %s
+        """;
 
     public Map<String, Object> importToolkit() {
         unmapped.clear();
@@ -142,6 +184,260 @@ public class ToolkitImportService {
             "regulators", regulatorCount, "acts", actCount,
             "instruments", instrumentCount, "obligations", obligationCount,
             "sanctions", sanctionCount, "returns", returnCount, "controls", controlCount);
+    }
+
+    // ── Inline LLM point generation for toolkit obligations (parallel batch processing) ──
+
+    public void generatePointsForToolkit() {
+        List<ObligationMapping> unmapped = obligations.findByPointsEmpty();
+        if (unmapped.isEmpty()) {
+            log.info("[PointsBatch] All toolkit obligations already have points");
+            return;
+        }
+        log.info("[PointsBatch] Generating LLM points for {} toolkit obligations (batch={}, concurrency={}, stagger={}ms)",
+            unmapped.size(), pointsBatchSize, pointsConcurrency, pointsStaggerMs);
+
+        int totalBatches = (int) Math.ceil((double) unmapped.size() / pointsBatchSize);
+        AtomicInteger processed = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        Semaphore semaphore = new Semaphore(pointsConcurrency);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+                if (healthTracker != null && healthTracker.getAvailableModels(List.of("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")).isEmpty()) {
+                    log.warn("[PointsBatch] Cooldown active — aborting remaining {}/{} batches, will retry in 15m via scheduler", totalBatches - batchIdx, totalBatches);
+                    break;
+                }
+                int from = batchIdx * pointsBatchSize;
+                int to = Math.min(from + pointsBatchSize, unmapped.size());
+                List<ObligationMapping> batch = unmapped.subList(from, to);
+                int batchNum = batchIdx + 1;
+
+                try {
+                    semaphore.acquire();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[PointsBatch] Interrupted while waiting for semaphore, aborting remaining batches");
+                    break;
+                }
+
+                futures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        processBatchWithRetry(batch, batchNum, totalBatches, processed, failed);
+                    } finally {
+                        semaphore.release();
+                    }
+                }, executor));
+
+                if (batchIdx < totalBatches - 1) {
+                    try { Thread.sleep(pointsStaggerMs); } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        }
+
+        log.info("[PointsBatch] Complete: {} processed, {} failed out of {}", processed.get(), failed.get(), unmapped.size());
+    }
+
+    private void processBatchWithRetry(List<ObligationMapping> batch, int batchNum, int totalBatches,
+                                       AtomicInteger processed, AtomicInteger failed) {
+        StringBuilder sb = new StringBuilder();
+        for (ObligationMapping ob : batch) {
+            sb.append(String.format("ID %d | Title: %s | Desc: %s | Statement: %s\n",
+                ob.getObligationId(),
+                ob.getTitle() != null ? ob.getTitle() : "",
+                ob.getDescription() != null ? ob.getDescription() : "",
+                ob.getPlainEnglishStatement() != null ? ob.getPlainEnglishStatement() : ""));
+        }
+        String prompt = POINTS_BATCH_PROMPT.formatted(sb);
+
+        for (int attempt = 1; attempt <= pointsRetryAttempts; attempt++) {
+            try {
+                BatchPointsResponse batchResponse = aiClient.completeEntity(prompt, BatchPointsResponse.class);
+                java.util.Map<String, BatchPointsResponse.ObligationPoints> batchResult = batchResponse.getObligations();
+                if (batchResult == null) {
+                    log.warn("[PointsBatch] Batch {}/{} attempt {} returned null obligations map", batchNum, totalBatches, attempt);
+                    if (attempt < pointsRetryAttempts) {
+                        sleepQuietly(pointsRetryDelays.get(Math.min(attempt - 1, pointsRetryDelays.size() - 1)));
+                    }
+                    continue;
+                }
+                int saved = saveBatchResults(batch, batchNum, totalBatches, batchResult);
+                processed.addAndGet(saved);
+                failed.addAndGet(batch.size() - saved);
+                log.info("[PointsBatch] Batch {}/{} done ({} saved, {} failed, attempt {})", batchNum, totalBatches, saved, batch.size() - saved, attempt);
+                return;
+            } catch (Throwable e) {
+                if (e.getMessage() != null && e.getMessage().contains("All AI models inactive")) {
+                    log.warn("[PointsBatch] Batch {}/{} cooldown active, skipping retries", batchNum, totalBatches);
+                    break;
+                }
+                log.warn("[PointsBatch] Batch {}/{} attempt {} failed: {}", batchNum, totalBatches, attempt, e.getMessage());
+                if (attempt < pointsRetryAttempts) {
+                    long delay = pointsRetryDelays.get(Math.min(attempt - 1, pointsRetryDelays.size() - 1));
+                    log.info("[PointsBatch] Retrying batch {} in {}ms", batchNum, delay);
+                    sleepQuietly(delay);
+                }
+            }
+        }
+        failed.addAndGet(batch.size());
+        log.warn("[PointsBatch] Batch {}/{} exhausted all {} attempts, {} obligations marked as failed",
+            batchNum, totalBatches, pointsRetryAttempts, batch.size());
+    }
+
+    private int saveBatchResults(List<ObligationMapping> batch, int batchNum, int totalBatches,
+                                 java.util.Map<String, BatchPointsResponse.ObligationPoints> batchResult) {
+        int saved = 0;
+        for (ObligationMapping ob : batch) {
+            String key = String.valueOf(ob.getObligationId());
+            BatchPointsResponse.ObligationPoints op = batchResult.get(key);
+            if (op != null) {
+                List<Map<String, Object>> mapped = new java.util.ArrayList<>();
+                if (op.getVerbatim() != null) {
+                    for (BatchPointsResponse.PointItem p : op.getVerbatim()) {
+                        String exact = extractExactSpan(ob.getDescription(), p.getMarker(), p.getLevel());
+                        if (exact == null) {
+                            log.warn("[PointsBatch] Discard verbatim marker={} not found in description for obligation {}", p.getMarker(), ob.getObligationId());
+                            continue;
+                        }
+                        exact = stripMarkerPrefix(exact, p.getMarker());
+                        if (exact == null || exact.isBlank()) {
+                            log.warn("[PointsBatch] Discard verbatim marker={} empty after stripping for obligation {}", p.getMarker(), ob.getObligationId());
+                            continue;
+                        }
+                        mapped.add(toPointMapExact(p.getMarker(), exact, p.getLevel(), p.getChildren(), "verbatim"));
+                    }
+                }
+                if (op.getInterpreted() != null) {
+                    for (BatchPointsResponse.PointItem p : op.getInterpreted()) {
+                        // LLM sometimes echoes "(1) " prefix in interpreted text — strip to avoid double "(1) (1)"
+                        if (p.getText() != null) p.setText(stripMarkerPrefix(p.getText(), p.getMarker()));
+                        mapped.add(toPointMap(p, "interpreted"));
+                    }
+                }
+                transactionTemplate.execute(status -> {
+                    ob.setPoints(mapped);
+                    obligations.save(ob);
+                    return null;
+                });
+                saved++;
+            } else {
+                log.debug("[PointsBatch] No points for obligation {} — keys: {}", ob.getObligationId(), batchResult.keySet());
+            }
+        }
+        return saved;
+    }
+
+    private Map<String, Object> toPointMap(BatchPointsResponse.PointItem p, String pointType) {
+        Map<String, Object> m = new java.util.HashMap<>();
+        String cleaned = stripMarkerPrefix(p.getText(), p.getMarker());
+        m.put("marker", p.getMarker());
+        m.put("text", cleaned);
+        m.put("content", cleaned);
+        m.put("pointType", pointType);
+        m.put("level", p.getLevel() != null ? p.getLevel() : 0);
+        m.put("children", p.getChildren() != null
+            ? p.getChildren().stream().map(c -> toPointMap(c, pointType)).toList()
+            : java.util.Collections.emptyList());
+        return m;
+    }
+
+    private String extractExactSpan(String description, String marker, Integer level) {
+        if (description == null) return null;
+        if (marker == null) {
+            int idx = description.indexOf("(");
+            if (idx == -1) return description.trim();
+            return description.substring(0, idx).trim();
+        }
+        String needle = "(" + marker + ")";
+        int start = description.indexOf(needle);
+        if (start == -1) {
+            needle = marker;
+            start = description.indexOf(needle);
+            if (start == -1) return null;
+        }
+        int lvl = level != null ? level : 0;
+        int end = description.length();
+        for (int i = start + needle.length(); i < description.length() - 1; i++) {
+            if (description.charAt(i) != '(') continue;
+            int close = description.indexOf(')', i);
+            if (close == -1 || close - i > 6) continue;
+            String inner = description.substring(i + 1, close).trim();
+            if (inner.isEmpty() || !inner.matches("[a-zA-Z0-9]+")) continue;
+            Integer innerLevel = inferMarkerLevel(inner);
+            if (innerLevel == null) continue;
+            if (innerLevel <= lvl) {
+                end = i;
+                break;
+            }
+        }
+        String span = description.substring(start, end).trim();
+        if (span.isEmpty()) return null;
+        return span;
+    }
+
+    private Integer inferMarkerLevel(String inner) {
+        if (inner == null || inner.isBlank()) return null;
+        String s = inner.trim();
+        if (s.matches("\\d+")) return 0;
+        String low = s.toLowerCase(java.util.Locale.ROOT);
+        // roman set for level 2
+        if (low.matches("i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv")) return 2;
+        if (low.matches("[ivxlcdm]+")) return 2;
+        if (s.matches("[a-zA-Z]")) return 1;
+        return null;
+    }
+
+    private Map<String, Object> toPointMapExact(String marker, String exactText, Integer level, java.util.List<BatchPointsResponse.PointItem> children, String pointType) {
+        Map<String, Object> m = new java.util.HashMap<>();
+        String cleaned = stripMarkerPrefix(exactText, marker);
+        m.put("marker", marker);
+        m.put("text", cleaned);
+        m.put("content", cleaned);
+        m.put("pointType", pointType);
+        m.put("level", level != null ? level : 0);
+        m.put("children", children != null ? children.stream().map(c -> {
+            String childExact = extractExactSpan(exactText, c.getMarker(), c.getLevel());
+            if (childExact == null) {
+                childExact = c.getText() != null ? stripMarkerPrefix(c.getText(), c.getMarker()) : "";
+            } else {
+                childExact = stripMarkerPrefix(childExact, c.getMarker());
+            }
+            return toPointMapExact(c.getMarker(), childExact, c.getLevel(), c.getChildren(), pointType);
+        }).toList() : java.util.Collections.emptyList());
+        return m;
+    }
+
+    private String stripMarkerPrefix(String text, String marker) {
+        if (text == null || marker == null || marker.isBlank()) return text == null ? null : text.trim();
+        String out = text.replaceAll("^[\\s\\-\"]+", "");
+        String esc = java.util.regex.Pattern.quote(marker.trim());
+        // "(marker)" with optional spaces, case-insensitive
+        out = out.replaceFirst("(?i)^\\(\\s*" + esc + "\\s*\\)\\s*", "");
+        // plain "marker. " / "marker) " / "marker - " / "marker: "
+        out = out.replaceFirst("(?i)^" + esc + "[\\.\\)\\-\\:]?\\s+", "");
+        return out.trim();
+    }
+
+    private void sleepQuietly(long ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+
+    private static String truncate(String s, int max) {
+        if (s == null) return "";
+        return s.length() <= max ? s : s.substring(0, max) + "...";
+    }
+
+    static String stripQuotes(String s) {
+        if (s == null || s.length() < 2) return s;
+        if (s.startsWith("\"") && s.endsWith("\"")) return s.substring(1, s.length() - 1);
+        return s;
     }
 
     // ── Section parsing ──
@@ -315,8 +611,8 @@ public class ToolkitImportService {
             Long actId = findOrCreateAct(source, null);
             Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
-            String statement = TextCleaner.stripMarkdown(plain.trim());
-            String descriptionText = TextCleaner.stripMarkdown(get(r, cDesc).trim());
+            String statement = stripQuotes(TextCleaner.stripMarkdown(plain.trim()));
+            String descriptionText = stripQuotes(TextCleaner.stripMarkdown(get(r, cDesc).trim()));
             String sectionRef = shorten(get(r, cSection), 100);
             if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
                     actId, statement, sectionRef)) {

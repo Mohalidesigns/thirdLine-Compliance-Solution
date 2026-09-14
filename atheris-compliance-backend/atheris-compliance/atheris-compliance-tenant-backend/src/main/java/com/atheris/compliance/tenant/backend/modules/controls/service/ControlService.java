@@ -86,12 +86,14 @@ public class ControlService {
 
         List<ControlDetailResponse.LinkedObligation> obligations = Collections.emptyList();
         if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isEmpty()) {
-            obligations = c.getLinkedObligationIds().stream()
+            List<Long> distinctIds = c.getLinkedObligationIds().stream().distinct().toList();
+            obligations = distinctIds.stream()
                 .map(oid -> {
                     var o = obligationRepo.findById(oid).orElse(null);
                     if (o == null) return null;
                     return ControlDetailResponse.LinkedObligation.builder()
-                        .obligationId(o.getObligationId()).description(o.getDescription())
+                        .obligationId(o.getObligationId()).name(o.getName()).title(o.getTitle())
+                        .description(o.getDescription())
                         .instrumentTitle("Instrument " + o.getInstrumentId()).build();
                 })
                 .filter(Objects::nonNull)
@@ -158,7 +160,7 @@ public class ControlService {
             .controlOwnerId(req.getControlOwnerId())
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
             .testFrequency(req.getTestFrequency()).testFrequencyDays(req.getTestFrequencyDays())
-            .linkedObligationIds(req.getLinkedObligationIds())
+            .linkedObligationIds(req.getLinkedObligationIds() == null ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())))
             .inherentRisk(req.getInherentRisk()).residualRisk(req.getInherentRisk())
             .status("Active").createdByUserId(userId).build();
         Control saved = repo.save(c);
@@ -180,7 +182,7 @@ public class ControlService {
         }
         if (req.getTestFrequency() != null) c.setTestFrequency(req.getTestFrequency());
         if (req.getTestFrequencyDays() != null) c.setTestFrequencyDays(req.getTestFrequencyDays());
-        if (req.getLinkedObligationIds() != null) c.setLinkedObligationIds(req.getLinkedObligationIds());
+        if (req.getLinkedObligationIds() != null) c.setLinkedObligationIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())));
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());
             if (c.getResidualRisk() == null) c.setResidualRisk(req.getInherentRisk());

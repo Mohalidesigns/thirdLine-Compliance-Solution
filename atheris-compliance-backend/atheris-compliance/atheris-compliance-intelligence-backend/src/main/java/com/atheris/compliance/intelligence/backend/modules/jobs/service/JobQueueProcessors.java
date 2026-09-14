@@ -131,6 +131,12 @@ public class JobQueueProcessors {
                 jobQueue.markCompleted(job.getJobId());
                 log.info("Classifier job {} done for instrument {}", job.getJobId(), instrumentId);
             } catch (Throwable e) {
+                    if (e.getMessage() != null && e.getMessage().contains("All AI models inactive")) {
+                        log.info("[Classifier] Deferred for instrument {} — cooldown active, will retry on next tick", job.getSubjectId());
+                        em.clear();
+                        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                        break;
+                    }
                     log.error("Classifier job {} failed: {}", job.getJobId(), e.getMessage());
                     em.clear();
                     jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());

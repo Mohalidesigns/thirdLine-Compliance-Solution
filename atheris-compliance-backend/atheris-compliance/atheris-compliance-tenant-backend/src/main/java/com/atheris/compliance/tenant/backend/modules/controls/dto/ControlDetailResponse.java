@@ -45,6 +45,8 @@ public class ControlDetailResponse {
     @Data @Builder
     public static class LinkedObligation {
         private Long obligationId;
+        private String name;
+        private String title;
         private String description;
         private String instrumentTitle;
     }

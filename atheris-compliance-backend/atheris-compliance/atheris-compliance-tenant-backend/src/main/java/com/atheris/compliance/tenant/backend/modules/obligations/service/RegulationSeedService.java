@@ -2,8 +2,10 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationPoint;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.RegulatorySanction;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationPointRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
@@ -39,6 +41,7 @@ public class RegulationSeedService {
     private final TenantRegulatorRepository tenantRegulators;
     private final ObligationRepository obligationRepo;
     private final ObligationClassificationRepository classifications;
+    private final ObligationPointRepository obligationPoints;
     private final RegulatorySanctionRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ControlRepository controlRepo;
@@ -131,6 +134,10 @@ public class RegulationSeedService {
                     .controlOwner(o.getControlOwner())
                     .build();
                 ob = obligationRepo.save(ob);
+                if (o.getPoints() != null && !o.getPoints().isEmpty()) {
+                    List<ObligationPoint> dbPoints = convertPoints(o.getPoints(), ob.getObligationId(), 0);
+                    if (!dbPoints.isEmpty()) obligationPoints.saveAll(dbPoints);
+                }
                 ObligationClassification c = classifications.save(ObligationClassification.builder()
                     .instrumentId(instrumentId)
                     .obligationId(ob.getObligationId())
@@ -265,7 +272,7 @@ public class RegulationSeedService {
         for (ObligationClassification c : createdClassifications) {
             List<Integer> ids = controlsByObligation.get(c.getObligationId());
             if (ids != null && !ids.isEmpty()) {
-                c.setLinkedControlIds(new ArrayList<>(ids));
+                c.setLinkedControlIds(new java.util.ArrayList<>(new java.util.LinkedHashSet<>(ids)));
                 classifications.save(c);
             }
         }
@@ -309,6 +316,37 @@ public class RegulationSeedService {
         m = java.util.regex.Pattern.compile("(\\d+)\\s+days?\\s+after\\s+month").matcher(f);
         if (m.find()) return Integer.parseInt(m.group(1));
         return 1;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ObligationPoint> convertPoints(List<Map<String, Object>> points, Long obligationId, int parentSortOrder) {
+        List<ObligationPoint> result = new ArrayList<>();
+        int sort = parentSortOrder;
+        for (Map<String, Object> p : points) {
+            String pt = (String) p.get("pointType");
+            if (pt == null || pt.isBlank()) pt = "verbatim";
+            String raw = (String) p.get("text");
+            if (raw == null) raw = (String) p.get("content");
+            int level = p.get("level") != null ? ((Number) p.get("level")).intValue() : 0;
+            String marker = (String) p.get("marker");
+            ObligationPoint point = ObligationPoint.builder()
+                .obligationId(obligationId)
+                .pointType(pt)
+                .marker(marker)
+                .content(raw)
+                .level(level)
+                .sortOrder(++sort)
+                .build();
+            result.add(point);
+            List<Map<String, Object>> children = (List<Map<String, Object>>) p.get("children");
+            if (children != null && !children.isEmpty()) {
+                List<ObligationPoint> childPoints = convertPoints(children, obligationId, sort);
+                result.addAll(childPoints);
+                // advance sort to last child's sortOrder
+                if (!childPoints.isEmpty()) sort = childPoints.get(childPoints.size() - 1).getSortOrder();
+            }
+        }
+        return result;
     }
 
     private String normalizeFrequency(String frequency) {

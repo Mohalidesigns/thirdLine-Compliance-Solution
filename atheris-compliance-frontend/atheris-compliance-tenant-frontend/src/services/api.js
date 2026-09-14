@@ -120,6 +120,7 @@ export const api = {
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
+    seedStatus: (opts = {}) => request('/onboarding/seed-status', opts),
   },
   regulators: {
     list: () => request('/subscriptions/regulators'),
@@ -130,7 +131,10 @@ export const api = {
     update: (id, data) => request(`/subscriptions/regulators/${id}`, {
       method: 'PUT', body: JSON.stringify(data),
     }),
-    remove: (id) => request(`/subscriptions/regulators/${id}`, { method: 'DELETE' }),
+    disable: (id) => request(`/subscriptions/regulators/${id}/disable`, { method: 'PUT' }),
+    bulkDisable: (ids) => request('/subscriptions/regulators/bulk-disable', {
+      method: 'PUT', body: JSON.stringify(ids),
+    }),
   },
   uploads: {
     upload: (formData) => {
@@ -185,7 +189,7 @@ export const api = {
       return request(`/obligations/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     stats: (opts = {}) => request('/obligations/stats', { signal: opts.signal }),
-    obligationDetail: (obligationId, opts = {}) => request(`/obligations/obligation/${obligationId}`, { signal: opts.signal }),
+    obligationDetail: (obligationId, signal) => request(`/obligations/obligation/${obligationId}`, { signal }),
     linkReturns: (obligationId, linkedReturnIds) => request(`/obligations/obligation/${obligationId}/returns`, {
       method: 'PUT', body: JSON.stringify({ linkedReturnIds }),
     }),

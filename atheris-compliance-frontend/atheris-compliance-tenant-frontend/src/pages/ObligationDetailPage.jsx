@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Paper, Snackbar, Tooltip, Drawer, TextField, Divider,
@@ -106,33 +107,27 @@ export default function ObligationDetailPage() {
   const { id } = useParams();
   const obligationId = Number(id);
 
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
+  const { data: selected, isLoading: loading, error } = useQuery({
+    queryKey: ['obligation', obligationId],
+    queryFn: ({ signal }) => api.obligations.obligationDetail(obligationId, signal),
+    enabled: !!obligationId,
+  });
+
   const [activeModal, setActiveModal] = useState(null);
   const [drawerSection, setDrawerSection] = useState(null);
   const [drawerSearch, setDrawerSearch] = useState('');
+  const [drawerSingleId, setDrawerSingleId] = useState(null);
+  const [drawerControlDetail, setDrawerControlDetail] = useState(null);
 
   const [snack, setSnack] = useState(null);
   const notify = (severity, message) => setSnack({ severity, message });
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError('');
-    api.obligations.obligationDetail(obligationId)
-      .then(d => { if (active) setSelected(d); })
-      .catch(e => { if (active) setError(e.message || 'Failed to load obligation detail.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [obligationId]);
-
-  async function reload() {
-    try { const d = await api.obligations.obligationDetail(obligationId); setSelected(d); } catch {}
-  }
-
   function onSaved(message) {
-    return async () => { await reload(); notify('success', message); };
+    return async () => {
+      await queryClient.invalidateQueries({ queryKey: ['obligation', obligationId] });
+      notify('success', message);
+    };
   }
 
   async function handleDownloadEvidence(ev) {
@@ -164,7 +159,15 @@ export default function ObligationDetailPage() {
       sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>{label}</Button>
   );
 
-  const openDrawer = (section) => { setDrawerSection(section); setDrawerSearch(''); };
+  const openDrawer = (section, singleId = null) => {
+    setDrawerSection(section); setDrawerSearch(''); setDrawerSingleId(singleId);
+    if (section === 'controls' && singleId) {
+      setDrawerControlDetail(null);
+      api.controls.detail(singleId).then(d => setDrawerControlDetail(d)).catch(() => {});
+    } else {
+      setDrawerControlDetail(null);
+    }
+  };
 
   const drawerFilteredItems = useMemo(() => {
     if (!selected || !drawerSection) return [];
@@ -174,16 +177,19 @@ export default function ObligationDetailPage() {
     else if (drawerSection === 'sanctions') items = selected.sanctions || [];
     else if (drawerSection === 'evidence') items = selected.evidence || [];
     else if (drawerSection === 'history') items = selected.history || [];
+    if (drawerSingleId && drawerSection === 'controls') {
+      items = items.filter(c => c.controlId === drawerSingleId);
+    }
     if (!drawerSearch) return items;
     const q = drawerSearch.toLowerCase();
     return items.filter(item => JSON.stringify(item).toLowerCase().includes(q));
-  }, [selected, drawerSection, drawerSearch]);
+  }, [selected, drawerSection, drawerSearch, drawerSingleId]);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
   if (error && !selected) return (
     <Box>
       <IconButton onClick={() => navigate('/obligations')} sx={{ mb: 2 }}><ArrowBack /></IconButton>
-      <Alert severity="error">{error}</Alert>
+      <Alert severity="error">{error?.message || 'Failed to load obligation detail.'}</Alert>
     </Box>
   );
 
@@ -197,33 +203,53 @@ export default function ObligationDetailPage() {
           sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>PDF</Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error?.message}</Alert>}
 
       {selected && (
         <Box sx={{ maxWidth: 900 }}>
-          {/* Header chips */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-            {riskChip(selected.tenantRiskRating || selected.inherentRiskRating)}
-            {selected.regulatorAbbreviation && <Chip size="small" label={selected.regulatorAbbreviation} sx={{ height: 22 }} />}
-            {selected.areaOfFocus && <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />}
-            {selected.actName && <Chip size="small" label={selected.actName} variant="outlined" sx={{ height: 22 }} />}
-            {selected.obligationType && <Chip size="small" label={selected.obligationType} variant="outlined" sx={{ height: 22 }} />}
-            {selected.recurringDeadlineType && <Chip size="small" label={selected.recurringDeadlineType} variant="outlined" sx={{ height: 22 }} />}
-            <Chip size="small" label={selected.status || 'unknown'}
-              color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
-          </Box>
+          {/* Combined header: chips + title + metadata */}
+          <Box sx={{ mb: 2 }}>
+            {/* Top chips row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              {riskChip(selected.tenantRiskRating || selected.inherentRiskRating)}
+              {selected.regulatorAbbreviation && <Chip size="small" label={selected.regulatorAbbreviation} sx={{ height: 22 }} />}
+              {selected.areaOfFocus && <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />}
+              {selected.recurringDeadlineType && <Chip size="small" label={selected.recurringDeadlineType} variant="outlined" sx={{ height: 22 }} />}
+              <Chip size="small" label={selected.status || 'unknown'}
+                color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
+            </Box>
 
-          {/* Title */}
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-            {selected.title || selected.name || 'Untitled obligation'}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-            <Typography variant="body2" color="text.secondary">{selected.sourceTitle}</Typography>
-            {selected.sectionReference && (
-              <Typography variant="body2" color="text.secondary">Section: {selected.sectionReference}</Typography>
-            )}
-            {selected.effectiveDate && (
-              <Typography variant="body2" color="text.secondary">Effective: {formatDate(selected.effectiveDate)}</Typography>
+            {/* Title + source */}
+            <Typography variant="h6" sx={{ fontWeight: 400, mb: 0.5 }}>
+              {selected.title || selected.name || 'Untitled obligation'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{selected.sourceTitle}</Typography>
+
+            {/* Metadata grid */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '4px 16px', alignItems: 'baseline' }}>
+              {[
+                ['Applicability', selected.applicability ? <Chip key="a" size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22 }} /> : '-'],
+                ['Owner', selected.controlOwner || selected.assignedOwnerName || 'Unassigned'],
+                ['Department', selected.assignedDepartment || '-'],
+                ['Section', selected.sectionReference || '-'],
+                ['Obligation Type', selected.obligationType || '-'],
+                ['Effective Date', selected.effectiveDate ? formatDate(selected.effectiveDate) : '-'],
+                ['Classified By', selected.classifiedByName || '-'],
+                ['Classified Date', selected.classifiedAt ? formatDate(selected.classifiedAt) : '-'],
+              ].filter(([, val]) => val && val !== '-').map(([label, value]) => (
+                <Fragment key={label}>
+                  <Typography variant="body2" color="text.secondary">{label}</Typography>
+                  <Typography variant="body2">{value}</Typography>
+                </Fragment>
+              ))}
+            </Box>
+            {selected.applicabilityReasoning && (
+              <Box sx={{ mt: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Reasoning
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{selected.applicabilityReasoning}</Typography>
+              </Box>
             )}
           </Box>
 
@@ -235,7 +261,7 @@ export default function ObligationDetailPage() {
                   <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Source Text
                   </Typography>
-                  <FormattedText text={selected.description} />
+                  <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
                 </Box>
               )}
               {selected.plainEnglishStatement && (
@@ -243,46 +269,11 @@ export default function ObligationDetailPage() {
                   <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Plain English
                   </Typography>
-                  <FormattedText text={selected.plainEnglishStatement} />
+                  <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
                 </Box>
               )}
             </Paper>
           )}
-
-          {/* Metadata table */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '6px 16px', alignItems: 'baseline' }}>
-              {[
-                ['Status', <Chip key="s" size="small" label={selected.status || 'unknown'} color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />],
-                ['Applicability', selected.applicability ? <Chip key="a" size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22 }} /> : '-'],
-                ['Risk Rating', riskChip(selected.tenantRiskRating)],
-                ['Risk Justification', selected.riskJustification || '-'],
-                ['Owner', selected.controlOwner || selected.assignedOwnerName || 'Unassigned'],
-                ['Department', selected.assignedDepartment || '-'],
-                ['Act', selected.actName || '-'],
-                ['Section', selected.sectionReference || '-'],
-                ['Obligation Type', selected.obligationType || '-'],
-                ['Deadline', selected.recurringDeadlineType || '-'],
-                ['Effective Date', selected.effectiveDate ? formatDate(selected.effectiveDate) : '-'],
-                ['Area of Focus', selected.areaOfFocus || '-'],
-                ['Classified By', selected.classifiedByName || '-'],
-                ['Classified Date', selected.classifiedAt ? formatDate(selected.classifiedAt) : '-'],
-              ].filter(([, val]) => val && val !== '-').map(([label, value], i) => (
-                <Fragment key={label}>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>{label}</Typography>
-                  <Typography variant="body2">{value}</Typography>
-                </Fragment>
-              ))}
-            </Box>
-            {selected.applicabilityReasoning && (
-              <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Reasoning
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{selected.applicabilityReasoning}</Typography>
-              </Box>
-            )}
-          </Paper>
 
           {/* Controls — name-only list */}
           <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
@@ -302,13 +293,21 @@ export default function ObligationDetailPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {selected.linkedControls.slice(0, 5).map((c, i) => (
                   <Box key={c.controlId || i}
-                    onClick={() => navigate(`/controls?controlId=${c.controlId}`)}
+                    onClick={() => openDrawer('controls', c.controlId)}
                     sx={{ py: 0.75, borderBottom: i < Math.min(selected.linkedControls.length, 5) - 1 ? '1px solid' : 'none',
                       borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 400,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.name || 'Untitled'}
+                    <Typography variant="body2">
+                      {(c.name || 'Untitled').replace(/^[\s\-"]+/, '')}
                     </Typography>
+                    {c.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                        {c.description.replace(/^[\s\-"]+/, '')}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                      {c.testFrequency && <Chip size="small" label={c.testFrequency} sx={{ height: 18, fontSize: 10 }} />}
+                      {c.controlOwnerName && <Chip size="small" label={c.controlOwnerName} variant="outlined" sx={{ height: 18, fontSize: 10 }} />}
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -330,13 +329,28 @@ export default function ObligationDetailPage() {
                 </Box>
               } />
             {selected.linkedReturns?.length > 0 ? (
-              <ChipList items={selected.linkedReturns}
-                renderChip={(r, i) => (
-                  <Chip key={r.returnId || i} size="small" icon={<LinkIcon sx={{ fontSize: 14 }} />}
-                    label={`${r.returnName}${r.frequency ? ` (${r.frequency})` : ''}`}
-                    sx={{ height: 22, maxWidth: 300,
-                      '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
-                )} />
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {selected.linkedReturns.slice(0, 5).map((r, i) => (
+                  <Box key={r.returnId || i}
+                    onClick={() => openDrawer('returns')}
+                    sx={{ py: 0.75, borderBottom: i < Math.min(selected.linkedReturns.length, 5) - 1 ? '1px solid' : 'none',
+                      borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    <Typography variant="body2">
+                      {(r.returnName || 'Untitled').replace(/^[\s\-"]+/, '')}
+                    </Typography>
+                    {r.frequency && (
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                        {r.frequency}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+                {selected.linkedReturns.length > 5 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    +{selected.linkedReturns.length - 5} more — click "View all" for details
+                  </Typography>
+                )}
+              </Box>
             ) : <Typography variant="body2" color="text.secondary">None mapped</Typography>}
           </Paper>
 
@@ -348,21 +362,32 @@ export default function ObligationDetailPage() {
                   sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
               ) : null} />
             {selected.sanctions?.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                {selected.sanctions.slice(0, 3).map((s, i) => (
-                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip size="small" icon={<Gavel sx={{ fontSize: 14 }} />}
-                      label={s.sanctionType || 'Sanction'} color="error" sx={{ height: 22 }} />
-                    {(s.sanctionAmountNaira != null && s.sanctionAmountNaira > 0) && (
-                      <Chip size="small" label={formatNaira(s.sanctionAmountNaira)}
-                        color="error" variant="outlined" sx={{ height: 22 }} />
-                    )}
-                    {s.actName && <Chip size="small" label={s.actName} variant="outlined" sx={{ height: 22 }} />}
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {selected.sanctions.slice(0, 5).map((s, i) => (
+                  <Box key={i}
+                    onClick={() => openDrawer('sanctions')}
+                    sx={{ py: 0.75, borderBottom: i < Math.min(selected.sanctions.length, 5) - 1 ? '1px solid' : 'none',
+                      borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    <Typography variant="body2">
+                      {(s.sanctionType || 'Sanction').replace(/^[\s\-"]+/, '')}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.25, flexWrap: 'wrap' }}>
+                      {(s.sanctionAmountNaira != null && s.sanctionAmountNaira > 0) && (
+                        <Typography variant="body2" color="text.secondary">
+                          {formatNaira(s.sanctionAmountNaira)}
+                        </Typography>
+                      )}
+                      {s.actName && (
+                        <Typography variant="body2" color="text.secondary">
+                          {s.actName}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 ))}
-                {selected.sanctions.length > 3 && (
-                  <Typography variant="caption" color="text.secondary">
-                    +{selected.sanctions.length - 3} more — click "View all" for details
+                {selected.sanctions.length > 5 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    +{selected.sanctions.length - 5} more — click "View all" for details
                   </Typography>
                 )}
               </Box>
@@ -400,7 +425,7 @@ export default function ObligationDetailPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {selected.evidence.slice(0, 2).map(ev => (
                   <Box key={ev.fileId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>📄 {ev.originalName}</Typography>
+                    <Typography variant="body2">📄 {ev.originalName}</Typography>
                     <Tooltip title="Download">
                       <IconButton size="small" onClick={() => handleDownloadEvidence(ev)}><Download fontSize="small" /></IconButton>
                     </Tooltip>
@@ -451,33 +476,127 @@ export default function ObligationDetailPage() {
         PaperProps={{ sx: { width: 480, p: 3 } }}>
         {drawerSection && (
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {drawerSection === 'controls' && `Linked Controls (${drawerFilteredItems.length})`}
-                {drawerSection === 'returns' && `Return Required (${drawerFilteredItems.length})`}
-                {drawerSection === 'sanctions' && `Regulatory Sanctions (${drawerFilteredItems.length})`}
-                {drawerSection === 'evidence' && `Evidence (${drawerFilteredItems.length})`}
-                {drawerSection === 'history' && `Version History (${drawerFilteredItems.length})`}
-              </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
               <IconButton onClick={() => setDrawerSection(null)}><Close /></IconButton>
             </Box>
 
-            {['controls', 'returns', 'evidence'].includes(drawerSection) && drawerFilteredItems.length > 3 && (
+            {['controls', 'returns', 'evidence'].includes(drawerSection) && drawerFilteredItems.length > 3 && !drawerSingleId && (
               <TextField size="small" placeholder="Search..." value={drawerSearch}
                 onChange={e => setDrawerSearch(e.target.value)} fullWidth
                 slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }} /> } }}
                 sx={{ mb: 2 }} />
             )}
 
-            {/* Controls drawer */}
-            {drawerSection === 'controls' && drawerFilteredItems.map((c, i) => (
+            {/* Controls drawer — full detail when single, list when multiple */}
+            {drawerSection === 'controls' && drawerSingleId && drawerControlDetail ? (
+              <Box>
+                {drawerControlDetail.controlNumber && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>{drawerControlDetail.controlNumber}</Typography>
+                )}
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>{drawerControlDetail.name || 'Untitled Control'}</Typography>
+                {drawerControlDetail.description && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Description</Typography>
+                    <Typography variant="body2">{drawerControlDetail.description}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.whatItDoes && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>What It Does</Typography>
+                    <Typography variant="body2">{drawerControlDetail.whatItDoes}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.howTested && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>How Tested</Typography>
+                    <Typography variant="body2">{drawerControlDetail.howTested}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.regulatoryRequirement && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Regulatory Requirement</Typography>
+                    <Typography variant="body2">{drawerControlDetail.regulatoryRequirement}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.complianceArea && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Compliance Area</Typography>
+                    <Typography variant="body2">{drawerControlDetail.complianceArea}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.monitoringActivity && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Monitoring Activity</Typography>
+                    <Typography variant="body2">{drawerControlDetail.monitoringActivity}</Typography>
+                  </Box>
+                )}
+                {drawerControlDetail.controlEffectivenessMeasure && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Effectiveness Measure</Typography>
+                    <Typography variant="body2">{drawerControlDetail.controlEffectivenessMeasure}</Typography>
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1.5 }}>
+                  {drawerControlDetail.controlType && <Chip size="small" label={drawerControlDetail.controlType} sx={{ height: 20, fontSize: 11 }} />}
+                  {drawerControlDetail.theme && <Chip size="small" label={drawerControlDetail.theme} variant="outlined" sx={{ height: 20, fontSize: 11 }} />}
+                  {drawerControlDetail.testFrequency && <Chip size="small" label={drawerControlDetail.testFrequency} sx={{ height: 20, fontSize: 11 }} />}
+                  {drawerControlDetail.status && <Chip size="small" label={drawerControlDetail.status} color={drawerControlDetail.status === 'active' ? 'success' : 'default'} sx={{ height: 20, fontSize: 11 }} />}
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '4px 12px', alignItems: 'baseline', mb: 1.5 }}>
+                  {drawerControlDetail.controlOwnerName && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Owner</Typography><Typography variant="body2">{drawerControlDetail.controlOwnerName}</Typography></>
+                  )}
+                  {drawerControlDetail.inherentRisk && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Inherent Risk</Typography><Typography variant="body2">{drawerControlDetail.inherentRisk}</Typography></>
+                  )}
+                  {drawerControlDetail.residualRiskRating && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Residual Risk</Typography><Typography variant="body2">{drawerControlDetail.residualRiskRating}</Typography></>
+                  )}
+                  {drawerControlDetail.actName && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Act/Regulation</Typography><Typography variant="body2">{drawerControlDetail.actName}</Typography></>
+                  )}
+                  {drawerControlDetail.dueDate && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Due Date</Typography><Typography variant="body2">{drawerControlDetail.dueDate}</Typography></>
+                  )}
+                  {drawerControlDetail.nextTestDueDate && (
+                    <><Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>Next Test Due</Typography><Typography variant="body2">{drawerControlDetail.nextTestDueDate}</Typography></>
+                  )}
+                </Box>
+                {drawerControlDetail.linkedObligations?.length > 0 && (
+                  <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Obligations</Typography>
+                    {drawerControlDetail.linkedObligations.map((o, i) => (
+                      <Typography key={i} variant="body2" sx={{ mt: 0.5 }}>{o.name || o.title || o.description || `Obligation #${o.obligationId}`}</Typography>
+                    ))}
+                  </Box>
+                )}
+                {drawerControlDetail.testHistory?.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Test History</Typography>
+                    {drawerControlDetail.testHistory.slice(0, 5).map((t, i) => (
+                      <Box key={i} sx={{ py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{t.testDate}</Typography>
+                          <Chip size="small" label={t.result} color={t.result === 'Pass' ? 'success' : t.result === 'Fail' ? 'error' : 'default'} sx={{ height: 18, fontSize: 10 }} />
+                        </Box>
+                        {t.resultDescription && <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>{t.resultDescription}</Typography>}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            ) : drawerSection === 'controls' && drawerFilteredItems.map((c, i) => (
               <Box key={c.controlId || i}
-                onClick={() => { setDrawerSection(null); navigate(`/controls?controlId=${c.controlId}`); }}
+                onClick={() => openDrawer('controls', c.controlId)}
                 sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 420,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   {c.name || 'Untitled'}
                 </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                  {c.controlType && <Chip size="small" label={c.controlType} sx={{ height: 18, fontSize: 10 }} />}
+                  {c.controlOwnerName && <Chip size="small" label={c.controlOwnerName} variant="outlined" sx={{ height: 18, fontSize: 10 }} />}
+                  {c.status && <Chip size="small" label={c.status} color={c.status === 'active' ? 'success' : 'default'} sx={{ height: 18, fontSize: 10 }} />}
+                </Box>
               </Box>
             ))}
 
