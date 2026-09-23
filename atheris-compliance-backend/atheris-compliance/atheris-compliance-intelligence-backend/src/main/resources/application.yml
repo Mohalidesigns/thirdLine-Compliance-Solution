@@ -1,6 +1,14 @@
 spring:
   application:
     name: atheris-compliance-intelligence-backend
+  # Read the repo-root .env so the app boots without exporting it first (IDE
+  # launches, fresh terminals). Paths cover running from the module dir, the
+  # parent pom dir, or the repo root. Real environment variables still win.
+  config:
+    import:
+      - optional:file:../../../.env[.properties]
+      - optional:file:../../.env[.properties]
+      - optional:file:./.env[.properties]
   threads:
     virtual:
       enabled: true

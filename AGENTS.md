@@ -3,7 +3,7 @@
 ## Project Structure
 
 ```
-atheris-compliance-backend/atheris/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
+atheris-compliance-backend/atheris-compliance/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
   atheris-compliance-intelligence-backend/                    — main application module (port 9090)
   atheris-compliance-tenant-backend/                      — tenant-facing compliance service (port 9091)
   atheris-compliance-common/                      — shared DTOs, constants, utilities
@@ -44,8 +44,8 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 ### Backend
 - Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris` (password via `DB_PASSWORD` env, default only in local `application.yml`)
-- Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris/atheris-compliance-intelligence-backend` (port 9090)
-- Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris` (port 9091)
+- Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris-compliance/atheris-compliance-intelligence-backend` (port 9090)
+- Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris-compliance` (port 9091)
 - Default admin login is set via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars (see `application.yml`) — never commit real credentials
 
 ### Frontend
@@ -481,7 +481,7 @@ V2 is now routed at `/dashboard/v2` ("Rendition & Coverage" in the sidebar). `ap
 
 ## Done — Tenant Backend Aligned as Submodule
 
-The standalone `atheris-compliance-tenant-backend` service at `C:\Users\hp\Documents\atheris-compliance-tenant-backend` was copied and adapted as a Maven submodule at `atheris-compliance-backend/atheris/atheris-compliance-tenant-backend/`.
+The standalone `atheris-compliance-tenant-backend` service at `C:\Users\hp\Documents\atheris-compliance-tenant-backend` was copied and adapted as a Maven submodule at `atheris-compliance-backend/atheris-compliance/atheris-compliance-tenant-backend/`.
 
 ### Module Structure
 
@@ -524,7 +524,7 @@ atheris-compliance-tenant-backend/
 docker exec -it db psql -U atheris -c "CREATE DATABASE atheris_tenant;"
 
 # Start tenant service
-cd atheris-compliance-backend/atheris
+cd atheris-compliance-backend/atheris-compliance
 mvn spring-boot:run -pl atheris-compliance-tenant-backend -am
 
 # Tenant service runs on port 9091
