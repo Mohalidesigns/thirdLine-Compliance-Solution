@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.auth.entity.*;
 import com.atheris.compliance.tenant.backend.modules.auth.repository.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.exception.LoginFailedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -63,15 +64,17 @@ public class AuthService {
         return issueTokens(u, req.getDeviceName(), req.getIpAddress());
     }
 
-    @Transactional
+    // A refused login must still commit the failed-attempt counter and lockout it
+    // just wrote; rolling back on LoginFailedException would undo them.
+    @Transactional(noRollbackFor = LoginFailedException.class)
     public AuthTokens login(LoginRequest req) {
         User u = users.findByEmail(req.getEmail().toLowerCase())
-            .orElseThrow(() -> new RuntimeException("Invalid email or password"));
-        if (!u.getIsActive()) throw new RuntimeException("Account deactivated");
+            .orElseThrow(LoginFailedException::invalidCredentials);
+        if (!u.getIsActive()) throw LoginFailedException.blocked("Account deactivated");
         if ("pending".equals(u.getInviteStatus()))
-            throw new RuntimeException("Please accept your invite first");
+            throw LoginFailedException.blocked("Please accept your invite first");
         if (u.getLockedUntil() != null && Instant.now().isBefore(u.getLockedUntil()))
-            throw new RuntimeException("Account locked");
+            throw LoginFailedException.blocked("Account locked");
         if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
             if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
                 u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
@@ -81,7 +84,7 @@ public class AuthService {
                     user.setFailedLoginAttempts(user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() + 1 : 1);
                     users.save(user);
                 });
-            throw new RuntimeException("Invalid email or password");
+            throw LoginFailedException.invalidCredentials();
         }
         u.setFailedLoginAttempts(0);
         u.setLockedUntil(null);

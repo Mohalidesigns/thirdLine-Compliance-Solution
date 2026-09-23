@@ -45,6 +45,12 @@ public class GlobalExceptionHandler {
             .body(Map.of("error", "document_unavailable", "message", e.getMessage()));
     }
 
+    @ExceptionHandler(LoginFailedException.class)
+    public ResponseEntity<Map<String, String>> handleLoginFailed(LoginFailedException e) {
+        return ResponseEntity.status(e.getStatus())
+            .body(Map.of("error", e.getCode(), "message", e.getMessage()));
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
