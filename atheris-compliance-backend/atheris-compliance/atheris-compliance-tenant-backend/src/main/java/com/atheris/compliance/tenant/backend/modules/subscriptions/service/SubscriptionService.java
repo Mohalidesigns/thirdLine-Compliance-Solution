@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
@@ -125,6 +126,6 @@ public class SubscriptionService {
 
     private TenantProfile getProfile() {
         return profiles.findByTenantId(tenantIdentity.currentTenantId())
-            .orElseThrow(() -> new RuntimeException("Tenant profile not found"));
+            .orElseThrow(() -> ApiException.notFound("Tenant profile not found"));
     }
 }

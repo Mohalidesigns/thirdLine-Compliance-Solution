@@ -57,7 +57,7 @@ public class ObligationBrowserService {
 
     public ObligationDetailDto findById(Long id, Long tenantId) {
         Instrument inst = instruments.findById(id)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Obligation not found: " + id));
         return toDetailDto(inst, tenantId);
     }
 
@@ -104,7 +104,7 @@ public class ObligationBrowserService {
 
     public Object updateWatchPreferences(Long instrumentId, Long tenantId, WatchPreferencesRequest req) {
         ObligationWatch watch = watches.findByInstrumentIdAndTenantId(instrumentId, tenantId)
-            .orElseThrow(() -> new RuntimeException("No watch found for this obligation"));
+            .orElseThrow(() -> new ResourceNotFoundException("No watch found for this obligation"));
         if (req.getNotifyEmail() != null) watch.setNotifyEmail(req.getNotifyEmail());
         if (req.getNotifyInApp() != null) watch.setNotifyInApp(req.getNotifyInApp());
         if (req.getNotifyWebhook() != null) watch.setNotifyWebhook(req.getNotifyWebhook());
@@ -139,7 +139,7 @@ public class ObligationBrowserService {
                                       ClassifyRequest req, Integer userId) {
         // Validate instrument exists
         instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + instrumentId));
+            .orElseThrow(() -> new ResourceNotFoundException("Obligation not found: " + instrumentId));
 
         // Create/update watch
         ObligationWatch watch = notificationService.upsertWatch(

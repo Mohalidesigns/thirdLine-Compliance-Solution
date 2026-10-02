@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequest;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
@@ -45,7 +46,7 @@ public class ControlTestService {
     @Transactional
     public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, User tester) {
         Control control = controls.findById(controlId)
-            .orElseThrow(() -> new RuntimeException("Control not found: " + controlId));
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + controlId));
         ControlTestResult result = ControlTestResult.builder()
             .controlId(controlId).testDate(req.getTestDate())
             .testedByUserId(tester.getUserId()).testedByName(tester.getFullName())
@@ -74,9 +75,10 @@ public class ControlTestService {
 
     @Transactional
     public ControlTestResult reviewTest(Long testId, String decision, String notes, User reviewer) {
-        ControlTestResult t = testRepo.findById(testId).orElseThrow();
+        ControlTestResult t = testRepo.findById(testId)
+            .orElseThrow(() -> ApiException.notFound("Control test not found: " + testId));
         if (!"Accepted".equals(decision) && !"Rejected".equals(decision))
-            throw new RuntimeException("Decision must be Accepted or Rejected");
+            throw ApiException.badRequest("Decision must be Accepted or Rejected");
         t.setReviewedByUserId(reviewer.getUserId());
         t.setReviewedByName(reviewer.getFullName());
         t.setReviewStatus(decision);

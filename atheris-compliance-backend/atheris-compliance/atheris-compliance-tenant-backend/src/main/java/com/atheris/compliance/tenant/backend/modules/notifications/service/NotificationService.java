@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.notifications.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.notifications.entity.ObligationNotification;
 import com.atheris.compliance.tenant.backend.modules.notifications.repository.ObligationNotificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,7 @@ public class NotificationService {
 
     public ObligationNotification findById(Long id) {
         return repo.findById(id)
-            .orElseThrow(() -> new RuntimeException("Notification not found"));
+            .orElseThrow(() -> ApiException.notFound("Notification not found"));
     }
 
     @Transactional

@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.auth.repository.*;
 import com.atheris.compliance.tenant.backend.modules.users.dto.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,13 +33,13 @@ public class UserService {
 
     public UserDto findById(Integer id) {
         return toDto(users.findById(id)
-            .orElseThrow(() -> new RuntimeException("User not found")));
+            .orElseThrow(() -> ApiException.notFound("User not found: " + id)));
     }
 
     @Transactional
     public UserDto invite(InviteUserRequest req, Integer invitedBy) {
         if (users.existsByEmail(req.getEmail().toLowerCase()))
-            throw new RuntimeException("Email already exists");
+            throw ApiException.conflict("already_exists", "A user with this email already exists");
         User user = User.builder()
             .email(req.getEmail().toLowerCase().trim()).fullName(req.getFullName())
             .jobTitle(req.getJobTitle()).department(req.getDepartment()).role(req.getRole())
@@ -57,11 +58,14 @@ public class UserService {
 
     @Transactional
     public void changePassword(Integer userId, ChangePasswordRequest req) {
-        User user = users.findById(userId).orElseThrow();
+        User user = users.findById(userId)
+            .orElseThrow(() -> ApiException.notFound("User not found: " + userId));
+        // 400, not 401: the session is valid, only the submitted field is wrong, and a
+        // 401 would make the client refresh its token and replay the request.
         if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash()))
-            throw new RuntimeException("Current password incorrect");
-        if (!req.getNewPassword().equals(req.getConfirmPassword()))
-            throw new RuntimeException("Passwords do not match");
+            throw ApiException.badRequest("current_password_incorrect", "Current password incorrect");
+        if (req.getNewPassword() == null || !req.getNewPassword().equals(req.getConfirmPassword()))
+            throw ApiException.badRequest("password_mismatch", "Passwords do not match");
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setPasswordChangedAt(Instant.now());
         users.save(user);
@@ -75,7 +79,8 @@ public class UserService {
 
     @Transactional
     public void deactivate(Integer userId) {
-        User user = users.findById(userId).orElseThrow();
+        User user = users.findById(userId)
+            .orElseThrow(() -> ApiException.notFound("User not found: " + userId));
         user.setIsActive(false);
         users.save(user);
         refreshTokens.findByUserIdAndIsRevokedFalse(userId).forEach(rt -> {
@@ -88,14 +93,16 @@ public class UserService {
 
     @Transactional
     public UserDto reactivate(Integer id) {
-        User u = users.findById(id).orElseThrow();
+        User u = users.findById(id)
+            .orElseThrow(() -> ApiException.notFound("User not found: " + id));
         u.setIsActive(true);
         return toDto(users.save(u));
     }
 
     @Transactional
     public UserDto updateRole(Integer id, String role) {
-        User u = users.findById(id).orElseThrow();
+        User u = users.findById(id)
+            .orElseThrow(() -> ApiException.notFound("User not found: " + id));
         u.setRole(role);
         return toDto(users.save(u));
     }
@@ -119,8 +126,9 @@ public class UserService {
             return HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256")
                     .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256 is mandatory on every JVM; this is a genuine server fault.
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 }

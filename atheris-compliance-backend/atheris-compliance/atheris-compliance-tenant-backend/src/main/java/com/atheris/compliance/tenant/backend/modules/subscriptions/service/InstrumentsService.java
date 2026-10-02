@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentDetailResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentSummaryResponse;
@@ -70,7 +71,7 @@ public class InstrumentsService {
 
     public InstrumentDetailResponse detail(Long id) {
         PlatformInstrumentDetail d = platform.getInstrumentDetail(id);
-        if (d == null) throw new RuntimeException("Instrument not found");
+        if (d == null) throw ApiException.notFound("Instrument not found: " + id);
         Map<String, com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation> localMap =
             obligationRepo.findByInstrumentId(id).stream()
                 .collect(Collectors.toMap(

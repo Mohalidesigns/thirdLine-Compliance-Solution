@@ -8,6 +8,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -342,11 +343,11 @@ public class ReturnService {
     @Transactional
     public ReturnInstanceDetailResponse getDetail(Long instanceId) {
         Long returnId = instances.findById(instanceId)
-            .orElseThrow(() -> new RuntimeException("Instance not found: " + instanceId)).getReturnId();
+            .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId)).getReturnId();
         RegulatoryReturn r = returns.findById(returnId)
-            .orElseThrow(() -> new RuntimeException("Return not found: " + returnId));
+            .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
         ReturnFilingInstance inst = instances.findById(instanceId)
-            .orElseThrow(() -> new RuntimeException("Instance not found: " + instanceId));
+            .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         return ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());
     }
 
@@ -357,10 +358,11 @@ public class ReturnService {
     @Transactional
     public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)
-            .orElseThrow(() -> new RuntimeException("Not found"));
+            .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         int idx = STAGES.indexOf(inst.getCurrentStage());
         if (idx < 0 || idx >= STAGES.size() - 1)
-            throw new RuntimeException("Cannot advance from: " + inst.getCurrentStage());
+            throw ApiException.conflict("invalid_transition", "Cannot advance from stage: "
+                + (inst.getCurrentStage() != null ? inst.getCurrentStage().db() : "none"));
         ReturnStage next = STAGES.get(idx + 1);
 
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
@@ -372,7 +374,7 @@ public class ReturnService {
         stageData.put(inst.getCurrentStage().db(), stageEntry);
         try {
             inst.setStageData(MAPPER.writeValueAsString(stageData));
-        } catch (Exception e) { throw new RuntimeException("Failed to serialize stage data", e); }
+        } catch (Exception e) { throw new IllegalStateException("Failed to serialize stage data", e); }
 
         inst.setCurrentStage(next);
         inst.setStatus(ReturnFilingStatus.IN_PROGRESS);
@@ -384,7 +386,10 @@ public class ReturnService {
 
     @Transactional
     public void submit(Long instanceId, String evidenceUrl, Integer userId) {
-        ReturnFilingInstance inst = instances.findById(instanceId).orElseThrow();
+        ReturnFilingInstance inst = instances.findById(instanceId)
+            .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+        if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
+            throw ApiException.conflict("already_submitted", "This return has already been submitted");
         LocalDate today = LocalDate.now();
         boolean late = today.isAfter(inst.getDueDate());
         int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
@@ -397,7 +402,7 @@ public class ReturnService {
         stageData.put("Sign-off", stageEntry);
         try {
             inst.setStageData(MAPPER.writeValueAsString(stageData));
-        } catch (Exception e) { throw new RuntimeException("Failed to serialize stage data", e); }
+        } catch (Exception e) { throw new IllegalStateException("Failed to serialize stage data", e); }
 
         inst.setCurrentStage(ReturnStage.SUBMITTED);
         inst.setStatus(late ? ReturnFilingStatus.SUBMITTED_LATE : ReturnFilingStatus.SUBMITTED);
@@ -445,12 +450,12 @@ public class ReturnService {
     @Transactional
     public void linkObligations(Long returnId, List<Long> obligationIds, Integer userId) {
         if (!returns.existsById(returnId))
-            throw new RuntimeException("Return not found: " + returnId);
+            throw ApiException.notFound("Return not found: " + returnId);
         obligations.deleteObligationLinks(returnId);
         if (obligationIds != null) {
             for (Long oid : new LinkedHashSet<>(obligationIds)) {
                 if (!obligations.existsById(oid))
-                    throw new RuntimeException("Obligation not found: " + oid);
+                    throw ApiException.badRequest("Obligation not found: " + oid);
                 obligations.insertReturnLink(oid, returnId);
             }
         }

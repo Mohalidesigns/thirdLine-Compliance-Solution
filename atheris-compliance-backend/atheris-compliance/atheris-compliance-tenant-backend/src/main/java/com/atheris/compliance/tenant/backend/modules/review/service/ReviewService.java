@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.review.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
@@ -390,7 +391,7 @@ public class ReviewService {
 
     private PendingReview find(Long reviewId) {
         return reviews.findByReviewIdAndTenantId(reviewId, tenantIdentity.currentTenantId())
-            .orElseThrow(() -> new RuntimeException("Review not found: " + reviewId));
+            .orElseThrow(() -> ApiException.notFound("Review not found: " + reviewId));
     }
 
     private void linkReturns(Long obligationId, List<Long> returnIds) {

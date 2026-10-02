@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.findings.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
@@ -31,7 +32,7 @@ public class FindingService {
     }
 
     public FindingDetailResponse getDetail(Long id) {
-        Finding f = repo.findById(id).orElseThrow(() -> new RuntimeException("Finding not found: " + id));
+        Finding f = repo.findById(id).orElseThrow(() -> ApiException.notFound("Finding not found: " + id));
         List<FindingDetailResponse.TimelineEvent> timeline = new ArrayList<>();
         if (f.getCreatedAt() != null)
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
@@ -79,7 +80,7 @@ public class FindingService {
     }
 
     public Finding findById(Long id) {
-        return repo.findById(id).orElseThrow(() -> new RuntimeException("Finding not found: " + id));
+        return repo.findById(id).orElseThrow(() -> ApiException.notFound("Finding not found: " + id));
     }
 
     @Transactional
@@ -160,7 +161,7 @@ public class FindingService {
     public Finding close(Long id, Integer ccoUserId) {
         Finding f = findById(id);
         if (!"Remediated".equals(f.getStatus()))
-            throw new RuntimeException("Finding must be Remediated before closing");
+            throw ApiException.conflict("invalid_transition", "Finding must be Remediated before closing");
         f.setStatus("Closed");
         f.setCcoSignOffUserId(ccoUserId);
         f.setCcoSignOffAt(Instant.now());

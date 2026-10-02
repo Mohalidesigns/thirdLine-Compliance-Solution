@@ -86,7 +86,7 @@ public class InternalInstrumentService {
 
     public InternalInstrumentDetail getFullDetail(Long instrumentId) {
         Instrument inst = instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Instrument not found: " + instrumentId));
+            .orElseThrow(() -> new ResourceNotFoundException("Instrument not found: " + instrumentId));
 
         String regName = null, regAbbr = null;
         if (inst.getRegulatorId() != null) {

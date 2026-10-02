@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.onboarding.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.RegulatorRecommendation;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.RegulatorRecommendationRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ public class RegulatorRecommendationService {
     @Transactional
     public RegulatorRecommendation update(Integer id, RegulatorRecommendation updated) {
         RegulatorRecommendation existing = repository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Recommendation not found: " + id));
+            .orElseThrow(() -> ApiException.notFound("Recommendation not found: " + id));
         existing.setLicenceType(updated.getLicenceType());
         existing.setRegulatorId(updated.getRegulatorId());
         existing.setSortOrder(updated.getSortOrder());

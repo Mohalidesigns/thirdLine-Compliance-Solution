@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.cors.controller;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.cors.dto.CorsWhitelistDto;
 import com.atheris.compliance.tenant.backend.modules.cors.entity.CorsWhitelist;
 import com.atheris.compliance.tenant.backend.modules.cors.repository.CorsWhitelistRepository;
@@ -29,13 +30,13 @@ public class AdminCorsController {
     @GetMapping("/{id}")
     public ResponseEntity<CorsWhitelistDto> getOne(@PathVariable Long id) {
         return ResponseEntity.ok(toDto(repo.findById(id)
-            .orElseThrow(() -> new RuntimeException("CORS entry not found: " + id))));
+            .orElseThrow(() -> ApiException.notFound("CORS entry not found: " + id))));
     }
 
     @PostMapping
     public ResponseEntity<CorsWhitelistDto> create(@Valid @RequestBody CreateCorsRequest req) {
         if (repo.existsByOrigin(req.getOrigin())) {
-            throw new RuntimeException("Origin already exists: " + req.getOrigin());
+            throw ApiException.conflict("already_exists", "Origin already exists: " + req.getOrigin());
         }
         CorsWhitelist entry = CorsWhitelist.builder()
             .origin(req.getOrigin())
@@ -50,7 +51,7 @@ public class AdminCorsController {
             @PathVariable Long id,
             @Valid @RequestBody CreateCorsRequest req) {
         CorsWhitelist entry = repo.findById(id)
-            .orElseThrow(() -> new RuntimeException("CORS entry not found: " + id));
+            .orElseThrow(() -> ApiException.notFound("CORS entry not found: " + id));
         entry.setOrigin(req.getOrigin());
         entry.setDescription(req.getDescription());
         if (req.getIsActive() != null) entry.setIsActive(req.getIsActive());
