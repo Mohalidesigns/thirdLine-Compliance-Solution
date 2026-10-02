@@ -31,6 +31,8 @@ public class Obligation {
     private String inherentImpact;
     private String inherentRiskRating;
     @Column(columnDefinition = "text") private String controlOwner;
+    /** Tenant regulator for standalone obligations (no platform instrument), e.g. bulk-imported rows. */
+    private Long tenantRegulatorId;
     private Instant createdAt;
     private Instant updatedAt;
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); }

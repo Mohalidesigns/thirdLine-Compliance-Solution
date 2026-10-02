@@ -25,6 +25,7 @@ export async function pdfErrorMessage(res, fallback = 'Failed to load PDF.') {
 const STORAGE_KEY_TOKEN = 'atheris_tenant_token';
 const STORAGE_KEY_REFRESH = 'atheris_tenant_refresh_token';
 const STORAGE_KEY_USER = 'atheris_tenant_user';
+const FORBIDDEN_MESSAGE = 'You do not have permission to perform this action.';
 
 async function doRefresh() {
   if (!authRefreshToken) return null;
@@ -73,7 +74,10 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  if ((res.status === 401 || res.status === 403) && !path.startsWith('/auth/')) {
+  // Only 401 means the session is gone (missing/expired/invalid token). A 403 is a real
+  // denial — a role the user lacks, or license_blocked from LicenseFilter — and must
+  // surface as an error, not log the user out.
+  if (res.status === 401 && !path.startsWith('/auth/')) {
     if (authRefreshToken) {
       const refreshed = await doRefresh();
       if (refreshed) {
@@ -105,6 +109,7 @@ async function request(path, options = {}) {
   }
 
   if (!body) {
+    if (res.status === 403) throw new Error(FORBIDDEN_MESSAGE);
     if (!res.ok) throw new Error(`Request failed (${res.status})`);
     return null;
   }
@@ -116,8 +121,80 @@ async function request(path, options = {}) {
     throw new Error(`Unexpected response: ${body.substring(0, 100)}`);
   }
 
-  if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const fallback = res.status === 403 ? FORBIDDEN_MESSAGE : `Request failed (${res.status})`;
+    throw new Error(data.message || data.error || fallback);
+  }
   return data;
+}
+
+function sessionExpired() {
+  clearAuth();
+  sessionStorage.setItem('atheris_tenant_session_expired', '1');
+  window.location.href = '/login';
+  throw new Error('Session expired');
+}
+
+// For bodies/responses request() cannot handle: multipart FormData (Content-Type is
+// left unset so the browser adds the boundary) and binary downloads. Shares request()'s
+// token handling: on 401 it refreshes once and retries, else ends the session; a 403
+// (role denial / license_blocked) surfaces as an error like any other failure.
+// `responseType: 'blob'` resolves to { blob, name } (name from Content-Disposition);
+// otherwise the JSON body. Failures surface the server's {message}/{error}.
+async function rawRequest(path, { responseType = 'json', fallbackName = 'download.bin', ...options } = {}) {
+  const send = () => {
+    const headers = { ...(options.headers || {}) };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    return fetch(`${API_BASE}${path}`, { ...options, headers });
+  };
+
+  let res;
+  try {
+    res = await send();
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      if (!authRefreshToken) sessionExpired();
+      const refreshed = await doRefresh();
+      if (!refreshed) sessionExpired();
+      res = await send();
+    }
+  } catch (e) {
+    if (e?.name === 'AbortError' || e?.message === 'Session expired') throw e;
+    throw new Error('Cannot connect to server. Please try again.');
+  }
+
+  if (!res.ok) {
+    let message = res.status === 403 ? FORBIDDEN_MESSAGE : `Request failed (${res.status})`;
+    try {
+      const data = JSON.parse(await res.text());
+      message = data.message || data.error || message;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new Error(message);
+  }
+
+  if (responseType === 'blob') {
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    const name = match ? decodeURIComponent(match[1]) : fallbackName;
+    return { blob, name };
+  }
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Hands a Blob to the browser as a file download.
+export function saveBlob({ blob, name }) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export const api = {
@@ -310,6 +387,28 @@ export const api = {
           return { blob, name };
         });
     },
+  },
+  imports: {
+    // Download helpers trigger the browser download and resolve to { blob, name }.
+    template: (type, opts = {}) =>
+      rawRequest(`/imports/${encodeURIComponent(type)}/template`, {
+        responseType: 'blob', fallbackName: `${type}-import-template.xlsx`, signal: opts.signal,
+      }).then((file) => { saveBlob(file); return file; }),
+    preview: (type, file, opts = {}) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return rawRequest(`/imports/${encodeURIComponent(type)}/preview`, {
+        method: 'POST', body: fd, signal: opts.signal,
+      });
+    },
+    commit: (batchId, opts = {}) =>
+      rawRequest(`/imports/batches/${batchId}/commit`, { method: 'POST', signal: opts.signal }),
+    errors: (batchId, opts = {}) =>
+      rawRequest(`/imports/batches/${batchId}/errors`, {
+        responseType: 'blob', fallbackName: `import-errors-${batchId}.xlsx`, signal: opts.signal,
+      }).then((file) => { saveBlob(file); return file; }),
+    batches: (type, opts = {}) =>
+      rawRequest(`/imports/batches?type=${encodeURIComponent(type)}`, { signal: opts.signal }),
   },
   audit: {
     register: (params = {}) => {

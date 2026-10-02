@@ -9,10 +9,11 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Warning as WarningIcon, Article, InfoOutlined,
+  Warning as WarningIcon, Article, InfoOutlined, UploadFile,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
+import ImportDialog from '../components/modals/ImportDialog';
 
 // harmonized with ReviewEditPage / ReviewInboxPage
 const INHERENT_RISK_CONFIG = {
@@ -69,6 +70,7 @@ export default function ObligationsRegisterPage() {
 
   // dialogs
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [snackbar, setSnackbar] = useState('');
 
@@ -174,6 +176,10 @@ export default function ObligationsRegisterPage() {
           <Tooltip title="Refresh">
             <IconButton onClick={refresh}><Refresh /></IconButton>
           </Tooltip>
+          <Button variant="outlined" startIcon={<UploadFile />} size="medium" onClick={() => setImportOpen(true)}
+            sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+            Import
+          </Button>
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={openCreate}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
             New Obligation
@@ -384,6 +390,10 @@ export default function ObligationsRegisterPage() {
     <CreateObligationDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={handleSaved} onSnackbar={setSnackbar}
         editing={!!editTarget} initial={editTarget} />
+
+      <ImportDialog entityType="obligations" entityLabel="obligations" open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(r) => setSnackbar(`Imported ${r?.importedRows ?? 0} obligations.`)} />
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
