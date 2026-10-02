@@ -105,6 +105,11 @@ public class ObligationService {
             .build();
     }
 
+    /** Every non-deleted obligation as a register row (same regulator/act resolution the register shows). */
+    public List<ObligationRegisterItem> registerRows() {
+        return buildRegisterRows();
+    }
+
     /** Drops the short-lived register cache so the next read reflects writes made elsewhere (e.g. bulk import). */
     public void evictRegisterCache() {
         cachedRows = null;

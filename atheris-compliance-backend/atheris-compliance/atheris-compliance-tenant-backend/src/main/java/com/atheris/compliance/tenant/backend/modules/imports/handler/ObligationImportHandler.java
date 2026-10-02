@@ -349,7 +349,7 @@ public class ObligationImportHandler implements ImportHandler {
 
     // ------------------------------------------------------------------ helpers
 
-    private static Map<String, String> buildAliases(List<String> canonical, Map<String, String> aliases) {
+    static Map<String, String> buildAliases(List<String> canonical, Map<String, String> aliases) {
         Map<String, String> m = new HashMap<>();
         canonical.forEach(v -> m.put(norm(v), v));
         aliases.forEach((k, v) -> m.putIfAbsent(k, v));
@@ -360,7 +360,7 @@ public class ObligationImportHandler implements ImportHandler {
         return r.getAbbreviation() != null && !r.getAbbreviation().isBlank() ? r.getAbbreviation() : r.getName();
     }
 
-    private static String joinContext(String... parts) {
+    static String joinContext(String... parts) {
         String s = Arrays.stream(parts).filter(Objects::nonNull).filter(p -> !p.isBlank())
             .collect(Collectors.joining(" · "));
         return s.isEmpty() ? null : s;

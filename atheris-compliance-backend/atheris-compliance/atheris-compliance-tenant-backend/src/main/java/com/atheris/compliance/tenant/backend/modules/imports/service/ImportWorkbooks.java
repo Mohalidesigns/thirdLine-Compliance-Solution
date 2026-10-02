@@ -134,12 +134,15 @@ final class ImportWorkbooks {
             List<ImportColumn> columns = handler.columns();
 
             Sheet data = wb.createSheet(handler.sheetName());
+            CellStyle textStyle = wb.createCellStyle();
+            textStyle.setDataFormat(wb.createDataFormat().getFormat("@"));
             Row h = data.createRow(0);
             for (int i = 0; i < columns.size(); i++) {
                 Cell c = h.createCell(i);
                 c.setCellValue(columns.get(i).templateHeader());
                 c.setCellStyle(headerStyle);
                 data.setColumnWidth(i, 24 * 256);
+                if (columns.get(i).text()) data.setDefaultColumnStyle(i, textStyle);
             }
             data.createFreezePane(0, 1);
 
@@ -175,6 +178,21 @@ final class ImportWorkbooks {
                 }
                 col++;
             }
+            // Suggestions: listed for guidance only — no dropdown, any text is accepted.
+            for (Map.Entry<String, List<String>> e : handler.suggestions().entrySet()) {
+                Cell c = ah.createCell(col);
+                c.setCellValue(e.getKey() + " (suggestions — any text allowed)");
+                c.setCellStyle(headerStyle);
+                allowed.setColumnWidth(col, 36 * 256);
+                List<String> values = e.getValue();
+                for (int r = 0; r < values.size(); r++) {
+                    Row row = allowed.getRow(r + 1) != null ? allowed.getRow(r + 1) : allowed.createRow(r + 1);
+                    row.createCell(col).setCellValue(values.get(r));
+                }
+                longest = Math.max(longest, values.size());
+                col++;
+            }
+            int listColumns = col;
 
             // Example row lives here (not on the data sheet) so it can never be imported by mistake.
             int r = longest + 3;
@@ -189,7 +207,27 @@ final class ImportWorkbooks {
                 c.setCellValue(columns.get(i).templateHeader());
                 c.setCellStyle(headerStyle);
                 exRow.createCell(i).setCellValue(i < example.size() ? example.get(i) : "");
-                if (i >= lists.size()) allowed.setColumnWidth(i, 24 * 256);
+                if (i >= listColumns) allowed.setColumnWidth(i, 24 * 256);
+            }
+
+            for (ImportHandler.ReferenceSheet ref : handler.referenceSheets()) {
+                Sheet sheet = wb.createSheet(ref.name());
+                Row rh = sheet.createRow(0);
+                for (int i = 0; i < ref.headers().size(); i++) {
+                    Cell c = rh.createCell(i);
+                    c.setCellValue(ref.headers().get(i));
+                    c.setCellStyle(headerStyle);
+                    sheet.setColumnWidth(i, (i == 0 ? 16 : 40) * 256);
+                }
+                sheet.createFreezePane(0, 1);
+                int rr = 1;
+                for (List<String> values : ref.rows()) {
+                    Row out = sheet.createRow(rr++);
+                    for (int i = 0; i < values.size(); i++) {
+                        String v = values.get(i);
+                        if (v != null) out.createCell(i).setCellValue(v.length() > MAX_CELL_CHARS ? v.substring(0, MAX_CELL_CHARS) : v);
+                    }
+                }
             }
             return toBytes(wb);
         } catch (IOException e) {

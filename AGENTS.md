@@ -204,12 +204,11 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Bulk import phases 2–4
+## TODO / Next — Bulk import phases 3–4
 
 Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see the Done sections below.
 
-**Bulk import** — phase 1 (obligations) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
-- **Controls** — `controlNumber` is NOT NULL + UNIQUE; obligation↔control links live in two unsynced JSON lists (`classification.linked_control_ids` and `controls.linked_obligation_ids`) — decide which one an import writes.
+**Bulk import** — phases 1 (obligations) and 2 (controls) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
 - **Returns** — `ReturnService.create` never sets `frequencyType` from `frequency`, so every return gets MONTHLY instances; fix that first (intel `ToolkitImportService.classifyFrequency` maps free text to the type).
 - **Findings** — `RaiseFindingRequest` requires type, severity, description, remediationDeadline.
 
@@ -218,6 +217,20 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — Bulk Import Phase 2 (Controls)
+
+Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). New `ControlImportHandler`; `ImportService` stayed generic (no type branches).
+
+- **Template:** 15 columns (Control Name* … Linked Obligation IDs). Strict dropdowns for Control Type (Preventive/Detective/Corrective/Directive), Test Frequency (Monthly/Quarterly/Semi-Annual/Annual), Inherent Risk (Critical/High/Moderate/Low, "Medium" accepted) and Owner. **Theme is free text** — its suggestions are listed via the new `ImportHandler.suggestions()` (anything in `allowedValues()` becomes a STOP-style dropdown). A read-only **"Obligations" sheet** (`ImportHandler.referenceSheets()`) lists every obligation's ID/title/section/regulator/act, from the new `ObligationService.registerRows()`.
+- **Linking by obligation ID** — the only reliable key: `obligation_number` is NOT unique (seed and review number 1..n per instrument). The column is Text-formatted so Excel doesn't turn `12,345` into a number; `;` or `,` separators. IDs are validated with one `findAllById` (exists, not deleted).
+- **Both link lists are written:** `controls.linked_obligation_ids` (control detail, `?obligationId=` filter) AND each obligation's `ObligationClassification.linked_control_ids` (register "N controls", "No Control" KPI, every coverage dashboard). Manual `ControlService.create` writes only the control side — the lists are still not kept in sync elsewhere. Classifications load with the new derived `findByObligationIdIn`; a missing one is created applicable/active. No classification history is written (the batch audit `controls_imported` covers it).
+- **Numbers:** blank → `CTL-%04d` from the highest existing or in-file `CTL-n`, allocated once per batch (seeded numbers use other formats and are ignored). Duplicates: same number (register or file), or — when no number — same name + act.
+- Test Frequency Days derived when blank (30/90/182/365). Name capped at 500 (`control_tasks.control_name`).
+- **Frontend:** `ImportDialog` gained `itemLabel`, `contextLabel` and `invalidateKeys` props (controls invalidates `controls`, `obligations`, `dashboard`). No DB migration.
+
+### Verified (live, browser pane)
+7-row file → 3 valid / 2 invalid / 2 duplicate; commit → CTL-0100 (explicit) + CTL-0101/0102 (auto), both link lists written (obligation 5 kept its 3 existing links), register showed "2 controls" and No Control 2 → 0; re-upload → 0 valid / 5 duplicate. Zero backend errors.
 
 ## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
 

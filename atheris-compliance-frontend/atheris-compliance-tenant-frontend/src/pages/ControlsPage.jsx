@@ -10,11 +10,12 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Gavel, Visibility, History,
-  PlaylistAddCheck, Science, ChevronRight, AccountBalance,
+  PlaylistAddCheck, Science, ChevronRight, AccountBalance, UploadFile,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
+import ImportDialog from '../components/modals/ImportDialog';
 
 const RISK_COLORS = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success', Extreme: 'error' };
 
@@ -69,6 +70,7 @@ export default function ControlsPage() {
   const [sortDir, setSortDir] = useState('asc');
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [recordTestOpen, setRecordTestOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -172,6 +174,10 @@ export default function ControlsPage() {
           <Tooltip title="Refresh">
             <IconButton onClick={refreshAll}><Refresh /></IconButton>
           </Tooltip>
+          <Button variant="outlined" startIcon={<UploadFile />} size="medium" onClick={() => setImportOpen(true)}
+            sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+            Import
+          </Button>
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
             New Control
@@ -361,6 +367,12 @@ export default function ControlsPage() {
 
       <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={() => { setCreateOpen(false); refreshAll(); }} onSnackbar={setSnackbar} />
+
+      <ImportDialog entityType="controls" entityLabel="controls" open={importOpen}
+        itemLabel="Control" contextLabel="Theme / Frequency / Links"
+        invalidateKeys={[['controls'], ['obligations'], ['dashboard']]}
+        onClose={() => setImportOpen(false)}
+        onImported={(r) => setSnackbar(`Imported ${r?.importedRows ?? 0} controls.`)} />
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

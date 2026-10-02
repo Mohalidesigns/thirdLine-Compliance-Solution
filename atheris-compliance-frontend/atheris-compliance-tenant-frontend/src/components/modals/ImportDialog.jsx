@@ -32,7 +32,10 @@ const RESULT_CHIP = {
 const PAGE_SIZE = 50;
 const HEAD_SX = { fontWeight: 700, bgcolor: '#F7FAFC' };
 
-export default function ImportDialog({ entityType, entityLabel, open, onClose, onImported }) {
+export default function ImportDialog({
+  entityType, entityLabel, open, onClose, onImported,
+  itemLabel = 'Obligation', contextLabel = 'Regulator / Act', invalidateKeys,
+}) {
   const queryClient = useQueryClient();
   const fileInput = useRef(null);
   const [file, setFile] = useState(null);
@@ -48,7 +51,7 @@ export default function ImportDialog({ entityType, entityLabel, open, onClose, o
   const commit = useMutation({
     mutationFn: (batchId) => api.imports.commit(batchId),
     onSuccess: (summary) => {
-      queryClient.invalidateQueries({ queryKey: [entityType] });
+      (invalidateKeys ?? [[entityType]]).forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
       onImported?.(summary);
     },
   });
@@ -199,8 +202,8 @@ export default function ImportDialog({ entityType, entityLabel, open, onClose, o
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 50 }}>Row</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 260 }}>Obligation</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 160 }}>Regulator / Act</TableCell>
+                      <TableCell sx={{ ...HEAD_SX, minWidth: 260 }}>{itemLabel}</TableCell>
+                      <TableCell sx={{ ...HEAD_SX, minWidth: 160 }}>{contextLabel}</TableCell>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 90 }}>Risk</TableCell>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 110 }}>Result</TableCell>
                     </TableRow>

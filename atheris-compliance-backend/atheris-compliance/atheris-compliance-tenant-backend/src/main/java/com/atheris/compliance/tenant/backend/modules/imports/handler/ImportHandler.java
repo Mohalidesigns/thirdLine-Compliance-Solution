@@ -23,6 +23,18 @@ public interface ImportHandler {
     /** Column header (without {@code *}) to allowed values, for template dropdowns and the "Allowed values" sheet. */
     LinkedHashMap<String, List<String>> allowedValues();
 
+    /**
+     * Column header (without {@code *}) to suggested values. Listed on the "Allowed values" sheet for
+     * guidance only — unlike {@link #allowedValues()} no dropdown or validation is applied, so any text is accepted.
+     */
+    default LinkedHashMap<String, List<String>> suggestions() { return new LinkedHashMap<>(); }
+
+    /** Extra read-only lookup sheets written after "Allowed values" (never imported). */
+    default List<ReferenceSheet> referenceSheets() { return List.of(); }
+
+    /** A read-only lookup sheet in the template. */
+    record ReferenceSheet(String name, List<String> headers, List<List<String>> rows) {}
+
     /** One illustrative row (column order) shown on the "Allowed values" sheet, never imported. */
     List<String> exampleRow();
 
