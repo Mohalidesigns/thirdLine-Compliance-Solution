@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseBl
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +18,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -78,7 +81,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(Map.of("error", "forbidden", "message", "You do not have permission to perform this action"));
+            .body(Map.of("error", "forbidden", "message", "You do not have permission to perform this action."));
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -166,11 +169,33 @@ public class GlobalExceptionHandler {
             .body(Map.of("error", "bad_request", "message", messageOr(e, "Invalid request")));
     }
 
+    // The client went away mid-response (tab closed, navigation, aborted fetch). The
+    // response is unusable, so there is nothing to write; this is not a server fault.
+    @ExceptionHandler({ClientAbortException.class, AsyncRequestNotUsableException.class})
+    public void handleClientAbort(Exception e) {
+        log.debug("Client disconnected: {}", e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
+        if (isBrokenPipe(e)) {
+            log.debug("Client disconnected (broken pipe): {}", e.getMessage());
+            return null;
+        }
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "internal_error", "message", "An unexpected error occurred"));
+    }
+
+    private static boolean isBrokenPipe(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof IOException && t.getMessage() != null
+                    && t.getMessage().toLowerCase().contains("broken pipe")) {
+                return true;
+            }
+            if (t.getCause() == t) break;
+        }
+        return false;
     }
 
     // Map.of rejects null values, so a message-less exception would itself throw.
