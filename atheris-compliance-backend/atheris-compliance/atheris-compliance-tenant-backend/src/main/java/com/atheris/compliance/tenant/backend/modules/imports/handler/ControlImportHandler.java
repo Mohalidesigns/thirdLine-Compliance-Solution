@@ -4,7 +4,6 @@ import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.imports.entity.ImportRowData;
-import com.atheris.compliance.tenant.backend.modules.obligations.dto.ObligationRegisterItem;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
@@ -21,9 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.atheris.compliance.tenant.backend.modules.imports.handler.ObligationImportHandler.buildAliases;
-import static com.atheris.compliance.tenant.backend.modules.imports.handler.ObligationImportHandler.joinContext;
-import static com.atheris.compliance.tenant.backend.modules.imports.handler.ObligationImportHandler.norm;
+import static com.atheris.compliance.tenant.backend.modules.imports.handler.ImportParsing.*;
 
 /**
  * Bulk import of controls into the Controls register. Links are written on both sides: the control's
@@ -73,7 +70,6 @@ public class ControlImportHandler implements ImportHandler {
     private static final Map<String, String> RISK_ALIASES = buildAliases(RISK_LEVELS, Map.of("medium", "Moderate"));
 
     private static final Pattern GENERATED_NUMBER = Pattern.compile("(?i)^CTL-(\\d+)$");
-    private static final Pattern ID_TOKEN = Pattern.compile("^\\d+(\\.0+)?$");
 
     private final ControlRepository controlRepo;
     private final ObligationRepository obligationRepo;
@@ -110,19 +106,9 @@ public class ControlImportHandler implements ImportHandler {
 
     @Override
     public List<ReferenceSheet> referenceSheets() {
-        List<List<String>> rows = obligationService.registerRows().stream()
-            .sorted(Comparator.comparing(ObligationRegisterItem::getObligationId,
-                Comparator.nullsLast(Comparator.naturalOrder())))
-            .map(i -> Arrays.asList(
-                i.getObligationId() != null ? String.valueOf(i.getObligationId()) : null,
-                i.getTitle() != null ? i.getTitle() : i.getName(),
-                i.getSectionReference(),
-                i.getRegulatorAbbreviation() != null ? i.getRegulatorAbbreviation() : i.getRegulatorName(),
-                i.getActName()))
-            .toList();
-        return List.of(new ReferenceSheet("Obligations",
-            List.of("Obligation ID", "Title", "Section", "Regulator", "Act"), rows));
+        return List.of(obligationsReferenceSheet(obligationService));
     }
+
 
     @Override
     public List<String> exampleRow() {
@@ -173,7 +159,7 @@ public class ControlImportHandler implements ImportHandler {
 
         List<Control> existing = controlRepo.findAll();
         Set<String> numbers = existing.stream().map(Control::getControlNumber).filter(Objects::nonNull)
-            .map(ObligationImportHandler::norm).collect(Collectors.toSet());
+            .map(ImportParsing::norm).collect(Collectors.toSet());
         Set<String> nameAct = existing.stream().map(c -> nameActKey(c.getName(), c.getActName()))
             .collect(Collectors.toSet());
         return new Lookups(owners, live, numbers, nameAct, existing);
@@ -372,47 +358,6 @@ public class ControlImportHandler implements ImportHandler {
     }
 
     // ------------------------------------------------------------------ helpers
-
-    private record ParsedIds(List<Long> ids, List<String> badTokens) {}
-
-    /** Splits on ';' or ',' (a single numeric cell such as "12" or "12.0" is one id). Distinct, in order. */
-    private static ParsedIds parseIds(String raw) {
-        if (raw == null) return new ParsedIds(List.of(), List.of());
-        LinkedHashSet<Long> ids = new LinkedHashSet<>();
-        List<String> bad = new ArrayList<>();
-        for (String token : raw.split("[;,]")) {
-            String t = token.trim();
-            if (t.isEmpty()) continue;
-            if (!ID_TOKEN.matcher(t).matches()) { bad.add(t); continue; }
-            try {
-                long id = Long.parseLong(t.contains(".") ? t.substring(0, t.indexOf('.')) : t);
-                if (id <= 0) bad.add(t); else ids.add(id);
-            } catch (NumberFormatException e) {
-                bad.add(t);
-            }
-        }
-        return new ParsedIds(List.copyOf(ids), bad);
-    }
-
-    /** Case-insensitive match to a canonical value; adds an error and returns null when unrecognised. */
-    private static String strict(String raw, Map<String, String> aliases, String header, List<String> canonical,
-                                 String hint, List<String> errors) {
-        if (raw == null) return null;
-        String v = aliases.get(norm(raw));
-        if (v == null) errors.add(header + " '" + raw + "' must be one of " + String.join(", ", canonical) + hint);
-        return v;
-    }
-
-    private static Integer parsePositiveInt(String raw) {
-        String s = raw.trim();
-        if (s.matches("^\\d+(\\.0+)?$")) s = s.contains(".") ? s.substring(0, s.indexOf('.')) : s;
-        try {
-            int v = Integer.parseInt(s);
-            return v > 0 ? v : null;
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 
     private static int generatedNumber(String number) {
         if (number == null) return 0;

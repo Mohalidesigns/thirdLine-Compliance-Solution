@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.returns.controller;
 
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnFrequencyRepairService;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import jakarta.validation.Valid;
@@ -19,6 +20,7 @@ import java.util.List;
 public class ReturnController {
 
     private final ReturnService service;
+    private final ReturnFrequencyRepairService frequencyRepair;
 
     @GetMapping("/list")
     public ResponseEntity<List<RegulatoryReturn>> list() {
@@ -102,5 +104,19 @@ public class ReturnController {
             @AuthenticationPrincipal User u) {
         service.linkObligations(returnId, req.getLinkedObligationIds(), u.getUserId());
         return ResponseEntity.ok().build();
+    }
+
+    /** Dry run of the one-off frequency_type repair; changes nothing. */
+    @GetMapping("/frequency-repair")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    public ResponseEntity<FrequencyRepairPreview> frequencyRepairPreview() {
+        return ResponseEntity.ok(frequencyRepair.preview());
+    }
+
+    /** Applies the frequency_type repair (idempotent). */
+    @PostMapping("/frequency-repair")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    public ResponseEntity<FrequencyRepairResult> frequencyRepairApply(@AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(frequencyRepair.apply(u.getUserId()));
     }
 }

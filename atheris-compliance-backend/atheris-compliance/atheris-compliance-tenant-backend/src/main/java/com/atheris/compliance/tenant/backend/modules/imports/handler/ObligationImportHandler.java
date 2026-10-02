@@ -15,17 +15,14 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.DateUtil;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.atheris.compliance.tenant.backend.modules.imports.handler.ImportParsing.*;
 
 /**
  * Bulk import of standalone obligations straight into the Obligations Register
@@ -69,8 +66,6 @@ public class ObligationImportHandler implements ImportHandler {
 
     private static final Set<String> YES = Set.of("y", "yes", "true");
     private static final Set<String> NO = Set.of("n", "no", "false");
-    private static final Pattern NUMERIC = Pattern.compile("^\\d+(\\.\\d+)?$");
-    private static final DateTimeFormatter DMY = DateTimeFormatter.ofPattern("d/M/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     private final ObligationRepository obligationRepo;
     private final ObligationClassificationRepository classificationRepo;
@@ -92,7 +87,7 @@ public class ObligationImportHandler implements ImportHandler {
     @Override
     public LinkedHashMap<String, List<String>> allowedValues() {
         LinkedHashMap<String, List<String>> m = new LinkedHashMap<>();
-        m.put("Regulator", activeRegulators().stream().map(ObligationImportHandler::regulatorLabel).distinct().toList());
+        m.put("Regulator", activeRegulators().stream().map(ImportParsing::regulatorLabel).distinct().toList());
         m.put("Impact", ObligationClassification.IMPACT_LEVELS);
         m.put("Likelihood", ObligationClassification.LIKELIHOOD_LEVELS);
         m.put("Owner", ownerRepo.findByIsActiveTrueOrderByFullNameAsc().stream()
@@ -137,12 +132,7 @@ public class ObligationImportHandler implements ImportHandler {
                            Map<Integer, String> departmentNames, Set<String> existingKeys) {}
 
     private Lookups loadLookups() {
-        Map<String, TenantRegulator> regulators = new HashMap<>();
-        List<TenantRegulator> active = activeRegulators();
-        // names first so a name always wins over another regulator's identical abbreviation
-        active.forEach(r -> { if (r.getName() != null) regulators.putIfAbsent(norm(r.getName()), r); });
-        active.forEach(r -> { if (r.getAbbreviation() != null && !r.getAbbreviation().isBlank())
-            regulators.putIfAbsent(norm(r.getAbbreviation()), r); });
+        Map<String, TenantRegulator> regulators = regulatorLookup(activeRegulators());
 
         Map<String, Owner> owners = new HashMap<>();
         ownerRepo.findByIsActiveTrueOrderByFullNameAsc().forEach(o -> {
@@ -162,9 +152,7 @@ public class ObligationImportHandler implements ImportHandler {
     }
 
     private List<TenantRegulator> activeRegulators() {
-        Long tenantId = tenantIdentity.currentTenantId();
-        if (tenantId != null) return regulatorRepo.findByTenantIdAndIsActiveTrue(tenantId);
-        return regulatorRepo.findAll().stream().filter(r -> !Boolean.FALSE.equals(r.getIsActive())).toList();
+        return ImportParsing.activeRegulators(regulatorRepo, tenantIdentity);
     }
 
     private Map<ImportRowData, Parsed> validateInternal(List<ImportRowData> rows, Lookups lk) {
@@ -349,49 +337,8 @@ public class ObligationImportHandler implements ImportHandler {
 
     // ------------------------------------------------------------------ helpers
 
-    static Map<String, String> buildAliases(List<String> canonical, Map<String, String> aliases) {
-        Map<String, String> m = new HashMap<>();
-        canonical.forEach(v -> m.put(norm(v), v));
-        aliases.forEach((k, v) -> m.putIfAbsent(k, v));
-        return Map.copyOf(m);
-    }
-
-    private static String regulatorLabel(TenantRegulator r) {
-        return r.getAbbreviation() != null && !r.getAbbreviation().isBlank() ? r.getAbbreviation() : r.getName();
-    }
-
-    static String joinContext(String... parts) {
-        String s = Arrays.stream(parts).filter(Objects::nonNull).filter(p -> !p.isBlank())
-            .collect(Collectors.joining(" · "));
-        return s.isEmpty() ? null : s;
-    }
-
-    /** Lowercase, collapse internal whitespace, trim; null becomes "". */
-    static String norm(String s) {
-        return s == null ? "" : s.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
-    }
-
     static String dedupKey(String title, String section, String act) {
         return norm(title) + "|" + norm(section) + "|" + norm(act);
     }
 
-    /** Excel serial numbers, yyyy-MM-dd, and dd/MM/yyyy. Null when unparseable. */
-    static LocalDate parseDate(String raw) {
-        String s = raw.trim();
-        if (NUMERIC.matcher(s).matches()) {
-            double serial = Double.parseDouble(s);
-            if (!DateUtil.isValidExcelDate(serial) || serial < 1) return null;
-            return DateUtil.getLocalDateTime(serial).toLocalDate();
-        }
-        try {
-            return LocalDate.parse(s);
-        } catch (DateTimeParseException ignored) {
-            // fall through
-        }
-        try {
-            return LocalDate.parse(s, DMY);
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-    }
 }

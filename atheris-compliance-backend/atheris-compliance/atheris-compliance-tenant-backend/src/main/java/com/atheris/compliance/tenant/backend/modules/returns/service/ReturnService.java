@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.returns.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.*;
@@ -10,6 +11,8 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +20,12 @@ import org.springframework.data.domain.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,7 +42,11 @@ public class ReturnService {
     private final ObligationRepository obligations;
     private final AuditService audit;
     private final TenantIdentityService tenantIdentity;
+    private final ObligationService obligationService;
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @PersistenceContext
+    private EntityManager em;
 
     @Value("${atheris.returns.instance-lookahead-days:120}")
     private int lookaheadDays;
@@ -91,10 +102,7 @@ public class ReturnService {
             ).toList();
         }
         if (frequency != null && !frequency.isBlank()) {
-            String fl = frequency.toLowerCase();
-            filteredReturns = filteredReturns.stream().filter(r ->
-                r.getFrequency() != null && r.getFrequency().toLowerCase().contains(fl)
-            ).toList();
+            filteredReturns = filteredReturns.stream().filter(r -> matchesFrequency(r, frequency)).toList();
         }
         if (regulator != null && !regulator.isBlank()) {
             String rl = regulator.toLowerCase();
@@ -180,9 +188,7 @@ public class ReturnService {
                 r.getActName() != null && r.getActName().toLowerCase().contains(al)).toList();
         }
         if (frequency != null && !frequency.isBlank()) {
-            String fl = frequency.toLowerCase();
-            allReturns = allReturns.stream().filter(r ->
-                r.getFrequency() != null && r.getFrequency().toLowerCase().contains(fl)).toList();
+            allReturns = allReturns.stream().filter(r -> matchesFrequency(r, frequency)).toList();
         }
         if (regulator != null && !regulator.isBlank()) {
             String rl = regulator.toLowerCase();
@@ -208,7 +214,26 @@ public class ReturnService {
 
         for (RegulatoryReturn r : allReturns) {
             List<ReturnFilingInstance> insts = instsByReturn.getOrDefault(r.getReturnId(), List.of());
-            if (insts.isEmpty()) continue;
+            if (insts.isEmpty()) {
+                // Event-driven, or not materialised yet: listed without a current period/status.
+                // It has no status, so any status filter excludes it.
+                if (status != null && !status.isBlank()) continue;
+                items.add(ReturnRegisterItem.builder()
+                    .returnId(r.getReturnId())
+                    .returnName(r.getReturnName())
+                    .actName(r.getActName())
+                    .filingRegulator(r.getFilingRegulator())
+                    .frequency(r.getFrequency())
+                    .frequencyType(r.getFrequencyType())
+                    .responsibleUnit(r.getResponsibleUnit())
+                    .responsiblePerson(r.getResponsiblePerson())
+                    .upcomingInstances(List.of())
+                    .totalInstances(0)
+                    .overdueCount(0)
+                    .hasOverdue(false)
+                    .build());
+                continue;
+            }
 
             // Find current instance: closest non-submitted instance with dueDate >= today,
             // or the most recent submitted/overdue one
@@ -290,11 +315,8 @@ public class ReturnService {
         }
 
         // Sort by current due date (earliest first)
-        items.sort((a, b) -> {
-            if (a.getCurrentDueDate() == null) return 1;
-            if (b.getCurrentDueDate() == null) return -1;
-            return a.getCurrentDueDate().compareTo(b.getCurrentDueDate());
-        });
+        items.sort(Comparator.comparing(ReturnRegisterItem::getCurrentDueDate,
+            Comparator.nullsLast(Comparator.naturalOrder())));
 
         // Paginate in-memory
         int total = items.size();
@@ -419,6 +441,16 @@ public class ReturnService {
 
     @Transactional
     public RegulatoryReturn create(CreateReturnRequest req, Integer userId) {
+        try {
+            return doCreate(req, userId);
+        } catch (RuntimeException e) {
+            rollback();
+            throw e;
+        }
+    }
+
+    private RegulatoryReturn doCreate(CreateReturnRequest req, Integer userId) {
+        ReturnFrequency freq = resolveFrequency(req.getFrequency());
         Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator reg = req.getTenantRegulatorId() != null
             ? regulators.findByIdAndTenantId(req.getTenantRegulatorId(), tenantId).orElse(null)
@@ -432,7 +464,9 @@ public class ReturnService {
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
             .actId(req.getActId())
-            .returnType(req.getReturnType()).frequency(req.getFrequency())
+            .returnType(req.getReturnType())
+            .frequency(freq != null ? freq.label() : null)
+            .frequencyType(freq != null ? freq.name() : ReturnFrequency.MONTHLY.name())
             .filingDate(req.getFilingDate())
             .filingDeadlineOffsetDays(req.getFilingDeadlineOffsetDays())
             .filingChannel(req.getFilingChannel())
@@ -449,18 +483,24 @@ public class ReturnService {
 
     @Transactional
     public void linkObligations(Long returnId, List<Long> obligationIds, Integer userId) {
-        if (!returns.existsById(returnId))
-            throw ApiException.notFound("Return not found: " + returnId);
-        obligations.deleteObligationLinks(returnId);
-        if (obligationIds != null) {
-            for (Long oid : new LinkedHashSet<>(obligationIds)) {
-                if (!obligations.existsById(oid))
-                    throw ApiException.badRequest("Obligation not found: " + oid);
-                obligations.insertReturnLink(oid, returnId);
+        try {
+            if (!returns.existsById(returnId))
+                throw ApiException.notFound("Return not found: " + returnId);
+            obligations.deleteObligationLinks(returnId);
+            if (obligationIds != null) {
+                for (Long oid : new LinkedHashSet<>(obligationIds)) {
+                    if (!obligations.existsById(oid))
+                        throw ApiException.badRequest("Obligation not found: " + oid);
+                    obligations.insertReturnLink(oid, returnId);
+                }
             }
+            audit.log(userId, "link_obligations", "return", returnId,
+                Collections.singletonMap("obligationIds", obligationIds));
+            evictObligationRegisterAfterCommit();
+        } catch (RuntimeException e) {
+            rollback();
+            throw e;
         }
-        audit.log(userId, "link_obligations", "return", returnId,
-            Collections.singletonMap("obligationIds", obligationIds));
     }
 
     public List<LinkedObligationItem> linkedObligations(Long returnId) {
@@ -487,18 +527,69 @@ public class ReturnService {
         }
     }
 
-    private void ensureInstances(RegulatoryReturn ret) {
+    /**
+     * Idempotently generates filing instances up to the lookahead horizon. A return that already has
+     * instances continues from its latest one. A return with none is anchored on its filing date when it
+     * has one (see {@link #anchoredFirstIndex}), otherwise starts from today. Event-driven returns get none.
+     * Runs in the caller's transaction (none for the scheduler, so each save commits on its own).
+     */
+    public void ensureInstances(RegulatoryReturn ret) {
         PeriodStep step = stepForType(ret.getFrequencyType());
         if (step == null) return; // EVENT_DRIVEN — no instances
         LocalDate today = LocalDate.now();
         LocalDate horizon = today.plusDays(Math.max(lookaheadDays, 1));
 
         Optional<ReturnFilingInstance> latest = instances.findTopByReturnIdOrderByPeriodDesc(ret.getReturnId());
-        LocalDate base = latest.isPresent()
-            ? advance(latest.get().getDueDate(), step)
-            : today;
+        if (latest.isPresent()) {
+            populate(ret, advance(latest.get().getDueDate(), step), step, today, horizon, 0);
+        } else if (ret.getFilingDate() != null) {
+            populateAnchored(ret, ret.getFilingDate(), step, today, horizon);
+        } else {
+            populate(ret, today, step, today, horizon, 0);
+        }
+    }
 
-        populate(ret, base, step, today, horizon, 0);
+    /**
+     * First instance = the earliest cycle date (anchor + k steps, k >= 0) on or after today, created even
+     * when it lies beyond the horizon (an Annual return due next March must still appear in the register).
+     * Later instances follow up to the horizon. Every date is computed from the original anchor, so
+     * month-end clamping never drifts (31 Jan → 28 Feb → 31 Mar).
+     */
+    private void populateAnchored(RegulatoryReturn ret, LocalDate anchor, PeriodStep step,
+                                  LocalDate today, LocalDate horizon) {
+        long k = anchoredFirstIndex(anchor, step, today);
+        materialize(ret, nthCycleDate(anchor, step, k), step);
+        for (long n = k + 1; n <= k + 400; n++) {
+            LocalDate d = nthCycleDate(anchor, step, n);
+            if (d.isAfter(horizon)) break;
+            materialize(ret, d, step);
+        }
+    }
+
+    /** Smallest k >= 0 with {@code nthCycleDate(anchor, step, k) >= today}. */
+    private long anchoredFirstIndex(LocalDate anchor, PeriodStep step, LocalDate today) {
+        if (!anchor.isBefore(today)) return 0;
+        long stepDays = switch (step.unit()) {
+            case DAY -> step.amount();
+            case WEEK -> 7L * step.amount();
+            case MONTH -> 0;
+        };
+        if (stepDays > 0) {
+            long days = ChronoUnit.DAYS.between(anchor, today);
+            return (days + stepDays - 1) / stepDays; // round up
+        }
+        long k = Math.max(1, ChronoUnit.MONTHS.between(anchor, today) / step.amount());
+        while (nthCycleDate(anchor, step, k).isBefore(today)) k++;
+        return k;
+    }
+
+    /** anchor + n steps; months are added from the anchor in one go (plusMonths clamps to month length). */
+    private LocalDate nthCycleDate(LocalDate anchor, PeriodStep step, long n) {
+        return switch (step.unit()) {
+            case DAY   -> anchor.plusDays(n * step.amount());
+            case WEEK  -> anchor.plusWeeks(n * step.amount());
+            case MONTH -> anchor.plusMonths(n * step.amount());
+        };
     }
 
     private void populate(RegulatoryReturn ret, LocalDate cursor, PeriodStep step,
@@ -518,8 +609,9 @@ public class ReturnService {
             period = cursor.toString(); // "2026-09-25"
             due = cursor;
         } else if (step.unit() == PeriodUnit.WEEK) {
-            int week = cursor.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
-            period = cursor.getYear() + "-W" + String.format("%02d", week); // "2026-W38"
+            int week = cursor.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+            int weekYear = cursor.get(IsoFields.WEEK_BASED_YEAR);
+            period = weekYear + "-W" + String.format("%02d", week); // "2026-W38"
             due = cursor;
         } else {
             // Monthly / Quarterly / Semi-Annual / Annual / Biennial
@@ -594,6 +686,50 @@ public class ReturnService {
         int level = 1;
         for (int t : thresholds()) if (daysLate > t) level++;
         return Math.min(level, ESCALATION_CAP);
+    }
+
+    /** Blank → null; otherwise a canonical label/alias or recognisable free text, else 400. */
+    private static ReturnFrequency resolveFrequency(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        return ReturnFrequency.fromLabel(raw).or(() -> ReturnFrequency.classify(raw))
+            .orElseThrow(() -> ApiException.badRequest("invalid_frequency",
+                "Frequency '" + raw + "' must be one of " + String.join(", ", ReturnFrequency.LABELS)));
+    }
+
+    /**
+     * Frequency filter. A known frequency ("Annual", "Event-driven") matches on the return's stored
+     * {@code frequencyType} (the type that drives its instances; legacy mis-typed rows are fixed by the
+     * frequency repair), falling back to classifying its text only when no valid type is stored. So
+     * "Semi-Annual" never matches "Annual". Any other filter is a text contains-match.
+     */
+    private static boolean matchesFrequency(RegulatoryReturn r, String filter) {
+        Optional<ReturnFrequency> f = ReturnFrequency.fromLabel(filter);
+        if (f.isPresent()) {
+            Optional<ReturnFrequency> effective = ReturnFrequency.fromCode(r.getFrequencyType())
+                .or(() -> ReturnFrequency.classify(r.getFrequency()));
+            return effective.isPresent() && effective.get() == f.get();
+        }
+        return r.getFrequency() != null && r.getFrequency().toLowerCase().contains(filter.toLowerCase());
+    }
+
+    /** The register reads return links through a short-lived cache; drop it once the change is visible. */
+    private void evictObligationRegisterAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { obligationService.evictRegisterCache(); }
+            });
+        } else {
+            obligationService.evictRegisterCache();
+        }
+    }
+
+    private void rollback() {
+        try {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        } catch (Throwable ignored) {
+            // no active transaction
+        }
+        em.clear();
     }
 
     private String regulatorLabel(RegulatoryReturn ret) {

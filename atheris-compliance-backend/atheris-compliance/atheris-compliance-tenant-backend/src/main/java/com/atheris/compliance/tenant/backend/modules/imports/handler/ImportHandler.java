@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.imports.handler;
 import com.atheris.compliance.tenant.backend.modules.imports.entity.ImportRowData;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Entity-specific half of bulk import. {@code ImportService} owns the file handling, batch storage
@@ -13,6 +14,9 @@ public interface ImportHandler {
 
     /** URL/batch type, e.g. {@code obligations}. */
     String entityType();
+
+    /** Roles (without the {@code ROLE_} prefix) allowed to preview, commit and see batches of this type. */
+    default Set<String> requiredRoles() { return Set.of("ANALYST", "CCO", "TENANT_ADMIN"); }
 
     /** Name of the data sheet in the template. */
     String sheetName();

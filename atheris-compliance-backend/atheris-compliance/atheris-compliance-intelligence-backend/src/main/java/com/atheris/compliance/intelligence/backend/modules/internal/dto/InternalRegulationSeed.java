@@ -79,6 +79,8 @@ public class InternalRegulationSeed {
         private String responsibleUnit;
         private String responsiblePerson;
         private String frequency;
+        /** DAILY, WEEKLY, MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, BIENNIAL or EVENT_DRIVEN (null when unclassified). */
+        private String frequencyType;
         private String deadline;
         private LocalDate filingDate;
     }

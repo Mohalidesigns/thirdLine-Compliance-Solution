@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.RegulatorySanction;
@@ -157,14 +158,18 @@ public class RegulationSeedService {
                 String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
                     ? r.getResponsibleUnit()
                     : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
+                // Platform's classification when present, else derived from the frequency text.
+                ReturnFrequency freqType = ReturnFrequency.fromCode(r.getFrequencyType())
+                    .or(() -> ReturnFrequency.classify(r.getFrequency()))
+                    .orElse(ReturnFrequency.MONTHLY);
                 RegulatoryReturn rt = returns.save(RegulatoryReturn.builder()
                     .returnName(r.getTitle())
                     .filingRegulator(label)
                     .tenantRegulatorId(regId)
                     .actId(bundle.getRegulationId())
                     .actName(bundle.getRegulationName())
-                    .frequency(normalizeFrequency(r.getFrequency()))
-                    .frequencyType(r.getFrequencyType() != null ? r.getFrequencyType() : "MONTHLY")
+                    .frequency(normalizeFrequency(r.getFrequency(), freqType))
+                    .frequencyType(freqType.name())
                     .filingDate(r.getFilingDate())
                     .responsibleUnit(r.getResponsibleUnit())
                     .responsiblePerson(r.getResponsiblePerson())
@@ -310,16 +315,16 @@ public class RegulationSeedService {
         return 1;
     }
 
-    private String normalizeFrequency(String frequency) {
-        if (frequency == null || frequency.isBlank()) return null;
-        String f = frequency.trim().toLowerCase();
-        if (f.contains("daily")) return "Daily";
-        if (f.contains("weekly")) return "Weekly";
-        if (f.contains("semi") || f.contains("twice yearly") || f.contains("every 6 months")) return "Semi-Annual";
-        if (f.contains("quarter")) return "Quarterly";
-        if (f.contains("every 2 years") || f.contains("biennial")) return "Biennial";
-        if (f.contains("annual") || f.contains("year")) return "Annually";
-        if (f.contains("monthly")) return "Monthly";
+    /**
+     * Display label for a seeded return: the canonical label when the text names a recurring cycle,
+     * otherwise the original text (max 50 chars) so event-driven phrasing such as
+     * "Within 30 days of receipt" stays informative.
+     */
+    private String normalizeFrequency(String frequency, ReturnFrequency type) {
+        if (frequency == null || frequency.isBlank())
+            return type == ReturnFrequency.MONTHLY ? null : type.label();
+        if (type != ReturnFrequency.EVENT_DRIVEN && ReturnFrequency.classify(frequency).isPresent())
+            return type.label();
         return frequency.length() <= 50 ? frequency.trim() : frequency.trim().substring(0, 50);
     }
 }

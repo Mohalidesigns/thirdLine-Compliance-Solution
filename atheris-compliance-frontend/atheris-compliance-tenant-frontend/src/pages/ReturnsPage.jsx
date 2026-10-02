@@ -10,10 +10,15 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, CheckCircle,
-  Link as LinkIcon, ExpandMore, ExpandLess,
+  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
+import ImportDialog from '../components/modals/ImportDialog';
+import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
+
+const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 
 const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
@@ -41,7 +46,19 @@ const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
 
 function formatDate(d) {
   if (!d) return '-';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function isEventDriven(item) {
+  const f = (item?.frequency || item?.frequencyType || '').toLowerCase().replace(/[\s_-]/g, '');
+  return f === 'eventdriven';
+}
+
+// A return with no current filing instance (event-driven, or not yet materialised).
+function noPeriodLabel(item) {
+  return isEventDriven(item) ? 'Event-driven' : 'No scheduled period';
 }
 
 const COLUMNS = [
@@ -54,7 +71,12 @@ const COLUMNS = [
 
 export default function ReturnsPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canImport = IMPORT_ROLES.includes(user?.role);
   const [detailId, setDetailId] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const isTenantAdmin = user?.role === 'TENANT_ADMIN';
+  const [repairOpen, setRepairOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -91,6 +113,16 @@ export default function ReturnsPage() {
     queryKey: ['returns', 'stats'],
     queryFn: ({ signal }) => api.returns.stats({ signal }),
   });
+
+  // One-off schedule repair preview (dry run). TENANT_ADMIN only; errors (incl. 403) render nothing.
+  const repairQuery = useQuery({
+    queryKey: ['returns', 'frequency-repair'],
+    queryFn: ({ signal }) => api.returns.frequencyRepairPreview({ signal }),
+    enabled: isTenantAdmin,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const repairCount = repairQuery.isError ? 0 : (repairQuery.data?.toRetype ?? 0);
 
   const detailQuery = useQuery({
     queryKey: ['returns', 'detail', String(detailId)],
@@ -164,6 +196,12 @@ export default function ReturnsPage() {
           <Tooltip title="Refresh">
             <IconButton onClick={refresh}><Refresh /></IconButton>
           </Tooltip>
+          {canImport && (
+            <Button variant="outlined" startIcon={<UploadFile />} size="medium" onClick={() => setImportOpen(true)}
+              sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+              Import
+            </Button>
+          )}
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
             Add Return
@@ -175,6 +213,15 @@ export default function ReturnsPage() {
         <Alert severity="error" sx={{ mb: 2 }}
           action={<Button size="small" onClick={() => listQuery.refetch()}>Retry</Button>}>
           {error}
+        </Alert>
+      )}
+
+      {isTenantAdmin && repairCount > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}
+          action={<Button color="inherit" size="small" onClick={() => setRepairOpen(true)}
+            sx={{ fontWeight: 600, textTransform: 'none' }}>Review &amp; repair</Button>}>
+          {repairCount} returns have the wrong filing frequency (e.g. annual or event-driven returns running
+          monthly), so some periods show as overdue in error.
         </Alert>
       )}
 
@@ -204,7 +251,7 @@ export default function ReturnsPage() {
         </TextField>
         <TextField select size="small" value={frequencyFilter} onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}
           label="Frequency" sx={{ minWidth: 130 }}>
-          {['All', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annually', 'Weekly', 'Daily'].map(f =>
+          {['All', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'].map(f =>
             <MenuItem key={f} value={f}>{f}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
@@ -263,7 +310,8 @@ export default function ReturnsPage() {
                 {items.map((item, idx) => {
                   const isOverdue = item.hasOverdue;
                   const isExpanded = expandedRow === item.returnId;
-                  const status = item.currentStatus || 'Not Started';
+                  const hasInstance = item.currentInstanceId != null || !!item.currentDueDate;
+                  const status = item.currentStatus || (hasInstance ? 'Not Started' : null);
                   const rowBg = isOverdue ? '#FFF5F5' : 'inherit';
                   return (
                     <ReturnRow
@@ -279,7 +327,9 @@ export default function ReturnsPage() {
                       onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
                       onDetail={() => {
                         if (item.currentInstanceId != null) setDetailId(item.currentInstanceId);
-                        else setSnackbar('No filing instance for this return yet.');
+                        else setSnackbar(isEventDriven(item)
+                          ? 'Event-driven return — no scheduled filing period.'
+                          : 'No filing instance for this return yet.');
                       }}
                     />
                   );
@@ -293,8 +343,20 @@ export default function ReturnsPage() {
         </Paper>
       )}
 
+      {isTenantAdmin && (
+        <ReturnRepairDialog open={repairOpen} onClose={() => setRepairOpen(false)} preview={repairQuery.data} />
+      )}
+
       <CreateReturnDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={() => { setCreateOpen(false); refresh(); }} onSnackbar={setSnackbar} />
+
+      {canImport && (
+        <ImportDialog entityType="returns" entityLabel="returns" open={importOpen}
+          itemLabel="Return" contextLabel="Due / Links"
+          invalidateKeys={[['returns'], ['obligations'], ['dashboard']]}
+          onClose={() => setImportOpen(false)}
+          onImported={(r) => setSnackbar(`Imported ${r?.importedRows ?? 0} returns.`)} />
+      )}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -350,12 +412,21 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
             <Typography variant="caption" sx={{ color: '#CBD5E0' }}>Unassigned</Typography>
           )}
         </TableCell>
-        <TableCell>{formatDate(item.currentDueDate)}</TableCell>
         <TableCell>
+          {item.currentDueDate ? formatDate(item.currentDueDate) : (
+            <Typography variant="caption" color="text.secondary">{noPeriodLabel(item)}</Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {!status ? (
+            <Chip size="small" variant="outlined" label={isEventDriven(item) ? 'Event-driven' : 'No period'}
+              sx={{ height: 22 }} />
+          ) : (
           <Chip size="small"
             label={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'OVERDUE' : status}
             color={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'error' : STATUS_COLORS[status] || 'default'}
             sx={{ height: 22 }} />
+          )}
         </TableCell>
         <TableCell>
           <Tooltip title={isExpanded ? 'Hide details' : 'Show linked obligations'}>
@@ -377,7 +448,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
                   <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                     {item.upcomingInstances.map(inst => (
                       <Paper key={inst.instanceId} variant="outlined" sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period}</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period || '-'}</Typography>
                         <Typography variant="caption" color="text.secondary">{formatDate(inst.dueDate)}</Typography>
                         <Chip size="small" label={inst.status || 'Not Started'}
                           color={STATUS_COLORS[inst.status] || 'default'}
@@ -522,14 +593,14 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar }) {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
             <Box>
-              <Typography variant="h5">{detail.returnName} · {detail.period}</Typography>
+              <Typography variant="h5">{detail.returnName}{detail.period ? ` · ${detail.period}` : ''}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Due {formatDate(detail.dueDate)}
+                {detail.dueDate ? `Due ${formatDate(detail.dueDate)}` : noPeriodLabel(detail)}
                 {detail.filingChannel && ` · Channel: ${detail.filingChannel}`}
                 {detail.returnOwnerName && ` · Owner: ${detail.returnOwnerName}`}
               </Typography>
               <Box sx={{ mt: 0.5 }}>
-                <Chip label={detail.status} size="small" color={STATUS_COLORS[detail.status] || 'default'} />
+                <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'} />
               </Box>
             </Box>
           </Box>

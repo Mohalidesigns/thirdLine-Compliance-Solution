@@ -352,6 +352,9 @@ export const api = {
       method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
     }),
     linkedObligations: (returnId, opts = {}) => request(`/returns/${returnId}/obligations`, { signal: opts.signal }),
+    // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
+    frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
+    frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
   },
   sanctions: {
     list: (params = {}, opts = {}) => {

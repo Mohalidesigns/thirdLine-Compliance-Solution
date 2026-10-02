@@ -56,8 +56,9 @@ public class ImportService {
     // ------------------------------------------------------------------ preview
 
     @Transactional
-    public ImportPreviewResponse preview(String type, MultipartFile file, Integer userId, String userName) {
+    public ImportPreviewResponse preview(String type, MultipartFile file, Integer userId, String userName, String role) {
         ImportHandler h = handler(type);
+        requireRole(h, role);
         List<ImportRowData> rows = ImportWorkbooks.parse(file, h);
         try {
             h.validate(rows);
@@ -83,9 +84,10 @@ public class ImportService {
     // ------------------------------------------------------------------ commit
 
     @Transactional
-    public ImportBatchSummary commit(Long batchId, Integer userId) {
+    public ImportBatchSummary commit(Long batchId, Integer userId, String role) {
         ImportBatch batch = batches.findWithLockByBatchId(batchId)
             .orElseThrow(() -> ApiException.notFound("Import batch not found: " + batchId));
+        requireRole(handler(batch.getEntityType()), role);
         if (!ImportBatch.STATUS_PREVIEWED.equals(batch.getStatus()))
             throw ApiException.conflict("already_committed", "Import batch " + batchId + " has already been committed");
         ImportHandler h = handler(batch.getEntityType());
@@ -113,10 +115,11 @@ public class ImportService {
     // ------------------------------------------------------------------ error report / history
 
     @Transactional(readOnly = true)
-    public ImportFile errorReport(Long batchId) {
+    public ImportFile errorReport(Long batchId, String role) {
         ImportBatch batch = batches.findById(batchId)
             .orElseThrow(() -> ApiException.notFound("Import batch not found: " + batchId));
         ImportHandler h = handler(batch.getEntityType());
+        requireRole(h, role);
         List<ImportRowData> invalid = batch.getRows() == null ? List.of() : batch.getRows().stream()
             .filter(r -> ImportRowData.INVALID.equals(r.getResult())).toList();
         return new ImportFile(h.entityType() + "-import-errors-" + batchId + ".xlsx",
@@ -124,11 +127,17 @@ public class ImportService {
     }
 
     @Transactional(readOnly = true)
-    public List<ImportBatchSummary> listBatches(String type) {
-        List<ImportBatch> list = type == null || type.isBlank()
-            ? batches.findTop50ByOrderByCreatedAtDesc()
-            : batches.findTop50ByEntityTypeOrderByCreatedAtDesc(handler(type).entityType());
-        return list.stream().map(ImportService::toSummary).toList();
+    public List<ImportBatchSummary> listBatches(String type, String role) {
+        if (type != null && !type.isBlank()) {
+            ImportHandler h = handler(type);
+            requireRole(h, role);
+            return batches.findTop50ByEntityTypeOrderByCreatedAtDesc(h.entityType()).stream()
+                .map(ImportService::toSummary).toList();
+        }
+        // Untyped history: hide batches of types this role may not import.
+        return batches.findTop50ByOrderByCreatedAtDesc().stream()
+            .filter(b -> allowed(handlers.get(b.getEntityType()), role))
+            .map(ImportService::toSummary).toList();
     }
 
     // ------------------------------------------------------------------ helpers
@@ -137,6 +146,15 @@ public class ImportService {
         ImportHandler h = type == null ? null : handlers.get(type.trim().toLowerCase());
         if (h == null) throw ApiException.badRequest("unsupported_import_type", "Unsupported import type: " + type);
         return h;
+    }
+
+    private static boolean allowed(ImportHandler h, String role) {
+        return h != null && role != null && h.requiredRoles().contains(role);
+    }
+
+    private static void requireRole(ImportHandler h, String role) {
+        if (!allowed(h, role))
+            throw ApiException.forbidden("Your role cannot import " + h.entityType());
     }
 
     private void rollback() {

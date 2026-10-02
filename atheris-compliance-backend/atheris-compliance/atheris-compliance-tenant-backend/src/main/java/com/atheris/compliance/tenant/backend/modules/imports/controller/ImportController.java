@@ -38,24 +38,25 @@ public class ImportController {
             @PathVariable String type,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.preview(type, file, u.getUserId(), u.getFullName()));
+        return ResponseEntity.ok(service.preview(type, file, u.getUserId(), u.getFullName(), u.getRole()));
     }
 
     @PostMapping("/batches/{batchId}/commit")
     public ResponseEntity<ImportBatchSummary> commit(
             @PathVariable Long batchId,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.commit(batchId, u.getUserId()));
+        return ResponseEntity.ok(service.commit(batchId, u.getUserId(), u.getRole()));
     }
 
     @GetMapping("/batches/{batchId}/errors")
-    public ResponseEntity<byte[]> errors(@PathVariable Long batchId) {
-        return xlsx(service.errorReport(batchId));
+    public ResponseEntity<byte[]> errors(@PathVariable Long batchId, @AuthenticationPrincipal User u) {
+        return xlsx(service.errorReport(batchId, u.getRole()));
     }
 
     @GetMapping("/batches")
-    public ResponseEntity<List<ImportBatchSummary>> batches(@RequestParam(required = false) String type) {
-        return ResponseEntity.ok(service.listBatches(type));
+    public ResponseEntity<List<ImportBatchSummary>> batches(@RequestParam(required = false) String type,
+                                                            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.listBatches(type, u.getRole()));
     }
 
     private static ResponseEntity<byte[]> xlsx(ImportFile f) {

@@ -204,12 +204,11 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Bulk import phases 3–4
+## TODO / Next — Bulk import phase 4 (findings)
 
 Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see the Done sections below.
 
-**Bulk import** — phases 1 (obligations) and 2 (controls) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
-- **Returns** — `ReturnService.create` never sets `frequencyType` from `frequency`, so every return gets MONTHLY instances; fix that first (intel `ToolkitImportService.classifyFrequency` maps free text to the type).
+**Bulk import** — phases 1 (obligations), 2 (controls) and 3 (returns) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
 - **Findings** — `RaiseFindingRequest` requires type, severity, description, remediationDeadline.
 
 **Known follow-ups**
@@ -217,6 +216,22 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — Bulk Import Phase 3 (Returns) + Return Frequency Fixes
+
+Returns page → Import (CCO / TENANT_ADMIN only). `ReturnImportHandler`; shared parsing moved to `ImportParsing` (verbatim, no behaviour change).
+
+- **Template:** Return Name* | Regulator* | Frequency* | First Due Date | Prep Days Before Due | Act | Return Type | Filing Channel | Responsible Unit | Responsible Person | Return Owner (email) | Linked Obligation IDs, plus the "Obligations" lookup sheet. Frequency = Daily, Weekly, Monthly, Quarterly, Semi-Annual, Annual, Biennial, Event-driven. First Due Date required for Quarterly/Semi-Annual/Annual/Biennial. Owner matched to an active user by email. Duplicates = name + regulator. Links via the existing `insertReturnLink`. Audit `returns_imported`.
+- **Per-type import roles:** `ImportHandler.requiredRoles()`; returns → CCO/TENANT_ADMIN (matches POST /returns). Checked on preview, commit, errors and batch history (history hides types the role can't use).
+- **Why every tenant return was MONTHLY:** intel's `InternalRegulationSeed.ReturnItem` never carried `frequencyType`, so the seed fell back to MONTHLY; manual `ReturnService.create` never set it either. Both fixed. `ReturnFrequency` (modules/returns/entity) is the single mapper: labels/aliases + `classify(text)`. Classifier rules, in order: an explicit cycle adjective anywhere wins (most frequent if several: daily > … > biennial); then period-end anchors (month-/quarter-/year-end, "each calendar quarter", "financial year (FY) end"); then event phrasing (within/upon/immediately/on request…); bare durations ("within 1 year of the incident") are event-driven. `ReturnFrequencyTest` holds 26 real platform strings.
+- **Filing cycle anchored on the First Due Date** (imports AND the Add Return form): a future date is the first due date; a past one rolls forward on the cycle (month dates computed from the original anchor, no drift). The first anchored instance is always created even beyond the 120-day lookahead. No date → old behaviour. Daily returns are left to the 5-minute scheduler on import.
+- **Register:** returns with no instances (event-driven) are now listed, not hidden. Frequency filter uses the stored type. ISO week label uses `WEEK_BASED_YEAR`. `linkObligations` evicts the obligations register cache.
+- **Repair action** for already-seeded tenants: `GET/POST /api/v1/returns/frequency-repair` (TENANT_ADMIN). Dry run first; retypes from the platform's text (classified by the tenant's stricter classifier; platform MONTHLY treated as "no answer"), deletes only untouched instances (Not Started, no stage owner/data, no submission, notes or evidence; system escalation ignored), rebuilds via `ensureInstances`, audits `returns_frequency_repaired`. Idempotent. UI: warning banner + `ReturnRepairDialog` on the Returns page for admins.
+
+### Verified (live, browser pane)
+8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed with no period, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Add Return form: Annual + 30 Jun 2027 → ANNUAL, one 2027-06 period. Repair dry run on the dev tenant: 113 of 143 to retype (37 Annual, 58 Event-driven, 11 Quarterly…), 564 untouched periods to remove, 1 kept.
+
+**Dev gotcha:** running `mvn clean compile` while a backend is running deletes its classes underneath it — requests then 401 and the UI logs out. Restart the backend after any clean build.
 
 ## Done — Bulk Import Phase 2 (Controls)
 
