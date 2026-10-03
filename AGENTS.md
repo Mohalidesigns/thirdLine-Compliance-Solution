@@ -165,7 +165,7 @@ Config: `opencode.json`
 
 ### Backend (intel)
 - **Toolkit seed (Phase A)** — `modules/regulations/` (`Regulation`, `RegulationAlias`, `AreaOfFocus`, `ToolkitImportService`, `AdminRegulationController`, `AdminUniverseController`), Flyway V15. Parses `classpath:toolkit/compliance_toolkits.md` into instruments (`upload_source='toolkit_seed'`, never enter OCR/AI), regulations, obligation_mappings, sanctions, returns (139), regulators. Atomic (TransactionTemplate `setRollbackOnly()`); returns an UNMAPPED report. `parseMoney` honours `M`/`k` suffixes and takes the largest compound per-role amount (replaced the digit-stripping `parseNaira`).
-- Endpoints: `GET/PUT /admin/regulations[/{id}]`, `POST /admin/regulations/toolkit/import`, `GET /admin/universe/{instruments,areas-of-focus,stats}`.
+- Endpoints: `GET/PUT /admin/regulations[/{id}]`, `POST /admin/acts/toolkit/import` ("Re-import toolkit" button on `/admin/acts`), `GET /admin/universe/{instruments,areas-of-focus,stats}`.
 - Pipeline: Spring AI `ChatModel` (replaced custom Anthropic client); `AdminJobQueueController`; DB-backed CORS whitelist (V9, `modules/cors/`); Pending Manual Downloads (V10, `modules/pending/` — PDF magic-byte check, SHA-256, enqueue OCR); webhooks removed from the pipeline; License KPIs; batch loops (OCR_BATCH=3, CLASSIFY_BATCH=10).
 - Resilience rules: `markFailed()` is `REQUIRES_NEW`; `em.clear()` + `setRollbackOnly()` in processor catch blocks; catch `Throwable` (JNA `Error` kills the scheduler thread otherwise); Tesseract DPI 200 / 4000px clamp; classifier rejects text <100 chars → `INST_TRIAGE`; `safeUri()` for CBN URLs; Playwright downloads inside the same `BrowserContext` (keeps Cloudflare `cf_clearance`).
 
@@ -220,6 +220,10 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 **Bulk import** — all four phases (obligations, controls, returns, findings) DONE, see below.
 
 **Known follow-ups**
+- **OpenRouter free tier = 50 free-model requests/day** (shared by classification and points; ~150 points batches remain → multi-day backfill). $10 of credits raises it to 1000/day.
+- Toolkit sanction amounts are stored wrong (e.g. ₦2 / ₦500 for millions) — `parseMoney` on the seed rows.
+- Tenant `RegulationSeedService` mixes intel `linkedObligationIds` with tenant obligation ids in one list.
+- Intel logging was raised to DEBUG by main; intel obligations explorer has 6 columns (rule: 5).
 - **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
 - FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
@@ -229,6 +233,19 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — AI Points Pipeline Fixes + OpenRouter Free Models
+
+- **One model call per `AiClient.completeEntity`** — Spring AI 1.1.0 `content()` and `entity()` each call the model; now the `BeanOutputConverter` format is appended manually and one reply is converted (verified with a capture server: 2 → 1 requests).
+- **Toolkit `description` backfill** — the dev DB was seeded before the parser mapped `description` (all 1541 NULL → every verbatim point discarded). Re-import fills only NULL fields on rows matched by natural key (`obligationsUpdated`), clears points on repaired rows; points job skips obligations with no description (no wasted quota).
+- **`VerbatimMarkerMatcher`** — verbatim markers must be real list markers at a token boundary ("c" inside "accept" no longer matches); cross-references ("paragraphs (b) to (g)") ignored.
+- **Control import idempotent** — CRMP controls deduplicated by act + normalised text + type (`ToolkitControlDedup`); numbers allocated collision-free. The re-run's 1631 re-inserted duplicates were removed by the import itself (rows newer than their group's oldest import date only; same-day seed repeats kept). Result key `controlsDeduplicated`.
+- **Reasoning switch** — `AI_REASONING_ENABLED=false` sends OpenRouter `"reasoning":{"enabled":false}` via `ReasoningToggleInterceptor` (Spring AI `extraBody` is silently dropped in 1.1.0). Env-configurable `POINTS_BATCH_SIZE` / `POINTS_CONCURRENCY` / `POINTS_STAGGER_MS` / `AI_MAX_TOKENS`.
+- **Models:** `AI_MODEL=nvidia/nemotron-3-super-120b-a12b:free`, `AI_FALLBACK_MODEL=qwen/qwen3.8-27b:free`, reasoning off. Local `granite4:micro` (Ollama) evaluated and rejected (no valid JSON on long docs, invented verbatim, ~20h for points). AgentRouter tokens only serve approved coding clients.
+- **`.env` gotcha:** the backends read `.env` as properties — a trailing `# comment` on a value line becomes part of the value.
+
+### Verified (live, 2026-10-04)
+Re-import via the UI button: 1631 duplicate controls removed (4237 → 2606), descriptions 0 → 1541; second run all zeros. Points generated with exact verbatim markers (a)–(d); intel obligations explorer list/stats/hasPoints OK.
 
 ## Done — Return Due Dates (no more overdue-on-day-one)
 
@@ -333,60 +350,11 @@ Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Comm
 
 ## Done — Instruments Page Overhaul (KPIs, risk filter, enriched detail)
 
-Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-page` skill pattern. Commit `71d9097`.
-
-### List View
-- 4 KPI stats cards (Total, Critical, High, Published) — client-side computed from list, clickable → set risk filter
-- Filters: search + risk dropdown + regulator dropdown + clear button
-- Table (5 cols): Title | Regulator (chip) | Risk (colored chip) | Obligations (count) | Actions (View)
-- Sortable by Title and Risk via `TableSortLabel`
-
-### Detail View
-- Header: regulator, document type chip, risk chip, source title, metadata grid (regulator, type, issued, commencement, nature)
-- AI Summary kept (blue border-left)
-- Obligations table (5 cols): # | Obligation (title+description) | Risk (chip) | Act | Owner — all correct DTO field names
-- Sanctions table (5 cols): Type (chip) | Penalty (naira formatted) | Section | Liable Roles (chips) | Risk (severity score)
-- OCR/Extracted Text section removed
-
-### Field Name Fixes
-- `obl.section` → `obl.sectionReference`
-- `obl.type` → `obl.obligationType`
-- `s.type` → `s.sanctionType`
+Tenant `InstrumentsPage.jsx` (commit `71d9097`, merged with the harmonize version): KPI cards with per-regulator dropdowns, debounced search, risk/regulator filters, server paging, 5 columns; detail shows DTO-correct obligations (5 cols) and expandable sanction cards (`amountNaira`). KPI counts and filters cover the current server page only (no stats endpoint).
 
 ## Done — Intel Obligation Explorer Detail Page (Replicated from Tenant)
 
-Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `ObligationDetailPage.jsx` layout, sections, styling, drawer, and modals. Commit `db252c8`.
-
-### Backend (`ObligationExplorerDetail` DTO + service + controller)
-- `ObligationExplorerDetail.java` extended with: `hasGap`, `gapDescription`, `applicability`, `applicabilityReasoning`, `classifiedByName`, `classifiedAt`, `assignedOwnerName`, `assignedDepartment`, `linkedControls`, `evidence`, `history`
-- Inner classes added: `ControlInfo`, `EvidenceInfo`, `HistoryEntry`
-- `ComplianceControlRepository.java` — new repository with `findByObligationId()`
-- `ObligationExplorerService.java` — `resolveControls()` populates `linkedControls` via `ComplianceControlRepository`; derives `hasGap`/`gapDescription`/`applicability` from entity fields
-- `AdminObligationExplorerController.java` — added `GET /{id}/controls` and `GET /{id}/pdf` endpoints
-
-### Frontend (`ObligationExplorerDetailPage.jsx` + `api.js` + modals)
-- **Complete rewrite** to match tenant layout:
-  - Header with back + PDF button (right-aligned)
-  - Chips row (risk, regulator, area, deadline, status, hasPoints)
-  - Metadata grid (160px 1fr, gap 4px 16px)
-  - Source Text (verbatim) + Plain English (interpreted) via `FormattedText`
-  - **Linked Controls** — preview list (max 5) + "Link controls" button + "View all" drawer
-  - **Returns** — chip preview + "View all"/"Map return" buttons
-  - **Sanctions** — compact preview with Gavel icon + red color
-  - **Control Gap** — alert + edit button
-  - **Evidence** — upload button + "View all"
-  - **Version History** — "View history" button
-  - **Right drawer** (480px, anchor right) with all sections + search
-  - **Snackbar** notifications, `useQueryClient` cache invalidation
-- **New helpers/components**: `ChipList`, `SectionHeader`, `formatNaira`, `formatDate`, `RISK_CONFIG`, `STATUS_COLOR`, `actionEdit`
-- **`api.js`**: Added `platform.obligations.{controls,evidence,history,pdf}`, `platform.{controls,evidence,returns}.{list,detail}`, `platform.obligations.get` with signal support
-- **6 modal stubs** created in `src/components/modals/`: `RiskAssessmentModal`, `OwnerModal`, `LinkControlsModal`, `MapReturnModal`, `GapModal`, `EvidenceUploadModal`
-- All styling matched: `Paper variant="outlined" p={3} mb={2}`, chip height 22, button `width:180 height:40 textTransform:none fontWeight:600 fontSize:14`, `Paper variant="outlined" p={2} mb={1.5}` for drawer items
-
-### Verification
-- `mvn clean compile` ✅ (intel backend)
-- `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
-- `git push` ✅
+Intel `ObligationExplorerDetailPage.jsx` mirrors the tenant obligation detail (header chips, metadata grid, verbatim/plain text, controls/returns/sanctions previews, right drawer). Backend `ObligationExplorerDetail` extended (gap, applicability, controls, evidence, history); since the main merge it is the single `/admin/obligations` controller (DB-side criteria filters, stats, `hasPoints`). Commit `db252c8`. Modal saves (`linkControls`, `assignOwner`, …) have no intel endpoints yet.
 
 ## Done — PDF Routes Return 404 Instead of 500
 
@@ -489,59 +457,12 @@ One register row = one enforceable duty for both `toolkit_seed` and `ai_extracte
 
 ## Done — Points Batch Processing (LLM under Gemini free tier)
 
-**Problem:** 1,541 obligations × 1 LLM call each = 1,541 requests. Gemini free tier = 500/day. Sequential with 2s delay = 51 min. Rate limit kills it after ~500 calls.
-
-**Solution:** Batch 25 obligations per LLM call. 1,541 ÷ 25 = ~62 calls. ~2 min total. Well under 500/day limit.
-
-### Changes
-- **`application.yml`** — `atheris.points.batch-size: 25`, `atheris.points.delay-ms: 2000`
-- **`ToolkitImportService.java`** — New `POINTS_BATCH_PROMPT` (JSON keyed by `obligationId`). `generatePointsForToolkit()` rewritten: chunks obligations into batches, builds a single prompt per batch (`ID {id} | Title: ... | Desc: ... | Statement: ...`), parses `Map<String, List<PointItem>>` response, saves each obligation's points individually. `truncate()` helper caps desc/statement at 200 chars in prompt.
-- **`ToolkitStartupSeeder`** — Always calls `generatePointsForToolkit()` (not just on first import).
-
-### Timing
-| Step | Duration | When |
-|------|----------|------|
-| Toolkit import | ~60s | Intel startup |
-| Points generation (62 batches × 2s) | ~2 min | Intel startup |
-| Tenant onboarding `seedAll()` | ~5-10s | User triggers |
-
-**Impact on onboarding workspace load: ZERO.** Points are pre-computed on intel before anyone onboards. Tenant just fetches bundles (which already include points).
-
-### LLM Response Format (batch)
-```json
-{
-  "123": [
-    { "marker": "1", "text": "...", "level": 0, "children": [] }
-  ],
-  "124": []
-}
-```
+`obligation_mappings.points` (JSONB, intel V3 edited) + tenant `obligation_points` (**V32**); `ToolkitImportService.generatePointsForToolkit` batches obligations to the LLM (verbatim + interpreted points), `PointsRetryScheduler` retries obligations with empty points. See git `bd289a7` for the original write-up.
 
 ## Done — LLM Points Async Seed: Virtual Threads, Health & 15m Tuning
 
-**Problem:** Batched 25 × 2s sequential still hit Gemini 429 after ~120/1614 obligations; `max-output-tokens 1500` truncated 10-obligation batches; no model health tracking → retries burned quota.
+Points batches run on virtual threads with a semaphore (`atheris.points.concurrency`), `ModelHealthTracker` cooldowns (5→15 min) stop a run when every model is inactive; retry every 15 min. See git log for the original write-up.
 
-**Solution:** Virtual-thread pool (concurrency 5, stagger 500 ms), 8000 `max-output-tokens`, `BatchPointsResponse` verbatim/interpreted split, exponential cooldown, abort-on-cooldown.
-
-### Backend (`atheris-compliance-intelligence-backend`)
-- **`application.yml:48,102`** — `atheris.points.batch-size: 25→10`, `atheris.points.concurrency: 5`, `atheris.points.stagger-ms: 500`, `atheris.points.max-output-tokens: 8000`; `spring.ai.google.genai.chat.options.max-output-tokens` externalized; `atheris.ai.primary-model/fallback-model` + `atheris.ai.health.cooldown-initial-minutes: 5`, `cooldown-multiplier: 3.0`, `cooldown-max-minutes: 60→15` (tuned).
-- **`ToolkitImportService.java:30,650`** — `POINTS_BATCH_PROMPT` now `BatchPointsResponse` (`verbatim` + `interpreted` per point, distinct legal `(1)/(a)/(5)/(6)` vs plain `(1)(2)`); `generatePointsForToolkit()` uses `Executors.newVirtualThreadPerTaskExecutor()` fan-out 10/batch, stagger 500 ms, `truncate()` 300 chars, saves per-obligation; `BatchPointsResponse.java:35` `setMarker()` strips parentheses.
-- **`ObligationPoint.java` + `V32__create_obligation_points.sql` + `V3__create_obligations_sanctions_jobs.sql` (edited)** — `obligation_points` (`obligation_id FK`, `marker`, `text VERBATIM`, `interpreted TEXT`, `level`, `sort_order`, `parent_marker`); dedup `UNIQUE(obligation_id, marker, text)`.
-- **`RegulationSeedService.java:85,310`** — `seedBundle()` duplicates `verbatim`+`interpreted` from intel `ObligationPoint`/`FormattedText` into tenant on `seedAll()`; no LLM on tenant.
-- **`ModelHealthTracker.java:12`** — Exponential cooldown `initial 5m ×3 capped 60m→15m`, `recordSuccess()` clears, `getAvailableModels()` filters cooled, used by `AiClient` + `JobQueueProcessors`.
-- **`AiClient.java:35,58`** — `ChatClient.entity(BatchPointsResponse.class)` with `ChatModelCallAdvisor` + raw `ChatModel.call(prompt)` logging (request/response preview 800 chars), primary→fallback via `AiConfig.java:22`; last-resort `try { primary } catch { fallback }` bypass removed.
-- **`AiConfig.java:18`** — Externalized `primaryModel`/`fallbackModel` from `application.yml`, exposes `primaryChatModel()`/`fallbackChatModel()` beans.
-- **`JobQueueProcessors.java:45`** — `processClassifyQueue()` abort-on-cooldown: `if (healthTracker.getAvailableModels(primary, fallback).isEmpty()) log WARN + return`; fast-fail `skip retries` when 429/quota (no `markFailed` retry loop burn).
-- **`PointsRetryScheduler.java:18`** — `fixedRate 30m→15m`, re-batches remaining `countByPointsNull` in batches of 10 via virtual threads, gated by `getAvailableModels()`.
-
-### Verified
-- DB `obligation_mappings 1614` (was 1541), `obligation_points 120/1346` before cooldown (429 at 16:09, retry scheduled 16:24 after 15m tuning); re-batch + `1466` fill pending. Obligations explorer still WIP until points complete.
-
-> Note: Verification pending — points still filling (120/1466 at last check); see WIP Verification checklist below.
-
-
-
-# CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE
 
 - Always ask clarifying questions

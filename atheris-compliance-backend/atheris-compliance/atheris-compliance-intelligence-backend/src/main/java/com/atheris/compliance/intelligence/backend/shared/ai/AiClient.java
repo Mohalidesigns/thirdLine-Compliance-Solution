@@ -1,11 +1,10 @@
 package com.atheris.compliance.intelligence.backend.shared.ai;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.ChatModelCallAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -100,6 +99,7 @@ public class AiClient {
         }
 
         log.info("[AiClient] Calling models (structured): {}", available);
+        BeanOutputConverter<T> converter = new BeanOutputConverter<>(responseType);
         Exception lastException = null;
         for (String modelName : available) {
             ChatModel model = resolveModel(modelName);
@@ -109,14 +109,18 @@ public class AiClient {
             }
             try {
                 log.info("[AiClient] Trying {} (structured)", modelName);
-                ChatClient client = ChatClient.builder(model)
-                    .defaultAdvisors(ChatModelCallAdvisor.builder().chatModel(model).build())
-                    .build();
-                ChatClient.CallResponseSpec responseSpec = client.prompt().user(promptText).call();
-                String raw = responseSpec.content();
+                // Exactly ONE model call: append the converter's format instructions
+                // ourselves (what ChatClient's ChatModelCallAdvisor would do) and convert
+                // the single completion. ChatClient's CallResponseSpec.content() and
+                // .entity() each issue their own HTTP request in Spring AI 1.1.0.
+                String raw = callModel(model, promptText + System.lineSeparator() + converter.getFormat(), modelName);
                 log.debug("[AiClient] {} raw (first 500): {}", modelName,
-                    raw != null ? raw.substring(0, Math.min(raw.length(), 500)) : "null");
-                T result = responseSpec.entity(responseType);
+                    raw.substring(0, Math.min(raw.length(), 500)));
+                T result = converter.convert(raw);
+                if (result == null) {
+                    throw new RuntimeException(modelName + " returned a completion that did not convert to "
+                        + responseType.getSimpleName());
+                }
                 tracker.recordSuccess(modelName);
                 log.info("[AiClient] {} succeeded (structured)", modelName);
                 return result;
@@ -156,7 +160,8 @@ public class AiClient {
     private String callModel(ChatModel model, String promptText, String modelName) {
         Prompt prompt = new Prompt(promptText);
         ChatResponse response = model.call(prompt);
-        String text = response.getResult().getOutput().getText();
+        String text = response == null || response.getResult() == null || response.getResult().getOutput() == null
+            ? null : response.getResult().getOutput().getText();
         if (text == null || text.isBlank()) {
             // A model can return an empty completion (content filter, token
             // limit reached while still emitting reasoning, provider hiccup).

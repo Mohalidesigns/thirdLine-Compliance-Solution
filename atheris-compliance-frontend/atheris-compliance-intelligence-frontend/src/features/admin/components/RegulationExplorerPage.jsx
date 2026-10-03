@@ -5,7 +5,7 @@ import {
   TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
   TableSortLabel, IconButton, Button, MenuItem,
 } from '@mui/material';
-import { Search, Refresh, Close, Balance, Gavel, RequestQuote, Assignment } from '@mui/icons-material';
+import { Search, Refresh, Close, Balance, Gavel, RequestQuote, Assignment, CloudSync } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
@@ -34,6 +34,8 @@ export default function RegulationExplorerPage() {
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('desc');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState('');
 
   const hasFilters = search || regulatorFilter !== 'All';
 
@@ -60,6 +62,29 @@ export default function RegulationExplorerPage() {
 
   useEffect(() => { loadRows(); }, [loadRows]);
   useEffect(() => { loadStats(); }, []);
+
+  // Re-runs the toolkit seed. Idempotent: new rows are added, existing rows only get
+  // their empty fields filled (never overwritten), so it doubles as the data repair.
+  async function handleToolkitImport() {
+    if (!window.confirm('Re-import the compliance toolkit? Existing records are kept; only missing fields are filled in.')) return;
+    setImporting(true);
+    setError('');
+    setImportResult('');
+    try {
+      const r = await api.platform.acts.importToolkit();
+      const parts = [
+        ['acts added', r?.acts], ['obligations added', r?.obligations],
+        ['obligations repaired', r?.obligationsUpdated], ['sanctions added', r?.sanctions], ['returns added', r?.returns],
+        ['controls added', r?.controls], ['duplicate controls removed', r?.controlsDeduplicated],
+      ].filter(([, v]) => v != null).map(([k, v]) => `${v} ${k}`);
+      setImportResult(parts.length ? `Toolkit import done: ${parts.join(', ')}.` : 'Toolkit import done.');
+      loadRows(); loadStats();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   function clearFilters() {
     setSearch(''); setRegulatorFilter('All'); setPage(0);
@@ -93,12 +118,20 @@ export default function RegulationExplorerPage() {
             {total} act{total !== 1 ? 's' : ''} — browse the curated Nigerian compliance universe
           </Typography>
         </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button variant="outlined" size="small" disabled={importing}
+            startIcon={importing ? <CircularProgress size={16} /> : <CloudSync />}
+            onClick={handleToolkitImport} sx={{ textTransform: 'none' }}>
+            {importing ? 'Importing…' : 'Re-import toolkit'}
+          </Button>
+          <Tooltip title="Refresh">
+            <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {importResult && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setImportResult('')}>{importResult}</Alert>}
 
       {/* KPI cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
