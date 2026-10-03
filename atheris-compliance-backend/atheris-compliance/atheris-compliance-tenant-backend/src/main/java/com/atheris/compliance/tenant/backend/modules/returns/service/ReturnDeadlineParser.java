@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * bare ("Annually") or inconsistent with the frequency type — such returns need a due date from a person.
  *
  * <p>Precedence: N months after period end (→ calendar anchor = first period end + N months), N days after
- * period end (→ offset), "the Nth day [of the following month]" (Monthly → offset), explicit calendar dates
+ * period end (→ offset), "the Nth day [of the following month]" or a bare "on or before 5th" (Monthly → offset), explicit calendar dates
  * (→ anchor; month lists must be exactly one cycle apart), "end of financial year" (Annual → 31 Dec).
  * Anchors are stored in the current year and never on 29 Feb.
  */
@@ -61,6 +61,18 @@ public final class ReturnDeadlineParser {
 
     private static final Pattern NTH_DAY = Pattern.compile(
         "\\b(?<n>\\d{1,2})(?:st|nd|rd|th)\\s+(?:calendar\\s+)?day\\b(?<rest>\\s+of\\s+(?:the\\s+)?(?<which>following|next|succeeding|subsequent|same|each|every)?\\s*month)?");
+
+    /**
+     * Monthly only: a bare day of month behind a deadline cue — "on or before 5th", "by the 10th",
+     * "not later than the 15th of each month". The ordinal must close the clause (end of text or "," / ".")
+     * so "by the 2nd schedule", "5th of January", "5th working day" never match.
+     */
+    private static final Pattern BARE_NTH = Pattern.compile(
+        "\\b(?:on\\s+or\\s+before|by|not\\s+later\\s+than|no\\s+later\\s+than)\\s+(?:the\\s+)?"
+            + "(?<n>\\d{1,2})(?:st|nd|rd|th)\\b(?:\\s+(?:calendar\\s+)?day\\b)?+"
+            + "(?:\\s+(?:of\\s+(?:the\\s+)?(?:(?<which>following|next|succeeding|subsequent|same|each|every)\\s+)?"
+            + "|(?:each|every)\\s+)month\\b)?+"
+            + "(?=\\s*$|\\s*[,.])");
 
     /** "5th of January, April, July, and October", "31st Dec", "7th January". */
     private static final Pattern DAY_MONTH_LIST = Pattern.compile(
@@ -134,11 +146,17 @@ public final class ReturnDeadlineParser {
         if (t == null) return Optional.empty();
         Optional<DueRule> r = parse(text, t);
         if (r.isPresent()) return Optional.of(new Parsed(r.get(), false));
-        return parse(basis, t).map(rule -> new Parsed(rule, true));
+        // A citation is not deadline wording: no bare "by the 2nd" from the statutory basis.
+        return parse(basis, t, false).map(rule -> new Parsed(rule, true));
     }
 
     /** Parse one piece of text for the given frequency type. */
     public static Optional<DueRule> parse(String raw, ReturnFrequency type) {
+        return parse(raw, type, true);
+    }
+
+    /** @param bareDay accept a bare Monthly day of month ("on or before 5th"); off for the statutory basis */
+    private static Optional<DueRule> parse(String raw, ReturnFrequency type, boolean bareDay) {
         if (raw == null || raw.isBlank() || type == null) return Optional.empty();
         int step = DueRule.stepMonths(type);
         if (step <= 0) return Optional.empty(); // daily, weekly, event-driven need no due rule
@@ -168,6 +186,13 @@ public final class ReturnDeadlineParser {
             while (m.find()) {
                 String which = m.group("which");
                 if (which != null && !which.matches("following|next|succeeding|subsequent")) continue;
+                return offsetRule(Integer.parseInt(m.group("n")), type);
+            }
+            // "on or before 5th", "by the 15th of each month" → the Nth of the following month
+            m = bareDay ? BARE_NTH.matcher(text) : null;
+            while (m != null && m.find()) {
+                String which = m.group("which");
+                if (which != null && which.equals("same")) continue;
                 return offsetRule(Integer.parseInt(m.group("n")), type);
             }
             return Optional.empty(); // calendar dates mean nothing for a monthly cycle

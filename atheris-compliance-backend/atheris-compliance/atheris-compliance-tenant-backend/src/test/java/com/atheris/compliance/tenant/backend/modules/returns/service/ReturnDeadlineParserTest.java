@@ -40,6 +40,19 @@ class ReturnDeadlineParserTest {
         Annually: within 7 days of each declaration anniversary        | ANNUAL      | none
         Annually                                                       | ANNUAL      | none
         Monthly                                                        | MONTHLY     | none
+        Monthly, on or before 5th                                      | MONTHLY     | O 5
+        on or before the 15th of each month                            | MONTHLY     | O 15
+        by the 10th                                                    | MONTHLY     | O 10
+        Monthly, not later than the 7th of every month                 | MONTHLY     | O 7
+        Monthly, with each return                                      | MONTHLY     | none
+        on or before the 5th working day                               | MONTHLY     | none
+        Monthly, by the 3rd business day of the following month        | MONTHLY     | none
+        within 5 days                                                  | MONTHLY     | none
+        on or before 30th                                              | MONTHLY     | none
+        by the 5th of the same month                                   | MONTHLY     | none
+        Monthly, by the 2nd schedule                                   | MONTHLY     | none
+        on or before 5th of January, April, July, and October          | MONTHLY     | none
+        on or before 5th                                               | QUARTERLY   | none
         """)
     void parses(String text, ReturnFrequency type, String expected) {
         assertEquals(expected, render(ReturnDeadlineParser.parse(text, type)));
@@ -89,6 +102,13 @@ class ReturnDeadlineParserTest {
         assertTrue(p.isPresent());
         assertTrue(p.get().fromStatutoryBasis());
         assertEquals("A 6/30", render(Optional.of(p.get().rule())));
+    }
+
+    @Test
+    void statutoryBasisNeverGivesABareDayOfMonth() {
+        assertTrue(ReturnDeadlineParser.parse("Monthly", "Section 5, as amended by the 2nd.", ReturnFrequency.MONTHLY).isEmpty());
+        var p = ReturnDeadlineParser.parse("Monthly", "Section 5: the 10th day of the following month", ReturnFrequency.MONTHLY);
+        assertEquals("O 10", render(p.map(ReturnDeadlineParser.Parsed::rule)));
     }
 
     @Test
