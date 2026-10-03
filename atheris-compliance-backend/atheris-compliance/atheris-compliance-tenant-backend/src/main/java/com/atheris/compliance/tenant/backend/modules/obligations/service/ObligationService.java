@@ -14,6 +14,8 @@ import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRe
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
@@ -46,6 +48,7 @@ public class ObligationService {
     private final DepartmentRepository departmentRepo;
     private final RegulatorySanctionRepository sanctionRepo;
     private final ObligationSanctionRepository obligationSanctionRepo;
+    private final TenantRegulatorRepository tenantRegulatorRepo;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -103,6 +106,28 @@ public class ObligationService {
             .build();
     }
 
+    /** Every non-deleted obligation as a register row (same regulator/act resolution the register shows). */
+    public List<ObligationRegisterItem> registerRows() {
+        return buildRegisterRows();
+    }
+
+    /** Drops the short-lived register cache so the next read reflects writes made elsewhere (e.g. bulk import). */
+    public void evictRegisterCache() {
+        cachedRows = null;
+        cacheTimestamp = 0;
+    }
+
+    /** Abbreviation for display/filtering, falling back to the name when the regulator has none. */
+    private static String regulatorAbbrev(TenantRegulator r) {
+        if (r == null) return null;
+        return r.getAbbreviation() != null && !r.getAbbreviation().isBlank() ? r.getAbbreviation() : r.getName();
+    }
+
+    private TenantRegulator tenantRegulatorFor(Obligation ob) {
+        return ob.getTenantRegulatorId() != null
+            ? tenantRegulatorRepo.findById(ob.getTenantRegulatorId()).orElse(null) : null;
+    }
+
     private List<ObligationRegisterItem> buildRegisterRows() {
         long now = System.currentTimeMillis();
         if (cachedRows != null && (now - cacheTimestamp) < CACHE_TTL_MS) {
@@ -147,11 +172,19 @@ public class ObligationService {
 
         Map<Long, PlatformInstrumentDetail> detailCache = platform.getInstrumentDetailsBulk(new ArrayList<>(uniqueInstrumentIds));
 
+        // Standalone obligations (no platform instrument) carry their regulator locally — one query for all.
+        boolean anyTenantRegulator = allObligations.stream().anyMatch(o -> o.getTenantRegulatorId() != null);
+        Map<Long, TenantRegulator> tenantRegulatorById = anyTenantRegulator
+            ? tenantRegulatorRepo.findAll().stream().collect(Collectors.toMap(TenantRegulator::getId, r -> r, (a, b) -> a))
+            : Map.of();
+
         List<ObligationRegisterItem> rows = new ArrayList<>();
         for (Obligation ob : allObligations) {
             ObligationClassification c = classByObligation.get(ob.getObligationId());
             PlatformInstrumentDetail d = ob.getInstrumentId() != null
                 ? detailCache.get(ob.getInstrumentId()) : null;
+            TenantRegulator tr = d == null && ob.getTenantRegulatorId() != null
+                ? tenantRegulatorById.get(ob.getTenantRegulatorId()) : null;
             List<Long> linkedReturnIds = returnsByObligation.getOrDefault(ob.getObligationId(), List.of());
             List<String> returnNames = linkedReturnIds.stream()
                 .map(id -> returnNameById.get(id)).filter(Objects::nonNull).toList();
@@ -183,8 +216,8 @@ public class ObligationService {
                 .regulationId(ob.getRegulationId())
                 .instrumentId(ob.getInstrumentId())
                 .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
-                .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
-                .regulatorName(d != null ? d.getRegulatorName() : null)
+                .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
+                .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
                 .applicability(c != null ? c.getApplicability() : null)
                 .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
                 .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
@@ -398,6 +431,7 @@ public class ObligationService {
 
     private ObligationRegisterItem toRegisterItem(Obligation ob, ObligationClassification c,
             PlatformInstrumentDetail d, List<Long> linkedReturnIds, List<String> returnNames) {
+        TenantRegulator tr = d == null ? tenantRegulatorFor(ob) : null;
         return ObligationRegisterItem.builder()
             .obligationId(ob.getObligationId())
             .name(ob.getName())
@@ -415,8 +449,8 @@ public class ObligationService {
             .regulationId(ob.getRegulationId())
             .instrumentId(ob.getInstrumentId())
             .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
-            .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
-            .regulatorName(d != null ? d.getRegulatorName() : null)
+            .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
+            .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
             .applicability(c != null ? c.getApplicability() : null)
             .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
             .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
@@ -445,6 +479,7 @@ public class ObligationService {
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = classifications.findByObligationId(obligationId).orElse(null);
         PlatformInstrumentDetail d = ob.getInstrumentId() != null ? platform.getInstrumentDetail(ob.getInstrumentId()) : null;
+        TenantRegulator tr = d == null ? tenantRegulatorFor(ob) : null;
 
         List<ObligationDetailView.ControlItem> controls = Collections.emptyList();
         if (c != null && c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) {
@@ -528,8 +563,8 @@ public class ObligationService {
             .effectiveDate(ob.getEffectiveDate())
             .instrumentId(ob.getInstrumentId())
             .sourceTitle(d != null ? d.getSourceTitle() : null)
-            .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : null)
-            .regulatorName(d != null ? d.getRegulatorName() : null)
+            .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
+            .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
             .pdfUrl(d != null ? d.getPdfUrl() : null)
             .applicability(c != null ? c.getApplicability() : null)
             .applicabilityReasoning(c != null ? c.getApplicabilityReasoning() : null)
@@ -615,15 +650,23 @@ public class ObligationService {
         }
         Owner owner = ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
-        c.setAssignedOwnerId(owner.getOwnerId());
-        c.setAssignedTeamId(owner.getTeamId());
-        c.setAssignedDepartmentId(owner.getDepartmentId());
-        c.setAssignedOwnerName(owner.getFullName());
-        c.setAssignedDepartment(owner.getDepartmentId() != null
+        applyOwner(c, owner, owner.getDepartmentId() != null
             ? departmentRepo.findById(owner.getDepartmentId())
                 .map(Department::getName)
                 .orElse(null)
             : null);
+    }
+
+    /**
+     * Copies an owner (and its pre-resolved department name) onto a classification. Callers that
+     * process many rows (bulk import) resolve owners and departments once and call this directly.
+     */
+    public static void applyOwner(ObligationClassification c, Owner owner, String departmentName) {
+        c.setAssignedOwnerId(owner.getOwnerId());
+        c.setAssignedTeamId(owner.getTeamId());
+        c.setAssignedDepartmentId(owner.getDepartmentId());
+        c.setAssignedOwnerName(owner.getFullName());
+        c.setAssignedDepartment(departmentName);
     }
 
     @Transactional

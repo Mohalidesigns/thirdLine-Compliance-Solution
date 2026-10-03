@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseBl
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -80,7 +82,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(Map.of("error", "forbidden", "message", "You do not have permission to perform this action"));
+            .body(Map.of("error", "forbidden", "message", "You do not have permission to perform this action."));
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -171,7 +173,7 @@ public class GlobalExceptionHandler {
     // The client went away mid-response (tab closed, request aborted): nothing to
     // send and nothing wrong server-side, so log at DEBUG. Any other IOException is
     // a real server fault and keeps the generic 500 + ERROR log.
-    @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
+    @ExceptionHandler({ClientAbortException.class, AsyncRequestNotUsableException.class, IOException.class})
     public ResponseEntity<?> handleClientDisconnected(Exception e) {
         if (e instanceof AsyncRequestNotUsableException || isClientDisconnect(e)) {
             log.debug("Client disconnected during response write: {}", e.getMessage());
@@ -182,6 +184,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
+        if (isClientDisconnect(e)) {
+            log.debug("Client disconnected: {}", e.getMessage());
+            return null;
+        }
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "internal_error", "message", "An unexpected error occurred"));

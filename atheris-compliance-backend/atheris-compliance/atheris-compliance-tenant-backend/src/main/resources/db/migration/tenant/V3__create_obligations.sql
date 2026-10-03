@@ -20,11 +20,14 @@ CREATE TABLE IF NOT EXISTS obligations (
     inherent_impact         VARCHAR(50),
     inherent_risk_rating    VARCHAR(50),
     control_owner           TEXT,
+    tenant_regulator_id     BIGINT,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_obligations_instrument ON obligations(instrument_id);
+-- tenant_regulators is created later (V14), so no FK here: just an index.
+CREATE INDEX idx_obligations_tenant_regulator ON obligations(tenant_regulator_id);
 
 CREATE TABLE IF NOT EXISTS obligation_classifications (
     classification_id          BIGSERIAL PRIMARY KEY,

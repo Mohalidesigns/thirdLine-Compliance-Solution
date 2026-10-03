@@ -80,9 +80,10 @@ atheris:
     cooldown-max-ms: 900000        # 15 minutes max cooldown
     cooldown-multiplier: 3         # multiply cooldown by 3 each consecutive failure
     # OpenRouter model ids. Primary follows AI_MODEL (same as spring.ai.openai above);
-    # the fallback is tried when the primary is rate-limited or failing.
+    # the fallback is tried when the primary is rate-limited or failing (default: the
+    # stock primary, so a custom AI_MODEL still has a working model to fall back to).
     primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
-    fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.0-flash-lite-001}
+    fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.5-flash-lite}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}

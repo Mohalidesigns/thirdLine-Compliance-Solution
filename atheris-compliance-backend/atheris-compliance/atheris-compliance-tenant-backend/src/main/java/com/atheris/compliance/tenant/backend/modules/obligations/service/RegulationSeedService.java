@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationPoint;
@@ -12,6 +13,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.DueRule;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnDeadlineParser;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
@@ -33,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class RegulationSeedService {
@@ -165,15 +169,24 @@ public class RegulationSeedService {
                 String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
                     ? r.getResponsibleUnit()
                     : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
+                // Same type logic as the frequency repair, so a fresh tenant is never flagged by it.
+                ReturnFrequency freqType = ReturnDeadlineParser.platformType(r).orElse(ReturnFrequency.MONTHLY);
+                // Due rule from the platform's deadline wording; none → "Due date needed". The platform's
+                // filing_date is an artifact (a day-of-month stamped onto one month), never a real deadline.
+                Optional<ReturnDeadlineParser.Parsed> parsed = ReturnDeadlineParser.parsePlatform(r, freqType);
+                DueRule rule = parsed.map(ReturnDeadlineParser.Parsed::rule).orElse(null);
                 RegulatoryReturn rt = returns.save(RegulatoryReturn.builder()
                     .returnName(r.getTitle())
                     .filingRegulator(label)
                     .tenantRegulatorId(regId)
                     .actId(bundle.getRegulationId())
                     .actName(bundle.getRegulationName())
-                    .frequency(normalizeFrequency(r.getFrequency()))
-                    .frequencyType(r.getFrequencyType() != null ? r.getFrequencyType() : "MONTHLY")
-                    .filingDate(r.getFilingDate())
+                    .frequency(normalizeFrequency(r.getFrequency(), freqType))
+                    .frequencyType(freqType.name())
+                    .filingDate(rule != null && rule.kind() == DueRule.Kind.DATE ? rule.firstDueDate() : null)
+                    .dueDaysAfterPeriodEnd(rule != null && rule.kind() == DueRule.Kind.OFFSET ? rule.daysAfterPeriodEnd() : null)
+                    .dueDateSource(rule != null ? DueRule.SOURCE_PLATFORM_TEXT : null)
+                    .deadlineText(ReturnDeadlineParser.deadlineText(r, parsed))
                     .responsibleUnit(r.getResponsibleUnit())
                     .responsiblePerson(r.getResponsiblePerson())
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)
@@ -349,16 +362,16 @@ public class RegulationSeedService {
         return result;
     }
 
-    private String normalizeFrequency(String frequency) {
-        if (frequency == null || frequency.isBlank()) return null;
-        String f = frequency.trim().toLowerCase();
-        if (f.contains("daily")) return "Daily";
-        if (f.contains("weekly")) return "Weekly";
-        if (f.contains("semi") || f.contains("twice yearly") || f.contains("every 6 months")) return "Semi-Annual";
-        if (f.contains("quarter")) return "Quarterly";
-        if (f.contains("every 2 years") || f.contains("biennial")) return "Biennial";
-        if (f.contains("annual") || f.contains("year")) return "Annually";
-        if (f.contains("monthly")) return "Monthly";
+    /**
+     * Display label for a seeded return: the canonical label when the text names a recurring cycle,
+     * otherwise the original text (max 50 chars) so event-driven phrasing such as
+     * "Within 30 days of receipt" stays informative.
+     */
+    private String normalizeFrequency(String frequency, ReturnFrequency type) {
+        if (frequency == null || frequency.isBlank())
+            return type == ReturnFrequency.MONTHLY ? null : type.label();
+        if (type != ReturnFrequency.EVENT_DRIVEN && ReturnFrequency.classify(frequency).isPresent())
+            return type.label();
         return frequency.length() <= 50 ? frequency.trim() : frequency.trim().substring(0, 50);
     }
 }

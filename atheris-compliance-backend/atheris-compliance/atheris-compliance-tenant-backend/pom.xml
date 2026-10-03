@@ -91,6 +91,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.atheris.compliance</groupId>
             <artifactId>atheris-compliance-common</artifactId>
         </dependency>

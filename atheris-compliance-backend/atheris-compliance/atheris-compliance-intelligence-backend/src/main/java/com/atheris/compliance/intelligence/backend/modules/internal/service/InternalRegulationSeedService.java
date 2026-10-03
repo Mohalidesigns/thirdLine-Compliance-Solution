@@ -125,6 +125,7 @@ public class InternalRegulationSeedService {
                         .responsibleUnit(rt.getResponsibleUnit())
                         .responsiblePerson(rt.getResponsiblePerson())
                         .frequency(rt.getFrequency())
+                        .frequencyType(rt.getFrequencyType())
                         .deadline(rt.getDeadline())
                         .filingDate(rt.getFilingDate())
                         .build())

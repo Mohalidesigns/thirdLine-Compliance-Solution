@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.findings.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -17,18 +18,27 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class FindingService {
 
     private final FindingRepository repo;
     private final OwnerRepository ownerRepo;
+    private final ControlRepository controlRepo;
     private final AuditService audit;
 
     public Page<FindingRegisterItem> getRegisterList(
             String status, String severity, Boolean overdueOnly, Integer assignedToUserId, Pageable p) {
         var spec = FindingSpecification.withFilters(status, severity, overdueOnly, assignedToUserId);
-        return repo.findAll(spec, p).map(FindingRegisterItem::from);
+        Page<Finding> page = repo.findAll(spec, p);
+        // One query per page for the linked controls' numbers (no N+1).
+        Set<Integer> controlIds = page.getContent().stream().map(Finding::getLinkedControlId)
+            .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Integer, String> controlNumbers = new HashMap<>();
+        if (!controlIds.isEmpty())
+            controlRepo.findAllById(controlIds).forEach(c -> controlNumbers.put(c.getControlId(), c.getControlNumber()));
+        return page.map(f -> FindingRegisterItem.from(f, controlNumbers.get(f.getLinkedControlId())));
     }
 
     public FindingDetailResponse getDetail(Long id) {
@@ -64,6 +74,7 @@ public class FindingService {
         return FindingDetailResponse.builder()
             .findingId(f.getFindingId())
             .displayId("FIND-" + String.format("%03d", f.getFindingId()))
+            .externalReference(f.getExternalReference())
             .triggerReason(f.getTriggerReason()).findingType(f.getFindingType())
             .severity(f.getSeverity()).description(f.getDescription()).rootCause(f.getRootCause())
             .assignedToUserId(f.getAssignedToUserId()).assignedToName(f.getAssignedToName())
@@ -75,7 +86,10 @@ public class FindingService {
             .remediationSubmittedAt(f.getRemediationSubmittedAt())
             .ccoSignOffUserId(f.getCcoSignOffUserId()).ccoSignOffAt(f.getCcoSignOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
-            .linkedControlId(f.getLinkedControlId()).createdByUserId(f.getCreatedByUserId())
+            .linkedControlId(f.getLinkedControlId())
+            .linkedControlNumber(f.getLinkedControlId() == null ? null
+                : controlRepo.findById(f.getLinkedControlId()).map(Control::getControlNumber).orElse(null))
+            .createdByUserId(f.getCreatedByUserId())
             .createdAt(f.getCreatedAt()).timeline(timeline).build();
     }
 
@@ -176,7 +190,8 @@ public class FindingService {
         return "Low";
     }
 
-    private int slaDays(String severity) {
+    /** Remediation SLA in days per severity; shared with the findings bulk import. */
+    public static int slaDays(String severity) {
         return switch (severity) {
             case "Critical" -> 1;
             case "High" -> 14;

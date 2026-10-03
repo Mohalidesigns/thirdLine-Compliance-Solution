@@ -78,24 +78,36 @@ public class ObligationClassification {
     }
 
     public void computeInherentRisk(java.util.List<String> impactLevels, java.util.List<String> likelihoodLevels) {
-        if (impactRating == null || likelihoodRating == null) {
-            this.inherentRiskRating = null;
-            return;
-        }
-        java.util.List<String> impacts = impactLevels != null ? impactLevels
-            : java.util.List.of("Insignificant", "Minor", "Moderate", "Major", "Severe");
-        java.util.List<String> likelihoods = likelihoodLevels != null ? likelihoodLevels
-            : java.util.List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
+        this.inherentRiskRating = inherentBand(impactRating, likelihoodRating, impactLevels, likelihoodLevels);
+    }
 
-        int impactIdx = impacts.indexOf(impactRating) + 1;
-        int likelihoodIdx = likelihoods.indexOf(likelihoodRating) + 1;
-        if (impactIdx == 0 || likelihoodIdx == 0) { this.inherentRiskRating = null; return; }
+    /** Canonical impact axis, lowest to highest (what {@link #inherentBand} scores). */
+    public static final java.util.List<String> IMPACT_LEVELS =
+        java.util.List.of("Insignificant", "Minor", "Moderate", "Major", "Severe");
+    /** Canonical likelihood axis, lowest to highest. */
+    public static final java.util.List<String> LIKELIHOOD_LEVELS =
+        java.util.List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
+
+    /** Inherent risk band on the canonical axes, or null when either rating is missing/unknown. */
+    public static String inherentBand(String impact, String likelihood) {
+        return inherentBand(impact, likelihood, null, null);
+    }
+
+    public static String inherentBand(String impact, String likelihood,
+                                      java.util.List<String> impactLevels, java.util.List<String> likelihoodLevels) {
+        if (impact == null || likelihood == null) return null;
+        java.util.List<String> impacts = impactLevels != null ? impactLevels : IMPACT_LEVELS;
+        java.util.List<String> likelihoods = likelihoodLevels != null ? likelihoodLevels : LIKELIHOOD_LEVELS;
+
+        int impactIdx = impacts.indexOf(impact) + 1;
+        int likelihoodIdx = likelihoods.indexOf(likelihood) + 1;
+        if (impactIdx == 0 || likelihoodIdx == 0) return null;
 
         int score = impactIdx * likelihoodIdx;
-        if (score >= 18) this.inherentRiskRating = "Critical";
-        else if (score >= 12) this.inherentRiskRating = "High";
-        else if (score >= 6) this.inherentRiskRating = "Moderate";
-        else this.inherentRiskRating = "Low";
+        if (score >= 18) return "Critical";
+        if (score >= 12) return "High";
+        if (score >= 6) return "Moderate";
+        return "Low";
     }
 
     public static String computeResidualRisk(String inherentRisk, boolean controlsLinked, String testStatus) {

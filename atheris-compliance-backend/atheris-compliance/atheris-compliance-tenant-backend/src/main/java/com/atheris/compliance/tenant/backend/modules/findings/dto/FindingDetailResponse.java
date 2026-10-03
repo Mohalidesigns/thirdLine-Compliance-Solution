@@ -10,6 +10,7 @@ import java.util.List;
 public class FindingDetailResponse {
     private Long findingId;
     private String displayId;
+    private String externalReference;
     private String triggerReason;
     private String findingType;
     private String severity;
@@ -30,6 +31,8 @@ public class FindingDetailResponse {
     private Instant closedAt;
     private Long linkedObligationId;
     private Integer linkedControlId;
+    /** The linked control's control number, null when unlinked or the control is gone. */
+    private String linkedControlNumber;
     private Integer createdByUserId;
     private Instant createdAt;
     private List<TimelineEvent> timeline;

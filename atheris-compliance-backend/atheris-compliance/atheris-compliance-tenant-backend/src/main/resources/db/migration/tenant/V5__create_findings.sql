@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS findings (
     created_by_user_id        INT,
     linked_obligation_id      BIGINT,
     linked_control_id         INT,
+    external_reference        VARCHAR(100),
     created_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -28,3 +29,6 @@ CREATE TABLE IF NOT EXISTS findings (
 CREATE INDEX idx_findings_status ON findings(status);
 CREATE INDEX idx_findings_severity ON findings(severity);
 CREATE INDEX idx_findings_deadline ON findings(remediation_deadline, status);
+
+-- Optional external id (e.g. an audit report reference) used to dedup bulk imports.
+CREATE UNIQUE INDEX idx_findings_external_reference ON findings (LOWER(external_reference)) WHERE external_reference IS NOT NULL;
