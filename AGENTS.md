@@ -204,18 +204,35 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Bulk import phase 4 (findings)
+## TODO / Next — Client-readiness follow-ups
 
 Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see the Done sections below.
 
-**Bulk import** — phases 1 (obligations), 2 (controls) and 3 (returns) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
-- **Findings** — `RaiseFindingRequest` requires type, severity, description, remediationDeadline.
+**Bulk import** — all four phases (obligations, controls, returns, findings) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
 
 **Known follow-ups**
+- **Seeded returns have no due date → ~90 periods overdue on day one.** 72 of 85 recurring seeded returns have `filing_date` NULL (the platform data has none), so they fall back to "due the 1st of this month". There is also no return UPDATE endpoint, so a due date can't be set after creation. Needs a due-date source/rule plus an edit path.
+- Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
+- FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
+- Settings → Organization shows mojibake ("Â·") in the team/owner counts.
+- "New Control" form still writes only the control side of obligation links (import writes both).
 - `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — Bulk Import Phase 4 (Findings)
+
+Findings page → Import (CCO / TENANT_ADMIN — closed rows carry a CCO sign-off). `FindingImportHandler`.
+
+- **Template:** Reference | Description* | Finding Type* (Gap/Control Failure/Process Weakness) | Severity* | Status* (Open/In Remediation/Remediated/Closed) | Date Raised | Remediation Deadline | Root Cause | Linked Control Number | Linked Obligation ID | Owner | Remediation Notes | Date Remediated | Date Closed, plus "Obligations" and new "Controls" lookup sheets (`ImportParsing.controlsReferenceSheet`).
+- **Historical findings keep their history:** `Finding.@PrePersist` now sets `createdAt` only when null, so Date Raised is preserved; Remediated/Closed rows set `remediationSubmittedAt`, `closedAt`, `ccoSignOffAt` (= Date Closed) and `ccoSignOffUserId` (= importing user). Status consistency enforced (In Remediation needs an owner; Remediated needs owner + Date Remediated; Closed needs both dates; raised ≤ remediated ≤ closed; nothing in the future). Deadline defaults to Date Raised + SLA days (`FindingService.slaDays`, now public static).
+- **Reference (new column):** `findings.external_reference` + unique index on `lower(external_reference)` (V5 edited in place; dev DB got ALTER + Flyway repair). Dedup on reference (case-insensitive), else description + control + obligation. Shown under the finding ID in the register and in the detail view.
+- Register/detail show the real **control number** (batch-loaded, no N+1) instead of `CTRL-%03d` of the id.
+- **Dashboard refresh:** afterCommit calls `DashboardService.recomputeInNewTransaction()` (REQUIRES_NEW — a plain `@Transactional` call from afterCommit joins the finished transaction and its insert is never committed). `getLatest` now orders by snapshot date then id, because several snapshots can share a date.
+
+### Verified (live, browser pane)
+8-row file → 5 valid (one per status + unreferenced) / 2 invalid / 1 case-insensitive reference duplicate; stored dates 2025-11-05 → 2026-01-20 preserved, SLA deadlines derived, CCO sign-off on the Closed row, controls linked by number; dashboard snapshot recomputed at import; re-upload → 0 valid / 6 duplicate. Zero backend errors.
 
 ## Done — Bulk Import Phase 3 (Returns) + Return Frequency Fixes
 
@@ -229,7 +246,7 @@ Returns page → Import (CCO / TENANT_ADMIN only). `ReturnImportHandler`; shared
 - **Repair action** for already-seeded tenants: `GET/POST /api/v1/returns/frequency-repair` (TENANT_ADMIN). Dry run first; retypes from the platform's text (classified by the tenant's stricter classifier; platform MONTHLY treated as "no answer"), deletes only untouched instances (Not Started, no stage owner/data, no submission, notes or evidence; system escalation ignored), rebuilds via `ensureInstances`, audits `returns_frequency_repaired`. Idempotent. UI: warning banner + `ReturnRepairDialog` on the Returns page for admins.
 
 ### Verified (live, browser pane)
-8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed with no period, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Add Return form: Annual + 30 Jun 2027 → ANNUAL, one 2027-06 period. Repair dry run on the dev tenant: 113 of 143 to retype (37 Annual, 58 Event-driven, 11 Quarterly…), 564 untouched periods to remove, 1 kept.
+8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed with no period, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Add Return form: Annual + 30 Jun 2027 → ANNUAL, one 2027-06 period. Repair applied on the dev tenant (2026-10-03): 113 of 143 retyped (37 Annual, 58 Event-driven, 11 Quarterly…), 564 untouched periods removed, 1 kept, 96 rebuilt; overdue 268 → 92; second dry run proposes 0.
 
 **Dev gotcha:** running `mvn clean compile` while a backend is running deletes its classes underneath it — requests then 401 and the UI logs out. Restart the backend after any clean build.
 

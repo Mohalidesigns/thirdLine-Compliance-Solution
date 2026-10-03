@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.imports.handler;
 
+import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.ObligationRegisterItem;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
@@ -146,5 +148,15 @@ final class ImportParsing {
             .toList();
         return new ImportHandler.ReferenceSheet("Obligations",
             List.of("Obligation ID", "Title", "Section", "Regulator", "Act"), rows);
+    }
+
+    /** Read-only "Controls" lookup sheet (control number, name, theme) for link columns; sorted by number. */
+    static ImportHandler.ReferenceSheet controlsReferenceSheet(ControlRepository controlRepo) {
+        List<List<String>> rows = controlRepo.findAll().stream()
+            .filter(c -> c.getControlNumber() != null && !c.getControlNumber().isBlank())
+            .sorted(Comparator.comparing(Control::getControlNumber, String.CASE_INSENSITIVE_ORDER))
+            .map(c -> Arrays.asList(c.getControlNumber(), c.getName(), c.getTheme()))
+            .toList();
+        return new ImportHandler.ReferenceSheet("Controls", List.of("Control Number", "Name", "Theme"), rows);
     }
 }

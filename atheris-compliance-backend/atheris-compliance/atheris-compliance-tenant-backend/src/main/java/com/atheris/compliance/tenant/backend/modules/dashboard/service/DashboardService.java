@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.*;
@@ -31,7 +32,7 @@ public class DashboardService {
     private final RegulatorySanctionRepository sanctions;
 
     public DashboardSnapshot getLatest() {
-        return snapshots.findTopByOrderBySnapshotDateDesc()
+        return snapshots.findTopByOrderBySnapshotDateDescSnapshotIdDesc()
             .orElseGet(this::computeSnapshot);
     }
 
@@ -55,6 +56,17 @@ public class DashboardService {
         DashboardSnapshot s = computeSnapshot();
         log.info("Dashboard snapshot computed. Score: {}", s.getComplianceScore());
         return s;
+    }
+
+    /**
+     * Same computation as the 2am cron, in its own transaction. For callers running in a
+     * {@code TransactionSynchronization.afterCommit()} hook (e.g. bulk import): there the committed
+     * transaction is still bound, so a plain {@code REQUIRED} call would join it and its insert would
+     * never be committed.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public DashboardSnapshot recomputeInNewTransaction() {
+        return computeAndStore();
     }
 
     @Transactional
