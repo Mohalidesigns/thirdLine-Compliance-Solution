@@ -89,6 +89,13 @@ public class ToolkitImportService {
     private int sanctionCount = 0;
     private int returnCount = 0;
     private int controlCount = 0;
+    private int obligationUpdatedCount = 0;
+    /** Toolkit-created CRMP controls removed as natural-key duplicates in this run. */
+    private int controlDedupCount = 0;
+    /** act id → obligations of that act; filled lazily per import run (control → obligation matching). */
+    private final Map<Long, List<ObligationMapping>> obligationsByActCache = new HashMap<>();
+    /** act id → (statement + section → obligation); filled lazily per import run. */
+    private final Map<Long, Map<String, ObligationMapping>> obligationKeyCache = new HashMap<>();
 
     @Value("${atheris.points.batch-size:25}")
     private int pointsBatchSize;
@@ -125,6 +132,10 @@ public class ToolkitImportService {
     public Map<String, Object> importToolkit() {
         unmapped.clear();
         regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
+        obligationUpdatedCount = 0;
+        controlDedupCount = 0;
+        obligationKeyCache.clear();
+        obligationsByActCache.clear();
         try {
             return transactionTemplate.execute(status -> {
                 try {
@@ -163,17 +174,19 @@ public class ToolkitImportService {
     }
 
     private Map<String, Object> successResult() {
-        return Map.of(
-            "regulators", regulatorCount,
-            "acts", actCount,
-            "instruments", instrumentCount,
-            "obligations", obligationCount,
-            "sanctions", sanctionCount,
-            "returns", returnCount,
-            "controls", controlCount,
-            "unmappedSources", unmapped.size(),
-            "unmappedList", List.copyOf(unmapped)
-        );
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("regulators", regulatorCount);
+        result.put("acts", actCount);
+        result.put("instruments", instrumentCount);
+        result.put("obligations", obligationCount);
+        result.put("obligationsUpdated", obligationUpdatedCount);
+        result.put("sanctions", sanctionCount);
+        result.put("returns", returnCount);
+        result.put("controls", controlCount);
+        result.put("controlsDeduplicated", controlDedupCount);
+        result.put("unmappedSources", unmapped.size());
+        result.put("unmappedList", List.copyOf(unmapped));
+        return result;
     }
 
     private Map<String, Object> errorResult(Exception e) {
@@ -187,7 +200,16 @@ public class ToolkitImportService {
     // ── Inline LLM point generation for toolkit obligations (parallel batch processing) ──
 
     public void generatePointsForToolkit() {
-        List<ObligationMapping> unmapped = obligations.findByPointsEmpty();
+        List<ObligationMapping> unmapped = new ArrayList<>(obligations.findByPointsEmpty());
+        // Without the verbatim description there is nothing to quote: every verbatim point
+        // would be discarded, and the call still spends rate-limited AI quota. The toolkit
+        // re-import fills descriptions and those rows are picked up on the next run.
+        int before = unmapped.size();
+        unmapped.removeIf(o -> o.getDescription() == null || o.getDescription().isBlank());
+        if (unmapped.size() < before) {
+            log.info("[PointsBatch] Skipping {} obligations with no description (re-import the toolkit to fill them)",
+                before - unmapped.size());
+        }
         if (unmapped.isEmpty()) {
             log.info("[PointsBatch] All toolkit obligations already have points");
             return;
@@ -301,12 +323,12 @@ public class ToolkitImportService {
                     for (BatchPointsResponse.PointItem p : op.getVerbatim()) {
                         String exact = extractExactSpan(ob.getDescription(), p.getMarker(), p.getLevel());
                         if (exact == null) {
-                            log.warn("[PointsBatch] Discard verbatim marker={} not found in description for obligation {}", p.getMarker(), ob.getObligationId());
+                            log.debug("[PointsBatch] Discard verbatim marker={} — not a list marker in the description of obligation {}", p.getMarker(), ob.getObligationId());
                             continue;
                         }
                         exact = stripMarkerPrefix(exact, p.getMarker());
                         if (exact == null || exact.isBlank()) {
-                            log.warn("[PointsBatch] Discard verbatim marker={} empty after stripping for obligation {}", p.getMarker(), ob.getObligationId());
+                            log.debug("[PointsBatch] Discard verbatim marker={} empty after stripping for obligation {}", p.getMarker(), ob.getObligationId());
                             continue;
                         }
                         mapped.add(toPointMapExact(p.getMarker(), exact, p.getLevel(), p.getChildren(), "verbatim"));
@@ -346,53 +368,27 @@ public class ToolkitImportService {
         return m;
     }
 
-    private String extractExactSpan(String description, String marker, Integer level) {
+    /**
+     * Verbatim span for {@code marker}, starting AT the marker. A null marker means the
+     * lead-in text before the first list marker. Returns null when the marker is not a
+     * real list marker in {@code description} (see {@link VerbatimMarkerMatcher}).
+     */
+    static String extractExactSpan(String description, String marker, Integer level) {
         if (description == null) return null;
         if (marker == null) {
-            int idx = description.indexOf("(");
-            if (idx == -1) return description.trim();
-            return description.substring(0, idx).trim();
+            String lead = VerbatimMarkerMatcher.preamble(description);
+            return lead == null || lead.isEmpty() ? null : lead;
         }
-        String needle = "(" + marker + ")";
-        int start = description.indexOf(needle);
-        if (start == -1) {
-            needle = marker;
-            start = description.indexOf(needle);
-            if (start == -1) return null;
-        }
-        int lvl = level != null ? level : 0;
-        int end = description.length();
-        for (int i = start + needle.length(); i < description.length() - 1; i++) {
-            if (description.charAt(i) != '(') continue;
-            int close = description.indexOf(')', i);
-            if (close == -1 || close - i > 6) continue;
-            String inner = description.substring(i + 1, close).trim();
-            if (inner.isEmpty() || !inner.matches("[a-zA-Z0-9]+")) continue;
-            Integer innerLevel = inferMarkerLevel(inner);
-            if (innerLevel == null) continue;
-            if (innerLevel <= lvl) {
-                end = i;
-                break;
-            }
-        }
-        String span = description.substring(start, end).trim();
-        if (span.isEmpty()) return null;
-        return span;
+        return VerbatimMarkerMatcher.extractSpan(description, marker, 0);
     }
 
-    private Integer inferMarkerLevel(String inner) {
-        if (inner == null || inner.isBlank()) return null;
-        String s = inner.trim();
-        if (s.matches("\\d+")) return 0;
-        String low = s.toLowerCase(java.util.Locale.ROOT);
-        // roman set for level 2
-        if (low.matches("i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv")) return 2;
-        if (low.matches("[ivxlcdm]+")) return 2;
-        if (s.matches("[a-zA-Z]")) return 1;
-        return null;
-    }
-
-    private Map<String, Object> toPointMapExact(String marker, String exactText, Integer level, java.util.List<BatchPointsResponse.PointItem> children, String pointType) {
+    /**
+     * Point map for a verbatim point whose text was cut from the description. Children
+     * are searched inside the parent's text; a child whose marker is not a real list
+     * marker there is dropped (never filled from LLM text).
+     */
+    static Map<String, Object> toPointMapExact(String marker, String exactText, Integer level,
+                                               java.util.List<BatchPointsResponse.PointItem> children, String pointType) {
         Map<String, Object> m = new java.util.HashMap<>();
         String cleaned = stripMarkerPrefix(exactText, marker);
         m.put("marker", marker);
@@ -400,27 +396,29 @@ public class ToolkitImportService {
         m.put("content", cleaned);
         m.put("pointType", pointType);
         m.put("level", level != null ? level : 0);
-        m.put("children", children != null ? children.stream().map(c -> {
-            String childExact = extractExactSpan(exactText, c.getMarker(), c.getLevel());
-            if (childExact == null) {
-                childExact = c.getText() != null ? stripMarkerPrefix(c.getText(), c.getMarker()) : "";
-            } else {
+        List<Map<String, Object>> kids = new ArrayList<>();
+        if (children != null) {
+            for (BatchPointsResponse.PointItem c : children) {
+                String childExact = c.getMarker() == null ? null
+                    : VerbatimMarkerMatcher.extractSpan(exactText, c.getMarker(), 0);
+                if (childExact == null) {
+                    log.debug("[PointsBatch] Drop verbatim child marker={} under {}: not a list marker in the parent text",
+                        c.getMarker(), marker);
+                    continue;
+                }
                 childExact = stripMarkerPrefix(childExact, c.getMarker());
+                if (childExact.isBlank()) continue;
+                kids.add(toPointMapExact(c.getMarker(), childExact, c.getLevel(), c.getChildren(), pointType));
             }
-            return toPointMapExact(c.getMarker(), childExact, c.getLevel(), c.getChildren(), pointType);
-        }).toList() : java.util.Collections.emptyList());
+        }
+        m.put("children", kids);
         return m;
     }
 
-    private String stripMarkerPrefix(String text, String marker) {
-        if (text == null || marker == null || marker.isBlank()) return text == null ? null : text.trim();
-        String out = text.replaceAll("^[\\s\\-\"]+", "");
-        String esc = java.util.regex.Pattern.quote(marker.trim());
-        // "(marker)" with optional spaces, case-insensitive
-        out = out.replaceFirst("(?i)^\\(\\s*" + esc + "\\s*\\)\\s*", "");
-        // plain "marker. " / "marker) " / "marker - " / "marker: "
-        out = out.replaceFirst("(?i)^" + esc + "[\\.\\)\\-\\:]?\\s+", "");
-        return out.trim();
+    static String stripMarkerPrefix(String text, String marker) {
+        if (text == null) return null;
+        if (marker == null || marker.isBlank()) return text.trim();
+        return VerbatimMarkerMatcher.stripMarkerPrefix(text, marker);
     }
 
     private void sleepQuietly(long ms) {
@@ -609,23 +607,20 @@ public class ToolkitImportService {
             Long actId = findOrCreateAct(source, null);
             Long instrumentId = ensureCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
-            String statement = stripQuotes(TextCleaner.stripMarkdown(plain.trim()));
-            String descriptionText = stripQuotes(TextCleaner.stripMarkdown(get(r, cDesc).trim()));
+            String rawStatement = TextCleaner.stripMarkdown(plain.trim());
+            String statement = stripQuotes(rawStatement);
+            String rawDesc = get(r, cDesc);
+            String descriptionText = rawDesc == null ? null : stripQuotes(TextCleaner.stripMarkdown(rawDesc.trim()));
+            if (descriptionText != null && descriptionText.isBlank()) descriptionText = null;
             String sectionRef = shorten(get(r, cSection), 100);
-            if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
-                    actId, statement, sectionRef)) {
-                log.debug("[ToolkitImport] Skipping duplicate obligation for {}: {}...", source, statement.substring(0, Math.min(60, statement.length())));
-                continue;
-            }
 
             String likelihoodInherent = normalizeRiskLabel(get(r, cLikelihoodInherent));
             String impactInherent = normalizeRiskLabel(get(r, cImpactInherent));
             String inherentRiskRating = computeRiskBand(likelihoodInherent, impactInherent);
 
-            obligations.save(ObligationMapping.builder()
+            ObligationMapping parsed = ObligationMapping.builder()
                 .instrumentId(instrumentId)
                 .regulationId(actId)
-                .obligationNumber(++obligNumber)
                 .title(shorten(get(r, cTitle), 500))
                 .description(descriptionText)
                 .plainEnglishStatement(statement)
@@ -638,9 +633,88 @@ public class ToolkitImportService {
                 .inherentImpact(impactInherent)
                 .inherentRiskRating(inherentRiskRating)
                 .controlOwner(get(r, cControlOwner))
-                .build());
+                .build();
+
+            // Natural key = act + statement + section. Rows seeded before stripQuotes was
+            // added carry the un-stripped statement, so both spellings are looked up.
+            Map<String, ObligationMapping> byKey = obligationsForAct(actId);
+            ObligationMapping existing = byKey.get(obligationKey(statement, sectionRef));
+            if (existing == null && !rawStatement.equals(statement)) {
+                existing = byKey.get(obligationKey(rawStatement, sectionRef));
+            }
+            if (existing != null) {
+                if (backfillMissing(existing, parsed)) {
+                    obligations.save(existing);
+                    obligationUpdatedCount++;
+                } else {
+                    log.debug("[ToolkitImport] Skipping duplicate obligation for {}: {}...", source, statement.substring(0, Math.min(60, statement.length())));
+                }
+                continue;
+            }
+
+            parsed.setObligationNumber(++obligNumber);
+            obligations.save(parsed);
+            byKey.put(obligationKey(statement, sectionRef), parsed);
             obligationCount++;
         }
+    }
+
+    private Map<String, ObligationMapping> obligationsForAct(Long actId) {
+        return obligationKeyCache.computeIfAbsent(actId, id -> {
+            Map<String, ObligationMapping> map = new HashMap<>();
+            for (ObligationMapping o : obligations.findByRegulationId(id)) {
+                map.putIfAbsent(obligationKey(o.getPlainEnglishStatement(), o.getSpecificSectionReference()), o);
+            }
+            return map;
+        });
+    }
+
+    static String obligationKey(String statement, String sectionRef) {
+        return statement + "\u0000" + (sectionRef == null ? "\u0001" : sectionRef);
+    }
+
+    /**
+     * Fills fields of an already-imported obligation that are null but now parsed from the
+     * toolkit (rows seeded before {@code description} was mapped have none). Never
+     * overwrites a non-null value. When the verbatim description is filled in, existing
+     * points (generated without it, so interpreted-only) are cleared so the points job
+     * regenerates them with verbatim points. Returns true when anything changed.
+     */
+    static boolean backfillMissing(ObligationMapping existing, ObligationMapping parsed) {
+        boolean changed = false;
+        boolean descriptionFilled = false;
+        if (existing.getDescription() == null && parsed.getDescription() != null) {
+            existing.setDescription(parsed.getDescription());
+            changed = descriptionFilled = true;
+        }
+        if (existing.getTitle() == null && parsed.getTitle() != null) {
+            existing.setTitle(parsed.getTitle()); changed = true;
+        }
+        if (existing.getObligationType() == null && parsed.getObligationType() != null) {
+            existing.setObligationType(parsed.getObligationType()); changed = true;
+        }
+        if (existing.getRecurringDeadlineType() == null && parsed.getRecurringDeadlineType() != null) {
+            existing.setRecurringDeadlineType(parsed.getRecurringDeadlineType()); changed = true;
+        }
+        if (existing.getRiskDescription() == null && parsed.getRiskDescription() != null) {
+            existing.setRiskDescription(parsed.getRiskDescription()); changed = true;
+        }
+        if (existing.getInherentLikelihood() == null && parsed.getInherentLikelihood() != null) {
+            existing.setInherentLikelihood(parsed.getInherentLikelihood()); changed = true;
+        }
+        if (existing.getInherentImpact() == null && parsed.getInherentImpact() != null) {
+            existing.setInherentImpact(parsed.getInherentImpact()); changed = true;
+        }
+        if (existing.getInherentRiskRating() == null && parsed.getInherentRiskRating() != null) {
+            existing.setInherentRiskRating(parsed.getInherentRiskRating()); changed = true;
+        }
+        if (existing.getControlOwner() == null && parsed.getControlOwner() != null) {
+            existing.setControlOwner(parsed.getControlOwner()); changed = true;
+        }
+        if (descriptionFilled && existing.getPoints() != null && !existing.getPoints().isEmpty()) {
+            existing.setPoints(List.of());
+        }
+        return changed;
     }
 
     // ── Sanctions & Penalties grid ──
@@ -1376,6 +1450,13 @@ public class ToolkitImportService {
     public void importCmpControls(List<List<String>> rows) {
         if (rows.isEmpty()) return;
 
+        // CMP rows carry their own control number (e.g. ABAC001), which is their natural key.
+        // One read of every number instead of an exists-query per row; also catches in-file repeats.
+        Set<String> existingNumbers = complianceControls.findAll().stream()
+            .map(ComplianceControl::getControlNumber)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(HashSet::new));
+
         String currentTheme = null;
         for (List<String> r : rows) {
             if (r.size() < 6) continue;
@@ -1397,7 +1478,7 @@ public class ToolkitImportService {
             if ("id".equalsIgnoreCase(controlNumber)) continue;
 
             // Skip if already seeded (re-runnable)
-            if (complianceControls.existsByControlNumber(controlNumber)) continue;
+            if (!existingNumbers.add(controlNumber)) continue;
 
             // Column 2: regulatory requirement
             String regRequirement = get(r, 2);
@@ -1434,7 +1515,7 @@ public class ToolkitImportService {
             if (actId != null && regRequirement != null) {
                 String sectionRef = extractSectionRef(regRequirement);
                 if (sectionRef != null) {
-                    obligationId = obligations.findByRegulationId(actId).stream()
+                    obligationId = obligationsOfAct(actId).stream()
                         .filter(o -> o.getSpecificSectionReference() != null
                             && sectionRef.toLowerCase(Locale.ROOT)
                                 .contains(o.getSpecificSectionReference().toLowerCase(Locale.ROOT)))
@@ -1535,8 +1616,31 @@ public class ToolkitImportService {
     }
 
     // ── CRMP sections → extract Control + Additional Control ──
+    /**
+     * Imports the Control (col 11) and Additional Control (col 14) of every CRMP row.
+     *
+     * <p>Idempotent by natural key — act id + normalised control text + control type — not by
+     * control number: numbers are generated, and older runs used a different numbering, so a
+     * number match can never detect a re-run. Existing controls are loaded once; rows already
+     * present (in the DB, any date, or earlier in this file) are skipped and left untouched.
+     * Before importing, re-inserts left by earlier non-idempotent runs are removed (original
+     * seed rows kept, re-insert links merged into the oldest row) — see {@link #removeDuplicateCrmpControls}.
+     */
     @Transactional
     public void importCmpControlsFromSections(Map<String, List<List<String>>> sections) {
+        List<ComplianceControl> all = complianceControls.findAll();
+        // Every number ever used stays reserved — including rows deleted below — so a number a
+        // tenant may already hold is never handed to a different control.
+        ToolkitControlDedup.NumberAllocator numbers = new ToolkitControlDedup.NumberAllocator(
+            all.stream().map(ComplianceControl::getControlNumber).toList());
+
+        List<ComplianceControl> crmpControls = all.stream()
+            .filter(c -> CRMP_SECTIONS.contains(c.getComplianceArea()))
+            .toList();
+        Set<ComplianceControl> removed = removeDuplicateCrmpControls(crmpControls);
+        Map<String, ComplianceControl> byKey = ToolkitControlDedup.indexByKey(
+            crmpControls.stream().filter(c -> !removed.contains(c)).toList());
+
         int cmpCount = 0;
         for (String sectionName : CRMP_SECTIONS) {
             List<List<String>> rows = sections.getOrDefault(sectionName, List.of());
@@ -1556,6 +1660,7 @@ public class ToolkitImportService {
             int cAdditionalControl = 14;
             int cControlOwner = 16;
 
+            String prefix = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length()));
             String lastSource = null;
             for (int i = 1; i < rows.size(); i++) {
                 List<String> r = rows.get(i);
@@ -1580,72 +1685,94 @@ public class ToolkitImportService {
                 String impactResidual = normalizeRiskLabel(get(r, cImpactResidual));
                 String residualRiskRating = computeRiskBand(likelihoodResidual, impactResidual);
 
-                // Primary Control (col 11)
-                String controlText = get(r, cControl);
-                if (controlText != null && !controlText.isBlank()) {
-                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "C" + String.format("%03d", cmpCount + 1);
-                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
-                            .controlNumber(ctrlNum)
-                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
-                            .regulatoryRequirement(source)
-                            .complianceArea(sectionName)
-                            .riskLevel(normalizeRisk(get(r, cTitle)))
-                            .complianceControl(controlText)
-                            .controlType("PRIMARY")
-                            .residualLikelihood(likelihoodResidual)
-                            .residualImpact(impactResidual)
-                            .residualRiskRating(residualRiskRating)
-                            .ownerName(get(r, cControlOwner))
-                            .actId(actId)
-                            .actName(source)
-                            .linkedObligationIds(linkedIds)
-                            .status("Open")
-                            .build());
-                        cmpCount++;
-                    }
-                }
-
-                // Additional Control (col 14)
-                String additionalText = get(r, cAdditionalControl);
-                if (additionalText != null && !additionalText.isBlank()) {
-                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "A" + String.format("%03d", cmpCount + 1);
-                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
-                            .controlNumber(ctrlNum)
-                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
-                            .regulatoryRequirement(source)
-                            .complianceArea(sectionName)
-                            .riskLevel(normalizeRisk(get(r, cTitle)))
-                            .complianceControl(additionalText)
-                            .controlType("ADDITIONAL")
-                            .residualLikelihood(likelihoodResidual)
-                            .residualImpact(impactResidual)
-                            .residualRiskRating(residualRiskRating)
-                            .ownerName(get(r, cControlOwner))
-                            .actId(actId)
-                            .actName(source)
-                            .linkedObligationIds(linkedIds)
-                            .status("Open")
-                            .build());
-                        cmpCount++;
-                    }
+                String[][] variants = {
+                    { get(r, cControl), "PRIMARY", "C" },            // Primary Control (col 11)
+                    { get(r, cAdditionalControl), "ADDITIONAL", "A" } // Additional Control (col 14)
+                };
+                for (String[] v : variants) {
+                    String text = v[0];
+                    if (text == null || text.isBlank()) continue;
+                    String controlType = v[1];
+                    String key = ToolkitControlDedup.naturalKey(actId, text, controlType);
+                    ComplianceControl existing = byKey.get(key);
+                    // Already present (any date, or earlier in this file): never inserted again,
+                    // and the existing row is left untouched.
+                    if (existing != null) continue;
+                    ComplianceControl saved = complianceControls.save(ComplianceControl.builder()
+                        .controlNumber(numbers.next(prefix + v[2]))
+                        .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
+                        .regulatoryRequirement(source)
+                        .complianceArea(sectionName)
+                        .riskLevel(normalizeRisk(get(r, cTitle)))
+                        .complianceControl(text)
+                        .controlType(controlType)
+                        .residualLikelihood(likelihoodResidual)
+                        .residualImpact(impactResidual)
+                        .residualRiskRating(residualRiskRating)
+                        .ownerName(get(r, cControlOwner))
+                        .actId(actId)
+                        .actName(source)
+                        .linkedObligationIds(linkedIds)
+                        .status("Open")
+                        .build());
+                    byKey.put(key, saved);
+                    cmpCount++;
                 }
             }
         }
         controlCount += cmpCount;
-        log.info("[ToolkitImport] CRMP section controls imported: {}", cmpCount);
+        log.info("[ToolkitImport] CRMP section controls imported: {}, duplicates removed: {}",
+            cmpCount, controlDedupCount);
+    }
+
+    /**
+     * One-time repair for earlier non-idempotent runs: within the toolkit-created CRMP controls,
+     * in every natural-key group, all rows from the day of the group's oldest row are the original
+     * seed and stay untouched (same-day repeats are legitimate cross-section repeats); rows created
+     * on a later day are re-inserts — their obligation links are unioned into the oldest row and
+     * they are deleted. A row carrying a
+     * direct {@code obligation_id} reference is never deleted. Runs inside the import transaction.
+     *
+     * @return the deleted rows (so the caller can exclude them from its index)
+     */
+    private Set<ComplianceControl> removeDuplicateCrmpControls(List<ComplianceControl> crmpControls) {
+        List<ToolkitControlDedup.DuplicateGroup> groups =
+            ToolkitControlDedup.findDuplicates(crmpControls, c -> c.getObligationId() == null,
+                java.time.ZoneId.systemDefault());
+        if (groups.isEmpty()) return Set.of();
+
+        Set<ComplianceControl> toDelete = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<ComplianceControl> changed = new ArrayList<>();
+        for (ToolkitControlDedup.DuplicateGroup g : groups) {
+            boolean keepChanged = false;
+            for (ComplianceControl dup : g.duplicates()) {
+                keepChanged |= ToolkitControlDedup.mergeInto(g.keep(), dup);
+                toDelete.add(dup);
+            }
+            if (keepChanged) changed.add(g.keep());
+        }
+        complianceControls.saveAll(changed);
+        complianceControls.deleteAll(toDelete);
+        controlDedupCount = toDelete.size();
+        log.info("[ToolkitImport] Removed {} duplicate CRMP controls across {} groups ({} kept rows merged)",
+            toDelete.size(), groups.size(), changed.size());
+        return toDelete;
+    }
+
+    private List<ObligationMapping> obligationsOfAct(Long regulationId) {
+        if (regulationId == null) return List.of();
+        return obligationsByActCache.computeIfAbsent(regulationId, obligations::findByRegulationId);
     }
 
     private List<Long> matchObligationsBySection(Long regulationId, String sectionRef) {
         if (sectionRef == null || sectionRef.isBlank()) return List.of();
-        return obligations.findByRegulationId(regulationId).stream()
+        String norm = sectionRef.toLowerCase(Locale.ROOT).trim();
+        return obligationsOfAct(regulationId).stream()
             .filter(o -> {
                 String oRef = o.getSpecificSectionReference();
                 if (oRef == null || oRef.isBlank()) return false;
-                String norm = sectionRef.toLowerCase(Locale.ROOT).trim();
-                return norm.contains(oRef.toLowerCase(Locale.ROOT).trim())
-                    || oRef.toLowerCase(Locale.ROOT).trim().contains(norm);
+                String o2 = oRef.toLowerCase(Locale.ROOT).trim();
+                return norm.contains(o2) || o2.contains(norm);
             })
             .map(ObligationMapping::getObligationId)
             .toList();

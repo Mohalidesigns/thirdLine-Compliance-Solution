@@ -55,7 +55,7 @@ spring:
         options:
           model: ${AI_MODEL:google/gemini-2.5-flash-lite}
           temperature: 0.0
-          max-tokens: 3500
+          max-tokens: ${AI_MAX_TOKENS:3500}
 
 server:
   port: ${PORT:9090}
@@ -84,6 +84,10 @@ atheris:
     # stock primary, so a custom AI_MODEL still has a working model to fall back to).
     primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
     fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.5-flash-lite}
+    # OpenRouter reasoning switch for both models: unset = send nothing (provider
+    # default); false = "reasoning": {"enabled": false} (reasoning models such as
+    # nemotron/qwen otherwise spend max-tokens thinking); true = force it on.
+    reasoning-enabled: ${AI_REASONING_ENABLED:}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
@@ -114,11 +118,11 @@ atheris:
     webhook-retry-interval-ms: 1800000 # 30 minutes
 
   points:
-    batch-size: 5        # obligations per LLM call (max ~30 for Gemini Flash Lite 8k output tokens)
+    batch-size: ${POINTS_BATCH_SIZE:5}        # obligations per LLM call (max ~30 for Gemini Flash Lite 8k output tokens)
     delay-ms: 1000        # delay between batches (ms) — used by PointsRetryScheduler sequential fallback
     retry-interval-ms: 900000   # 15 minutes — how often to retry failed obligations
-    concurrency: 5        # max parallel LLM calls in batch generation
-    stagger-ms: 500       # delay between submitting each batch (prevents burst rate limit)
+    concurrency: ${POINTS_CONCURRENCY:5}        # max parallel LLM calls in batch generation
+    stagger-ms: ${POINTS_STAGGER_MS:500}       # delay between submitting each batch (prevents burst rate limit)
     retry-attempts: 3     # per-batch retry attempts before marking as failed
     retry-delays-ms: 2000,5000  # delays between retries (ms)
 
