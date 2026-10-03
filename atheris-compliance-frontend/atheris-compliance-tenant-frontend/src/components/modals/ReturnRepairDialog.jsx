@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Chip, Typography, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination,
-  CircularProgress,
+  CircularProgress, Tooltip,
 } from '@mui/material';
 import { ArrowForward } from '@mui/icons-material';
 import { api } from '../../services/api';
@@ -45,7 +45,9 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
   });
 
   const items = preview?.items || [];
-  const toRetype = preview?.toRetype ?? items.length;
+  const toRetype = preview?.toRetype ?? 0;
+  const toReschedule = preview?.toReschedule ?? 0;
+  const toRepair = items.length;
   const result = mutation.data;
   const done = mutation.isSuccess;
 
@@ -65,19 +67,20 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
         {done ? (
           <Alert severity="success">
             Repair complete: {result?.retyped ?? 0} return{result?.retyped === 1 ? '' : 's'} retyped,{' '}
-            {result?.instancesRemoved ?? 0} period{result?.instancesRemoved === 1 ? '' : 's'} removed,{' '}
+            {result?.rescheduled ?? 0} rescheduled, {result?.instancesRemoved ?? 0} period{result?.instancesRemoved === 1 ? '' : 's'} removed,{' '}
             {result?.instancesKept ?? 0} kept, {result?.instancesCreated ?? 0} created on the correct cycle.
           </Alert>
         ) : (
           <>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
               <Chip label={`To retype ${toRetype}`} color="warning" sx={{ fontWeight: 600 }} />
+              <Chip label={`To reschedule ${toReschedule}`} color="warning" variant="outlined" sx={{ fontWeight: 600 }} />
               <Chip label={`Periods to remove ${preview?.instancesToRemove ?? 0}`} color="error" variant="outlined" sx={{ fontWeight: 600 }} />
               <Chip label={`Periods kept ${preview?.instancesKept ?? 0}`} color="success" variant="outlined" sx={{ fontWeight: 600 }} />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Only the frequency type changes; frequency text is kept. Periods nobody has worked on are
-              removed and rebuilt on the correct cycle. Periods with any work are kept.
+              Frequency types and due rules are corrected; frequency text is kept. Periods nobody has worked on
+              are removed and rebuilt on the correct cycle. Periods with any work are kept.
             </Typography>
 
             {mutation.isError && (
@@ -92,8 +95,8 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 220 }}>Return</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 160 }}>Frequency</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 190 }}>Change</TableCell>
+                      <TableCell sx={{ ...HEAD_SX, minWidth: 190 }}>Frequency</TableCell>
+                      <TableCell sx={{ ...HEAD_SX, minWidth: 200 }}>Due date</TableCell>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 110 }}>Periods</TableCell>
                       <TableCell sx={{ ...HEAD_SX, minWidth: 90 }}>Source</TableCell>
                     </TableRow>
@@ -107,13 +110,31 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">{it.frequency || '-'}</Typography>
+                          {it.typeChanged && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                              <Chip size="small" label={typeLabel(it.currentType)} variant="outlined" sx={CHIP_SX} />
+                              <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+                              <Chip size="small" label={typeLabel(it.proposedType)} color="primary" sx={{ ...CHIP_SX, fontWeight: 600 }} />
+                            </Box>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Chip size="small" label={typeLabel(it.currentType)} variant="outlined" sx={CHIP_SX} />
-                            <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
-                            <Chip size="small" label={typeLabel(it.proposedType)} color="primary" sx={{ ...CHIP_SX, fontWeight: 600 }} />
-                          </Box>
+                          <Tooltip title={it.deadlineText ? `Regulator wording: ${it.deadlineText}` : ''}>
+                            <Box>
+                              {it.ruleChanged ? (
+                                <>
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textDecoration: 'line-through' }}>
+                                    {it.currentRule || '-'}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: it.proposedRule === 'Due date needed' ? 'warning.dark' : 'text.primary' }}>
+                                    {it.proposedRule || '-'}
+                                  </Typography>
+                                </>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">{it.currentRule || it.proposedRule || '-'}</Typography>
+                              )}
+                            </Box>
+                          </Tooltip>
                         </TableCell>
                         <TableCell>
                           <Typography variant="caption" sx={{ display: 'block' }}>remove {it.removableInstances ?? 0}</Typography>
@@ -143,9 +164,9 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
           <>
             <Button onClick={handleClose} disabled={mutation.isPending}>Cancel</Button>
             <Button variant="contained" color="warning" onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || toRetype === 0}
+              disabled={mutation.isPending || toRepair === 0}
               startIcon={mutation.isPending ? <CircularProgress size={16} color="inherit" /> : null}>
-              Repair {toRetype} return{toRetype === 1 ? '' : 's'}
+              Repair {toRepair} return{toRepair === 1 ? '' : 's'}
             </Button>
           </>
         )}

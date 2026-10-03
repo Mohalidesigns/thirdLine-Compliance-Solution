@@ -10,15 +10,18 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, CheckCircle,
-  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile,
+  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
+import EditScheduleDialog from '../components/modals/EditScheduleDialog';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
+const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
+const DUE_DATE_NEEDED = 'Due date needed';
 
 const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
@@ -76,7 +79,12 @@ export default function ReturnsPage() {
   const [detailId, setDetailId] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const isTenantAdmin = user?.role === 'TENANT_ADMIN';
+  const canEditSchedule = SCHEDULE_ROLES.includes(user?.role);
   const [repairOpen, setRepairOpen] = useState(false);
+  // Register item whose schedule is being edited (null = dialog closed).
+  const [scheduleItem, setScheduleItem] = useState(null);
+  // Register row the detail view was opened from (for "Edit schedule" in the header).
+  const [detailItem, setDetailItem] = useState(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -122,7 +130,8 @@ export default function ReturnsPage() {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  const repairCount = repairQuery.isError ? 0 : (repairQuery.data?.toRetype ?? 0);
+  // Items cover returns whose type OR due rule changes (one row per return).
+  const repairCount = repairQuery.isError ? 0 : (repairQuery.data?.items?.length ?? 0);
 
   const detailQuery = useQuery({
     queryKey: ['returns', 'detail', String(detailId)],
@@ -150,6 +159,7 @@ export default function ReturnsPage() {
     if (type === 'overdue') setStatusFilter('Overdue');
     else if (type === 'inProgress') setStatusFilter('In Progress');
     else if (type === 'submitted') setStatusFilter('Submitted');
+    else if (type === 'dueDateNeeded') setStatusFilter(DUE_DATE_NEEDED);
     else setStatusFilter('All');
   }
 
@@ -158,7 +168,24 @@ export default function ReturnsPage() {
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, color: '#E53E3E', bg: '#FFF5F5' },
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, color: '#38A169', bg: '#F0FFF4' },
+    { key: 'dueDateNeeded', label: 'Due date needed', value: stats?.dueDateNeeded ?? 0, color: '#B7791F', bg: '#FFFFF0' },
   ];
+
+  const scheduleDialog = canEditSchedule && (
+    <EditScheduleDialog open={scheduleItem != null} item={scheduleItem}
+      onClose={() => setScheduleItem(null)}
+      onSaved={(updated) => {
+        setScheduleItem(null);
+        if (updated && detailItem && updated.returnId === detailItem.returnId) setDetailItem(updated);
+        setSnackbar('Schedule saved.');
+      }} />
+  );
+  const snackbarEl = (
+    <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
+    </Snackbar>
+  );
 
   if (detailId != null) {
     if (detailQuery.isPending) {
@@ -167,18 +194,28 @@ export default function ReturnsPage() {
     if (detailQuery.error) {
       return (
         <Alert severity="error" sx={{ mt: 2 }}
-          action={<Button size="small" onClick={() => setDetailId(null)}>Back</Button>}>
+          action={<Button size="small" onClick={() => { setDetailId(null); setDetailItem(null); }}>Back</Button>}>
           {detailQuery.error.message || 'Failed to load return instance.'}
         </Alert>
       );
     }
+    const detail = detailQuery.data;
     return (
-      <DetailView
-        detail={detailQuery.data}
-        onBack={() => setDetailId(null)}
-        onRefresh={refresh}
-        onSnackbar={setSnackbar}
-      />
+      <>
+        <DetailView
+          detail={detail}
+          onBack={() => { setDetailId(null); setDetailItem(null); }}
+          onRefresh={refresh}
+          onSnackbar={setSnackbar}
+          onEditSchedule={canEditSchedule && detail?.returnId != null && !isEventDriven(detailItem || detail)
+            ? () => setScheduleItem(detailItem?.returnId === detail.returnId
+              ? detailItem
+              : { returnId: detail.returnId, returnName: detail.returnName, frequency: detail.frequency, frequencyType: detail.frequencyType })
+            : null}
+        />
+        {scheduleDialog}
+        {snackbarEl}
+      </>
     );
   }
 
@@ -220,13 +257,13 @@ export default function ReturnsPage() {
         <Alert severity="warning" sx={{ mb: 2 }}
           action={<Button color="inherit" size="small" onClick={() => setRepairOpen(true)}
             sx={{ fontWeight: 600, textTransform: 'none' }}>Review &amp; repair</Button>}>
-          {repairCount} returns have the wrong filing frequency (e.g. annual or event-driven returns running
-          monthly), so some periods show as overdue in error.
+          {repairCount} return{repairCount === 1 ? ' needs' : 's need'} schedule fixes (wrong frequency or due date),
+          so some periods show as overdue in error.
         </Alert>
       )}
 
       {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
         {kpis.map(k => (
           <Paper key={k.key} elevation={0} variant="outlined"
             onClick={() => applyKpiFilter(k.key)}
@@ -246,7 +283,7 @@ export default function ReturnsPage() {
           sx={{ minWidth: 260 }} />
         <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
           label="Status" sx={{ minWidth: 130 }}>
-          {['All', 'Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue'].map(s =>
+          {['All', 'Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue', DUE_DATE_NEEDED].map(s =>
             <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
         <TextField select size="small" value={frequencyFilter} onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}
@@ -325,11 +362,15 @@ export default function ReturnsPage() {
                       rowBg={rowBg}
                       status={status}
                       onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
+                      onEditSchedule={canEditSchedule && !isEventDriven(item) ? () => setScheduleItem(item) : null}
                       onDetail={() => {
-                        if (item.currentInstanceId != null) setDetailId(item.currentInstanceId);
+                        if (item.currentInstanceId != null) { setDetailItem(item); setDetailId(item.currentInstanceId); }
+                        else if (canEditSchedule && !isEventDriven(item)) setScheduleItem(item);
                         else setSnackbar(isEventDriven(item)
                           ? 'Event-driven return — no scheduled filing period.'
-                          : 'No filing instance for this return yet.');
+                          : item.dueDateNeeded
+                            ? 'This return needs a due date before periods can be scheduled.'
+                            : 'No filing instance for this return yet.');
                       }}
                     />
                   );
@@ -358,16 +399,14 @@ export default function ReturnsPage() {
           onImported={(r) => setSnackbar(`Imported ${r?.importedRows ?? 0} returns.`)} />
       )}
 
-      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
-      </Snackbar>
+      {scheduleDialog}
+      {snackbarEl}
     </Box>
   );
 }
 
 /* ───────── Return Row (with expandable upcoming instances) ───────── */
-function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail }) {
+function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail, onEditSchedule }) {
   return (
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
@@ -413,9 +452,22 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
           )}
         </TableCell>
         <TableCell>
-          {item.currentDueDate ? formatDate(item.currentDueDate) : (
-            <Typography variant="caption" color="text.secondary">{noPeriodLabel(item)}</Typography>
-          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {item.currentDueDate ? formatDate(item.currentDueDate) : item.dueDateNeeded && !isEventDriven(item) ? (
+              <Tooltip title={item.deadlineText ? `Regulator wording: ${item.deadlineText}` : 'No due rule recorded'}>
+                <Chip size="small" color="warning" label={DUE_DATE_NEEDED} sx={{ height: 22, fontWeight: 600 }} />
+              </Tooltip>
+            ) : (
+              <Typography variant="caption" color="text.secondary">{noPeriodLabel(item)}</Typography>
+            )}
+            {onEditSchedule && (
+              <Tooltip title="Edit schedule">
+                <IconButton size="small" onClick={e => { e.stopPropagation(); onEditSchedule(); }}>
+                  <EditCalendar fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         </TableCell>
         <TableCell>
           {!status ? (
@@ -575,7 +627,7 @@ function LinkedObligations({ returnId }) {
 }
 
 /* ───────── Detail View ───────── */
-function DetailView({ detail, onBack, onRefresh, onSnackbar }) {
+function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
@@ -603,6 +655,12 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar }) {
                 <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'} />
               </Box>
             </Box>
+            {onEditSchedule && (
+              <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
+                sx={{ fontWeight: 600, textTransform: 'none' }}>
+                Edit schedule
+              </Button>
+            )}
           </Box>
         </CardContent>
       </Card>

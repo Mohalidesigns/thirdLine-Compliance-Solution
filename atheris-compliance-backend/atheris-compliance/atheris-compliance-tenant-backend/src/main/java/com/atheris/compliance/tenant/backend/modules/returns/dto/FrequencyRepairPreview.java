@@ -12,11 +12,14 @@ import java.util.List;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class FrequencyRepairPreview {
     private int totalReturns;
+    /** Items whose frequency type changes. */
     private int toRetype;
+    /** Items whose due-date rule changes. */
+    private int toReschedule;
     private int unchanged;
     private int instancesToRemove;
     private int instancesKept;
-    /** Only returns whose type will change, sorted by returnName. */
+    /** Returns whose type and/or due rule will change (one row each), sorted by returnName. */
     @Builder.Default
     private List<Item> items = new ArrayList<>();
 
@@ -33,5 +36,13 @@ public class FrequencyRepairPreview {
         private String source;
         private int removableInstances;
         private int keptInstances;
+        /** Due rule now, e.g. "30 Jun each year", "10 days after period end", "Due date needed". */
+        private String currentRule;
+        /** Due rule after the repair (same vocabulary). */
+        private String proposedRule;
+        /** The platform's deadline wording the proposed rule was read from. */
+        private String deadlineText;
+        private boolean ruleChanged;
+        private boolean typeChanged;
     }
 }

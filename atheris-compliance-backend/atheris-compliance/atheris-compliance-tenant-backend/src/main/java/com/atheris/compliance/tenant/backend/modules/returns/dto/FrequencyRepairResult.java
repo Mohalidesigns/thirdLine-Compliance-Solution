@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class FrequencyRepairResult {
     private int retyped;
+    /** Returns whose due-date rule was changed. */
+    private int rescheduled;
     private int instancesRemoved;
     private int instancesKept;
     private int instancesCreated;

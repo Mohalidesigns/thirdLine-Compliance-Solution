@@ -16,6 +16,8 @@ const EMPTY = {
 
 const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'];
 const EVENT_DRIVEN = 'Event-driven';
+// Recurring frequencies that need a due rule; without one the return gets no periods.
+const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial'];
 
 function Field({ label, children, sx }) {
   return (
@@ -138,6 +140,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               onChange={e => set('filingDeadlineOffsetDays', e.target.value)} />
           </Field>
         </Box>
+        {NEEDS_DUE_DATE.includes(form.frequency) && !form.filingDate && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Without a due date this return will show as 'Due date needed'.
+          </Alert>
+        )}
         <Box sx={{ mt: 2 }}>
           <Field label="Filing Channel" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" value={form.filingChannel}

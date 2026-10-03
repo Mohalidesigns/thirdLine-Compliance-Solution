@@ -11,6 +11,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.DueRule;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnDeadlineParser;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
@@ -32,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class RegulationSeedService {
@@ -158,10 +161,12 @@ public class RegulationSeedService {
                 String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
                     ? r.getResponsibleUnit()
                     : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
-                // Platform's classification when present, else derived from the frequency text.
-                ReturnFrequency freqType = ReturnFrequency.fromCode(r.getFrequencyType())
-                    .or(() -> ReturnFrequency.classify(r.getFrequency()))
-                    .orElse(ReturnFrequency.MONTHLY);
+                // Same type logic as the frequency repair, so a fresh tenant is never flagged by it.
+                ReturnFrequency freqType = ReturnDeadlineParser.platformType(r).orElse(ReturnFrequency.MONTHLY);
+                // Due rule from the platform's deadline wording; none → "Due date needed". The platform's
+                // filing_date is an artifact (a day-of-month stamped onto one month), never a real deadline.
+                Optional<ReturnDeadlineParser.Parsed> parsed = ReturnDeadlineParser.parsePlatform(r, freqType);
+                DueRule rule = parsed.map(ReturnDeadlineParser.Parsed::rule).orElse(null);
                 RegulatoryReturn rt = returns.save(RegulatoryReturn.builder()
                     .returnName(r.getTitle())
                     .filingRegulator(label)
@@ -170,7 +175,10 @@ public class RegulationSeedService {
                     .actName(bundle.getRegulationName())
                     .frequency(normalizeFrequency(r.getFrequency(), freqType))
                     .frequencyType(freqType.name())
-                    .filingDate(r.getFilingDate())
+                    .filingDate(rule != null && rule.kind() == DueRule.Kind.DATE ? rule.firstDueDate() : null)
+                    .dueDaysAfterPeriodEnd(rule != null && rule.kind() == DueRule.Kind.OFFSET ? rule.daysAfterPeriodEnd() : null)
+                    .dueDateSource(rule != null ? DueRule.SOURCE_PLATFORM_TEXT : null)
+                    .deadlineText(ReturnDeadlineParser.deadlineText(r, parsed))
                     .responsibleUnit(r.getResponsibleUnit())
                     .responsiblePerson(r.getResponsiblePerson())
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)

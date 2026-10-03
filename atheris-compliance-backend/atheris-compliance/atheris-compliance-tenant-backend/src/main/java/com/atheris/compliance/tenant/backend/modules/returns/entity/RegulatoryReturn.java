@@ -31,6 +31,14 @@ public class RegulatoryReturn {
     private RegulatoryReturnStatus status = RegulatoryReturnStatus.ACTIVE;
     private LocalDate filingDate;
     private Integer filingDeadlineOffsetDays;
+    /** Offset rule: each instance is due this many days after its (calendar-aligned) period end. Exclusive with {@link #filingDate}. */
+    private Integer dueDaysAfterPeriodEnd;
+    /** Who set the due rule: {@code platform_text} (parsed), {@code user}, or null (unknown). */
+    @Column(length = 20)
+    private String dueDateSource;
+    /** The platform's deadline wording, kept as a hint for people setting a due date. */
+    @Column(columnDefinition = "text")
+    private String deadlineText;
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;

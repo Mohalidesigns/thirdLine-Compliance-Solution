@@ -90,6 +90,16 @@ public class ReturnController {
             .body(service.create(req, u.getUserId()).getReturnId());
     }
 
+    /** Sets the frequency and due-date rule; regenerates untouched periods. Returns the updated register row. */
+    @PutMapping("/{returnId}/schedule")
+    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    public ResponseEntity<ReturnRegisterItem> updateSchedule(
+            @PathVariable Long returnId,
+            @RequestBody UpdateScheduleRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateSchedule(returnId, req, u.getUserId()));
+    }
+
     @GetMapping("/{returnId}/obligations")
     @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
     public ResponseEntity<List<LinkedObligationItem>> linkedObligations(@PathVariable Long returnId) {

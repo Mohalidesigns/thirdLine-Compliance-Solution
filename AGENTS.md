@@ -208,10 +208,10 @@ Config: `opencode.json`
 
 Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see the Done sections below.
 
-**Bulk import** — all four phases (obligations, controls, returns, findings) DONE, see below. Remaining, in order, on the same `modules/imports/` framework (add an `ImportHandler` per type):
+**Bulk import** — all four phases (obligations, controls, returns, findings) DONE, see below.
 
 **Known follow-ups**
-- **Seeded returns have no due date → ~90 periods overdue on day one.** 72 of 85 recurring seeded returns have `filing_date` NULL (the platform data has none), so they fall back to "due the 1st of this month". There is also no return UPDATE endpoint, so a due date can't be set after creation. Needs a due-date source/rule plus an edit path.
+- **55 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Monthly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
 - FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
 - Settings → Organization shows mojibake ("Â·") in the team/owner counts.
@@ -220,6 +220,20 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — Return Due Dates (no more overdue-on-day-one)
+
+Seeded returns had no due date (the platform has none: intel `deadline` is a copy of `frequency`, `remarks` is empty, and intel `filing_date` is an artifact stamped onto Sep 2026), so they fell back to "due the 1st of this month" → 92 periods overdue on day one.
+
+- **Schedule model** (`regulatory_returns`, V6 edited in place): `due_days_after_period_end` (offset rule — due = calendar-aligned period end + N days), `due_date_source` (`platform_text` | `user` | null), `deadline_text` (the regulator's wording). The fixed-date rule stays in `filing_date`. "N months after period end" is stored as a fixed date (e.g. 3 months after year-end → 31 Mar). Period labels stay = month of the due date (the rendition grid selects by due date but buckets by period). Monthly offsets 1–28.
+- **Generation** (`ReturnService.ensureInstances`): a return WITH a rule is always generated from the rule (never "continue from the latest instance" — that produced wrong dates after a rule change); Monthly-or-longer with no rule → **no periods** ("Due date needed"); only rule-less Daily/Weekly continue from the latest.
+- **`ReturnDeadlineParser`** turns platform wording into a rule ("Annually by June 30" → 30 Jun; "10th day of the following month" → 10 days after period end; "on or before 5th of January, April, July, and October" → 5 Jan/Apr/Jul/Oct; "within 3 months after year-end" → 31 Mar); statutory basis tried when the frequency text has none; event-relative wording (AGM, anniversary) → none. `ReturnDeadlineParserTest` 31 cases.
+- **Seed** no longer trusts platform `filing_date`, stores `deadline_text`, and applies the parsed rule (source `platform_text`).
+- **Repair** (`ReturnFrequencyRepairService`) now also proposes due-rule changes for platform-matched, non-user returns (one row per return; `toReschedule`, `currentRule`/`proposedRule`, `rescheduled`); untouched-instance logic shared via `UntouchedInstances`.
+- **Edit path:** `PUT /returns/{id}/schedule` (CCO/TENANT_ADMIN) — frequency + rule (DATE / OFFSET) + prep days; sets source `user`, rebuilds untouched periods. UI: `EditScheduleDialog` (shows the regulator's wording), "Edit schedule" on register rows and the detail header, a "Due date needed" chip, status filter and stat card; the Add Return form warns when no due date is given.
+
+### Verified (live, browser pane, 2026-10-03)
+Repair applied: 75 rescheduled (21 parsed rules, 54 → Due date needed), 186 untouched periods removed, 1 kept, 42 created; overdue **92 → 1** (a user-imported test return), second dry run proposes 0. Edit schedule on that return (10 days after period end) → periods due 10 Oct/Nov/Dec/Jan; overdue **0**. Zero backend errors.
 
 ## Done — Bulk Import Phase 4 (Findings)
 

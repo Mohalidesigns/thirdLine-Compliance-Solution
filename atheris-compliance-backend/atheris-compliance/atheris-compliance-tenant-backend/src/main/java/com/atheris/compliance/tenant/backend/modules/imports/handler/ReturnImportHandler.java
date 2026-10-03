@@ -9,6 +9,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryRe
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.DueRule;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
@@ -284,6 +285,7 @@ public class ReturnImportHandler implements ImportHandler {
                 .frequencyType(p.frequency().name())
                 .status(RegulatoryReturnStatus.ACTIVE)
                 .filingDate(p.firstDue())
+                .dueDateSource(p.firstDue() != null ? DueRule.SOURCE_USER : null)
                 .filingDeadlineOffsetDays(p.prepDays())
                 .filingChannel(row.value(CHANNEL))
                 .returnOwnerUserId(p.owner() != null ? p.owner().getUserId() : null)
