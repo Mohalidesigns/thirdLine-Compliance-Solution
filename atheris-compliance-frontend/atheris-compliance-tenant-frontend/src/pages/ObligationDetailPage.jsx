@@ -269,7 +269,7 @@ export default function ObligationDetailPage() {
               ].filter(([, val]) => val && val !== '-').map(([label, value]) => (
                 <Fragment key={label}>
                   <Typography variant="body2" color="text.secondary">{label}</Typography>
-                  <Typography variant="body2">{value}</Typography>
+                  <Typography variant="body2" component="div">{value}</Typography>
                 </Fragment>
               ))}
             </Box>
