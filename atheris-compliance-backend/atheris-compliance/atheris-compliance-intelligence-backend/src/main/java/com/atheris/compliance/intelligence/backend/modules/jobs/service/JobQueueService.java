@@ -120,6 +120,22 @@ public class JobQueueService {
         log.warn("Job {} failed (attempt {}). Next retry: {}", jobId, attempt, nextRetry);
     }
 
+    /**
+     * Hands a claimed job back to the queue untouched: pending again, the claim's
+     * attempt not counted. For deferrals that are not the job's fault (e.g. every
+     * AI model in rate-limit cooldown), so max_attempts is not burned on waiting.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void releaseClaim(Long jobId) {
+        repo.findById(jobId).ifPresent(j -> {
+            j.setStatus(Constants.STATUS_PENDING);
+            j.setStartedAt(null);
+            int attempts = j.getAttemptCount() != null ? j.getAttemptCount() : 0;
+            j.setAttemptCount(Math.max(0, attempts - 1));
+            repo.save(j);
+        });
+    }
+
     private Instant calculateNextRetry(int attempt) {
         int minutes = Constants.RETRY_BACKOFF[Math.min(attempt, Constants.RETRY_BACKOFF.length - 1)];
         return Instant.now().plus(minutes, ChronoUnit.MINUTES);

@@ -9,7 +9,7 @@ import {
   Visibility, Download, Edit, UploadFile, Link as LinkIcon,
   ArrowBack, Gavel, Close, Search,
 } from '@mui/icons-material';
-import api, { API_BASE, getToken } from '../../services/api';
+import api from '../../services/api';
 import RiskAssessmentModal from '../../components/modals/RiskAssessmentModal';
 import OwnerModal from '../../components/modals/OwnerModal';
 import LinkControlsModal from '../../components/modals/LinkControlsModal';
@@ -151,16 +151,11 @@ export default function ObligationExplorerDetailPage() {
   }
 
   async function handleViewPdf() {
-    const instrumentId = selected?.instrumentId;
-    if (!instrumentId) return;
+    if (!selected?.instrumentId) return;
     try {
-      const res = await fetch(`/api/v1/admin/obligations/${instrumentId}/pdf`, {
-        headers: { Authorization: `Bearer ${api.getToken ? api.getToken() : ''}` },
-      });
-      if (!res.ok) throw new Error('PDF load failed');
-      const blob = await res.blob();
+      const blob = await api.platform.obligations.pdf(obligationId);
       window.open(URL.createObjectURL(blob), '_blank');
-    } catch { notify('error', 'Failed to load PDF.'); }
+    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
   }
 
   const actionEdit = (modal, label = 'Edit') => (

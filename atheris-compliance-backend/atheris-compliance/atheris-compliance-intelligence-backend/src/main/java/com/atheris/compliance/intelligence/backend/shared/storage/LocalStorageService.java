@@ -33,6 +33,9 @@ public class LocalStorageService implements StorageService {
     }
 
     private Path resolve(String key) {
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("Invalid key: " + key);
+        }
         Path p = storageDir.resolve(key).normalize();
         if (!p.startsWith(storageDir)) {
             throw new IllegalArgumentException("Invalid key: " + key);

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   ToggleButton, ToggleButtonGroup, Chip, CircularProgress, Alert, IconButton, Tooltip,
@@ -15,6 +15,16 @@ const STATUS_COLORS = {
   'N/A': 'default',
 };
 
+const STATUS_LABELS = {
+  SUBMITTED: 'OK',
+  SUBMITTED_LATE: 'Late',
+  IN_PROGRESS: 'IP',
+  NOT_STARTED: 'NS',
+};
+
+const fmtDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 function EscalationSection({ data }) {
   if (!data?.escalations?.length) return null;
   const { summary, escalations } = data;
@@ -26,9 +36,9 @@ function EscalationSection({ data }) {
           <Typography variant="h6">Escalation Matrix</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {summary.l1 > 0 && <Chip size="small" label={`L1: ${summary.l1}`} color="warning" />}
-          {summary.l2 > 0 && <Chip size="small" label={`L2: ${summary.l2}`} color="error" />}
-          {summary.l3 > 0 && <Chip size="small" label={`L3: ${summary.l3}`} sx={{ bgcolor: '#D32F2F', color: '#fff' }} />}
+          {summary?.l1 > 0 && <Chip size="small" label={`L1: ${summary.l1}`} color="warning" />}
+          {summary?.l2 > 0 && <Chip size="small" label={`L2: ${summary.l2}`} color="error" />}
+          {summary?.l3 > 0 && <Chip size="small" label={`L3: ${summary.l3}`} sx={{ bgcolor: '#D32F2F', color: '#fff' }} />}
         </Box>
       </Box>
       <TableContainer>
@@ -48,19 +58,20 @@ function EscalationSection({ data }) {
           </TableHead>
           <TableBody>
             {escalations.map((e, i) => (
-              <TableRow key={i} hover sx={{ bgcolor: e.escalationLevel >= 3 ? '#FFF5F5' : e.escalationLevel >= 2 ? '#FFF8E1' : 'inherit' }}>
-                <TableCell>{e.returnName}</TableCell>
-                <TableCell>{e.regulator}</TableCell>
-                <TableCell>{e.department}</TableCell>
-                <TableCell>{e.areaOfFocus}</TableCell>
+              <TableRow key={e.returnId ? `${e.returnId}-${e.period}-${i}` : i} hover
+                sx={{ bgcolor: e.escalationLevel >= 3 ? '#FFF5F5' : e.escalationLevel >= 2 ? '#FFF8E1' : 'inherit' }}>
+                <TableCell>{e.returnName || '-'}</TableCell>
+                <TableCell>{e.regulator || '-'}</TableCell>
+                <TableCell>{e.department || '-'}</TableCell>
+                <TableCell>{e.areaOfFocus || '-'}</TableCell>
                 <TableCell>{e.returnOwner || '-'}</TableCell>
                 <TableCell>{e.departmentHead || '-'}</TableCell>
                 <TableCell>
                   <Chip size="small" label={e.escalationLabel}
                     color={e.escalationLevel >= 3 ? 'error' : e.escalationLevel >= 2 ? 'warning' : 'info'} />
                 </TableCell>
-                <TableCell align="right">{e.daysLate}</TableCell>
-                <TableCell>{e.period}</TableCell>
+                <TableCell align="right">{e.daysLate ?? 0}</TableCell>
+                <TableCell>{e.period || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -71,33 +82,35 @@ function EscalationSection({ data }) {
 }
 
 export default function RenditionTab() {
-  const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [escalations, setEscalations] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [groupBy, setGroupBy] = useState('department');
 
-  const today = new Date();
-  const qStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
-  const qEnd = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) + 3, 0);
-  const fmt = (d) => d.toISOString().split('T')[0];
+  const { from, to, quarter, year } = useMemo(() => {
+    const today = new Date();
+    const firstMonth = Math.floor(today.getMonth() / 3) * 3;
+    return {
+      from: fmtDate(new Date(today.getFullYear(), firstMonth, 1)),
+      to: fmtDate(new Date(today.getFullYear(), firstMonth + 3, 0)),
+      quarter: firstMonth / 3 + 1,
+      year: today.getFullYear(),
+    };
+  }, []);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [grid, esc] = await Promise.allSettled([
-        api.dashboard.v2.renditionGrid(fmt(qStart), fmt(qEnd), groupBy),
-        api.dashboard.v2.escalationMatrix(),
-      ]);
-      if (grid.status === 'fulfilled') setData(grid.value);
-      if (esc.status === 'fulfilled') setEscalations(esc.value);
-    } catch (e) { setError(e.message || 'Failed to load'); }
-    finally { setLoading(false); }
-  }, [groupBy]);
+  const gridQuery = useQuery({
+    queryKey: ['dashboard', 'v2', 'renditionGrid', from, to, groupBy],
+    queryFn: ({ signal }) => api.dashboard.v2.renditionGrid(from, to, groupBy, { signal }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const escalationQuery = useQuery({
+    queryKey: ['dashboard', 'v2', 'escalationMatrix'],
+    queryFn: ({ signal }) => api.dashboard.v2.escalationMatrix({ signal }),
+  });
+
+  const data = gridQuery.data;
+  const months = data?.months || [];
+  const groups = data?.groups || [];
+
+  const refresh = () => { gridQuery.refetch(); escalationQuery.refetch(); };
 
   return (
     <Box>
@@ -105,7 +118,8 @@ export default function RenditionTab() {
         <Box>
           <Typography variant="h6">Rendition Tracker</Typography>
           <Typography variant="caption" color="text.secondary">
-            Q{Math.floor(today.getMonth() / 3) + 1} {today.getFullYear()} — {data?.summary?.totalReturns || 0} returns
+            Q{quarter} {year} — {data?.summary?.totalReturns ?? 0} returns,{' '}
+            {data?.summary?.totalSubmitted ?? 0} submitted, {data?.summary?.totalOverdue ?? 0} overdue
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -114,53 +128,66 @@ export default function RenditionTab() {
             <ToggleButton value="department">Department</ToggleButton>
             <ToggleButton value="areaOfFocus">Area of Focus</ToggleButton>
           </ToggleButtonGroup>
-          <Tooltip title="Refresh"><IconButton onClick={loadData}><Refresh /></IconButton></Tooltip>
+          <Tooltip title="Refresh"><IconButton onClick={refresh}><Refresh /></IconButton></Tooltip>
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {gridQuery.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>{gridQuery.error?.message || 'Failed to load rendition grid'}</Alert>
+      )}
+      {escalationQuery.isError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>{escalationQuery.error?.message || 'Failed to load escalation matrix'}</Alert>
+      )}
 
-      {loading ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
+      {gridQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
         <>
-          {data?.groups?.length > 0 ? (
+          {groups.length > 0 ? (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 160 }}>{groupBy === 'department' ? 'Department' : 'Area of Focus'}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 160 }}>
+                      {groupBy === 'department' ? 'Department' : 'Area of Focus'}
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 180 }}>Return</TableCell>
                     <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Regulator</TableCell>
-                    {data.months?.map(m => (
+                    {months.map(m => (
                       <TableCell key={m} sx={{ fontWeight: 700, bgcolor: '#F7FAFC', textAlign: 'center', minWidth: 90 }}>{m}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.groups.map((group, gi) =>
-                    group.returns.map((ret, ri) => (
-                      <TableRow key={`${gi}-${ri}`} hover>
+                  {groups.map((group, gi) =>
+                    (group.returns || []).map((ret, ri) => (
+                      <TableRow key={`${gi}-${ret.returnId ?? ri}`} hover>
                         {ri === 0 && (
                           <TableCell rowSpan={group.returns.length} sx={{ fontWeight: 600, bgcolor: '#F7FAFC', verticalAlign: 'top', borderRight: '2px solid #E2E8F0' }}>
                             {group.name}
                             <Typography variant="caption" display="block" color="text.secondary">
-                              {group.groupSummary?.submitted}/{group.groupSummary?.total} submitted
+                              {group.groupSummary?.submitted ?? 0}/{group.groupSummary?.total ?? 0} submitted
                             </Typography>
                           </TableCell>
                         )}
-                        <TableCell>{ret.returnName}</TableCell>
-                        <TableCell>{ret.regulator}</TableCell>
-                        {ret.cells?.map((cell, ci) => (
-                          <TableCell key={ci} sx={{ textAlign: 'center' }}>
-                            {cell.status === 'N/A' ? (
-                              <Typography variant="caption" color="text.secondary">-</Typography>
-                            ) : (
-                              <Chip size="small"
-                                label={cell.status === 'SUBMITTED' ? 'OK' : cell.status === 'IN_PROGRESS' ? 'IP' : cell.status === 'SUBMITTED_LATE' ? 'Late' : 'NS'}
-                                color={STATUS_COLORS[cell.status] || 'default'}
-                                sx={{ height: 22, minWidth: 40 }} />
-                            )}
-                          </TableCell>
-                        ))}
+                        <TableCell>{ret.returnName || '-'}</TableCell>
+                        <TableCell>{ret.regulator || '-'}</TableCell>
+                        {months.map((m, ci) => {
+                          const cell = ret.cells?.[ci];
+                          const status = cell?.status || 'N/A';
+                          return (
+                            <TableCell key={m} sx={{ textAlign: 'center' }}>
+                              {status === 'N/A' ? (
+                                <Typography variant="caption" color="text.secondary">-</Typography>
+                              ) : (
+                                <Tooltip title={cell?.dueDate ? `Due ${cell.dueDate}` : status}>
+                                  <Chip size="small"
+                                    label={STATUS_LABELS[status] || status}
+                                    color={STATUS_COLORS[status] || 'default'}
+                                    sx={{ height: 22, minWidth: 40 }} />
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     ))
                   )}
@@ -173,7 +200,7 @@ export default function RenditionTab() {
             </Paper>
           )}
 
-          <EscalationSection data={escalations} />
+          <EscalationSection data={escalationQuery.data} />
         </>
       )}
     </Box>

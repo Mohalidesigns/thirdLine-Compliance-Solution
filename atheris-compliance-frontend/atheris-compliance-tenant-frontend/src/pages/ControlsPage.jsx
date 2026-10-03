@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -9,7 +10,7 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Gavel, Visibility, History,
-  PlaylistAddCheck, Science,
+  PlaylistAddCheck, Science, ChevronRight, AccountBalance,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
@@ -22,32 +23,39 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function actLabel(row) {
+  if (!row) return '-';
+  if (row.actName) return row.actName;
+  if (row.actId) return `Act #${row.actId}`;
+  return '-';
+}
+
+function residualRiskChip(rating, likelihood, impact) {
+  const color = RISK_COLORS[rating];
+  if (!rating) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  const chip = (
+    <Chip size="small" label={rating} color={color || 'default'} variant={color ? 'filled' : 'outlined'}
+      sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+  );
+  if (!likelihood && !impact) return chip;
+  return <Tooltip title={`${likelihood || '-'} × ${impact || '-'}`}>{chip}</Tooltip>;
+}
+
 const COLUMNS = [
-  { id: 'name', label: 'Control', minWidth: 260, sortField: 'name' },
-  { id: 'controlType', label: 'Type', minWidth: 90, sortField: 'controlType' },
-  { id: 'complianceArea', label: 'Compliance Area', minWidth: 140, sortField: 'complianceArea' },
-  { id: 'theme', label: 'Theme', minWidth: 120, sortField: 'theme' },
+  { id: 'name', label: 'Control', minWidth: 300, sortField: 'name' },
+  { id: 'classification', label: 'Classification', minWidth: 200, sortField: 'complianceArea' },
   { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'ownerName' },
-  { id: 'residualRiskRating', label: 'Risk', minWidth: 90, sortField: 'residualRiskRating' },
-  { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
-  { id: 'dueDate', label: 'Due Date', minWidth: 100, sortField: 'dueDate' },
-  { id: 'status', label: 'Status', minWidth: 100, sortField: 'status' },
-  { id: 'actions', label: '', minWidth: 80 },
+  { id: 'risk', label: 'Risk & Status', minWidth: 150, sortField: 'residualRiskRating' },
+  { id: 'testing', label: 'Testing', minWidth: 140, sortField: 'dueDate' },
+  { id: 'actions', label: '', minWidth: 60 },
 ];
 
 export default function ControlsPage() {
   const [searchParams] = useSearchParams();
   const obligationIdParam = searchParams.get('obligationId');
+  const queryClient = useQueryClient();
 
-  const [view, setView] = useState('list');
   const [detailId, setDetailId] = useState(null);
-  const [detail, setDetail] = useState(null);
-
-  const [stats, setStats] = useState(null);
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
   const [themeFilter, setThemeFilter] = useState('All');
@@ -69,42 +77,40 @@ export default function ControlsPage() {
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
     || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All';
 
-  const loadStats = useCallback(async () => {
-    try { setStats(await api.controls.stats()); } catch { /* optional */ }
-  }, []);
+  const params = { page, size: rowsPerPage };
+  if (search) params.q = search;
+  if (themeFilter !== 'All') params.theme = themeFilter;
+  if (riskFilter !== 'All') params.residualRisk = riskFilter;
+  if (statusFilter !== 'All') params.status = statusFilter;
+  if (actFilter !== 'All') params.actName = actFilter;
+  if (obligationIdParam) params.obligationId = obligationIdParam;
+  if (sortField) params.sort = `${sortField},${sortDir}`;
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = { page, size: rowsPerPage };
-      if (search) params.q = search;
-      if (themeFilter !== 'All') params.theme = themeFilter;
-      if (riskFilter !== 'All') params.residualRisk = riskFilter;
-      if (statusFilter !== 'All') params.status = statusFilter;
-      if (actFilter !== 'All') params.actName = actFilter;
-      if (obligationIdParam) params.obligationId = obligationIdParam;
-      if (sortField) params.sort = `${sortField},${sortDir}`;
-      const data = await api.controls.register(params);
-      setItems(data.content || []);
-      setTotal(data.totalElements || 0);
-    } catch (e) { setError(e.message || 'Failed to load controls.'); }
-    finally { setLoading(false); }
-  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, actFilter, sortField, sortDir, obligationIdParam]);
+  const listQuery = useQuery({
+    queryKey: ['controls', 'register', params],
+    queryFn: () => api.controls.register(params),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadList(); }, [loadList]);
-  useEffect(() => { loadStats(); }, []);
+  const statsQuery = useQuery({
+    queryKey: ['controls', 'stats'],
+    queryFn: () => api.controls.stats(),
+  });
 
-  const loadDetail = useCallback(async (id) => {
-    setLoading(true);
-    try {
-      const res = await api.controls.detail(id);
-      setDetail(res);
-      setDetailId(id);
-      setView('detail');
-    } catch (e) { setSnackbar(e.message); }
-    finally { setLoading(false); }
-  }, []);
+  const detailQuery = useQuery({
+    queryKey: ['controls', 'detail', String(detailId)],
+    queryFn: () => api.controls.detail(detailId),
+    enabled: detailId != null,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const items = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements || 0;
+  const stats = statsQuery.data;
+  const loading = listQuery.isPending;
+  const error = listQuery.error?.message || '';
+
+  const refreshAll = () => queryClient.invalidateQueries({ queryKey: ['controls'] });
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All'); setRiskFilter('All');
@@ -126,12 +132,24 @@ export default function ControlsPage() {
     { key: 'testsDue', label: 'Tests Due', value: stats?.testsDue ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
   ];
 
-  if (view === 'detail' && detail) {
+  if (detailId != null) {
+    const goBack = () => { setDetailId(null); setEditOpen(false); setRecordTestOpen(false); };
+    if (detailQuery.isPending) {
+      return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
+    }
+    if (detailQuery.error || !detailQuery.data) {
+      return (
+        <Box>
+          <Alert severity="error" sx={{ mb: 2 }}>{detailQuery.error?.message || 'Failed to load control.'}</Alert>
+          <Button onClick={goBack}>Back to Controls Register</Button>
+        </Box>
+      );
+    }
     return (
       <DetailView
-        detail={detail}
-        onBack={() => { setView('list'); setDetail(null); setDetailId(null); }}
-        onRefresh={() => loadDetail(detailId)}
+        detail={detailQuery.data}
+        onBack={goBack}
+        onRefresh={refreshAll}
         onEdit={() => setEditOpen(true)}
         onRecordTest={() => setRecordTestOpen(true)}
         editOpen={editOpen} setEditOpen={setEditOpen}
@@ -152,7 +170,7 @@ export default function ControlsPage() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Refresh">
-            <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
+            <IconButton onClick={refreshAll}><Refresh /></IconButton>
           </Tooltip>
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
@@ -161,7 +179,7 @@ export default function ControlsPage() {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* KPI cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
@@ -254,31 +272,48 @@ export default function ControlsPage() {
               <TableBody>
                 {items.map((item, idx) => (
                   <TableRow key={item.controlId} hover
-                    onClick={() => loadDetail(item.controlId)}
+                    onClick={() => setDetailId(item.controlId)}
                     sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                     <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
                     <TableCell>
                       <Tooltip title={item.name || 'Untitled'}>
-                        <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 320,
+                        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 340,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.name || 'Untitled'}
                         </Typography>
                       </Tooltip>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                        {item.controlNumber && (
+                          <Typography variant="caption" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
+                            {item.controlNumber}
+                          </Typography>
+                        )}
+                        <Tooltip title={item.actName || (item.actId ? `Act #${item.actId}` : 'No act linked')}>
+                          <Typography variant="caption" color="text.secondary"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, maxWidth: 240,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <AccountBalance sx={{ fontSize: 13, opacity: 0.6 }} />
+                            {actLabel(item)}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={item.controlType || 'CMP'}
-                        color={item.controlType === 'ADDITIONAL' ? 'info' : 'default'} sx={{ height: 22 }} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 160, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.complianceArea || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {item.theme
-                        ? <Chip size="small" label={item.theme} sx={{ height: 22 }} />
-                        : '-'}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Chip size="small" label={item.controlType || 'CMP'}
+                          color={item.controlType === 'ADDITIONAL' ? 'info' : 'default'}
+                          sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
+                        {item.theme && (
+                          <Chip size="small" label={item.theme} variant="outlined"
+                            sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 130 }} />
+                        )}
+                      </Box>
+                      <Tooltip title={item.complianceArea || 'No compliance area'}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25,
+                          maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.complianceArea || '-'}
+                        </Typography>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
                       {(item.ownerName || item.controlOwnerName)
@@ -291,22 +326,24 @@ export default function ControlsPage() {
                         : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={item.residualRiskRating || item.residualRisk || '-'}
-                        color={RISK_COLORS[item.residualRiskRating || item.residualRisk] || 'default'} sx={{ height: 22 }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        {residualRiskChip(item.residualRiskRating || item.residualRisk,
+                          item.residualLikelihood, item.residualImpact)}
+                        <Chip size="small" label={item.status || '-'}
+                          color={item.status === 'Active' ? 'success' : 'default'}
+                          variant={item.status === 'Active' ? 'outlined' : 'filled'}
+                          sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{item.frequency || '-'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{item.dueDate || '-'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="small" label={item.status || '-'}
-                        color={item.status === 'Active' ? 'success' : 'default'} sx={{ height: 22 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Due {item.dueDate || '-'}
+                      </Typography>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Tooltip title="View detail">
-                        <IconButton size="small" onClick={() => loadDetail(item.controlId)}>
+                        <IconButton size="small" onClick={() => setDetailId(item.controlId)}>
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -323,7 +360,7 @@ export default function ControlsPage() {
       )}
 
       <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={() => { setCreateOpen(false); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
+        onSaved={() => { setCreateOpen(false); refreshAll(); }} onSnackbar={setSnackbar} />
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -335,6 +372,8 @@ export default function ControlsPage() {
 
 /* ───────── Detail View ───────── */
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
+  const navigate = useNavigate();
+  const obligations = detail.linkedObligations || [];
   return (
     <Box>
       <Breadcrumbs sx={{ mb: 1 }}>
@@ -344,7 +383,14 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h4">{detail.name}</Typography>
-          <Typography variant="body2" color="text.secondary">{detail.controlNumber}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+            <Typography variant="body2" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
+              {detail.controlNumber}
+            </Typography>
+            <Chip size="small" variant="outlined" icon={<AccountBalance sx={{ fontSize: 14 }} />}
+              label={actLabel(detail)}
+              sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<History />} onClick={onEdit}>Edit</Button>
@@ -353,7 +399,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
       </Box>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardHeader title="About this Control" />
             <CardContent>
@@ -379,37 +425,69 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           </Card>
 
           <Card sx={{ mt: 2 }}>
-            <CardHeader title="Linked Obligations" />
+            <CardHeader
+              title="Linked Obligations"
+              subheader={obligations.length
+                ? `${obligations.length} obligation${obligations.length !== 1 ? 's' : ''} traced to this control`
+                : 'Traceability from this control back to the register'}
+              action={obligations.length > 0
+                ? <Chip size="small" label={obligations.length} color="primary" sx={{ height: 22, borderRadius: '4px', mt: 1, mr: 1 }} />
+                : null} />
             <CardContent>
-              {detail.linkedObligations && detail.linkedObligations.length > 0 ? (
+              {obligations.length > 0 ? (
                 <TableContainer component={Paper} elevation={0}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Obligation</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Instrument</TableCell>
+                        <TableCell sx={{ fontWeight: 600, width: 48 }} />
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {detail.linkedObligations.map((o) => (
-                        <TableRow key={o.obligationId}>
-                          <TableCell>{o.obligationId}</TableCell>
-                          <TableCell>{o.description}</TableCell>
-                          <TableCell>{o.instrumentTitle}</TableCell>
+                      {obligations.map((o) => (
+                        <TableRow key={o.obligationId} hover
+                          onClick={() => navigate(`/obligations/${o.obligationId}`)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                          <TableCell sx={{ fontFamily: 'Roboto Mono, monospace', color: '#718096', width: 80 }}>
+                            #{o.obligationId}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{o.description || 'Untitled obligation'}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">{o.instrumentTitle || '-'}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ textAlign: 'right' }}>
+                            <Tooltip title="Open obligation">
+                              <IconButton size="small"
+                                onClick={e => { e.stopPropagation(); navigate(`/obligations/${o.obligationId}`); }}>
+                                <ChevronRight fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
               ) : (
-                <Typography variant="body2" color="text.secondary">No linked obligations</Typography>
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Gavel sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    No obligations are linked to this control yet.
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Use Edit to attach obligation IDs and establish traceability.
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Control Details</Typography>
@@ -417,9 +495,12 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <DetailRow label="Type" value={detail.controlType} />
               <DetailRow label="Owner" value={detail.controlOwnerName || 'Unassigned'} />
               <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Act / Regulation</Typography>
+              <DetailRow label="Act" value={actLabel(detail)} />
+              <DetailRow label="Regulatory Requirement" value={detail.regulatoryRequirement} />
+              <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>CMP Information</Typography>
               <DetailRow label="Compliance Area" value={detail.complianceArea} />
-              <DetailRow label="Regulatory Requirement" value={detail.regulatoryRequirement} />
               <DetailRow label="Monitoring Activity" value={detail.monitoringActivity} />
               <DetailRow label="Due Date" value={detail.dueDate} />
               <DetailRow label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
@@ -429,7 +510,10 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <DetailRow label="Residual Risk" value={detail.residualRisk} chip />
               <DetailRow label="Residual Likelihood" value={detail.residualLikelihood} />
               <DetailRow label="Residual Impact" value={detail.residualImpact} />
-              <DetailRow label="Residual Risk Rating" value={detail.residualRiskRating} chip />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">Residual Risk Rating</Typography>
+                {residualRiskChip(detail.residualRiskRating, detail.residualLikelihood, detail.residualImpact)}
+              </Box>
               <DetailRow label="Owner" value={detail.ownerName || detail.controlOwnerName} />
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Testing</Typography>
@@ -534,16 +618,16 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
       <DialogTitle>Edit Control — {control?.controlNumber}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}><TextField label="Name" fullWidth size="small" value={form.name}
+          <Grid size={{ xs: 12 }}><TextField label="Name" fullWidth size="small" value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
+          <Grid size={{ xs: 12 }}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
+          <Grid size={{ xs: 12 }}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
             onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
+          <Grid size={{ xs: 12 }}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
             onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} /></Grid>
-          <Grid item xs={8}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
-          <Grid item xs={4}>
+          <Grid size={{ xs: 8 }}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
+          <Grid size={{ xs: 4 }}>
             <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
               onChange={e => setForm(f => ({ ...f, testFrequency: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
@@ -553,9 +637,9 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
               <MenuItem value="Annual">Annual</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={4}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
+          <Grid size={{ xs: 4 }}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
             onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} /></Grid>
-          <Grid item xs={8}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
+          <Grid size={{ xs: 8 }}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
             onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>
@@ -589,10 +673,10 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
       <DialogTitle>Record Test Result</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid item xs={6}><TextField label="Test Date" type="date" fullWidth size="small" required
+          <Grid size={{ xs: 6 }}><TextField label="Test Date" type="date" fullWidth size="small" required
             InputLabelProps={{ shrink: true }} value={form.testDate}
             onChange={e => setForm(f => ({ ...f, testDate: e.target.value }))} /></Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Result" fullWidth size="small" required value={form.result}
               onChange={e => setForm(f => ({ ...f, result: e.target.value }))}>
               <MenuItem value="">Select...</MenuItem>
@@ -601,11 +685,11 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+          <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
+          <Grid size={{ xs: 12 }}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
             onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} /></Grid>
-          <Grid item xs={6}>
+          <Grid size={{ xs: 6 }}>
             <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
               onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
@@ -615,11 +699,11 @@ function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, savin
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={6}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
+          <Grid size={{ xs: 6 }}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
             onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid item xs={6}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+          <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
             onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
-          <Grid item xs={6}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+          <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
             InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
             onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
         </Grid>

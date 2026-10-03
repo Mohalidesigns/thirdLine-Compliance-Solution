@@ -29,9 +29,9 @@ export default function ObligationsExplorerPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [q, setQ] = useState(searchParams.get('q') || '');
   const [risk, setRisk] = useState(searchParams.get('risk') || 'All');
-  const [regulator, setRegulator] = useState(searchParams.get('regulatorId') || 'All');
+  const [regulator, setRegulator] = useState(searchParams.get('regulator') || 'All');
   const [area, setArea] = useState(searchParams.get('areaOfFocus') || 'All');
-  const [act, setAct] = useState(searchParams.get('actId') || 'All');
+  const [act, setAct] = useState(searchParams.get('act') || 'All');
   const [hasPoints, setHasPoints] = useState(searchParams.get('hasPoints') || 'All');
   const [page, setPage] = useState(Number(searchParams.get('page') || 0));
   const [size, setSize] = useState(Number(searchParams.get('size') || 10));
@@ -47,9 +47,9 @@ export default function ObligationsExplorerPage() {
     const p = {};
     if (q) p.q = q;
     if (risk !== 'All') p.risk = risk;
-    if (regulator !== 'All') p.regulatorId = regulator;
+    if (regulator !== 'All') p.regulator = regulator;
     if (area !== 'All') p.areaOfFocus = area;
-    if (act !== 'All') p.actId = act;
+    if (act !== 'All') p.act = act;
     if (hasPoints !== 'All') p.hasPoints = hasPoints;
     if (page) p.page = String(page);
     if (size !== 10) p.size = String(size);
@@ -67,9 +67,10 @@ export default function ObligationsExplorerPage() {
   const queryParams = {
     q: q || undefined,
     risk: risk !== 'All' ? risk : undefined,
-    regulatorId: regulator !== 'All' ? regulator : undefined,
+    // option lists hold the regulator abbreviation / act name, so filter by those
+    regulator: regulator !== 'All' ? regulator : undefined,
     areaOfFocus: area !== 'All' ? area : undefined,
-    actId: act !== 'All' ? act : undefined,
+    act: act !== 'All' ? act : undefined,
     hasPoints: hasPoints === 'With' ? true : hasPoints === 'Without' ? false : undefined,
     page,
     size,

@@ -3,7 +3,7 @@
 ## Project Structure
 
 ```
-atheris-compliance-backend/atheris/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
+atheris-compliance-backend/atheris-compliance/  — Spring Boot 3.2 backend (Java 21, Maven multi-module)
   atheris-compliance-intelligence-backend/                    — main application module (port 9090)
   atheris-compliance-tenant-backend/                      — tenant-facing compliance service (port 9091)
   atheris-compliance-common/                      — shared DTOs, constants, utilities
@@ -44,8 +44,8 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 ### Backend
 - Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris` (password via `DB_PASSWORD` env, default only in local `application.yml`)
-- Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris/atheris-compliance-intelligence-backend` (port 9090)
-- Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris` (port 9091)
+- Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris-compliance/atheris-compliance-intelligence-backend` (port 9090)
+- Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris-compliance` (port 9091)
 - Default admin login is set via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars (see `application.yml`) — never commit real credentials
 
 ### Frontend
@@ -250,6 +250,20 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
+## TODO / Next — Harmonization: only bulk import remains
+
+**Tenant (`:5174`)** — DONE. All six pages harmonized against the `ReviewEditPage.jsx` reference; see the Done sections below.
+
+**Intel (`:5173`)** — DONE. All four explorers built; see the Done section below.
+
+**Dashboards** — DONE. See the Done section below.
+
+**Skill** — DONE. See the Done section below.
+
+**Data migration**
+- Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
 
 Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Commit `0ad5e72`.
@@ -323,31 +337,173 @@ Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `Obliga
 - `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
 - `git push` ✅
 
-## TODO / Next — Harmonization: DB now enriched from toolkit, UI still on old schema
+## Done — PDF Routes Return 404 Instead of 500
 
-**Tenant (`:5174`) — `atheris-compliance-tenant-frontend/src/pages/*`**
-- Review Inbox list (`ReviewInboxPage.jsx`) — show enriched obligation summary (title, verbatim/interpreted, section, area, risk, act) — why: built before toolkit expansion, inbox only shows instrument-level fields while enriched obligations are available per instrument
-- Instruments list/details (`InstrumentsPage.jsx`) — show enriched obligations and sanctions detail — why: built before expansion, detail hides title/area/type/deadline/risk/act/sanctions context now stored
-- ~~Obligations Details (`ObligationDetailPage.jsx`) — DONE: unified header (chips+title+metadata grid), verbatim+interpreted split, controls full-detail drawer, risk+controls-only sections~~
-- Controls Register/Details (`ControlsPage.jsx`) — show act/regulation and linked obligations — why: register hides act column and traceability now available
-- Sanctions Register/Details (`SanctionsPage.jsx`) — show expandable violation/penalty/impact — why: register is collapsed, violation context now stored but not surfaced
-- Returns Register/Details (`ReturnsPage.jsx`) — show linked obligations and responsible party — why: hides linkage and owner now linked
+`Instrument.pdfUrl` is null for every toolkit-imported instrument (395 of 397 rows in the dev DB — only scraped documents get a file), and both PDF routes passed it straight to storage. `LocalStorageService.resolve` then called `storageDir.resolve(null)` and threw a raw NullPointerException, so a routine click produced a 500 plus a full stack trace in the log.
 
-**Intel (`:5173`) — `atheris-compliance-intelligence-frontend/src/features/admin/*`**
-- ~~Needs explorer pages for obligations, sanctions, returns, controls~~ — DONE in commit `db252c8`
+- **Two identical call sites, not one.** `ObligationBrowserService.openPdfStream` (frontend route) and `InternalInstrumentService.openPdfStream` (the `/api/v1/internal/` route the tenant backend proxies through) had the same defect. Fixing only the first leaves the tenant app broken.
+- **Error-code contract.** New `ResourceNotFoundException` (code `NOT_FOUND`) and `DocumentUnavailableException` (code `DOCUMENT_UNAVAILABLE`) in intel `shared/exception`, following the existing `UploadException`/`InvalidFileException` shape, mapped to 404 by `GlobalExceptionHandler`. Tenant mirrors it with its own `DocumentUnavailableException` -> `{"error":"document_unavailable"}`, because `PlatformApiClient` returns null on a platform 404 and `pdfBytes` previously threw a bare RuntimeException — an opaque `internal_error` 500 the UI could not key off.
+- **A stale pointer 404s too.** `NoSuchFileException` (row references a file no longer on disk) maps to the same 404. Under `STORAGE_PROVIDER=s3` the SDK throws `NoSuchKeyException` instead and would still 500 — untranslated.
+- **Frontend.** `pdfErrorMessage(res, fallback)` in each app's `services/api.js` turns the code into "No document is available for this instrument."; wired into all six call sites. The intel Instruments **detail view rendered no `<Alert>` at all**, so its error state had always been invisible — the list view had one, the detail view did not.
 
-**Dashboards**
-- Dashboards — harmonize with enriched risk/area/act analytics — why: built before expansion, analytics do not yet use new area/risk/act dimensions now available
+### Verified (live, both apps)
+Instrument 2 (no document) -> 404 `DOCUMENT_UNAVAILABLE`, message shown at `:5173` and at `:5174` (tenant chain confirmed by `PlatformApiClient` logging the proxied 404). Instrument 396 -> 200 `application/pdf`, 89,798 bytes, matching the file on disk. Zero NPEs / unhandled exceptions in either backend afterwards.
 
-**Skill**
-- Create reusable skill for the above — why: intel explorers should follow the same register/details pattern once tenant revamp is approved
+**Remaining 500s of the same class:** `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
 
-**Data migration**
-- Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+## Done — Dashboards Harmonized (risk / area / act)
+
+### Dashboard V2 was shipped but unreachable — now routed and fixed
+See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboard/v2`. Because it had **never rendered**, it carried real bugs:
+
+- **Rendition grid always requested an inverted date range.** `qEnd` was `new Date(y, floor(month/3) + 3, 0)` — missing the `*3`. In September that gives `from=Jul-01, to=May-31`, so the grid read "No rendition data for this quarter" in **every quarter except Q1**. `toISOString()` also shifted the boundary for UTC-negative offsets.
+- **Risk heatmap always rendered zeros.** `getRiskHeatmap` dropped obligations whose ratings fell outside `RiskMatrixConfig`'s seeded axes, but the seeded likelihood axis (`Very Low..High`) shares **no value** with the real data vocabulary (`Almost Certain/Likely/Possible/Unlikely/Rare`), so nothing could ever match.
+- `GroupSummary.total` counted returns while `submitted`/`overdue` counted instances ("7/3 submitted").
+- Saved thresholds were never applied — `resolveColor` took a `metric` argument and ignored it.
+- `escalation-matrix` re-ran `findAllReturnLinks()` per escalated row.
+- Two dead drill-downs silently dumped the unfiltered register.
+
+### Security fix
+`/dashboard/v2/thresholds` took `tenantId` as a **request param**, so any authenticated tenant user could read or overwrite another tenant's thresholds. Now resolved server-side via `TenantIdentityService`, matching the sibling `RiskMatrixSettingsController`.
+
+### Act dimension
+`control-coverage` supported only `department` and `areaOfFocus`; added `by=act`. `RiskProfileDto` gained `byAct` mirroring `byAreaOfFocus`.
+
+### Live dashboards
+- **Tenant** `CcoDashboardPage` (the page actually served at `/dashboard`) gained Inherent Risk Profile, Risk by Area of Focus and Risk by Act, driven by existing v2 endpoints. Migrated to TanStack Query; eight independent queries replace `Promise.allSettled`, `refetchInterval` preserves the 30s poll.
+- **Intel** `DashboardPage` was 100% pipeline-focused; gained a `RegulatoryCoverage` section from the four explorer `stats` endpoints.
+
+### Only link to filters a page actually reads
+`ObligationsRegisterPage` reads `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap` from `useSearchParams` — and nothing else. Links passing `impact`, `likelihood` or `act` are silent no-ops that dump the unfiltered register. **Adding act/impact/likelihood filters to that register is an open follow-up.**
+
+## Done — `atheris-register-page` Skill
+
+`.claude/skills/atheris-register-page/` encodes the register/details pattern and the defects found building it. `.opencode/agents/frontend-page.md` points at it, so both toolchains share one source of truth.
+
+- **SKILL.md** — the per-app fork (tenant has TanStack Query; intel has neither the dependency nor a provider and must not get one as a side effect), the page recipe, the five highest-frequency traps, and a verification checklist that does not stop at a green build.
+- **references/traps.md** — the full catalogue with evidence, grouped by failure mode.
+- **references/data-model.md** — the field drift table and the canonical risk vocabulary.
+- **scripts/check_dto_binding.py** — mechanises the field-vs-DTO diff. Validated against the pre-fix `InstrumentsPage`: catches all three real bugs, zero false positives, and reports OK on the fixed version. Supply **all** backing types (list + detail + stats DTO) — under-supplying them is the main source of false positives.
+- **scripts/grid_codemod.py** — the MUI 7 Grid conversion.
+
+**Note:** the skill was verified factually (every claim re-checked against the code) but has NOT been through the skill-creator's eval loop — no with-skill vs baseline runs, no trigger-description optimization. Worth doing before relying on it to trigger on its own.
+
+## Done — Risk Matrix Defaults Repaired
+
+Chasing the unreachable "High" band found the root cause of the all-zero heatmap. **The `RiskMatrixConfig` entity's `@Builder.Default` values were the sole outlier** — V28's column defaults and `ObligationClassification.computeInherentRisk` (the canonical scorer) already agreed with each other:
+
+| | canonical (V28 + computeInherentRisk) | entity `@Builder.Default` (wrong) |
+|---|---|---|
+| impacts | Insignificant, Minor, Moderate, Major, Severe | Low, Medium, High, Very High |
+| likelihoods | Rare, Unlikely, Possible, Likely, Almost Certain | Very Low, Low, Medium, High |
+| bands | `>=18` / `>=12` / `>=6` | `{moderate:6, high:9, critical:9}` |
+
+**Why the correct column defaults never applied:** rows are created through JPA (`RiskMatrixConfig.builder()...build()`, three call sites), so Hibernate writes the entity's values and the DB column defaults are bypassed entirely. A correct column default is NOT protection when the entity supplies its own.
+
+Three defects:
+1. `high == critical == 9` made the **High band mathematically unreachable** (`resolveBand` tests critical first).
+2. The entity's likelihood axis shares **no value** with the ratings actually stored, so no obligation could match a heatmap cell — the root cause of the all-zero heatmap. `resolveAxis` is kept as defence-in-depth for genuinely customised axes.
+3. `resolveBand` used `>` where `computeInherentRisk` uses `>=`, so they **disagreed at every boundary**: score 12 was "High" on the obligation but "Moderate" on the heatmap; 6 was "Moderate" vs "Low".
+
+`V30__repair_risk_matrix_defaults.sql` repairs existing rows, matching only the exact broken values so real customisation survives. V28 was left alone — it was already right.
+
+**Rule:** when a JSONB/enum default exists in BOTH a migration and an entity `@Builder.Default`, they must agree; the entity always wins for JPA-created rows.
+
+## Done — MUI 7 Grid Migration
+
+19 files used the v1 Grid API (`<Grid item xs={12} md={6}>`) on `@mui/material` **7.3.11**, where `Grid` IS v2: there is no `Grid2` directory and `Grid.d.ts` declares only `container`, `offset`, `size`, `spacing`. The legacy props were passed through as unrecognised attributes and **ignored for layout** — silently wrong, never an error.
+
+154 occurrences converted to `size={{ xs: 12, md: 6 }}`. `<Grid container>` is unchanged (still valid). Excludes tenant `pages/DashboardPage.jsx` (dead code, 3 occurrences).
+
+**When checking this class of problem, verify against the INSTALLED package** (`node_modules/@mui/material/Grid/Grid.d.ts`), not from memory of MUI versions.
+
+## Done — Intel Explorers (obligations, sanctions, returns, controls)
+
+Four vertical slices, each a `GET /api/v1/admin/<entity>` + `/stats` + `/{id}` behind `@PreAuthorize("hasRole('PLATFORM_ADMIN')")`, following the `AdminRegulationController` pattern, plus an explorer and detail page following `RegulationExplorerPage`/`RegulationDetailPage`. Routes, nav and API client live in one shared commit made up front.
+
+### Entity naming differs per module — check before copying code between them
+| Entity | Act FK | Section field | actName |
+|---|---|---|---|
+| `ObligationMapping` | `regulationId` → column `act_id` | **`specificSectionReference`** | resolved (batch-loaded) |
+| `SanctionsPenalty` | `regulationId` → column `act_id` | `sourceSectionReference` | resolved (batch-loaded) |
+| `RegulatoryReturn` | **`actId`** directly | `sectionReference` | resolved (batch-loaded) |
+| `ComplianceControl` | **`actId`** directly | — | **denormalised on the row** |
+
+The tenant obligation DTOs use `sectionReference`, so intel's `specificSectionReference` is a genuine trap when porting a page across.
+
+### Sorting on a service-resolved field throws at runtime
+`actName` is not persisted on `ObligationMapping`, `SanctionsPenalty` or `RegulatoryReturn` — it is resolved in the service. Passing `sort=actName` into `Pageable` raises `PropertyReferenceException`. The explorers therefore sort Act on `regulationId`/`actId`, or leave it unsortable. `ComplianceControl` is the exception: `actName` IS a column there, so it sorts normally.
+
+### N+1 avoided
+Act names are resolved by collecting the page's distinct act ids into a `Set` and issuing one `findAllById` — one extra query per page regardless of page size. Obligation stats aggregate in SQL via new group-by queries rather than loading all ~1541 rows.
+
+### The Intel frontend has NO TanStack Query
+`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
+
+### Known lint debt (pre-existing, not new)
+The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
+
+## Done — Returns Register/Details Harmonized (incl. backend linkage)
+
+The linked-obligations half was NOT achievable from the frontend: `GET /returns/{returnId}/obligations` returned `List<Long>` — bare ids, no detail. That GET had **zero frontend callers** (only the id-based `PUT` is used, by `CreateReturnDialog.jsx`), so it was enriched in place rather than growing a parallel `/detail` endpoint.
+
+- **Backend** — `ObligationRepository.findLinkedObligationDetails` (native projection joining `obligation_returns` to `obligations`), new `LinkedObligationItem` DTO, `ReturnService.linkedObligationIds` → `linkedObligations`, controller returns the rich list. `@PreAuthorize` unchanged, read-only so **no Flyway migration**. The `PUT` and `LinkObligationsRequest` are untouched.
+- **Frontend** — rows lazily fetch their linked obligations on expand (collapsed rows fire no request); responsible party (`responsibleUnit` / `responsiblePerson`) gets its own column.
+- **Bug fixed** — `item.overcomeCount` was a typo for `overdueCount`, so the overdue count always rendered 0.
+- **Known, left as-is (out of scope)** — `ReturnService.getRegister` ignores the `Pageable` sort entirely and always sorts in-memory by `currentDueDate`. This page's sort headers were already decorative before this change.
+
+## Done — Controls Register/Details Harmonized
+
+`ControlsPage.jsx` now reads `actName`/`actId`, which it never did before — meaning the existing Act filter dropdown had been filtering on a value the user could not see. Act appears as the secondary line under the control name and in a new "Act / Regulation" detail section beside `regulatoryRequirement`.
+
+Linked obligations became traceable: rows navigate to `/obligations/{obligationId}` instead of being inert text. Only `description` and `instrumentTitle` are shown — `ControlDetailResponse.LinkedObligation` genuinely carries nothing else, so nothing is invented.
+
+9 data columns trimmed to 5: Control (name + controlNumber + act), Classification (controlType + theme + complianceArea), Owner, Risk & Status, Testing (frequency + dueDate). Nothing displayed was lost, but four standalone sort headers went — `controlType`, `theme`, `frequency`, `status`; `status` and `theme` are still reachable through their filter dropdowns.
+
+Note `api.controls.*` takes no `opts` argument, so these queries pass no abort signal.
+
+## Done — Instruments / Obligations / Sanctions Harmonized
+
+All three surface enrichment the DTOs already carried; the pages simply never read it. Each mirrors `ReviewEditPage.jsx` / `ReviewInboxPage.jsx`.
+
+- **Instruments** (`InstrumentsPage.jsx`) — obligations table matches `ObligationSummary` (title + interpreted + verbatim tooltip / Section / Area / Risk / Act, with type, deadline, effective date and status as chips); `SanctionCard` replaces the old "Penalties" block with an expandable Violation / Penalty / Impact panel.
+- **Obligations Register** (`ObligationsRegisterPage.jsx`) — verbatim vs interpreted split, plus section/area/type/deadline chips and act linkage folded into the Regulator cell.
+- **Obligations Detail** (`ObligationDetailPage.jsx`) — read-only "Obligation Texts (harmonized)" section, a new metadata block, and riskType / impactJustification / likelihoodJustification.
+- **Sanctions** (`SanctionsPage.jsx`) — expandable violation/penalty/impact from data already in the list response (no fetch on expand); 7 columns trimmed to 5.
+
+### Bugs found and fixed along the way
+- **Instruments drawer read three non-existent fields** — `obl.section`, `obl.type`, `s.type` instead of `sectionReference`, `obligationType`, `sanctionType`, so those cells always rendered `-`.
+- **Instruments pagination was broken** — the page fetched server page N then re-sliced `[N*20:(N+1)*20]` from a 20-item array (empty for N≥1) and passed `count={items.length}`, capping the pager at one page. No instrument past the first 20 was reachable.
+- **Register `hasGap` filter state was shadowed** by a row-scoped `hasGap` inside the table map; renamed `hasGapFilter`.
+
+### Gotcha — the sanction amount field is spelled differently per DTO
+`InstrumentDetailResponse.SanctionItem` uses **`amountNaira`**. `ObligationRegisterItem.SanctionItem`, `ObligationDetailView.SanctionItem` and `SanctionListItem` all use **`sanctionAmountNaira`**. Copying a sanctions block between pages without changing this silently renders a blank amount.
+
+### Convention notes
+- Query keys for by-id details must be **stringified** (`['x', String(id)]`): `useParams()` yields a string while list ids arrive as JSON numbers, and TanStack hashes `['x',12]` and `['x','12']` differently — unstringified, a page will not share cache with its own detail view.
+- Concurrent agents must not share the `dist/` output; verify with `npx vite build --outDir dist-verify-<name> --emptyOutDir`.
+
+## Done — Review Inbox Harmonized (enriched obligation summary)
+
+`ReviewInboxPage.jsx` now mirrors `ReviewEditPage.jsx` (the harmonization reference).
+
+- **Expandable rows** — each review row has a chevron; expanding lazily calls `GET /review/{reviewId}` (`api.review.get`) and renders a read-only enriched obligation table: `#`, Obligation (bold title + grey `plainEnglishStatement` caption, verbatim `description` behind an `InfoOutlined` tooltip), Section (mono chip), Area (`areaOfFocus`), Risk (`inherentRiskChip` with `likelihood × impact` tooltip), Act (`actName`, falls back to `Reg #{regulationId}`). `applicable === false` renders at 0.45 opacity with a "Not applicable" chip.
+- **No backend change** — `ReviewItem` (list DTO) stays instrument-level; enrichment comes from the existing detail endpoint. `enabled: open` means collapsed rows fire no request (no N+1 on list load); `staleTime: 5min` makes re-expanding free.
+- **Shared detail cache** — query key is `['review', String(reviewId)]`, matching `ReviewEditPage`'s `useParams()` string key, so expanding a row warms the detail page and vice-versa. The key must be stringified: `useParams()` gives a string while `item.reviewId` is a JSON number, and TanStack hashes `['review',12]` and `['review','12']` differently.
+- **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the `frontend-page` convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
+- **Outer table trimmed to 5 data columns** (+ chevron + actions): Document (Source chip folded inline before the title), Regulator, Risk, Obligations, Received. Nothing previously shown was dropped; the standalone `source` sort header is gone, but source remains filterable via the dropdown and the Intel/Upload KPI cards.
 
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
-Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix. Replaces the old V1 KPI dashboard (file `DashboardPage.jsx` is dead code, `DashboardV2Page.jsx` is active).
+Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix.
+
+**CORRECTION (2026-09-05):** the claim that "`DashboardV2Page.jsx` is active" was wrong, and it hid a real problem. `DashboardV2Page.jsx` was imported by NOTHING — the whole V2 feature (8 `/dashboard/v2/*` endpoints, the 579-line `DashboardV2Service`, rendition grid, control coverage, risk heatmap, escalation matrix) was unreachable from the UI. `RenditionTab`/`ControlCoverageTab` hung off that dead page; `RiskHeatmap`/`ActivityFeed` were orphaned outright.
+
+The live tenant dashboard at `/dashboard` is **`CcoDashboardPage.jsx`**, imported in `AppRoutes.jsx` under the alias `DashboardPage` — which is what made the dead `DashboardPage.jsx` file look wired. Both `DashboardPage.jsx` and `DashboardV2Page.jsx` were in fact dead.
+
+V2 is now routed at `/dashboard/v2` ("Rendition & Coverage" in the sidebar). `api.dashboard.v2.*` had always been fully wired, so only the route was missing.
+
+**How to check this properly:** grep for the import PATH (`pages/DashboardV2Page'`), not the identifier — the identifier is aliased, so an identifier grep gives a false positive.
 
 ### Architecture
 
@@ -408,7 +564,7 @@ Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, month
 
 ## Done — Tenant Backend Aligned as Submodule
 
-Tenant backend submodule at `atheris-compliance-backend/atheris/atheris-compliance-tenant-backend/` (port 9091, DB `atheris_tenant`, 9 Flyway migrations V1-V9). Compressed — see git log bd289a7 for full text.
+Tenant backend submodule at `atheris-compliance-backend/atheris-compliance/atheris-compliance-tenant-backend/` (port 9091, DB `atheris_tenant`, 9 Flyway migrations V1-V9). Compressed — see git log bd289a7 for full text.
 
 ## Done — Tenant Frontend Portal Built
 
@@ -570,7 +726,7 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 ### Backend (`atheris-compliance-intelligence-backend`)
 - **`application.yml:48,102`** — `atheris.points.batch-size: 25→10`, `atheris.points.concurrency: 5`, `atheris.points.stagger-ms: 500`, `atheris.points.max-output-tokens: 8000`; `spring.ai.google.genai.chat.options.max-output-tokens` externalized; `atheris.ai.primary-model/fallback-model` + `atheris.ai.health.cooldown-initial-minutes: 5`, `cooldown-multiplier: 3.0`, `cooldown-max-minutes: 60→15` (tuned).
 - **`ToolkitImportService.java:30,650`** — `POINTS_BATCH_PROMPT` now `BatchPointsResponse` (`verbatim` + `interpreted` per point, distinct legal `(1)/(a)/(5)/(6)` vs plain `(1)(2)`); `generatePointsForToolkit()` uses `Executors.newVirtualThreadPerTaskExecutor()` fan-out 10/batch, stagger 500 ms, `truncate()` 300 chars, saves per-obligation; `BatchPointsResponse.java:35` `setMarker()` strips parentheses.
-- **`ObligationPoint.java` + `V30__create_obligation_points.sql` + `V3__create_obligations_sanctions_jobs.sql` (edited)** — `obligation_points` (`obligation_id FK`, `marker`, `text VERBATIM`, `interpreted TEXT`, `level`, `sort_order`, `parent_marker`); dedup `UNIQUE(obligation_id, marker, text)`.
+- **`ObligationPoint.java` + `V32__create_obligation_points.sql` + `V3__create_obligations_sanctions_jobs.sql` (edited)** — `obligation_points` (`obligation_id FK`, `marker`, `text VERBATIM`, `interpreted TEXT`, `level`, `sort_order`, `parent_marker`); dedup `UNIQUE(obligation_id, marker, text)`.
 - **`RegulationSeedService.java:85,310`** — `seedBundle()` duplicates `verbatim`+`interpreted` from intel `ObligationPoint`/`FormattedText` into tenant on `seedAll()`; no LLM on tenant.
 - **`ModelHealthTracker.java:12`** — Exponential cooldown `initial 5m ×3 capped 60m→15m`, `recordSuccess()` clears, `getAvailableModels()` filters cooled, used by `AiClient` + `JobQueueProcessors`.
 - **`AiClient.java:35,58`** — `ChatClient.entity(BatchPointsResponse.class)` with `ChatModelCallAdvisor` + raw `ChatModel.call(prompt)` logging (request/response preview 800 chars), primary→fallback via `AiConfig.java:22`; last-resort `try { primary } catch { fallback }` bypass removed.

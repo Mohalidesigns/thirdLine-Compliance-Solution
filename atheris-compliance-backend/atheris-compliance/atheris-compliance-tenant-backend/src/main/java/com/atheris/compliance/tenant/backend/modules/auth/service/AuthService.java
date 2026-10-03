@@ -5,6 +5,8 @@ import com.atheris.compliance.tenant.backend.modules.auth.entity.*;
 import com.atheris.compliance.tenant.backend.modules.auth.repository.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.exception.LoginFailedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,10 +36,11 @@ public class AuthService {
 
     public InviteValidationResult validateInviteToken(String raw) {
         InviteToken t = inviteTokens.findByTokenHash(sha256(raw))
-            .orElseThrow(() -> new RuntimeException("Invalid invite link"));
-        if (t.getIsUsed()) throw new RuntimeException("Invite already used");
-        if (Instant.now().isAfter(t.getExpiresAt())) throw new RuntimeException("Invite link expired");
-        User u = users.findById(t.getUserId()).orElseThrow();
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid invite link"));
+        if (t.getIsUsed()) throw ApiException.conflict("token_used", "Invite already used");
+        if (Instant.now().isAfter(t.getExpiresAt())) throw ApiException.gone("token_expired", "Invite link expired");
+        User u = users.findById(t.getUserId())
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid invite link"));
         return InviteValidationResult.builder()
             .email(u.getEmail()).fullName(u.getFullName()).role(u.getRole()).tokenValid(true).build();
     }
@@ -45,13 +48,14 @@ public class AuthService {
     @Transactional
     public AuthTokens acceptInvite(AcceptInviteRequest req) {
         InviteToken t = inviteTokens.findByTokenHash(sha256(req.getToken()))
-            .orElseThrow(() -> new RuntimeException("Invalid invite"));
-        if (t.getIsUsed()) throw new RuntimeException("Invite already used");
-        if (Instant.now().isAfter(t.getExpiresAt())) throw new RuntimeException("Invite expired");
-        if (!req.getPassword().equals(req.getConfirmPassword()))
-            throw new RuntimeException("Passwords do not match");
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid invite"));
+        if (t.getIsUsed()) throw ApiException.conflict("token_used", "Invite already used");
+        if (Instant.now().isAfter(t.getExpiresAt())) throw ApiException.gone("token_expired", "Invite expired");
+        if (req.getPassword() == null || !req.getPassword().equals(req.getConfirmPassword()))
+            throw ApiException.badRequest("password_mismatch", "Passwords do not match");
         validatePw(req.getPassword());
-        User u = users.findById(t.getUserId()).orElseThrow();
+        User u = users.findById(t.getUserId())
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid invite"));
         u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         u.setPasswordChangedAt(Instant.now());
         u.setInviteStatus("active");
@@ -63,15 +67,17 @@ public class AuthService {
         return issueTokens(u, req.getDeviceName(), req.getIpAddress());
     }
 
-    @Transactional
+    // A refused login must still commit the failed-attempt counter and lockout it
+    // just wrote; rolling back on LoginFailedException would undo them.
+    @Transactional(noRollbackFor = LoginFailedException.class)
     public AuthTokens login(LoginRequest req) {
         User u = users.findByEmail(req.getEmail().toLowerCase())
-            .orElseThrow(() -> new RuntimeException("Invalid email or password"));
-        if (!u.getIsActive()) throw new RuntimeException("Account deactivated");
+            .orElseThrow(LoginFailedException::invalidCredentials);
+        if (!u.getIsActive()) throw LoginFailedException.blocked("Account deactivated");
         if ("pending".equals(u.getInviteStatus()))
-            throw new RuntimeException("Please accept your invite first");
+            throw LoginFailedException.blocked("Please accept your invite first");
         if (u.getLockedUntil() != null && Instant.now().isBefore(u.getLockedUntil()))
-            throw new RuntimeException("Account locked");
+            throw LoginFailedException.blocked("Account locked");
         if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
             if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
                 u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
@@ -81,7 +87,7 @@ public class AuthService {
                     user.setFailedLoginAttempts(user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() + 1 : 1);
                     users.save(user);
                 });
-            throw new RuntimeException("Invalid email or password");
+            throw LoginFailedException.invalidCredentials();
         }
         u.setFailedLoginAttempts(0);
         u.setLockedUntil(null);
@@ -94,10 +100,11 @@ public class AuthService {
     @Transactional
     public AuthTokens refresh(String raw) {
         RefreshToken t = refreshTokens.findByTokenHash(sha256(raw))
-            .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
-        if (t.getIsRevoked()) throw new RuntimeException("Token revoked");
-        if (Instant.now().isAfter(t.getExpiresAt())) throw new RuntimeException("Token expired");
-        User u = users.findById(t.getUserId()).orElseThrow();
+            .orElseThrow(() -> ApiException.unauthorized("invalid_refresh_token", "Invalid refresh token"));
+        if (t.getIsRevoked()) throw ApiException.unauthorized("refresh_token_revoked", "Token revoked");
+        if (Instant.now().isAfter(t.getExpiresAt())) throw ApiException.unauthorized("refresh_token_expired", "Token expired");
+        User u = users.findById(t.getUserId())
+            .orElseThrow(() -> ApiException.unauthorized("invalid_refresh_token", "Invalid refresh token"));
         t.setIsRevoked(true);
         t.setRevokedAt(Instant.now());
         t.setRevokedReason("rotated");
@@ -132,13 +139,14 @@ public class AuthService {
     @Transactional
     public void resetPassword(ResetPasswordRequest req) {
         InviteToken t = inviteTokens.findByTokenHash(sha256(req.getToken()))
-            .orElseThrow(() -> new RuntimeException("Invalid reset link"));
-        if (t.getIsUsed()) throw new RuntimeException("Reset link already used");
-        if (Instant.now().isAfter(t.getExpiresAt())) throw new RuntimeException("Reset link expired");
-        if (!req.getNewPassword().equals(req.getConfirmPassword()))
-            throw new RuntimeException("Passwords do not match");
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid reset link"));
+        if (t.getIsUsed()) throw ApiException.conflict("token_used", "Reset link already used");
+        if (Instant.now().isAfter(t.getExpiresAt())) throw ApiException.gone("token_expired", "Reset link expired");
+        if (req.getNewPassword() == null || !req.getNewPassword().equals(req.getConfirmPassword()))
+            throw ApiException.badRequest("password_mismatch", "Passwords do not match");
         validatePw(req.getNewPassword());
-        User u = users.findById(t.getUserId()).orElseThrow();
+        User u = users.findById(t.getUserId())
+            .orElseThrow(() -> ApiException.badRequest("invalid_token", "Invalid reset link"));
         u.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         u.setPasswordChangedAt(Instant.now());
         users.save(u);
@@ -174,13 +182,13 @@ public class AuthService {
 
     private void validatePw(String pw) {
         if (pw == null || pw.length() < 8)
-            throw new RuntimeException("Password must be at least 8 characters");
+            throw ApiException.badRequest("weak_password", "Password must be at least 8 characters");
         if (!pw.matches(".*[A-Z].*"))
-            throw new RuntimeException("Password must contain an uppercase letter");
+            throw ApiException.badRequest("weak_password", "Password must contain an uppercase letter");
         if (!pw.matches(".*[0-9].*"))
-            throw new RuntimeException("Password must contain a number");
+            throw ApiException.badRequest("weak_password", "Password must contain a number");
         if (!pw.matches(".*[^a-zA-Z0-9].*"))
-            throw new RuntimeException("Password must contain a special character");
+            throw ApiException.badRequest("weak_password", "Password must contain a special character");
     }
 
     private String generateToken() {
@@ -194,8 +202,9 @@ public class AuthService {
             return HexFormat.of().formatHex(
                 java.security.MessageDigest.getInstance("SHA-256")
                     .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256 is mandatory on every JVM; this is a genuine server fault.
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 }

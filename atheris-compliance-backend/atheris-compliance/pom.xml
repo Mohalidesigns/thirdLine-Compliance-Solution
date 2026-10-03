@@ -28,6 +28,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring.boot.version>3.2.5</spring.boot.version>
         <spring.dependency.management.version>1.1.4</spring.dependency.management.version>
+        <!-- spring-boot:run is a no-op on the parent and common (no main class);
+             the two backend modules turn it back on. Lets `-pl <module> -am` work. -->
+        <spring-boot.run.skip>true</spring-boot.run.skip>
         <!-- Dependency versions -->
         <pdfbox.version>3.0.2</pdfbox.version>
         <tess4j.version>5.11.0</tess4j.version>

@@ -39,6 +39,12 @@ export const ROUTES = {
   ADMIN_UNIVERSE: '/admin/universe',
   ADMIN_OBLIGATIONS: '/admin/obligations',
   ADMIN_OBLIGATION_DETAIL: '/admin/obligations/:id',
+  ADMIN_SANCTIONS: '/admin/sanctions',
+  ADMIN_SANCTION_DETAIL: '/admin/sanctions/:id',
+  ADMIN_RETURNS: '/admin/returns',
+  ADMIN_RETURN_DETAIL: '/admin/returns/:id',
+  ADMIN_CONTROLS: '/admin/controls',
+  ADMIN_CONTROL_DETAIL: '/admin/controls/:id',
 };
 
 export const STRINGS = {
@@ -88,8 +94,11 @@ export const NAV_SECTIONS = [
     { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
     { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
     { text: 'Act Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_ACTS },
+    { text: 'Obligations', icon: 'Gavel', path: ROUTES.ADMIN_OBLIGATIONS },
+    { text: 'Sanctions', icon: 'Warning', path: ROUTES.ADMIN_SANCTIONS },
+    { text: 'Returns', icon: 'RequestQuote', path: ROUTES.ADMIN_RETURNS },
+    { text: 'Controls', icon: 'FactCheck', path: ROUTES.ADMIN_CONTROLS },
     { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
-    { text: 'Obligations', icon: 'Assignment', path: ROUTES.ADMIN_OBLIGATIONS },
   ]},
 ];
 

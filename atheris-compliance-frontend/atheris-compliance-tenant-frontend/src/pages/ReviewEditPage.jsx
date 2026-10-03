@@ -11,7 +11,7 @@ import {
   KeyboardArrowDown, KeyboardArrowUp, ArrowBack,
   Add, Delete, Save, Close, Gavel,
 } from '@mui/icons-material';
-import { api, API_BASE, getToken } from '../services/api';
+import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 
 const OBLIGATION_TYPES = [
@@ -465,10 +465,10 @@ export default function ReviewEditPage() {
         signal: AbortSignal.timeout(30000),
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error('PDF load failed');
+      if (!res.ok) throw new Error(await pdfErrorMessage(res));
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
-    } catch { notify('error', 'Failed to load PDF.'); }
+    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
   }
 
   function handleSave() {

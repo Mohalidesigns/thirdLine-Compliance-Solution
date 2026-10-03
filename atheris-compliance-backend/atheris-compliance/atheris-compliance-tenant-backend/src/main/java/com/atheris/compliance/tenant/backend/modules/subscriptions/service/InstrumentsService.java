@@ -1,10 +1,12 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentDetailResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentSummaryResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
+import com.atheris.compliance.tenant.backend.shared.exception.DocumentUnavailableException;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PagedResponse;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentSummary;
@@ -69,7 +71,7 @@ public class InstrumentsService {
 
     public InstrumentDetailResponse detail(Long id) {
         PlatformInstrumentDetail d = platform.getInstrumentDetail(id);
-        if (d == null) throw new RuntimeException("Instrument not found");
+        if (d == null) throw ApiException.notFound("Instrument not found: " + id);
         Map<String, com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation> localMap =
             obligationRepo.findByInstrumentId(id).stream()
                 .collect(Collectors.toMap(
@@ -137,7 +139,8 @@ public class InstrumentsService {
 
     public byte[] pdfBytes(Long id) {
         byte[] bytes = platform.getInstrumentPdf(id);
-        if (bytes == null || bytes.length == 0) throw new RuntimeException("Instrument PDF not available");
+        if (bytes == null || bytes.length == 0)
+            throw new DocumentUnavailableException("No document stored for instrument " + id);
         return bytes;
     }
 

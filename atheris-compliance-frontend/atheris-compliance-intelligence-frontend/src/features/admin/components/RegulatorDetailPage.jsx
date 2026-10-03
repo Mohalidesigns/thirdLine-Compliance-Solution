@@ -10,7 +10,7 @@ import {
   ArrowBack, Search, Language, Refresh, OpenInNew, Description, Close, Save,
   CloudDownload, CheckCircle, TextSnippet, Category,
 } from '@mui/icons-material';
-import api, { getToken, API_BASE } from '../../../services/api';
+import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
 import { ROUTES, APP } from '../../../utils/constants';
 
 const riskColors = { High: '#C53030', Medium: '#DD6B20', Low: '#2D7D46' };
@@ -118,12 +118,12 @@ export default function RegulatorDetailPage() {
       const res = await fetch(`${API_BASE}/intelligence/obligations/${inst.instrumentId}/pdf`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) throw new Error(await pdfErrorMessage(res, 'Failed to load PDF'));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch {
-      alert('Failed to load PDF');
+    } catch (e) {
+      alert(e.message || 'Failed to load PDF');
     }
   }
 
@@ -212,7 +212,7 @@ export default function RegulatorDetailPage() {
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Website</Typography>
@@ -220,7 +220,7 @@ export default function RegulatorDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Publication Page</Typography>
@@ -228,7 +228,7 @@ export default function RegulatorDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={4} md={2}>
+        <Grid size={{ xs: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Strategy</Typography>
@@ -236,7 +236,7 @@ export default function RegulatorDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={4} md={2}>
+        <Grid size={{ xs: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Frequency</Typography>
@@ -244,7 +244,7 @@ export default function RegulatorDetailPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={4} md={2}>
+        <Grid size={{ xs: 4, md: 2 }}>
           <Card>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">Last Run</Typography>
@@ -257,7 +257,7 @@ export default function RegulatorDetailPage() {
       {/* Pipeline Stage Cards */}
       {pipelineStats && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Card sx={{ cursor: 'pointer', border: selectedStage === 'failed' ? '2px solid #C53030' : 'none' }} onClick={() => setSelectedStage(selectedStage === 'failed' ? null : 'failed')}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <CloudDownload sx={{ fontSize: 28, color: pipelineStats.failedDownloads?.length > 0 ? '#C53030' : '#A0AEC0' }} />
@@ -268,7 +268,7 @@ export default function RegulatorDetailPage() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Card sx={{ cursor: 'pointer', border: selectedStage === 'downloaded' ? '2px solid #2D7D46' : 'none' }} onClick={() => setSelectedStage(selectedStage === 'downloaded' ? null : 'downloaded')}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <CheckCircle sx={{ fontSize: 28, color: '#2D7D46' }} />
@@ -279,7 +279,7 @@ export default function RegulatorDetailPage() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Card sx={{ cursor: 'pointer', border: selectedStage === 'extracted' ? '2px solid #3182CE' : 'none' }} onClick={() => setSelectedStage(selectedStage === 'extracted' ? null : 'extracted')}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <TextSnippet sx={{ fontSize: 28, color: '#3182CE' }} />
@@ -290,7 +290,7 @@ export default function RegulatorDetailPage() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <Card sx={{ cursor: 'pointer', border: selectedStage === 'classified' ? '2px solid #D4AF37' : 'none' }} onClick={() => setSelectedStage(selectedStage === 'classified' ? null : 'classified')}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Category sx={{ fontSize: 28, color: '#D4AF37' }} />
@@ -500,15 +500,15 @@ export default function RegulatorDetailPage() {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Name" size="small" value={config.name}
                 onChange={(e) => setConfig({ ...config, name: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField fullWidth label="Abbreviation" size="small" value={config.abbreviation}
                 onChange={(e) => setConfig({ ...config, abbreviation: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Strategy</InputLabel>
                 <Select label="Strategy" value={config.scraperStrategy}
@@ -519,15 +519,15 @@ export default function RegulatorDetailPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Website URL" size="small" value={config.websiteUrl}
                 onChange={(e) => setConfig({ ...config, websiteUrl: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth label="Publication Page URL" size="small" value={config.publicationPageUrl}
                 onChange={(e) => setConfig({ ...config, publicationPageUrl: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Frequency</InputLabel>
                 <Select label="Frequency" value={config.scraperFrequency}
@@ -539,21 +539,21 @@ export default function RegulatorDetailPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField fullWidth label="PDF Link Selector" size="small" value={config.pdfLinkSelector}
                 onChange={(e) => setConfig({ ...config, pdfLinkSelector: e.target.value })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField fullWidth label="Max Pages Per Run" size="small" type="number"
                 value={config.maxPagesPerRun}
                 onChange={(e) => setConfig({ ...config, maxPagesPerRun: parseInt(e.target.value) || 0 })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField fullWidth label="Max PDF Size (MB)" size="small" type="number"
                 value={config.maxPdfSizeMb}
                 onChange={(e) => setConfig({ ...config, maxPdfSizeMb: parseInt(e.target.value) || 0 })} />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Pagination Strategy</InputLabel>
                 <Select label="Pagination Strategy" value={config.paginationStrategy}
@@ -565,13 +565,13 @@ export default function RegulatorDetailPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={1.5}>
+            <Grid size={{ xs: 6, sm: 1.5 }}>
               <FormControlLabel control={
                 <Switch checked={config.scraperEnabled ?? false}
                   onChange={(e) => setConfig({ ...config, scraperEnabled: e.target.checked })} />
               } label="Enabled" />
             </Grid>
-            <Grid item xs={6} sm={1.5}>
+            <Grid size={{ xs: 6, sm: 1.5 }}>
               <FormControlLabel control={
                 <Switch checked={config.paginationEnabled ?? false}
                   onChange={(e) => setConfig({ ...config, paginationEnabled: e.target.checked })} />

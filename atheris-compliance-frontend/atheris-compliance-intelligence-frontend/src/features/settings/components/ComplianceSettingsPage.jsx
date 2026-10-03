@@ -18,7 +18,7 @@ export default function ComplianceSettingsPage() {
 
       <Grid container spacing={3}>
         {/* Organisation Profile */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -62,7 +62,7 @@ export default function ComplianceSettingsPage() {
         </Grid>
 
         {/* Intelligence Filters */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -91,7 +91,7 @@ export default function ComplianceSettingsPage() {
         </Grid>
 
         {/* Notification Preferences */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -100,7 +100,7 @@ export default function ComplianceSettingsPage() {
               </Box>
 
               <Grid container spacing={4}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Email Notifications</Typography>
                   <Stack spacing={0.5}>
                     <FormControlLabel control={<Switch defaultChecked size="small" />} label={<Typography variant="body2">Daily Intelligence Summary</Typography>} />
@@ -108,7 +108,7 @@ export default function ComplianceSettingsPage() {
                     <FormControlLabel control={<Switch size="small" />} label={<Typography variant="body2">Weekly Compliance Report</Typography>} />
                   </Stack>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Push Notifications</Typography>
                   <Stack spacing={0.5}>
                     <FormControlLabel control={<Switch defaultChecked size="small" />} label={<Typography variant="body2">System Status & Scraper Health</Typography>} />

@@ -100,16 +100,16 @@ export default function UniversePage() {
 
       {stats && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard label="Total Instruments" value={stats.total} color="#1A365D" icon={<Public sx={{ fontSize: 28 }} />} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard label="High Risk" value={stats.byRiskRating?.High ?? 0} color="#C53030" icon={<Description sx={{ fontSize: 28 }} />} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard label="Medium Risk" value={stats.byRiskRating?.Medium ?? 0} color="#DD6B20" icon={<Description sx={{ fontSize: 28 }} />} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard label="Low Risk" value={stats.byRiskRating?.Low ?? 0} color="#2D7D46" icon={<Description sx={{ fontSize: 28 }} />} />
           </Grid>
         </Grid>
@@ -117,7 +117,7 @@ export default function UniversePage() {
 
       {stats && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Top Regulators</Typography>
@@ -142,7 +142,7 @@ export default function UniversePage() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Areas of Focus</Typography>

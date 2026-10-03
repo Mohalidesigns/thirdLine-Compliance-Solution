@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.*;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
@@ -82,7 +83,7 @@ public class ControlService {
     }
 
     public ControlDetailResponse getDetail(Integer id) {
-        Control c = repo.findById(id).orElseThrow(() -> new RuntimeException("Control not found: " + id));
+        Control c = repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id));
 
         List<ControlDetailResponse.LinkedObligation> obligations = Collections.emptyList();
         if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isEmpty()) {
@@ -141,7 +142,7 @@ public class ControlService {
     }
 
     public ControlDto findById(Integer id) {
-        return toDto(repo.findById(id).orElseThrow(() -> new RuntimeException("Control not found: " + id)));
+        return toDto(repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id)));
     }
 
     @Transactional
@@ -171,7 +172,8 @@ public class ControlService {
 
     @Transactional
     public ControlDto update(Integer id, CreateControlRequest req, Integer userId) {
-        Control c = repo.findById(id).orElseThrow();
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
         if (req.getName() != null) c.setName(req.getName());
         if (req.getDescription() != null) c.setDescription(req.getDescription());
         if (req.getWhatItDoes() != null) c.setWhatItDoes(req.getWhatItDoes());

@@ -10,6 +10,20 @@ export const setToken = (token) => { authToken = token; };
 export const getToken = () => authToken;
 export const setRefreshToken = (token) => { authRefreshToken = token; };
 
+// A PDF endpoint answers 404 with {error, message} when the record has no stored
+// document (common: toolkit-imported instruments never carry one). Turn that into
+// a message worth showing, and fall back to the generic one for real failures.
+export async function pdfErrorMessage(res, fallback = 'Failed to load PDF.') {
+  try {
+    const body = await res.clone().json();
+    const code = String(body?.error || '').toLowerCase();
+    if (code === 'document_unavailable') return 'No document is available for this instrument.';
+  } catch {
+    // non-JSON body (proxy/network error) — fall through
+  }
+  return fallback;
+}
+
 const STORAGE_KEY_TOKEN = 'atheris_token';
 const STORAGE_KEY_REFRESH = 'atheris_refresh_token';
 
@@ -282,6 +296,15 @@ async function tenantRequest(path, options = {}) {
   return fetchWithBase(TENANT_API_BASE, path, options);
 }
 
+function toQuery(params) {
+  if (!params) return '';
+  if (typeof params === 'string') return params ? `?${params.replace(/^\?/, '')}` : '';
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, String(v)); });
+  const str = qs.toString();
+  return str ? `?${str}` : '';
+}
+
 export const api = {
   auth: {
     login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -394,6 +417,11 @@ export const api = {
       update: (id, data) => request(`/admin/acts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       importToolkit: () => request('/admin/acts/toolkit/import', { method: 'POST' }),
     },
+    sanctions: {
+      list: (params = '') => request(`/admin/sanctions${params ? '?' + params : ''}`),
+      stats: () => request('/admin/sanctions/stats'),
+      get: (id) => request(`/admin/sanctions/${id}`),
+    },
     universe: {
       instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
       areasOfFocus: () => request('/admin/universe/areas-of-focus'),
@@ -415,27 +443,36 @@ export const api = {
         });
       },
     },
+    // Explorer endpoints (AdminObligationExplorerController / AdminControlController / AdminReturnController).
+    // `list` takes either a query string ('a=1&b=2') or a params object ({ a: 1, b: undefined }).
     obligations: {
-      list: (params = {}, signal) => {
-        const qs = new URLSearchParams();
-        Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, String(v)); });
-        const s = qs.toString();
-        return request(`/admin/obligations${s ? '?' + s : ''}`, { signal });
-      },
+      list: (params = '', signal) => request(`/admin/obligations${toQuery(params)}`, { signal }),
       stats: (signal) => request('/admin/obligations/stats', { signal }),
       get: (id, signal) => request(`/admin/obligations/${id}`, { signal }),
-      controls: (id) => request(`/admin/obligations/${id}/controls`),
+      controls: (id, signal) => request(`/admin/obligations/${id}/controls`, { signal }),
+      // Streams the source instrument PDF; resolves to a Blob, throws a readable message on 404.
+      pdf: async (id) => {
+        const res = await fetch(`${API_BASE}/admin/obligations/${id}/pdf`, {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        });
+        if (!res.ok) throw new Error(await pdfErrorMessage(res));
+        return res.blob();
+      },
+      // No intel backend endpoints yet — evidence/history are returned (empty) inside get().
       evidence: (id) => request(`/admin/obligations/${id}/evidence`),
       evidenceDownload: (id) => request(`/admin/obligations/${id}/evidence/${id}/download`),
       history: (id) => request(`/admin/obligations/${id}/history`),
-      pdf: (id) => request(`/admin/obligations/${id}/pdf`),
     },
     controls: {
-      list: () => request('/admin/controls'),
-      detail: (id) => request(`/admin/controls/${id}/detail`),
+      list: (params = '', signal) => request(`/admin/controls${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/controls/stats', { signal }),
+      get: (id, signal) => request(`/admin/controls/${id}`, { signal }),
+      detail: (id, signal) => request(`/admin/controls/${id}`, { signal }),
     },
     returns: {
-      list: () => request('/admin/regulatory-returns'),
+      list: (params = '', signal) => request(`/admin/returns${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/returns/stats', { signal }),
+      get: (id, signal) => request(`/admin/returns/${id}`, { signal }),
     },
     evidence: {
       list: () => request('/admin/evidence'),

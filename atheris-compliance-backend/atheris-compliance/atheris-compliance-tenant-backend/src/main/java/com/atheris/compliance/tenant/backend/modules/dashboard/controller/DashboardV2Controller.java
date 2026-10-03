@@ -28,6 +28,7 @@ public class DashboardV2Controller {
             @RequestParam(defaultValue = "areaOfFocus") String by) {
         return switch (by) {
             case "department" -> ResponseEntity.ok(service.getControlCoverageByDepartment());
+            case "act" -> ResponseEntity.ok(service.getControlCoverageByAct());
             default -> ResponseEntity.ok(service.getControlCoverageByAreaOfFocus());
         };
     }
@@ -57,14 +58,13 @@ public class DashboardV2Controller {
     }
 
     @GetMapping("/thresholds")
-    public ResponseEntity<ThresholdDto> getThresholds(@RequestParam Long tenantId) {
-        return ResponseEntity.ok(service.getThresholds(tenantId));
+    public ResponseEntity<ThresholdDto> getThresholds() {
+        return ResponseEntity.ok(service.getThresholds());
     }
 
     @PutMapping("/thresholds")
-    public ResponseEntity<Void> saveThresholds(@RequestParam Long tenantId,
-                                                @RequestBody ThresholdDto dto) {
-        service.saveThresholds(tenantId, dto);
+    public ResponseEntity<Void> saveThresholds(@RequestBody ThresholdDto dto) {
+        service.saveThresholds(dto);
         return ResponseEntity.ok().build();
     }
 }

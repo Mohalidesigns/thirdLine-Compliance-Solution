@@ -9,7 +9,7 @@ import {
   Visibility, Download, Edit, UploadFile, Link as LinkIcon,
   ArrowBack, Gavel, Close, Search,
 } from '@mui/icons-material';
-import { api, API_BASE, getToken } from '../services/api';
+import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
 import OwnerModal from '../components/modals/OwnerModal';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
@@ -31,10 +31,17 @@ const STATUS_COLOR = { active: 'success', classified: 'info', unclassified: 'war
 
 const VISIBLE_CHIP_COUNT = 5;
 
-function riskChip(rating, size = 'small') {
+// Tooltip shows the user's likelihood x impact assessment when present.
+function riskChip(rating, size = 'small', likelihood = null, impact = null) {
   const cfg = RISK_CONFIG[rating];
   if (!cfg) return <Chip size={size} label="Unrated" sx={{ height: 22 }} />;
-  return <Chip size={size} label={rating} color={cfg.color} sx={{ height: 22 }} />;
+  const chip = <Chip size={size} label={rating} color={cfg.color} sx={{ height: 22 }} />;
+  if (!likelihood && !impact) return chip;
+  return <Tooltip title={`${likelihood || '-'} × ${impact || '-'}`}>{chip}</Tooltip>;
+}
+
+function prettify(v) {
+  return v ? String(v).replace(/_/g, ' ') : '';
 }
 
 function formatDate(d) {
@@ -106,10 +113,10 @@ export default function ObligationDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const obligationId = Number(id);
-
   const queryClient = useQueryClient();
+
   const { data: selected, isLoading: loading, error } = useQuery({
-    queryKey: ['obligation', obligationId],
+    queryKey: ['obligations', 'detail', String(id)],
     queryFn: ({ signal }) => api.obligations.obligationDetail(obligationId, signal),
     enabled: !!obligationId,
   });
@@ -125,7 +132,8 @@ export default function ObligationDetailPage() {
 
   function onSaved(message) {
     return async () => {
-      await queryClient.invalidateQueries({ queryKey: ['obligation', obligationId] });
+      // 'obligations' prefix covers this detail query and the register lists
+      await queryClient.invalidateQueries({ queryKey: ['obligations'] });
       notify('success', message);
     };
   }
@@ -147,10 +155,10 @@ export default function ObligationDetailPage() {
       const res = await fetch(`${API_BASE}/subscriptions/instruments/${instrumentId}/pdf`, {
         headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
       });
-      if (!res.ok) throw new Error('PDF load failed');
+      if (!res.ok) throw new Error(await pdfErrorMessage(res));
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank');
-    } catch { notify('error', 'Failed to load PDF.'); }
+    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
   }
 
   const actionEdit = (modal, label = 'Edit') => (
@@ -199,6 +207,8 @@ export default function ObligationDetailPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate('/obligations')}><ArrowBack /></IconButton>
         <Box sx={{ flex: 1 }} />
+        {selected && actionEdit('risk', 'Assess Risk')}
+        {selected && actionEdit('owner', 'Assign Owner')}
         <Button size="medium" variant="contained" onClick={handleViewPdf} startIcon={<Visibility />}
           sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>PDF</Button>
       </Box>
@@ -211,12 +221,24 @@ export default function ObligationDetailPage() {
           <Box sx={{ mb: 2 }}>
             {/* Top chips row */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-              {riskChip(selected.tenantRiskRating || selected.inherentRiskRating)}
-              {selected.regulatorAbbreviation && <Chip size="small" label={selected.regulatorAbbreviation} sx={{ height: 22 }} />}
+              {riskChip(selected.tenantRiskRating || selected.inherentRiskRating, 'small',
+                selected.likelihoodRating, selected.impactRating)}
+              {(selected.regulatorAbbreviation || selected.regulatorName) && (
+                <Chip size="small" label={selected.regulatorAbbreviation || selected.regulatorName} sx={{ height: 22 }} />
+              )}
               {selected.areaOfFocus && <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />}
-              {selected.recurringDeadlineType && <Chip size="small" label={selected.recurringDeadlineType} variant="outlined" sx={{ height: 22 }} />}
+              {selected.sectionReference && (
+                <Chip size="small" variant="outlined" label={selected.sectionReference}
+                  sx={{ height: 22, fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
+              )}
+              {selected.recurringDeadlineType && <Chip size="small" label={prettify(selected.recurringDeadlineType)} variant="outlined" sx={{ height: 22 }} />}
               <Chip size="small" label={selected.status || 'unknown'}
                 color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
+              {selected.obligationNumber != null && (
+                <Typography variant="caption" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
+                  #{selected.obligationNumber}
+                </Typography>
+              )}
             </Box>
 
             {/* Title + source */}
@@ -231,11 +253,19 @@ export default function ObligationDetailPage() {
                 ['Applicability', selected.applicability ? <Chip key="a" size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22 }} /> : '-'],
                 ['Owner', selected.controlOwner || selected.assignedOwnerName || 'Unassigned'],
                 ['Department', selected.assignedDepartment || '-'],
+                ['Risk Rating', selected.tenantRiskRating || '-'],
+                ['Likelihood', selected.likelihoodRating || '-'],
+                ['Impact', selected.impactRating || '-'],
+                ['Risk Justification', selected.riskJustification || '-'],
+                ['Obligation No.', selected.obligationNumber != null ? `#${selected.obligationNumber}` : '-'],
                 ['Section', selected.sectionReference || '-'],
-                ['Obligation Type', selected.obligationType || '-'],
+                ['Obligation Type', prettify(selected.obligationType) || '-'],
+                ['Deadline', prettify(selected.recurringDeadlineType) || '-'],
+                ['Act / Regulation', selected.actName || (selected.regulationId ? `Reg #${selected.regulationId}` : '-')],
                 ['Effective Date', selected.effectiveDate ? formatDate(selected.effectiveDate) : '-'],
                 ['Classified By', selected.classifiedByName || '-'],
                 ['Classified Date', selected.classifiedAt ? formatDate(selected.classifiedAt) : '-'],
+                ['Classification Version', selected.classificationVersion != null ? `v${selected.classificationVersion}` : '-'],
               ].filter(([, val]) => val && val !== '-').map(([label, value]) => (
                 <Fragment key={label}>
                   <Typography variant="body2" color="text.secondary">{label}</Typography>
@@ -284,6 +314,10 @@ export default function ObligationDetailPage() {
                     <Button size="small" variant="text" onClick={() => openDrawer('controls')}
                       sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
                   )}
+                  {selected.linkedControls?.length > 0 && (
+                    <Button size="small" variant="text" onClick={() => navigate(`/controls?obligationId=${obligationId}`)}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>Open in Controls</Button>
+                  )}
                   <Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
                     startIcon={<Edit sx={{ fontSize: 16 }} />}
                     sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>
@@ -297,7 +331,7 @@ export default function ObligationDetailPage() {
                     sx={{ py: 0.75, borderBottom: i < Math.min(selected.linkedControls.length, 5) - 1 ? '1px solid' : 'none',
                       borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                     <Typography variant="body2">
-                      {(c.name || 'Untitled').replace(/^[\s\-"]+/, '')}
+                      {c.controlNumber ? `${c.controlNumber} — ` : ''}{(c.name || 'Untitled').replace(/^[\s\-"]+/, '')}
                     </Typography>
                     {c.description && (
                       <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
@@ -590,7 +624,7 @@ export default function ObligationDetailPage() {
                 onClick={() => openDrawer('controls', c.controlId)}
                 sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {c.name || 'Untitled'}
+                  {c.controlNumber ? `${c.controlNumber} — ` : ''}{c.name || 'Untitled'}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                   {c.controlType && <Chip size="small" label={c.controlType} sx={{ height: 18, fontSize: 10 }} />}
@@ -622,6 +656,9 @@ export default function ObligationDetailPage() {
                       color="error" sx={{ height: 22 }} />
                   )}
                   {s.actName && <Chip size="small" label={s.actName} variant="outlined" sx={{ height: 22 }} />}
+                  {s.hasBeenEnforced != null && (
+                    <Chip size="small" label={s.hasBeenEnforced ? 'Enforced' : 'Not enforced'} sx={{ height: 22 }} />
+                  )}
                 </Box>
                 {s.liableRoles?.length > 0 && (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>

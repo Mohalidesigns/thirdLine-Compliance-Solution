@@ -61,7 +61,7 @@ export default function WatchlistPage() {
           { label: 'Expiring Soon', value: 1, color: theme.palette.warning.main },
           { label: 'Coverage Score', value: '94%', color: theme.palette.secondary.main },
         ].map((s) => (
-          <Grid item xs={6} md={3} key={s.label}>
+          <Grid size={{ xs: 6, md: 3 }} key={s.label}>
             <Card>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography variant="caption" color="text.secondary">{s.label}</Typography>

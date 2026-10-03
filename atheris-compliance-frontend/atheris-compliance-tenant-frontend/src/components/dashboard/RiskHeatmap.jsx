@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
-  Box, Typography, Paper, Chip, ToggleButton, ToggleButtonGroup, CircularProgress,
+  Box, Typography, Paper, Chip, ToggleButton, ToggleButtonGroup, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import { TableChart, GridOn } from '@mui/icons-material';
@@ -14,7 +15,7 @@ const BAND_COLORS = {
 };
 
 function CellBadge({ count, band }) {
-  if (count === 0) return null;
+  if (!count) return null;
   const cfg = BAND_COLORS[band] || BAND_COLORS.Low;
   return (
     <Box sx={{
@@ -28,8 +29,12 @@ function CellBadge({ count, band }) {
 }
 
 function GridView({ data, onCellClick }) {
-  if (!data?.cells?.length) return <Typography color="text.secondary" sx={{ p: 2 }}>No data.</Typography>;
-  const { impactLevels, likelihoodLevels, cells } = data;
+  const impactLevels = data?.impactLevels || [];
+  const likelihoodLevels = data?.likelihoodLevels || [];
+  const cells = data?.cells || [];
+  if (!impactLevels.length || !likelihoodLevels.length) {
+    return <Typography color="text.secondary" sx={{ p: 2 }}>No risk matrix configured.</Typography>;
+  }
   const cellMap = {};
   cells.forEach(c => { cellMap[`${c.impact}|${c.likelihood}`] = c; });
 
@@ -63,13 +68,13 @@ function GridView({ data, onCellClick }) {
                 return (
                   <TableCell key={likelihood} sx={{
                     bgcolor: cfg.bg, border: `1px solid ${cfg.border}40`,
-                    textAlign: 'center', cursor: 'pointer', p: 1,
+                    textAlign: 'center', cursor: onCellClick ? 'pointer' : 'default', p: 1,
                     '&:hover': { outline: `2px solid ${cfg.border}`, outlineOffset: -2 },
                   }} onClick={() => onCellClick?.(impact, likelihood)}>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: cfg.text, display: 'block' }}>
                       {band.toUpperCase()}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">{cell.score || '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">{cell.score ?? '-'}</Typography>
                     <CellBadge count={cell.count || 0} band={band} />
                     {cell.hasGaps && <Typography variant="caption" sx={{ color: cfg.text, fontWeight: 700 }}>!</Typography>}
                   </TableCell>
@@ -84,7 +89,10 @@ function GridView({ data, onCellClick }) {
 }
 
 function TableView({ data }) {
-  if (!data?.cells?.length) return <Typography color="text.secondary" sx={{ p: 2 }}>No data.</Typography>;
+  const populated = (data?.cells || []).filter(c => c.count > 0);
+  if (!populated.length) {
+    return <Typography color="text.secondary" sx={{ p: 2 }}>No rated obligations yet.</Typography>;
+  }
   return (
     <TableContainer>
       <Table size="small">
@@ -98,10 +106,10 @@ function TableView({ data }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {data.cells.filter(c => c.count > 0).map((c, i) => {
+          {populated.map((c, i) => {
             const cfg = BAND_COLORS[c.band] || BAND_COLORS.Low;
             return (
-              <TableRow key={i} hover>
+              <TableRow key={`${c.impact}-${c.likelihood}-${i}`} hover>
                 <TableCell>{c.impact}</TableCell>
                 <TableCell>{c.likelihood}</TableCell>
                 <TableCell align="right">{c.score}</TableCell>
@@ -121,26 +129,26 @@ function TableView({ data }) {
 }
 
 export default function RiskHeatmap({ onCellClick }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [view, setView] = useState('grid');
   const [riskView, setRiskView] = useState('inherent');
 
-  useEffect(() => {
-    setLoading(true);
-    api.dashboard.v2.riskHeatmap(riskView).then(setData).catch(() => {}).finally(() => setLoading(false));
-  }, [riskView]);
+  const heatmapQuery = useQuery({
+    queryKey: ['dashboard', 'v2', 'riskHeatmap', riskView],
+    queryFn: ({ signal }) => api.dashboard.v2.riskHeatmap(riskView, { signal }),
+    placeholderData: keepPreviousData,
+  });
 
-  if (loading) return <CircularProgress size={24} sx={{ m: 2 }} />;
-  if (!data) return null;
+  const data = heatmapQuery.data;
+  const summary = data?.summary;
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h6">Risk Heatmap</Typography>
           <Typography variant="caption" color="text.secondary">
-            {data.summary?.total || 0} applicable obligations
+            {summary?.total ?? 0} rated applicable obligations — {summary?.critical ?? 0} critical,{' '}
+            {summary?.high ?? 0} high
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -156,9 +164,16 @@ export default function RiskHeatmap({ onCellClick }) {
           </ToggleButtonGroup>
         </Box>
       </Box>
-      {view === 'grid'
-        ? <GridView data={data} onCellClick={onCellClick} />
-        : <TableView data={data} />}
+
+      {heatmapQuery.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>{heatmapQuery.error?.message || 'Failed to load risk heatmap'}</Alert>
+      )}
+
+      {heatmapQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
+        view === 'grid'
+          ? <GridView data={data} onCellClick={onCellClick} />
+          : <TableView data={data} />
+      )}
     </Paper>
   );
 }

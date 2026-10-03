@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.RegulatorSummary;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.CreateRegulatorRequest;
@@ -83,7 +84,7 @@ public class RegulatorService {
         Long tenantId = tenantIdentity.currentTenantId();
         return repo.findByIdAndTenantId(id, tenantId)
             .map(mapper::toDto)
-            .orElseThrow(() -> new RuntimeException("Regulator not found"));
+            .orElseThrow(() -> ApiException.notFound("Regulator not found"));
     }
 
     @Transactional
@@ -100,7 +101,7 @@ public class RegulatorService {
     public TenantRegulatorDto update(Long id, UpdateRegulatorRequest req) {
         Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator entity = repo.findByIdAndTenantId(id, tenantId)
-            .orElseThrow(() -> new RuntimeException("Regulator not found"));
+            .orElseThrow(() -> ApiException.notFound("Regulator not found"));
         if (req.getName() != null && !req.getName().equalsIgnoreCase(entity.getName())
             && repo.existsByTenantIdAndNameIgnoreCase(tenantId, req.getName()))
             throw new IllegalArgumentException("Regulator with this name already exists");
@@ -112,7 +113,7 @@ public class RegulatorService {
     public void disable(Long id) {
         Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator entity = repo.findByIdAndTenantId(id, tenantId)
-            .orElseThrow(() -> new RuntimeException("Regulator not found"));
+            .orElseThrow(() -> ApiException.notFound("Regulator not found"));
         entity.setIsActive(false);
         repo.save(entity);
     }

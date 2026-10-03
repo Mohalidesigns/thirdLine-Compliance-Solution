@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
-  Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid,
+  Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid, Skeleton,
   Stepper, Step, StepLabel, Card, CardContent, CardHeader,
   Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, Add, Schedule, WarningAmber, CheckCircle,
-  RadioButtonUnchecked, Link as LinkIcon, ArrowBack, ExpandMore, ExpandLess,
+  Search, Refresh, Close, Add, Schedule, CheckCircle,
+  Link as LinkIcon, ExpandMore, ExpandLess,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
@@ -18,6 +19,22 @@ const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
   'Submitted Late': 'warning', 'Overdue': 'error',
 };
+
+// harmonized with ReviewInboxPage / ObligationsRegisterPage
+const INHERENT_RISK_CONFIG = {
+  Critical: { color: 'error' },
+  Extreme: { color: 'error' },
+  High: { color: 'error' },
+  Moderate: { color: 'warning' },
+  Medium: { color: 'warning' },
+  Low: { color: 'success' },
+};
+
+function inherentRiskChip(rating) {
+  const cfg = INHERENT_RISK_CONFIG[rating];
+  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+}
 
 const STAGE_NAMES = ['Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
 const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
@@ -28,24 +45,16 @@ function formatDate(d) {
 }
 
 const COLUMNS = [
-  { id: 'returnName', label: 'Return', minWidth: 260, sortField: 'returnName' },
-  { id: 'actName', label: 'Act', minWidth: 180, sortField: 'actName' },
+  { id: 'returnName', label: 'Return (Act + Frequency)', minWidth: 300, sortField: 'returnName' },
   { id: 'regulator', label: 'Regulator', minWidth: 130, sortField: 'filingRegulator' },
-  { id: 'frequency', label: 'Frequency', minWidth: 100, sortField: 'frequency' },
+  { id: 'responsible', label: 'Responsible Party', minWidth: 170 },
   { id: 'dueDate', label: 'Due Date', minWidth: 110, sortField: 'currentDueDate' },
   { id: 'status', label: 'Status', minWidth: 110, sortField: 'currentStatus' },
 ];
 
 export default function ReturnsPage() {
-  const [view, setView] = useState('list');
+  const queryClient = useQueryClient();
   const [detailId, setDetailId] = useState(null);
-  const [detail, setDetail] = useState(null);
-
-  const [stats, setStats] = useState(null);
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -64,41 +73,40 @@ export default function ReturnsPage() {
 
   const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All';
 
-  const loadStats = useCallback(async () => {
-    try { setStats(await api.returns.stats()); } catch { /* optional */ }
-  }, []);
+  const params = { page, size: rowsPerPage };
+  if (search) params.q = search;
+  if (statusFilter !== 'All') params.status = statusFilter;
+  if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
+  if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
+  if (actFilter !== 'All') params.act = actFilter;
+  if (sortField) params.sort = `${sortField},${sortDir}`;
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = { page, size: rowsPerPage };
-      if (search) params.q = search;
-      if (statusFilter !== 'All') params.status = statusFilter;
-      if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
-      if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
-      if (actFilter !== 'All') params.act = actFilter;
-      if (sortField) params.sort = `${sortField},${sortDir}`;
-      const data = await api.returns.register(params);
-      setItems(data.content || []);
-      setTotal(data.totalElements || 0);
-    } catch (e) { setError(e.message || 'Failed to load returns.'); }
-    finally { setLoading(false); }
-  }, [page, rowsPerPage, search, statusFilter, frequencyFilter, regulatorFilter, actFilter, sortField, sortDir]);
+  const listQuery = useQuery({
+    queryKey: ['returns', 'register', params],
+    queryFn: ({ signal }) => api.returns.register(params, { signal }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadList(); }, [loadList]);
-  useEffect(() => { loadStats(); }, []);
+  const statsQuery = useQuery({
+    queryKey: ['returns', 'stats'],
+    queryFn: ({ signal }) => api.returns.stats({ signal }),
+  });
 
-  const loadDetail = useCallback(async (id) => {
-    setLoading(true);
-    try {
-      const res = await api.returns.detail(id);
-      setDetail(res);
-      setDetailId(id);
-      setView('detail');
-    } catch (e) { setSnackbar(e.message); }
-    finally { setLoading(false); }
-  }, []);
+  const detailQuery = useQuery({
+    queryKey: ['returns', 'detail', String(detailId)],
+    queryFn: () => api.returns.detail(detailId),
+    enabled: detailId != null,
+  });
+
+  const items = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements || 0;
+  const stats = statsQuery.data;
+  const loading = listQuery.isPending;
+  const error = listQuery.error?.message || '';
+
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: ['returns'] });
+  }
 
   function clearFilters() {
     setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All'); setActFilter('All');
@@ -120,12 +128,23 @@ export default function ReturnsPage() {
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, color: '#38A169', bg: '#F0FFF4' },
   ];
 
-  if (view === 'detail' && detail) {
+  if (detailId != null) {
+    if (detailQuery.isPending) {
+      return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
+    }
+    if (detailQuery.error) {
+      return (
+        <Alert severity="error" sx={{ mt: 2 }}
+          action={<Button size="small" onClick={() => setDetailId(null)}>Back</Button>}>
+          {detailQuery.error.message || 'Failed to load return instance.'}
+        </Alert>
+      );
+    }
     return (
       <DetailView
-        detail={detail}
-        onBack={() => { setView('list'); setDetail(null); setDetailId(null); }}
-        onRefresh={() => loadDetail(detailId)}
+        detail={detailQuery.data}
+        onBack={() => setDetailId(null)}
+        onRefresh={refresh}
         onSnackbar={setSnackbar}
       />
     );
@@ -143,7 +162,7 @@ export default function ReturnsPage() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Refresh">
-            <IconButton onClick={() => { loadList(); loadStats(); }}><Refresh /></IconButton>
+            <IconButton onClick={refresh}><Refresh /></IconButton>
           </Tooltip>
           <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
             sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
@@ -152,7 +171,12 @@ export default function ReturnsPage() {
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}
+          action={<Button size="small" onClick={() => listQuery.refetch()}>Retry</Button>}>
+          {error}
+        </Alert>
+      )}
 
       {/* KPI cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
@@ -253,7 +277,10 @@ export default function ReturnsPage() {
                       rowBg={rowBg}
                       status={status}
                       onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
-                      onDetail={() => loadDetail(item.currentInstanceId)}
+                      onDetail={() => {
+                        if (item.currentInstanceId != null) setDetailId(item.currentInstanceId);
+                        else setSnackbar('No filing instance for this return yet.');
+                      }}
                     />
                   );
                 })}
@@ -267,7 +294,7 @@ export default function ReturnsPage() {
       )}
 
       <CreateReturnDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={() => { setCreateOpen(false); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
+        onSaved={() => { setCreateOpen(false); refresh(); }} onSnackbar={setSnackbar} />
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -286,28 +313,42 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
         borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}
         onClick={onDetail}>
         <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
-        <TableCell>
+        <TableCell sx={{ minWidth: 300, maxWidth: 380 }}>
           <Tooltip title={item.returnName || 'Untitled'}>
-            <Typography variant="body2" sx={{ maxWidth: 260, fontWeight: 500,
+            <Typography variant="body2" sx={{ maxWidth: 340, fontWeight: 700, lineHeight: 1.2,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.returnName || 'Untitled'}
             </Typography>
           </Tooltip>
-        </TableCell>
-        <TableCell>
-          <Tooltip title={item.actName || '-'}>
-            <Typography variant="body2" sx={{ maxWidth: 180,
+          <Tooltip title={item.actName || ''}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 340,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {item.actName || '-'}
+              {item.actName || 'No act recorded'}
             </Typography>
           </Tooltip>
+          <Box sx={{ mt: 0.5 }}>
+            <Chip size="small" label={item.frequency || item.frequencyType || 'Ad hoc'}
+              variant="outlined" sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
+          </Box>
         </TableCell>
         <TableCell>
           <Typography variant="body2">{item.filingRegulator || '-'}</Typography>
         </TableCell>
-        <TableCell>
-          <Chip size="small" label={item.frequency || item.frequencyType || '-'}
-            variant="outlined" sx={{ height: 22 }} />
+        <TableCell sx={{ maxWidth: 200 }}>
+          {item.responsibleUnit || item.responsiblePerson ? (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.2, maxWidth: 190,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.responsibleUnit || '-'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 190,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.responsiblePerson || 'Unassigned'}
+              </Typography>
+            </>
+          ) : (
+            <Typography variant="caption" sx={{ color: '#CBD5E0' }}>Unassigned</Typography>
+          )}
         </TableCell>
         <TableCell>{formatDate(item.currentDueDate)}</TableCell>
         <TableCell>
@@ -317,44 +358,148 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
             sx={{ height: 22 }} />
         </TableCell>
         <TableCell>
-          {item.upcomingInstances && item.upcomingInstances.length > 0 && (
+          <Tooltip title={isExpanded ? 'Hide details' : 'Show linked obligations'}>
             <IconButton size="small" onClick={e => { e.stopPropagation(); onExpand(); }}>
               {isExpanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
-          )}
+          </Tooltip>
         </TableCell>
       </TableRow>
-      {/* Expandable upcoming instances */}
-      {isExpanded && item.upcomingInstances && item.upcomingInstances.length > 0 && (
-        <TableRow>
-          <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, bgcolor: '#FAFBFC' }}>
-            <Collapse in={isExpanded}>
-              <Box sx={{ py: 1.5, pl: 4 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
-                  Upcoming Periods
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                  {item.upcomingInstances.map(inst => (
-                    <Paper key={inst.instanceId} variant="outlined" sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period}</Typography>
-                      <Typography variant="caption" color="text.secondary">{formatDate(inst.dueDate)}</Typography>
-                      <Chip size="small" label={inst.status || 'Not Started'}
-                        color={STATUS_COLORS[inst.status] || 'default'}
-                        sx={{ height: 18, fontSize: '0.65rem' }} />
-                    </Paper>
-                  ))}
-                </Box>
-                {item.totalInstances > 1 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    {item.totalInstances} total instance{item.totalInstances !== 1 ? 's' : ''} · {item.overcomeCount || 0} overdue
+      <TableRow>
+        <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, border: 0, bgcolor: '#FAFBFC' }}>
+          <Collapse in={isExpanded} unmountOnExit>
+            <Box sx={{ py: 1.5, pl: 4, pr: 2 }}>
+              {item.upcomingInstances && item.upcomingInstances.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                    Upcoming Periods
                   </Typography>
-                )}
-              </Box>
-            </Collapse>
-          </TableCell>
-        </TableRow>
-      )}
+                  <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                    {item.upcomingInstances.map(inst => (
+                      <Paper key={inst.instanceId} variant="outlined" sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period}</Typography>
+                        <Typography variant="caption" color="text.secondary">{formatDate(inst.dueDate)}</Typography>
+                        <Chip size="small" label={inst.status || 'Not Started'}
+                          color={STATUS_COLORS[inst.status] || 'default'}
+                          sx={{ height: 18, fontSize: '0.65rem' }} />
+                      </Paper>
+                    ))}
+                  </Box>
+                  {item.totalInstances > 1 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      {item.totalInstances} total instance{item.totalInstances !== 1 ? 's' : ''} · {item.overdueCount || 0} overdue
+                    </Typography>
+                  )}
+                </Box>
+              )}
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                Linked Obligations
+              </Typography>
+              <LinkedObligations returnId={item.returnId} />
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
     </>
+  );
+}
+
+/* ───────── Linked Obligations (lazy — mounted only while expanded) ───────── */
+function LinkedObligations({ returnId }) {
+  const query = useQuery({
+    queryKey: ['returns', 'obligations', String(returnId)],
+    queryFn: ({ signal }) => api.returns.linkedObligations(returnId, { signal }),
+  });
+
+  if (query.isPending) {
+    return (
+      <Box sx={{ py: 0.5 }}>
+        {[0, 1, 2].map(i => <Skeleton key={i} height={32} sx={{ mb: 0.5 }} />)}
+      </Box>
+    );
+  }
+
+  if (query.error) {
+    return (
+      <Alert severity="error" sx={{ my: 1 }}
+        action={<Button size="small" onClick={() => query.refetch()}>Retry</Button>}>
+        {query.error.message || 'Failed to load linked obligations.'}
+      </Alert>
+    );
+  }
+
+  const obligations = query.data || [];
+  if (obligations.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: '#A0AEC0', py: 2 }}>
+        No obligations linked to this return.
+      </Typography>
+    );
+  }
+
+  return (
+    <Paper variant="outlined">
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 36 }}>#</TableCell>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', minWidth: 260 }}>Obligation</TableCell>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 110 }}>Section</TableCell>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 140 }}>Area</TableCell>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Risk</TableCell>
+              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Act</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {obligations.map((o, i) => (
+              <TableRow key={o.obligationId ?? i} hover sx={{ '& > td': { py: 1 } }}>
+                <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>{i + 1}</TableCell>
+                <TableCell sx={{ minWidth: 260, maxWidth: 380 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2, maxWidth: 330,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {o.title || o.name || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
+                  </Typography>
+                  {o.plainEnglishStatement ? (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 360,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {o.plainEnglishStatement}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {o.sectionReference ? (
+                    <Chip size="small" label={o.sectionReference.slice(0, 24)} variant="outlined"
+                      sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {o.areaOfFocus ? (
+                    <Chip size="small" variant="outlined" label={o.areaOfFocus}
+                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 130 }} />
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+                <TableCell>{inherentRiskChip(o.inherentRiskRating)}</TableCell>
+                <TableCell>
+                  {o.actName ? (
+                    <Chip size="small" variant="outlined" label={o.actName.slice(0, 22)}
+                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">-</Typography>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
   );
 }
 
@@ -485,9 +630,9 @@ function AdvanceDialog({ open, onClose, instanceId, stageName, nextStageName, on
           Mark "{stageName}" complete and advance to "{nextStageName}"
         </Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
+          <Grid size={{ xs: 12 }}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
             onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid item xs={12}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
+          <Grid size={{ xs: 12 }}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
             onChange={e => setForm(f => ({ ...f, completedByName: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>

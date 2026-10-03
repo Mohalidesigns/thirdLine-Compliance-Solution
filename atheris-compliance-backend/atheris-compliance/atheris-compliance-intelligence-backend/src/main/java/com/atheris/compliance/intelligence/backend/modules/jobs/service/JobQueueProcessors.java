@@ -8,15 +8,14 @@ import com.atheris.compliance.intelligence.backend.modules.regulators.repository
 import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
 import com.atheris.compliance.intelligence.backend.modules.tenants.repository.TenantRepository;
 import com.atheris.compliance.common.Constants;
+import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Instant;
 import java.util.*;
 
@@ -37,7 +36,7 @@ public class JobQueueProcessors {
     private final TenantRepository tenants;
     private final StorageService storage;
     private final InstrumentRepository instruments;
-    private final EntityManager em;
+    private final TransactionTemplate tx;
 
     // ── Horizon Scanner: every 15 minutes ──
     @Scheduled(fixedDelayString = "${atheris.jobs.scraper-interval-ms:900000}")
@@ -48,7 +47,6 @@ public class JobQueueProcessors {
 
     // ── OCR Processor: every 2 minutes ──
     @Scheduled(fixedDelayString = "${atheris.jobs.ocr-processor-interval-ms:120000}")
-    @Transactional
     public void processOcrQueue() {
         for (int i = 0; i < OCR_BATCH; i++) {
             var jobOpt = jobQueue.claimOneWithPriority(Constants.JOB_OCR, 1)
@@ -56,6 +54,7 @@ public class JobQueueProcessors {
             if (jobOpt.isEmpty()) break;
             var job = jobOpt.get();
             try {
+                tx.executeWithoutResult(status -> {
                     Map<String, Object> p = job.getPayload();
                     String s3Key = (String) p.get("pdf_s3_url");
                     Long regulatorId = Long.valueOf(p.get("regulator_id").toString());
@@ -71,13 +70,13 @@ public class JobQueueProcessors {
                     if (instruments.existsBySourceUrl(sourceUrl)) {
                         log.info("OCR job {}: instrument already exists for source_url {}, skipping", job.getJobId(), sourceUrl);
                         jobQueue.markCompleted(job.getJobId());
-                        continue;
+                        return;
                     }
                     String pdfHash = (String) p.getOrDefault("pdf_hash", "");
                     if (!pdfHash.isEmpty() && instruments.existsByPdfHash(pdfHash)) {
                         log.info("OCR job {}: instrument already exists for pdf_hash {}, skipping", job.getJobId(), pdfHash);
                         jobQueue.markCompleted(job.getJobId());
-                        continue;
+                        return;
                     }
                     Instrument saved = instruments.save(Instrument.builder()
                         .regulatorId(regulatorId.intValue())
@@ -99,19 +98,16 @@ public class JobQueueProcessors {
 
                     jobQueue.markCompleted(job.getJobId());
                     log.info("OCR job {} done. {} chars extracted.", job.getJobId(), ocrText.length());
-
-                } catch (Throwable e) {
-                    log.error("OCR job {} failed: {}", job.getJobId(), e.getMessage());
-                    em.clear();
-                    jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
-                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-                }
+                });
+            } catch (Throwable e) {
+                log.error("OCR job {} failed: {}", job.getJobId(), e.getMessage());
+                jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
             }
+        }
     }
 
     // ── Classifier: every 5 minutes ──
     @Scheduled(fixedDelayString = "${atheris.jobs.classifier-interval-ms:300000}")
-    @Transactional
     public void processClassifierQueue() {
         for (int i = 0; i < CLASSIFY_BATCH; i++) {
             var jobOpt = jobQueue.claimOneWithPriority(Constants.JOB_CLASSIFY, 1)
@@ -119,51 +115,52 @@ public class JobQueueProcessors {
             if (jobOpt.isEmpty()) break;
             var job = jobOpt.get();
             try {
-                Map<String, Object> p = job.getPayload();
-                Long instrumentId = job.getSubjectId();
-                String ocrText = (String) p.get("ocr_text");
-                if (instrumentId == null) {
-                    log.warn("Classifier job {} has null subjectId, skipping", job.getJobId());
-                    jobQueue.markCompleted(job.getJobId());
-                    continue;
-                }
-                classifier.classifyAsync(instrumentId, ocrText);
-                jobQueue.markCompleted(job.getJobId());
-                log.info("Classifier job {} done for instrument {}", job.getJobId(), instrumentId);
-            } catch (Throwable e) {
-                    if (e.getMessage() != null && e.getMessage().contains("All AI models inactive")) {
-                        log.info("[Classifier] Deferred for instrument {} — cooldown active, will retry on next tick", job.getSubjectId());
-                        em.clear();
-                        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-                        break;
+                tx.executeWithoutResult(status -> {
+                    Map<String, Object> p = job.getPayload();
+                    Long instrumentId = job.getSubjectId();
+                    String ocrText = (String) p.get("ocr_text");
+                    if (instrumentId == null) {
+                        log.warn("Classifier job {} has null subjectId, skipping", job.getJobId());
+                        jobQueue.markCompleted(job.getJobId());
+                        return;
                     }
-                    log.error("Classifier job {} failed: {}", job.getJobId(), e.getMessage());
-                    em.clear();
-                    jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
-                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    classifier.classifyAsync(instrumentId, ocrText);
+                    jobQueue.markCompleted(job.getJobId());
+                    log.info("Classifier job {} done for instrument {}", job.getJobId(), instrumentId);
+                });
+            } catch (Throwable e) {
+                if (AiClient.isCooldown(e)) {
+                    // Every AI model is cooling down after rate limits. Not the job's
+                    // fault: hand the claim back (pending, attempt not counted) and
+                    // stop this tick — the rest of the batch would defer the same way.
+                    log.info("[Classifier] Deferred for instrument {} — cooldown active, will retry on next tick", job.getSubjectId());
+                    jobQueue.releaseClaim(job.getJobId());
+                    break;
+                }
+                log.error("Classifier job {} failed: {}", job.getJobId(), e.getMessage());
+                jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
             }
         }
     }
 
     // ── Applicability evaluator: every 5 minutes ──
     @Scheduled(fixedDelayString = "${atheris.jobs.applicability-interval-ms:300000}")
-    @Transactional
     public void processApplicabilityQueue() {
         for (int i = 0; i < APPLICABILITY_BATCH; i++) {
             var jobOpt = jobQueue.claimOne(Constants.JOB_APPLICABILITY);
             if (jobOpt.isEmpty()) break;
             var job = jobOpt.get();
             try {
-                Long instrumentId = job.getSubjectId();
-                List<Long> matchedTenantIds = findMatchingTenants(instrumentId);
+                tx.executeWithoutResult(status -> {
+                    Long instrumentId = job.getSubjectId();
+                    List<Long> matchedTenantIds = findMatchingTenants(instrumentId);
 
-                jobQueue.markCompleted(job.getJobId());
-                log.info("Applicability job {} done. {} tenants matched.", job.getJobId(), matchedTenantIds.size());
+                    jobQueue.markCompleted(job.getJobId());
+                    log.info("Applicability job {} done. {} tenants matched.", job.getJobId(), matchedTenantIds.size());
+                });
             } catch (Throwable e) {
                 log.error("Applicability job {} failed: {}", job.getJobId(), e.getMessage());
-                em.clear();
                 jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
-                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             }
         }
     }

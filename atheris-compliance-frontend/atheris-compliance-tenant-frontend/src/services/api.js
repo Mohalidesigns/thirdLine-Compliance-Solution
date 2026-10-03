@@ -8,6 +8,20 @@ export const getToken = () => authToken;
 export const setRefreshToken = (t) => { authRefreshToken = t; };
 export const getRefreshToken = () => authRefreshToken;
 
+// A PDF endpoint answers 404 with {error, message} when the record has no stored
+// document (common: toolkit-imported instruments never carry one). Turn that into
+// a message worth showing, and fall back to the generic one for real failures.
+export async function pdfErrorMessage(res, fallback = 'Failed to load PDF.') {
+  try {
+    const body = await res.clone().json();
+    const code = String(body?.error || '').toLowerCase();
+    if (code === 'document_unavailable') return 'No document is available for this instrument.';
+  } catch {
+    // non-JSON body (proxy/network error) — fall through
+  }
+  return fallback;
+}
+
 const STORAGE_KEY_TOKEN = 'atheris_tenant_token';
 const STORAGE_KEY_REFRESH = 'atheris_tenant_refresh_token';
 const STORAGE_KEY_USER = 'atheris_tenant_user';
@@ -250,13 +264,13 @@ export const api = {
       const s = qs.toString();
       return request(`/returns/calendar${s ? '?' + s : ''}`);
     },
-    register: (params = {}) => {
+    register: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/returns/register${s ? '?' + s : ''}`);
+      return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/returns/stats'),
+    stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
     detail: (id) => request(`/returns/instances/${id}/detail`),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -264,16 +278,16 @@ export const api = {
     linkObligations: (returnId, linkedObligationIds) => request(`/returns/${returnId}/obligations`, {
       method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
     }),
-    linkedObligations: (returnId) => request(`/returns/${returnId}/obligations`),
+    linkedObligations: (returnId, opts = {}) => request(`/returns/${returnId}/obligations`, { signal: opts.signal }),
   },
   sanctions: {
-    list: (params = {}) => {
+    list: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/sanctions${s ? '?' + s : ''}`);
+      return request(`/sanctions${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    stats: () => request('/sanctions/stats'),
+    stats: (opts = {}) => request('/sanctions/stats', { signal: opts.signal }),
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
@@ -322,14 +336,14 @@ export const api = {
     trends: () => request('/dashboard/trends'),
     attentionItems: () => request('/dashboard/attention-items'),
     v2: {
-      returnsByPeriod: (from, to) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`),
-      renditionGrid: (from, to, groupBy = 'department') => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`),
-      riskHeatmap: (view = 'inherent') => request(`/dashboard/v2/risk-heatmap?view=${view}`),
-      escalationMatrix: () => request('/dashboard/v2/escalation-matrix'),
-      controlCoverage: (by = 'areaOfFocus') => request(`/dashboard/v2/control-coverage?by=${by}`),
-      riskProfile: () => request('/dashboard/v2/risk-profile'),
-      thresholds: (tenantId) => request(`/dashboard/v2/thresholds?tenantId=${tenantId}`),
-      saveThresholds: (tenantId, data) => request(`/dashboard/v2/thresholds?tenantId=${tenantId}`, {
+      returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
+      renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
+      riskHeatmap: (view = 'inherent', opts = {}) => request(`/dashboard/v2/risk-heatmap?view=${view}`, { signal: opts.signal }),
+      escalationMatrix: (opts = {}) => request('/dashboard/v2/escalation-matrix', { signal: opts.signal }),
+      controlCoverage: (by = 'areaOfFocus', opts = {}) => request(`/dashboard/v2/control-coverage?by=${by}`, { signal: opts.signal }),
+      riskProfile: (opts = {}) => request('/dashboard/v2/risk-profile', { signal: opts.signal }),
+      thresholds: (opts = {}) => request('/dashboard/v2/thresholds', { signal: opts.signal }),
+      saveThresholds: (data) => request('/dashboard/v2/thresholds', {
         method: 'PUT', body: JSON.stringify(data),
       }),
     },

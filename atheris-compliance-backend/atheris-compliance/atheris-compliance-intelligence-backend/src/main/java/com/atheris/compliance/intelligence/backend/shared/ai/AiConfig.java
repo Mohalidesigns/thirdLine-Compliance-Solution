@@ -1,57 +1,45 @@
 package com.atheris.compliance.intelligence.backend.shared.ai;
 
-import com.google.genai.Client;
-import io.micrometer.observation.ObservationRegistry;
-import org.springframework.ai.google.genai.GoogleGenAiChatModel;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.ai.model.tool.ToolCallingManager;
-import org.springframework.retry.support.RetryTemplate;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
+/**
+ * Primary + fallback chat models for {@link AiClient}.
+ *
+ * Both are derived from Spring AI's auto-configured OpenAI-compatible model
+ * (pointed at OpenRouter via {@code spring.ai.openai.*}), so they share the API
+ * key, base URL, temperature and token limit, and differ only in the model id
+ * ({@code atheris.ai.primary-model} / {@code atheris.ai.fallback-model}, both
+ * env-driven). Credentials live in env vars only.
+ */
 @Configuration
 public class AiConfig {
 
-    @Value("${atheris.ai.primary-model:gemini-3.1-flash-lite}")
+    @Value("${atheris.ai.primary-model}")
     private String primaryModelName;
 
-    @Value("${atheris.ai.fallback-model:gemini-3.5-flash-lite}")
+    @Value("${atheris.ai.fallback-model}")
     private String fallbackModelName;
 
     @Bean("primaryChatModel")
-    public GoogleGenAiChatModel primaryChatModel(ObservationRegistry observationRegistry) {
-        String apiKey = System.getenv("GEMINI_API_KEY");
-        Client client = Client.builder().apiKey(apiKey).build();
-
-        return new GoogleGenAiChatModel(
-            client,
-            GoogleGenAiChatOptions.builder()
-                .model(primaryModelName)
-                .temperature(0.0)
-                .maxOutputTokens(3500)
-                .build(),
-            ToolCallingManager.builder().build(),
-            new RetryTemplate(),
-            observationRegistry);
+    @Primary
+    public ChatModel primaryChatModel(OpenAiChatModel openAiChatModel) {
+        return withModel(openAiChatModel, primaryModelName);
     }
 
     @Bean("fallbackChatModel")
-    @Primary
-    public GoogleGenAiChatModel fallbackChatModel(ObservationRegistry observationRegistry) {
-        String apiKey = System.getenv("GEMINI_API_KEY");
-        Client client = Client.builder().apiKey(apiKey).build();
+    public ChatModel fallbackChatModel(OpenAiChatModel openAiChatModel) {
+        return withModel(openAiChatModel, fallbackModelName);
+    }
 
-        return new GoogleGenAiChatModel(
-            client,
-            GoogleGenAiChatOptions.builder()
-                .model(fallbackModelName)
-                .temperature(0.0)
-                .maxOutputTokens(3500)
-                .build(),
-            ToolCallingManager.builder().build(),
-            new RetryTemplate(),
-            observationRegistry);
+    private static ChatModel withModel(OpenAiChatModel base, String modelName) {
+        OpenAiChatOptions options = ((OpenAiChatOptions) base.getDefaultOptions()).copy();
+        options.setModel(modelName);
+        return base.mutate().defaultOptions(options).build();
     }
 }

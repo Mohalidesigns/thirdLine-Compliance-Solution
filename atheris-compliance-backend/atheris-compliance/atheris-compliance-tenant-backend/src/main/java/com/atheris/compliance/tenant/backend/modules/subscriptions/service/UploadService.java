@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewObligation;
 import com.atheris.compliance.tenant.backend.modules.review.entity.ReviewSanction;
@@ -111,7 +112,7 @@ public class UploadService {
     public UploadReviewResponse getReview(UUID uploadId) {
         Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
-            .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
+            .orElseThrow(() -> ApiException.notFound("Upload not found"));
 
         Long instrumentId = job.getPlatformInstrumentId();
         if (instrumentId == null && job.getPlatformJobId() != null) {
@@ -167,11 +168,11 @@ public class UploadService {
     public UploadJobResponse confirm(UUID uploadId, ConfirmUploadRequest req) {
         Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
-            .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
+            .orElseThrow(() -> ApiException.notFound("Upload not found"));
 
         Long instrumentId = job.getPlatformInstrumentId();
         if (instrumentId == null) {
-            throw new IllegalStateException("Upload has no instrument yet");
+            throw ApiException.conflict("upload_not_ready", "This upload is still being processed and has no instrument yet");
         }
 
         PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(instrumentId);
@@ -241,7 +242,7 @@ public class UploadService {
     public UploadJobResponse getUploadStatus(UUID uploadId) {
         Long tenantId = tenantIdentity.currentTenantId();
         UploadJob job = uploadJobs.findByUploadIdAndTenantId(uploadId, tenantId)
-            .orElseThrow(() -> new IllegalArgumentException("Upload not found"));
+            .orElseThrow(() -> ApiException.notFound("Upload not found"));
 
         if ("processing".equals(job.getStatus()) && job.getPlatformJobId() != null) {
             IngestResponseDto status = platformClient.getUploadStatus(job.getPlatformJobId());

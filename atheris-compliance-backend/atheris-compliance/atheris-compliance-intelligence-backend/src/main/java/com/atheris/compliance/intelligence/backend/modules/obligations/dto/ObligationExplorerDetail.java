@@ -16,6 +16,7 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ObligationExplorerDetail {
     private Long obligationId;
+    private Integer obligationNumber;
     private String title;
     private String description;
     private String plainEnglishStatement;
@@ -33,6 +34,7 @@ public class ObligationExplorerDetail {
     private String regulatorName;
     private Integer regulatorId;
     private String actName;
+    private String actAbbreviation;
     private Long actId;
     private String instrumentTitle;
     private Long instrumentId;
@@ -59,6 +61,11 @@ public class ObligationExplorerDetail {
     private List<SanctionInfo> sanctions = List.of();
     @Builder.Default
     private List<ReturnInfo> returns = List.of();
+
+    /** Alias of {@link #returns}: the detail page reads `linkedReturns`. */
+    public List<ReturnInfo> getLinkedReturns() {
+        return returns;
+    }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -10,6 +10,8 @@ import com.atheris.compliance.intelligence.backend.modules.notifications.reposit
 import com.atheris.compliance.intelligence.backend.modules.notifications.service.ChangeNotificationService;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
+import com.atheris.compliance.intelligence.backend.shared.exception.DocumentUnavailableException;
+import com.atheris.compliance.intelligence.backend.shared.exception.ResourceNotFoundException;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 import jakarta.persistence.criteria.Predicate;
@@ -54,20 +57,37 @@ public class ObligationBrowserService {
 
     public ObligationDetailDto findById(Long id, Long tenantId) {
         Instrument inst = instruments.findById(id)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Obligation not found: " + id));
         return toDetailDto(inst, tenantId);
     }
 
     public String getPdfPresignedUrl(Long instrumentId) {
         Instrument inst = instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Not found"));
-        return storage.generatePresignedUrl(inst.getPdfUrl(), 3600); // 1 hour
+            .orElseThrow(() -> new ResourceNotFoundException("Instrument not found: " + instrumentId));
+        return storage.generatePresignedUrl(requirePdfKey(inst), 3600); // 1 hour
     }
 
     public InputStream openPdfStream(Long instrumentId) throws IOException {
         Instrument inst = instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Not found"));
-        return storage.openReadStream(inst.getPdfUrl());
+            .orElseThrow(() -> new ResourceNotFoundException("Instrument not found: " + instrumentId));
+        String key = requirePdfKey(inst);
+        try {
+            return storage.openReadStream(key);
+        } catch (NoSuchFileException e) {
+            log.warn("Instrument {} points at missing document {}", instrumentId, key);
+            throw new DocumentUnavailableException(
+                "No document stored for instrument " + instrumentId);
+        }
+    }
+
+    /** Toolkit-imported instruments carry no document, so pdfUrl is routinely null. */
+    private String requirePdfKey(Instrument inst) {
+        String key = inst.getPdfUrl();
+        if (key == null || key.isBlank()) {
+            throw new DocumentUnavailableException(
+                "No document stored for instrument " + inst.getInstrumentId());
+        }
+        return key;
     }
 
     public Object getClassification(Long instrumentId, Long tenantId) {
@@ -84,7 +104,7 @@ public class ObligationBrowserService {
 
     public Object updateWatchPreferences(Long instrumentId, Long tenantId, WatchPreferencesRequest req) {
         ObligationWatch watch = watches.findByInstrumentIdAndTenantId(instrumentId, tenantId)
-            .orElseThrow(() -> new RuntimeException("No watch found for this obligation"));
+            .orElseThrow(() -> new ResourceNotFoundException("No watch found for this obligation"));
         if (req.getNotifyEmail() != null) watch.setNotifyEmail(req.getNotifyEmail());
         if (req.getNotifyInApp() != null) watch.setNotifyInApp(req.getNotifyInApp());
         if (req.getNotifyWebhook() != null) watch.setNotifyWebhook(req.getNotifyWebhook());
@@ -119,7 +139,7 @@ public class ObligationBrowserService {
                                       ClassifyRequest req, Integer userId) {
         // Validate instrument exists
         instruments.findById(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + instrumentId));
+            .orElseThrow(() -> new ResourceNotFoundException("Obligation not found: " + instrumentId));
 
         // Create/update watch
         ObligationWatch watch = notificationService.upsertWatch(

@@ -10,7 +10,6 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
@@ -44,10 +43,22 @@ public class DashboardV2Service {
 
     private static final int APPROACHING_WINDOWS_DAYS_4 = 30;
 
+    private static final List<String> DEFAULT_IMPACT_LEVELS =
+        List.of("Low", "Medium", "High", "Critical");
+    private static final List<String> DEFAULT_LIKELIHOOD_LEVELS =
+        List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
+
     private Map<Long, String> buildAreaOfFocusMap() {
         return obligationRepo.findAll().stream()
             .collect(Collectors.toMap(Obligation::getObligationId,
                 o -> o.getAreaOfFocus() != null ? o.getAreaOfFocus() : "Unassigned",
+                (a, b) -> a));
+    }
+
+    private Map<Long, String> buildActMap() {
+        return obligationRepo.findAll().stream()
+            .collect(Collectors.toMap(Obligation::getObligationId,
+                o -> o.getActName() != null && !o.getActName().isBlank() ? o.getActName() : "Unassigned",
                 (a, b) -> a));
     }
 
@@ -58,6 +69,11 @@ public class DashboardV2Service {
     private String resolveArea(Map<Long, String> aofMap, ObligationClassification oc) {
         String area = aofMap.get(oc.getObligationId());
         return area != null ? area : "Unassigned";
+    }
+
+    private String resolveAct(Map<Long, String> actMap, ObligationClassification oc) {
+        String act = actMap.get(oc.getObligationId());
+        return act != null ? act : "Unassigned";
     }
 
     private RiskMatrixConfig getConfig() {
@@ -104,13 +120,14 @@ public class DashboardV2Service {
             }
         }
 
+        Map<String, ThresholdDto.ThresholdRange> thresholdConfig = loadThresholds();
         List<ReturnsByPeriodDto.PeriodRow> rows = new ArrayList<>(periodMap.values());
         for (ReturnsByPeriodDto.PeriodRow row : rows) {
             int completed = row.getSubmitted();
             int total = row.getTotal();
             double pct = total > 0 ? (double) completed / total * 100 : 0;
             row.setOnTimePercentage(Math.round(pct * 10.0) / 10.0);
-            row.setColor(resolveColor(pct, "returns_on_time", 90, 70));
+            row.setColor(resolveColor(thresholdConfig, pct, "returns_on_time", 90, 70));
         }
 
         int totalInstances = rows.stream().mapToInt(ReturnsByPeriodDto.PeriodRow::getTotal).sum();
@@ -131,7 +148,7 @@ public class DashboardV2Service {
             .totalInstances(totalInstances).totalSubmitted(totalSubmitted).totalOnTime(totalSubmitted)
             .totalPending(totalPending).totalOverdue(totalOverdue)
             .overallOnTimePercentage(Math.round(overallPct * 10.0) / 10.0)
-            .overallColor(resolveColor(overallPct, "returns_on_time", 90, 70))
+            .overallColor(resolveColor(thresholdConfig, overallPct, "returns_on_time", 90, 70))
             .approachingDeadlines(approaching).build();
 
         return ReturnsByPeriodDto.builder().periods(rows).summary(summary).build();
@@ -188,7 +205,7 @@ public class DashboardV2Service {
         for (Map.Entry<String, Map<Long, RegulatoryReturn>> entry : groupedReturns.entrySet()) {
             String groupName = entry.getKey();
             List<RenditionGridDto.ReturnRow> returnRows = new ArrayList<>();
-            int gSubmitted = 0, gOverdue = 0;
+            int gTotal = 0, gSubmitted = 0, gOverdue = 0;
 
             for (Map.Entry<Long, RegulatoryReturn> retEntry : entry.getValue().entrySet()) {
                 Long returnId = retEntry.getKey();
@@ -209,6 +226,7 @@ public class DashboardV2Service {
                             .status(status)
                             .dueDate(inst.getDueDate() != null ? inst.getDueDate().toString() : null)
                             .build());
+                        gTotal++;
                         if ("SUBMITTED".equals(status)) gSubmitted++;
                         else if (inst.getDueDate() != null && inst.getDueDate().isBefore(today)) gOverdue++;
                         else totalPending++;
@@ -229,7 +247,7 @@ public class DashboardV2Service {
                 .name(groupName)
                 .returns(returnRows)
                 .groupSummary(RenditionGridDto.GroupSummary.builder()
-                    .total(returnRows.size())
+                    .total(gTotal)
                     .submitted(gSubmitted)
                     .overdue(gOverdue)
                     .build())
@@ -253,14 +271,25 @@ public class DashboardV2Service {
 
     public RiskHeatmapDto getRiskHeatmap(String view) {
         RiskMatrixConfig config = getConfig();
-        List<String> impacts = config.getImpactLevels();
-        List<String> likelihoods = config.getLikelihoodLevels();
-        Map<String, Integer> bands = config.getBandThresholds();
+        Map<String, Integer> bands = config.getBandThresholds() != null
+            ? config.getBandThresholds() : Map.of();
 
         List<ObligationClassification> all = obligations.findAll().stream()
             .filter(c -> "applicable".equals(c.getApplicability()))
             .toList();
+
+        Set<String> seenImpacts = new LinkedHashSet<>();
+        Set<String> seenLikelihoods = new LinkedHashSet<>();
+        for (ObligationClassification oc : all) {
+            String rating = "residual".equals(view) ? oc.getResidualRiskRating() : oc.getImpactRating();
+            if (rating != null) seenImpacts.add(rating);
+            if (oc.getLikelihoodRating() != null) seenLikelihoods.add(oc.getLikelihoodRating());
+        }
+        List<String> impacts = resolveAxis(config.getImpactLevels(), seenImpacts, DEFAULT_IMPACT_LEVELS);
+        List<String> likelihoods = resolveAxis(config.getLikelihoodLevels(), seenLikelihoods, DEFAULT_LIKELIHOOD_LEVELS);
+
         Map<Long, Boolean> gapMap = all.stream()
+            .filter(oc -> oc.getObligationId() != null)
             .collect(Collectors.toMap(ObligationClassification::getObligationId,
                 oc -> hasNoControl(oc), (a, b) -> a));
 
@@ -322,13 +351,22 @@ public class DashboardV2Service {
             .build();
     }
 
+    private List<String> resolveAxis(List<String> configured, Set<String> seen, List<String> fallback) {
+        List<String> axis = new ArrayList<>(
+            configured != null && !configured.isEmpty() && configured.containsAll(seen) ? configured : fallback);
+        for (String value : seen) {
+            if (!axis.contains(value)) axis.add(value);
+        }
+        return axis;
+    }
+
     private String resolveBand(int score, Map<String, Integer> bands) {
         int critical = bands.getOrDefault("critical", 18);
         int high = bands.getOrDefault("high", 12);
         int moderate = bands.getOrDefault("moderate", 6);
-        if (score > critical) return "Critical";
-        if (score > high) return "High";
-        if (score > moderate) return "Moderate";
+        if (score >= critical) return "Critical";
+        if (score >= high) return "High";
+        if (score >= moderate) return "Moderate";
         return "Low";
     }
 
@@ -345,6 +383,11 @@ public class DashboardV2Service {
         Map<Integer, Department> deptMap = departmentRepo.findAll().stream()
             .collect(Collectors.toMap(Department::getDepartmentId, d -> d, (a, b) -> a));
         Map<Long, String> aofMap = buildAreaOfFocusMap();
+        Map<Long, String> returnAreas = new HashMap<>();
+        for (var link : obligationRepo.findAllReturnLinks()) {
+            returnAreas.putIfAbsent(link.getReturnId(),
+                aofMap.getOrDefault(link.getObligationId(), "Unassigned"));
+        }
 
         List<EscalationMatrixDto.EscalationRow> rows = new ArrayList<>();
         int l1 = 0, l2 = 0, l3 = 0;
@@ -354,7 +397,7 @@ public class DashboardV2Service {
             if (rr == null) continue;
 
             Department dept = rr.getDepartmentId() != null ? deptMap.get(rr.getDepartmentId()) : null;
-            String areaOfFocus = resolveAreaForReturn(inst.getReturnId(), aofMap);
+            String areaOfFocus = returnAreas.getOrDefault(inst.getReturnId(), "Unassigned");
 
             String label = switch (inst.getEscalationLevel()) {
                 case 1 -> { l1++; yield "L1 - Analyst"; }
@@ -386,16 +429,6 @@ public class DashboardV2Service {
                 .total(rows.size()).l1(l1).l2(l2).l3(l3)
                 .build())
             .build();
-    }
-
-    private String resolveAreaForReturn(Long returnId, Map<Long, String> aofMap) {
-        List<ObligationRepository.ObligationReturnRow> links =
-            obligationRepo.findAllReturnLinks();
-        return links.stream()
-            .filter(l -> l.getReturnId().equals(returnId))
-            .map(l -> aofMap.getOrDefault(l.getObligationId(), "Unassigned"))
-            .findFirst()
-            .orElse("Unassigned");
     }
 
     // ------------------------------------------------------------------ control coverage
@@ -436,13 +469,32 @@ public class DashboardV2Service {
         return buildCoverageResult("Department", map);
     }
 
+    public ControlCoverageDto getControlCoverageByAct() {
+        List<ObligationClassification> all = obligations.findAll().stream()
+            .filter(c -> "applicable".equals(c.getApplicability()))
+            .toList();
+        Map<Long, String> actMap = buildActMap();
+
+        Map<String, ControlCoverageDto.CoverageRow> map = new LinkedHashMap<>();
+        for (ObligationClassification oc : all) {
+            String act = resolveAct(actMap, oc);
+            ControlCoverageDto.CoverageRow row = map.computeIfAbsent(act, k ->
+                ControlCoverageDto.CoverageRow.builder().name(k).build());
+            row.setTotalObligations(row.getTotalObligations() + 1);
+            if (hasNoControl(oc)) row.setGaps(row.getGaps() + 1);
+            else row.setCovered(row.getCovered() + 1);
+        }
+        return buildCoverageResult("Act", map);
+    }
+
     private ControlCoverageDto buildCoverageResult(String dimension, Map<String, ControlCoverageDto.CoverageRow> map) {
+        Map<String, ThresholdDto.ThresholdRange> thresholdConfig = loadThresholds();
         List<ControlCoverageDto.CoverageRow> rows = new ArrayList<>(map.values());
         for (ControlCoverageDto.CoverageRow row : rows) {
             double pct = row.getTotalObligations() > 0
                 ? (double) row.getCovered() / row.getTotalObligations() * 100 : 0;
             row.setCoveragePercentage(Math.round(pct * 10.0) / 10.0);
-            row.setColor(resolveColor(pct, "control_coverage", 80, 60));
+            row.setColor(resolveColor(thresholdConfig, pct, "control_coverage", 80, 60));
         }
         int totalObligations = rows.stream().mapToInt(ControlCoverageDto.CoverageRow::getTotalObligations).sum();
         int totalCovered = rows.stream().mapToInt(ControlCoverageDto.CoverageRow::getCovered).sum();
@@ -457,7 +509,7 @@ public class DashboardV2Service {
                 .totalCovered(totalCovered)
                 .totalGaps(totalGaps)
                 .overallCoveragePercentage(Math.round(overallPct * 10.0) / 10.0)
-                .overallColor(resolveColor(overallPct, "control_coverage", 80, 60))
+                .overallColor(resolveColor(thresholdConfig, overallPct, "control_coverage", 80, 60))
                 .build())
             .build();
     }
@@ -469,6 +521,7 @@ public class DashboardV2Service {
             .filter(c -> "applicable".equals(c.getApplicability()))
             .toList();
         Map<Long, String> aofMap = buildAreaOfFocusMap();
+        Map<Long, String> actMap = buildActMap();
 
         Map<String, Integer> riskCounts = new LinkedHashMap<>();
         riskCounts.put("Critical", 0);
@@ -492,20 +545,27 @@ public class DashboardV2Service {
             .toList();
 
         Map<String, RiskProfileDto.AreaRow> areaMap = new LinkedHashMap<>();
+        Map<String, RiskProfileDto.ActRow> actRowMap = new LinkedHashMap<>();
         for (ObligationClassification oc : all) {
             String area = resolveArea(aofMap, oc);
             RiskProfileDto.AreaRow row = areaMap.computeIfAbsent(area, k ->
                 RiskProfileDto.AreaRow.builder().areaOfFocus(k).build());
+            RiskProfileDto.ActRow actRow = actRowMap.computeIfAbsent(resolveAct(actMap, oc), k ->
+                RiskProfileDto.ActRow.builder().actName(k).build());
             row.setTotal(row.getTotal() + 1);
+            actRow.setTotal(actRow.getTotal() + 1);
             String risk = oc.getInherentRiskRating() != null ? oc.getInherentRiskRating()
                 : (oc.getTenantRiskRating() != null ? oc.getTenantRiskRating() : "Low");
             switch (risk) {
-                case "Critical" -> row.setExtreme(row.getExtreme() + 1);
-                case "High" -> row.setHigh(row.getHigh() + 1);
-                case "Moderate" -> row.setMedium(row.getMedium() + 1);
-                default -> row.setLow(row.getLow() + 1);
+                case "Critical" -> { row.setExtreme(row.getExtreme() + 1); actRow.setExtreme(actRow.getExtreme() + 1); }
+                case "High" -> { row.setHigh(row.getHigh() + 1); actRow.setHigh(actRow.getHigh() + 1); }
+                case "Moderate" -> { row.setMedium(row.getMedium() + 1); actRow.setMedium(actRow.getMedium() + 1); }
+                default -> { row.setLow(row.getLow() + 1); actRow.setLow(actRow.getLow() + 1); }
             }
-            if (hasNoControl(oc)) row.setGaps(row.getGaps() + 1);
+            if (hasNoControl(oc)) {
+                row.setGaps(row.getGaps() + 1);
+                actRow.setGaps(actRow.getGaps() + 1);
+            }
         }
 
         int gapsCount = (int) all.stream().filter(this::hasNoControl).count();
@@ -513,6 +573,7 @@ public class DashboardV2Service {
         return RiskProfileDto.builder()
             .riskLevels(riskRows)
             .byAreaOfFocus(new ArrayList<>(areaMap.values()))
+            .byAct(new ArrayList<>(actRowMap.values()))
             .summary(RiskProfileDto.Summary.builder()
                 .totalApplicable(total)
                 .extremeCount(riskCounts.getOrDefault("Critical", 0))
@@ -526,18 +587,23 @@ public class DashboardV2Service {
 
     // ------------------------------------------------------------------ thresholds
 
-    public ThresholdDto getThresholds(Long tenantId) {
-        List<DashboardThreshold> saved = thresholds.findByTenantId(tenantId);
-        if (saved.isEmpty()) return ThresholdDto.defaults();
-        Map<String, ThresholdDto.ThresholdRange> map = new LinkedHashMap<>();
-        for (DashboardThreshold t : saved) {
-            map.put(t.getMetricName(), new ThresholdDto.ThresholdRange(t.getGreenMin(), t.getAmberMin()));
-        }
+    public ThresholdDto getThresholds() {
+        Map<String, ThresholdDto.ThresholdRange> map = loadThresholds();
+        if (map.isEmpty()) return ThresholdDto.defaults();
         return ThresholdDto.builder().thresholds(map).build();
     }
 
+    private Map<String, ThresholdDto.ThresholdRange> loadThresholds() {
+        Map<String, ThresholdDto.ThresholdRange> map = new LinkedHashMap<>();
+        for (DashboardThreshold t : thresholds.findByTenantId(tenantIdentity.currentTenantId())) {
+            map.put(t.getMetricName(), new ThresholdDto.ThresholdRange(t.getGreenMin(), t.getAmberMin()));
+        }
+        return map;
+    }
+
     @Transactional
-    public void saveThresholds(Long tenantId, ThresholdDto dto) {
+    public void saveThresholds(ThresholdDto dto) {
+        Long tenantId = tenantIdentity.currentTenantId();
         thresholds.deleteByTenantId(tenantId);
         if (dto.getThresholds() == null) return;
         for (Map.Entry<String, ThresholdDto.ThresholdRange> entry : dto.getThresholds().entrySet()) {
@@ -571,9 +637,13 @@ public class DashboardV2Service {
         return months;
     }
 
-    private String resolveColor(double pct, String metric, double defaultGreen, double defaultAmber) {
-        if (pct >= defaultGreen) return "green";
-        if (pct >= defaultAmber) return "amber";
+    private String resolveColor(Map<String, ThresholdDto.ThresholdRange> config, double pct, String metric,
+                                double defaultGreen, double defaultAmber) {
+        ThresholdDto.ThresholdRange range = config != null ? config.get(metric) : null;
+        double green = range != null ? range.getGreen() : defaultGreen;
+        double amber = range != null ? range.getAmber() : defaultAmber;
+        if (pct >= green) return "green";
+        if (pct >= amber) return "amber";
         return "red";
     }
 }

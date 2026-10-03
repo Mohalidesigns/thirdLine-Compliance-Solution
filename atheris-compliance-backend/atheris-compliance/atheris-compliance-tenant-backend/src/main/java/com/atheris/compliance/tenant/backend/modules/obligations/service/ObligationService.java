@@ -16,6 +16,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryRe
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformInstrumentDetail;
 import jakarta.persistence.EntityNotFoundException;
@@ -349,7 +350,7 @@ public class ObligationService {
     @Transactional
     public ObligationRegisterItem updateObligation(Long obligationId, ObligationRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         if ("deleted".equals(ob.getStatus()))
             throw new IllegalArgumentException("Obligation is deleted: " + obligationId);
         if (req.getInstrumentId() != null && !obligationRepo.existsById(req.getInstrumentId()))
@@ -380,7 +381,7 @@ public class ObligationService {
     @Transactional
     public void deleteObligation(Long obligationId, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ob.setStatus("deleted");
         obligationRepo.save(ob);
         audit.log(userId, "obligation_deleted", "obligation", obligationId, Map.of());
@@ -441,7 +442,7 @@ public class ObligationService {
 
     public ObligationDetailView getObligationDetail(Long obligationId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = classifications.findByObligationId(obligationId).orElse(null);
         PlatformInstrumentDetail d = ob.getInstrumentId() != null ? platform.getInstrumentDetail(ob.getInstrumentId()) : null;
 
@@ -569,10 +570,19 @@ public class ObligationService {
     @Transactional
     public void linkReturns(Long obligationId, List<Long> returnIds, Integer userId) {
         if (!obligationRepo.existsById(obligationId))
-            throw new RuntimeException("Obligation not found: " + obligationId);
+            throw ApiException.notFound("Obligation not found: " + obligationId);
+        Set<Long> wanted = returnIds == null ? Set.of()
+            : returnIds.stream().filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!wanted.isEmpty()) {
+            // One query for the whole set; a bad id would otherwise fail on the FK as a 500.
+            Set<Long> found = returnRepo.findAllById(wanted).stream()
+                .map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
+            for (Long rid : wanted)
+                if (!found.contains(rid)) throw ApiException.badRequest("Return not found: " + rid);
+        }
         obligationRepo.deleteReturnLinks(obligationId);
-        if (returnIds != null) {
-            for (Long rid : new LinkedHashSet<>(returnIds)) {
+        if (!wanted.isEmpty()) {
+            for (Long rid : wanted) {
                 obligationRepo.insertReturnLink(obligationId, rid);
             }
         }
@@ -619,7 +629,7 @@ public class ObligationService {
     @Transactional
     public void updateRisk(Long obligationId, RiskAssessmentRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
         if (req.getTenantRiskRating() != null) c.setTenantRiskRating(req.getTenantRiskRating());
@@ -636,7 +646,7 @@ public class ObligationService {
     @Transactional
     public void updateGap(Long obligationId, GapRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
         c.setHasGap(Boolean.TRUE.equals(req.getHasGap()));
@@ -649,7 +659,7 @@ public class ObligationService {
     @Transactional
     public void linkControls(Long obligationId, LinkControlsRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
         c.setLinkedControlIds(req.getLinkedControlIds() == null
@@ -687,7 +697,7 @@ public class ObligationService {
 
     public ObligationDetailResponse getDetail(Long instrumentId) {
         ObligationClassification c = classifications.findByInstrumentId(instrumentId)
-            .orElseThrow(() -> new RuntimeException("Not found: " + instrumentId));
+            .orElseThrow(() -> ApiException.notFound("No classification found for instrument: " + instrumentId));
         PlatformInstrumentDetail d = platform.getInstrumentDetail(instrumentId);
 
         List<ObligationDetailResponse.ObligationItem> obligationItems = Collections.emptyList();
@@ -811,7 +821,7 @@ public class ObligationService {
     @Transactional
     public ObligationClassificationDto classify(Long obligationId, ClassifyObligationRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> new RuntimeException("Obligation not found: " + obligationId));
+            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = classifications.findByObligationId(obligationId)
             .orElse(ObligationClassification.builder()
                 .instrumentId(ob.getInstrumentId())

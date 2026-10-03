@@ -3,6 +3,8 @@ package com.atheris.compliance.tenant.backend.modules.evidence.controller;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.exception.DocumentUnavailableException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.*;
@@ -34,8 +36,11 @@ public class EvidenceController {
                 .filename(f.getOriginalName()).build());
             headers.setContentLength(data.length);
             return new ResponseEntity<>(data, headers, HttpStatus.OK);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to download file", e);
+        } catch (java.nio.file.NoSuchFileException e) {
+            // The row points at a file that is no longer on disk: same 404 contract as instrument PDFs.
+            throw new DocumentUnavailableException("The stored file for this evidence is no longer available");
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Failed to read evidence file " + id, e);
         }
     }
 
@@ -46,11 +51,15 @@ public class EvidenceController {
             @RequestParam(required = false) Long sourceId,
             @RequestParam(required = false) String description,
             @AuthenticationPrincipal User u) {
+        if (file == null || file.isEmpty())
+            throw ApiException.badRequest("empty_file", "The uploaded file is empty");
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.upload(file, sourceType, sourceId, description, u.getUserId()));
+        } catch (ApiException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Upload failed", e);
+            throw new IllegalStateException("Evidence upload failed", e);
         }
     }
 }

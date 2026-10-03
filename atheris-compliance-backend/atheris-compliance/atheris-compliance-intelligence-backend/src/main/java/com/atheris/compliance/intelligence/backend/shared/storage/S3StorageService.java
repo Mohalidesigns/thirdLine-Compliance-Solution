@@ -31,6 +31,8 @@ public class S3StorageService implements StorageService {
 
     @Override
     public String generatePresignedUrl(String key, int expirySeconds) {
+        // Toolkit-imported instruments have no stored document; mirror LocalStorageService.
+        if (key == null || key.isBlank()) return null;
         try (S3Presigner presigner = S3Presigner.create()) {
             PresignedGetObjectRequest presigned = presigner.presignGetObject(b -> b
                 .signatureDuration(Duration.ofSeconds(expirySeconds))
@@ -85,7 +87,15 @@ public class S3StorageService implements StorageService {
 
     @Override
     public InputStream openReadStream(String key) throws IOException {
-        return s3Client.getObject(b -> b.bucket(bucket).key(key));
+        try {
+            return s3Client.getObject(b -> b.bucket(bucket).key(key));
+        } catch (NoSuchKeyException e) {
+            // Translate to the same signal LocalStorageService gives for a missing file, so
+            // callers map a stale pointer to 404 DOCUMENT_UNAVAILABLE under either provider.
+            java.nio.file.NoSuchFileException nsf = new java.nio.file.NoSuchFileException(key);
+            nsf.initCause(e);
+            throw nsf;
+        }
     }
 
     @Override

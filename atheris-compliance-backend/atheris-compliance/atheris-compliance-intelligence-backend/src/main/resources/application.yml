@@ -1,6 +1,14 @@
 spring:
   application:
     name: atheris-compliance-intelligence-backend
+  # Read the repo-root .env so the app boots without exporting it first (IDE
+  # launches, fresh terminals). Paths cover running from the module dir, the
+  # parent pom dir, or the repo root. Real environment variables still win.
+  config:
+    import:
+      - optional:file:../../../.env[.properties]
+      - optional:file:../../.env[.properties]
+      - optional:file:./.env[.properties]
   threads:
     virtual:
       enabled: true
@@ -37,23 +45,17 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 55MB
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
-      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
   ai:
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        project-id: atheris-platform
-        chat:
-          options:
-            model: gemini-3.1-flash-lite
-            temperature: 0.0
+    # OpenAI-compatible client pointed at OpenRouter. base-url omits /v1 —
+    # Spring AI appends the default completions-path /v1/chat/completions.
+    openai:
+      api-key: ${OPENROUTER_API_KEY}
+      base-url: ${AI_BASE_URL:https://openrouter.ai/api}
+      chat:
+        options:
+          model: ${AI_MODEL:google/gemini-2.5-flash-lite}
+          temperature: 0.0
+          max-tokens: 3500
 
 server:
   port: ${PORT:9090}
@@ -77,8 +79,10 @@ atheris:
     cooldown-initial-ms: 300000    # 5 minutes initial cooldown on rate limit
     cooldown-max-ms: 900000        # 15 minutes max cooldown
     cooldown-multiplier: 3         # multiply cooldown by 3 each consecutive failure
-    primary-model: gemini-3.1-flash-lite
-    fallback-model: gemini-3.5-flash-lite
+    # OpenRouter model ids. Primary follows AI_MODEL (same as spring.ai.openai above);
+    # the fallback is tried when the primary is rate-limited or failing.
+    primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
+    fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.0-flash-lite-001}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}

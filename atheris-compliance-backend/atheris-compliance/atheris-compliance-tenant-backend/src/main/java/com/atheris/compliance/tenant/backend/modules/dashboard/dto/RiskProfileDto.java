@@ -9,6 +9,7 @@ import java.util.List;
 public class RiskProfileDto {
     private List<RiskRow> riskLevels;
     private List<AreaRow> byAreaOfFocus;
+    private List<ActRow> byAct;
     private Summary summary;
 
     @Data
@@ -23,6 +24,18 @@ public class RiskProfileDto {
     @Builder
     public static class AreaRow {
         private String areaOfFocus;
+        private int total;
+        private int extreme;
+        private int high;
+        private int medium;
+        private int low;
+        private int gaps;
+    }
+
+    @Data
+    @Builder
+    public static class ActRow {
+        private String actName;
         private int total;
         private int extreme;
         private int high;

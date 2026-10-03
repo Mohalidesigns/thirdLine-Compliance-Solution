@@ -18,7 +18,6 @@ import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.Sanc
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.BatchPointsResponse;
 import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
-import com.atheris.compliance.intelligence.backend.shared.ai.ModelHealthTracker;
 import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.atheris.compliance.common.Constants;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,7 +60,6 @@ public class ToolkitImportService {
     private final ComplianceControlRepository complianceControls;
     private final TransactionTemplate transactionTemplate;
     private final AiClient aiClient;
-    private final ModelHealthTracker healthTracker;
     private final ObjectMapper mapper;
 
     private static final List<String> CRMP_SECTIONS = List.of(
@@ -206,7 +204,7 @@ public class ToolkitImportService {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
 
             for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
-                if (healthTracker != null && healthTracker.getAvailableModels(List.of("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")).isEmpty()) {
+                if (!aiClient.hasAvailableModel()) {
                     log.warn("[PointsBatch] Cooldown active — aborting remaining {}/{} batches, will retry in 15m via scheduler", totalBatches - batchIdx, totalBatches);
                     break;
                 }

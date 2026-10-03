@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.evidence.service;
 
+import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.repository.EvidenceFileRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,10 @@ public class EvidenceVaultService {
     }
 
     public EvidenceFile getFile(Long id) {
-        return repo.findById(id).orElseThrow(() -> new RuntimeException("File not found: " + id));
+        return repo.findById(id).orElseThrow(() -> ApiException.notFound("Evidence file not found: " + id));
     }
 
-    public byte[] download(EvidenceFile f) throws Exception {
+    public byte[] download(EvidenceFile f) throws java.io.IOException {
         return storage.load(f.getStoragePath());
     }
 

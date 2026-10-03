@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Inbox, AccountBalance, CloudUpload, History, LibraryBooks, Article,
-  Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder, Policy,
+  Settings, Logout, ElectricBolt, Gavel, Warning, CalendarMonth, Verified, Folder, Policy, Insights,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +16,7 @@ const DRAWER_WIDTH = 240;
 
 const NAV_ITEMS = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Rendition & Coverage', icon: <Insights />, path: '/dashboard/v2' },
   { text: 'Review Inbox', icon: <Inbox />, path: '/review' },
   { text: 'Instruments', icon: <Article />, path: '/instruments' },
   { text: 'Obligations', icon: <LibraryBooks />, path: '/obligations' },
