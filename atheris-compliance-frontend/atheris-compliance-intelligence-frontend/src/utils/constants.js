@@ -76,6 +76,7 @@ export const LABELS = {
   UPLOADS: 'Uploads',
   ACTS: 'Act Explorer',
   UNIVERSE: 'Compliance Universe',
+  OBLIGATIONS: 'Obligations',
 };
 
 export const NAV_SECTIONS = [

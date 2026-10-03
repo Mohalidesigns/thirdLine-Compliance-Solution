@@ -6,7 +6,7 @@ import {
 import {
   Dashboard, LibraryBooks, Inbox, Visibility, Settings,
   AdminPanelSettings, Shield, Logout, Security, AccountBalance,
-  AccountTree, VpnKey, Public, Gavel, Warning, RequestQuote, FactCheck,
+  AccountTree, VpnKey, Public, Gavel, Warning, RequestQuote, FactCheck, Assignment,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../features/auth/hooks/useAuth';
@@ -28,6 +28,7 @@ const iconMap = {
   Warning: <Warning />,
   RequestQuote: <RequestQuote />,
   FactCheck: <FactCheck />,
+  Assignment: <Assignment />,
 };
 
 export default function Sidebar() {

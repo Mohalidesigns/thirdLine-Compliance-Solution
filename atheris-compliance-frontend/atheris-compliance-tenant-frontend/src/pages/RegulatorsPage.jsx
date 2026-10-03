@@ -5,7 +5,7 @@ import {
   DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel,
   CircularProgress, Alert, Switch, Tooltip,
 } from '@mui/material';
-import { Add, Edit, Delete, Refresh } from '@mui/icons-material';
+import { Add, Edit, Block, Refresh } from '@mui/icons-material';
 import { api } from '../services/api';
 
 const FREQUENCIES = ['immediate', 'daily', 'weekly'];
@@ -58,10 +58,10 @@ export default function RegulatorsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Remove this regulator?')) return;
+  async function handleDisable(id) {
+    if (!confirm('Disable this regulator?')) return;
     try {
-      await api.regulators.remove(id);
+      await api.regulators.disable(id);
       await load();
     } catch (err) { setError(err.message); }
   }
@@ -106,7 +106,7 @@ export default function RegulatorsPage() {
                   <TableCell><Switch checked={r.isActive} size="small" onChange={async () => { await api.regulators.update(r.id, { ...r, isActive: !r.isActive }); await load(); }} /></TableCell>
                   <TableCell align="right">
                     <IconButton size="small" onClick={() => openEdit(r)}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(r.id)}><Delete fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => handleDisable(r.id)}><Block fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}

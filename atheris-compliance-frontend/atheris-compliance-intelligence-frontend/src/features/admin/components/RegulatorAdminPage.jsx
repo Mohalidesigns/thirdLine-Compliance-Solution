@@ -1,166 +1,200 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TextField, CircularProgress, Alert, Chip, InputAdornment,
+  Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
+  Checkbox, Chip, Button, CircularProgress, Alert, TextField, MenuItem,
+  Tooltip, TableContainer, Paper, TablePagination,
 } from '@mui/material';
-import { Search, ArrowUpward, ArrowDownward, UnfoldMore } from '@mui/icons-material';
+import { Search, Close, Block } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
-function useDebounce(value, delay) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(id);
-  }, [value, delay]);
-  return debounced;
-}
+const COLUMNS = [
+  { id: 'name', label: 'Name', minWidth: 260 },
+  { id: 'abbreviation', label: 'Abbreviation', minWidth: 110 },
+  { id: 'instrumentCount', label: 'Discovered', minWidth: 90 },
+  { id: 'downloaded', label: 'Downloaded', minWidth: 90 },
+  { id: 'failed', label: 'Failed', minWidth: 70 },
+  { id: 'lastInstrumentDiscoveredAt', label: 'Last Document', minWidth: 140 },
+];
 
 function formatDt(ts) {
-  if (!ts) return '—';
+  if (!ts) return '-';
   return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const COLUMNS = [
-  { key: 'name', label: 'Name', width: undefined },
-  { key: 'abbreviation', label: 'Abbreviation', width: 130 },
-  { key: 'instrumentCount', label: 'Discovered', width: 110 },
-  { key: 'downloaded', label: 'Downloaded', width: 110 },
-  { key: 'failed', label: 'Failed', width: 80 },
-  { key: 'lastInstrumentDiscoveredAt', label: 'Last Document', width: 150 },
-];
+async function fetchRegulators(search, statusFilter) {
+  const params = { activeOnly: false };
+  if (search) params.search = search;
+  const data = await api.platform.regulators.list(params);
+  return Array.isArray(data) ? data : (data.content || []);
+}
 
 export default function RegulatorAdminPage() {
   const navigate = useNavigate();
-  const [regulators, setRegulators] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('name');
-  const [sortDir, setSortDir] = useState('asc');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage] = useState(20);
+  const [selected, setSelected] = useState(new Set());
+  const [bulking, setBulking] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
+  const { data: regulators, isLoading, error, refetch } = useQuery({
+    queryKey: ['regulators', search, statusFilter],
+    queryFn: () => fetchRegulators(search, statusFilter),
+    staleTime: 30000,
+  });
 
-  function handleSort(key) {
-    if (sortBy === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortBy(key);
-      setSortDir('asc');
-    }
+  const filtered = useMemo(() => {
+    if (!regulators) return [];
+    return regulators.filter(r => {
+      if (statusFilter !== 'All') {
+        const active = statusFilter === 'Active';
+        if (r.isActive !== active) return false;
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        if (!(r.name || '').toLowerCase().includes(q) && !(r.abbreviation || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [regulators, statusFilter, search]);
+
+  function handleToggleSelect(id) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
-  const fetchRegulators = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  async function handleBulkDisable() {
+    setBulking(true);
     try {
-      const params = { activeOnly: true, sortBy, sortDir };
-      if (debouncedSearch) params.search = debouncedSearch;
-      const data = await api.platform.regulators.list(params);
-      setRegulators(data);
+      await api.platform.regulators.bulkDisable([...selected]);
+      setSelected(new Set());
+      refetch();
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setBulking(false);
     }
-  }, [debouncedSearch, sortBy, sortDir]);
-
-  useEffect(() => {
-    fetchRegulators();
-  }, [fetchRegulators]);
+  }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulators</Typography>
-        <TextField
-          size="small" placeholder="Search by name or abbreviation..." value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
-          }}
-          sx={{ width: 320, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulators</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Browse all platform regulators
+          </Typography>
+        </Box>
+        {selected.size > 0 && (
+          <Button variant="contained" color="warning" startIcon={<Block />}
+            onClick={handleBulkDisable} disabled={bulking}>
+            {bulking ? 'Disabling...' : `Disable ${selected.size}`}
+          </Button>
+        )}
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => {}}>{error}</Alert>}
 
-      <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {COLUMNS.map((col) => {
-                  const sortable = !['downloaded', 'failed'].includes(col.key);
-                  return (
-                    <TableCell
-                      key={col.key}
-                      sx={{
-                        fontWeight: 700, color: '#4A5568', fontSize: '0.7rem',
-                        textTransform: 'uppercase', letterSpacing: 1,
-                        cursor: sortable ? 'pointer' : 'default',
-                        userSelect: 'none', width: col.width,
-                        ...(sortable ? { '&:hover': { color: '#1A365D' } } : {}),
-                      }}
-                      onClick={() => sortable && handleSort(col.key)}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {col.label}
-                        {sortable && (sortBy === col.key ? (
-                          sortDir === 'asc' ? <ArrowUpward sx={{ fontSize: 14 }} /> : <ArrowDownward sx={{ fontSize: 14 }} />
-                        ) : (
-                          <UnfoldMore sx={{ fontSize: 14, color: '#CBD5E0' }} />
-                        ))}
-                      </Box>
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField size="small" placeholder="Search name or abbreviation..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
+          sx={{ minWidth: 220 }} />
+        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+          label="Status" sx={{ minWidth: 110 }}>
+          {['All', 'Active', 'Disabled'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+        </TextField>
+        {(search || statusFilter !== 'All') && (
+          <Button size="small" startIcon={<Close />} onClick={() => { setSearch(''); setStatusFilter('All'); }}>Clear</Button>
+        )}
+      </Paper>
+
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
+      ) : filtered.length === 0 ? (
+        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <Typography variant="body1">No regulators found.</Typography>
+        </Paper>
+      ) : (
+        <Paper>
+          <TableContainer>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 40, padding: 0, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                    <Checkbox size="small"
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      indeterminate={selected.size > 0 && selected.size < filtered.length}
+                      onChange={() => {
+                        if (selected.size === filtered.length) {
+                          setSelected(new Set());
+                        } else {
+                          setSelected(new Set(filtered.map(r => r.regulatorId)));
+                        }
+                      }} />
+                  </TableCell>
+                  {COLUMNS.map(c => (
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                      {c.label}
                     </TableCell>
-                  );
-                })}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                  <CircularProgress size={24} />
-                </TableCell></TableRow>
-              ) : regulators.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: '#A0AEC0', fontSize: '0.85rem' }}>
-                  {search ? 'No regulators match your search' : 'No regulators found'}
-                </TableCell></TableRow>
-              ) : regulators.map((reg, i) => (
-                <TableRow
-                  key={reg.regulatorId}
-                  hover
-                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
-                  onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
-                >
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{reg.name}</TableCell>
-                  <TableCell>
-                    <Chip label={reg.abbreviation} size="small"
-                      sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem', borderRadius: 1 }} />
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#2D7D46' }}>{reg.instrumentCount ?? 0}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    {(reg.pendingDownloadCount ?? 0) > 0 ? (
-                      <Chip label={reg.pendingDownloadCount} size="small" sx={{ fontWeight: 700, bgcolor: '#FED7D7', color: '#C53030', fontSize: '0.7rem', borderRadius: 1 }} />
-                    ) : (
-                      <Typography sx={{ fontSize: '0.85rem', color: '#A0AEC0' }}>0</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.78rem', color: '#718096' }}>
-                    {formatDt(reg.lastInstrumentDiscoveredAt)}
-                  </TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              </TableHead>
+              <TableBody>
+                {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((reg, i) => (
+                  <TableRow key={reg.regulatorId} hover
+                    onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
+                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC',
+                      borderLeft: !reg.isActive ? '3px solid #C53030' : '3px solid transparent',
+                    }}>
+                    <TableCell sx={{ padding: 0 }} onClick={e => e.stopPropagation()}>
+                      <Checkbox size="small" checked={selected.has(reg.regulatorId)}
+                        onChange={() => handleToggleSelect(reg.regulatorId)} />
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title={reg.name}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {reg.name}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={reg.abbreviation} size="small"
+                        sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem', borderRadius: 1 }} />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#2D7D46' }}>{reg.instrumentCount ?? 0}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {(reg.pendingDownloadCount ?? 0) > 0 ? (
+                        <Chip label={reg.pendingDownloadCount} size="small" sx={{ fontWeight: 700, bgcolor: '#FED7D7', color: '#C53030', fontSize: '0.7rem', borderRadius: 1 }} />
+                      ) : (
+                        <Typography variant="body2" sx={{ color: '#A0AEC0' }}>0</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.78rem', color: '#718096' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#718096' }}>
+                        {formatDt(reg.lastInstrumentDiscoveredAt)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)}
+            rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} />
+        </Paper>
+      )}
     </Box>
   );
 }

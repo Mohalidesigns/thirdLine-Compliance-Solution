@@ -21,7 +21,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -166,11 +168,35 @@ public class GlobalExceptionHandler {
             .body(Map.of("error", "bad_request", "message", messageOr(e, "Invalid request")));
     }
 
+    // The client went away mid-response (tab closed, request aborted): nothing to
+    // send and nothing wrong server-side, so log at DEBUG. Any other IOException is
+    // a real server fault and keeps the generic 500 + ERROR log.
+    @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
+    public ResponseEntity<?> handleClientDisconnected(Exception e) {
+        if (e instanceof AsyncRequestNotUsableException || isClientDisconnect(e)) {
+            log.debug("Client disconnected during response write: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        return handleGeneric(e);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
         log.error("Unhandled exception", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(Map.of("error", "internal_error", "message", "An unexpected error occurred"));
+    }
+
+    private static boolean isClientDisconnect(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t.getClass().getSimpleName().equals("ClientAbortException")) return true;
+            String m = t.getMessage();
+            if (m != null) {
+                String lower = m.toLowerCase();
+                if (lower.contains("broken pipe") || lower.contains("connection reset")) return true;
+            }
+        }
+        return false;
     }
 
     // Map.of rejects null values, so a message-less exception would itself throw.

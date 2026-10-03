@@ -1,29 +1,33 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem,
-  Collapse, TableContainer, Paper, TablePagination, Tooltip,
+  Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem, Menu,
+  Collapse, TableContainer, Paper, TablePagination, TableSortLabel, Tooltip,
 } from '@mui/material';
 import {
   Visibility, Search, Close, ExpandMore, ExpandLess,
   Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
-  InfoOutlined, Gavel, KeyboardArrowDown, KeyboardArrowUp,
+  InfoOutlined, Gavel, KeyboardArrowDown, KeyboardArrowUp, ArrowDropDown,
 } from '@mui/icons-material';
 import { api, getToken, API_BASE, pdfErrorMessage } from '../services/api';
 
+// Max 5 columns (UI rule). The reference number is shown under the title.
 const COLUMNS = [
-  { id: 'title', label: 'Title', minWidth: 280 },
-  { id: 'reference', label: 'Reference No', minWidth: 140 },
-  { id: 'regulator', label: 'Regulator', minWidth: 100 },
-  { id: 'obligations', label: 'Obligations', minWidth: 100 },
-  { id: 'actions', label: 'Actions', minWidth: 100 },
+  { id: 'title', label: 'Title', minWidth: 300, sortField: 'sourceTitle' },
+  { id: 'regulator', label: 'Regulator', minWidth: 100, sortField: 'regulatorAbbreviation' },
+  { id: 'risk', label: 'Risk', minWidth: 100, sortField: 'riskRating' },
+  { id: 'obligations', label: 'Obligations', minWidth: 100, sortField: 'obligationCount' },
+  { id: 'actions', label: 'Actions', minWidth: 80 },
 ];
 
+const RISK_LEVELS = ['Critical', 'High', 'Moderate', 'Low'];
+
 // harmonized with ReviewEditPage
-const INHERENT_RISK_CONFIG = {
+const RISK_CONFIG = {
   Critical: { color: 'error' },
+  Extreme: { color: 'error' },
   High: { color: 'error' },
   Moderate: { color: 'warning' },
   Medium: { color: 'warning' },
@@ -49,8 +53,18 @@ function formatNaira(amount) {
   } catch { return String(amount); }
 }
 
+function regulatorOf(i) {
+  return i.regulatorAbbreviation || i.regulatorName;
+}
+
+function riskChip(rating) {
+  const cfg = RISK_CONFIG[rating];
+  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+}
+
 function inherentRiskChip(rating, likelihood, impact) {
-  const cfg = INHERENT_RISK_CONFIG[rating];
+  const cfg = RISK_CONFIG[rating];
   if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
   const tip = likelihood || impact ? `${likelihood || '-'} × ${impact || '-'}` : rating;
   return (
@@ -60,6 +74,42 @@ function inherentRiskChip(rating, likelihood, impact) {
   );
 }
 
+// KPI card with a dropdown that breaks the card's subset down by regulator.
+function KpiCard({ kpi, onSelect }) {
+  const [anchor, setAnchor] = useState(null);
+  const breakdown = Object.entries(kpi.byRegulator || {}).sort((a, b) => b[1] - a[1]);
+  return (
+    <Paper elevation={0} variant="outlined"
+      onClick={() => onSelect(kpi.key)}
+      sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${kpi.color}`,
+        transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
+        <IconButton size="small" aria-label={`${kpi.label} breakdown`}
+          onClick={e => { e.stopPropagation(); setAnchor(e.currentTarget); }} sx={{ p: 0.25 }}>
+          <ArrowDropDown fontSize="small" />
+        </IconButton>
+      </Box>
+      <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
+      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}
+        onClick={e => e.stopPropagation()}>
+        <MenuItem disabled dense>
+          <Typography variant="caption">By regulator (this page)</Typography>
+        </MenuItem>
+        {breakdown.length === 0 ? (
+          <MenuItem disabled dense>No instruments</MenuItem>
+        ) : breakdown.map(([reg, count]) => (
+          <MenuItem key={reg} dense onClick={() => { setAnchor(null); onSelect(kpi.key, reg); }}
+            sx={{ display: 'flex', justifyContent: 'space-between', gap: 3 }}>
+            <span>{reg}</span><strong>{count}</strong>
+          </MenuItem>
+        ))}
+      </Menu>
+    </Paper>
+  );
+}
+
+// Max 5 columns: area, type, deadline, owner and status ride as chips under the obligation.
 function ObligationSummary({ obligations }) {
   if (obligations.length === 0) {
     return (
@@ -76,7 +126,6 @@ function ObligationSummary({ obligations }) {
             <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 36 }}>#</TableCell>
             <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', minWidth: 300 }}>Obligation (Title + Interpreted)</TableCell>
             <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 110 }}>Section</TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 140 }}>Area</TableCell>
             <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Risk</TableCell>
             <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Act</TableCell>
           </TableRow>
@@ -87,10 +136,10 @@ function ObligationSummary({ obligations }) {
               <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
                 {o.obligationNumber ?? i + 1}
               </TableCell>
-              <TableCell sx={{ minWidth: 300, maxWidth: 420 }}>
+              <TableCell sx={{ minWidth: 300, maxWidth: 460 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>
                     {o.title || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
                   </Typography>
                   {o.description && (
@@ -101,13 +150,17 @@ function ObligationSummary({ obligations }) {
                 </Box>
                 {o.plainEnglishStatement ? (
                   <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 440 }}>
                     {o.plainEnglishStatement}
                   </Typography>
                 ) : (
                   <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
                 )}
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {o.areaOfFocus && (
+                    <Chip size="small" variant="outlined" label={o.areaOfFocus}
+                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', maxWidth: 180 }} />
+                  )}
                   {o.obligationType && (
                     <Chip size="small" variant="outlined" label={o.obligationType}
                       sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', textTransform: 'capitalize' }} />
@@ -120,6 +173,10 @@ function ObligationSummary({ obligations }) {
                     <Chip size="small" variant="outlined" label={`Eff. ${formatDate(o.effectiveDate)}`}
                       sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem' }} />
                   )}
+                  {o.controlOwner && (
+                    <Chip size="small" variant="outlined" label={`Owner: ${o.controlOwner}`}
+                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', maxWidth: 200 }} />
+                  )}
                   <Chip size="small" variant="outlined" label={o.status || 'active'}
                     sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600,
                       color: 'success.main', borderColor: 'success.main' }} />
@@ -127,15 +184,9 @@ function ObligationSummary({ obligations }) {
               </TableCell>
               <TableCell>
                 {o.sectionReference ? (
-                  <Chip size="small" label={o.sectionReference.slice(0, 24)} variant="outlined" sx={MONO_CHIP_SX} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary">-</Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                {o.areaOfFocus ? (
-                  <Chip size="small" variant="outlined" label={o.areaOfFocus}
-                    sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 130 }} />
+                  <Tooltip title={o.sectionReference}>
+                    <Chip size="small" label={o.sectionReference.slice(0, 24)} variant="outlined" sx={MONO_CHIP_SX} />
+                  </Tooltip>
                 ) : (
                   <Typography variant="caption" color="text.secondary">-</Typography>
                 )}
@@ -145,8 +196,10 @@ function ObligationSummary({ obligations }) {
               </TableCell>
               <TableCell>
                 {o.actName ? (
-                  <Chip size="small" variant="outlined" label={o.actName.slice(0, 22)}
-                    sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
+                  <Tooltip title={o.actName}>
+                    <Chip size="small" variant="outlined" label={o.actName.slice(0, 22)}
+                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
+                  </Tooltip>
                 ) : o.regulationId ? (
                   <Chip size="small" variant="outlined" label={`Reg #${o.regulationId}`} sx={{ height: 22, borderRadius: '4px' }} />
                 ) : (
@@ -161,6 +214,7 @@ function ObligationSummary({ obligations }) {
   );
 }
 
+// InstrumentDetailResponse.SanctionItem uses `amountNaira` (not `sanctionAmountNaira`).
 function SanctionCard({ sanction: s }) {
   const [open, setOpen] = useState(false);
   const hasDetail = !!(s.description || s.riskExplanation || s.penaltyDetails);
@@ -174,8 +228,10 @@ function SanctionCard({ sanction: s }) {
           '&:hover': { bgcolor: hasDetail ? '#FFF5F5' : 'inherit' } }}>
         <Chip size="small" label={s.sanctionType || 'sanction'} color="error" variant="outlined"
           sx={{ height: 22, borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize' }} />
-        <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.82rem' }}>
-          {formatNaira(s.amountNaira)}{s.sanctionAmountPerDay ? ' /day' : ''}
+        <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.82rem', color: 'error.main' }}>
+          {s.amountNaira != null
+            ? `${formatNaira(s.amountNaira)}${s.sanctionAmountPerDay ? ' /day' : ''}`
+            : 'Amount not stated'}
         </Typography>
         {s.sourceSectionReference && (
           <Chip size="small" variant="outlined" label={s.sourceSectionReference.slice(0, 24)} sx={MONO_CHIP_SX} />
@@ -236,16 +292,26 @@ export default function InstrumentsPage() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sortField, setSortField] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
   const [detailItem, setDetailItem] = useState(null);
   const [showOcr, setShowOcr] = useState(false);
   const [sanctionsOpen, setSanctionsOpen] = useState(true);
 
+  // Debounce the server-side search so each keystroke doesn't fire (and cancel) a request.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const listQuery = useQuery({
-    queryKey: ['instruments', 'list', { page, size: rowsPerPage, q: search }],
-    queryFn: ({ signal }) => api.instruments.list(page, rowsPerPage, search, { signal }),
+    queryKey: ['instruments', 'list', { page, size: rowsPerPage, q: debouncedSearch }],
+    queryFn: ({ signal }) => api.instruments.list(page, rowsPerPage, debouncedSearch, { signal }),
     placeholderData: keepPreviousData,
   });
 
@@ -262,17 +328,75 @@ export default function InstrumentsPage() {
   const detailData = detailItem ? detailQuery.data : null;
   const detailLoading = !!detailItem && detailQuery.isPending;
 
+  const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All';
+
   const regulatorsList = useMemo(() => {
-    const s = new Set(items.map(i => i.regulatorAbbreviation || i.regulatorName).filter(Boolean));
-    return ['All', ...Array.from(s)];
+    const s = new Set(items.map(regulatorOf).filter(Boolean));
+    return ['All', ...Array.from(s).sort()];
   }, [items]);
 
+  // Risk / regulator filters and sorting apply to the current server page.
   const filtered = useMemo(() => {
-    return items.filter(i => {
-      if (regulatorFilter !== 'All' && (i.regulatorAbbreviation || i.regulatorName) !== regulatorFilter) return false;
-      return true;
-    });
-  }, [items, regulatorFilter]);
+    let result = items;
+    if (regulatorFilter !== 'All') result = result.filter(i => regulatorOf(i) === regulatorFilter);
+    if (riskFilter !== 'All') {
+      result = result.filter(i => riskFilter === 'Critical'
+        ? (i.riskRating === 'Critical' || i.riskRating === 'Extreme')
+        : riskFilter === 'Moderate'
+          ? (i.riskRating === 'Moderate' || i.riskRating === 'Medium')
+          : i.riskRating === riskFilter);
+    }
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        if (sortField === 'obligationCount') {
+          const an = Number(a.obligationCount) || 0;
+          const bn = Number(b.obligationCount) || 0;
+          return sortDir === 'asc' ? an - bn : bn - an;
+        }
+        const av = String(a[sortField] ?? '').toLowerCase();
+        const bv = String(b[sortField] ?? '').toLowerCase();
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+    }
+    return result;
+  }, [items, regulatorFilter, riskFilter, sortField, sortDir]);
+
+  const kpis = useMemo(() => {
+    const countByRegulator = list => list.reduce((acc, i) => {
+      const r = regulatorOf(i) || 'Unknown';
+      acc[r] = (acc[r] || 0) + 1;
+      return acc;
+    }, {});
+    const critical = items.filter(i => i.riskRating === 'Critical' || i.riskRating === 'Extreme');
+    const high = items.filter(i => i.riskRating === 'High');
+    const withObligations = items.filter(i => (i.obligationCount ?? 0) > 0);
+    return [
+      { key: 'total', label: 'Total Instruments', value: total, color: '#2B6CB0', byRegulator: countByRegulator(items) },
+      { key: 'critical', label: 'Critical Risk', value: critical.length, color: '#E53E3E', byRegulator: countByRegulator(critical) },
+      { key: 'high', label: 'High Risk', value: high.length, color: '#DD6B20', byRegulator: countByRegulator(high) },
+      { key: 'withObligations', label: 'With Obligations', value: withObligations.length, color: '#38A169', byRegulator: countByRegulator(withObligations) },
+    ];
+  }, [items, total]);
+
+  function applyKpiFilter(key, regulator) {
+    setPage(0);
+    if (key === 'critical') setRiskFilter('Critical');
+    else if (key === 'high') setRiskFilter('High');
+    else setRiskFilter('All');
+    setRegulatorFilter(regulator || 'All');
+  }
+
+  function clearFilters() {
+    setSearch('');
+    setRiskFilter('All');
+    setRegulatorFilter('All');
+    setPage(0);
+  }
+
+  function toggleSort(field) {
+    if (sortField === field) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
+  }
 
   function openDetail(item) {
     setDetailItem(item);
@@ -323,10 +447,11 @@ export default function InstrumentsPage() {
   // ── Detail View ──
   if (detailItem) {
     const d = detailItem;
-    const regulator = detailData?.regulatorAbbreviation || detailData?.regulatorName || d.regulatorAbbreviation || d.regulatorName || '-';
+    const regulator = detailData?.regulatorAbbreviation || detailData?.regulatorName || regulatorOf(d) || '-';
     const obligations = Array.isArray(detailData?.obligations) ? detailData.obligations : [];
     const sanctions = Array.isArray(detailData?.sanctions) ? detailData.sanctions : [];
     const riskRating = detailData?.riskRating || d.riskRating;
+    const status = detailData?.status || d.status;
     return (
       <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -359,24 +484,31 @@ export default function InstrumentsPage() {
                   {regulator}
                 </Typography>
                 <Chip size="small" label={detailData?.documentType || d.documentType || 'Document'} variant="outlined" />
-                {riskRating && (
-                  <Chip size="small" label={riskRating} color={INHERENT_RISK_CONFIG[riskRating]?.color || 'default'}
-                    sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
-                )}
-                {(detailData?.status || d.status) && (
-                  <Chip size="small" variant="outlined" label={detailData?.status || d.status}
+                {riskChip(riskRating)}
+                {status && (
+                  <Chip size="small" variant="outlined" label={status}
                     sx={{ height: 22, borderRadius: '4px', textTransform: 'capitalize' }} />
                 )}
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{d.sourceTitle}</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{detailData?.sourceTitle || d.sourceTitle}</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Regulator</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{regulator}</Typography>
                 </Box>
                 <Box>
+                  <Typography variant="caption" color="text.secondary">Reference No</Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    {d.sourceReferenceNumber || '-'}
+                  </Typography>
+                </Box>
+                <Box>
                   <Typography variant="caption" color="text.secondary">Document Type</Typography>
                   <Typography variant="body2">{detailData?.documentType || d.documentType || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Risk</Typography>
+                  <Typography variant="body2">{riskRating || 'Unrated'}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Obligations</Typography>
@@ -394,7 +526,7 @@ export default function InstrumentsPage() {
                 )}
                 <Box>
                   <Typography variant="caption" color="text.secondary">Published</Typography>
-                  <Typography variant="body2">{formatDate(d.publishedAt || d.createdAt)}</Typography>
+                  <Typography variant="body2">{formatDate(detailData?.publishedAt || d.publishedAt || d.createdAt)}</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -498,19 +630,28 @@ export default function InstrumentsPage() {
         </Alert>
       )}
 
+      {/* KPI cards — each has a regulator breakdown dropdown */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2, mt: 1.5 }}>
+        {kpis.map(k => <KpiCard key={k.key} kpi={k} onSelect={applyKpiFilter} />)}
+      </Box>
+
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField size="small" placeholder="Search title or regulator..." value={search}
           onChange={e => { setSearch(e.target.value); setPage(0); }}
           slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 220 }} />
-        <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
+          sx={{ minWidth: 240 }} />
+        <TextField select size="small" value={riskFilter}
+          onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
+          label="Risk" sx={{ minWidth: 110 }}>
+          {['All', ...RISK_LEVELS].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+        </TextField>
+        <TextField select size="small" value={regulatorFilter}
+          onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
           label="Regulator" sx={{ minWidth: 130 }}>
           {regulatorsList.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
         </TextField>
-        {(search || regulatorFilter !== 'All') && (
-          <Button size="small" startIcon={<Close />} onClick={() => {
-            setSearch(''); setRegulatorFilter('All');
-          }}>Clear</Button>
+        {hasFilters && (
+          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
         )}
       </Paper>
 
@@ -519,7 +660,11 @@ export default function InstrumentsPage() {
       ) : filtered.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
           <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No confirmed instruments yet. Review and save items from the Review Inbox.</Typography>
+          <Typography variant="body1">
+            {hasFilters
+              ? 'No instruments match the current filters.'
+              : 'No confirmed instruments yet. Review and save items from the Review Inbox.'}
+          </Typography>
         </Paper>
       ) : (
         <Paper>
@@ -527,57 +672,74 @@ export default function InstrumentsPage() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
-                      {c.label}
-                    </TableCell>
-                  ))}
+                  {COLUMNS.map(c => {
+                    const active = sortField === c.sortField;
+                    return (
+                      <TableCell key={c.id}
+                        sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                          cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
+                        onClick={c.sortField ? () => toggleSort(c.sortField) : undefined}>
+                        {c.sortField ? (
+                          <TableSortLabel active={active} direction={active ? sortDir : 'asc'}
+                            sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
+                            {c.label}
+                          </TableSortLabel>
+                        ) : c.label}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map(item => {
-                  return (
-                    <TableRow key={item.id} hover
-                      onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                      <TableCell>
-                        <Tooltip title={item.sourceTitle}>
-                          <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceTitle}
-                          </Typography>
+                {filtered.map(item => (
+                  <TableRow key={item.id} hover
+                    onClick={() => openDetail(item)}
+                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    <TableCell>
+                      <Tooltip title={item.sourceTitle || ''}>
+                        <Typography variant="body2" sx={{ maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.sourceTitle || '-'}
+                        </Typography>
+                      </Tooltip>
+                      {item.sourceReferenceNumber && (
+                        <Typography variant="caption" color="text.secondary"
+                          sx={{ display: 'block', fontFamily: 'monospace', fontSize: '0.7rem', maxWidth: 340,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.sourceReferenceNumber}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.regulatorAbbreviation ? (
+                        <Tooltip title={item.regulatorName || item.regulatorAbbreviation}>
+                          <Chip size="small" label={item.regulatorAbbreviation}
+                            sx={{ height: 22, fontWeight: 600, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff' }} />
                         </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.sourceReferenceNumber || '-'}>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceReferenceNumber || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.regulatorAbbreviation || item.regulatorName || '-'}>
-                          <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.regulatorAbbreviation || item.regulatorName || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" label={item.obligationCount ?? 0} sx={{ height: 22, fontWeight: 600 }} />
-                      </TableCell>
-                      <TableCell>
-                        <Button size="small" variant="text" startIcon={<Visibility />}
-                          onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                      ) : (
+                        <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.regulatorName || '-'}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{riskChip(item.riskRating)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={item.obligationCount ?? 0} sx={{ height: 22, fontWeight: 600, borderRadius: '4px' }} />
+                    </TableCell>
+                    <TableCell>
+                      <Button size="small" variant="text" startIcon={<Visibility />}
+                        onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} />
+          <TablePagination component="div" count={total} page={page}
+            onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[10, 20, 50]} />
         </Paper>
       )}
     </Box>

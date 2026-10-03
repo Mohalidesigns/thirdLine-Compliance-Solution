@@ -53,6 +53,21 @@ public class ClassificationResult {
         private String likelihood;
         private String impact;
         @JsonProperty("control_owner") private String controlOwner;
+        @Builder.Default
+        private List<PointItem> points = List.of();
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class PointItem {
+        private String marker;
+        private String text;
+        private Integer level;
+        @Builder.Default
+        private List<PointItem> children = List.of();
     }
 
     @Data

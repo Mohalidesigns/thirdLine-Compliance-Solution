@@ -110,10 +110,16 @@ public class RegulatorService {
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void disable(Long id) {
         Long tenantId = tenantIdentity.currentTenantId();
         TenantRegulator entity = repo.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> ApiException.notFound("Regulator not found"));
-        repo.delete(entity);
+        entity.setIsActive(false);
+        repo.save(entity);
+    }
+
+    @Transactional
+    public void bulkDisable(List<Long> ids) {
+        ids.forEach(this::disable);
     }
 }

@@ -296,6 +296,15 @@ async function tenantRequest(path, options = {}) {
   return fetchWithBase(TENANT_API_BASE, path, options);
 }
 
+function toQuery(params) {
+  if (!params) return '';
+  if (typeof params === 'string') return params ? `?${params.replace(/^\?/, '')}` : '';
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, String(v)); });
+  const str = qs.toString();
+  return str ? `?${str}` : '';
+}
+
 export const api = {
   auth: {
     login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -333,6 +342,8 @@ export const api = {
       getBackfillStatus: (regId, backfillId) => request(`/platform/regulators/${regId}/backfill/${backfillId}`),
       testScraper: (id, dryRun) => request(`/platform/regulators/${id}/test-scraper?dryRun=${dryRun}`, { method: 'POST' }),
       getPipelineStats: (id) => request(`/platform/regulators/${id}/pipeline-stats`),
+      disable: (id) => request(`/platform/regulators/${id}/disable`, { method: 'PUT' }),
+      bulkDisable: (ids) => request('/platform/regulators/bulk-disable', { method: 'PUT', body: JSON.stringify(ids) }),
     },
     jobs: {
       list: (params = '') => request(`/admin/jobs${params ? '?' + params : ''}`),
@@ -406,25 +417,10 @@ export const api = {
       update: (id, data) => request(`/admin/acts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       importToolkit: () => request('/admin/acts/toolkit/import', { method: 'POST' }),
     },
-    obligations: {
-      list: (params = '') => request(`/admin/obligations${params ? '?' + params : ''}`),
-      stats: () => request('/admin/obligations/stats'),
-      get: (id) => request(`/admin/obligations/${id}`),
-    },
     sanctions: {
       list: (params = '') => request(`/admin/sanctions${params ? '?' + params : ''}`),
       stats: () => request('/admin/sanctions/stats'),
       get: (id) => request(`/admin/sanctions/${id}`),
-    },
-    returns: {
-      list: (params = '') => request(`/admin/returns${params ? '?' + params : ''}`),
-      stats: () => request('/admin/returns/stats'),
-      get: (id) => request(`/admin/returns/${id}`),
-    },
-    controls: {
-      list: (params = '') => request(`/admin/controls${params ? '?' + params : ''}`),
-      stats: () => request('/admin/controls/stats'),
-      get: (id) => request(`/admin/controls/${id}`),
     },
     universe: {
       instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
@@ -446,6 +442,41 @@ export const api = {
           return data;
         });
       },
+    },
+    // Explorer endpoints (AdminObligationExplorerController / AdminControlController / AdminReturnController).
+    // `list` takes either a query string ('a=1&b=2') or a params object ({ a: 1, b: undefined }).
+    obligations: {
+      list: (params = '', signal) => request(`/admin/obligations${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/obligations/stats', { signal }),
+      get: (id, signal) => request(`/admin/obligations/${id}`, { signal }),
+      controls: (id, signal) => request(`/admin/obligations/${id}/controls`, { signal }),
+      // Streams the source instrument PDF; resolves to a Blob, throws a readable message on 404.
+      pdf: async (id) => {
+        const res = await fetch(`${API_BASE}/admin/obligations/${id}/pdf`, {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        });
+        if (!res.ok) throw new Error(await pdfErrorMessage(res));
+        return res.blob();
+      },
+      // No intel backend endpoints yet — evidence/history are returned (empty) inside get().
+      evidence: (id) => request(`/admin/obligations/${id}/evidence`),
+      evidenceDownload: (id) => request(`/admin/obligations/${id}/evidence/${id}/download`),
+      history: (id) => request(`/admin/obligations/${id}/history`),
+    },
+    controls: {
+      list: (params = '', signal) => request(`/admin/controls${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/controls/stats', { signal }),
+      get: (id, signal) => request(`/admin/controls/${id}`, { signal }),
+      detail: (id, signal) => request(`/admin/controls/${id}`, { signal }),
+    },
+    returns: {
+      list: (params = '', signal) => request(`/admin/returns${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/returns/stats', { signal }),
+      get: (id, signal) => request(`/admin/returns/${id}`, { signal }),
+    },
+    evidence: {
+      list: () => request('/admin/evidence'),
+      download: (id) => request(`/admin/evidence/${id}/download`),
     },
   },
   license: {

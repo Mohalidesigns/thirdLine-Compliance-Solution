@@ -118,20 +118,29 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 
 MUST use these sub-agents for all non-trivial tasks. MUST NEVER do the work directly — act as a coordinator only.
 
-| Task | Agent | When to Use |
-|------|-------|-------------|
-| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) |
-| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair |
-| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed |
-| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches |
+| Task | Agent | When to Use | Skill |
+|------|-------|-------------|-------|
+| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) | `frontend-register-page` |
+| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair | — |
+| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed | `backend-module-scaffold` |
+| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches | — |
 
 Full agent definitions: `.opencode/agents/`
 
 ### Agent Conventions
-- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`.
+- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`. Load `frontend-register-page` skill for register/details pages.
 - **db-migration**: Always edit existing migrations in place. Only create new V<next> files for genuinely new tables. Run Flyway repair after editing. Use POSTGRES superuser for drops.
-- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers.
+- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers. Load `backend-module-scaffold` skill for new modules.
 - **api-sync**: Scans all `@RestController` classes vs all `api.js` files. Reports missing frontend calls, dead calls, parameter/auth/shape mismatches.
+
+## Skills
+
+Reusable patterns loaded by sub-agents during implementation.
+
+| Skill | File | Purpose |
+|-------|------|---------|
+| `frontend-register-page` | `.opencode/skills/frontend-register-page.md` | UI pattern: stats cards → filters → sortable table (5 cols) → detail drawer. Used by `frontend-page` agent. |
+| `backend-module-scaffold` | `.opencode/skills/backend-module-scaffold.md` | Entity + repository + service + controller + DTOs + Flyway migration. Used by `backend-scaffold` agent. |
 
 ## MCP Servers
 
@@ -253,6 +262,80 @@ Config: `opencode.json`
 
 **Data migration**
 - Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+
+
+## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
+
+Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Commit `0ad5e72`.
+
+### Backend (`ReviewDetail.java` + `ReviewService.java`)
+- `ReviewDetail` DTO gains `dateCommencement`, `nature` (from `PlatformInstrumentDetail`)
+- `ReviewObligationDto` gains `linkedReturnIds`, `linkedReturnNames` — populated from `obligationRepo.findLinkedReturnIds()` for re-reviews (saved obligations exist)
+
+### Frontend (`ReviewEditPage.jsx` — 763 lines)
+- **Removed**: AI Summary card, OCR/Extracted Text collapsible section, `ocrOpen` state
+- **Obligations table (5 cols)**: `#` | `Obligation` (title conditional + verbatim inline) | `Interpreted` (inline) | `Risk` (editable dropdown) | `Actions` (apply + delete)
+- **Title**: conditional — shows bold text when present, hidden when empty; clicks into TextField for editing
+- **Risk**: editable `TextField select` in table row (Critical/High/Moderate/Low) — analyst overrides AI assessment directly
+- **Expanded section**: Area of Focus / Obligation Type / Deadline dropdowns, AI Risk Assessment (likelihood/impact/risk + description + control owner + act name), Classification tenant overrides (applicability, risk, impact, likelihood, owner, gap), Linked Regulatory Returns (Autocomplete multi-select via `api.returns.list()`)
+- **Header**: `dateCommencement` + `nature` in metadata grid; re-review chip when `status !== 'pending'`
+
+## Done — Instruments Page Overhaul (KPIs, risk filter, enriched detail)
+
+Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-page` skill pattern. Commit `71d9097`.
+
+### List View
+- 4 KPI stats cards (Total, Critical, High, Published) — client-side computed from list, clickable → set risk filter
+- Filters: search + risk dropdown + regulator dropdown + clear button
+- Table (5 cols): Title | Regulator (chip) | Risk (colored chip) | Obligations (count) | Actions (View)
+- Sortable by Title and Risk via `TableSortLabel`
+
+### Detail View
+- Header: regulator, document type chip, risk chip, source title, metadata grid (regulator, type, issued, commencement, nature)
+- AI Summary kept (blue border-left)
+- Obligations table (5 cols): # | Obligation (title+description) | Risk (chip) | Act | Owner — all correct DTO field names
+- Sanctions table (5 cols): Type (chip) | Penalty (naira formatted) | Section | Liable Roles (chips) | Risk (severity score)
+- OCR/Extracted Text section removed
+
+### Field Name Fixes
+- `obl.section` → `obl.sectionReference`
+- `obl.type` → `obl.obligationType`
+- `s.type` → `s.sanctionType`
+
+## Done — Intel Obligation Explorer Detail Page (Replicated from Tenant)
+
+Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `ObligationDetailPage.jsx` layout, sections, styling, drawer, and modals. Commit `db252c8`.
+
+### Backend (`ObligationExplorerDetail` DTO + service + controller)
+- `ObligationExplorerDetail.java` extended with: `hasGap`, `gapDescription`, `applicability`, `applicabilityReasoning`, `classifiedByName`, `classifiedAt`, `assignedOwnerName`, `assignedDepartment`, `linkedControls`, `evidence`, `history`
+- Inner classes added: `ControlInfo`, `EvidenceInfo`, `HistoryEntry`
+- `ComplianceControlRepository.java` — new repository with `findByObligationId()`
+- `ObligationExplorerService.java` — `resolveControls()` populates `linkedControls` via `ComplianceControlRepository`; derives `hasGap`/`gapDescription`/`applicability` from entity fields
+- `AdminObligationExplorerController.java` — added `GET /{id}/controls` and `GET /{id}/pdf` endpoints
+
+### Frontend (`ObligationExplorerDetailPage.jsx` + `api.js` + modals)
+- **Complete rewrite** to match tenant layout:
+  - Header with back + PDF button (right-aligned)
+  - Chips row (risk, regulator, area, deadline, status, hasPoints)
+  - Metadata grid (160px 1fr, gap 4px 16px)
+  - Source Text (verbatim) + Plain English (interpreted) via `FormattedText`
+  - **Linked Controls** — preview list (max 5) + "Link controls" button + "View all" drawer
+  - **Returns** — chip preview + "View all"/"Map return" buttons
+  - **Sanctions** — compact preview with Gavel icon + red color
+  - **Control Gap** — alert + edit button
+  - **Evidence** — upload button + "View all"
+  - **Version History** — "View history" button
+  - **Right drawer** (480px, anchor right) with all sections + search
+  - **Snackbar** notifications, `useQueryClient` cache invalidation
+- **New helpers/components**: `ChipList`, `SectionHeader`, `formatNaira`, `formatDate`, `RISK_CONFIG`, `STATUS_COLOR`, `actionEdit`
+- **`api.js`**: Added `platform.obligations.{controls,evidence,history,pdf}`, `platform.{controls,evidence,returns}.{list,detail}`, `platform.obligations.get` with signal support
+- **6 modal stubs** created in `src/components/modals/`: `RiskAssessmentModal`, `OwnerModal`, `LinkControlsModal`, `MapReturnModal`, `GapModal`, `EvidenceUploadModal`
+- All styling matched: `Paper variant="outlined" p={3} mb={2}`, chip height 22, button `width:180 height:40 textTransform:none fontWeight:600 fontSize:14`, `Paper variant="outlined" p={2} mb={1.5}` for drawer items
+
+### Verification
+- `mvn clean compile` ✅ (intel backend)
+- `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
+- `git push` ✅
 
 ## Done — PDF Routes Return 404 Instead of 500
 
@@ -481,98 +564,11 @@ V2 is now routed at `/dashboard/v2` ("Rendition & Coverage" in the sidebar). `ap
 
 ## Done — Tenant Backend Aligned as Submodule
 
-The standalone `atheris-compliance-tenant-backend` service at `C:\Users\hp\Documents\atheris-compliance-tenant-backend` was copied and adapted as a Maven submodule at `atheris-compliance-backend/atheris-compliance/atheris-compliance-tenant-backend/`.
-
-### Module Structure
-
-```
-atheris-compliance-tenant-backend/
-  pom.xml                              — depends on atheris-compliance-common + Spring Boot + JPA + Security + JWT
-  src/main/java/com/atheris/compliance/tenant/backend/
-    AtherisTenantBackendApplication.java       — @SpringBootApplication on port 9091
-    config/SecurityConfig.java          — JWT filter, BCrypt, stateless sessions
-    modules/
-      auth/                             — JWT login/refresh/logout, invite tokens, password reset
-      users/                            — CRUD, invite flow, role management, password change
-      onboarding/                       — 4-step wizard (license → institution → user setup → confirm; regulators + doc types auto-skipped)
-      subscriptions/                    — Regulator subscriptions, per-regulator overrides
-      obligations/                      — Per-instrument classification, CCO approval, versioned history
-      controls/                         — Control inventory, test scheduling, test result recording
-      findings/                         — Auto-raised from failed tests, remediation workflow
-      returns/                          — Regulatory return calendar, stage-based filing
-      notifications/                    — Obligation change alerts (read/acknowledge)
-      dashboard/                        — Compliance score, KPIs, daily snapshots, V2 rendition grid + risk heatmap
-      audit/                            — Tamper-evident hash chain audit log
-      webhook/                          — Webhook receiver from main platform
-  src/main/resources/
-    application.yml                     — DB: atheris_tenant, schema: tenant, port 9091
-    db/migration/tenant/
-      V1__create_users.sql              — users, invite_tokens, refresh_tokens
-      V2__create_tenant_profile.sql     — tenant_profile, tenant_regulator_preferences
-      V3__create_obligations.sql        — obligation_classifications, classification_history
-      V4__create_controls.sql           — controls, control_tasks, control_test_results
-      V5__create_findings.sql           — findings
-      V6__create_returns.sql            — regulatory_returns, return_filing_instances
-      V7__create_audit.sql              — audit_events (hash chain)
-      V8__create_notifications.sql      — obligation_notifications
-      V9__create_dashboard.sql          — dashboard_snapshots
-```
-
-### How to Run
-```bash
-# Create tenant database
-docker exec -it db psql -U atheris -c "CREATE DATABASE atheris_tenant;"
-
-# Start tenant service
-cd atheris-compliance-backend/atheris-compliance
-mvn spring-boot:run -pl atheris-compliance-tenant-backend -am
-
-# Tenant service runs on port 9091
-# API base: http://localhost:9091/api/v1/
-```
+Tenant backend submodule at `atheris-compliance-backend/atheris-compliance/atheris-compliance-tenant-backend/` (port 9091, DB `atheris_tenant`, 9 Flyway migrations V1-V9). Compressed — see git log bd289a7 for full text.
 
 ## Done — Tenant Frontend Portal Built
 
-Full tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (port 5174):
-
-### Pages
-| Route | Component | Description |
-|-------|-----------|-------------|
-| `/login` | LoginPage | Dark gradient, gold Shield icon, "Africa's Premier Compliance Solution" subtitle, "Get Started — Register Your Institution" link to `:5173/onboarding` |
-| `/dashboard` | DashboardV2Page | Two tabs: Rendition Tracker (monthly grid + escalations) and Control Coverage (risk heatmap + coverage table) |
-| `/regulators` | RegulatorsPage | CRUD table with inline active toggle, add/edit dialog |
-| `/upload` | UploadPage | File picker + regulator/doc-type form, triggers `POST /subscriptions/upload-document` |
-| `/upload-history` | UploadStatusPage | Table with status chips (Processing/Done/Failed), polls upload status |
-| `/library` | LibraryPage | Search instruments from platform, detail drawer |
-| `/settings` | SettingsPage | Polling interval config via `GET/PUT /api/v1/settings/polling` |
-
-### Architecture
-- No webhooks — tenant polls platform via `ObligationSyncService` at configurable interval (DB-backed `tenant_polling_config` table)
-- Upload flow: `POST /api/v1/subscriptions/upload-document` → platform `POST /api/v1/internal/instruments/ingest` (SHA-256 dedup) → async processing → tenant polls `GET /api/v1/subscriptions/upload-status/{id}`
-- Tenant regulators stored in `tenant_regulators` table (optional `platform_regulator_id` FK)
-- Single license covers everything; 4-step onboarding (license → institution → user setup → confirm; regulators + doc types auto-skipped with empty arrays)
-
-### Fixes
-- `LicenseAdminPage.jsx` — handle paginated API responses (`.content \|\| data`, `Array.isArray(data) ? data : data.content \|\| []`)
-- `DashboardPage.jsx` — added missing `import api`
-- Intelligence `SecurityConfig` — `internalApiKeyFilter` placed before `UsernamePasswordAuthenticationFilter.class` (was `JwtAuthFilter.class`)
-- Tenant `SecurityConfig` — added `noopUserDetailsService()` bean to suppress auto-generated Spring Security password
-- `AdminUserSeeder.java` — **deleted entirely** (no more startup seeder warnings)
-- Tenant frontend `package.json` — reordered deps, added Inter + Roboto Mono Google Fonts
-- Tenant frontend `main.jsx` — replaced placeholder stub with proper `<StrictMode><App /></StrictMode>` bootstrap
-- Vite 8 Rolldown resolution — added missing `package.json` in `node_modules/@mui/icons-material/` for resolution
-- **Onboarding redirect to login fix** — `api.js` hardcoded `API_BASE = 'http://localhost:9090/api/v1'`, so onboarding/license API calls went to the intelligence backend (no `/onboarding/` routes) which returned 401 → `window.location.href = '/login'`. Added `TENANT_API_BASE = 'http://localhost:9091/api/v1'` + `tenantRequest()`; onboarding and license methods now target the correct backend directly.
-
-### How to Run
-```bash
-# Tenant frontend (separate terminal)
-cd atheris-compliance-frontend/atheris-compliance-tenant-frontend
-npm run dev
-# → http://localhost:5174
-```
-
-### E2E Testing
-See `ATERHIS_ONBOARDING_E2E_TESTING.md` for architecture diagram, API reference, and full testing script with curl commands.
+Tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (port 5174, routes: login/dashboard/regulators/upload/library/settings). Compressed — see git log bd289a7 for full text.
 
 ## Done — Backend Verification & Cleanup (backlog completed)
 
@@ -690,6 +686,60 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 | Propagation | `InternalInstrumentService`/`PlatformInstrumentDetail` 5 cols | `InternalInstrumentDetail.java`/`PlatformInstrumentDetail.java` 14-col `ObligationItem` + `actName` batched `RegulationRepository`, `ObligationSyncService.java:129` + `ReviewObligation.java`/`SaveReviewRequest.java`/`ReviewDetail.java` + `ReviewService.java:save()` `em.clear()+Throwable setRollbackOnly` persist `title/description/risk/owner/regulationId/actName` |
 | Logging/order | `AdminUserSeeder` unordered, `ScraperService/Playwright/Storage` `INFO` flood | `AdminUserSeeder.java:13 @Order(0)` → `ToolkitStartupSeeder.java:25 @Order(1)`, `ScraperService.java` `Scraping/Done` `INFO→DEBUG`, `HtmlScraperStrategy.java:26` / `PlaywrightHeadlessStrategy.java:40` `Scraping page` `INFO→DEBUG`, `LocalStorageService.java` `Stored` `INFO→DEBUG`, `application.yml:98 com.atheris.compliance DEBUG→INFO` (only `ERROR 404/403/timeout` + `WARN Failed to download` remain) |
 | Verified | `FPR/DIR/PUB/CIR/001/015 41pp` bundled 1 row | `FMD/DIR/PUB/CIR/001/029` `instrument 403 Published` `act 422 BOFIA 2020` → `obligation_mappings 1549 title="Limit suspension of payment..." verbatim="The suspension..." plain="Banks must ensure..." Para 1(a) Low/Medium→Moderate Chief Risk Officer` + `1550 Para 1(b)`; tenant `GET /api/v1/review/4` `ILLUSTRATED GUIDE pbor FCCPC` `Consumer Protection Governance Critical Head Compliance act 421 FCCPA 2018` harmonized; stale `reviewId 1` (pre-restart) to be `Skip`+re-upload via API (no SQL) |
+
+## Done — Points Batch Processing (LLM under Gemini free tier)
+
+**Problem:** 1,541 obligations × 1 LLM call each = 1,541 requests. Gemini free tier = 500/day. Sequential with 2s delay = 51 min. Rate limit kills it after ~500 calls.
+
+**Solution:** Batch 25 obligations per LLM call. 1,541 ÷ 25 = ~62 calls. ~2 min total. Well under 500/day limit.
+
+### Changes
+- **`application.yml`** — `atheris.points.batch-size: 25`, `atheris.points.delay-ms: 2000`
+- **`ToolkitImportService.java`** — New `POINTS_BATCH_PROMPT` (JSON keyed by `obligationId`). `generatePointsForToolkit()` rewritten: chunks obligations into batches, builds a single prompt per batch (`ID {id} | Title: ... | Desc: ... | Statement: ...`), parses `Map<String, List<PointItem>>` response, saves each obligation's points individually. `truncate()` helper caps desc/statement at 200 chars in prompt.
+- **`ToolkitStartupSeeder`** — Always calls `generatePointsForToolkit()` (not just on first import).
+
+### Timing
+| Step | Duration | When |
+|------|----------|------|
+| Toolkit import | ~60s | Intel startup |
+| Points generation (62 batches × 2s) | ~2 min | Intel startup |
+| Tenant onboarding `seedAll()` | ~5-10s | User triggers |
+
+**Impact on onboarding workspace load: ZERO.** Points are pre-computed on intel before anyone onboards. Tenant just fetches bundles (which already include points).
+
+### LLM Response Format (batch)
+```json
+{
+  "123": [
+    { "marker": "1", "text": "...", "level": 0, "children": [] }
+  ],
+  "124": []
+}
+```
+
+## Done — LLM Points Async Seed: Virtual Threads, Health & 15m Tuning
+
+**Problem:** Batched 25 × 2s sequential still hit Gemini 429 after ~120/1614 obligations; `max-output-tokens 1500` truncated 10-obligation batches; no model health tracking → retries burned quota.
+
+**Solution:** Virtual-thread pool (concurrency 5, stagger 500 ms), 8000 `max-output-tokens`, `BatchPointsResponse` verbatim/interpreted split, exponential cooldown, abort-on-cooldown.
+
+### Backend (`atheris-compliance-intelligence-backend`)
+- **`application.yml:48,102`** — `atheris.points.batch-size: 25→10`, `atheris.points.concurrency: 5`, `atheris.points.stagger-ms: 500`, `atheris.points.max-output-tokens: 8000`; `spring.ai.google.genai.chat.options.max-output-tokens` externalized; `atheris.ai.primary-model/fallback-model` + `atheris.ai.health.cooldown-initial-minutes: 5`, `cooldown-multiplier: 3.0`, `cooldown-max-minutes: 60→15` (tuned).
+- **`ToolkitImportService.java:30,650`** — `POINTS_BATCH_PROMPT` now `BatchPointsResponse` (`verbatim` + `interpreted` per point, distinct legal `(1)/(a)/(5)/(6)` vs plain `(1)(2)`); `generatePointsForToolkit()` uses `Executors.newVirtualThreadPerTaskExecutor()` fan-out 10/batch, stagger 500 ms, `truncate()` 300 chars, saves per-obligation; `BatchPointsResponse.java:35` `setMarker()` strips parentheses.
+- **`ObligationPoint.java` + `V32__create_obligation_points.sql` + `V3__create_obligations_sanctions_jobs.sql` (edited)** — `obligation_points` (`obligation_id FK`, `marker`, `text VERBATIM`, `interpreted TEXT`, `level`, `sort_order`, `parent_marker`); dedup `UNIQUE(obligation_id, marker, text)`.
+- **`RegulationSeedService.java:85,310`** — `seedBundle()` duplicates `verbatim`+`interpreted` from intel `ObligationPoint`/`FormattedText` into tenant on `seedAll()`; no LLM on tenant.
+- **`ModelHealthTracker.java:12`** — Exponential cooldown `initial 5m ×3 capped 60m→15m`, `recordSuccess()` clears, `getAvailableModels()` filters cooled, used by `AiClient` + `JobQueueProcessors`.
+- **`AiClient.java:35,58`** — `ChatClient.entity(BatchPointsResponse.class)` with `ChatModelCallAdvisor` + raw `ChatModel.call(prompt)` logging (request/response preview 800 chars), primary→fallback via `AiConfig.java:22`; last-resort `try { primary } catch { fallback }` bypass removed.
+- **`AiConfig.java:18`** — Externalized `primaryModel`/`fallbackModel` from `application.yml`, exposes `primaryChatModel()`/`fallbackChatModel()` beans.
+- **`JobQueueProcessors.java:45`** — `processClassifyQueue()` abort-on-cooldown: `if (healthTracker.getAvailableModels(primary, fallback).isEmpty()) log WARN + return`; fast-fail `skip retries` when 429/quota (no `markFailed` retry loop burn).
+- **`PointsRetryScheduler.java:18`** — `fixedRate 30m→15m`, re-batches remaining `countByPointsNull` in batches of 10 via virtual threads, gated by `getAvailableModels()`.
+
+### Verified
+- DB `obligation_mappings 1614` (was 1541), `obligation_points 120/1346` before cooldown (429 at 16:09, retry scheduled 16:24 after 15m tuning); re-batch + `1466` fill pending. Obligations explorer still WIP until points complete.
+
+> Note: Verification pending — points still filling (120/1466 at last check); see WIP Verification checklist below.
+
+
 
 # CRITICAL RULES - MUST FOLLOW
 ## PLANNING MODE
