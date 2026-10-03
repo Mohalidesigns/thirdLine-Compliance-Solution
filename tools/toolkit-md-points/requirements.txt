@@ -1,0 +1,2 @@
+# tools/toolkit-md-points — stdlib-only, no third-party deps required.
+# Both scripts (export_json.py, verify_json.py) run with Python 3.10+ standard library.

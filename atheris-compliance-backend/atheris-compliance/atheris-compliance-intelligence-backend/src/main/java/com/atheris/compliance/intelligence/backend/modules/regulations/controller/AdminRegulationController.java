@@ -2,6 +2,7 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.controll
 
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.RegulationDetailDto;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.RegulationDto;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitImportResult;
 import com.atheris.compliance.intelligence.backend.modules.regulations.service.RegulationService;
 import com.atheris.compliance.intelligence.backend.modules.regulations.service.ToolkitImportService;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +47,7 @@ public class AdminRegulationController {
     }
 
     @PostMapping("/toolkit/import")
-    public ResponseEntity<Map<String, Object>> importToolkit() {
+    public ResponseEntity<ToolkitImportResult> importToolkit() {
         return ResponseEntity.ok(toolkitImport.importToolkit());
     }
 }

@@ -18,8 +18,8 @@ spring:
         size: 4
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:atheris_intel}
-    username: ${DB_USER:atheris}
-    password: ${DB_PASSWORD:changeme}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -112,15 +112,6 @@ atheris:
     applicability-interval-ms: 300000 # 5 minutes
     webhook-sender-interval-ms: 300000 # 5 minutes
     webhook-retry-interval-ms: 1800000 # 30 minutes
-
-  points:
-    batch-size: 5        # obligations per LLM call (max ~30 for Gemini Flash Lite 8k output tokens)
-    delay-ms: 1000        # delay between batches (ms) — used by PointsRetryScheduler sequential fallback
-    retry-interval-ms: 900000   # 15 minutes — how often to retry failed obligations
-    concurrency: 5        # max parallel LLM calls in batch generation
-    stagger-ms: 500       # delay between submitting each batch (prevents burst rate limit)
-    retry-attempts: 3     # per-batch retry attempts before marking as failed
-    retry-delays-ms: 2000,5000  # delays between retries (ms)
 
 logging:
   level:

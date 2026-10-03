@@ -43,7 +43,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 ## How to Run
 
 ### Backend
-- Docker PostgreSQL: container `db`, port 5432, DB `atheris_intel`, user `atheris` (password via `DB_PASSWORD` env, default only in local `application.yml`)
+- Docker PostgreSQL: container `db` (`atheris-postgres-intel`), port 5432, DB `atheris_intel`, user via `DB_USERNAME` / `DB_PASSWORD` env vars — no hardcoded defaults in `application.yml` (strong password set on the `atheris` role)
 - Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris-compliance/atheris-compliance-intelligence-backend` (port 9090)
 - Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris-compliance` (port 9091)
 - Default admin login is set via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars (see `application.yml`) — never commit real credentials
@@ -59,7 +59,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
   - Java 21, Maven, Node 18+, npm
   - Copy `cp .env.example .env` (see `.env.example` and `application.yml` for `DB_*`, `PORT`, `ADMIN_*`, `JWT_SECRET`, `ENCRYPTION_KEY`, `GEMINI_API_KEY`, `PLATFORM_BASE_URL`, storage, email)
 - **Start databases**
-  - `docker run --name db -e POSTGRES_USER=atheris -e POSTGRES_PASSWORD=changeme -p 5432:5432 -d postgres:17` or use existing `db` container
+  - `docker run --name db -e POSTGRES_USER=atheris -e "POSTGRES_PASSWORD=$DB_PASSWORD" -p 5432:5432 -d postgres:17` — never hardcode a password; the `atheris` role password lives in the `DB_PASSWORD` env var
   - `psql -U postgres -c "CREATE DATABASE atheris_intel OWNER atheris"`
   - `psql -U postgres -c "CREATE DATABASE atheris_tenant OWNER atheris"`
 - **Start backends**
@@ -502,57 +502,23 @@ License flags `autoSubscribeRegulators` / `autoSeedObligations` (intel V12 + ten
 
 One register row = one enforceable duty for both `toolkit_seed` and `ai_extracted`. Classifier prompt is atomic (one "shall" = one obligation), separates verbatim `description` (≤500) from interpreted `statement` (≤250), emits risk/likelihood/impact/controlOwner/sanctions/act_name and 12 unified areas of focus; `max 3500` tokens with 80k → 2×40k chunk merge. `ObligationMapping` gains `description`/`title`/risk/owner/`act_id` (intel V3 edited); the 14-column item propagates through `InternalInstrumentDetail` → `ObligationSyncService` → Review DTOs → `ReviewService.save()`. Seeder order `AdminUserSeeder @Order(0)` → `ToolkitStartupSeeder @Order(1)`; scraper/storage logging INFO → DEBUG.
 
-## Done — Points Batch Processing (LLM under Gemini free tier)
+## Done — Toolkit Seed via Committed JSON (no LLM points)
 
-**Problem:** 1,541 obligations × 1 LLM call each = 1,541 requests. Gemini free tier = 500/day. Sequential with 2s delay = 51 min. Rate limit kills it after ~500 calls.
+**Problem:** `classpath:toolkit/compliance_toolkits.md` never travelled into the JAR, so a fresh boot parsed nothing; points were generated per-startup via batched LLM calls (62 batches × 25, then virtual-threads/concurrency-5) — Gemini 429 / cooldown / quota burned, points backlog never finished, obligating an AI call for data the markdown already contained.
 
-**Solution:** Batch 25 obligations per LLM call. 1,541 ÷ 25 = ~62 calls. ~2 min total. Well under 500/day limit.
+**Solution:** the markdown is converted once, offline, to a committed typed JSON (`tools/toolkit-md-points/export_json.py` → `compliance_toolkits.json`, ~4.8 MB), verified by `verify_json.py` (parity 1541 obligations / 597 sanctions / 139 returns / 363 universe / 192 CMP), and read at startup by the importer. Points and interpreted text are authored in the markdown and pass through verbatim — **no LLM calls at seed time**, no `OPENROUTER_API_KEY` needed to seed, no per-startup points job.
 
 ### Changes
-- **`application.yml`** — `atheris.points.batch-size: 25`, `atheris.points.delay-ms: 2000`
-- **`ToolkitImportService.java`** — New `POINTS_BATCH_PROMPT` (JSON keyed by `obligationId`). `generatePointsForToolkit()` rewritten: chunks obligations into batches, builds a single prompt per batch (`ID {id} | Title: ... | Desc: ... | Statement: ...`), parses `Map<String, List<PointItem>>` response, saves each obligation's points individually. `truncate()` helper caps desc/statement at 200 chars in prompt.
-- **`ToolkitStartupSeeder`** — Always calls `generatePointsForToolkit()` (not just on first import).
-
-### Timing
-| Step | Duration | When |
-|------|----------|------|
-| Toolkit import | ~60s | Intel startup |
-| Points generation (62 batches × 2s) | ~2 min | Intel startup |
-| Tenant onboarding `seedAll()` | ~5-10s | User triggers |
-
-**Impact on onboarding workspace load: ZERO.** Points are pre-computed on intel before anyone onboards. Tenant just fetches bundles (which already include points).
-
-### LLM Response Format (batch)
-```json
-{
-  "123": [
-    { "marker": "1", "text": "...", "level": 0, "children": [] }
-  ],
-  "124": []
-}
-```
-
-## Done — LLM Points Async Seed: Virtual Threads, Health & 15m Tuning
-
-**Problem:** Batched 25 × 2s sequential still hit Gemini 429 after ~120/1614 obligations; `max-output-tokens 1500` truncated 10-obligation batches; no model health tracking → retries burned quota.
-
-**Solution:** Virtual-thread pool (concurrency 5, stagger 500 ms), 8000 `max-output-tokens`, `BatchPointsResponse` verbatim/interpreted split, exponential cooldown, abort-on-cooldown.
-
-### Backend (`atheris-compliance-intelligence-backend`)
-- **`application.yml:48,102`** — `atheris.points.batch-size: 25→10`, `atheris.points.concurrency: 5`, `atheris.points.stagger-ms: 500`, `atheris.points.max-output-tokens: 8000`; `spring.ai.google.genai.chat.options.max-output-tokens` externalized; `atheris.ai.primary-model/fallback-model` + `atheris.ai.health.cooldown-initial-minutes: 5`, `cooldown-multiplier: 3.0`, `cooldown-max-minutes: 60→15` (tuned).
-- **`ToolkitImportService.java:30,650`** — `POINTS_BATCH_PROMPT` now `BatchPointsResponse` (`verbatim` + `interpreted` per point, distinct legal `(1)/(a)/(5)/(6)` vs plain `(1)(2)`); `generatePointsForToolkit()` uses `Executors.newVirtualThreadPerTaskExecutor()` fan-out 10/batch, stagger 500 ms, `truncate()` 300 chars, saves per-obligation; `BatchPointsResponse.java:35` `setMarker()` strips parentheses.
-- **`ObligationPoint.java` + `V32__create_obligation_points.sql` + `V3__create_obligations_sanctions_jobs.sql` (edited)** — `obligation_points` (`obligation_id FK`, `marker`, `text VERBATIM`, `interpreted TEXT`, `level`, `sort_order`, `parent_marker`); dedup `UNIQUE(obligation_id, marker, text)`.
-- **`RegulationSeedService.java:85,310`** — `seedBundle()` duplicates `verbatim`+`interpreted` from intel `ObligationPoint`/`FormattedText` into tenant on `seedAll()`; no LLM on tenant.
-- **`ModelHealthTracker.java:12`** — Exponential cooldown `initial 5m ×3 capped 60m→15m`, `recordSuccess()` clears, `getAvailableModels()` filters cooled, used by `AiClient` + `JobQueueProcessors`.
-- **`AiClient.java:35,58`** — `ChatClient.entity(BatchPointsResponse.class)` with `ChatModelCallAdvisor` + raw `ChatModel.call(prompt)` logging (request/response preview 800 chars), primary→fallback via `AiConfig.java:22`; last-resort `try { primary } catch { fallback }` bypass removed.
-- **`AiConfig.java:18`** — Externalized `primaryModel`/`fallbackModel` from `application.yml`, exposes `primaryChatModel()`/`fallbackChatModel()` beans.
-- **`JobQueueProcessors.java:45`** — `processClassifyQueue()` abort-on-cooldown: `if (healthTracker.getAvailableModels(primary, fallback).isEmpty()) log WARN + return`; fast-fail `skip retries` when 429/quota (no `markFailed` retry loop burn).
-- **`PointsRetryScheduler.java:18`** — `fixedRate 30m→15m`, re-batches remaining `countByPointsNull` in batches of 10 via virtual threads, gated by `getAvailableModels()`.
+- **`compliance_toolkits.json`** (committed, `src/main/resources/toolkit/`) — typed `ToolkitSeedDoc`: `meta` (with per-table totals), `universe`/`universeSanctions` (informational), `obligations` (Map<String, List<ObligationRow>>), `sanctions`, `returns`, `monitoringPlan` (CMP controls). `compliance_toolkits.md` retained as the human source.
+- **`ToolkitImportService`** — all six importers rewritten over typed DTOs (`importUniverse`, `importCrmp`, `importSanctions`, `importReturns`, `importCmpControls`, `importCmpControlsFromSections`); markdown row-parsing helpers (`parseSections`, `normalizeSectionName`, `col`, `headerIndex`, `isSubHeader`, `get`×2, `extractReference`, `parsePointsCell`, `CELL_SPLIT`) deleted. Business logic kept: findOrCreateAct chain, canonical instrument linking, verbatim/interpreted split with plain→description fallback, points passthrough, existsBy dedup, global CMP numbering (`PREF C%03d`/`PREF A%03d`).
+- **`ToolkitImportResult`** (new, `dto/seed/`) — typed result DTO (`@Data @Builder @NoArgsConstructor @AllArgsConstructor @JsonInclude(NON_NULL)`; regulators/acts/instruments/obligations/sanctions/returns/controls/unmappedSources/unmappedList/error/cause), same JSON shape as the legacy `Map<String, Object>`; `importToolkit()`/`successResult()`/`errorResult()` return it; `AdminRegulationController` → `ResponseEntity<ToolkitImportResult>`; `ToolkitStartupSeeder` reads `result.getError()`.
+- **Deleted** — `PointsRetryScheduler` (scheduler), `BatchPointsResponse` (DTO), `atheris.points.*` config (the `compliance_toolkits.md`-only bulges that survived the md→JSON refactor) — points fill from the JSON, not the LLM.
+- **DB env vars** — datasource username reads `DB_USERNAME` (was `DB_USER`), password reads `DB_PASSWORD`; **no hardcoded fallbacks** in `application.yml` (both backends). Credentials come only from the OS env; `.env.example` and AGENTS.md How-to-run updated.
 
 ### Verified
-- DB `obligation_mappings 1614` (was 1541), `obligation_points 120/1346` before cooldown (429 at 16:09, retry scheduled 16:24 after 15m tuning); re-batch + `1466` fill pending. Obligations explorer still WIP until points complete.
-
-> Note: Verification pending — points still filling (120/1466 at last check); see WIP Verification checklist below.
+- `verify_json.py` → `VERIFY OK … (1541/597/139/363/192)` EXIT 0.
+- `JAVA_HOME=<graalvm-ce-21.0.2> mvn -q -pl atheris-compliance-intelligence-backend -am compile` clean (default JDK 27 breaks Lombok — always compile with GraalVM 21).
+- Fresh-DB boot parity check is the outstanding verification (Flyway migrate → `ToolkitStartupSeeder` → SQL counts vs 1541/597/139/363/192).
 
 
 

@@ -1375,8 +1375,8 @@ spring:
     name: atheris-platform
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/atheris_intel
-    username: ${DB_USER:atheris}
-    password: ${DB_PASSWORD:atheris}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

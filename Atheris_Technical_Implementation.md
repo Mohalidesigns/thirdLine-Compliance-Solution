@@ -6027,7 +6027,7 @@ public class SecurityConfig {
 spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST}:5432/atheris_intel
-    username: ${DB_USER}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   
   servlet:
