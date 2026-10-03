@@ -114,33 +114,18 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - Classification: `unclassified`, `applicable`, `not_applicable`, `under_review`
 - Retry backoff (minutes): `[5, 15, 60, 240, 1440]`
 
-## Sub-Agents
-
-MUST use these sub-agents for all non-trivial tasks. MUST NEVER do the work directly — act as a coordinator only.
-
-| Task | Agent | When to Use | Skill |
-|------|-------|-------------|-------|
-| Frontend page work | `frontend-page` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) | `frontend-register-page` |
-| Schema changes | `db-migration` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair | — |
-| Backend module work | `backend-scaffold` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed | `backend-module-scaffold` |
-| API mismatch check | `api-sync` | After adding/changing endpoints, verify frontend api.js matches | — |
-
-Full agent definitions: `.opencode/agents/`
-
-### Agent Conventions
-- **frontend-page**: React 19, Vite 8, MUI 7. Pages follow stats cards → filters → sortable table → detail drawer. Max 5 columns. API via `api.js`. Load `frontend-register-page` skill for register/details pages.
-- **db-migration**: Always edit existing migrations in place. Only create new V<next> files for genuinely new tables. Run Flyway repair after editing. Use POSTGRES superuser for drops.
-- **backend-scaffold**: Java 21, Spring Boot 3.2. `findBy` for simple lookups, native `@Query` for complex joins. `@Builder.Default` on all initialized fields. Thin controllers. Load `backend-module-scaffold` skill for new modules.
-- **api-sync**: Scans all `@RestController` classes vs all `api.js` files. Reports missing frontend calls, dead calls, parameter/auth/shape mismatches.
-
 ## Skills
 
-Reusable patterns loaded by sub-agents during implementation.
+MUST load the matching skill before doing any non-trivial task and implement the work directly — there are no project sub-agents, only skills. Use the built-in `general`/`explore` agents only when genuinely parallel or exploratory work exists.
 
-| Skill | File | Purpose |
-|-------|------|---------|
-| `frontend-register-page` | `.opencode/skills/frontend-register-page.md` | UI pattern: stats cards → filters → sortable table (5 cols) → detail drawer. Used by `frontend-page` agent. |
-| `backend-module-scaffold` | `.opencode/skills/backend-module-scaffold.md` | Entity + repository + service + controller + DTOs + Flyway migration. Used by `backend-scaffold` agent. |
+| Skill | Location | When to Use | Load for... |
+|-------|----------|-------------|-------------|
+| `frontend-register-page` | `.opencode/skills/frontend-register-page/SKILL.md` | Any MUI table page — new, modified, or bugfixed (KPIs, filters, drawer, pagination) | Per-page pattern: stats cards → filters → sortable 5-col table → detail drawer; tenant (TanStack Query) vs intel (raw useEffect) fetching |
+| `obligations-page` | `.opencode/skills/obligations-page/SKILL.md` | Obligations register/detail pages (tenant `/obligations`, intel Obligations Explorer) | Obligations-specific spec: FormattedText verbatim/interpreted, DTO mapping, tenant vs intel differences |
+| `backend-module-scaffold` | `.opencode/skills/backend-module-scaffold/SKILL.md` | Any entity + repository + service + controller + DTOs + migration — new, refactored, or bugfixed | Entity/Repository/Service/Controller/DTO patterns, `@Builder.Default`, `@Transactional` error handling, compile checks |
+| `db-migration` | `.opencode/skills/db-migration/SKILL.md` | Any CREATE TABLE, ALTER TABLE, column add/edit, Flyway repair | In-place migration edits, V<next> rules, POSTGRES superuser drops, no raw-SQL data mutations |
+| `api-sync` | `.opencode/skills/api-sync/SKILL.md` | After adding/changing endpoints, verify frontend api.js matches | Scan all `@RestController` vs all `api.js`; report missing/dead/parameter/auth/shape mismatches |
+| `atheris-register-page` | `.claude/skills/atheris-register-page/SKILL.md` | Any register/explorer/detail page or dashboard in either app | The authority: cross-app recipe, field-drift tables, verified trap catalogue, `check_dto_binding.py` |
 
 ## MCP Servers
 
@@ -378,7 +363,7 @@ See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboar
 
 ## Done — `atheris-register-page` Skill
 
-`.claude/skills/atheris-register-page/` encodes the register/details pattern and the defects found building it. `.opencode/agents/frontend-page.md` points at it, so both toolchains share one source of truth.
+`.claude/skills/atheris-register-page/` encodes the register/details pattern and the defects found building it. The `frontend-register-page` skill points at it, so both toolchains share one source of truth.
 
 - **SKILL.md** — the per-app fork (tenant has TanStack Query; intel has neither the dependency nor a provider and must not get one as a side effect), the page recipe, the five highest-frequency traps, and a verification checklist that does not stop at a green build.
 - **references/traps.md** — the full catalogue with evidence, grouped by failure mode.
@@ -438,7 +423,7 @@ The tenant obligation DTOs use `sectionReference`, so intel's `specificSectionRe
 Act names are resolved by collecting the page's distinct act ids into a `Set` and issuing one `findAllById` — one extra query per page regardless of page size. Obligation stats aggregate in SQL via new group-by queries rather than loading all ~1541 rows.
 
 ### The Intel frontend has NO TanStack Query
-`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
+`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-register-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
 
 ### Known lint debt (pre-existing, not new)
 The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
@@ -490,7 +475,7 @@ All three surface enrichment the DTOs already carried; the pages simply never re
 - **Expandable rows** — each review row has a chevron; expanding lazily calls `GET /review/{reviewId}` (`api.review.get`) and renders a read-only enriched obligation table: `#`, Obligation (bold title + grey `plainEnglishStatement` caption, verbatim `description` behind an `InfoOutlined` tooltip), Section (mono chip), Area (`areaOfFocus`), Risk (`inherentRiskChip` with `likelihood × impact` tooltip), Act (`actName`, falls back to `Reg #{regulationId}`). `applicable === false` renders at 0.45 opacity with a "Not applicable" chip.
 - **No backend change** — `ReviewItem` (list DTO) stays instrument-level; enrichment comes from the existing detail endpoint. `enabled: open` means collapsed rows fire no request (no N+1 on list load); `staleTime: 5min` makes re-expanding free.
 - **Shared detail cache** — query key is `['review', String(reviewId)]`, matching `ReviewEditPage`'s `useParams()` string key, so expanding a row warms the detail page and vice-versa. The key must be stringified: `useParams()` gives a string while `item.reviewId` is a JSON number, and TanStack hashes `['review',12]` and `['review','12']` differently.
-- **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the `frontend-page` convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
+- **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the register-page convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
 - **Outer table trimmed to 5 data columns** (+ chevron + actions): Document (Source chip folded inline before the title), Regulator, Risk, Obligations, Received. Nothing previously shown was dropped; the standalone `source` sort header is gone, but source remains filterable via the dropdown and the Intel/Upload KPI cards.
 
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
@@ -745,14 +730,13 @@ Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >
 ## PLANNING MODE
 
 - Always ask clarifying questions
-- Use deep-dive sub-agents to assist with research
-- Use deep-dive sub-agents to review the different aspects of your plan before presenting to the user
+- Use the `explore` agent to research the codebase and review the different aspects of your plan before presenting to the user
 
 ## CHANGE / EDIT MODE
 
-- MUST use sub-agents — never implement features yourself when possible
-- MUST identify changes from the plan that can be implemented in parallel, and use sub-agents to implement the features efficiently
-- when using sub-agents to implement features, act as a coordinator only
+- MUST load the matching skill (see the Skills table) before starting any non-trivial task, then implement the work directly
+- MUST identify changes from the plan that can be implemented in parallel, and use the built-in `general` agent to implement disjoint slices when that genuinely speeds things up
+- when delegating parallel slices to `general`, give each agent a disjoint file set and pin exact files/APIs in the brief; wire shared files yourself
 
 ## CODING STYLE
 

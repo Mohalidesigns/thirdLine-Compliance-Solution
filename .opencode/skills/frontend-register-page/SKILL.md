@@ -1,13 +1,22 @@
+---
+name: frontend-register-page
+description: Build, modify, or bugfix an MUI register/explorer table page in the Atheris compliance frontends (atheris-compliance-tenant-frontend :5174, atheris-compliance-intelligence-frontend :5173). Use whenever work touches a table page — new, modified, or bugfixed — with KPI cards, filters, drawer/pagination, or detail pages. Carries the page recipe (stats cards → filters → sortable 5-col table → detail drawer), per-app TanStack Query conventions, styling rules, and the API client shape. For the cross-app register/details recipe and verified traps use atheris-register-page.
+---
+
 # frontend-register-page
 
-Reusable skill for building MUI register/details pages following the Atheris tenant portal pattern.
+Reusable pattern for building MUI register/details pages following the Atheris portal pattern.
+
+> Note: for the full register/details recipe (both apps, field-drift tables, verified traps,
+> DTO-binding checker script) read the `atheris-register-page` skill first. This skill is the
+> quick per-page pattern; that one is the authority and catches the most common silent defect here.
 
 ## Page Architecture
 
-Every register page follows this structure:
+Suppose every register page follows this structure:
 
 ```
-Stats Cards (4 KPIs, clickable → set filter)
+Stats Cards (4 KPIs, clickable → set filter. Card stats MUST have a dropdown)
   ↓
 Filters Bar (search + dropdowns + clear button)
   ↓
@@ -62,7 +71,7 @@ const COLUMNS = [
 // Max 5 columns. Always.
 ```
 
-### 3. Stats Cards (4 KPIs)
+### 3. Stats Cards (4 KPIs, MUST have a dropdown)
 
 ```jsx
 const kpis = [
@@ -153,7 +162,14 @@ const kpis = [
 
 ### 7. Data Fetching
 
-**Always use TanStack Query.** Raw `useEffect` + fetch causes request cancellation noise (`AsyncRequestNotUsableException`). Wrap search/filter params in a debounced state to avoid rapid refires.
+**Always use TanStack Query in the TENANT frontend** — raw `useEffect` + fetch causes request
+cancellation noise (`AsyncRequestNotUsableException`). Wrap search/filter params in a debounced
+state to avoid rapid refires. Wrap fetch calls in `AbortController` (TanStack `signal`) to prevent
+race conditions on unmounted components.
+
+**INTEL frontend has NO TanStack Query** — `@tanstack/react-query` is not a dependency and there
+is no `QueryClientProvider` in its `main.jsx`. Do NOT add it. In intel, use the raw
+`useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage.jsx`.
 
 ```jsx
 import { useQuery } from '@tanstack/react-query';
@@ -191,12 +207,13 @@ const { data: stats } = useQuery({
 
 ## API Conventions
 
-- List: `api.{entity}.list(params)` → `GET /api/v1/{entity}?page=&size=&q=&risk=&sort=`
+- List: `api.{entity}.list(params)` → `GET /api/v1/{entity}?page=&size=&q=&risk=&sort=` (Pageable sort is a single string `sort=field,dir`)
 - Stats: `api.{entity}.stats()` → `GET /api/v1/{entity}/stats`
 - Detail: `api.{entity}.detail(id)` → `GET /api/v1/{entity}/{id}`
 - Create: `api.{entity}.create(data)` → `POST /api/v1/{entity}`
 - Update: `api.{entity}.update(id, data)` → `PUT /api/v1/{entity}/{id}`
 - Delete: `api.{entity}.remove(id)` → `DELETE /api/v1/{entity}/{id}`
+- Mutations must validate inputs server-side and return the updated entity for cache invalidation (`queryClient.invalidateQueries`)
 
 ## Styling Rules
 
@@ -207,3 +224,10 @@ const { data: stats } = useQuery({
 - `Typography variant="h4" sx={{ fontWeight: 700 }}` for KPI values
 - Table rows: `hover` + `cursor: 'pointer'` for clickable rows
 - Drawer: `anchor="right"`, `PaperProps={{ sx: { width: 480 } }}`
+- In tables MUST use similar styling as the obligations register pages. Max 5 columns.
+
+## Verification
+
+- `npm run build:tenant` / `npm run build:intelligence` from `atheris-compliance-frontend`
+- Run `python3 scripts/check_dto_binding.py --jsx Page.jsx --java RowDto.java DetailDto.java StatsDto.java` from `atheris-register-page` to mechanically check every bound field against the backing DTOs
+- Confirm a new route bundles as its own chunk (grep the import PATH, not the identifier — `AppRoutes.jsx` aliases imports)

@@ -1,3 +1,8 @@
+---
+name: obligations-page
+description: Build or modify an MUI obligations register/detail page in either Atheris frontend (tenant Obligations Register :5174/obligations or intel Obligations Explorer :5173). Use for per-obligation registers, obligation detail routes, FormattedText verbatim/interpreted rendering, and obligations-family pages. Carries the obligations-specific KPI/filter/table spec, the FormattedText contract, DTO field mapping, tenant vs intel differences (editable vs read-only), and per-app data fetching conventions.
+---
+
 # obligations-page
 
 Reusable skill for building MUI obligations register/detail pages following the Atheris tenant Obligations Register + Detail pattern. Use for both tenant Obligations Register (`:5174/obligations`) and intel Obligations Explorer (`:5173`).

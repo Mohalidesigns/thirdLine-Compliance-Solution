@@ -32,7 +32,7 @@ produces code that builds and then fails at runtime, or a needless dependency.
 | Pages live in | `src/pages/` | `src/features/<area>/components/` |
 | ESLint | **no config at all** — the build is the only gate | `eslint.config.js`, ~316 pre-existing problems |
 
-The `frontend-page` convention in `.opencode/agents/frontend-page.md` says "use TanStack
+The `frontend-register-page` skill says "use TanStack
 Query, never raw useEffect". **That applies to the tenant app only.** In intel, follow
 `RegulationExplorerPage.jsx`. Adding react-query to intel is a deliberate migration, not
 a side effect of adding a page.

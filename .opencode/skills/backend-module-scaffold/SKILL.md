@@ -1,6 +1,11 @@
+---
+name: backend-module-scaffold
+description: Build, refactor, or bugfix a Spring Boot backend module in the Atheris compliance codebase (atheris-compliance-intelligence-backend, atheris-compliance-tenant-backend). Use whenever work involves an entity + repository + service + controller + DTOs + Flyway migration — new, refactored, or bugfixed. Carries the module structure, entity/repository/service/controller/DTO patterns, Lombok @Builder.Default rules, @Transactional error handling, and compilation checks.
+---
+
 # backend-module-scaffold
 
-Reusable skill for building Spring Boot backend modules following the Atheris pattern.
+Reusable pattern for building Spring Boot backend modules following the Atheris pattern.
 
 ## Module Structure
 
@@ -41,7 +46,7 @@ public class {Entity} {
 ```
 
 ### Rules
-- Always use `@Builder.Default` on initialized fields
+- Always use `@Builder.Default` on initialized fields — Lombok builders drop field initializers without it, silently breaking defaults (status/tier/counters/enums).
 - Always include `tenantId` for multi-tenant modules
 - Use `@PrePersist` / `@PreUpdate` for timestamps
 - `@JsonIgnoreProperties(ignoreUnknown = true)` on DTOs
@@ -71,7 +76,7 @@ public interface {Entity}Repository extends JpaRepository<{Entity}, Long> {
 - Native `@Query` for complex joins and aggregations
 - `JpaSpecificationExecutor` for multi-filter list endpoints
 - Avoid N+1 — fetch related data in single query or `@EntityGraph`
-- Never use JPQL unless absolutely necessary — prompt user for approval first
+- Never use JPQL unless absolutely necessary — prompt the user for approval first, then use a native query
 
 ## Service Pattern
 
@@ -114,7 +119,7 @@ public class {Entity}Service {
 ### Rules
 - `@RequiredArgsConstructor` for dependency injection
 - Use `tenantIdentity.currentTenantId()` — never hardcode tenant ID
-- All `@Transactional` catch blocks: `em.clear()` + `setRollbackOnly()` + catch `Throwable`
+- All `@Transactional` catch blocks MUST call `setRollbackOnly()` (prevents Hibernate AssertionFailure), catch `Throwable` (not just `Exception` — catches JNA `Error` too), and `em.clear()` in catch blocks (prevents Hibernate stale-state issues after rollback)
 - Audit log every mutation: `audit.log(userId, action, entity, id, metadata)`
 - Validate inputs server-side — never trust frontend
 
@@ -153,7 +158,7 @@ public class {Entity}Controller {
 
 ### Rules
 - Thin controllers — delegate everything to service
-- `@PreAuthorize` on every endpoint
+- `@PreAuthorize` on every endpoint (`PLATFORM_ADMIN` on intel admin endpoints, tenant roles on tenant endpoints)
 - `@AuthenticationPrincipal User u` for audit trail
 - Return DTOs, never entities
 - Use `Pageable` for list endpoints
@@ -180,12 +185,13 @@ public class {Entity}Dto {
 
 ## Flyway Migration
 
-- Edit existing migration files in place when modifying tables
-- Only create new `V<next>` files for genuinely new tables
+- Edit existing migration files in place when modifying tables — only create new `V<next>` files for genuinely new tables
 - Use `BIGINT` for IDs, `TEXT` for long strings, `VARCHAR(n)` for bounded strings
 - `JSONB` for flexible structured data
 - Always include `tenant_id` column for multi-tenant tables
 - Run `mvn org.flywaydb:flyway-maven-plugin:10.12.0:repair` after editing migrations
+- Use POSTGRES superuser for drops (`postgres` with `WITH (FORCE)`)
+- NEVER insert/update data via raw SQL — always use application APIs (controllers/endpoints) so business logic, validation, and audit trails run
 
 ## Compilation Check
 
