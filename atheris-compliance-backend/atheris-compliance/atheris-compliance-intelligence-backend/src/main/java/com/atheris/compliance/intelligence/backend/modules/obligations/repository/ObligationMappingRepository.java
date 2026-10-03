@@ -13,18 +13,12 @@ public interface ObligationMappingRepository extends JpaRepository<ObligationMap
     List<ObligationMapping> findByInstrumentId(Long instrumentId);
     List<ObligationMapping> findByInstrumentIdIn(Collection<Long> instrumentIds);
     List<ObligationMapping> findByRegulationId(Long regulationId);
+    List<ObligationMapping> findByPointsIsNull();
+    @Query(value = "SELECT * FROM obligation_mappings WHERE points IS NULL OR jsonb_array_length(points) = 0", nativeQuery = true)
+    List<ObligationMapping> findByPointsEmpty();
     void deleteByInstrumentId(Long instrumentId);
     long countByRegulationId(Long regulationId);
     boolean existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(Long regulationId, String plainEnglishStatement, String specificSectionReference);
     boolean existsByInstrumentIdAndPlainEnglishStatement(Long instrumentId, String plainEnglishStatement);
     boolean existsByInstrumentIdAndPlainEnglishStatementAndSpecificSectionReference(Long instrumentId, String plainEnglishStatement, String specificSectionReference);
-
-    @Query("select o.inherentRiskRating, count(o) from ObligationMapping o group by o.inherentRiskRating")
-    List<Object[]> groupByInherentRiskRating();
-
-    @Query("select o.areaOfFocus, count(o) from ObligationMapping o group by o.areaOfFocus")
-    List<Object[]> groupByAreaOfFocus();
-
-    @Query("select o.obligationType, count(o) from ObligationMapping o group by o.obligationType")
-    List<Object[]> groupByObligationType();
 }

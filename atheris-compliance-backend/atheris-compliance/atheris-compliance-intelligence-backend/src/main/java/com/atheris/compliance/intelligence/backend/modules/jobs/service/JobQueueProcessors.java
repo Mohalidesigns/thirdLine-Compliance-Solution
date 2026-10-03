@@ -8,6 +8,7 @@ import com.atheris.compliance.intelligence.backend.modules.regulators.repository
 import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
 import com.atheris.compliance.intelligence.backend.modules.tenants.repository.TenantRepository;
 import com.atheris.compliance.common.Constants;
+import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
 import com.atheris.compliance.intelligence.backend.shared.storage.StorageService;
 import lombok.RequiredArgsConstructor;
@@ -128,6 +129,14 @@ public class JobQueueProcessors {
                     log.info("Classifier job {} done for instrument {}", job.getJobId(), instrumentId);
                 });
             } catch (Throwable e) {
+                if (AiClient.isCooldown(e)) {
+                    // Every AI model is cooling down after rate limits. Not the job's
+                    // fault: hand the claim back (pending, attempt not counted) and
+                    // stop this tick — the rest of the batch would defer the same way.
+                    log.info("[Classifier] Deferred for instrument {} — cooldown active, will retry on next tick", job.getSubjectId());
+                    jobQueue.releaseClaim(job.getJobId());
+                    break;
+                }
                 log.error("Classifier job {} failed: {}", job.getJobId(), e.getMessage());
                 jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
             }

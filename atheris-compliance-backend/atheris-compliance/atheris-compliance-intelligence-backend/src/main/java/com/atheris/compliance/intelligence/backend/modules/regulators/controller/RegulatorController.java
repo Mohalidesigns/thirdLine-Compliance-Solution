@@ -48,10 +48,16 @@ public class RegulatorController {
         return ResponseEntity.ok(regulatorService.update(id, req));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deactivate(@PathVariable Integer id) {
-        regulatorService.deactivate(id);
-        return ResponseEntity.noContent().build();
+    @PutMapping("/{id}/disable")
+    public ResponseEntity<Void> disable(@PathVariable Integer id) {
+        regulatorService.disable(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/bulk-disable")
+    public ResponseEntity<Void> bulkDisable(@RequestBody List<Integer> ids) {
+        regulatorService.bulkDisable(ids);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/test-scraper")

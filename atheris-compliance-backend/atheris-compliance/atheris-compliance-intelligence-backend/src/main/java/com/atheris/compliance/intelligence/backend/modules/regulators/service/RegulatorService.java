@@ -113,8 +113,13 @@ public class RegulatorService {
     }
 
     @Transactional
-    public void deactivate(Integer id) {
+    public void disable(Integer id) {
         repo.findById(id).ifPresent(r -> { r.setIsActive(false); repo.save(r); });
+    }
+
+    @Transactional
+    public void bulkDisable(List<Integer> ids) {
+        ids.forEach(this::disable);
     }
 
     public ScraperRunResult testScraper(Integer id, boolean dryRun) {

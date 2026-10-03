@@ -74,6 +74,16 @@ atheris:
     password: ${ADMIN_PASSWORD}
   encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
 
+  ai:
+    fallback-enabled: true
+    cooldown-initial-ms: 300000    # 5 minutes initial cooldown on rate limit
+    cooldown-max-ms: 900000        # 15 minutes max cooldown
+    cooldown-multiplier: 3         # multiply cooldown by 3 each consecutive failure
+    # OpenRouter model ids. Primary follows AI_MODEL (same as spring.ai.openai above);
+    # the fallback is tried when the primary is rate-limited or failing.
+    primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
+    fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.0-flash-lite-001}
+
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}
     expiry-minutes: 1440
@@ -102,8 +112,17 @@ atheris:
     webhook-sender-interval-ms: 300000 # 5 minutes
     webhook-retry-interval-ms: 1800000 # 30 minutes
 
+  points:
+    batch-size: 5        # obligations per LLM call (max ~30 for Gemini Flash Lite 8k output tokens)
+    delay-ms: 1000        # delay between batches (ms) — used by PointsRetryScheduler sequential fallback
+    retry-interval-ms: 900000   # 15 minutes — how often to retry failed obligations
+    concurrency: 5        # max parallel LLM calls in batch generation
+    stagger-ms: 500       # delay between submitting each batch (prevents burst rate limit)
+    retry-attempts: 3     # per-batch retry attempts before marking as failed
+    retry-delays-ms: 2000,5000  # delays between retries (ms)
+
 logging:
   level:
-    com.atheris.compliance: INFO
+    com.atheris.compliance: DEBUG
     org.springframework.security: WARN
     org.hibernate.SQL: WARN

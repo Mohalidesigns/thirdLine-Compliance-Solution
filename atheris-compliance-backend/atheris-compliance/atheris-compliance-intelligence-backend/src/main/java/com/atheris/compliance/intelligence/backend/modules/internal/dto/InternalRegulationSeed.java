@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class InternalRegulationSeed {
@@ -45,6 +46,7 @@ public class InternalRegulationSeed {
     public static class ObligationItem {
         private Integer obligationNumber;
         private String title;
+        private String description;
         private String plainEnglishStatement;
         private String specificSectionReference;
         private String areaOfFocus;
@@ -55,6 +57,7 @@ public class InternalRegulationSeed {
         private String inherentImpact;
         private String inherentRiskRating;
         private String controlOwner;
+        private List<Map<String, Object>> points;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

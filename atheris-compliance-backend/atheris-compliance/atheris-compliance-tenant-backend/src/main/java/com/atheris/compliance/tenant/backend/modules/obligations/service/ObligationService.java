@@ -37,6 +37,7 @@ public class ObligationService {
     private final ObligationClassificationRepository classifications;
     private final ClassificationHistoryRepository history;
     private final ObligationRepository obligationRepo;
+    private final ObligationPointRepository obligationPoints;
     private final ControlRepository controlRepo;
     private final RegulatoryReturnRepository returnRepo;
     private final EvidenceFileRepository evidenceRepo;
@@ -537,6 +538,15 @@ public class ObligationService {
                 : null;
         }
 
+        // Load structured points
+        List<ObligationPoint> rawPoints = obligationPoints.findByObligationIdOrderBySortOrder(ob.getObligationId());
+        List<ObligationDetailView.PointItem> points = rawPoints.stream()
+            .map(p -> ObligationDetailView.PointItem.builder()
+                .id(p.getId()).parentId(p.getParentId()).sortOrder(p.getSortOrder())
+                .marker(p.getMarker()).level(p.getLevel()).content(p.getContent())
+                .pointType(p.getPointType()).build())
+            .toList();
+
         return ObligationDetailView.builder()
             .obligationId(ob.getObligationId())
             .obligationNumber(ob.getObligationNumber())
@@ -588,6 +598,7 @@ public class ObligationService {
             .evidence(evidence)
             .history(historyItems)
             .sanctions(sanctions)
+            .points(points)
             .build();
     }
 
@@ -880,7 +891,7 @@ public class ObligationService {
         if (req.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(req.getAssignedOwnerUserId());
         if (req.getAssignedOwnerName() != null) c.setAssignedOwnerName(req.getAssignedOwnerName());
         if (req.getAssignedDepartment() != null) c.setAssignedDepartment(req.getAssignedDepartment());
-        if (req.getLinkedControlIds() != null) c.setLinkedControlIds(req.getLinkedControlIds());
+        if (req.getLinkedControlIds() != null) c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
         if (req.getHasGap() != null) c.setHasGap(req.getHasGap());
         if (req.getGapDescription() != null) c.setGapDescription(req.getGapDescription());
         c.setClassifiedByUserId(userId);

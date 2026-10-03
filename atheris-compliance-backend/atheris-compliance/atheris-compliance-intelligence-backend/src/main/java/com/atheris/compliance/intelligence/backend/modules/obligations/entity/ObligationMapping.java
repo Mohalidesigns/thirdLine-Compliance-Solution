@@ -2,7 +2,11 @@ package com.atheris.compliance.intelligence.backend.modules.obligations.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 @Entity @Table(name = "obligation_mappings")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -25,6 +29,10 @@ public class ObligationMapping {
     private String inherentImpact;
     private String inherentRiskRating;
     @Column(columnDefinition = "text") private String controlOwner;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private List<Map<String, Object>> points = List.of();
     private Instant createdAt;
     @PrePersist void onCreate() { createdAt = Instant.now(); }
 }

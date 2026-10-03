@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.TenantReg
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UpdateRegulatorRequest;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.RegulatorService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,10 +47,17 @@ public class RegulatorController {
         return ResponseEntity.ok(service.update(id, req));
     }
 
-    @DeleteMapping("/{id}")
+    @PutMapping("/{id}/disable")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.delete(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> disable(@PathVariable Long id) {
+        service.disable(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/bulk-disable")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    public ResponseEntity<Void> bulkDisable(@RequestBody List<Long> ids) {
+        service.bulkDisable(ids);
+        return ResponseEntity.ok().build();
     }
 }

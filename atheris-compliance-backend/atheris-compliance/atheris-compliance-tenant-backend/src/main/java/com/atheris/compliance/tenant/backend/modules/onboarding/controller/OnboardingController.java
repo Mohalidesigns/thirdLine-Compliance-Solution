@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.onboarding.controller;
 
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.service.OnboardingService;
+import com.atheris.compliance.tenant.backend.modules.onboarding.service.SeedService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService service;
+    private final SeedService seedService;
 
     @GetMapping("/status")
     public ResponseEntity<OnboardingStatusResponse> getStatus() {
@@ -53,5 +55,10 @@ public class OnboardingController {
     public ResponseEntity<OnboardingStatusResponse> confirm(
             @RequestBody OnboardingConfirmRequest req) {
         return ResponseEntity.ok(service.confirm(req));
+    }
+
+    @GetMapping("/seed-status")
+    public ResponseEntity<SeedService.SeedStatusDto> seedStatus() {
+        return ResponseEntity.ok(seedService.getStatus());
     }
 }
