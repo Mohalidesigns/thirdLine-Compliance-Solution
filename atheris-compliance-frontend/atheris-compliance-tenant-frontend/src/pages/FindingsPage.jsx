@@ -4,17 +4,21 @@ import {
   TablePagination, Chip, TextField, MenuItem, Button, IconButton,
   Card, CardContent, CardHeader, TableContainer, Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Divider, Grid, Tooltip, Breadcrumbs, Link, Checkbox, FormControlLabel
+  Divider, Grid, Tooltip, Breadcrumbs, Link, Checkbox, FormControlLabel,
+  Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
-  Add, Warning, Schedule
+  Add, Warning, Schedule, UploadFile
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
 import OwnerPicker from '../components/org/OwnerPicker';
+import { useAuth } from '../contexts/AuthContext';
+import ImportDialog from '../components/modals/ImportDialog';
 
 const SEV_COLORS = { Critical: 'error', High: 'error', Medium: 'warning', Low: 'success' };
 const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
+const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 
 export default function FindingsPage() {
   const [view, setView] = useState('list');
@@ -29,7 +33,11 @@ export default function FindingsPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [remediateOpen, setRemediateOpen] = useState(false);
   const [snackbar, setSnackbar] = useState(null);
+  const [success, setSuccess] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
   const theme = useTheme();
+  const { user } = useAuth();
+  const canImport = IMPORT_ROLES.includes(user?.role);
 
   const loadList = useCallback(() => {
     setLoading(true);
@@ -71,9 +79,16 @@ export default function FindingsPage() {
           <Typography variant="h4" sx={{ mb: 0.5 }}>Findings</Typography>
           <Typography variant="body2" color="text.secondary">Track and remediate control gaps</Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setRaiseOpen(true)}>
-          Raise Finding
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {canImport && (
+            <Button variant="outlined" startIcon={<UploadFile />} onClick={() => setImportOpen(true)}>
+              Import
+            </Button>
+          )}
+          <Button variant="contained" startIcon={<Add />} onClick={() => setRaiseOpen(true)}>
+            Raise Finding
+          </Button>
+        </Box>
       </Box>
 
       <Card sx={{ mb: 2 }}>
@@ -130,7 +145,15 @@ export default function FindingsPage() {
                     return (
                       <TableRow key={row.findingId} hover sx={{ cursor: 'pointer' }}
                         onClick={() => loadDetail(row.findingId)}>
-                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{row.displayId}</TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                          {row.displayId}
+                          {row.externalReference && (
+                            <Typography variant="caption" color="text.secondary" display="block"
+                              sx={{ fontFamily: 'monospace', fontWeight: 400 }}>
+                              {row.externalReference}
+                            </Typography>
+                          )}
+                        </TableCell>
                         <TableCell sx={{ maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {row.description}
                         </TableCell>
@@ -171,6 +194,19 @@ export default function FindingsPage() {
       <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)}
         onSaved={() => { setRaiseOpen(false); loadList(); }} onSnackbar={setSnackbar} />
 
+      {canImport && (
+        <ImportDialog entityType="findings" entityLabel="findings" open={importOpen}
+          itemLabel="Finding" contextLabel="Control / Obligation"
+          invalidateKeys={[['dashboard']]}
+          onClose={() => setImportOpen(false)}
+          onImported={(r) => { loadList(); setSuccess(`Imported ${r?.importedRows ?? 0} findings.`); }} />
+      )}
+
+      <Snackbar open={!!success} autoHideDuration={3000} onClose={() => setSuccess('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <MuiAlert severity="success" variant="filled" onClose={() => setSuccess('')}>{success}</MuiAlert>
+      </Snackbar>
+
       {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)}
         sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999 }}>{snackbar}</Alert>}
     </Box>
@@ -205,7 +241,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
               <Typography variant="body1" sx={{ fontWeight: 500 }}>{detail.description}</Typography>
               {detail.linkedControlId && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Linked control: CTRL-{String(detail.linkedControlId).padStart(3, '0')}
+                  Linked control: {detail.linkedControlIdentifier || `CTRL-${String(detail.linkedControlId).padStart(3, '0')}`}
                 </Typography>
               )}
             </Box>
@@ -274,6 +310,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Finding Details</Typography>
+              {detail.externalReference && <DetailRow label="Reference" value={detail.externalReference} />}
               <DetailRow label="Type" value={detail.findingType} />
               <DetailRow label="Trigger" value={detail.triggerReason} />
               {detail.rootCause && <DetailRow label="Root cause" value={detail.rootCause} />}

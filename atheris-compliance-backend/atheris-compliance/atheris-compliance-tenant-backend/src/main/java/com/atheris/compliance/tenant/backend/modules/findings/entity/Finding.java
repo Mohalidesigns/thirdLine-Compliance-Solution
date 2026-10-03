@@ -21,6 +21,9 @@ public class Finding {
     private String findingType;
     private Long linkedObligationId;
     private Integer linkedControlId;
+    /** Optional external id (e.g. an audit report reference); unique case-insensitively when set. */
+    @Column(length = 100)
+    private String externalReference;
     private String severity;
     @Column(columnDefinition = "text")
     private String description;
@@ -47,7 +50,10 @@ public class Finding {
 
     @PrePersist
     void onCreate() {
-        createdAt = updatedAt = Instant.now();
+        Instant now = Instant.now();
+        // An import supplies its historical Date Raised; everything else is stamped now.
+        if (createdAt == null) createdAt = now;
+        updatedAt = now;
     }
 
     @PreUpdate

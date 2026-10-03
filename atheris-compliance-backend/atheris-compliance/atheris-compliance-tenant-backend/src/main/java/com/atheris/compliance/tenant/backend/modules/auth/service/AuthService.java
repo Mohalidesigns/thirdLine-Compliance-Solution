@@ -180,7 +180,8 @@ public class AuthService {
             .build();
     }
 
-    private void validatePw(String pw) {
+    /** Password-strength rule for invite/reset; also reused by DevUserSeeder. */
+    public static void validatePw(String pw) {
         if (pw == null || pw.length() < 8)
             throw ApiException.badRequest("weak_password", "Password must be at least 8 characters");
         if (!pw.matches(".*[A-Z].*"))

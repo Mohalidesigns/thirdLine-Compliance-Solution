@@ -14,7 +14,10 @@ const EMPTY = {
   linkedObligationIds: [],
 };
 
-const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
+const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'];
+const EVENT_DRIVEN = 'Event-driven';
+// Recurring frequencies that need a due rule; without one the return gets no periods.
+const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial'];
 
 function Field({ label, children, sx }) {
   return (
@@ -58,7 +61,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       if (body.returnOwnerUserId) body.returnOwnerUserId = parseInt(body.returnOwnerUserId, 10);
       if (body.tenantRegulatorId) body.tenantRegulatorId = parseInt(body.tenantRegulatorId, 10);
       else delete body.tenantRegulatorId;
-      if (!body.filingDate) delete body.filingDate;
+      if (!body.filingDate || body.frequency === EVENT_DRIVEN) delete body.filingDate;
       if (!body.responsibleUnit) delete body.responsibleUnit;
       if (!body.responsiblePerson) delete body.responsiblePerson;
       const created = await api.returns.create(body);
@@ -123,9 +126,13 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
             </TextField>
           </Field>
-          <Field label="Filing Date" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="date" value={form.filingDate}
+          <Field label="First due date" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" type="date" value={form.frequency === EVENT_DRIVEN ? '' : form.filingDate}
+              disabled={form.frequency === EVENT_DRIVEN}
               onChange={e => set('filingDate', e.target.value)}
+              helperText={form.frequency === EVENT_DRIVEN
+                ? 'Not used — event-driven returns have no fixed cycle.'
+                : 'Sets the filing cycle — e.g. Annual + 31 Mar is due every 31 March.'}
               slotProps={{ inputLabel: { shrink: true } }} />
           </Field>
           <Field label="Prep offset (days)" sx={{ mb: 0 }}>
@@ -133,6 +140,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               onChange={e => set('filingDeadlineOffsetDays', e.target.value)} />
           </Field>
         </Box>
+        {NEEDS_DUE_DATE.includes(form.frequency) && !form.filingDate && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            Without a due date this return will show as 'Due date needed'.
+          </Alert>
+        )}
         <Box sx={{ mt: 2 }}>
           <Field label="Filing Channel" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" value={form.filingChannel}

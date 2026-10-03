@@ -72,6 +72,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 - **First admin**
   - Login `:5173` with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (env vars)
   - Manage regulators, tenants, licenses; run `POST /admin/acts/toolkit/import` if seed missing
+  - Dev tenant users: set SEED_USERS_ENABLED=true + SEED_USERS_PASSWORD in .env → tenant backend seeds admin@/cco@/analyst@/auditor@<SEED_USERS_DOMAIN> on start (idempotent, dev only).
 - **Tenant use**
   - Onboard organization on `:5174` (license → institution → user setup → confirm)
   - Use dashboard, Review Inbox/Edit, Instruments, Obligations Register/Details, Controls, Returns, Sanctions, Findings
@@ -140,61 +141,23 @@ Config: `opencode.json`
 ## Recent Changes
 
 ### Backend Verification & Cleanup (latest)
-- **DB-driven tenant identity (replaces config-injected `atheris.tenant-id`/`TENANT_ID`)** — Tenant backend no longer reads its numeric tenant id from `application.yml`. New `TenantIdentityService` resolves the single `tenant_profile` row (`profiles.findAll().stream().findFirst()`). At license activation, `LicenseService.activate()` calls the new intel endpoint `POST /api/v1/internal/tenants/provision` (from the license key, idempotent) to learn its real tenant id, persists it on `tenant_profile` (`UNIQUE(tenant_id)` via new tenant Flyway V26), then builds the profile. All 13 `@Value tenant-id` sites converted to `TenantIdentityService` (OnboardingService, LicenseService, SubscriptionService, RegulatorService, UploadService, InstrumentsService, ReturnService, ObligationSyncService, RegulationSeedService, ReviewService, SettingsService, PollingIntervalProvider, PlatformApiClient — dead ctor param removed). `InternalTenantController.onboard` made idempotent (updates existing provisioned tenant). `atheris.tenant-id` removed from `application.yml`. Both modules compile. No longer need `TENANT_ID=2` sacrificial-tenant pattern for a second identity — one tenant per instance.
+- **DB-driven tenant identity** — tenant backend no longer reads `atheris.tenant-id`/`TENANT_ID`; `TenantIdentityService` resolves the single `tenant_profile` row. `LicenseService.activate()` calls intel `POST /api/v1/internal/tenants/provision` (idempotent) to learn the real tenant id, stored on `tenant_profile` (`UNIQUE(tenant_id)`, tenant V26). All 13 `@Value tenant-id` sites converted; `InternalTenantController.onboard` idempotent. One tenant per instance — the `TENANT_ID=2` sacrificial-tenant pattern is obsolete.
 
 ### Backend Verification & Cleanup (earlier)
-- **Verify clean startup** — Both backends boot with no seeder warnings / no auto-generated password (logs `%TEMP%\opencode\{intel,tenant}-{out,err}.log`).
-- **Dormant webhook delivery code removed** — Tenant `WebhookReceiverController`/`WebhookReceiverService` (wrote stale per-instrument `ObligationClassification`) deleted; intel `WebhookService`, `JOB_WEBHOOK`, commented schedulers + `WEBHOOK_BATCH` gone; `WebhookController` retry endpoint dropped (stats/failed kept); `TenantService.testWebhook` returns a polling-disabled stub; tenant `SecurityConfig`/`LicenseFilter` `/api/v1/webhooks/**` permits removed; frontend `send_webhooks` labels/cases + `testWebhook`/`rotateSecret` helpers + mock job removed. Commit `09cccd1`.
-- **Toolkit import made idempotent** — Re-running `POST /admin/regulations/toolkit/import` previously duplicated obligation_mappings and sanctions (no dedup in `importCrmp`/`importSanctions`). Now dedups by natural key: obligations = regulation+statement+section; sanctions = regulation+section+description+penalty. Fresh import restores the full seed; re-run is a clean 0/0 no-op with an empty UNMAPPED report. Dedup also collapses genuine duplicate rows in the source register (counts now **1541 obligations**, **597 sanctions** instead of 1638/601). Commit `520d70e`.
-- **Onboarding E2E verified** — Tested on a sacrificial tenant-2 (:9092, `TENANT_ID=2`): all 4 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs. Tenant data delivery is polling-only via `ObligationSyncService` (webhooks CANCELLED by user; dormant code retained).
-- **Dashboard "Tenant Overview" widget** — `DashboardPage.jsx` added card with 4 KPI mini-cards (Active, Licence Types, Subscription Tiers, Regulator Subscriptions) + sticky-header table driving `/admin/tenants/{id}`. Commit `8d423c8`.
-- **`@Builder.Default` cleanup** — 100 annotations across 35 entity/DTO files so Lombok builders no longer drop field initializers (status/tier/counters/enums). Commit `5310dc3`.
-- **`maxRegulators`/`maxControls`/`maxReturns` removed** — never enforced; removed from License entity, CreateLicenseRequest/UpdateLicenseRequest/LicenseDto, LicenseService, V12 migration (edited in place), license admin form/detail drawer, and demo mock data. Commit `48ba65d`. Both DBs recreated fresh (15 intel + 25 tenant migrations) and re-seeded (toolkit import; Mam Corp tenant/license `ATH-263D-A80D-AD15-561C`/api-key; tenant profile + regulators CBN/NDIC + admin user). Sync verified: 6 pending reviews created.
-- **AGENTS.md backlog marked done** — Commit `ed3270c`.
+- Clean startup verified (no seeder warnings / auto-generated password). Dormant webhook delivery code removed end to end (commit `09cccd1`); delivery is polling-only via `ObligationSyncService`.
+- Toolkit import idempotent — dedup by natural key (obligations = regulation+statement+section; sanctions = regulation+section+description+penalty); counts now **1541 obligations / 597 sanctions** (commit `520d70e`).
+- Intel "Tenant Overview" dashboard widget (`8d423c8`); `@Builder.Default` on 100 fields in 35 files (`5310dc3`); never-enforced `maxRegulators`/`maxControls`/`maxReturns` removed everywhere, V12 edited in place (`48ba65d`); backlog marked done (`ed3270c`).
 
-### Backend
-- **Phase A — Nigerian Toolkit: regulations module + one-time seed** — New `modules/regulations/` package (entity `Regulation`, `RegulationAlias`, `AreaOfFocus` + repositories + `RegulationService` + `ToolkitImportService` + `AdminRegulationController` + `AdminUniverseController`). Flyway V15 `regulations` table. `ToolkitImportService` parses `classpath:toolkit/compliance_toolkits.md` (a 3.5 MB DRAFT toolkit) and seeds: **390 instruments** (`upload_source='toolkit_seed'`, never enters OCR/AI pipeline), **389 regulations** (each linked to a canonical instrument), **1,638 obligation_mappings**, **601 sanctions**, **28 regulators** (non-scraper). Import is fully atomic (TransactionTemplate `setRollbackOnly()` on any failure); UNMAPPED report returned for CRMP/sanctions-only sources (27 stub instruments created). Robustness fixes found live: duplicate-authority resolution in `ensureRegulator` (abbreviation/normalized-name matching), `recurring_deadline_type`/section reference truncation to schema limits, `sanction_amount` overflow guard for `numeric(15,2)`. `RegulationRepository` is a `JpaSpecificationExecutor` for the q/regulatorId list filter.
-- **Sanctions grid corruption fixed + Returns register seeded** — `parseNaira` (concatenated digit-strip: `₦20M`→`20`) replaced by `parseMoney` honoring `M`/`k` suffixes, comma thousands, and compound per-role amounts (takes largest, e.g. `₦1.5M (MD & ECO), ₦1M (CCO), ₦20M (DMB)` → 20,000,000). `importSanctions` now populates `liable_roles` (col6), `risk_explanation` (col5 impact) and `penalty_details` (col4 raw). Flyway V15 edited in place: sanctions gain `risk_explanation`/`penalty_details` TEXT columns; new `regulatory_returns` table (title, section_reference, statutory_basis, recipient, frequency, deadline, remarks). New `importReturns` parses the Returns & Remittance register (139 rows seeded, dedup via `existsByTitleAndRegulationId`, 4 extra stub instruments for returns-only sources). `returnCount` added to list/detail DTOs; `RegulationDetailDto.ReturnItem` + `SanctionItem.riskExplanation/penaltyDetails` surfaced. Verified on a pristine DB (drop schema → 15 migrations re-run → import) and live API.
-- **New admin endpoints** — `GET /api/v1/admin/regulations` (paginated, q + regulatorId filter, per-regulation instrument/obligation/sanction/return counts), `GET /api/v1/admin/regulations/{id}` (drill-down: instruments + obligations + sanctions + returns), `PUT /api/v1/admin/regulations/{id}`, `POST /api/v1/admin/regulations/toolkit/import` (re-runnable seed; wipe `toolkit_seed` data first or re-drop if already imported), `GET /api/v1/admin/universe/instruments` (multi-filter spec: regulatorId/areaOfFocus/riskRating/nature/status/q), `GET /api/v1/admin/universe/areas-of-focus`, `GET /api/v1/admin/universe/stats` (totals by regulator/area/risk/nature).
-- **Webhooks removed from pipeline** — `JobQueueProcessors.processApplicabilityQueue()` no longer enqueues `send_webhooks` jobs; `@Scheduled` on `processWebhookQueue()` and `retryFailedWebhooks()` commented out (code kept for future re-enablement). Tenant data is now delivered via polling only.
-- **License Dashboard KPIs** — `LicenseAdminPage.jsx` now fetches `GET /admin/licenses/stats` and displays 6 KPI cards (Active, Inactive, Grace Period, Expired, Revoked, Total).
-- **TenantAdminPage cleaned up** — Removed webhook URL field from create tenant dialog and "Webhook Enabled" KPI card; webhook column kept in table for visibility.
-- Migrated from custom Anthropic HTTP client to Spring AI ChatModel
-- Added AdminJobQueueController: `GET /admin/jobs` (paginated, filterable) + `GET /admin/jobs/stats` (aggregate counts) + `GET /admin/jobs/{id}` (full detail with payload + related instrument)
-- Added Flyway V9: `cors_whitelist` table seeded with `localhost:5173` and `localhost:9090`
-- Added `modules/cors/` package: CorsWhitelist entity, repository, and `AdminCorsController` (CRUD at `GET/POST/PUT/DELETE /api/v1/admin/cors`)
-- Updated SecurityConfig with DB-backed `CorsConfigurationSource` reading active origins at startup
-- Fixed ObligationBrowserService to populate `regulatorAbbreviation` in summary DTO
-- Added batch processing loops (OCR_BATCH=3, CLASSIFY_BATCH=10, etc.)
-- Added `existsBySourceUrl()` duplicate check in OCR processor
-- All `@Transactional` catch blocks call `setRollbackOnly()` to prevent Hibernate AssertionFailure
-- Changed processor lambdas to for-loops with `continue` for batch processing
-- **Plan B: Pending Manual Downloads** — Flyway V10 adds `pending_downloads` table; new `modules/pending/` package with entity, repository, controller; when scraper download fails, `ScraperService` saves record to `pending_downloads`; admin upload endpoint verifies PDF magic bytes, computes SHA-256 hash, uploads to S3, and enqueues `ocr_document` job
-- **Fixed Playwright download** — `PlaywrightHeadlessStrategy` now downloads PDFs inside the same `BrowserContext` that scraped the circulars page (preserves Cloudflare `cf_clearance` cookie); `PdfLink.pdfBytes` carries bytes back to `ScraperService.processNewDocument` so no separate download call is needed
-- **REQUIRES_NEW on markFailed** — `JobQueueService.markFailed()` runs in separate transaction to persist failure independently of outer rollback
-- **em.clear() in catch blocks** — prevents Hibernate stale-state issues after rollback in all four processors
-- **Tesseract OCR resilience** — DPI reduced 300→200, image dimension clamped at 4000px, each page wrapped in `catch (Throwable)`, TESSDATA_PREFIX read from env var
-- **All catch (Exception → Throwable)** — prevents JNA `Error` (e.g. `Invalid memory access`) from killing the scheduler thread
-- **Classifier empty-text guard** — rejects text < 100 chars, marks instrument as `INST_TRIAGE` for manual review
-- **CBN scraper URL encoding** — `safeUri()` helper in `ScraperService` encodes spaces/parentheses/brackets rejected by `URI.create()`
-- **CBN scraper Cloudflare bypass** — Playwright downloads within existing authenticated `BrowserContext`
+### Backend (intel)
+- **Toolkit seed (Phase A)** — `modules/regulations/` (`Regulation`, `RegulationAlias`, `AreaOfFocus`, `ToolkitImportService`, `AdminRegulationController`, `AdminUniverseController`), Flyway V15. Parses `classpath:toolkit/compliance_toolkits.md` into instruments (`upload_source='toolkit_seed'`, never enter OCR/AI), regulations, obligation_mappings, sanctions, returns (139), regulators. Atomic (TransactionTemplate `setRollbackOnly()`); returns an UNMAPPED report. `parseMoney` honours `M`/`k` suffixes and takes the largest compound per-role amount (replaced the digit-stripping `parseNaira`).
+- Endpoints: `GET/PUT /admin/regulations[/{id}]`, `POST /admin/regulations/toolkit/import`, `GET /admin/universe/{instruments,areas-of-focus,stats}`.
+- Pipeline: Spring AI `ChatModel` (replaced custom Anthropic client); `AdminJobQueueController`; DB-backed CORS whitelist (V9, `modules/cors/`); Pending Manual Downloads (V10, `modules/pending/` — PDF magic-byte check, SHA-256, enqueue OCR); webhooks removed from the pipeline; License KPIs; batch loops (OCR_BATCH=3, CLASSIFY_BATCH=10).
+- Resilience rules: `markFailed()` is `REQUIRES_NEW`; `em.clear()` + `setRollbackOnly()` in processor catch blocks; catch `Throwable` (JNA `Error` kills the scheduler thread otherwise); Tesseract DPI 200 / 4000px clamp; classifier rejects text <100 chars → `INST_TRIAGE`; `safeUri()` for CBN URLs; Playwright downloads inside the same `BrowserContext` (keeps Cloudflare `cf_clearance`).
 
-### Frontend
-- Fixed `authSlice.js` — was reading `res.data.accessToken` (doesn't exist), now reads `res.accessToken` directly
-- Wired InboxPage to `GET /intelligence/inbox?status=` (removed mock data)
-- Wired LibraryPage to `GET /intelligence/obligations` (removed mock data)
-- Wired RegulatorAdminPage to `GET /platform/regulators?activeOnly=true` (removed mock data)
-- Added drill-down drawer on RegulatorAdminPage — click a regulator to see its discovered documents
-- Created JobQueuePage (`/admin/pipeline`) showing pipeline jobs with filters, pagination, stats, per-type breakdown, and drill-down drawer (click a job to see payload, errors, and related instrument)
-- Added `platform.jobs.list()`, `platform.jobs.stats()`, `platform.jobs.get(id)`, and `platform.instruments.list()` API endpoints in api.js
-- Added Pipeline Jobs nav item under PLATFORM in sidebar
-- **Pending Manual Downloads widget** on DashboardPage — replaces mock "Jurisdiction Coverage" card; fetches live `pending_downloads` records; each item shows title/URL/regulator/date with upload (file picker) and skip buttons; Snackbar feedback for actions
-- **Dashboard redesign** — removed ALL mock data. Page now has: (1) KPI cards from `GET /admin/jobs/stats` (OCR Queue / Awaiting Classify / Classified / Failed+Stuck), (2) Document Pipeline Table combining jobs + instruments + pending_downloads into a unified view with pipeline progress indicators (Download→OCR→Classify→Publish) and View PDF button, (3) Pending Manual Downloads widget, (4) Quick Actions card
-- **TenantAdminPage** — removed `demoTenants` mock data, now calls real `GET /api/v1/platform/tenants` API; table adapted to `TenantDto` fields (`legalName`, `licenceType`, `isActive`, `webhookEnabled`, `onboardedAt`)
-- **api.js** — added `jobs.getPdfUrl(id)`, `instruments.getPdfUrl(id)` for PDF viewing; `JobQueueDto` now includes `payload` field so dashboard can read title/regulator/URL without fetching each job individually
-- **View PDF** — Dashboard "PDF" column calls `GET /admin/jobs/{id}/pdf` (for in-flight items) or `GET /intelligence/obligations/{id}/pdf` (for classified instruments), opens presigned S3 URL in new tab
-- **Demo login uses client-side mock data** — `api.js` now has a `demoRequest()` function that intercepts all API calls when `authToken === DEMO_TOKEN` and returns realistic mock data for Inbox, Library, Jobs, Regulators, Tenants, Pending Downloads, and Dashboard; `loginDemo()` reducer now calls `setToken(APP.DEMO_TOKEN)` so the API client is aware of demo mode
-- **LibraryPage removed** — The old `/library` route (Obligation Library) was deleted. Its Refresh button was moved to `/admin/instruments` (InstrumentsPage), placed just before the "Upload Instrument" button.
+### Frontend (intel)
+- Inbox/Regulators/Tenants/Dashboard wired to real APIs (mock data removed); JobQueuePage `/admin/pipeline`; Pending Manual Downloads widget; View PDF via `/admin/jobs/{id}/pdf` or `/intelligence/obligations/{id}/pdf`; `authSlice` reads `res.accessToken`.
+- Demo login: `api.js` `demoRequest()` serves mock data when `authToken === DEMO_TOKEN`.
+- LibraryPage removed; its Refresh button moved to `/admin/instruments`.
 
 ## Admin API Endpoints
 
@@ -235,18 +198,106 @@ Config: `opencode.json`
 - Duplicate PDFs are skipped at OCR-time via `existsBySourceUrl()` check
 - Old classify jobs with null subject_id can be cleaned: `DELETE FROM job_queue WHERE job_type = 'classify_instrument' AND subject_id IS NULL`
 
-## TODO / Next — Harmonization: only bulk import remains
+## TODO / Next — Client-readiness follow-ups
 
-**Tenant (`:5174`)** — DONE. All six pages harmonized against the `ReviewEditPage.jsx` reference; see the Done sections below.
+Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see the Done sections below.
 
-**Intel (`:5173`)** — DONE. All four explorers built; see the Done section below.
+**Bulk import** — all four phases (obligations, controls, returns, findings) DONE, see below.
 
-**Dashboards** — DONE. See the Done section below.
+**Known follow-ups**
+- **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
+- Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
+- FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
+- Settings → Organization shows mojibake ("Â·") in the team/owner counts.
+- "New Control" form still writes only the control side of obligation links (import writes both).
+- `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
+- Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
+- `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
+- `changePassword` does not apply the password-strength rule that invite/reset use.
 
-**Skill** — DONE. See the Done section below.
+## Done — Return Due Dates (no more overdue-on-day-one)
 
-**Data migration**
-- Needs bulk import for new tenants with existing compliance data (Excel/other) — why: only single-record creation exists, tenants onboarding from external registers need bulk load
+Seeded returns had no due date (the platform has none: intel `deadline` is a copy of `frequency`, `remarks` is empty, and intel `filing_date` is an artifact stamped onto Sep 2026), so they fell back to "due the 1st of this month" → 92 periods overdue on day one.
+
+- **Schedule model** (`regulatory_returns`, V6 edited in place): `due_days_after_period_end` (offset rule — due = calendar-aligned period end + N days), `due_date_source` (`platform_text` | `user` | null), `deadline_text` (the regulator's wording). The fixed-date rule stays in `filing_date`. "N months after period end" is stored as a fixed date (e.g. 3 months after year-end → 31 Mar). Period labels stay = month of the due date (the rendition grid selects by due date but buckets by period). Monthly offsets 1–28.
+- **Generation** (`ReturnService.ensureInstances`): a return WITH a rule is always generated from the rule (never "continue from the latest instance" — that produced wrong dates after a rule change); Monthly-or-longer with no rule → **no periods** ("Due date needed"); only rule-less Daily/Weekly continue from the latest.
+- **`ReturnDeadlineParser`** turns platform wording into a rule ("Annually by June 30" → 30 Jun; "10th day of the following month" → 10 days after period end; "on or before 5th of January, April, July, and October" → 5 Jan/Apr/Jul/Oct; "within 3 months after year-end" → 31 Mar); statutory basis tried when the frequency text has none; event-relative wording (AGM, anniversary) → none. Monthly only: a bare day of month ("Monthly, on or before 5th", "by the 10th", "15th of each month") → N days after period end; the ordinal must close the clause ("5th working day", "5th of January" don't match) and this rule is never read from the statutory basis. `ReturnDeadlineParserTest` 45 cases.
+- **Seed** no longer trusts platform `filing_date`, stores `deadline_text`, and applies the parsed rule (source `platform_text`).
+- **Repair** (`ReturnFrequencyRepairService`) now also proposes due-rule changes for platform-matched, non-user returns (one row per return; `toReschedule`, `currentRule`/`proposedRule`, `rescheduled`); untouched-instance logic shared via `UntouchedInstances`.
+- **Edit path:** `PUT /returns/{id}/schedule` (CCO/TENANT_ADMIN) — frequency + rule (DATE / OFFSET) + prep days; sets source `user`, rebuilds untouched periods. UI: `EditScheduleDialog` (shows the regulator's wording), "Edit schedule" on register rows and the detail header, a "Due date needed" chip, status filter and stat card; the Add Return form warns when no due date is given.
+
+### Verified (live, browser pane, 2026-10-03)
+Repair applied: 75 rescheduled (21 parsed rules, 54 → Due date needed), 186 untouched periods removed, 1 kept, 42 created; overdue **92 → 1** (a user-imported test return), second dry run proposes 0. Edit schedule on that return (10 days after period end) → periods due 10 Oct/Nov/Dec/Jan; overdue **0**. Zero backend errors.
+
+## Done — Bulk Import Phase 4 (Findings)
+
+Findings page → Import (CCO / TENANT_ADMIN — closed rows carry a CCO sign-off). `FindingImportHandler`.
+
+- **Template:** Reference | Description* | Finding Type* (Gap/Control Failure/Process Weakness) | Severity* | Status* (Open/In Remediation/Remediated/Closed) | Date Raised | Remediation Deadline | Root Cause | Linked Control Number | Linked Obligation ID | Owner | Remediation Notes | Date Remediated | Date Closed, plus "Obligations" and new "Controls" lookup sheets (`ImportParsing.controlsReferenceSheet`).
+- **Historical findings keep their history:** `Finding.@PrePersist` now sets `createdAt` only when null, so Date Raised is preserved; Remediated/Closed rows set `remediationSubmittedAt`, `closedAt`, `ccoSignOffAt` (= Date Closed) and `ccoSignOffUserId` (= importing user). Status consistency enforced (In Remediation needs an owner; Remediated needs owner + Date Remediated; Closed needs both dates; raised ≤ remediated ≤ closed; nothing in the future). Deadline defaults to Date Raised + SLA days (`FindingService.slaDays`, now public static).
+- **Reference (new column):** `findings.external_reference` + unique index on `lower(external_reference)` (V5 edited in place; dev DB got ALTER + Flyway repair). Dedup on reference (case-insensitive), else description + control + obligation. Shown under the finding ID in the register and in the detail view.
+- Register/detail show the real **control number** (batch-loaded, no N+1) instead of `CTRL-%03d` of the id.
+- **Dashboard refresh:** afterCommit calls `DashboardService.recomputeInNewTransaction()` (REQUIRES_NEW — a plain `@Transactional` call from afterCommit joins the finished transaction and its insert is never committed). `getLatest` now orders by snapshot date then id, because several snapshots can share a date.
+
+### Verified (live, browser pane)
+8-row file → 5 valid (one per status + unreferenced) / 2 invalid / 1 case-insensitive reference duplicate; stored dates 2025-11-05 → 2026-01-20 preserved, SLA deadlines derived, CCO sign-off on the Closed row, controls linked by number; dashboard snapshot recomputed at import; re-upload → 0 valid / 6 duplicate. Zero backend errors.
+
+## Done — Bulk Import Phase 3 (Returns) + Return Frequency Fixes
+
+Returns page → Import (CCO / TENANT_ADMIN only). `ReturnImportHandler`; shared parsing moved to `ImportParsing` (verbatim, no behaviour change).
+
+- **Template:** Return Name* | Regulator* | Frequency* | First Due Date | Prep Days Before Due | Act | Return Type | Filing Channel | Responsible Unit | Responsible Person | Return Owner (email) | Linked Obligation IDs, plus the "Obligations" lookup sheet. Frequency = Daily, Weekly, Monthly, Quarterly, Semi-Annual, Annual, Biennial, Event-driven. First Due Date required for Quarterly/Semi-Annual/Annual/Biennial. Owner matched to an active user by email. Duplicates = name + regulator. Links via the existing `insertReturnLink`. Audit `returns_imported`.
+- **Per-type import roles:** `ImportHandler.requiredRoles()`; returns → CCO/TENANT_ADMIN (matches POST /returns). Checked on preview, commit, errors and batch history (history hides types the role can't use).
+- **Why every tenant return was MONTHLY:** intel's `InternalRegulationSeed.ReturnItem` never carried `frequencyType`, so the seed fell back to MONTHLY; manual `ReturnService.create` never set it either. Both fixed. `ReturnFrequency` (modules/returns/entity) is the single mapper: labels/aliases + `classify(text)`. Classifier rules, in order: an explicit cycle adjective anywhere wins (most frequent if several: daily > … > biennial); then period-end anchors (month-/quarter-/year-end, "each calendar quarter", "financial year (FY) end"); then event phrasing (within/upon/immediately/on request…); bare durations ("within 1 year of the incident") are event-driven. `ReturnFrequencyTest` holds 26 real platform strings.
+- **Filing cycle anchored on the First Due Date** (imports AND the Add Return form): a future date is the first due date; a past one rolls forward on the cycle (month dates computed from the original anchor, no drift). The first anchored instance is always created even beyond the 120-day lookahead. No date → old behaviour. Daily returns are left to the 5-minute scheduler on import.
+- **Register:** returns with no instances (event-driven) are now listed, not hidden. Frequency filter uses the stored type. ISO week label uses `WEEK_BASED_YEAR`. `linkObligations` evicts the obligations register cache.
+- **Repair action** for already-seeded tenants: `GET/POST /api/v1/returns/frequency-repair` (TENANT_ADMIN). Dry run first; retypes from the platform's text (classified by the tenant's stricter classifier; platform MONTHLY treated as "no answer"), deletes only untouched instances (Not Started, no stage owner/data, no submission, notes or evidence; system escalation ignored), rebuilds via `ensureInstances`, audits `returns_frequency_repaired`. Idempotent. UI: warning banner + `ReturnRepairDialog` on the Returns page for admins.
+
+### Verified (live, browser pane)
+8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed with no period, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Add Return form: Annual + 30 Jun 2027 → ANNUAL, one 2027-06 period. Repair applied on the dev tenant (2026-10-03): 113 of 143 retyped (37 Annual, 58 Event-driven, 11 Quarterly…), 564 untouched periods removed, 1 kept, 96 rebuilt; overdue 268 → 92; second dry run proposes 0.
+
+**Dev gotcha:** running `mvn clean compile` while a backend is running deletes its classes underneath it — requests then 401 and the UI logs out. Restart the backend after any clean build.
+
+## Done — Bulk Import Phase 2 (Controls)
+
+Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). New `ControlImportHandler`; `ImportService` stayed generic (no type branches).
+
+- **Template:** 15 columns (Control Name* … Linked Obligation IDs). Strict dropdowns for Control Type (Preventive/Detective/Corrective/Directive), Test Frequency (Monthly/Quarterly/Semi-Annual/Annual), Inherent Risk (Critical/High/Moderate/Low, "Medium" accepted) and Owner. **Theme is free text** — its suggestions are listed via the new `ImportHandler.suggestions()` (anything in `allowedValues()` becomes a STOP-style dropdown). A read-only **"Obligations" sheet** (`ImportHandler.referenceSheets()`) lists every obligation's ID/title/section/regulator/act, from the new `ObligationService.registerRows()`.
+- **Linking by obligation ID** — the only reliable key: `obligation_number` is NOT unique (seed and review number 1..n per instrument). The column is Text-formatted so Excel doesn't turn `12,345` into a number; `;` or `,` separators. IDs are validated with one `findAllById` (exists, not deleted).
+- **Both link lists are written:** `controls.linked_obligation_ids` (control detail, `?obligationId=` filter) AND each obligation's `ObligationClassification.linked_control_ids` (register "N controls", "No Control" KPI, every coverage dashboard). Manual `ControlService.create` writes only the control side — the lists are still not kept in sync elsewhere. Classifications load with the new derived `findByObligationIdIn`; a missing one is created applicable/active. No classification history is written (the batch audit `controls_imported` covers it).
+- **Numbers:** blank → `CTL-%04d` from the highest existing or in-file `CTL-n`, allocated once per batch (seeded numbers use other formats and are ignored). Duplicates: same number (register or file), or — when no number — same name + act.
+- Test Frequency Days derived when blank (30/90/182/365). Name capped at 500 (`control_tasks.control_name`).
+- **Frontend:** `ImportDialog` gained `itemLabel`, `contextLabel` and `invalidateKeys` props (controls invalidates `controls`, `obligations`, `dashboard`). No DB migration.
+
+### Verified (live, browser pane)
+7-row file → 3 valid / 2 invalid / 2 duplicate; commit → CTL-0100 (explicit) + CTL-0101/0102 (auto), both link lists written (obligation 5 kept its 3 existing links), register showed "2 controls" and No Control 2 → 0; re-upload → 0 valid / 5 duplicate. Zero backend errors.
+
+## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
+
+**Flow (tenant `:5174`, Obligations Register → Import):** download the `.xlsx` template → upload → row-by-row preview (valid / invalid with reasons / duplicate) → "Import N obligations". Imported rows go **straight to the register** (`source='imported'`, `applicability='applicable'`) — the preview confirm is the human check, by user decision; they do NOT pass through the Review Inbox. Invalid rows download as an errors `.xlsx` with an "Error" column to fix and re-upload.
+
+### Backend (`modules/imports/`)
+- `ImportHandler` interface + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (all POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`.
+- Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed` on repeat; batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`.
+- New table `import_batches` (**V31**) keeps each upload's parsed rows (JSONB), counts and status.
+- Validation: title + regulator required (tenant regulator by name/abbrev); Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical → Minor/Moderate/Major/Severe); Likelihood `Rare..Almost Certain`; Owner must match an active owner; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act, against the register and earlier rows in the file.
+- Commit: one transaction; obligation numbers allocated once per batch; inherent risk computed by `@PrePersist`; **one** `obligations_imported` audit event per batch (with all ids), not one per row; register cache evicted.
+- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place, index only — `tenant_regulators` is created later in V14). Register/detail fall back to the tenant regulator when there is no platform instrument, so standalone obligations no longer show "–". Dev DB got `ALTER TABLE` + Flyway repair.
+- Dependency: Apache POI `poi-ooxml` 5.3.0 (`poi.version` in the parent pom).
+
+### Frontend
+- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview table, clickable result chips); "Import" button beside "New Obligation".
+- `api.js` `rawRequest` (multipart + blob download, keeps the 401 refresh) and `api.imports.*`.
+
+### Auth status codes (tenant)
+- `SecurityConfig` had no entry point, so Spring answered an expired/missing token with **403** — which is why `api.js` treated 403 as session expiry. Now: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401; a 403 shows the server message and keeps the user logged in. License-blocked 402/403 from `LicenseFilter` unchanged.
+- Client disconnects (`ClientAbortException`, broken pipe) log at DEBUG instead of "Unhandled exception".
+
+### Dev user seeder (tenant)
+- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD` in `.env`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` (one per role) on start. Idempotent, never resets existing users, rejects weak passwords. Off by default — dev only.
+
+### Verified (live, browser pane, `admin@mamcorp.test`)
+6-row test file → preview 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown, Under Review unchanged); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
 
 
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
@@ -324,42 +375,15 @@ Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `Obliga
 
 ## Done — PDF Routes Return 404 Instead of 500
 
-`Instrument.pdfUrl` is null for every toolkit-imported instrument (395 of 397 rows in the dev DB — only scraped documents get a file), and both PDF routes passed it straight to storage. `LocalStorageService.resolve` then called `storageDir.resolve(null)` and threw a raw NullPointerException, so a routine click produced a 500 plus a full stack trace in the log.
-
-- **Two identical call sites, not one.** `ObligationBrowserService.openPdfStream` (frontend route) and `InternalInstrumentService.openPdfStream` (the `/api/v1/internal/` route the tenant backend proxies through) had the same defect. Fixing only the first leaves the tenant app broken.
-- **Error-code contract.** New `ResourceNotFoundException` (code `NOT_FOUND`) and `DocumentUnavailableException` (code `DOCUMENT_UNAVAILABLE`) in intel `shared/exception`, following the existing `UploadException`/`InvalidFileException` shape, mapped to 404 by `GlobalExceptionHandler`. Tenant mirrors it with its own `DocumentUnavailableException` -> `{"error":"document_unavailable"}`, because `PlatformApiClient` returns null on a platform 404 and `pdfBytes` previously threw a bare RuntimeException — an opaque `internal_error` 500 the UI could not key off.
-- **A stale pointer 404s too.** `NoSuchFileException` (row references a file no longer on disk) maps to the same 404. Under `STORAGE_PROVIDER=s3` the SDK throws `NoSuchKeyException` instead and would still 500 — untranslated.
-- **Frontend.** `pdfErrorMessage(res, fallback)` in each app's `services/api.js` turns the code into "No document is available for this instrument."; wired into all six call sites. The intel Instruments **detail view rendered no `<Alert>` at all**, so its error state had always been invisible — the list view had one, the detail view did not.
-
-### Verified (live, both apps)
-Instrument 2 (no document) -> 404 `DOCUMENT_UNAVAILABLE`, message shown at `:5173` and at `:5174` (tenant chain confirmed by `PlatformApiClient` logging the proxied 404). Instrument 396 -> 200 `application/pdf`, 89,798 bytes, matching the file on disk. Zero NPEs / unhandled exceptions in either backend afterwards.
-
-**Remaining 500s of the same class:** `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
+`Instrument.pdfUrl` is null for toolkit-imported instruments; `LocalStorageService.resolve(null)` threw an NPE → 500. Now 404 `DOCUMENT_UNAVAILABLE` (intel `ResourceNotFoundException`/`DocumentUnavailableException`; tenant `{"error":"document_unavailable"}`), and `pdfErrorMessage(res, fallback)` in each app's `api.js` shows "No document is available for this instrument." Verified live in both apps.
+- **Two PDF call sites:** `ObligationBrowserService.openPdfStream` AND `InternalInstrumentService.openPdfStream` (the tenant proxies the latter) — fix both.
+- `NoSuchFileException` maps to 404, but under `STORAGE_PROVIDER=s3` `NoSuchKeyException` is untranslated and would still 500.
+- Remaining 500s: `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
 
 ## Done — Dashboards Harmonized (risk / area / act)
 
-### Dashboard V2 was shipped but unreachable — now routed and fixed
-See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboard/v2`. Because it had **never rendered**, it carried real bugs:
-
-- **Rendition grid always requested an inverted date range.** `qEnd` was `new Date(y, floor(month/3) + 3, 0)` — missing the `*3`. In September that gives `from=Jul-01, to=May-31`, so the grid read "No rendition data for this quarter" in **every quarter except Q1**. `toISOString()` also shifted the boundary for UTC-negative offsets.
-- **Risk heatmap always rendered zeros.** `getRiskHeatmap` dropped obligations whose ratings fell outside `RiskMatrixConfig`'s seeded axes, but the seeded likelihood axis (`Very Low..High`) shares **no value** with the real data vocabulary (`Almost Certain/Likely/Possible/Unlikely/Rare`), so nothing could ever match.
-- `GroupSummary.total` counted returns while `submitted`/`overdue` counted instances ("7/3 submitted").
-- Saved thresholds were never applied — `resolveColor` took a `metric` argument and ignored it.
-- `escalation-matrix` re-ran `findAllReturnLinks()` per escalated row.
-- Two dead drill-downs silently dumped the unfiltered register.
-
-### Security fix
-`/dashboard/v2/thresholds` took `tenantId` as a **request param**, so any authenticated tenant user could read or overwrite another tenant's thresholds. Now resolved server-side via `TenantIdentityService`, matching the sibling `RiskMatrixSettingsController`.
-
-### Act dimension
-`control-coverage` supported only `department` and `areaOfFocus`; added `by=act`. `RiskProfileDto` gained `byAct` mirroring `byAreaOfFocus`.
-
-### Live dashboards
-- **Tenant** `CcoDashboardPage` (the page actually served at `/dashboard`) gained Inherent Risk Profile, Risk by Area of Focus and Risk by Act, driven by existing v2 endpoints. Migrated to TanStack Query; eight independent queries replace `Promise.allSettled`, `refetchInterval` preserves the 30s poll.
-- **Intel** `DashboardPage` was 100% pipeline-focused; gained a `RegulatoryCoverage` section from the four explorer `stats` endpoints.
-
-### Only link to filters a page actually reads
-`ObligationsRegisterPage` reads `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap` from `useSearchParams` — and nothing else. Links passing `impact`, `likelihood` or `act` are silent no-ops that dump the unfiltered register. **Adding act/impact/likelihood filters to that register is an open follow-up.**
+Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, all-zero heatmap, total/submitted unit mismatch, ignored thresholds, per-row query in escalation-matrix). `/dashboard/v2/thresholds` no longer takes `tenantId` as a request param (cross-tenant read/write) — resolved via `TenantIdentityService`. Added `control-coverage?by=act` and `RiskProfileDto.byAct`. Tenant `CcoDashboardPage` gained risk profile / area / act sections (TanStack Query, 30s poll); intel `DashboardPage` gained a `RegulatoryCoverage` section.
+- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops (adding them is an open follow-up).
 
 ## Done — `atheris-register-page` Skill
 
@@ -375,32 +399,13 @@ See the correction under "Done — Dashboard V2" below. V2 is live at `/dashboar
 
 ## Done — Risk Matrix Defaults Repaired
 
-Chasing the unreachable "High" band found the root cause of the all-zero heatmap. **The `RiskMatrixConfig` entity's `@Builder.Default` values were the sole outlier** — V28's column defaults and `ObligationClassification.computeInherentRisk` (the canonical scorer) already agreed with each other:
-
-| | canonical (V28 + computeInherentRisk) | entity `@Builder.Default` (wrong) |
-|---|---|---|
-| impacts | Insignificant, Minor, Moderate, Major, Severe | Low, Medium, High, Very High |
-| likelihoods | Rare, Unlikely, Possible, Likely, Almost Certain | Very Low, Low, Medium, High |
-| bands | `>=18` / `>=12` / `>=6` | `{moderate:6, high:9, critical:9}` |
-
-**Why the correct column defaults never applied:** rows are created through JPA (`RiskMatrixConfig.builder()...build()`, three call sites), so Hibernate writes the entity's values and the DB column defaults are bypassed entirely. A correct column default is NOT protection when the entity supplies its own.
-
-Three defects:
-1. `high == critical == 9` made the **High band mathematically unreachable** (`resolveBand` tests critical first).
-2. The entity's likelihood axis shares **no value** with the ratings actually stored, so no obligation could match a heatmap cell — the root cause of the all-zero heatmap. `resolveAxis` is kept as defence-in-depth for genuinely customised axes.
-3. `resolveBand` used `>` where `computeInherentRisk` uses `>=`, so they **disagreed at every boundary**: score 12 was "High" on the obligation but "Moderate" on the heatmap; 6 was "Moderate" vs "Low".
-
-`V30__repair_risk_matrix_defaults.sql` repairs existing rows, matching only the exact broken values so real customisation survives. V28 was left alone — it was already right.
-
-**Rule:** when a JSONB/enum default exists in BOTH a migration and an entity `@Builder.Default`, they must agree; the entity always wins for JPA-created rows.
+`RiskMatrixConfig` entity `@Builder.Default` axes/bands disagreed with V28 and `computeInherentRisk` (High band unreachable; likelihood axis matched no stored value; `>` vs `>=` at boundaries). `V30__repair_risk_matrix_defaults.sql` repairs only exact broken rows.
+- **Rule:** entity `@Builder.Default` wins over migration column defaults for JPA-created rows — when a default exists in both, they must agree.
 
 ## Done — MUI 7 Grid Migration
 
-19 files used the v1 Grid API (`<Grid item xs={12} md={6}>`) on `@mui/material` **7.3.11**, where `Grid` IS v2: there is no `Grid2` directory and `Grid.d.ts` declares only `container`, `offset`, `size`, `spacing`. The legacy props were passed through as unrecognised attributes and **ignored for layout** — silently wrong, never an error.
-
-154 occurrences converted to `size={{ xs: 12, md: 6 }}`. `<Grid container>` is unchanged (still valid). Excludes tenant `pages/DashboardPage.jsx` (dead code, 3 occurrences).
-
-**When checking this class of problem, verify against the INSTALLED package** (`node_modules/@mui/material/Grid/Grid.d.ts`), not from memory of MUI versions.
+154 legacy `<Grid item xs md>` usages in 19 files converted to `size={{ xs, md }}` (MUI 7.3.11 `Grid` is v2; legacy props were silently ignored).
+- **Verify MUI against the installed `node_modules/@mui/material/Grid/Grid.d.ts`**, not memory.
 
 ## Done — Intel Explorers (obligations, sanctions, returns, controls)
 
@@ -427,46 +432,20 @@ Act names are resolved by collecting the page's distinct act ids into a `Set` an
 
 ### Known lint debt (pre-existing, not new)
 The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
-
 ## Done — Returns Register/Details Harmonized (incl. backend linkage)
 
-The linked-obligations half was NOT achievable from the frontend: `GET /returns/{returnId}/obligations` returned `List<Long>` — bare ids, no detail. That GET had **zero frontend callers** (only the id-based `PUT` is used, by `CreateReturnDialog.jsx`), so it was enriched in place rather than growing a parallel `/detail` endpoint.
-
-- **Backend** — `ObligationRepository.findLinkedObligationDetails` (native projection joining `obligation_returns` to `obligations`), new `LinkedObligationItem` DTO, `ReturnService.linkedObligationIds` → `linkedObligations`, controller returns the rich list. `@PreAuthorize` unchanged, read-only so **no Flyway migration**. The `PUT` and `LinkObligationsRequest` are untouched.
-- **Frontend** — rows lazily fetch their linked obligations on expand (collapsed rows fire no request); responsible party (`responsibleUnit` / `responsiblePerson`) gets its own column.
-- **Bug fixed** — `item.overcomeCount` was a typo for `overdueCount`, so the overdue count always rendered 0.
-- **Known, left as-is (out of scope)** — `ReturnService.getRegister` ignores the `Pageable` sort entirely and always sorts in-memory by `currentDueDate`. This page's sort headers were already decorative before this change.
+`GET /returns/{returnId}/obligations` enriched in place to `LinkedObligationItem` (native projection, no migration); rows lazily fetch linked obligations on expand; `overcomeCount` typo → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort (always `currentDueDate`).
 
 ## Done — Controls Register/Details Harmonized
 
-`ControlsPage.jsx` now reads `actName`/`actId`, which it never did before — meaning the existing Act filter dropdown had been filtering on a value the user could not see. Act appears as the secondary line under the control name and in a new "Act / Regulation" detail section beside `regulatoryRequirement`.
-
-Linked obligations became traceable: rows navigate to `/obligations/{obligationId}` instead of being inert text. Only `description` and `instrumentTitle` are shown — `ControlDetailResponse.LinkedObligation` genuinely carries nothing else, so nothing is invented.
-
-9 data columns trimmed to 5: Control (name + controlNumber + act), Classification (controlType + theme + complianceArea), Owner, Risk & Status, Testing (frequency + dueDate). Nothing displayed was lost, but four standalone sort headers went — `controlType`, `theme`, `frequency`, `status`; `status` and `theme` are still reachable through their filter dropdowns.
-
-Note `api.controls.*` takes no `opts` argument, so these queries pass no abort signal.
+`ControlsPage.jsx` now shows `actName`/`actId`, linked obligations navigate to `/obligations/{obligationId}`, 9 columns trimmed to 5. `api.controls.*` takes no `opts`, so no abort signal is passed.
 
 ## Done — Instruments / Obligations / Sanctions Harmonized
 
-All three surface enrichment the DTOs already carried; the pages simply never read it. Each mirrors `ReviewEditPage.jsx` / `ReviewInboxPage.jsx`.
-
-- **Instruments** (`InstrumentsPage.jsx`) — obligations table matches `ObligationSummary` (title + interpreted + verbatim tooltip / Section / Area / Risk / Act, with type, deadline, effective date and status as chips); `SanctionCard` replaces the old "Penalties" block with an expandable Violation / Penalty / Impact panel.
-- **Obligations Register** (`ObligationsRegisterPage.jsx`) — verbatim vs interpreted split, plus section/area/type/deadline chips and act linkage folded into the Regulator cell.
-- **Obligations Detail** (`ObligationDetailPage.jsx`) — read-only "Obligation Texts (harmonized)" section, a new metadata block, and riskType / impactJustification / likelihoodJustification.
-- **Sanctions** (`SanctionsPage.jsx`) — expandable violation/penalty/impact from data already in the list response (no fetch on expand); 7 columns trimmed to 5.
-
-### Bugs found and fixed along the way
-- **Instruments drawer read three non-existent fields** — `obl.section`, `obl.type`, `s.type` instead of `sectionReference`, `obligationType`, `sanctionType`, so those cells always rendered `-`.
-- **Instruments pagination was broken** — the page fetched server page N then re-sliced `[N*20:(N+1)*20]` from a 20-item array (empty for N≥1) and passed `count={items.length}`, capping the pager at one page. No instrument past the first 20 was reachable.
-- **Register `hasGap` filter state was shadowed** by a row-scoped `hasGap` inside the table map; renamed `hasGapFilter`.
-
-### Gotcha — the sanction amount field is spelled differently per DTO
-`InstrumentDetailResponse.SanctionItem` uses **`amountNaira`**. `ObligationRegisterItem.SanctionItem`, `ObligationDetailView.SanctionItem` and `SanctionListItem` all use **`sanctionAmountNaira`**. Copying a sanctions block between pages without changing this silently renders a blank amount.
-
-### Convention notes
-- Query keys for by-id details must be **stringified** (`['x', String(id)]`): `useParams()` yields a string while list ids arrive as JSON numbers, and TanStack hashes `['x',12]` and `['x','12']` differently — unstringified, a page will not share cache with its own detail view.
-- Concurrent agents must not share the `dist/` output; verify with `npx vite build --outDir dist-verify-<name> --emptyOutDir`.
+Pages now render DTO enrichment they never read (verbatim vs interpreted text, section/area/type/deadline chips, act linkage, expandable sanction panels). Fixed: Instruments drawer read non-existent `obl.section`/`obl.type`/`s.type`; Instruments pagination capped at one page; register `hasGap` filter shadowed (renamed `hasGapFilter`).
+- **Sanction amount field:** `InstrumentDetailResponse.SanctionItem.amountNaira` vs `sanctionAmountNaira` on every other sanction DTO.
+- **Query keys for by-id details must be stringified** (`['x', String(id)]`) — `useParams()` gives strings, list ids are numbers.
+- Concurrent agents must not share `dist/`; verify with `npx vite build --outDir dist-verify-<name> --emptyOutDir`.
 
 ## Done — Review Inbox Harmonized (enriched obligation summary)
 
@@ -477,200 +456,51 @@ All three surface enrichment the DTOs already carried; the pages simply never re
 - **Shared detail cache** — query key is `['review', String(reviewId)]`, matching `ReviewEditPage`'s `useParams()` string key, so expanding a row warms the detail page and vice-versa. The key must be stringified: `useParams()` gives a string while `item.reviewId` is a JSON number, and TanStack hashes `['review',12]` and `['review','12']` differently.
 - **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the register-page convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
 - **Outer table trimmed to 5 data columns** (+ chevron + actions): Document (Source chip folded inline before the title), Regulator, Risk, Obligations, Received. Nothing previously shown was dropped; the standalone `source` sort header is gone, but source remains filterable via the dropdown and the Intel/Upload KPI cards.
-
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
-Tenant dashboard redesigned with two tabs, configurable 5×5 risk heatmap, monthly rendition grid, and escalation matrix.
-
-**CORRECTION (2026-09-05):** the claim that "`DashboardV2Page.jsx` is active" was wrong, and it hid a real problem. `DashboardV2Page.jsx` was imported by NOTHING — the whole V2 feature (8 `/dashboard/v2/*` endpoints, the 579-line `DashboardV2Service`, rendition grid, control coverage, risk heatmap, escalation matrix) was unreachable from the UI. `RenditionTab`/`ControlCoverageTab` hung off that dead page; `RiskHeatmap`/`ActivityFeed` were orphaned outright.
-
-The live tenant dashboard at `/dashboard` is **`CcoDashboardPage.jsx`**, imported in `AppRoutes.jsx` under the alias `DashboardPage` — which is what made the dead `DashboardPage.jsx` file look wired. Both `DashboardPage.jsx` and `DashboardV2Page.jsx` were in fact dead.
-
-V2 is now routed at `/dashboard/v2` ("Rendition & Coverage" in the sidebar). `api.dashboard.v2.*` had always been fully wired, so only the route was missing.
-
-**How to check this properly:** grep for the import PATH (`pages/DashboardV2Page'`), not the identifier — the identifier is aliased, so an identifier grep gives a false positive.
-
-### Architecture
-
-| Layer | File | Purpose |
-|-------|------|---------|
-| Shell | `DashboardV2Page.jsx` | 2-tab MUI Tabs container |
-| Tab 1 | `RenditionTab.jsx` | Monthly rendition grid (by department or area of focus) + escalation matrix (L1/L2/L3) |
-| Tab 2 | `ControlCoverageTab.jsx` | 5×5 risk heatmap (inherent/residual) + control coverage table |
-| Shared | `RiskHeatmap.jsx` | Reusable Impact × Likelihood matrix (grid + table views) |
-
-### Backend (`DashboardV2Controller` + `DashboardV2Service`, 579 lines)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `GET /dashboard/v2/rendition-grid?from=&to=&groupBy=` | `getRenditionGrid()` | Monthly grid: returns grouped by department or area of focus. Cells = SUBMITTED / IN_PROGRESS / SUBMITTED_LATE / NOT_STARTED / N/A |
-| `GET /dashboard/v2/escalation-matrix` | `getEscalationMatrix()` | All escalated filing instances (L1/L2/L3) enriched with return name, regulator, department, owner, dept head, days late |
-| `GET /dashboard/v2/risk-heatmap?view=inherent\|residual` | `getRiskHeatmap()` | 5×5 Impact × Likelihood matrix from `ObligationClassification` rows. Configurable thresholds via `risk_matrix_config` table |
-| `GET /dashboard/v2/control-coverage?by=areaOfFocus\|department` | `getControlCoverageBy*()` | Obligations grouped by area/department, split into covered (has controls) vs gaps (no controls), coverage % |
-| `GET /dashboard/v2/returns-by-period?from=&to=` | `getReturnsByPeriod()` | Returns grouped by period + regulator + frequency (submitted/late/in-progress/not-started counts) |
-| `GET /dashboard/v2/risk-profile` | `getRiskProfile()` | Risk-level breakdown + area-of-focus breakdown + gap count |
-| `GET/PUT /dashboard/v2/thresholds` | `getThresholds/saveThresholds()` | CRUD for green/amber/red threshold ranges per metric |
-
-### Database (V28, no new migration — inline in existing CREATE TABLE)
-
-- `risk_matrix_config` table: `tenant_id INT PK`, `levels JSONB` (Impact/Likelihood levels), `thresholds JSONB` (score→band mapping), `scoring_method = "multiplicative"`
-
-### Risk Rating System
-
-- **Impact**: Insignificant(1) → Minor(2) → Moderate(3) → Major(4) → Severe(5)
-- **Likelihood**: Rare(1) → Unlikely(2) → Possible(3) → Likely(4) → Almost Certain(5)
-- **Scoring**: `impact_idx × likelihood_idx` (1–25)
-- **Bands**: Low(0-6), Moderate(6-12), High(12-18), Critical(18+)
-- `computeInherentRisk()` on `ObligationClassification` is now dynamic (was hardcoded)
-- `computeResidualRisk()` activated but not yet wired into control test flow (Phase H pending)
-
-### Frontend Components
-
-- **RenditionTab**: Toggle Department/Area of Focus grouping, per-group submitted/total summary, escalation table with L1/L2/L3 chips and days-late counts
-- **RiskHeatmap**: Grid view (colored matrix) + Table view (flat list), inherent/residual toggle, gap indicators ("!" badge), click drills to `/obligations?impact=...&likelihood=...`
-- **ControlCoverageTab**: Overall coverage % chip (green/amber/red), per-row covered/gaps counts, click drills to `/obligations?areaOfFocus=...`
-
-### Unconsumed API Surface (ready, no UI yet)
-
-- `returnsByPeriod` — period-level return stats
-- `riskProfile` — risk breakdown
-- `thresholds` (GET/PUT) — admin-configurable threshold ranges
-
-### Returns Seeding Fix (filing_due_day_of_month)
-
-- **Root cause**: All 103 tenant `regulatory_returns` had `filing_due_day_of_month = NULL`. `ensureInstances()` skipped them silently (null guard at line 211).
-- **Fix**: (1) Removed null guard, (2) added `parseDueDayFromFrequency()` to both `RegulationSeedService` and `ToolkitImportService`, (3) added `filingDueDayOfMonth` field to intel entity + V15 migration, (4) data fix `UPDATE regulatory_returns SET filing_due_day_of_month = 1 WHERE filing_due_day_of_month IS NULL`, (5) `ALTER TABLE` on intel DB, (6) Flyway repair on `atheris_intel`.
+`DashboardV2Page` (Rendition tab + Control Coverage tab, `RiskHeatmap`) backed by `DashboardV2Controller`/`DashboardV2Service` (`/dashboard/v2/{rendition-grid,escalation-matrix,risk-heatmap,control-coverage,returns-by-period,risk-profile,thresholds}`) and `risk_matrix_config` (V28). Risk scoring: Impact Insignificant..Severe × Likelihood Rare..Almost Certain (1–25); bands Low / Moderate (≥6) / High (≥12) / Critical (≥18). `computeResidualRisk()` not yet wired into control tests. Returns seeding fix: `filing_due_day_of_month` was NULL on all returns → `parseDueDayFromFrequency()` added.
+- The live tenant `/dashboard` is **`CcoDashboardPage.jsx`** (imported under alias `DashboardPage`); V2 was unreachable until routed at `/dashboard/v2`.
+- **Grep the import PATH, not the identifier** (aliased imports give false positives).
 
 ## Done — Pipeline Stage Breakdown
-- **Per-regulator pipeline stage breakdown** — Backend: `InstrumentRepository` adds `findExtractedByRegulatorId` (non-null pdfOcrText) and `findClassifiedByRegulatorId` (status != Triage); `RegulatorService.getPipelineStats()` returns discovered/downloaded/extracted/classified counts + drill-down lists with `jobStatus` for uploaded items; new endpoint `GET /platform/regulators/{id}/pipeline-stats`. Frontend: RegulatorDetailPage shows 4 clickable pipeline stage cards with inline scrollable tables (Title | URL | Status | Action columns); uploaded docs appear alongside pending with green checkmark + job status chip (OCR Pending/Processing/Done/Failed); Scraper Config moved to modal.
-- **Dashboard Pipeline Health alert** — Banner between KPI cards and pipeline table shows total discovered vs processed vs pending downloads; amber Warning with "View Failed" link when pendings exist, green success when clear.
-- **Regulators table stage columns** — "Documents" column split into "Discovered" (instruments + pending), "Downloaded" (instruments, green), "Failed" (pending count in red chip); `RegulatorDto.pendingDownloadCount` populated via `PendingDownloadRepository.countPendingByRegulator()`.
-- **Remote push synced** — `origin/main` now matches local `main` at `5787d9f` (merge commit with `99008da` pipeline stage breakdown); stale Windows Credential Manager entries cleared, `gh` CLI token used for auth.
+
+`GET /platform/regulators/{id}/pipeline-stats` (discovered/downloaded/extracted/classified + drill-downs), RegulatorDetailPage stage cards, Dashboard Pipeline Health banner, regulator table Discovered/Downloaded/Failed columns. Pushed at `5787d9f` (merge of `99008da`).
 
 ## Done — Tenant Backend Aligned as Submodule
 
-Tenant backend submodule at `atheris-compliance-backend/atheris-compliance/atheris-compliance-tenant-backend/` (port 9091, DB `atheris_tenant`, 9 Flyway migrations V1-V9). Compressed — see git log bd289a7 for full text.
+Standalone tenant service copied in as Maven submodule `atheris-compliance-tenant-backend` (port 9091, DB `atheris_tenant`, schema `tenant`, migrations under `db/migration/tenant/`); modules: auth, users, onboarding, subscriptions, obligations, controls, findings, returns, notifications, dashboard, audit (hash chain). Run commands are in "How to Run" above.
 
 ## Done — Tenant Frontend Portal Built
 
-Tenant portal frontend at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (port 5174, routes: login/dashboard/regulators/upload/library/settings). Compressed — see git log bd289a7 for full text.
+Tenant portal at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (`:5174`). No webhooks: tenant polls via `ObligationSyncService` (`tenant_polling_config`); uploads go through `POST /subscriptions/upload-document` → platform `/internal/instruments/ingest` (SHA-256 dedup). Onboarding/license calls must target `TENANT_API_BASE` (`:9091`) — they previously hit `:9090` and bounced to `/login`. E2E script: `ATERHIS_ONBOARDING_E2E_TESTING.md`.
 
 ## Done — Backend Verification & Cleanup (backlog completed)
 
-- [x] Start both backends, verify clean startup (no seeder warnings, no auto-generated password) — intel :9090 (pid via maven spring-boot:run) + tenant :9091, logs in `%TEMP%\opencode\{intel,tenant}-{out,err}.log`
-- [x] Test onboarding E2E on sacrificial tenant-2 (port 9092, `TENANT_ID=2`): all 4 wizard steps → login → register seed (779 obligations) → residue cleaned from both DBs
-- [x] ~~Wire up `evaluate_applicability` processor to send webhooks to tenant service~~ — CANCELLED by user; tenant delivers via polling (`ObligationSyncService`) instead. Webhook code left dormant.
-- [x] Add tenant dashboard widgets — "Tenant Overview" card in `DashboardPage.jsx` (active tenants, licence types, subscription tiers, regulator subscriptions; row → `/admin/tenants/{id}`)
-- [x] Cleanup: `@Builder.Default` added to all initialized entity/DTO fields (100 annotations across 35 files) — commit `5310dc3`
-- [x] Cleanup: `maxRegulators`, `maxControls`, `maxReturns` REMOVED everywhere (License entity, CreateLicenseRequest/UpdateLicenseRequest/LicenseDto, LicenseService, V12 migration edited in place, license admin form/detail drawer, demo mock data). They were never enforced — tenant backend manages its own limits. Commit `48ba65d`. Both DBs recreated fresh (15 intel + 25 tenant migrations re-applied) and re-seeded (toolkit import, Mam Corp tenant/license/api-key, tenant profile + regulators CBN/NDIC + admin user; sync verified: 6 pending reviews created).
+Clean startup, onboarding E2E, Tenant Overview widget, `@Builder.Default` cleanup (`5310dc3`), license limit fields removed (`48ba65d`); webhook delivery CANCELLED in favour of polling. See "Recent Changes" above.
 
 ## Done — Tenant Obligations Register Rebuilt (Per-Obligation)
 
-Rebuilt the tenant **Obligations Register** page to match `Atheris_Frontend_Design_Specification.md` Screen 4. CCO approval explicitly excluded (once applicable = final).
-
-### Backend (`atheris-compliance-tenant-backend`)
-- **Root cause fixed**: `ObligationService.getRegisterList()` previously paged `ObligationClassification` (one row per instrument). Now pages the `obligations` table directly — one register row per obligation — inheriting risk/owner/gap/status from the instrument's classification and enriching title/regulator via `PlatformApiClient.getInstrumentDetail()`.
-- **Flyway V20**: `obligation_returns` join table (`obligation_id` ↔ `return_id`).
-- **`ObligationRepository`**: added `findAllReturnLinks()`, `findLinkedReturnIds()`, `deleteReturnLinks()`, `insertReturnLink()` (native queries + projection row).
-- **`ObligationService`**:
-  - `getRegisterList(q, risk, regulator, theme, owner, status, hasGap, pageable)` — in-memory filter + sort (obligationNumber/sourceTitle/risk/owner/status) over all tenant obligations.
-  - `getStats()` → `GET /obligations/stats`: total / highRisk / gaps / underReview + distinct regulators, themes, owners, risk levels for filter dropdowns.
-  - `getObligationDetail(obligationId)` → `GET /obligations/obligation/{id}`: obligation + classification + linked controls (with names) + linked returns (with names/frequency) + evidence (`sourceType='obligation'`) + version history with usernames.
-  - `linkReturns(obligationId, returnIds)` → `PUT /obligations/obligation/{id}/returns`.
-  - `classify()` extended: accepts `linkedReturnIds` + `linkedObligationId` to persist return mapping in the same transaction.
-- **`ReturnService`**: `listActive()` + `GET /returns/list` (return templates for the mapping dropdown).
-- DTOs: `ObligationRegisterItem` (rewritten, per-obligation), new `ObligationStats`, `ObligationDetailView`, `LinkReturnRequest`.
-
-### Frontend (`atheris-compliance-tenant-frontend`)
-- **`ObligationsRegisterPage.jsx` fully rebuilt**: 4 KPI cards (Total / High Risk / Gaps / Under Review, clickable → set filters), search box, Risk/Regulator/Theme/Owner filters + "Has gap" checkbox, sortable table (# / Obligation / Instrument / Risk / Owner / Status / Returns), right-side detail drawer (classification, risk assessment, owner, linked controls, return mapping, gap alert, evidence with download, View PDF), version history tab, and a full edit drawer (owner, risk, impact/likelihood, justification, linked controls multi-select, return-required multi-select, gap toggle, evidence upload, reason for update).
-- `api.js`: added `obligations.stats`, `obligations.obligationDetail`, `obligations.linkReturns`, `returns.list`.
-
-### Notes
-- Theme filter maps to `obligation_type` (no dedicated theme column on obligations).
-- Status filter values: `active` / `unclassified` / `under_review`.
-- KPI "Under Review" = obligations not yet `applicable` (unclassified / under_review).
+`ObligationService.getRegisterList()` now pages the `obligations` table (one row per obligation, in-memory filter/sort) instead of `ObligationClassification`; added `GET /obligations/stats`, `GET /obligations/obligation/{id}`, `PUT /obligations/obligation/{id}/returns`, `GET /returns/list`; Flyway V20 `obligation_returns`. Theme filter maps to `obligation_type`; "Under Review" KPI = not yet `applicable`. CCO approval excluded.
 
 ## Done — Per-Obligation Review Workflow (Edit & Save gate)
 
-**The single most important rule: NO document reaches the Obligations Register without a human "Edit & Save" on the Review page. Instruments carry NO classification — every classification detail lives on an individual obligation.**
-
-### Current Flow (tenant portal, `:5174`)
-
-1. **Upload / Sync** — Documents arrive via manual upload (`POST /subscriptions/upload-document`) or platform sync. They land in the `pending_reviews` table (Flyway V21) as **Review Inbox** items.
-2. **Review Inbox** (`/review`, `ReviewInboxPage.jsx`) — list of incoming instruments with stats (Pending / Saved / Skipped / Failed). Click → Review Edit.
-3. **Review Edit** (`/review/edit/:id`, `ReviewEditPage.jsx`) — human edits the extracted obligations and **classifies each obligation inline per-row** (Applicability, Risk Rating, Impact, Likelihood, Owner, Department, reasoning, Has gap, linked returns). Footer has a "Reason for Update" field.
-4. **Save** — `ReviewService.save()` deletes the instrument's existing obligations + classifications, then re-creates each applicable obligation with **one `ObligationClassification` keyed by `obligation_id`** (status `active`). The instrument is now "confirmed" (has obligations).
-5. **Instruments** (`/instruments`, `InstrumentsPage.jsx`) — lists **only confirmed instruments** (filtered by `ObligationRepository.findDistinctInstrumentIds()`). Table = Title | Regulator | Obligations | Published | Actions. Detail view = metadata, AI Summary, collapsible raw OCR, penalties, obligations list. **No risk/status/classification on the instrument.**
-6. **Obligations Register** (`/obligations`) — one row per obligation, inherits classification from its own `ObligationClassification`. Detail/edit drawer, linked controls + returns, version history.
-
-### Key Backend Facts
-- `SaveReviewRequest.java` — top-level classification fields removed; classification nested per `ObligationDto` (applicability, risk, impact, likelihood, owner, department, gap, `linkedReturnIds`). Top level keeps only `changeReason` + `obligations`.
-- `ReviewService.save()` — deletes old `obligations` + `obligation_classifications` for the instrument, then saves one `Obligation` + one `ObligationClassification` (keyed `obligation_id`) per applicable obligation, links returns.
-- `ObligationClassificationRepository.deleteByInstrumentId()` — native DELETE.
-- `ObligationService` — register/detail/history/classify all keyed on `obligation_id` (`findByObligationId`, `findByObligationIdOrderByChangedAtDesc`). `classify()` accepts `linkedObligationId` for return linking.
-- `InstrumentsService.search()` — returns only confirmed instruments (have obligations), in-memory pagination; `InstrumentSummaryResponse` has `obligationCount`; `InstrumentDetailResponse` has `aiSummary` + `pdfOcrText`.
-- **Published date mapping** — the platform's `instruments.published_at` is NEVER populated. The real issue date lives in `instruments.date_issued`, extracted by the AI classifier from the document text during classification. The tenant instruments table maps `publishedAt = publishedAt != null ? publishedAt : dateIssued`, so the **Published** column = the document's own issue date (falls back to `-` when the AI couldn't extract one). Manual uploads pass `date_issued` on `POST /subscriptions/upload-document`.
-- Schema already supported per-obligation: `obligation_classifications.obligation_id BIGINT UNIQUE` (V3) — no migration needed. V21 adds `pending_reviews`.
-
-### Frontend Files
-- `ReviewInboxPage.jsx`, `ReviewEditPage.jsx` (new), `InstrumentsPage.jsx` (new, replaces deleted `InboxPage.jsx`), `UploadReviewPage.jsx` deleted.
-- `ObligationsRegisterPage.jsx` — classify call uses `selected.obligationId` (NOT `instrumentId`).
-- Routes in `AppRoutes.jsx`; Sidebar: Review Inbox → Instruments → Obligations Register.
+**Rule: NO document reaches the Obligations Register without a human "Edit & Save" on the Review page; instruments carry NO classification — it lives per obligation** (`obligation_classifications.obligation_id UNIQUE`). Flow: upload/sync → `pending_reviews` (V21) → `/review` → `/review/edit/:id` (per-row classification) → save → `/instruments` (confirmed only) → `/obligations`.
+- **Review save deletes obligations by `instrument_id`:** `ReviewService.save()` deletes the instrument's existing obligations + classifications (`deleteByInstrumentId`), then recreates one `Obligation` + one `ObligationClassification` per applicable obligation.
+- Register classify calls use `selected.obligationId`, NOT `instrumentId`.
+- **`published_at` is never populated; use `dateIssued`** (AI-extracted) — tenant maps `publishedAt ?? dateIssued`.
 
 ## Done — Returns Module Enhancements (enums, regulator FK, lazy instances + escalation, bidirectional obligation linking)
 
-**No scheduler anywhere** — instances materialize idempotently on read (`getCalendar`/`getDetail`) + after `create()`; escalation catches up lazily on the same reads. Quartz/cron rejected.
-
-### Backend (`atheris-compliance-tenant-backend`, `modules/returns/`)
-- **Enums (returns-only scope)** — `ReturnStage` (Not Started→Submitted 6 steps), `ReturnFilingStatus` (Not Started / In Progress / Submitted / Submitted Late), `RegulatoryReturnStatus` (Active / Inactive). Each has a `@Converter(autoApply=true)` so DB keeps friendly strings (`"In Progress"`) — existing rows and JSONB stage-key strings untouched. DTOs continue to emit `.db()` display strings so the frontend keeps rendering status/stage text.
-- **Regulator normalization** — `regulatory_returns.tenant_regulator_id BIGINT` FK → `tenant_regulators(id)`. `CreateReturnRequest.tenantRegulatorId`; `ReturnService.create()` resolves name/abbrev via `TenantRegulatorRepository.findByIdAndTenantId`, persists both FK + display snapshot (`filing_regulator` kept as snapshot). `regulatorLabel()` = snapshot first, FK fallback.
-- **Lazy instance materialization** — `ensureInstances(ret)` generates frequency-aware instances (Monthly +1 / Quarterly +3 / Semi-Annual +6 / Annual +12), clamps month-end due day, dedup via `existsByReturnIdAndPeriod` + new `UNIQUE (return_id, period)`, `findTopByReturnIdOrderByPeriodDesc` cursor, 60-iteration guard. Replaces the old buggy `createNextInstance` (skipped current month, monthly-only). Lookahead `atheris.returns.instance-lookahead-days: 120`. `getCalendar()` window widened to `today−60 … +90` so missed timelines surface as OVERDUE.
-- **Lazy escalation catch-up** — `catchUpEscalations()` runs inside `getCalendar()`/`getDetail()`: implied level from missed days (`>0→L1`, `>2→L2`, `>5→L3` via `atheris.returns.escalation-thresholds: "2,5"`, capped L3), writes `escalation_level` + `escalated_at`, audits `return_escalated` with `SYSTEM_USER_ID=0`. `submit()` resets escalation. `Map.of` → `Collections.singletonMap` for nullable audit maps.
-- **Bidirectional obligation↔return linking** — pre-existing `PUT /obligations/obligation/{id}/returns` (obligation→returns). NEW return→obligation side: `GET/PUT /api/v1/returns/{returnId}/obligations` (`LinkObligationsRequest.linkedObligationIds`), backed by `ObligationRepository.findLinkedObligationIds` + `deleteObligationLinks`, audits `link_obligations`; validate return + each obligation exists, replace-style set.
-- **Migrations (edited in place, no new ALTER files)** — `V6__create_returns.sql` now creates `tenant_regulator_id`, `escalation_level`, `escalated_at`, `UNIQUE(return_id, period)` on `return_filing_instances`; `V14` appends FK `fk_returns_regulator`, backfill UPDATE (lowercase name/abbrev match, tenant 1), index `idx_returns_regulator`. Dev DB delta applied manually via `docker exec db psql`, then `mvn org.flywaydb:flyway-maven-plugin:10.12.0:repair` realigned checksums (flyway-maven-plugin is NOT in the module pom — invoke with the fully-qualified goal + `-Dflyway.` properties).
-- `DashboardService` — enum-backed `findByStatusNotInAndDueDateBefore(List.of(ReturnFilingStatus.SUBMITTED, SUBMITTED_LATE), …)`, `countByStatus(...)` enum calls. `ReturnFilingInstanceRepository.findByStatus`/`countByStatus`/`findByStatusNotInAndDueDateBefore` now take enums (DB strings unchanged).
-
-### Frontend (`atheris-compliance-tenant-frontend`)
-- `ReturnsPage.jsx` — escalation chip on list cards (`Escalated · L{n}`, `WarningAmber` icon, escalated-since tooltip) + detail-view `Alert severity="error"` (L1 Analyst / L2 Manager / L3 CCO); OVERDUE chips already present.
-- `CreateReturnDialog.jsx` — Regulator field is now an `Autocomplete` over `api.regulators.list()` (sends `tenantRegulatorId`, `freeSolo` free-text fallback); new **Linked Obligations** section opens existing `LinkObligationsPicker` (removable chips), chains `api.returns.linkObligations(returnId, ids)` after create.
-- `ReturnPicker.jsx` / `MapReturnModal.jsx` / `CreateObligationDialog.jsx` — prior return-modal redesign (search + table picker, Create-Return button, `Save (n)` disabled at 0, `maxWidth="md"`; obligation picker keeps the same table style as `LinkControlsPicker` plus an inline "Add New Obligation" button).
-- `api.js` — `returns.linkObligations` / `returns.linkedObligations`.
-
-### Verified (live on 9091, test data cleaned up afterwards)
-Lazy materialization across 5–6 periods; past-due instances escalated (L2 at >2d, L3 at >5d); submit flips to `Submitted Late` + resets escalation; quarterly return stepped Aug→Nov; return-to-obligation link `[8,5,1]` → join rows + `link_obligations` audit; obligation detail lists linked returns.
+**No scheduler:** filing instances materialize idempotently on read (`getCalendar`/`getDetail`) and after `create()` (`ensureInstances`, frequency-aware, `UNIQUE(return_id, period)`); escalation catches up lazily (L1 >0d, L2 >2d, L3 >5d; `submit()` resets). Enums `ReturnStage`/`ReturnFilingStatus`/`RegulatoryReturnStatus` use `@Converter(autoApply=true)` so DB keeps display strings. `regulatory_returns.tenant_regulator_id` FK (+ name snapshot). Return→obligation linking via `GET/PUT /returns/{returnId}/obligations`. V6/V14 edited in place.
+- **flyway-maven-plugin needs the fully-qualified goal** (`mvn org.flywaydb:flyway-maven-plugin:10.12.0:repair` + `-Dflyway.` props) — it is not in the module pom.
 
 ## Done — Configurable License Seed & Toolkit Regulator Fix
 
-**Seed stays ungated when licensed.** Toolkit seeds go straight to Register (`RegulationSeedService.seedBundle` `source=seeded` `active`) — Inbox 0 is expected when `autoSeedObligations=true`. AI/uploads remain gated via `ObligationSyncService` → `PendingReview` → `ReviewService.save()`.
-
-### Configurable License (`autoSubscribeRegulators` / `autoSeedObligations`)
-- **Intel**: `License.java:37,40` `@Builder.Default false`, `V12` `BOOLEAN NOT NULL DEFAULT false`, DTOs `Create/Update/LicenseDto/ValidateLicenseResponse`, `LicenseService.java:75 create()/151 update() via LicenseMapper /306 validate()`, `AdminLicenseController.java:42,53,24`.
-- **Tenant**: `TenantProfile.java:69,71`, `V28` `ALTER TABLE`, `ValidateLicenseResponse.java:19`, `LicenseStatusResponse.java:19`, `LicenseService.java:48 activate()` `94 setAuto*` from `platformResp` + `277 toStatusResponse`.
-- **Onboarding**: `OnboardingService.java:172 saveRegulators()` `if(autoSubscribe||empty)` bulk `TenantRegulator`, `216 confirm()` second salvage + `244 afterCommit` `262 if(autoSeed) regulationSeedService.seedAll()` `265 syncNow()` (both `REQUIRES_NEW`).
-- **Frontend**: `LicenseAdminPage.jsx:110 defaults false /119 edit populate /418 Onboarding Features checkboxes` (`Checkbox`+`FormControlLabel`).
-
-### Toolkit Regulator `-` Fix (29 → 0 null)
-- **Root cause**: `ToolkitImportService.java:215 importUniverse` left `regulatorId=null` when `regulatoryenforcementbody` blank and title generic (tax/ISA/CAMA/BOFIA/Labour etc). `InternalInstrumentService.java:148/156` leaked null → `ObligationService.java:159` rendered `-`. 29/419 instruments null, 1544 obligations affected.
-- **Patch**: `importUniverse:217-222` chain `inferRegulatorFromTitle→inferRegulatorForAct→mapAreaToRegulator→Federal Govt`; `findOrCreateAct:447` infer before create; `linkCanonicalInstrument:511` + `ensureCanonicalInstrument:518` heal null `regulatorId` (mirrors `importReturns:412`); new helper `mapAreaToRegulator` (Tax→FIRS, Capital Market→SEC, Labour→31, Data Protection→NDPC 8, etc); extended `inferRegulatorForAct:538` (cita/pita/cgta/stamp duties/vat/finance act/money laundering/isa) and `inferRegulatorFromTitle:697` (cama/bofia/fccpa/bvn/tkyc/fx code/icaap/irrbb...).
-- **Verified**: fresh DB `atheris_intel.instruments 395/395 has_reg` (0 null) + `obligation_mappings 1544/1544` via `instruments` join; intel `:9090` + tenant `:9091` restarted, toolkit re-import idempotent. Register now shows chips `CBN/SEC/NDPC/FIRS` not `-`.
-
-### Review Inbox AI Sync Fix (`pending_reviews` 0 → 5)
-- **Root cause**: `InternalInstrumentService.java:37-46` `findRecentForTenant` used `publishedAt > since` but `published_at` is `NULL` for all scraped/AI docs (`AGENTS.md: published_at NEVER populated, dateIssued is real`). After first `ObligationSyncService.syncNow` set `lastPolledAt=today`, every poll returned 0. Plus `OnboardingService.java:223` salvage required `autoSubscribe=true` → 0 `tenant_regulators` → `Sync skipped: no active regulators`.
-- **Patch**: `InternalInstrumentService:37` `coalesce(publishedAt,dateIssued) > since` + `OR (both null)`; `OnboardingService:223` salvage now unconditional when `subscribedRegulators` empty (mirrors `saveRegulators:172` `autoSubscribe||empty` → 40 regs); `afterCommit` re-fetches fresh `TenantProfile` + `PlatformApiClient.clearCache()` for `X-Api-Key`; `ObligationSyncService:101` `foundRecent` returns `null` on error so watermark not advanced, `em.clear()` + `Throwable`.
-- **Verified**: fresh DB after restart — `Seed complete 390 bundles` + `Sync check: 40 regulatorIds` + `Received 391` (toolkit skipped `already exist`) + next poll queued 5 scraper `Published` (396/397 FCCPC + 398-400 NDIC) → `pending_reviews 5 pending` visible at `http://localhost:5174/review`. Toolkit `391` stays ungated to Register as intended.
+License flags `autoSubscribeRegulators` / `autoSeedObligations` (intel V12 + tenant V28, default false) drive onboarding; toolkit seeds go straight to the Register (Inbox 0 is expected), AI/uploads stay gated via Review. Toolkit regulator inference chain (`inferRegulatorFromTitle → inferRegulatorForAct → mapAreaToRegulator → Federal Govt`) took null-regulator instruments 29 → 0. Review Inbox sync fixed: `findRecentForTenant` uses `coalesce(publishedAt, dateIssued)`, onboarding salvage subscribes regulators when none chosen, sync watermark not advanced on error.
 
 ## Done — Classifier/Toolkit Harmonization (backend-only, verbatim + plain, 60+ cap)
 
-**Goal:** One register row = one enforceable duty for **both** `toolkit_seed` and `ai_extracted`; every toolkit column maps to classifier; interpreted meaning kept.
-
-| Layer | Before | After |
-|---|---|---|
-| Prompt `ClassificationService.java:30` | 6 fields, bundled `statement`, `max 1500 tok` | Atomic `one shall=one obligation`, `title/description(verbatim ≤500) vs statement(interpreted ≤250)`, `riskDescription/likelihood Very Low..Very High/impact/controlOwner/sanctions[]/act_name`, 12 unified `area_of_focus` `SECTION_AREA_OF_FOCUS`, example `FMD/DIR/PUB/CIR/001/029` 2 rows, `max 3500 tok` + `80k→2×40k chunk merge dedup` (`application.yml:48`) |
-| DTO `ClassificationResult.java` | `ObligationItem 6 cols` + no sanctions | `ObligationItem title/description/riskDescription/likelihood/impact/controlOwner` + `SanctionItem description/section/penaltyDetails/riskExplanation/sanctionAmount/liableRoles` + instrument `actName/riskRatingExplanation/regulatoryItemType/applicability/dateOfIssue/commencement` |
-| Persistence `ObligationMapping.java` `V3__create_obligations_sanctions_jobs.sql` (edited) | `plain_english_statement` only | `description TEXT` verbatim + `title/plain/risk/likelihood/impact/rating/controlOwner/act_id` via `findOrCreateAct()+linkCanonical`, `sanctions parseMoney largest M/K overflow→null + splitRoles`, dedup `existsByInstrumentIdAndPlainEnglishStatement` `ObligationMappingRepository.java` |
-| Propagation | `InternalInstrumentService`/`PlatformInstrumentDetail` 5 cols | `InternalInstrumentDetail.java`/`PlatformInstrumentDetail.java` 14-col `ObligationItem` + `actName` batched `RegulationRepository`, `ObligationSyncService.java:129` + `ReviewObligation.java`/`SaveReviewRequest.java`/`ReviewDetail.java` + `ReviewService.java:save()` `em.clear()+Throwable setRollbackOnly` persist `title/description/risk/owner/regulationId/actName` |
-| Logging/order | `AdminUserSeeder` unordered, `ScraperService/Playwright/Storage` `INFO` flood | `AdminUserSeeder.java:13 @Order(0)` → `ToolkitStartupSeeder.java:25 @Order(1)`, `ScraperService.java` `Scraping/Done` `INFO→DEBUG`, `HtmlScraperStrategy.java:26` / `PlaywrightHeadlessStrategy.java:40` `Scraping page` `INFO→DEBUG`, `LocalStorageService.java` `Stored` `INFO→DEBUG`, `application.yml:98 com.atheris.compliance DEBUG→INFO` (only `ERROR 404/403/timeout` + `WARN Failed to download` remain) |
-| Verified | `FPR/DIR/PUB/CIR/001/015 41pp` bundled 1 row | `FMD/DIR/PUB/CIR/001/029` `instrument 403 Published` `act 422 BOFIA 2020` → `obligation_mappings 1549 title="Limit suspension of payment..." verbatim="The suspension..." plain="Banks must ensure..." Para 1(a) Low/Medium→Moderate Chief Risk Officer` + `1550 Para 1(b)`; tenant `GET /api/v1/review/4` `ILLUSTRATED GUIDE pbor FCCPC` `Consumer Protection Governance Critical Head Compliance act 421 FCCPA 2018` harmonized; stale `reviewId 1` (pre-restart) to be `Skip`+re-upload via API (no SQL) |
+One register row = one enforceable duty for both `toolkit_seed` and `ai_extracted`. Classifier prompt is atomic (one "shall" = one obligation), separates verbatim `description` (≤500) from interpreted `statement` (≤250), emits risk/likelihood/impact/controlOwner/sanctions/act_name and 12 unified areas of focus; `max 3500` tokens with 80k → 2×40k chunk merge. `ObligationMapping` gains `description`/`title`/risk/owner/`act_id` (intel V3 edited); the 14-column item propagates through `InternalInstrumentDetail` → `ObligationSyncService` → Review DTOs → `ReviewService.save()`. Seeder order `AdminUserSeeder @Order(0)` → `ToolkitStartupSeeder @Order(1)`; scraper/storage logging INFO → DEBUG.
 
 ## Done — Points Batch Processing (LLM under Gemini free tier)
 

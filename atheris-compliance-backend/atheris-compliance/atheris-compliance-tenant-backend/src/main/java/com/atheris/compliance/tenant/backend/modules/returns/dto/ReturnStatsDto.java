@@ -10,6 +10,8 @@ public class ReturnStatsDto {
     private long overdue;
     private long inProgress;
     private long submitted;
+    /** Active Monthly-or-longer returns with no due rule. */
+    private long dueDateNeeded;
     private List<String> frequencies;
     private List<String> regulators;
     private List<String> actNames;

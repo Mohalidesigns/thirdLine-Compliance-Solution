@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     boolean existsByObligationNumber(Integer obligationNumber);
+    java.util.Optional<Obligation> findFirstByObligationNumberNotNullOrderByObligationNumberDesc();
     List<Obligation> findByInstrumentId(Long instrumentId);
     long countByInstrumentId(Long instrumentId);
 

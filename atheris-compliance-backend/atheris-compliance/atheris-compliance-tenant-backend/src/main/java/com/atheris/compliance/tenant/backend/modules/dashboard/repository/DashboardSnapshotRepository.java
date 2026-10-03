@@ -10,7 +10,8 @@ import java.util.Optional;
 
 @Repository
 public interface DashboardSnapshotRepository extends JpaRepository<DashboardSnapshot, Long>, JpaSpecificationExecutor<DashboardSnapshot> {
-    Optional<DashboardSnapshot> findTopByOrderBySnapshotDateDesc();
+    /** Latest snapshot; several can share a date (2am cron, manual refresh, post-import), so the newest id wins. */
+    Optional<DashboardSnapshot> findTopByOrderBySnapshotDateDescSnapshotIdDesc();
     List<DashboardSnapshot> findTop12ByOrderBySnapshotDateDesc();
     Optional<DashboardSnapshot> findBySnapshotDate(LocalDate date);
 }

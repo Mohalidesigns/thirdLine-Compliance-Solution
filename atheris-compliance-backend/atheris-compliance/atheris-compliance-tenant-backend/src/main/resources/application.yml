@@ -42,6 +42,12 @@ atheris:
   platform:
     base-url: ${PLATFORM_BASE_URL:http://localhost:9090}
     encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
+  # Dev only — never enable in production. Seeds admin@/cco@/analyst@/auditor@<domain>.
+  seed:
+    users:
+      enabled: ${SEED_USERS_ENABLED:false}
+      domain: ${SEED_USERS_DOMAIN:mamcorp.test}
+      password: ${SEED_USERS_PASSWORD:}
 logging:
   level:
     com.atheris.compliance: DEBUG
