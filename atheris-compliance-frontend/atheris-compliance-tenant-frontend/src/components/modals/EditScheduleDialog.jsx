@@ -5,26 +5,9 @@ import {
   Box, CircularProgress, Alert, Divider, Typography, RadioGroup, Radio, FormControlLabel,
 } from '@mui/material';
 import { api } from '../../services/api';
-
-const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'];
-// Frequencies with no due rule (periods come straight from the cycle, or none at all).
-const NO_RULE = ['Daily', 'Weekly', 'Event-driven'];
-const TYPE_TO_LABEL = {
-  DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly',
-  SEMI_ANNUAL: 'Semi-Annual', ANNUAL: 'Annual', BIENNIAL: 'Biennial', EVENT_DRIVEN: 'Event-driven',
-};
-
-function norm(s) {
-  return String(s || '').toLowerCase().replace(/[\s_-]/g, '');
-}
-
-// Map a register item's frequencyType / frequency text to one of the select labels.
-export function frequencyLabel(item) {
-  if (item?.frequencyType && TYPE_TO_LABEL[item.frequencyType]) return TYPE_TO_LABEL[item.frequencyType];
-  const f = norm(item?.frequency);
-  if (!f) return '';
-  return FREQUENCIES.find(l => norm(l) === f) || FREQUENCIES.find(l => f.startsWith(norm(l))) || '';
-}
+import {
+  FREQUENCIES, NO_RULE, frequencyLabel, prepDaysError, ruleError,
+} from './scheduleRules';
 
 function initialForm(item) {
   const frequency = frequencyLabel(item);
@@ -41,24 +24,10 @@ function initialForm(item) {
 
 function validate(form) {
   if (!form.frequency) return 'Choose a frequency.';
-  if (form.prepDays !== '') {
-    const p = Number(form.prepDays);
-    if (!Number.isInteger(p) || p < 0) return 'Prep days must be a whole number of 0 or more.';
-  }
+  const prepErr = prepDaysError(form.prepDays);
+  if (prepErr) return prepErr;
   if (NO_RULE.includes(form.frequency)) return '';
-  if (form.ruleType === 'DATE') {
-    if (!form.firstDueDate) return 'Enter the first due date.';
-    return '';
-  }
-  if (form.ruleType === 'OFFSET') {
-    if (form.frequency === 'Biennial') return 'Biennial returns need a fixed date.';
-    const d = Number(form.daysAfterPeriodEnd);
-    if (form.daysAfterPeriodEnd === '' || !Number.isInteger(d)) return 'Enter the days after period end.';
-    const max = form.frequency === 'Monthly' ? 28 : 365;
-    if (d < 1 || d > max) return `Days after period end must be between 1 and ${max} for ${form.frequency} returns.`;
-    return '';
-  }
-  return 'Choose a due rule.';
+  return ruleError(form.frequency, form.ruleType, form.firstDueDate, form.daysAfterPeriodEnd);
 }
 
 function buildBody(form) {

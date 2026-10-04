@@ -247,6 +247,17 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 ### Verified (live, 2026-10-04)
 Re-import via the UI button: 1631 duplicate controls removed (4237 → 2606), descriptions 0 → 1541; second run all zeros. Points generated with exact verbatim markers (a)–(d); intel obligations explorer list/stats/hasPoints OK.
 
+## Done — Bulk "Set due dates" Dialog
+
+Returns page → "Set due dates" (header button when any return needs a date, or click the "Due date needed" stat card) — CCO / TENANT_ADMIN.
+
+- **Backend:** `PUT /api/v1/returns/schedules` (`BulkScheduleRequest{items}`, 1–500, no duplicate ids). `ReturnService.updateSchedule` was split into `validateSchedule` + `applySchedule` so the single and bulk endpoints share one rule set. **All-or-nothing:** any invalid row → 400 `{error:"validation_failed", message:"N rows need fixing", rowErrors:[{returnId,message}]}`, nothing saved (`ApiException` gained an optional `details` map that `GlobalExceptionHandler` merges into the body). Valid → one transaction, one `return_schedules_bulk_updated` audit event, returns `{updated, items}`. Returns and periods loaded in one query each (no N+1).
+- **Frontend:** `BulkDueDatesDialog.jsx` — 5 columns (Return | Frequency | Regulator wording | Due rule | Status), per-row rule editors, frequency filter, select-all, "Apply to selected" (rule + value + prep days; skips rows where the rule isn't allowed), "Save N schedules" (only rows with a rule), server `rowErrors` shown per row. Shared vocabulary/validation in `components/modals/scheduleRules.js` (also used by `EditScheduleDialog`). `api.js` errors now carry `err.status` / `err.data`.
+- **Classifier fix:** "Twice yearly", "twice a year", "two times a year", "every six (6) months" → SEMI_ANNUAL (the word "yearly" used to win → ANNUAL). `ReturnFrequencyTest` 39 cases, `ReturnDeadlineParserTest` 45.
+
+### Verified (live, browser pane, 2026-10-04)
+Dialog listed 52 returns; Annual filter → 26; ticked 3, "Apply to selected" Fixed date 31 Dec 2026, "Save 3 schedules" → each got one 2026-12 period (source `user`), one bulk audit event, list dropped to 49; zero backend errors. Repair dry run after the classifier fix proposes only the two "Twice yearly" staff-movement returns: ANNUAL → SEMI_ANNUAL, due 7 Jan / 7 Jul, 0 periods removed — applied 2026-10-04: both now SEMI_ANNUAL with one 2027-01 period each. The 5 overdue on the dev tenant are genuine (Daily/Weekly periods for 3 Oct not filed).
+
 ## Done — Return Due Dates (no more overdue-on-day-one)
 
 Seeded returns had no due date (the platform has none: intel `deadline` is a copy of `frequency`, `remarks` is empty, and intel `filing_date` is an artifact stamped onto Sep 2026), so they fell back to "due the 1st of this month" → 92 periods overdue on day one.

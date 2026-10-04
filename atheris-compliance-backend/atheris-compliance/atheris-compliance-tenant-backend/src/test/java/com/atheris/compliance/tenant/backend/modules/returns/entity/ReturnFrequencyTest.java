@@ -38,6 +38,19 @@ class ReturnFrequencyTest {
         Solo Basis: Monthly (5 days after month-end) Consolidated Basis: Quarterly (5 days after quarter-end) Immediately if LCR falls below 100% | MONTHLY
         Continuous / Annual                                         | ANNUAL
         Continuous (retain for 3 years)                             | EVENT_DRIVEN
+        Twice yearly: by 7th January and 7th July                   | SEMI_ANNUAL
+        Biannual                                                    | SEMI_ANNUAL
+        Biannual Staff Movement Return                              | SEMI_ANNUAL
+        Bi-annually, by 31st January and 31st July                  | SEMI_ANNUAL
+        Twice a year                                                | SEMI_ANNUAL
+        Twice annually, within 30 days of half-year end             | SEMI_ANNUAL
+        Two times a year                                            | SEMI_ANNUAL
+        Every six (6) months                                        | SEMI_ANNUAL
+        Every 6 months from the date of licence                     | SEMI_ANNUAL
+        Half-yearly, not later than 31st July                       | SEMI_ANNUAL
+        Biennially                                                  | BIENNIAL
+        Annually                                                    | ANNUAL
+        Yearly                                                      | ANNUAL
         """)
     void classifiesPlatformTexts(String text, ReturnFrequency expected) {
         assertEquals(Optional.of(expected), ReturnFrequency.classify(text));

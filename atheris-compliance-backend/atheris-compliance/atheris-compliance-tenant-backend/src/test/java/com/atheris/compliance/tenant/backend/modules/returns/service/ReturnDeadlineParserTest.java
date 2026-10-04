@@ -64,6 +64,9 @@ class ReturnDeadlineParserTest {
             .map(ReturnDeadlineParser.Parsed::rule)));
         assertEquals("O 5", render(ReturnDeadlineParser.parse("Within 5 days after month-end", null, null)
             .map(ReturnDeadlineParser.Parsed::rule)));
+        // "yearly" inside "twice yearly" must not classify as ANNUAL (which would reject the two-date list)
+        assertEquals("A 1/7", render(ReturnDeadlineParser.parse("Twice yearly: by 7th January and 7th July", null, null)
+            .map(ReturnDeadlineParser.Parsed::rule)));
     }
 
     @Test

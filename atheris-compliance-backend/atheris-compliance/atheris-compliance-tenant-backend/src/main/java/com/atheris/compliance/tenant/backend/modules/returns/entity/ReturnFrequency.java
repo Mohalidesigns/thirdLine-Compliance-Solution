@@ -39,7 +39,8 @@ public enum ReturnFrequency {
         alias(MONTHLY, "month", "every month");
         alias(QUARTERLY, "quarter", "every quarter");
         alias(SEMI_ANNUAL, "semi annual", "semiannual", "semi-annually", "semi annually", "bi-annual", "biannual",
-            "bi-annually", "biannually", "half-yearly", "half yearly", "every 6 months", "twice yearly");
+            "bi-annually", "biannually", "half-yearly", "half yearly", "every 6 months", "every six months", "twice yearly", "twice a year",
+            "twice annually", "two times a year");
         alias(ANNUAL, "annually", "yearly", "every year");
         alias(BIENNIAL, "every 2 years", "every two years");
         alias(EVENT_DRIVEN, "ad hoc", "ad-hoc", "adhoc", "event driven", "on occurrence", "as required");
@@ -77,6 +78,14 @@ public enum ReturnFrequency {
     private static final Pattern YEAR_END = Pattern.compile(
         "year end|end of (the|each|every|its) (financial |calendar |accounting )?year");
 
+    /**
+     * Twice-a-year phrasings, rewritten to "semiannual" before {@link #CYCLE_WORD} runs so the "yearly" /
+     * "annually" inside them can't read as ANNUAL. Runs on lower-cased, hyphen-free text.
+     */
+    private static final Pattern SEMI_ANNUAL_PHRASE = Pattern.compile(
+        "\\b(?:twice|two times|2 times)(?: (?:a|per|each|every|in a|in each))? (?:year|yearly|annual(?:ly)?|annum)\\b"
+            + "|\\bevery (?:6|six)(?: \\(?6\\)?)? months\\b");
+
     /** An explicit cycle adjective/adverb, as a whole word anywhere in the text. Nouns ("year", "months") don't count. */
     private static final Pattern CYCLE_WORD = Pattern.compile(
         "\\b(daily|weekly|monthly|quarterly|semi ?annual(ly)?|bi ?annual(ly)?|half ?yearly"
@@ -92,6 +101,7 @@ public enum ReturnFrequency {
     public static Optional<ReturnFrequency> explicitCycle(String text) {
         if (text == null || text.isBlank()) return Optional.empty();
         String f = text.toLowerCase(Locale.ROOT).replace('-', ' ').replaceAll("\\s+", " ");
+        f = SEMI_ANNUAL_PHRASE.matcher(f).replaceAll("semiannual");
         var m = CYCLE_WORD.matcher(f);
         ReturnFrequency best = null;
         while (m.find()) {

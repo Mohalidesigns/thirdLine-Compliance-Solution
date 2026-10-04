@@ -123,7 +123,11 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const fallback = res.status === 403 ? FORBIDDEN_MESSAGE : `Request failed (${res.status})`;
-    throw new Error(data.message || data.error || fallback);
+    const err = new Error(data.message || data.error || fallback);
+    // Expose the parsed body/status (e.g. rowErrors on a 400) without changing the message.
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
   return data;
 }
@@ -359,6 +363,10 @@ export const api = {
     // Set a return's filing schedule (CCO, TENANT_ADMIN). Returns the updated register item.
     updateSchedule: (returnId, body) => request(`/returns/${returnId}/schedule`, {
       method: 'PUT', body: JSON.stringify(body),
+    }),
+    // Bulk-set schedules (CCO, TENANT_ADMIN). All-or-nothing; a 400 carries err.data.rowErrors.
+    updateSchedules: (items) => request('/returns/schedules', {
+      method: 'PUT', body: JSON.stringify({ items }),
     }),
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),

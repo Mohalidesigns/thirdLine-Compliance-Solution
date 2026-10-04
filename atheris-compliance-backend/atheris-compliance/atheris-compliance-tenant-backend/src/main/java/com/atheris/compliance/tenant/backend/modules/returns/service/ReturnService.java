@@ -489,6 +489,9 @@ public class ReturnService {
         return saved;
     }
 
+    /** Most items {@code PUT /returns/schedules} accepts in one request. */
+    public static final int BULK_SCHEDULE_MAX = 500;
+
     /**
      * Sets a return's frequency and due-date rule ({@code PUT /returns/{id}/schedule}). The rule becomes
      * user-owned (source {@code user}), the other rule kind is cleared, untouched periods are deleted and the
@@ -507,7 +510,126 @@ public class ReturnService {
     private ReturnRegisterItem doUpdateSchedule(Long returnId, UpdateScheduleRequest req, Integer userId) {
         RegulatoryReturn r = returns.findById(returnId)
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
-        if (req == null) throw ApiException.badRequest("bad_request", "Request body is required");
+        String error = validateSchedule(r, req);
+        if (error != null) {
+            if (req == null) throw ApiException.badRequest("bad_request", error);
+            throw invalid(error);
+        }
+
+        AppliedSchedule applied = applySchedule(r, req, instances.findByReturnId(returnId));
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("before", applied.before());
+        details.put("frequencyType", applied.schedule().freq().name());
+        details.put("ruleType", applied.schedule().ruleType());
+        details.put("filingDate", applied.schedule().anchor() != null ? applied.schedule().anchor().toString() : null);
+        details.put("daysAfterPeriodEnd", applied.schedule().offsetDays());
+        details.put("instancesRemoved", applied.instancesRemoved());
+        audit.log(userId, "return_schedule_updated", "return", returnId, details);
+
+        return buildRegisterItem(r, instances.findByReturnId(returnId), LocalDate.now());
+    }
+
+    /**
+     * Sets the schedule of many returns at once ({@code PUT /returns/schedules}). All-or-nothing: every item is
+     * validated with the single-return rules first; any failure → 400 {@code validation_failed} with
+     * {@code rowErrors} [{returnId, message}] and nothing is saved. Otherwise every schedule is applied in this
+     * one transaction and a single {@code return_schedules_bulk_updated} audit event is written.
+     */
+    @Transactional
+    public BulkScheduleResponse bulkUpdateSchedules(BulkScheduleRequest req, Integer userId) {
+        try {
+            return doBulkUpdateSchedules(req, userId);
+        } catch (RuntimeException e) {
+            rollback();
+            throw e;
+        }
+    }
+
+    private BulkScheduleResponse doBulkUpdateSchedules(BulkScheduleRequest req, Integer userId) {
+        List<BulkScheduleItem> items = req != null ? req.getItems() : null;
+        if (items == null || items.isEmpty())
+            throw ApiException.badRequest("bad_request", "items must contain at least one return");
+        if (items.size() > BULK_SCHEDULE_MAX)
+            throw ApiException.badRequest("bad_request", "At most " + BULK_SCHEDULE_MAX + " returns can be updated at once");
+        Set<Long> seen = new LinkedHashSet<>();
+        for (BulkScheduleItem item : items) {
+            if (item == null || item.getReturnId() == null)
+                throw ApiException.badRequest("bad_request", "Every item needs a returnId");
+            if (!seen.add(item.getReturnId()))
+                throw ApiException.badRequest("bad_request", "Duplicate returnId " + item.getReturnId());
+        }
+
+        Map<Long, RegulatoryReturn> byId = returns.findAllById(seen).stream()
+            .collect(Collectors.toMap(RegulatoryReturn::getReturnId, r -> r));
+
+        List<Map<String, Object>> rowErrors = new ArrayList<>();
+        for (BulkScheduleItem item : items) {
+            RegulatoryReturn r = byId.get(item.getReturnId());
+            String error = r == null ? "Return not found" : validateSchedule(r, item);
+            if (error != null) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("returnId", item.getReturnId());
+                row.put("message", error);
+                rowErrors.add(row);
+            }
+        }
+        if (!rowErrors.isEmpty()) {
+            int n = rowErrors.size();
+            throw ApiException.badRequest("validation_failed",
+                n + (n == 1 ? " row needs fixing" : " rows need fixing"),
+                Map.of("rowErrors", rowErrors));
+        }
+
+        Map<Long, List<ReturnFilingInstance>> existingByReturn = instances.findByReturnIdIn(seen).stream()
+            .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+        for (BulkScheduleItem item : items) {
+            applySchedule(byId.get(item.getReturnId()), item,
+                existingByReturn.getOrDefault(item.getReturnId(), List.of()));
+        }
+
+        List<Long> returnIds = new ArrayList<>(seen);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("count", returnIds.size());
+        details.put("returnIds", returnIds);
+        audit.log(userId, "return_schedules_bulk_updated", "regulatory_return", null, details);
+
+        Map<Long, List<ReturnFilingInstance>> instsByReturn = instances.findByReturnIdIn(seen).stream()
+            .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+        LocalDate now = LocalDate.now();
+        List<ReturnRegisterItem> result = items.stream()
+            .map(item -> buildRegisterItem(byId.get(item.getReturnId()),
+                instsByReturn.getOrDefault(item.getReturnId(), List.of()), now))
+            .filter(Objects::nonNull)
+            .toList();
+        return BulkScheduleResponse.builder().updated(returnIds.size()).items(result).build();
+    }
+
+    /** A schedule request resolved against its return: the effective frequency and the due rule to store. */
+    private record ResolvedSchedule(ReturnFrequency freq, String ruleType, LocalDate anchor, Integer offsetDays) {}
+
+    private record AppliedSchedule(ResolvedSchedule schedule, Map<String, Object> before, int instancesRemoved) {}
+
+    /** Thrown only inside {@link #resolveSchedule} to carry a validation message out. */
+    private static final class ScheduleInvalid extends RuntimeException {
+        ScheduleInvalid(String message) { super(message, null, false, false); }
+    }
+
+    /**
+     * Validates a schedule request for {@code r} with the single-return rules. Returns the error message, or
+     * null when the request is valid. Changes nothing.
+     */
+    public String validateSchedule(RegulatoryReturn r, UpdateScheduleRequest req) {
+        try {
+            resolveSchedule(r, req);
+            return null;
+        } catch (ScheduleInvalid e) {
+            return e.getMessage();
+        }
+    }
+
+    private ResolvedSchedule resolveSchedule(RegulatoryReturn r, UpdateScheduleRequest req) {
+        if (req == null) throw new ScheduleInvalid("Request body is required");
 
         ReturnFrequency freq;
         if (req.getFrequency() == null || req.getFrequency().isBlank()) {
@@ -515,7 +637,7 @@ public class ReturnService {
         } else {
             freq = ReturnFrequency.fromLabel(req.getFrequency())
                 .or(() -> ReturnFrequency.fromCode(req.getFrequency()))
-                .orElseThrow(() -> invalid("Frequency '" + req.getFrequency() + "' must be one of "
+                .orElseThrow(() -> new ScheduleInvalid("Frequency '" + req.getFrequency() + "' must be one of "
                     + String.join(", ", ReturnFrequency.LABELS)));
         }
 
@@ -525,54 +647,61 @@ public class ReturnService {
         Integer offsetDays = null;
         if (ruleType == null) {
             if (DueRule.stepMonths(freq) > 0)
-                throw invalid(freq.label() + " returns need a due date rule (a first due date or days after period end)");
+                throw new ScheduleInvalid(freq.label() + " returns need a due date rule (a first due date or days after period end)");
         } else if (ruleType.equals(DueRule.Kind.DATE.name())) {
-            if (req.getFirstDueDate() == null) throw invalid("firstDueDate is required for a DATE rule");
+            if (req.getFirstDueDate() == null) throw new ScheduleInvalid("firstDueDate is required for a DATE rule");
             anchor = req.getFirstDueDate();
         } else if (ruleType.equals(DueRule.Kind.OFFSET.name())) {
             if (!DueRule.offsetSupported(freq))
-                throw invalid("Days after period end is not available for " + freq.label() + " returns");
+                throw new ScheduleInvalid("Days after period end is not available for " + freq.label() + " returns");
             Integer d = req.getDaysAfterPeriodEnd();
-            if (d == null) throw invalid("daysAfterPeriodEnd is required for an OFFSET rule");
+            if (d == null) throw new ScheduleInvalid("daysAfterPeriodEnd is required for an OFFSET rule");
             int max = freq == ReturnFrequency.MONTHLY ? 28 : 365;
             if (d < 1 || d > max)
-                throw invalid("daysAfterPeriodEnd must be between 1 and " + max + " for " + freq.label() + " returns");
+                throw new ScheduleInvalid("daysAfterPeriodEnd must be between 1 and " + max + " for " + freq.label() + " returns");
             offsetDays = d;
         } else {
-            throw invalid("ruleType must be DATE, OFFSET or null");
+            throw new ScheduleInvalid("ruleType must be DATE, OFFSET or null");
         }
         if (req.getPrepDays() != null && (req.getPrepDays() < 0 || req.getPrepDays() > 365))
-            throw invalid("prepDays must be between 0 and 365");
+            throw new ScheduleInvalid("prepDays must be between 0 and 365");
+        return new ResolvedSchedule(freq, ruleType, anchor, offsetDays);
+    }
+
+    /**
+     * Applies a schedule request to {@code r} (call {@link #validateSchedule} first): stores the rule as
+     * user-owned, deletes the untouched periods among {@code existing} (the return's current instances) and
+     * regenerates the schedule for an active return. Writes no audit event — the caller does.
+     */
+    private AppliedSchedule applySchedule(RegulatoryReturn r, UpdateScheduleRequest req,
+                                          List<ReturnFilingInstance> existing) {
+        ResolvedSchedule s;
+        try {
+            s = resolveSchedule(r, req);
+        } catch (ScheduleInvalid e) {
+            throw invalid(e.getMessage());
+        }
 
         Map<String, Object> before = new LinkedHashMap<>();
         before.put("frequencyType", r.getFrequencyType());
         before.put("filingDate", r.getFilingDate() != null ? r.getFilingDate().toString() : null);
         before.put("daysAfterPeriodEnd", r.getDueDaysAfterPeriodEnd());
 
-        r.setFrequencyType(freq.name());
-        if (req.getFrequency() != null && !req.getFrequency().isBlank()) r.setFrequency(freq.label());
-        r.setFilingDate(anchor);
-        r.setDueDaysAfterPeriodEnd(offsetDays);
+        r.setFrequencyType(s.freq().name());
+        if (req.getFrequency() != null && !req.getFrequency().isBlank()) r.setFrequency(s.freq().label());
+        r.setFilingDate(s.anchor());
+        r.setDueDaysAfterPeriodEnd(s.offsetDays());
         r.setDueDateSource(DueRule.SOURCE_USER);
         if (req.getPrepDays() != null) r.setFilingDeadlineOffsetDays(req.getPrepDays());
         returns.save(r);
 
-        List<ReturnFilingInstance> removable = untouched.removable(instances.findByReturnId(returnId));
+        List<ReturnFilingInstance> removable = untouched.removable(existing);
         instances.deleteAll(removable);
         instances.flush();
         if (r.getStatus() == RegulatoryReturnStatus.ACTIVE) ensureInstances(r);
         instances.flush();
 
-        Map<String, Object> details = new LinkedHashMap<>();
-        details.put("before", before);
-        details.put("frequencyType", freq.name());
-        details.put("ruleType", ruleType);
-        details.put("filingDate", anchor != null ? anchor.toString() : null);
-        details.put("daysAfterPeriodEnd", offsetDays);
-        details.put("instancesRemoved", removable.size());
-        audit.log(userId, "return_schedule_updated", "return", returnId, details);
-
-        return buildRegisterItem(r, instances.findByReturnId(returnId), LocalDate.now());
+        return new AppliedSchedule(s, before, removable.size());
     }
 
     private static ApiException invalid(String message) {

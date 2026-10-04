@@ -90,6 +90,18 @@ public class ReturnController {
             .body(service.create(req, u.getUserId()).getReturnId());
     }
 
+    /**
+     * Sets the schedule of many returns at once (all-or-nothing). Literal path, so it never collides with
+     * {@code /{returnId}/...}; any row error → 400 with {@code rowErrors}.
+     */
+    @PutMapping("/schedules")
+    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    public ResponseEntity<BulkScheduleResponse> bulkUpdateSchedules(
+            @RequestBody BulkScheduleRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.bulkUpdateSchedules(req, u.getUserId()));
+    }
+
     /** Sets the frequency and due-date rule; regenerates untouched periods. Returns the updated register row. */
     @PutMapping("/{returnId}/schedule")
     @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")

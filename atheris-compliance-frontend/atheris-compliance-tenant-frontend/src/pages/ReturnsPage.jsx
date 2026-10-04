@@ -18,6 +18,7 @@ import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
+import BulkDueDatesDialog from '../components/modals/BulkDueDatesDialog';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
@@ -83,6 +84,7 @@ export default function ReturnsPage() {
   const [repairOpen, setRepairOpen] = useState(false);
   // Register item whose schedule is being edited (null = dialog closed).
   const [scheduleItem, setScheduleItem] = useState(null);
+  const [bulkDueOpen, setBulkDueOpen] = useState(false);
   // Register row the detail view was opened from (for "Edit schedule" in the header).
   const [detailItem, setDetailItem] = useState(null);
 
@@ -159,7 +161,11 @@ export default function ReturnsPage() {
     if (type === 'overdue') setStatusFilter('Overdue');
     else if (type === 'inProgress') setStatusFilter('In Progress');
     else if (type === 'submitted') setStatusFilter('Submitted');
-    else if (type === 'dueDateNeeded') setStatusFilter(DUE_DATE_NEEDED);
+    else if (type === 'dueDateNeeded') {
+      // Schedulers get the bulk dialog; other roles just filter the register.
+      if (canEditSchedule) setBulkDueOpen(true);
+      else setStatusFilter(DUE_DATE_NEEDED);
+    }
     else setStatusFilter('All');
   }
 
@@ -233,6 +239,13 @@ export default function ReturnsPage() {
           <Tooltip title="Refresh">
             <IconButton onClick={refresh}><Refresh /></IconButton>
           </Tooltip>
+          {canEditSchedule && (stats?.dueDateNeeded ?? 0) > 0 && (
+            <Button variant="outlined" color="warning" startIcon={<EditCalendar />} size="medium"
+              onClick={() => setBulkDueOpen(true)}
+              sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+              Set due dates
+            </Button>
+          )}
           {canImport && (
             <Button variant="outlined" startIcon={<UploadFile />} size="medium" onClick={() => setImportOpen(true)}
               sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
@@ -397,6 +410,10 @@ export default function ReturnsPage() {
           invalidateKeys={[['returns'], ['obligations'], ['dashboard']]}
           onClose={() => setImportOpen(false)}
           onImported={(r) => setSnackbar(`Imported ${r?.importedRows ?? 0} returns.`)} />
+      )}
+
+      {canEditSchedule && (
+        <BulkDueDatesDialog open={bulkDueOpen} onClose={() => setBulkDueOpen(false)} />
       )}
 
       {scheduleDialog}

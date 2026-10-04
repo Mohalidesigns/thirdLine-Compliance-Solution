@@ -26,6 +26,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -69,12 +70,17 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<Map<String, String>> handleApi(ApiException e) {
+    public ResponseEntity<Map<String, Object>> handleApi(ApiException e) {
         if (e.getStatus().is5xxServerError()) {
             log.error("Request failed ({}): {}", e.getCode(), e.getMessage(), e);
         }
-        return ResponseEntity.status(e.getStatus())
-            .body(Map.of("error", e.getCode(), "message", e.getMessage()));
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", e.getCode());
+        body.put("message", messageOr(e, "Request failed"));
+        if (e.getDetails() != null) {
+            e.getDetails().forEach(body::putIfAbsent);
+        }
+        return ResponseEntity.status(e.getStatus()).body(body);
     }
 
     // @PreAuthorize denials are thrown from the controller proxy, so without this
