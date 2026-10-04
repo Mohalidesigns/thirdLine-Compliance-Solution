@@ -226,7 +226,6 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel logging was raised to DEBUG by main; intel obligations explorer has 6 columns (rule: 5).
 - **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
-- Settings → Organization shows mojibake ("Â·") in the team/owner counts.
 - "New Control" form still writes only the control side of obligation links (import writes both).
 - `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.

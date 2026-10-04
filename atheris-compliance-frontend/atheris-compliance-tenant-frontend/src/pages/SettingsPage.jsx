@@ -178,9 +178,9 @@ function OrganizationTab({ isAdmin }) {
             </Box>}
             subheader={
               <Typography variant="caption" color="text.secondary">
-                {dept.department.teamCount ?? dept.teams.length} team(s) Â·
+                {dept.department.teamCount ?? dept.teams.length} team(s) ·{' '}
                 {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
-                {dept.department.headOwnerName ? ` Â· Head: ${dept.department.headOwnerName}` : ''}
+                {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
             action={isAdmin && (
@@ -199,7 +199,7 @@ function OrganizationTab({ isAdmin }) {
                   <Group fontSize="small" color="action" />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{team.team.name}</Typography>
                   {team.team.isActive === false && <Chip size="small" label="Inactive" color="default" />}
-                  <Typography variant="caption" color="text.secondary">Â· {team.owners.length} owner(s)</Typography>
+                  <Typography variant="caption" color="text.secondary">· {team.owners.length} owner(s)</Typography>
                   {isAdmin && (
                     <Box sx={{ ml: 'auto' }}>
                       <IconButton size="small" onClick={() => setTeamModal({ team: team.team, departmentId: dept.department.departmentId })}>
@@ -215,8 +215,8 @@ function OrganizationTab({ isAdmin }) {
                   <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
                     <Person fontSize="small" color="action" />
                     <Typography variant="body2">{owner.fullName}</Typography>
-                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">Â· {owner.jobTitle}</Typography>}
-                    {owner.email && <Typography variant="caption" color="text.secondary">Â· {owner.email}</Typography>}
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
                     {owner.isActive === false && <Chip size="small" label="Inactive" color="default" />}
                     {isAdmin && (
                       <Box sx={{ ml: 'auto' }}>
