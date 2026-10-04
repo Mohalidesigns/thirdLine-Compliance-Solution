@@ -41,6 +41,32 @@ public class FindingService {
         return page.map(f -> FindingRegisterItem.from(f, controlNumbers.get(f.getLinkedControlId())));
     }
 
+    /** KPI counts for the Findings page — one load of the (seed-sized) findings table, no N+1. */
+    public FindingStatsDto getStats() {
+        LocalDate today = LocalDate.now();
+        List<Finding> all = repo.findAll();
+        Map<String, Long> bySeverity = new LinkedHashMap<>();
+        for (String sev : List.of("Critical", "High", "Medium", "Low")) bySeverity.put(sev, 0L);
+        long open = 0, inRem = 0, remediated = 0, closed = 0, overdue = 0, critHigh = 0;
+        for (Finding f : all) {
+            String st = f.getStatus();
+            if ("Open".equals(st)) open++;
+            else if ("In Remediation".equals(st)) inRem++;
+            else if ("Remediated".equals(st)) remediated++;
+            else if ("Closed".equals(st)) closed++;
+            // Same definition as the register's overdueOnly filter (FindingSpecification).
+            if (f.getRemediationDeadline() != null && f.getRemediationDeadline().isBefore(today)
+                    && !"Remediated".equals(st) && !"Closed".equals(st)) overdue++;
+            String sev = f.getSeverity();
+            if (("Critical".equals(sev) || "High".equals(sev)) && !"Closed".equals(st)) critHigh++;
+            if (sev != null) bySeverity.merge(sev, 1L, Long::sum);
+        }
+        return FindingStatsDto.builder()
+            .total(all.size()).open(open).inRemediation(inRem).remediated(remediated).closed(closed)
+            .overdue(overdue).criticalHigh(critHigh).bySeverity(bySeverity)
+            .build();
+    }
+
     public FindingDetailResponse getDetail(Long id) {
         Finding f = repo.findById(id).orElseThrow(() -> ApiException.notFound("Finding not found: " + id));
         List<FindingDetailResponse.TimelineEvent> timeline = new ArrayList<>();

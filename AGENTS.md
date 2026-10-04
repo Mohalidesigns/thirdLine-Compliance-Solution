@@ -226,7 +226,6 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Intel logging was raised to DEBUG by main; intel obligations explorer has 6 columns (rule: 5).
 - **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
-- FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
 - Settings → Organization shows mojibake ("Â·") in the team/owner counts.
 - "New Control" form still writes only the control side of obligation links (import writes both).
 - `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
@@ -246,6 +245,16 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 
 ### Verified (live, 2026-10-04)
 Re-import via the UI button: 1631 duplicate controls removed (4237 → 2606), descriptions 0 → 1541; second run all zeros. Points generated with exact verbatim markers (a)–(d); intel obligations explorer list/stats/hasPoints OK.
+
+## Done — Findings Page Rebuilt (5 columns, TanStack Query, stat cards)
+
+- **Frontend** (`FindingsPage.jsx` rewritten): all fetching via TanStack Query (`['findings','register',params]` with keepPreviousData, `['findings','stats']`, `['findings','detail',String(id)]`, signals passed through `api.findings.*`); raise/assign/remediate/close via `useMutation`, invalidating `['findings']` + `['dashboard']`. Stat cards (Active, Open, In Remediation, Overdue, Critical/High, Closed) in the InstrumentsPage card style (with severity dropdown), clickable to filter. Table cut from 7 to **5 columns**: Finding (FIND-id + reference + description + type/control chips) | Severity | Owner | Deadline (overdue / days left) | Status (chip + ⋮ action menu). Status filter defaults to **All active** (everything except Closed) so imported Remediated findings show. Detail view reads `linkedControlNumber` (it read a field the detail DTO doesn't have, so it always showed `CTRL-%03d`) and links the obligation.
+- **Backend:** `GET /findings/stats` (`FindingStatsDto`: total/open/inRemediation/remediated/closed/overdue/criticalHigh/bySeverity); register `status` accepts `active` / `all`. **Overdue** = deadline before today AND status not Remediated/Closed — the `overdueOnly` filter used to count closed findings too; it now matches the stats and `DashboardService`.
+- The list endpoint is `GET /findings/register` (not `GET /findings`); the register and stats have no `@PreAuthorize` (any authenticated user), actions keep their role checks.
+- Known: the Critical/High card filters to Critical only (backend severity filter is single-valued).
+
+### Verified (live, browser pane, 2026-10-04)
+5 columns; cards Active 4 / Open 2 / In Remediation 1 / Overdue 1 / Critical-High 2 / Closed 1; default view shows the Remediated finding; Closed card → FIND-004 only; detail shows the imported timeline and reference; Assign via the row menu → cards refreshed (Open 1, In Remediation 2). Build OK, zero backend errors.
 
 ## Done — Bulk "Set due dates" Dialog
 

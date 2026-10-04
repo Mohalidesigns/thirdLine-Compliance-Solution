@@ -28,6 +28,11 @@ public class FindingController {
         return ResponseEntity.ok(service.getRegisterList(status, severity, overdueOnly, assignedToUserId, p));
     }
 
+    @GetMapping("/stats")
+    public ResponseEntity<FindingStatsDto> stats() {
+        return ResponseEntity.ok(service.getStats());
+    }
+
     @GetMapping("/{id}/detail")
     public ResponseEntity<FindingDetailResponse> detail(@PathVariable Long id) {
         return ResponseEntity.ok(service.getDetail(id));

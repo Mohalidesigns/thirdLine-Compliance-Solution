@@ -305,13 +305,14 @@ export const api = {
     riskTypes: () => request('/obligations/risk-types'),
   },
   findings: {
-    register: (params = {}) => {
+    register: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
       const s = qs.toString();
-      return request(`/findings/register${s ? '?' + s : ''}`);
+      return request(`/findings/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
-    detail: (id) => request(`/findings/${id}/detail`),
+    stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
+    detail: (id, opts = {}) => request(`/findings/${id}/detail`, { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
