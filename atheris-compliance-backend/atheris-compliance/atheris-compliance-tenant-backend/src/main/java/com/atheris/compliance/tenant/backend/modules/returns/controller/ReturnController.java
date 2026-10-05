@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.returns.controller;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnFrequencyRepairService;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnEventService;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ public class ReturnController {
 
     private final ReturnService service;
     private final ReturnFrequencyRepairService frequencyRepair;
+    private final ReturnEventService returnEvents;
 
     @GetMapping("/list")
     public ResponseEntity<List<RegulatoryReturn>> list() {
@@ -98,6 +100,40 @@ public class ReturnController {
             @RequestBody UpdateScheduleRequest req,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.ok(service.updateSchedule(returnId, req, u.getUserId()));
+    }
+
+    @PutMapping("/{returnId}/event-trigger")
+    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    public ResponseEntity<ReturnRegisterItem> configureEventTrigger(
+            @PathVariable Long returnId,
+            @Valid @RequestBody ConfigureEventTriggerRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(returnEvents.configure(returnId, req, u.getUserId()));
+    }
+
+    @PostMapping("/{returnId}/events")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<ReturnEventFilingItem> recordEvent(
+            @PathVariable Long returnId,
+            @Valid @RequestBody RecordReturnEventRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(returnEvents.record(returnId, req, u.getUserId()));
+    }
+
+    @PostMapping(value = "/{returnId}/events/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    public ResponseEntity<ReturnEventFilingItem> recordEventWithEvidence(
+            @PathVariable Long returnId,
+            @RequestPart("event") @Valid RecordReturnEventRequest req,
+            @RequestPart("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(returnEvents.recordUploaded(returnId, req, file, u.getUserId()));
+    }
+
+    @GetMapping("/{returnId}/events")
+    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN','AUDITOR')")
+    public ResponseEntity<List<ReturnEventFilingItem>> eventFilings(@PathVariable Long returnId) {
+        return ResponseEntity.ok(returnEvents.list(returnId));
     }
 
     @GetMapping("/{returnId}/obligations")

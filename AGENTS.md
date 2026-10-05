@@ -43,7 +43,7 @@ atheris-intelligence-frontend/         — React 19 + Vite 8 + MUI 7 frontend
 ## How to Run
 
 ### Backend
-- Docker PostgreSQL: container `db` (`atheris-postgres-intel`), port 5432, DB `atheris_intel`, user via `DB_USERNAME` / `DB_PASSWORD` env vars — no hardcoded defaults in `application.yml` (strong password set on the `atheris` role)
+- Docker PostgreSQL: container `atheris-postgres-intel`, port 5432, DBs `atheris_intel` + `atheris_tenant` (both owned by `atheris`), user via `DB_USERNAME` / `DB_PASSWORD` env vars — no hardcoded defaults in `application.yml` (strong password set on the `atheris` role)
 - Start platform: `mvn spring-boot:run` from `atheris-compliance-backend/atheris-compliance/atheris-compliance-intelligence-backend` (port 9090)
 - Start tenant: `mvn spring-boot:run -pl atheris-compliance-tenant-backend -am` from `atheris-compliance-backend/atheris-compliance` (port 9091)
 - Default admin login is set via `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars (see `application.yml`) — never commit real credentials
@@ -228,6 +228,13 @@ Seeded returns had no due date (the platform has none: intel `deadline` is a cop
 
 ### Verified (live, browser pane, 2026-10-03)
 Repair applied: 75 rescheduled (21 parsed rules, 54 → Due date needed), 186 untouched periods removed, 1 kept, 42 created; overdue **92 → 1** (a user-imported test return), second dry run proposes 0. Edit schedule on that return (10 days after period end) → periods due 10 Oct/Nov/Dec/Jan; overdue **0**. Zero backend errors.
+
+## Done — Event-Triggered Return Filings (initial implementation)
+
+- **Federal holidays:** tenant V33 `federal_public_holidays`; tenant-scoped `/api/v1/federal-public-holidays` GET/POST/PUT/DELETE endpoints; CCO/TENANT_ADMIN Settings tab maintains Nigerian federal holiday and separately observed dates. Mutations are audited.
+- **Event filings:** V34 adds one trigger label/rule per event-driven return plus per-instance trigger date, evidence reference/file, base due date, effective due date, and adjustment flag. Record occurrences as separate filing instances. Working-day offsets skip weekends and configured actual/observed holidays; calculated offset deadlines on non-working days move forward. Manual request/directive dates are used as explicitly stated. Evidence Vault files attach to the filing instance.
+- **UI:** Returns rows configure triggers, record occurrences, and expand to event-filing history; detail shows trigger date/reference/evidence and deadline adjustment.
+- **Verified:** GraalVM Java 21 tenant backend test suite and tenant frontend production build pass; API client paths match the new routes. Live DB migration/API/UI flow still requires user-started backends and manual verification.
 
 ## Done — Bulk Import Phase 4 (Findings)
 

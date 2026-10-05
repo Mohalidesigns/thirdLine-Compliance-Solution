@@ -16,6 +16,13 @@ public class ReturnInstanceDetailResponse {
     private Long instanceId;
     private Long returnId;
     private String returnName;
+    private String frequency;
+    private String frequencyType;
+    private String deadlineText;
+    private String eventTriggerLabel;
+    private String eventDeadlineMode;
+    private Integer eventDeadlineDays;
+    private String eventDeadlineUnit;
     private String filingRegulator;
     private String period;
     private LocalDate dueDate;
@@ -31,6 +38,11 @@ public class ReturnInstanceDetailResponse {
     private Integer escalationLevel;
     private Instant escalatedAt;
     private String notes;
+    private LocalDate eventTriggerDate;
+    private String eventReference;
+    private Long eventEvidenceFileId;
+    private LocalDate eventUnadjustedDueDate;
+    private boolean eventDueDateAdjusted;
     private List<StageInfo> stages;
 
     @Data @Builder
@@ -82,7 +94,10 @@ public class ReturnInstanceDetailResponse {
             .daysLate(inst.getDaysLate() != null ? inst.getDaysLate() : 0)
             .escalationLevel(inst.getEscalationLevel())
             .escalatedAt(inst.getEscalatedAt())
-            .notes(inst.getNotes()).stages(stages).build();
+            .notes(inst.getNotes())
+            .eventTriggerDate(inst.getTriggerDate()).eventReference(inst.getEventReference())
+            .eventEvidenceFileId(inst.getEventEvidenceFileId()).eventUnadjustedDueDate(inst.getUnadjustedDueDate())
+            .eventDueDateAdjusted(inst.isDueDateAdjusted()).stages(stages).build();
     }
 
     private static Map<String, Map<String, String>> parseStageData(String json) {

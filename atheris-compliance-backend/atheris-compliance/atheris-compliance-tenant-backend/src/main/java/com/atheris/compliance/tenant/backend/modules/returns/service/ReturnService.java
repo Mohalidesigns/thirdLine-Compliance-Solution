@@ -138,15 +138,18 @@ public class ReturnService {
 
         // Step 3: Apply status filter
         if (status != null && !status.isBlank()) {
-            ReturnFilingStatus st;
-            try { st = ReturnFilingStatus.fromDb(status); }
-            catch (IllegalArgumentException e) { st = null; }
-            final ReturnFilingStatus finalSt = st;
-            if (finalSt != null) {
-                List<ReturnFilingInstance> filtered = allInstances.stream()
-                    .filter(i -> finalSt.equals(i.getStatus())).toList();
-                allInstances = filtered;
-            }
+            String requestedStatus = status.trim();
+            List<ReturnFilingInstance> filtered = allInstances.stream().filter(i -> {
+                RegulatoryReturn parent = returnMap.get(i.getReturnId());
+                boolean eventDriven = parent != null && ReturnFrequency.fromCode(parent.getFrequencyType())
+                    .orElse(ReturnFrequency.MONTHLY) == ReturnFrequency.EVENT_DRIVEN;
+                boolean overdue = i.getDueDate() != null && i.getDueDate().isBefore(LocalDate.now())
+                    && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null);
+                if ("Overdue".equalsIgnoreCase(requestedStatus)) return overdue && (!eventDriven || i.getTriggerDate() != null);
+                if (eventDriven && i.getTriggerDate() == null) return false;
+                return i.getStatus() != null && i.getStatus().db().equalsIgnoreCase(requestedStatus);
+            }).toList();
+            allInstances = filtered;
         }
 
         // Step 4: Sort by due date (newest overdue first, then upcoming)
@@ -221,15 +224,28 @@ public class ReturnService {
             List<ReturnFilingInstance> insts = instsByReturn.getOrDefault(r.getReturnId(), List.of());
             ReturnRegisterItem item = buildRegisterItem(r, insts, now);
             if (item == null) continue;
+            boolean eventDriven = ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY)
+                == ReturnFrequency.EVENT_DRIVEN;
             if (dueDateNeededFilter) {
                 if (!item.isDueDateNeeded()) continue;
             } else if (filterStatus) {
                 // Event-driven / not materialised / due date needed rows have no status: any status filter excludes them.
-                if (item.getCurrentInstanceId() == null) continue;
-                String matchStatus = item.getCurrentDueDate() != null && item.getCurrentDueDate().isBefore(now)
-                    && !isSubmitted(item.getCurrentStatus()) ? "Overdue"
-                    : (item.getCurrentStatus() != null ? item.getCurrentStatus() : "");
-                if (!matchStatus.equalsIgnoreCase(status)) continue;
+                boolean hasAnyFiling = insts.stream().anyMatch(i -> !eventDriven || i.getTriggerDate() != null);
+                if (!hasAnyFiling) continue;
+                if (eventDriven) {
+                    boolean hasEventWithStatus = insts.stream().anyMatch(i -> i.getTriggerDate() != null
+                        && i.getStatus() != null && i.getStatus().db().equalsIgnoreCase(status));
+                    boolean hasEventOverdue = "Overdue".equalsIgnoreCase(status) && insts.stream().anyMatch(i -> i.getTriggerDate() != null
+                        && i.getDueDate() != null && i.getDueDate().isBefore(now)
+                        && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null));
+                    if (!hasEventWithStatus && !hasEventOverdue) continue;
+                } else if (item.getCurrentInstanceId() == null) continue;
+                if (!eventDriven) {
+                    String matchStatus = item.getCurrentDueDate() != null && item.getCurrentDueDate().isBefore(now)
+                        && !isSubmitted(item.getCurrentStatus()) ? "Overdue"
+                        : (item.getCurrentStatus() != null ? item.getCurrentStatus() : "");
+                    if (!matchStatus.equalsIgnoreCase(status)) continue;
+                }
             }
             items.add(item);
         }
@@ -245,6 +261,13 @@ public class ReturnService {
         List<ReturnRegisterItem> page = start > total ? List.of() : items.subList(start, end);
 
         return new PageImpl<>(page, p, total);
+    }
+
+    @Transactional(readOnly = true)
+    public ReturnRegisterItem getRegisterItem(Long returnId) {
+        RegulatoryReturn ret = returns.findById(returnId)
+            .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+        return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
     }
 
     private static boolean isSubmitted(String status) {
@@ -274,10 +297,40 @@ public class ReturnService {
             .daysAfterPeriodEnd(rule != null && rule.kind() == DueRule.Kind.OFFSET ? rule.daysAfterPeriodEnd() : null)
             .prepDays(r.getFilingDeadlineOffsetDays())
             .deadlineText(r.getDeadlineText())
-            .dueDateSource(r.getDueDateSource());
+            .dueDateSource(r.getDueDateSource())
+            .eventTriggerConfigured(r.getEventTriggerLabel() != null && !r.getEventTriggerLabel().isBlank()
+                && r.getEventDeadlineMode() != null)
+            .eventTriggerLabel(r.getEventTriggerLabel())
+            .eventDeadlineMode(r.getEventDeadlineMode())
+            .eventDeadlineDays(r.getEventDeadlineDays())
+            .eventDeadlineUnit(r.getEventDeadlineUnit())
+            .eventFilingCount((int) insts.stream().filter(i -> i.getTriggerDate() != null).count())
+            .eventOverdueCount(insts.stream().filter(i -> i.getTriggerDate() != null
+                && i.getDueDate() != null && i.getDueDate().isBefore(now)
+                && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null)).count());
 
         if (insts.isEmpty()) {
             return b.upcomingInstances(List.of()).totalInstances(0).overdueCount(0).hasOverdue(false).build();
+        }
+
+        boolean eventDriven = ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY)
+            == ReturnFrequency.EVENT_DRIVEN;
+        if (eventDriven) {
+            ReturnFilingInstance currentEvent = insts.stream().filter(i -> i.getTriggerDate() != null)
+                .filter(i -> !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null))
+                .min(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElseGet(() -> insts.stream().filter(i -> i.getTriggerDate() != null)
+                    .max(Comparator.comparing(ReturnFilingInstance::getTriggerDate)).orElse(null));
+            long eventOverdue = insts.stream().filter(i -> i.getTriggerDate() != null
+                && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null)
+                && i.getDueDate() != null && i.getDueDate().isBefore(now)).count();
+            if (currentEvent == null) return b.upcomingInstances(List.of()).totalInstances(insts.size())
+                .overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
+            return b.currentPeriod(currentEvent.getTriggerDate().toString()).currentDueDate(currentEvent.getDueDate())
+                .currentStatus(currentEvent.getStatus() != null ? currentEvent.getStatus().db() : null)
+                .currentStage(currentEvent.getCurrentStage() != null ? currentEvent.getCurrentStage().db() : null)
+                .currentInstanceId(currentEvent.getInstanceId()).upcomingInstances(List.of())
+                .totalInstances(insts.size()).overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
         }
 
         ReturnFilingInstance current = null;
@@ -336,15 +389,28 @@ public class ReturnService {
         Set<Long> allReturnIds = allReturns.stream().map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
         List<ReturnFilingInstance> allInstances = instances.findByReturnIdIn(allReturnIds);
         LocalDate now = LocalDate.now();
+        Set<Long> eventReturnIds = allReturns.stream()
+            .filter(r -> ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY) == ReturnFrequency.EVENT_DRIVEN)
+            .map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
         long overdue = allInstances.stream().filter(i ->
             !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) &&
             !ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()) &&
+            !eventReturnIds.contains(i.getReturnId()) &&
             i.getDueDate() != null && i.getDueDate().isBefore(now)).count();
         long inProgress = allInstances.stream().filter(i ->
-            ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
+            !eventReturnIds.contains(i.getReturnId()) && ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
         long submitted = allInstances.stream().filter(i ->
+            !eventReturnIds.contains(i.getReturnId()) && (
             ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) ||
-            ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus())).count();
+            ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()))).count();
+        overdue += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
+            && i.getTriggerDate() != null && i.getDueDate() != null && i.getDueDate().isBefore(now)
+            && !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) && !ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus())).count();
+        inProgress += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
+            && i.getTriggerDate() != null && ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
+        submitted += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
+            && i.getTriggerDate() != null && (ReturnFilingStatus.SUBMITTED.equals(i.getStatus())
+                || ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()))).count();
 
         List<String> frequencies = allReturns.stream()
             .map(RegulatoryReturn::getFrequency).filter(Objects::nonNull)
@@ -359,7 +425,9 @@ public class ReturnService {
             .map(String::trim).filter(s -> !s.isBlank())
             .distinct().sorted().toList();
 
-        long dueDateNeeded = allReturns.stream().filter(DueRule::dueDateNeeded).count();
+        long dueDateNeeded = allReturns.stream()
+            .filter(r -> ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY) != ReturnFrequency.EVENT_DRIVEN)
+            .filter(DueRule::dueDateNeeded).count();
 
         return ReturnStatsDto.builder()
             .total(allInstances.size())
@@ -377,7 +445,15 @@ public class ReturnService {
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
-        return ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());
+        ReturnInstanceDetailResponse detail = ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());
+        detail.setFrequency(r.getFrequency());
+        detail.setFrequencyType(r.getFrequencyType());
+        detail.setDeadlineText(r.getDeadlineText());
+        detail.setEventTriggerLabel(r.getEventTriggerLabel());
+        detail.setEventDeadlineMode(r.getEventDeadlineMode());
+        detail.setEventDeadlineDays(r.getEventDeadlineDays());
+        detail.setEventDeadlineUnit(r.getEventDeadlineUnit());
+        return detail;
     }
 
     public List<RegulatoryReturn> listActive() {
@@ -388,6 +464,7 @@ public class ReturnService {
     public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+        if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
         int idx = STAGES.indexOf(inst.getCurrentStage());
         if (idx < 0 || idx >= STAGES.size() - 1)
             throw ApiException.conflict("invalid_transition", "Cannot advance from stage: "
@@ -417,6 +494,7 @@ public class ReturnService {
     public void submit(Long instanceId, String evidenceUrl, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+        if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
         if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
             throw ApiException.conflict("already_submitted", "This return has already been submitted");
         LocalDate today = LocalDate.now();

@@ -23,6 +23,13 @@ public class ReturnFilingInstance {
     private String period;
     private LocalDate dueDate;
     private LocalDate prepStartDate;
+    private LocalDate triggerDate;
+    @Column(columnDefinition = "text")
+    private String eventReference;
+    private Long eventEvidenceFileId;
+    private LocalDate unadjustedDueDate;
+    @Builder.Default
+    private boolean dueDateAdjusted = false;
     @Builder.Default
     private ReturnStage currentStage = ReturnStage.NOT_STARTED;
     @Builder.Default

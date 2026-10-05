@@ -37,6 +37,13 @@ public class ReturnRegisterItem {
     private String deadlineText;
     /** {@code platform_text} | {@code user} | null. */
     private String dueDateSource;
+    private boolean eventTriggerConfigured;
+    private String eventTriggerLabel;
+    private String eventDeadlineMode;
+    private Integer eventDeadlineDays;
+    private String eventDeadlineUnit;
+    private int eventFilingCount;
+    private long eventOverdueCount;
 
     @Data @Builder
     public static class InstanceSummary {

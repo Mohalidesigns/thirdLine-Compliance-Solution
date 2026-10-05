@@ -31,6 +31,11 @@ public class ReturnInstanceItem {
     private List<StageSummary> stages;
     private long daysLeft;
     private boolean isOverdue;
+    private LocalDate triggerDate;
+    private String eventReference;
+    private Long eventEvidenceFileId;
+    private LocalDate unadjustedDueDate;
+    private boolean dueDateAdjusted;
 
     @Data @Builder
     public static class StageSummary {
@@ -63,6 +68,9 @@ public class ReturnInstanceItem {
             .returnName(returnName).actName(actName).filingRegulator(filingRegulator)
             .responsibleUnit(responsibleUnit).responsiblePerson(responsiblePerson)
             .period(inst.getPeriod()).dueDate(inst.getDueDate())
+            .triggerDate(inst.getTriggerDate()).eventReference(inst.getEventReference())
+            .eventEvidenceFileId(inst.getEventEvidenceFileId()).unadjustedDueDate(inst.getUnadjustedDueDate())
+            .dueDateAdjusted(inst.isDueDateAdjusted())
             .prepStartDate(inst.getPrepStartDate())
             .currentStage(inst.getCurrentStage() != null ? inst.getCurrentStage().db() : null)
             .status(inst.getStatus() != null ? inst.getStatus().db() : null)

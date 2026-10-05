@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, CheckCircle,
-  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar,
+  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar, Event, Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,9 +18,12 @@ import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
+import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
+import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
+const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 const DUE_DATE_NEEDED = 'Due date needed';
 
 const STATUS_COLORS = {
@@ -80,11 +83,14 @@ export default function ReturnsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const isTenantAdmin = user?.role === 'TENANT_ADMIN';
   const canEditSchedule = SCHEDULE_ROLES.includes(user?.role);
+  const canRecordEvent = EVENT_ROLES.includes(user?.role);
   const [repairOpen, setRepairOpen] = useState(false);
   // Register item whose schedule is being edited (null = dialog closed).
   const [scheduleItem, setScheduleItem] = useState(null);
   // Register row the detail view was opened from (for "Edit schedule" in the header).
   const [detailItem, setDetailItem] = useState(null);
+  const [eventSetupItem, setEventSetupItem] = useState(null);
+  const [recordEventItem, setRecordEventItem] = useState(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -135,7 +141,7 @@ export default function ReturnsPage() {
 
   const detailQuery = useQuery({
     queryKey: ['returns', 'detail', String(detailId)],
-    queryFn: () => api.returns.detail(detailId),
+    queryFn: ({ signal }) => api.returns.detail(detailId, { signal }),
     enabled: detailId != null,
   });
 
@@ -180,6 +186,18 @@ export default function ReturnsPage() {
         setSnackbar('Schedule saved.');
       }} />
   );
+  const eventDialogs = (
+    <>
+      {canEditSchedule && <EventTriggerSetupDialog open={eventSetupItem != null} item={eventSetupItem}
+        onClose={() => setEventSetupItem(null)} onSaved={() => { setEventSetupItem(null); queryClient.invalidateQueries({ queryKey: ['returns'] }); setSnackbar('Event trigger saved.'); }} />}
+      <RecordReturnEventDialog open={recordEventItem != null} item={recordEventItem}
+        onClose={() => setRecordEventItem(null)} onSaved={(instance) => {
+          setRecordEventItem(null);
+          setSnackbar('Event filing created.');
+          if (instance?.instanceId) { setDetailItem(null); setDetailId(instance.instanceId); }
+        }} />
+    </>
+  );
   const snackbarEl = (
     <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -207,6 +225,13 @@ export default function ReturnsPage() {
           onBack={() => { setDetailId(null); setDetailItem(null); }}
           onRefresh={refresh}
           onSnackbar={setSnackbar}
+          onEditEventTrigger={canEditSchedule && isEventDriven(detail) ? () => {
+            setEventSetupItem({ returnId: detail.returnId, returnName: detail.returnName,
+              frequency: detail.frequency, frequencyType: detail.frequencyType,
+              deadlineText: detail.deadlineText, eventTriggerLabel: detail.eventTriggerLabel,
+              eventDeadlineMode: detail.eventDeadlineMode, eventDeadlineDays: detail.eventDeadlineDays,
+              eventDeadlineUnit: detail.eventDeadlineUnit });
+          } : null}
           onEditSchedule={canEditSchedule && detail?.returnId != null && !isEventDriven(detailItem || detail)
             ? () => setScheduleItem(detailItem?.returnId === detail.returnId
               ? detailItem
@@ -214,6 +239,7 @@ export default function ReturnsPage() {
             : null}
         />
         {scheduleDialog}
+        {eventDialogs}
         {snackbarEl}
       </>
     );
@@ -226,7 +252,7 @@ export default function ReturnsPage() {
         <Box>
           <Typography variant="h4">Returns Register</Typography>
           <Typography variant="body2" color="text.secondary">
-            {total} return{total !== 1 ? 's' : ''} — track filing deadlines and status
+            {total} return{total !== 1 ? 's' : ''} — track calendar schedules and triggered filing events
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -363,14 +389,16 @@ export default function ReturnsPage() {
                       status={status}
                       onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
                       onEditSchedule={canEditSchedule && !isEventDriven(item) ? () => setScheduleItem(item) : null}
+                      onConfigureEvent={canEditSchedule && isEventDriven(item) ? () => setEventSetupItem(item) : null}
+                      onRecordEvent={canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured ? () => setRecordEventItem(item) : null}
+                      onOpenEventFiling={(id) => { setDetailItem(item); setDetailId(id); }}
                       onDetail={() => {
                         if (item.currentInstanceId != null) { setDetailItem(item); setDetailId(item.currentInstanceId); }
+                        else if (isEventDriven(item)) setExpandedRow(isExpanded ? null : item.returnId);
                         else if (canEditSchedule && !isEventDriven(item)) setScheduleItem(item);
-                        else setSnackbar(isEventDriven(item)
-                          ? 'Event-driven return — no scheduled filing period.'
-                          : item.dueDateNeeded
-                            ? 'This return needs a due date before periods can be scheduled.'
-                            : 'No filing instance for this return yet.');
+                        else setSnackbar(item.dueDateNeeded
+                          ? 'This return needs a due date before periods can be scheduled.'
+                          : 'No filing instance for this return yet.');
                       }}
                     />
                   );
@@ -400,13 +428,15 @@ export default function ReturnsPage() {
       )}
 
       {scheduleDialog}
+      {eventDialogs}
       {snackbarEl}
     </Box>
   );
 }
 
 /* ───────── Return Row (with expandable upcoming instances) ───────── */
-function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail, onEditSchedule }) {
+function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail,
+  onEditSchedule, onConfigureEvent, onRecordEvent, onOpenEventFiling }) {
   return (
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
@@ -458,13 +488,40 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
                 <Chip size="small" color="warning" label={DUE_DATE_NEEDED} sx={{ height: 22, fontWeight: 600 }} />
               </Tooltip>
             ) : (
-              <Typography variant="caption" color="text.secondary">{noPeriodLabel(item)}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {isEventDriven(item) ? (item.eventTriggerConfigured ? item.eventTriggerLabel : 'Trigger setup needed') : noPeriodLabel(item)}
+              </Typography>
+            )}
+            {isEventDriven(item) && item.eventFilingCount > 0 && (
+              <Tooltip title={`${item.eventFilingCount} trigger filing(s) · ${item.eventOverdueCount || 0} overdue`}>
+                <Chip size="small" label={`${item.eventFilingCount} filing${item.eventFilingCount === 1 ? '' : 's'}`}
+                  color={item.eventOverdueCount > 0 ? 'error' : 'default'} sx={{ height: 20 }} />
+              </Tooltip>
             )}
             {onEditSchedule && (
               <Tooltip title="Edit schedule">
                 <IconButton size="small" onClick={e => { e.stopPropagation(); onEditSchedule(); }}>
                   <EditCalendar fontSize="small" />
                 </IconButton>
+              </Tooltip>
+            )}
+            {onConfigureEvent && !item.eventTriggerConfigured && (
+              <Tooltip title={item.eventTriggerConfigured ? 'Edit event trigger' : 'Configure event trigger'}>
+                <IconButton size="small" onClick={e => { e.stopPropagation(); onConfigureEvent(); }}>
+                  <SettingsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {onConfigureEvent && item.eventTriggerConfigured && (
+              <Tooltip title={`Edit trigger: ${item.eventTriggerLabel}`}>
+                <Button size="small" onClick={e => { e.stopPropagation(); onConfigureEvent(); }}>Edit trigger</Button>
+              </Tooltip>
+            )}
+            {onRecordEvent && (
+              <Tooltip title="Record trigger occurrence">
+                <Button size="small" variant="outlined" startIcon={<Event />} onClick={e => { e.stopPropagation(); onRecordEvent(); }}>
+                  Record event
+                </Button>
               </Tooltip>
             )}
           </Box>
@@ -481,7 +538,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
           )}
         </TableCell>
         <TableCell>
-          <Tooltip title={isExpanded ? 'Hide details' : 'Show linked obligations'}>
+          <Tooltip title={isExpanded ? 'Hide details' : isEventDriven(item) ? 'Show event filings and linked obligations' : 'Show linked obligations'}>
             <IconButton size="small" onClick={e => { e.stopPropagation(); onExpand(); }}>
               {isExpanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
@@ -492,7 +549,16 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
         <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, border: 0, bgcolor: '#FAFBFC' }}>
           <Collapse in={isExpanded} unmountOnExit>
             <Box sx={{ py: 1.5, pl: 4, pr: 2 }}>
-              {item.upcomingInstances && item.upcomingInstances.length > 0 && (
+              {isEventDriven(item) ? (
+                <>
+                  {onConfigureEvent && !item.eventTriggerConfigured && (
+                    <Button size="small" variant="outlined" startIcon={<SettingsIcon />} sx={{ mb: 1 }} onClick={onConfigureEvent}>
+                      Configure trigger
+                    </Button>
+                  )}
+                  <EventFilings returnId={item.returnId} onOpen={onOpenEventFiling} />
+                </>
+              ) : item.upcomingInstances && item.upcomingInstances.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
                     Upcoming Periods
@@ -525,6 +591,67 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
       </TableRow>
     </>
   );
+}
+
+function EventFilings({ returnId, onOpen }) {
+  const query = useQuery({
+    queryKey: ['returns', 'events', String(returnId)],
+    queryFn: ({ signal }) => api.returns.eventFilings(returnId, { signal }),
+  });
+  if (query.isPending) return <Skeleton height={40} />;
+  if (query.isError) return <Alert severity="error">{query.error.message || 'Failed to load event filings.'}</Alert>;
+  const filings = query.data || [];
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+        Event filings ({filings.length})
+      </Typography>
+      {filings.length === 0 ? <Typography variant="body2" color="text.secondary">No trigger occurrences recorded yet.</Typography> : (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead><TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>Trigger date</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Reference / evidence</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Due date</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Filing</TableCell>
+            </TableRow></TableHead>
+            <TableBody>{filings.map(f => (
+              <TableRow key={f.instanceId} hover>
+                <TableCell>{formatDate(f.triggerDate)}{f.triggerLabel ? ` · ${f.triggerLabel}` : ''}</TableCell>
+                <TableCell sx={{ maxWidth: 300, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  {f.reference}
+                  {f.evidenceFileId && <EvidenceFileButton fileId={f.evidenceFileId} />}
+                </TableCell>
+                <TableCell>
+                  {formatDate(f.dueDate)}
+                  {f.dueDateAdjusted && <Tooltip title={`Base deadline ${formatDate(f.unadjustedDueDate)} fell on a weekend/federal holiday; moved to next working day.`}><Chip size="small" label="Adjusted" sx={{ ml: 1, height: 20 }} /></Tooltip>}
+                </TableCell>
+                <TableCell><Chip size="small" label={f.status || 'Not Started'} color={STATUS_COLORS[f.status] || 'default'} sx={{ height: 22 }} /></TableCell>
+                <TableCell><Button size="small" onClick={() => onOpen(f.instanceId)}>Open</Button></TableCell>
+              </TableRow>
+            ))}</TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}
+
+function EvidenceFileButton({ fileId }) {
+  const query = useQuery({ queryKey: ['evidence', String(fileId)], queryFn: ({ signal }) => api.evidence.detail(fileId, { signal }) });
+  const [error, setError] = useState('');
+  async function download() {
+    setError('');
+    try {
+      const file = await api.evidence.download(fileId);
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = file.name; link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { setError(e.message || 'Evidence download failed'); }
+  }
+  return <Tooltip title={error || query.data?.originalName || 'Download trigger evidence'}><Button size="small" onClick={download} disabled={query.isPending || query.isError}>{query.isPending ? 'Loading…' : 'Evidence file'}</Button></Tooltip>;
 }
 
 /* ───────── Linked Obligations (lazy — mounted only while expanded) ───────── */
@@ -627,7 +754,7 @@ function LinkedObligations({ returnId }) {
 }
 
 /* ───────── Detail View ───────── */
-function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule }) {
+function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onEditEventTrigger }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
@@ -645,7 +772,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule }) {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
             <Box>
-              <Typography variant="h5">{detail.returnName}{detail.period ? ` · ${detail.period}` : ''}</Typography>
+              <Typography variant="h5">{detail.returnName}{detail.triggerDate ? ` · Trigger ${formatDate(detail.triggerDate)}` : detail.period ? ` · ${detail.period}` : ''}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {detail.dueDate ? `Due ${formatDate(detail.dueDate)}` : noPeriodLabel(detail)}
                 {detail.filingChannel && ` · Channel: ${detail.filingChannel}`}
@@ -661,7 +788,20 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule }) {
                 Edit schedule
               </Button>
             )}
+            {onEditEventTrigger && (
+              <Button variant="outlined" size="small" startIcon={<SettingsIcon />} onClick={onEditEventTrigger}
+                sx={{ fontWeight: 600, textTransform: 'none' }}>Edit event trigger</Button>
+            )}
           </Box>
+          {detail.eventTriggerDate && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Triggered {detail.eventTriggerLabel || 'Event'} on {formatDate(detail.eventTriggerDate)} · {detail.eventReference}
+              {detail.eventEvidenceFileId && <> · <EvidenceFileButton fileId={detail.eventEvidenceFileId} /></>}
+              {detail.eventUnadjustedDueDate && ` · Base deadline ${formatDate(detail.eventUnadjustedDueDate)}`}
+              {detail.eventMetadataJson && <Tooltip title={detail.eventMetadataJson}><Chip size="small" label="Trigger details" sx={{ ml: 1, height: 20 }} /></Tooltip>}
+              {detail.eventDueDateAdjusted && ` · adjusted to next working day (${formatDate(detail.dueDate)})`}
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

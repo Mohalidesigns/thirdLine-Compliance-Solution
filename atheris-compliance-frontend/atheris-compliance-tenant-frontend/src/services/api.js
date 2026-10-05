@@ -348,7 +348,7 @@ export const api = {
       return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
-    detail: (id) => request(`/returns/instances/${id}/detail`),
+    detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
@@ -360,6 +360,18 @@ export const api = {
     updateSchedule: (returnId, body) => request(`/returns/${returnId}/schedule`, {
       method: 'PUT', body: JSON.stringify(body),
     }),
+    configureEventTrigger: (returnId, body, opts = {}) => request(`/returns/${returnId}/event-trigger`, {
+      signal: opts.signal,
+      method: 'PUT', body: JSON.stringify(body),
+    }),
+    recordEvent: (returnId, body, opts = {}) => request(`/returns/${returnId}/events`, {
+      signal: opts.signal,
+      method: 'POST', body: JSON.stringify(body),
+    }),
+    recordEventWithEvidence: (returnId, formData, opts = {}) => rawRequest(`/returns/${returnId}/events/upload`, {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
+    eventFilings: (returnId, opts = {}) => request(`/returns/${returnId}/events`, { signal: opts.signal }),
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
@@ -375,16 +387,10 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
-    upload: (formData) => {
-      const headers = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      return fetch(`${API_BASE}/evidence/upload`, {
-        method: 'POST', headers, body: formData,
-      }).then(async (res) => {
-        if (!res.ok) { const err = await res.json().catch(() => ({ message: res.statusText })); throw new Error(err.message); }
-        return res.json();
-      });
-    },
+    detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),
+    upload: (formData, opts = {}) => rawRequest('/evidence/upload', {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
     download: (id) => {
       const headers = {};
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -463,6 +469,17 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+  },
+  federalPublicHolidays: {
+    list: (year, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (year && year !== 'All') qs.set('year', year);
+      const s = qs.toString();
+      return request(`/federal-public-holidays${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    create: (data) => request('/federal-public-holidays', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/federal-public-holidays/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/federal-public-holidays/${id}`, { method: 'DELETE' }),
   },
   org: {
     tree: () => request('/org'),

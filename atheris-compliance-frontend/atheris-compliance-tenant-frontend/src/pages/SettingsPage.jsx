@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, CardHeader, TextField, Button, Alert,
   CircularProgress, Divider, Tabs, Tab, Table, TableHead, TableBody, TableRow,
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState(0);
   const { user } = useAuth();
   const isAdmin = user?.role === 'TENANT_ADMIN';
+  const canManageWorkspace = isAdmin || user?.role === 'CCO';
 
   return (
     <Box>
@@ -29,12 +31,14 @@ export default function SettingsPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
         <Tab label="General" />
         <Tab label="Organization" />
-        {(isAdmin || user?.role === 'CCO') && <Tab label="System Users" />}
+        {canManageWorkspace && <Tab label="Federal Public Holidays" />}
+        {canManageWorkspace && <Tab label="System Users" />}
       </Tabs>
 
       {tab === 0 && <GeneralTab />}
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
-      {tab === 2 && <SystemUsersTab isAdmin={isAdmin} />}
+      {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
+      {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
     </Box>
   );
 }
@@ -111,6 +115,144 @@ function GeneralTab() {
   );
 }
 
+function FederalHolidaysTab() {
+  const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState('All');
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState({ holidayDate: '', observedDate: '', name: '' });
+  const [error, setError] = useState('');
+  const query = useQuery({
+    queryKey: ['federal-public-holidays', year],
+    queryFn: ({ signal }) => api.federalPublicHolidays.list(year, { signal }),
+  });
+  const saveMutation = useMutation({
+    mutationFn: () => dialog?.holidayId
+      ? api.federalPublicHolidays.update(dialog.holidayId, form)
+      : api.federalPublicHolidays.create(form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['federal-public-holidays'] });
+      setDialog(null);
+    },
+    onError: (e) => setError(e.message),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.federalPublicHolidays.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['federal-public-holidays'] }),
+    onError: (e) => setError(e.message),
+  });
+
+  function openHoliday(holiday = null) {
+    setError('');
+    setForm({
+      holidayDate: holiday?.holidayDate || '',
+      observedDate: holiday?.observedDate || '',
+      name: holiday?.name || '',
+    });
+    setDialog(holiday || {});
+  }
+
+  function save() {
+    setError('');
+    if (!form.holidayDate || !form.name.trim()) {
+      setError('Holiday date and name are required.');
+      return;
+    }
+    if (form.observedDate && form.observedDate < form.holidayDate) {
+      setError('Observed date must be on or after the official holiday date.');
+      return;
+    }
+    if (form.observedDate && form.observedDate === form.holidayDate) {
+      setError('Leave the observed date blank when the holiday is observed on its official date.');
+      return;
+    }
+    saveMutation.mutate();
+  }
+
+  const holidays = query.data || [];
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h6">Federal Public Holidays</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Maintain officially announced Nigerian federal holidays. Dates are used for working-day deadline calculations.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <TextField select size="small" label="Year" value={year} onChange={e => setYear(e.target.value)} sx={{ width: 130 }}>
+          <MenuItem value="All">All years</MenuItem>
+          {Array.from({ length: 9 }, (_, i) => currentYear - 2 + i).map(y => <MenuItem key={y} value={String(y)}>{y}</MenuItem>)}
+          </TextField>
+          <Button variant="contained" startIcon={<Add />} onClick={() => openHoliday()}>Add Holiday</Button>
+        </Box>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {query.isError && <Alert severity="error" sx={{ mb: 2 }}>{query.error.message || 'Failed to load holidays.'}</Alert>}
+      <Card>
+        <TableContainer component={Paper} elevation={0}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#F7FAFC' }}>
+                <TableCell sx={{ fontWeight: 700 }}>Holiday</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Official date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Observed date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Jurisdiction</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {query.isPending ? (
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} sx={{ my: 2 }} /></TableCell></TableRow>
+              ) : holidays.length === 0 ? (
+              <TableRow><TableCell colSpan={5} align="center">No holidays recorded {year === 'All' ? '' : `for ${year}`}.</TableCell></TableRow>
+              ) : holidays.map(h => (
+                <TableRow key={h.holidayId} hover>
+                  <TableCell>{h.name}</TableCell>
+                  <TableCell>{h.holidayDate}</TableCell>
+                  <TableCell>{h.observedDate || '—'}</TableCell>
+                  <TableCell><Chip size="small" label="Federal" /></TableCell>
+                  <TableCell align="right">
+                    <IconButton aria-label={`Edit ${h.name}`} size="small" onClick={() => openHoliday(h)}><Edit fontSize="small" /></IconButton>
+                    <IconButton aria-label={`Delete ${h.name}`} size="small" color="error"
+                      onClick={() => { if (window.confirm(`Delete ${h.name} (${h.holidayDate})?`)) deleteMutation.mutate(h.holidayId); }}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Card>
+
+      <Dialog open={dialog != null} onClose={() => !saveMutation.isPending && setDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{dialog?.holidayId ? 'Edit Federal Public Holiday' : 'Add Federal Public Holiday'}</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {error && <Alert severity="error">{error}</Alert>}
+            <TextField label="Holiday name" required size="small" fullWidth value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} inputProps={{ maxLength: 200 }} />
+            <TextField label="Official holiday date" required type="date" size="small" fullWidth
+              value={form.holidayDate} onChange={e => setForm(f => ({ ...f, holidayDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }} />
+            <TextField label="Observed date (if officially announced)" type="date" size="small" fullWidth
+              value={form.observedDate} onChange={e => setForm(f => ({ ...f, observedDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }} helperText="Leave blank if the holiday is observed on its official date." />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialog(null)} disabled={saveMutation.isPending}>Cancel</Button>
+          <Button variant="contained" onClick={save} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <CircularProgress size={18} /> : 'Save holiday'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
+
 /* -------------------------------------------------------------- Organization */
 
 function OrganizationTab({ isAdmin }) {
@@ -178,9 +320,9 @@ function OrganizationTab({ isAdmin }) {
             </Box>}
             subheader={
               <Typography variant="caption" color="text.secondary">
-                {dept.department.teamCount ?? dept.teams.length} team(s) Â·
+                {dept.department.teamCount ?? dept.teams.length} team(s) ·
                 {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
-                {dept.department.headOwnerName ? ` Â· Head: ${dept.department.headOwnerName}` : ''}
+                {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
             action={isAdmin && (
@@ -199,7 +341,7 @@ function OrganizationTab({ isAdmin }) {
                   <Group fontSize="small" color="action" />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{team.team.name}</Typography>
                   {team.team.isActive === false && <Chip size="small" label="Inactive" color="default" />}
-                  <Typography variant="caption" color="text.secondary">Â· {team.owners.length} owner(s)</Typography>
+                  <Typography variant="caption" color="text.secondary">· {team.owners.length} owner(s)</Typography>
                   {isAdmin && (
                     <Box sx={{ ml: 'auto' }}>
                       <IconButton size="small" onClick={() => setTeamModal({ team: team.team, departmentId: dept.department.departmentId })}>
@@ -215,8 +357,8 @@ function OrganizationTab({ isAdmin }) {
                   <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
                     <Person fontSize="small" color="action" />
                     <Typography variant="body2">{owner.fullName}</Typography>
-                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">Â· {owner.jobTitle}</Typography>}
-                    {owner.email && <Typography variant="caption" color="text.secondary">Â· {owner.email}</Typography>}
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
                     {owner.isActive === false && <Chip size="small" label="Inactive" color="default" />}
                     {isAdmin && (
                       <Box sx={{ ml: 'auto' }}>

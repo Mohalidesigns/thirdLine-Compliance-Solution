@@ -6,11 +6,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EvidenceFileRepository extends JpaRepository<EvidenceFile, Long> {
     Page<EvidenceFile> findAllByOrderByCreatedAtDesc(Pageable p);
     List<EvidenceFile> findBySourceTypeAndSourceId(String sourceType, Long sourceId);
+    Optional<EvidenceFile> findByFileIdAndSourceTypeAndSourceId(Long fileId, String sourceType, Long sourceId);
     List<EvidenceFile> findBySourceTypeInAndSourceIdIn(java.util.Collection<String> sourceTypes,
                                                        java.util.Collection<Long> sourceIds);
 }

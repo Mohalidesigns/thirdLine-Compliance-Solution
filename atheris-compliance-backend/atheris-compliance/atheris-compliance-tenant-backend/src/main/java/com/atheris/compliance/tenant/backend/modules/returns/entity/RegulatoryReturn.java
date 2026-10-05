@@ -39,6 +39,13 @@ public class RegulatoryReturn {
     /** The platform's deadline wording, kept as a hint for people setting a due date. */
     @Column(columnDefinition = "text")
     private String deadlineText;
+    @Column(length = 255)
+    private String eventTriggerLabel;
+    @Column(length = 20)
+    private String eventDeadlineMode;
+    private Integer eventDeadlineDays;
+    @Column(length = 20)
+    private String eventDeadlineUnit;
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;

@@ -62,4 +62,9 @@ public class EvidenceController {
             throw new IllegalStateException("Evidence upload failed", e);
         }
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EvidenceFile> detail(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getFile(id));
+    }
 }
