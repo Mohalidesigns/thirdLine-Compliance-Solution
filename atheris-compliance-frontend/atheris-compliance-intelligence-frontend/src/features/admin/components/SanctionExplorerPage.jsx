@@ -22,7 +22,6 @@ const COLUMNS = [
   { id: 'sanctionType', label: 'Type', minWidth: 150, sortField: 'sanctionType' },
   { id: 'amount', label: 'Amount', minWidth: 150, sortField: 'sanctionAmountNaira' },
   { id: 'severity', label: 'Severity & Enforcement', minWidth: 200, sortField: 'severityScore' },
-  { id: 'liableRoles', label: 'Liable Roles', minWidth: 200 },
 ];
 
 function SanctionDetail({ item }) {
@@ -54,7 +53,6 @@ function SanctionDetail({ item }) {
 
 function SanctionRow({ item, index, open, onToggle, onOpen }) {
   const hasDetail = !!(item.description || item.penaltyDetails || item.riskExplanation);
-  const roles = Array.isArray(item.liableRoles) ? item.liableRoles : [];
 
   return (
     <>
@@ -90,12 +88,6 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
           <Typography variant="body2" color="text.secondary">
             {item.severityScore != null ? `Sev ${item.severityScore} · ` : ''}
             {item.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
-          </Typography>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {roles.length > 0 ? roles.join(', ') : '-'}
           </Typography>
         </TableCell>
       </TableRow>

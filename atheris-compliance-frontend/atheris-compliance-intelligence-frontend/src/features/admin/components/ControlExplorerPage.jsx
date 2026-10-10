@@ -200,7 +200,7 @@ export default function ControlExplorerPage() {
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {row.controlNumber || '—'}
+                        {row.controlSummary || row.controlNumber || '—'}
                       </Typography>
                     </TableCell>
                     <TableCell>
