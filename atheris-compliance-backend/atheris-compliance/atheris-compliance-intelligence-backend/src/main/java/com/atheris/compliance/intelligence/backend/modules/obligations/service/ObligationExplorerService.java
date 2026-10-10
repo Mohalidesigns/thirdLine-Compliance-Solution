@@ -520,8 +520,15 @@ public class ObligationExplorerService {
 
     private List<ObligationExplorerDetail.ControlInfo> resolveControls(Long obligationId) {
         if (obligationId == null) return List.of();
-        List<ComplianceControl> controls = controlRepo.findByObligationId(obligationId);
-        return controls.stream()
+        // Two link styles: the foreign-key column obligation_id (monitoring-plan imports) AND the
+        // comma-separated linked_obligation_ids on the control row (toolkit CRMP imports). Union
+        // both, deduped by control id, so controls created either way show on the obligation.
+        Map<Long, ComplianceControl> merged = new LinkedHashMap<>();
+        controlRepo.findByObligationId(obligationId)
+            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
+        controlRepo.findByLinkedObligationId(obligationId)
+            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
+        return merged.values().stream()
                 .map(cc -> ObligationExplorerDetail.ControlInfo.builder()
                         .controlId(cc.getComplianceControlId())
                         .name(cc.getControlNumber())

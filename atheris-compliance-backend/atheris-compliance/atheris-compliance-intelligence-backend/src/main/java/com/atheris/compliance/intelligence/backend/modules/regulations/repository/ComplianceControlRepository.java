@@ -18,6 +18,19 @@ public interface ComplianceControlRepository extends JpaRepository<ComplianceCon
     List<ComplianceControl> findByTheme(String theme);
     List<ComplianceControl> findByObligationId(Long obligationId);
 
+    /**
+     * Controls whose comma-separated {@code linked_obligation_ids} list contains {@code obligationId}.
+     * The column is wrapped in commas so both single and multi-value rows match exactly
+     * ({@code ,<id>,} never matches a partial id such as 10 vs 102).
+     */
+    default List<ComplianceControl> findByLinkedObligationId(Long obligationId) {
+        if (obligationId == null) return List.of();
+        String needle = "%," + obligationId + ",%";
+        return findAll((root, query, cb) -> cb.and(
+            cb.isNotNull(root.get("linkedObligationIds")),
+            cb.like(cb.concat(cb.concat(",", root.<String>get("linkedObligationIds")), ","), needle)));
+    }
+
     @Query(value = "SELECT cc.* FROM compliance_controls cc " +
            "JOIN acts a ON cc.act_id = a.act_id " +
            "WHERE a.regulator_id IN :regulatorIds", nativeQuery = true)
