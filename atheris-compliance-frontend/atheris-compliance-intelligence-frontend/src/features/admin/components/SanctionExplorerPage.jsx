@@ -2,18 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
+  TableRow, TablePagination, TextField, CircularProgress, Alert, Tooltip,
   TableSortLabel, IconButton, Button, MenuItem, Collapse,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, Gavel, CheckCircle, KeyboardArrowDown, KeyboardArrowUp,
+  Search, Refresh, Close, Gavel, KeyboardArrowDown, KeyboardArrowUp,
 } from '@mui/icons-material';
 import api from '../../../services/api';
-
-const MONO_CHIP_SX = {
-  height: 22, borderRadius: '4px',
-  fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem',
-};
 
 function formatNaira(amount) {
   if (amount == null) return '-';
@@ -76,54 +71,32 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
           <Typography variant="caption" color="text.secondary">{index}</Typography>
         </TableCell>
         <TableCell>
-          <Tooltip title={item.actName || '-'}>
-            <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 280,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {item.actName || '-'}
-            </Typography>
-          </Tooltip>
-          {item.sourceSectionReference && (
-            <Chip size="small" variant="outlined" label={item.sourceSectionReference.slice(0, 24)}
-              sx={{ ...MONO_CHIP_SX, mt: 0.5 }} />
-          )}
+          <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 300,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.actName || '-'}
+          </Typography>
         </TableCell>
         <TableCell>
-          {item.sanctionType
-            ? <Chip size="small" label={item.sanctionType} color="error" variant="outlined"
-                sx={{ height: 22, borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize' }} />
-            : <Typography variant="body2" color="text.secondary">-</Typography>}
+          <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+            {item.sanctionType || '-'}
+          </Typography>
         </TableCell>
         <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.82rem' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
             {formatNaira(item.sanctionAmountNaira)}{item.sanctionAmountPerDay ? ' /day' : ''}
           </Typography>
         </TableCell>
         <TableCell>
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-            {item.severityScore != null ? (
-              <Chip size="small" label={`Sev ${item.severityScore}`}
-                color={item.severityScore > 7 ? 'error' : item.severityScore > 4 ? 'warning' : 'default'}
-                sx={{ height: 22, borderRadius: '4px' }} />
-            ) : (
-              <Typography variant="body2" color="text.secondary">-</Typography>
-            )}
-            {item.hasBeenEnforced
-              ? <Chip icon={<CheckCircle sx={{ fontSize: 14 }} />} label="Enforced" size="small" color="success"
-                  sx={{ height: 22, borderRadius: '4px' }} />
-              : <Chip label="Not enforced" size="small" variant="outlined"
-                  sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', color: 'text.secondary' }} />}
-          </Box>
+          <Typography variant="body2" color="text.secondary">
+            {item.severityScore != null ? `Sev ${item.severityScore} · ` : ''}
+            {item.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
+          </Typography>
         </TableCell>
         <TableCell>
-          {roles.length > 0 ? (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {roles.map(r => (
-                <Chip key={r} size="small" label={r} sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
-              ))}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">-</Typography>
-          )}
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {roles.length > 0 ? roles.join(', ') : '-'}
+          </Typography>
         </TableCell>
       </TableRow>
       <TableRow>

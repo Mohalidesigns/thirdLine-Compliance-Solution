@@ -2,17 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
+  TableRow, TablePagination, TextField, CircularProgress, Alert, Tooltip,
   TableSortLabel, IconButton, Button, MenuItem,
 } from '@mui/material';
 import { Search, Refresh, Close, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
 import api from '../../../services/api';
-
-const RISK_COLOR = {
-  Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success',
-};
-
-const STATUS_COLOR = { Open: 'warning', Closed: 'success', 'In Progress': 'info' };
 
 const COLUMNS = [
   { id: 'controlNumber', label: 'Control', minWidth: 320, sortField: 'controlNumber' },
@@ -205,45 +199,27 @@ export default function ControlExplorerPage() {
                     sx={{ cursor: 'pointer' }}>
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {row.controlNumber || '—'}
                       </Typography>
-                      {row.controlSummary && (
-                        <Tooltip title={row.controlSummary}>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 380,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.controlSummary}
-                          </Typography>
-                        </Tooltip>
-                      )}
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {row.theme && <Chip size="small" label={row.theme} sx={{ height: 20, fontSize: '0.65rem' }} />}
-                        {row.complianceArea && (
-                          <Chip size="small" variant="outlined" label={row.complianceArea} sx={{ height: 20, fontSize: '0.65rem' }} />
-                        )}
-                        {!row.theme && !row.complianceArea && (
-                          <Typography variant="body2" color="text.secondary">—</Typography>
-                        )}
-                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.complianceArea || row.theme || '—'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      {row.riskLevel
-                        ? <Chip size="small" label={row.riskLevel} color={RISK_COLOR[row.riskLevel] || 'default'} sx={{ height: 22 }} />
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
+                      <Typography variant="body2">{row.riskLevel || '—'}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={row.status || 'Open'}
-                        color={STATUS_COLOR[row.status] || 'default'} sx={{ height: 22 }} />
+                      <Typography variant="body2">{row.status || 'Open'}</Typography>
                     </TableCell>
                     <TableCell>
-                      {row.actName
-                        ? <Tooltip title={row.actName}>
-                            <Chip size="small" variant="outlined" label={row.actName}
-                              sx={{ height: 22, maxWidth: 240, fontSize: '0.65rem' }} />
-                          </Tooltip>
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
+                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.actName || '—'}
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 ))}
