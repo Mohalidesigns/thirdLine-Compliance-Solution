@@ -80,10 +80,12 @@ public class ToolkitImportService {
     private int sanctionCount = 0;
     private int returnCount = 0;
     private int controlCount = 0;
+    private int controlDedupCount = 0;
 
     public ToolkitImportResult importToolkit() {
         unmapped.clear();
         regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
+        controlDedupCount = 0;
         try {
             return transactionTemplate.execute(status -> {
                 try {
@@ -135,6 +137,7 @@ public class ToolkitImportService {
             .sanctions(sanctionCount)
             .returns(returnCount)
             .controls(controlCount)
+            .controlsDeduplicated(controlDedupCount)
             .unmappedSources(unmapped.size())
             .unmappedList(List.copyOf(unmapped))
             .build();
@@ -1068,13 +1071,37 @@ public class ToolkitImportService {
     }
 
     // ── CRMP sections → extract Control + Additional Control ──
+    /**
+     * Imports the Control and Additional Control of every CRMP row.
+     *
+     * <p>Idempotent by natural key — act id + normalised control text + control type — not by
+     * control number: numbers are generated, so a number match can never detect a re-run. Every
+     * existing control is loaded once; rows already present (in the DB, any date, or earlier in
+     * this file) are skipped and left untouched. Before importing, re-inserts left by earlier
+     * non-idempotent runs are removed (original seed rows kept, re-insert links merged into the
+     * oldest row) — see {@link #removeDuplicateCrmpControls}.
+     */
     @Transactional
     public void importCmpControlsFromSections(Map<String, List<ToolkitSeedDoc.ObligationRow>> sections) {
+        List<ComplianceControl> all = complianceControls.findAll();
+        // Every number ever used stays reserved — including rows deleted below — so a number a
+        // tenant may already hold is never handed to a different control.
+        ToolkitControlDedup.NumberAllocator numbers = new ToolkitControlDedup.NumberAllocator(
+            all.stream().map(ComplianceControl::getControlNumber).toList());
+
+        List<ComplianceControl> crmpControls = all.stream()
+            .filter(c -> CRMP_SECTIONS.contains(c.getComplianceArea()))
+            .toList();
+        Set<ComplianceControl> removed = removeDuplicateCrmpControls(crmpControls);
+        Map<String, ComplianceControl> byKey = ToolkitControlDedup.indexByKey(
+            crmpControls.stream().filter(c -> !removed.contains(c)).toList());
+
         int cmpCount = 0;
         for (String sectionName : CRMP_SECTIONS) {
             List<ToolkitSeedDoc.ObligationRow> rows = sections.getOrDefault(sectionName, List.of());
             if (rows.isEmpty()) continue;
 
+            String prefix = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length()));
             for (ToolkitSeedDoc.ObligationRow o : rows) {
                 String source = o.getSource();
                 if (source == null || source.isBlank()) continue;
@@ -1093,61 +1120,73 @@ public class ToolkitImportService {
                 String impactResidual = normalizeRiskLabel(o.getResidualImpact());
                 String residualRiskRating = computeRiskBand(likelihoodResidual, impactResidual);
 
-                // Primary Control
-                String controlText = o.getPrimaryControl();
-                if (controlText != null && !controlText.isBlank()) {
-                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "C" + String.format("%03d", cmpCount + 1);
-                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
-                            .controlNumber(ctrlNum)
-                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
-                            .regulatoryRequirement(source)
-                            .complianceArea(sectionName)
-                            .riskLevel(normalizeRisk(o.getTitle()))
-                            .complianceControl(controlText)
-                            .controlType("PRIMARY")
-                            .residualLikelihood(likelihoodResidual)
-                            .residualImpact(impactResidual)
-                            .residualRiskRating(residualRiskRating)
-                            .ownerName(o.getResponsibility())
-                            .actId(actId)
-                            .actName(source)
-                            .linkedObligationIds(linkedIds)
-                            .status("Open")
-                            .build());
-                        cmpCount++;
-                    }
-                }
-
-                // Additional Control
-                String additionalText = o.getAdditionalControl();
-                if (additionalText != null && !additionalText.isBlank()) {
-                    String ctrlNum = sectionName.toUpperCase(Locale.ROOT).substring(0, Math.min(4, sectionName.length())) + "A" + String.format("%03d", cmpCount + 1);
-                    if (!complianceControls.existsByControlNumber(ctrlNum)) {
-                        complianceControls.save(ComplianceControl.builder()
-                            .controlNumber(ctrlNum)
-                            .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
-                            .regulatoryRequirement(source)
-                            .complianceArea(sectionName)
-                            .riskLevel(normalizeRisk(o.getTitle()))
-                            .complianceControl(additionalText)
-                            .controlType("ADDITIONAL")
-                            .residualLikelihood(likelihoodResidual)
-                            .residualImpact(impactResidual)
-                            .residualRiskRating(residualRiskRating)
-                            .ownerName(o.getResponsibility())
-                            .actId(actId)
-                            .actName(source)
-                            .linkedObligationIds(linkedIds)
-                            .status("Open")
-                            .build());
-                        cmpCount++;
-                    }
+                String[][] variants = {
+                    { o.getPrimaryControl(), "PRIMARY", "C" },       // Primary Control
+                    { o.getAdditionalControl(), "ADDITIONAL", "A" }  // Additional Control
+                };
+                for (String[] v : variants) {
+                    String text = v[0];
+                    if (text == null || text.isBlank()) continue;
+                    String controlType = v[1];
+                    String key = ToolkitControlDedup.naturalKey(actId, text, controlType);
+                    // Already present (any date, or earlier in this file): never inserted again,
+                    // and the existing row is left untouched.
+                    if (byKey.containsKey(key)) continue;
+                    ComplianceControl saved = complianceControls.save(ComplianceControl.builder()
+                        .controlNumber(numbers.next(prefix + v[2]))
+                        .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
+                        .regulatoryRequirement(source)
+                        .complianceArea(sectionName)
+                        .riskLevel(normalizeRisk(o.getTitle()))
+                        .complianceControl(text)
+                        .controlType(controlType)
+                        .residualLikelihood(likelihoodResidual)
+                        .residualImpact(impactResidual)
+                        .residualRiskRating(residualRiskRating)
+                        .ownerName(o.getResponsibility())
+                        .actId(actId)
+                        .actName(source)
+                        .linkedObligationIds(linkedIds)
+                        .status("Open")
+                        .build());
+                    byKey.put(key, saved);
+                    cmpCount++;
                 }
             }
         }
         controlCount += cmpCount;
-        log.info("[ToolkitImport] CRMP section controls imported: {}", cmpCount);
+        log.info("[ToolkitImport] CRMP section controls imported: {}, duplicates removed: {}",
+            cmpCount, controlDedupCount);
+    }
+
+    /**
+     * One-time repair for earlier non-idempotent runs: within the toolkit-created CRMP controls,
+     * in every natural-key group, all rows from the day of the group's oldest row are the original
+     * seed and are kept; later-dated rows are re-inserts and are deleted, their linked obligation
+     * ids merged into the oldest row. Rows still referenced by an obligation are never deleted.
+     */
+    Set<ComplianceControl> removeDuplicateCrmpControls(List<ComplianceControl> crmpControls) {
+        List<ToolkitControlDedup.DuplicateGroup> groups =
+            ToolkitControlDedup.findDuplicates(crmpControls, c -> c.getObligationId() == null,
+                java.time.ZoneId.systemDefault());
+        if (groups.isEmpty()) { controlDedupCount = 0; return Set.of(); }
+
+        Set<ComplianceControl> toDelete = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<ComplianceControl> changed = new ArrayList<>();
+        for (ToolkitControlDedup.DuplicateGroup g : groups) {
+            boolean keepChanged = false;
+            for (ComplianceControl dup : g.duplicates()) {
+                keepChanged |= ToolkitControlDedup.mergeInto(g.keep(), dup);
+                toDelete.add(dup);
+            }
+            if (keepChanged) changed.add(g.keep());
+        }
+        complianceControls.saveAll(changed);
+        complianceControls.deleteAll(toDelete);
+        controlDedupCount = toDelete.size();
+        log.info("[ToolkitImport] Removed {} duplicate CRMP controls across {} groups ({} kept rows merged)",
+            toDelete.size(), groups.size(), changed.size());
+        return toDelete;
     }
 
     private List<Long> matchObligationsBySection(Long regulationId, String sectionRef) {

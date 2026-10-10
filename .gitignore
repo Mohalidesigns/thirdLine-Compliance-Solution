@@ -16,3 +16,9 @@ Thumbs.db
 data/
 data/
 .vite/
+
+# Offline toolkit points sidecar (regenerable via tools/toolkit-md-points/generate_points.py;
+# the baked result lives in the committed compliance_toolkits.json)
+tools/toolkit-md-points/points_generated.json
+returns.xlsx
+~$returns.xlsx

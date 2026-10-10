@@ -599,12 +599,52 @@ def report(model):
     return ok
 
 
+def fill_points(out_path, sidecar_path):
+    """Merge points from the generate_points.py sidecar into an existing compliance_toolkits.json.
+
+    Keyed by natural key (source | sectionRef | title) so DB ids are never needed. Only rows
+    with empty points are filled; existing points are left untouched. Idempotent.
+    """
+    doc = json.loads(out_path.read_text(encoding="utf-8"))
+    sidecar = json.loads(Path(sidecar_path).read_text(encoding="utf-8")).get("points", {})
+
+    def key(row):
+        # Must match generate_points.py natural_key exactly (plain disambiguates repeats).
+        return "|".join((row.get(k) or "").strip()
+                        for k in ("source", "sectionRef", "title", "plain"))
+
+    filled = 0
+    missing = 0
+    for section, rows in (doc.get("obligations") or {}).items():
+        for r in rows:
+            if r.get("status") != "saved":
+                continue
+            if r.get("points"):
+                continue
+            pts = sidecar.get(key(r))
+            if pts is None:
+                missing += 1
+                continue
+            r["points"] = pts
+            filled += 1
+    doc.setdefault("meta", {}).setdefault("totals", {})["pointsFilled"] = filled
+    out_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Filled points on {filled} rows (sidecar has {len(sidecar)}); saved rows with no sidecar entry: {missing}")
+    return filled, missing
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--md", default=str(TOOLKIT_MD))
-    ap.add_argument("--out", default=str(TOOLKIT_JSON), help="output path for --emit")
+    ap.add_argument("--out", default=str(TOOLKIT_JSON), help="output path for --emit / target for --fill-points")
     ap.add_argument("--emit", action="store_true", help="write compliance_toolkits.json (default: analyze only)")
+    ap.add_argument("--fill-points", metavar="SIDECAR",
+                    help="merge points from the generate_points.py sidecar into --out (idempotent)")
     args = ap.parse_args()
+
+    if args.fill_points:
+        fill_points(Path(args.out), args.fill_points)
+        return 0
 
     lines = Path(args.md).read_text(encoding="utf-8").splitlines()
     sections = parse_sections(lines)

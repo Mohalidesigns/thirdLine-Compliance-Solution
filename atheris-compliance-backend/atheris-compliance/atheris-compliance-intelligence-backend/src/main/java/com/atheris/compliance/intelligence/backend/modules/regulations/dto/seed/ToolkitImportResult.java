@@ -24,6 +24,7 @@ public class ToolkitImportResult {
     private int sanctions;
     private int returns;
     private int controls;
+    private int controlsDeduplicated;
     private int unmappedSources;
     private List<String> unmappedList;
 

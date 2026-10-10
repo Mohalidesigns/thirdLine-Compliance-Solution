@@ -55,7 +55,7 @@ spring:
         options:
           model: ${AI_MODEL:google/gemini-2.5-flash-lite}
           temperature: 0.0
-          max-tokens: 3500
+          max-tokens: ${AI_MAX_TOKENS:3500}
 
 server:
   port: ${PORT:9090}
@@ -84,6 +84,10 @@ atheris:
     # stock primary, so a custom AI_MODEL still has a working model to fall back to).
     primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
     fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.5-flash-lite}
+    # OpenRouter reasoning switch for both models: unset = send nothing (provider
+    # default); false = "reasoning": {"enabled": false} (reasoning models such as
+    # nemotron/qwen otherwise spend max-tokens thinking); true = force it on.
+    reasoning-enabled: ${AI_REASONING_ENABLED:}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}

@@ -161,6 +161,33 @@ def main():
     if len(d["returns"]) != EXPECTED["returns"]:
         failures.append(f"returns={len(d['returns'])} expected {EXPECTED['returns']}")
 
+    # ── points presence: every saved obligation whose description has a real list marker
+    #    must carry at least one verbatim point, and no point may have empty text. ──
+    points_filled = 0
+    saved_with_marker = 0
+    saved_missing_points = 0
+    empty_text = 0
+    for section_rows in d["obligations"].values():
+        for r in section_rows:
+            if r.get("status") != "saved":
+                continue
+            pts = r.get("points") or []
+            if pts:
+                points_filled += 1
+            for p in pts:
+                if not (p.get("text") or "").strip():
+                    empty_text += 1
+            desc = r.get("description")
+            if desc and _has_real_marker(desc):
+                saved_with_marker += 1
+                if not pts:
+                    saved_missing_points += 1
+    if empty_text:
+        failures.append(f"{empty_text} points have empty text")
+    if saved_missing_points:
+        failures.append(f"{saved_missing_points} saved obligations with a real marker have no points "
+                        f"(of {saved_with_marker} such rows)")
+
     if failures:
         print("VERIFY FAILED:")
         for f in failures:
@@ -168,8 +195,24 @@ def main():
         return 2
     print("VERIFY OK — JSON reproduces fresh-import parity "
           f"({saved} obligations / {sanctions_total} sanctions / {len(d['returns'])} returns / "
-          f"{actual['universeInstruments']} universe / {actual['monitoringPlanRows']} CMP)")
+          f"{actual['universeInstruments']} universe / {actual['monitoringPlanRows']} CMP); "
+          f"points on {points_filled} rows "
+          f"({saved_with_marker} rows have a real verbatim marker)")
     return 0
+
+
+def _has_real_marker(text):
+    """True when `text` contains at least one real list marker (not a cross-reference)."""
+    import verbatim_matcher as vm
+    m = vm.ANY_MARKER.search(text, 0)
+    pos = 0
+    while m:
+        cand = m.group(1) if m.group(1) is not None else (m.group(2) if m.group(2) is not None else m.group(3))
+        if vm.is_plausible(cand) and not vm._is_cross_reference(text, m.start(), m.group(1) is not None):
+            return True
+        pos = m.start() + 1
+        m = vm.ANY_MARKER.search(text, pos)
+    return False
 
 
 if __name__ == "__main__":
