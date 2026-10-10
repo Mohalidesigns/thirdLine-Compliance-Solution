@@ -246,6 +246,14 @@ Seeded returns had no due date (the platform has none: intel `deadline` is a cop
 ### Verified (live, browser pane, 2026-10-03)
 Repair applied: 75 rescheduled (21 parsed rules, 54 → Due date needed), 186 untouched periods removed, 1 kept, 42 created; overdue **92 → 1** (a user-imported test return), second dry run proposes 0. Edit schedule on that return (10 days after period end) → periods due 10 Oct/Nov/Dec/Jan; overdue **0**. Zero backend errors.
 
+## Done — Intel Returns Explorer Harmonized (Phase 1)
+
+Brings the intel Return Explorer to the obligations-explorer pattern so it can later be ported to the tenant.
+
+- **Frontend** (`features/admin/components/ReturnExplorerPage.jsx`): migrated from raw `useState/useCallback/useEffect` to **TanStack Query + `useSearchParams`** (URL-synced, debounced search) — matches `ObligationsExplorerPage`. KPIs are **clickable cards with a breakdown dropdown** (Total & Unassigned → by Frequency Type; Frequency Types → counts; Responsible Units → counts), clicking a row filters. Filters: search, Frequency type, Responsible unit, **Act** (new). Table trimmed to 4 data columns (Return / Frequency / Deadline / Responsible) + `#`; **Act and Actions columns removed**, whole row clickable to `/admin/returns/:id`; Frequency cell shows a **single** chip (`frequencyType`, falls back to `frequency`); section-ref chip removed (lives on the detail page).
+- **Backend** (`AdminReturnService`): `list` sorting moved **into the JPA Criteria specification** (`query.orderBy`) with a property whitelist, `actName → actId` alias, unknown-property ignore and a stable `returnId` tiebreaker — no more `PropertyReferenceException` on `actName`/unknown sorts (previously raw `Pageable`). `stats()` now uses **criteria aggregates** (`multiselect`+`groupBy`) instead of `findAll()` in-memory, and adds **`acts: [{actId,name}]`** for the Act filter. Response stays `Map<String,Object>`.
+- **Verified:** `mvn -q clean compile` + `npm run build:intelligence` green; DTO-binding check has **0 row-field mismatches**; live: `/admin/returns/stats` returns `acts`, `totalReturns=139`, `sort=actName`/`sort=bogusField` both return 200. Tenant port is Phase 2 (pending).
+
 ## Done — Event-Triggered Return Filings (initial implementation)
 
 - **Federal holidays:** tenant V33 `federal_public_holidays`; tenant-scoped `/api/v1/federal-public-holidays` GET/POST/PUT/DELETE endpoints; CCO/TENANT_ADMIN Settings tab maintains Nigerian federal holiday and separately observed dates. Mutations are audited.
@@ -402,8 +410,8 @@ The tenant obligation DTOs use `sectionReference`, so intel's `specificSectionRe
 ### N+1 avoided
 Act names are resolved by collecting the page's distinct act ids into a `Set` and issuing one `findAllById` — one extra query per page regardless of page size. Obligation stats aggregate in SQL via new group-by queries rather than loading all ~1541 rows.
 
-### The Intel frontend has NO TanStack Query
-`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-register-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
+### Intel frontend now HAS TanStack Query (migrated since the original slice)
+`@tanstack/react-query` is a dependency of `atheris-compliance-intelligence-frontend` with a `QueryClientProvider` in `main.jsx`; `ObligationsExplorerPage`, `ObligationExplorerDetailPage`, `RegulatorAdminPage` and (since the April returns harmonization) `ReturnExplorerPage` use `useQuery` + `useSearchParams`. The older intel explorers (`RegulationExplorerPage`, `ControlExplorerPage`, sanctions) still use the raw `useState`/`useCallback`/`useEffect` + race-guard pattern — both styles coexist. The `frontend-register-page` convention's "use TanStack Query, never raw useEffect" now applies to intel too for **new/changed** pages; migrate old ones deliberately, not as a side effect.
 
 ### Known lint debt (pre-existing, not new)
 The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
