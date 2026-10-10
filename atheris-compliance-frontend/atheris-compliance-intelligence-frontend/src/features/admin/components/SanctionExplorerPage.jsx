@@ -160,7 +160,9 @@ export default function SanctionExplorerPage() {
   const mounted = useRef(true);
   const requestId = useRef(0);
 
-  useEffect(() => () => { mounted.current = false; }, []);
+  // Reset on setup (not just false on cleanup): StrictMode's mount→unmount→mount would
+  // otherwise leave mounted=false for the real mount and every fetch would bail early.
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const hasFilters = search || typeFilter !== 'All' || enforcedFilter !== 'All';
 

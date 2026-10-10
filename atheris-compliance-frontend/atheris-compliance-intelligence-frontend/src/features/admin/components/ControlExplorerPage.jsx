@@ -47,7 +47,9 @@ export default function ControlExplorerPage() {
 
   const reqId = useRef(0);
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  // Reset on setup (not just false on cleanup): StrictMode's mount→unmount→mount would
+  // otherwise leave alive=false for the real mount and every fetch would bail early.
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All' || statusFilter !== 'All';
 

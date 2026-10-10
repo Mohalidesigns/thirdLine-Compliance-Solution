@@ -246,6 +246,10 @@ Seeded returns had no due date (the platform has none: intel `deadline` is a cop
 ### Verified (live, browser pane, 2026-10-03)
 Repair applied: 75 rescheduled (21 parsed rules, 54 → Due date needed), 186 untouched periods removed, 1 kept, 42 created; overdue **92 → 1** (a user-imported test return), second dry run proposes 0. Edit schedule on that return (10 days after period end) → periods due 10 Oct/Nov/Dec/Jan; overdue **0**. Zero backend errors.
 
+## Done — Fix intel Controls/Sanctions/Dashboard rendering empty
+
+Controls and Sanctions explorers (and the dashboard Regulatory Coverage) rendered empty in dev despite the API returning 2361 controls / 597 sanctions. Root cause: the raw-hook pages guard their async loads with `const alive = useRef(true)` + `useEffect(() => () => { alive.current = false; }, [])`. Under `<StrictMode>` the effect runs mount→unmount→mount, so the simulated-unmount cleanup leaves `alive.current=false` **permanently** (the setup never resets it) and every `if (!alive.current) return;` aborts → `rows` stays `[]`. Returns/Obligations were unaffected (TanStack, no such guard). Fix: reset the ref in the effect **body** — `useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, [])` — in `ControlExplorerPage`, `SanctionExplorerPage`, `RegulatoryCoverage`. Rule: any `useRef`-based alive/abort guard must be re-armed on setup, never only disarmed on cleanup.
+
 ## Done — Intel Returns Explorer Harmonized (Phase 1)
 
 Brings the intel Return Explorer to the obligations-explorer pattern so it can later be ported to the tenant.
