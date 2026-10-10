@@ -27,11 +27,11 @@ BOUNDARY = r"(?<![^\s;:\u2014\u2013])"
 
 MARKER_CORE = re.compile(r"[A-Za-z]{1,6}|\d{1,3}(?:\.\d{1,3}){0,3}")
 
-# Any list marker: (m) | m. or m) followed by whitespace | bare dotted number followed by whitespace.
+# Any list marker: (m) | m. or m) or m] followed by whitespace | bare dotted number.
 ANY_MARKER = re.compile(
     BOUNDARY
     + r"(?:\(\s*([A-Za-z]{1,6}|\d{1,3})\s*\)"
-    + r"|([A-Za-z]{1,6}|\d{1,3}(?:\.\d{1,3}){0,3})[.)](?=\s)"
+    + r"|([A-Za-z]{1,6}|\d{1,3}(?:\.\d{1,3}){0,3})[.)\]](?=\s)"
     + r"|(\d{1,3}(?:\.\d{1,3}){1,3})(?=\s))"
 )
 
@@ -92,7 +92,7 @@ def find_marker(text, marker, from_=0):
 def _find_marker(text, core, from_, ignore_case):
     q = re.escape(core)
     dotted = "." in core
-    regex = (BOUNDARY + r"(?:\(\s*" + q + r"\s*\)|" + q + r"\)|" + q + r"\.(?=\s|$)"
+    regex = (BOUNDARY + r"(?:\(\s*" + q + r"\s*\)|" + q + r"\)|" + q + r"\.(?=\s|$)|" + q + r"\](?=\s)"
              + (r"|" + q + r"(?=\s)" if dotted else "") + r")")
     flags = re.IGNORECASE if ignore_case else 0
     pat = re.compile(regex, flags)
@@ -156,7 +156,7 @@ def strip_marker_prefix(text, marker):
     out = re.sub(r"^[\s\-\"]+", "", text)
     q = re.escape(core)
     out = re.sub(r"(?i)^\(\s*" + q + r"\s*\)\s*", "", out, count=1)
-    out = re.sub(r"(?i)^" + q + r"[.):](\s+|$)", "", out, count=1)
+    out = re.sub(r"(?i)^" + q + r"[.):\]](\s+|$)", "", out, count=1)
     out = re.sub(r"(?i)^" + q + r"\s+-\s+", "", out, count=1)
     if "." in core:
         out = re.sub(r"^" + q + r"\s+", "", out, count=1)

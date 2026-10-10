@@ -20,11 +20,11 @@ import java.util.regex.Pattern;
  */
 public class ObligationPointParser {
 
-    /** Any list marker: (m) | m) | m. | a bare dotted number. */
+    /** Any list marker: (m) | m) | m. | m] | a bare dotted number. */
     private static final Pattern MARKER_RE = Pattern.compile(
         "(?<![^\\s;:\\u2014\\u2013])"
             + "(?:\\(\\s*([A-Za-z]{1,6}|\\d{1,3})\\s*\\)"
-            + "|([A-Za-z]{1,6}|\\d{1,3}(?:\\.\\d{1,3}){0,3})[.)](?=\\s)"
+            + "|([A-Za-z]{1,6}|\\d{1,3}(?:\\.\\d{1,3}){0,3})[.)\\]](?=\\s)"
             + "|(\\d{1,3}(?:\\.\\d{1,3}){1,3})(?=\\s))"
     );
 
@@ -149,7 +149,7 @@ public class ObligationPointParser {
 
     private static String extractCore(String text, int tokenStart, int contentStart) {
         String token = text.substring(tokenStart, contentStart).trim();
-        return token.replaceAll("[()\\s]", "").replaceAll("[.)]+$", "");
+        return token.replaceAll("[()\\[\\]\\s]", "").replaceAll("\\.+$", "");
     }
 
     private static String groupCore(Matcher m) {

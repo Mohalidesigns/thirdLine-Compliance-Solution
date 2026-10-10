@@ -17,7 +17,7 @@
       "sanctionsTotal": 597,
       "returns": 139,
       "monitoringPlanRows": 192,
-      "pointsFilled": 1541
+      "pointsFilled": 9
     }
   },
   "universe": [
@@ -68681,7 +68681,312 @@
         "residualLikelihood": "Medium",
         "residualImpact": "Medium",
         "status": "saved",
-        "points": []
+        "points": [
+          {
+            "marker": "a",
+            "text": "A formal Application for financial assistance stating the amount required.",
+            "content": "A formal Application for financial assistance stating the amount required.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "b",
+            "text": "The purpose of the request i.e. the causes and extent of the problem to be addressed.",
+            "content": "The purpose of the request i.e. the causes and extent of the problem to be addressed.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "c",
+            "text": "Tenor/Repayment period.",
+            "content": "Tenor/Repayment period.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "d",
+            "text": "Sources and Mode of the loan repayment",
+            "content": "Sources and Mode of the loan repayment",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "e",
+            "text": "The current and projected monthly Cash Flow, Statement of Comprehensive Income and Statement of Financial Position, clearly stating the underlying assumptions for the projections, the impact of the expected facility and its amortization over the period of repayment.",
+            "content": "The current and projected monthly Cash Flow, Statement of Comprehensive Income and Statement of Financial Position, clearly stating the underlying assumptions for the projections, the impact of the expected facility and its amortization over the period of repayment.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "f",
+            "text": "Board Resolution authorizing the request for the facility.",
+            "content": "Board Resolution authorizing the request for the facility.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "g",
+            "text": "Evidence of the repayment of all insider related credits.",
+            "content": "Evidence of the repayment of all insider related credits.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "h",
+            "text": "Evidence of repayment of any outstanding indebtedness to other banks by the Directors of the applicant bank.",
+            "content": "Evidence of repayment of any outstanding indebtedness to other banks by the Directors of the applicant bank.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "i",
+            "text": "Schedule of existing borrowings by the bank",
+            "content": "Schedule of existing borrowings by the bank",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "j",
+            "text": "The schedule of non-performing credits as well as the major liabilities that have matured.",
+            "content": "The schedule of non-performing credits as well as the major liabilities that have matured.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "k",
+            "text": "A statement in quantifiable terms of measures taken to address the institution’s liquidity problem. E.g. debt recovery, cost saving measures adopted.",
+            "content": "A statement in quantifiable terms of measures taken to address the institution’s liquidity problem. E.g. debt recovery, cost saving measures adopted.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "l",
+            "text": "Evidence of compliance with the recommendations of the CBN/NDIC Examiners.",
+            "content": "Evidence of compliance with the recommendations of the CBN/NDIC Examiners.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "m",
+            "text": "A certified true copy of the Articles and Memorandum of Association of the insured institution.",
+            "content": "A certified true copy of the Articles and Memorandum of Association of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "n",
+            "text": "The list of major shareholders [5% and above] and their shareholding as well as resumes of the Board and Management of the insured institution.",
+            "content": "The list of major shareholders [5% and above] and their shareholding as well as resumes of the Board and Management of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "o",
+            "text": "An acceptable joint and several guarantees of the members of the Board of Directors and Principal Shareholders of the insured institution.",
+            "content": "An acceptable joint and several guarantees of the members of the Board of Directors and Principal Shareholders of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "p",
+            "text": "Identification and Description of the specific property being offered as collateral, accompanied with recent Estate Valuers Report on same, stating the open market and Forced Sale Values.",
+            "content": "Identification and Description of the specific property being offered as collateral, accompanied with recent Estate Valuers Report on same, stating the open market and Forced Sale Values.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "q",
+            "text": "Evidence of comprehensive insurance of the property.",
+            "content": "Evidence of comprehensive insurance of the property.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "r",
+            "text": "A Strategic Business Plan indicating how the Management intends to address the insured institution’s problem, repay the loan, to attain and sustain the N25 billion minimum capital requirement.",
+            "content": "A Strategic Business Plan indicating how the Management intends to address the insured institution’s problem, repay the loan, to attain and sustain the N25 billion minimum capital requirement.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "s",
+            "text": "Any other information that may assist in the processing of the request of the particular insured institution.",
+            "content": "Any other information that may assist in the processing of the request of the particular insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "1",
+            "text": "Submit a formal application for financial assistance, stating the required amount.",
+            "content": "Submit a formal application for financial assistance, stating the required amount.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "2",
+            "text": "Provide details of the purpose of the loan request, outlining the cause and extent of the issue.",
+            "content": "Provide details of the purpose of the loan request, outlining the cause and extent of the issue.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "3",
+            "text": "Indicate the tenor and repayment plan of the loan.",
+            "content": "Indicate the tenor and repayment plan of the loan.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "4",
+            "text": "Clearly state sources and mode of repayment.",
+            "content": "Clearly state sources and mode of repayment.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "5",
+            "text": "Include current and projected monthly cash flows, profit/loss statement, and balance sheet, along with assumptions, expected impact of the facility, and amortization plan.",
+            "content": "Include current and projected monthly cash flows, profit/loss statement, and balance sheet, along with assumptions, expected impact of the facility, and amortization plan.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "6",
+            "text": "Attach a Board resolution authorizing the request.",
+            "content": "Attach a Board resolution authorizing the request.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "7",
+            "text": "Submit evidence of repayment of insider-related credits.",
+            "content": "Submit evidence of repayment of insider-related credits.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "8",
+            "text": "Provide evidence of directors’ loan repayment to other banks.",
+            "content": "Provide evidence of directors’ loan repayment to other banks.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "9",
+            "text": "Submit schedule of existing borrowings.",
+            "content": "Submit schedule of existing borrowings.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "10",
+            "text": "Provide a schedule of non-performing credits and major matured liabilities.",
+            "content": "Provide a schedule of non-performing credits and major matured liabilities.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "11",
+            "text": "Present a quantifiable statement of remedial measures (e.g., debt recovery, cost savings).",
+            "content": "Present a quantifiable statement of remedial measures (e.g., debt recovery, cost savings).",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "12",
+            "text": "Submit evidence of compliance with CBN/NDIC examiner recommendations.",
+            "content": "Submit evidence of compliance with CBN/NDIC examiner recommendations.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "13",
+            "text": "Attach certified true copy of the Memorandum & Articles of Association.",
+            "content": "Attach certified true copy of the Memorandum & Articles of Association.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "14",
+            "text": "Provide a list of major shareholders (5% and above) and resumes of board/management.",
+            "content": "Provide a list of major shareholders (5% and above) and resumes of board/management.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "15",
+            "text": "Submit joint and several guarantees from directors and principal shareholders.",
+            "content": "Submit joint and several guarantees from directors and principal shareholders.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "16",
+            "text": "Identify and describe property offered as collateral, with valuation report.",
+            "content": "Identify and describe property offered as collateral, with valuation report.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "17",
+            "text": "Present evidence of insurance on the property.",
+            "content": "Present evidence of insurance on the property.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "18",
+            "text": "Submit a strategic business plan to address problems, repay the loan, and meet capital requirements.",
+            "content": "Submit a strategic business plan to address problems, repay the loan, and meet capital requirements.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "19",
+            "text": "Provide any other relevant information to aid assessment.",
+            "content": "Provide any other relevant information to aid assessment.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          }
+        ]
       },
       {
         "source": "GUIDELINES ON FINANCIAL AND TECHNICAL ASSISTANCE TO OPERATING INSURED BANKS AND DEPOSIT TAKING FINANCIAL INSTITUTIONS",
@@ -68721,7 +69026,136 @@
         "residualLikelihood": "Medium",
         "residualImpact": "High",
         "status": "saved",
-        "points": []
+        "points": [
+          {
+            "marker": "i",
+            "text": "The insured institution should show evidence of substantial debt repayment by shareholders and their related interests.",
+            "content": "The insured institution should show evidence of substantial debt repayment by shareholders and their related interests.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "ii",
+            "text": "The insured institution should not default in premium payment.",
+            "content": "The insured institution should not default in premium payment.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "iii",
+            "text": "Every applicant insured institution will submit a time-framed turn-around plan, the evaluation of which will determine the extent of financial and technical assistance to be granted by the Corporation.",
+            "content": "Every applicant insured institution will submit a time-framed turn-around plan, the evaluation of which will determine the extent of financial and technical assistance to be granted by the Corporation.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "iv",
+            "text": "The agreement will contain among others, the following terms and conditions that will be determined on a case by case basis: - Purpose of facility - Amount of financial facility - Tenor - Repayment - Interest rate - Security – essentially government securities [e.g. investment certificates] or other acceptable collateral.",
+            "content": "The agreement will contain among others, the following terms and conditions that will be determined on a case by case basis: - Purpose of facility - Amount of financial facility - Tenor - Repayment - Interest rate - Security – essentially government securities [e.g. investment certificates] or other acceptable collateral.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "v",
+            "text": "Applicant insured institution will submit joint and several guarantees from the members of its Board as well as the principal shareholders for the repayment of any financial assistance granted.",
+            "content": "Applicant insured institution will submit joint and several guarantees from the members of its Board as well as the principal shareholders for the repayment of any financial assistance granted.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "vi",
+            "text": "The insured institution will suspend the repayment of dividends and bonus where it is in default of its repayment schedule.",
+            "content": "The insured institution will suspend the repayment of dividends and bonus where it is in default of its repayment schedule.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "vii",
+            "text": "The insured institution will embark on intensive deposit drive particularly from non-interbank sources.",
+            "content": "The insured institution will embark on intensive deposit drive particularly from non-interbank sources.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "1",
+            "text": "Show evidence of substantial debt repayment by shareholders and related parties.",
+            "content": "Show evidence of substantial debt repayment by shareholders and related parties.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "2",
+            "text": "Ensure no default in NDIC premium payments.",
+            "content": "Ensure no default in NDIC premium payments.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "3",
+            "text": "Submit a time-bound turnaround plan to the NDIC; the plan will influence the type and extent of assistance granted.",
+            "content": "Submit a time-bound turnaround plan to the NDIC; the plan will influence the type and extent of assistance granted.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "4",
+            "text": "Enter into an agreement with NDIC specifying: - Purpose of the facility - Amount - Tenor and repayment terms - Interest rate - Security (e.g., government securities or acceptable collateral)",
+            "content": "Enter into an agreement with NDIC specifying: - Purpose of the facility - Amount - Tenor and repayment terms - Interest rate - Security (e.g., government securities or acceptable collateral)",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "5",
+            "text": "Provide joint and several guarantees from board members and principal shareholders.",
+            "content": "Provide joint and several guarantees from board members and principal shareholders.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "6",
+            "text": "Suspend dividends and bonuses during any repayment default period.",
+            "content": "Suspend dividends and bonuses during any repayment default period.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "7",
+            "text": "Implement an aggressive deposit mobilization strategy, excluding inter-bank sources.",
+            "content": "Implement an aggressive deposit mobilization strategy, excluding inter-bank sources.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "8",
+            "text": "Submit monthly returns to NDIC including: - Debt recovery - Performing/non-performing loans - New deposits - New lending - Asset/Liability maturity profile - Cash flow - Financial position - Comprehensive income - Fraud/forgery incidents and disciplinary actions",
+            "content": "Submit monthly returns to NDIC including: - Debt recovery - Performing/non-performing loans - New deposits - New lending - Asset/Liability maturity profile - Cash flow - Financial position - Comprehensive income - Fraud/forgery incidents and disciplinary actions",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "9",
+            "text": "Prepare for post-assistance monitoring by NDIC via onsite (target examinations, spot checks) and offsite reviews (return analysis and NDIC directives).",
+            "content": "Prepare for post-assistance monitoring by NDIC via onsite (target examinations, spot checks) and offsite reviews (return analysis and NDIC directives).",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          }
+        ]
       },
       {
         "source": "GUIDELINES ON FINANCIAL AND TECHNICAL ASSISTANCE TO OPERATING INSURED BANKS AND DEPOSIT TAKING FINANCIAL INSTITUTIONS",
@@ -128846,7 +129280,312 @@
         "residualLikelihood": "Medium",
         "residualImpact": "Medium",
         "status": "saved",
-        "points": []
+        "points": [
+          {
+            "marker": "a",
+            "text": "A formal Application for financial assistance stating the amount required.",
+            "content": "A formal Application for financial assistance stating the amount required.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "b",
+            "text": "The purpose of the request i.e. the causes and extent of the problem to be addressed.",
+            "content": "The purpose of the request i.e. the causes and extent of the problem to be addressed.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "c",
+            "text": "Tenor/Repayment period.",
+            "content": "Tenor/Repayment period.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "d",
+            "text": "Sources and Mode of the loan repayment",
+            "content": "Sources and Mode of the loan repayment",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "e",
+            "text": "The current and projected monthly Cash Flow, Statement of Comprehensive Income and Statement of Financial Position, clearly stating the underlying assumptions for the projections, the impact of the expected facility and its amortization over the period of repayment.",
+            "content": "The current and projected monthly Cash Flow, Statement of Comprehensive Income and Statement of Financial Position, clearly stating the underlying assumptions for the projections, the impact of the expected facility and its amortization over the period of repayment.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "f",
+            "text": "Board Resolution authorizing the request for the facility.",
+            "content": "Board Resolution authorizing the request for the facility.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "g",
+            "text": "Evidence of the repayment of all insider related credits.",
+            "content": "Evidence of the repayment of all insider related credits.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "h",
+            "text": "Evidence of repayment of any outstanding indebtedness to other banks by the Directors of the applicant bank.",
+            "content": "Evidence of repayment of any outstanding indebtedness to other banks by the Directors of the applicant bank.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "i",
+            "text": "Schedule of existing borrowings by the bank",
+            "content": "Schedule of existing borrowings by the bank",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "j",
+            "text": "The schedule of non-performing credits as well as the major liabilities that have matured.",
+            "content": "The schedule of non-performing credits as well as the major liabilities that have matured.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "k",
+            "text": "A statement in quantifiable terms of measures taken to address the institution’s liquidity problem. E.g. debt recovery, cost saving measures adopted.",
+            "content": "A statement in quantifiable terms of measures taken to address the institution’s liquidity problem. E.g. debt recovery, cost saving measures adopted.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "l",
+            "text": "Evidence of compliance with the recommendations of the CBN/NDIC Examiners.",
+            "content": "Evidence of compliance with the recommendations of the CBN/NDIC Examiners.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "m",
+            "text": "A certified true copy of the Articles and Memorandum of Association of the insured institution.",
+            "content": "A certified true copy of the Articles and Memorandum of Association of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "n",
+            "text": "The list of major shareholders [5% and above] and their shareholding as well as resumes of the Board and Management of the insured institution.",
+            "content": "The list of major shareholders [5% and above] and their shareholding as well as resumes of the Board and Management of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "o",
+            "text": "An acceptable joint and several guarantees of the members of the Board of Directors and Principal Shareholders of the insured institution.",
+            "content": "An acceptable joint and several guarantees of the members of the Board of Directors and Principal Shareholders of the insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "p",
+            "text": "Identification and Description of the specific property being offered as collateral, accompanied with recent Estate Valuers Report on same, stating the open market and Forced Sale Values.",
+            "content": "Identification and Description of the specific property being offered as collateral, accompanied with recent Estate Valuers Report on same, stating the open market and Forced Sale Values.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "q",
+            "text": "Evidence of comprehensive insurance of the property.",
+            "content": "Evidence of comprehensive insurance of the property.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "r",
+            "text": "A Strategic Business Plan indicating how the Management intends to address the insured institution’s problem, repay the loan, to attain and sustain the N25 billion minimum capital requirement.",
+            "content": "A Strategic Business Plan indicating how the Management intends to address the insured institution’s problem, repay the loan, to attain and sustain the N25 billion minimum capital requirement.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "s",
+            "text": "Any other information that may assist in the processing of the request of the particular insured institution.",
+            "content": "Any other information that may assist in the processing of the request of the particular insured institution.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "1",
+            "text": "Submit a formal application for financial assistance, stating the required amount.",
+            "content": "Submit a formal application for financial assistance, stating the required amount.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "2",
+            "text": "Provide details of the purpose of the loan request, outlining the cause and extent of the issue.",
+            "content": "Provide details of the purpose of the loan request, outlining the cause and extent of the issue.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "3",
+            "text": "Indicate the tenor and repayment plan of the loan.",
+            "content": "Indicate the tenor and repayment plan of the loan.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "4",
+            "text": "Clearly state sources and mode of repayment.",
+            "content": "Clearly state sources and mode of repayment.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "5",
+            "text": "Include current and projected monthly cash flows, profit/loss statement, and balance sheet, along with assumptions, expected impact of the facility, and amortization plan.",
+            "content": "Include current and projected monthly cash flows, profit/loss statement, and balance sheet, along with assumptions, expected impact of the facility, and amortization plan.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "6",
+            "text": "Attach a Board resolution authorizing the request.",
+            "content": "Attach a Board resolution authorizing the request.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "7",
+            "text": "Submit evidence of repayment of insider-related credits.",
+            "content": "Submit evidence of repayment of insider-related credits.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "8",
+            "text": "Provide evidence of directors’ loan repayment to other banks.",
+            "content": "Provide evidence of directors’ loan repayment to other banks.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "9",
+            "text": "Submit schedule of existing borrowings.",
+            "content": "Submit schedule of existing borrowings.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "10",
+            "text": "Provide a schedule of non-performing credits and major matured liabilities.",
+            "content": "Provide a schedule of non-performing credits and major matured liabilities.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "11",
+            "text": "Present a quantifiable statement of remedial measures (e.g., debt recovery, cost savings).",
+            "content": "Present a quantifiable statement of remedial measures (e.g., debt recovery, cost savings).",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "12",
+            "text": "Submit evidence of compliance with CBN/NDIC examiner recommendations.",
+            "content": "Submit evidence of compliance with CBN/NDIC examiner recommendations.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "13",
+            "text": "Attach certified true copy of the Memorandum & Articles of Association.",
+            "content": "Attach certified true copy of the Memorandum & Articles of Association.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "14",
+            "text": "Provide a list of major shareholders (5% and above) and resumes of board/management.",
+            "content": "Provide a list of major shareholders (5% and above) and resumes of board/management.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "15",
+            "text": "Submit joint and several guarantees from directors and principal shareholders.",
+            "content": "Submit joint and several guarantees from directors and principal shareholders.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "16",
+            "text": "Identify and describe property offered as collateral, with valuation report.",
+            "content": "Identify and describe property offered as collateral, with valuation report.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "17",
+            "text": "Present evidence of insurance on the property.",
+            "content": "Present evidence of insurance on the property.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "18",
+            "text": "Submit a strategic business plan to address problems, repay the loan, and meet capital requirements.",
+            "content": "Submit a strategic business plan to address problems, repay the loan, and meet capital requirements.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "19",
+            "text": "Provide any other relevant information to aid assessment.",
+            "content": "Provide any other relevant information to aid assessment.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          }
+        ]
       },
       {
         "source": "GUIDELINES ON FINANCIAL AND TECHNICAL ASSISTANCE TO OPERATING INSURED BANKS AND DEPOSIT TAKING FINANCIAL INSTITUTIONS",
@@ -128886,7 +129625,136 @@
         "residualLikelihood": "Medium",
         "residualImpact": "High",
         "status": "saved",
-        "points": []
+        "points": [
+          {
+            "marker": "i",
+            "text": "The insured institution should show evidence of substantial debt repayment by shareholders and their related interests.",
+            "content": "The insured institution should show evidence of substantial debt repayment by shareholders and their related interests.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "ii",
+            "text": "The insured institution should not default in premium payment.",
+            "content": "The insured institution should not default in premium payment.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "iii",
+            "text": "Every applicant insured institution will submit a time-framed turn-around plan, the evaluation of which will determine the extent of financial and technical assistance to be granted by the Corporation.",
+            "content": "Every applicant insured institution will submit a time-framed turn-around plan, the evaluation of which will determine the extent of financial and technical assistance to be granted by the Corporation.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "iv",
+            "text": "The agreement will contain among others, the following terms and conditions that will be determined on a case by case basis: - Purpose of facility - Amount of financial facility - Tenor - Repayment - Interest rate - Security – essentially government securities [e.g. investment certificates] or other acceptable collateral.",
+            "content": "The agreement will contain among others, the following terms and conditions that will be determined on a case by case basis: - Purpose of facility - Amount of financial facility - Tenor - Repayment - Interest rate - Security – essentially government securities [e.g. investment certificates] or other acceptable collateral.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "v",
+            "text": "Applicant insured institution will submit joint and several guarantees from the members of its Board as well as the principal shareholders for the repayment of any financial assistance granted.",
+            "content": "Applicant insured institution will submit joint and several guarantees from the members of its Board as well as the principal shareholders for the repayment of any financial assistance granted.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "vi",
+            "text": "The insured institution will suspend the repayment of dividends and bonus where it is in default of its repayment schedule.",
+            "content": "The insured institution will suspend the repayment of dividends and bonus where it is in default of its repayment schedule.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "vii",
+            "text": "The insured institution will embark on intensive deposit drive particularly from non-interbank sources.",
+            "content": "The insured institution will embark on intensive deposit drive particularly from non-interbank sources.",
+            "pointType": "verbatim",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "1",
+            "text": "Show evidence of substantial debt repayment by shareholders and related parties.",
+            "content": "Show evidence of substantial debt repayment by shareholders and related parties.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "2",
+            "text": "Ensure no default in NDIC premium payments.",
+            "content": "Ensure no default in NDIC premium payments.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "3",
+            "text": "Submit a time-bound turnaround plan to the NDIC; the plan will influence the type and extent of assistance granted.",
+            "content": "Submit a time-bound turnaround plan to the NDIC; the plan will influence the type and extent of assistance granted.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "4",
+            "text": "Enter into an agreement with NDIC specifying: - Purpose of the facility - Amount - Tenor and repayment terms - Interest rate - Security (e.g., government securities or acceptable collateral)",
+            "content": "Enter into an agreement with NDIC specifying: - Purpose of the facility - Amount - Tenor and repayment terms - Interest rate - Security (e.g., government securities or acceptable collateral)",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "5",
+            "text": "Provide joint and several guarantees from board members and principal shareholders.",
+            "content": "Provide joint and several guarantees from board members and principal shareholders.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "6",
+            "text": "Suspend dividends and bonuses during any repayment default period.",
+            "content": "Suspend dividends and bonuses during any repayment default period.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "7",
+            "text": "Implement an aggressive deposit mobilization strategy, excluding inter-bank sources.",
+            "content": "Implement an aggressive deposit mobilization strategy, excluding inter-bank sources.",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "8",
+            "text": "Submit monthly returns to NDIC including: - Debt recovery - Performing/non-performing loans - New deposits - New lending - Asset/Liability maturity profile - Cash flow - Financial position - Comprehensive income - Fraud/forgery incidents and disciplinary actions",
+            "content": "Submit monthly returns to NDIC including: - Debt recovery - Performing/non-performing loans - New deposits - New lending - Asset/Liability maturity profile - Cash flow - Financial position - Comprehensive income - Fraud/forgery incidents and disciplinary actions",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          },
+          {
+            "marker": "9",
+            "text": "Prepare for post-assistance monitoring by NDIC via onsite (target examinations, spot checks) and offsite reviews (return analysis and NDIC directives).",
+            "content": "Prepare for post-assistance monitoring by NDIC via onsite (target examinations, spot checks) and offsite reviews (return analysis and NDIC directives).",
+            "pointType": "interpreted",
+            "level": 0,
+            "children": []
+          }
+        ]
       },
       {
         "source": "GUIDELINES ON FINANCIAL AND TECHNICAL ASSISTANCE TO OPERATING INSURED BANKS AND DEPOSIT TAKING FINANCIAL INSTITUTIONS",

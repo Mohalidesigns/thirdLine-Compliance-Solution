@@ -76,6 +76,18 @@ class ObligationPointParserTest {
     }
 
     @Test
+    void squareBracketMarkers() {
+        List<ObligationPoint> pts = ObligationPointParser.parse(
+            "The following documents are required: a] A formal application. b] The purpose of the request.",
+            1L, "verbatim");
+        assertEquals(3, pts.size());
+        assertEquals("a", pts.get(1).getMarker());
+        assertEquals("A formal application.", pts.get(1).getContent());
+        assertEquals("b", pts.get(2).getMarker());
+        assertEquals("The purpose of the request.", pts.get(2).getContent());
+    }
+
+    @Test
     void blankTextYieldsNoPoints() {
         assertTrue(ObligationPointParser.parse(null, 1L, "verbatim").isEmpty());
         assertTrue(ObligationPointParser.parse("   ", 1L, "verbatim").isEmpty());

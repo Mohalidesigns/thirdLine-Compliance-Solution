@@ -332,7 +332,7 @@ public class RegulationSeedService {
     }
 
     @SuppressWarnings("unchecked")
-    private List<ObligationPoint> convertPoints(List<Map<String, Object>> points, Long obligationId, int parentSortOrder) {
+    static List<ObligationPoint> convertPoints(List<Map<String, Object>> points, Long obligationId, int parentSortOrder) {
         List<ObligationPoint> result = new ArrayList<>();
         int sort = parentSortOrder;
         for (Map<String, Object> p : points) {
