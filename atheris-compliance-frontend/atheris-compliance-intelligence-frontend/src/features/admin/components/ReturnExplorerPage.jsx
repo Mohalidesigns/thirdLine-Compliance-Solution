@@ -3,25 +3,13 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  Chip, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
+  Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
   Button, CircularProgress, Paper, Tooltip, IconButton, Menu, Alert,
 } from '@mui/material';
 import {
   Search, Close, RequestQuote, EventRepeat, Groups, HelpOutline, ArrowDropDown,
 } from '@mui/icons-material';
 import api from '../../../services/api';
-
-const FREQUENCY_COLOR = {
-  Daily: '#C53030',
-  Weekly: '#DD6B20',
-  Monthly: '#2B6CB0',
-  Quarterly: '#2C7A7B',
-  Biannual: '#6B46C1',
-  Annual: '#2D7D46',
-  Adhoc: '#718096',
-  'Ad-hoc': '#718096',
-  Event: '#805AD5',
-};
 
 const COLUMNS = [
   { id: 'title', label: 'Return', minWidth: 320, sortField: 'title' },
@@ -247,34 +235,25 @@ export default function ReturnExplorerPage() {
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * size) + idx + 1}</TableCell>
                     <TableCell>
                       <Tooltip title={row.title || 'Untitled return'}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 380,
+                        <Typography variant="body2" sx={{ maxWidth: 380,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {row.title}
                         </Typography>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      {(row.frequencyType || row.frequency) ? (
-                        <Chip size="small" label={row.frequencyType || row.frequency}
-                          sx={{ height: 22, fontWeight: 700, fontSize: '0.65rem',
-                            bgcolor: `${FREQUENCY_COLOR[row.frequencyType] || '#718096'}14`,
-                            color: FREQUENCY_COLOR[row.frequencyType] || '#718096' }} />
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
+                      <Typography variant="body2" color={row.frequencyType || row.frequency ? 'text.primary' : 'text.secondary'}>
+                        {row.frequencyType || row.frequency || '-'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      {row.deadline
-                        ? <Tooltip title={row.deadline}>
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem', maxWidth: 240,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {row.deadline}
-                            </Typography>
-                          </Tooltip>
-                        : <Typography variant="body2" color="text.secondary">-</Typography>}
+                      <Typography variant="body2" sx={{ maxWidth: 300,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.deadline || '-'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="body2">
                         {row.responsibleUnit || 'Unassigned'}
                       </Typography>
                       {row.responsiblePerson && (
