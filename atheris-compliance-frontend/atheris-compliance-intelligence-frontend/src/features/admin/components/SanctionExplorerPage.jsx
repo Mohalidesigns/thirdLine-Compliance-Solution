@@ -69,7 +69,7 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
           <Typography variant="caption" color="text.secondary">{index}</Typography>
         </TableCell>
         <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 300,
+          <Typography variant="body2" sx={{ maxWidth: 300,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.actName || '-'}
           </Typography>
@@ -80,7 +80,7 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
           </Typography>
         </TableCell>
         <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Typography variant="body2">
             {formatNaira(item.sanctionAmountNaira)}{item.sanctionAmountPerDay ? ' /day' : ''}
           </Typography>
         </TableCell>
