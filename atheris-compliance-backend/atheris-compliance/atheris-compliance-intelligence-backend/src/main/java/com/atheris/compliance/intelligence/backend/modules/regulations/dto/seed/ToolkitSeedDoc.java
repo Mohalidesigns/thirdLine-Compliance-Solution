@@ -23,7 +23,6 @@ public class ToolkitSeedDoc {
 
     private Meta meta;
     private List<Universe> universe;
-    private List<UniverseSanction> universeSanctions;
     private Map<String, List<ObligationRow>> obligations;
     private List<SanctionsRow> sanctions;
     private List<ReturnsRow> returns;
@@ -49,7 +48,6 @@ public class ToolkitSeedDoc {
         private String type;
         private String nature;
         private String areaOfFocus;
-        private String sanctions;
         private String status;
         private String commentOnStatus;
         private String documentUrl;
@@ -58,12 +56,6 @@ public class ToolkitSeedDoc {
         private String commercialBankRelevance;
         private String commercialBankComplianceContext;
         private String applicabilityToCommercialBanks;
-    }
-
-    @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class UniverseSanction {
-        private String regulation;
-        private String violation;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
@@ -96,6 +88,10 @@ public class ToolkitSeedDoc {
         private String penalty;
         private String riskExplanation;
         private String liableRoles;
+        /** Baked offline (tools/toolkit-md-points): penalty kinds, numeric max amount, severity band. */
+        private java.util.List<String> penaltyType;
+        private java.math.BigDecimal maxAmountNaira;
+        private Integer severityScore;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)

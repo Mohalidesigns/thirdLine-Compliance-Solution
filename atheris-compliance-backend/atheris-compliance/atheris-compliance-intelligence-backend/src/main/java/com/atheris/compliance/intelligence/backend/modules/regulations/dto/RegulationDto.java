@@ -16,4 +16,5 @@ public class RegulationDto {
     private long obligationCount;
     private long sanctionCount;
     private long returnCount;
+    private long controlCount;
 }

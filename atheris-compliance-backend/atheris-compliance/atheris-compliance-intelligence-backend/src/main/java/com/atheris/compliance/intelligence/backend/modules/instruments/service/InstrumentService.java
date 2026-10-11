@@ -44,17 +44,36 @@ public class InstrumentService {
     private int maxPdfSizeMb;
 
     public Page<InstrumentDto> search(Integer regulatorId, String riskRating,
-                                       String status, Pageable pageable) {
-        if (status != null && !status.isEmpty()) {
-            return instruments.findByStatus(status, pageable).map(this::toDto);
+                                       String status, Long regulationId, String q, Pageable pageable) {
+        if (regulationId == null && (status == null || status.isEmpty()) && (q == null || q.isBlank())) {
+            Specification<Instrument> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
+                if (regulatorId != null)
+                    predicates.add(cb.equal(root.get("regulatorId"), regulatorId));
+                if (riskRating != null)
+                    predicates.add(cb.equal(root.get("riskRating"), riskRating));
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+            return instruments.findAll(spec, pageable).map(this::toDto);
         }
         Specification<Instrument> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
+            // An explicit status filter (or an act drill-down) is honoured as-is; otherwise
+            // instruments default to the published set (matches the register's behaviour).
+            if (status != null && !status.isEmpty()) {
+                predicates.add(cb.equal(root.get("status"), status));
+            } else if (regulationId == null) {
+                predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
+            }
             if (regulatorId != null)
                 predicates.add(cb.equal(root.get("regulatorId"), regulatorId));
             if (riskRating != null)
                 predicates.add(cb.equal(root.get("riskRating"), riskRating));
+            if (regulationId != null)
+                predicates.add(cb.equal(root.get("regulationId"), regulationId));
+            if (q != null && !q.isBlank())
+                predicates.add(cb.like(cb.lower(root.get("sourceTitle")), "%" + q.toLowerCase() + "%"));
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         return instruments.findAll(spec, pageable).map(this::toDto);

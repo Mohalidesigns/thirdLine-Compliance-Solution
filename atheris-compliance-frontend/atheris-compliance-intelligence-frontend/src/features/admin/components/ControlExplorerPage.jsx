@@ -7,14 +7,9 @@ import {
 } from '@mui/material';
 import { Search, Refresh, Close, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
 import api from '../../../services/api';
+import { controlColumns } from 'shared';
 
-const COLUMNS = [
-  { id: 'controlNumber', label: 'Control', minWidth: 320, sortField: 'controlNumber' },
-  { id: 'theme', label: 'Theme / Area', minWidth: 220, sortField: 'theme' },
-  { id: 'riskLevel', label: 'Risk', minWidth: 110, sortField: 'riskLevel' },
-  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
-  { id: 'actName', label: 'Act', minWidth: 220, sortField: 'actName' },
-];
+const COLUMNS = controlColumns({ withAct: true });
 
 function countOf(map, key) {
   if (!map) return 0;
@@ -198,29 +193,9 @@ export default function ControlExplorerPage() {
                     onClick={() => navigate(`/admin/controls/${row.complianceControlId}`)}
                     sx={{ cursor: 'pointer' }}>
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {row.controlSummary || row.controlNumber || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.complianceArea || row.theme || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{row.riskLevel || '—'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{row.status || 'Open'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.actName || '—'}
-                      </Typography>
-                    </TableCell>
+                    {COLUMNS.map(c => (
+                      <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

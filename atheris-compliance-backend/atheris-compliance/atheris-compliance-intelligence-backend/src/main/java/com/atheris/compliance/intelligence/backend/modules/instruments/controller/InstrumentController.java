@@ -25,8 +25,10 @@ public class InstrumentController {
             @RequestParam(required = false) Integer regulatorId,
             @RequestParam(required = false) String riskRating,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long regulationId,
+            @RequestParam(required = false) String q,
             Pageable pageable) {
-        return ResponseEntity.ok(service.search(regulatorId, riskRating, status, pageable));
+        return ResponseEntity.ok(service.search(regulatorId, riskRating, status, regulationId, q, pageable));
     }
 
     @GetMapping("/{id}")

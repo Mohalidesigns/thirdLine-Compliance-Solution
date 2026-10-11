@@ -22,3 +22,10 @@ data/
 tools/toolkit-md-points/points_generated.json
 returns.xlsx
 ~$returns.xlsx
+
+# Offline sanctions penalty parse sidecar + review CSV (regenerable via
+# tools/toolkit-md-points/parse_sanctions.py; the baked result lives in the committed JSON)
+tools/toolkit-md-points/sanctions_parsed.json
+tools/toolkit-md-points/sanctions_review.csv
+sanctions.xlsx
+~$sanctions.xlsx

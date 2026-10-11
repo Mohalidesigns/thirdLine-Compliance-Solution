@@ -10,13 +10,9 @@ import {
   Search, Close, RequestQuote, EventRepeat, Groups, HelpOutline, ArrowDropDown,
 } from '@mui/icons-material';
 import api from '../../../services/api';
+import { returnColumns } from 'shared';
 
-const COLUMNS = [
-  { id: 'title', label: 'Return', minWidth: 320, sortField: 'title' },
-  { id: 'frequency', label: 'Frequency', minWidth: 190, sortField: 'frequencyType' },
-  { id: 'deadline', label: 'Deadline', minWidth: 200, sortField: 'deadline' },
-  { id: 'responsible', label: 'Responsible', minWidth: 200, sortField: 'responsibleUnit' },
-];
+const COLUMNS = returnColumns();
 
 /* KPI card with a breakdown dropdown (mirrors the Instruments page pattern). */
 function KpiCard({ kpi, onSelect, onDrill }) {
@@ -233,33 +229,9 @@ export default function ReturnExplorerPage() {
                     onClick={() => navigate(`/admin/returns/${row.returnId}`)}
                     sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * size) + idx + 1}</TableCell>
-                    <TableCell>
-                      <Tooltip title={row.title || 'Untitled return'}>
-                        <Typography variant="body2" sx={{ maxWidth: 380,
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row.title}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color={row.frequencyType || row.frequency ? 'text.primary' : 'text.secondary'}>
-                        {row.frequencyType || row.frequency || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 300,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.deadline || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {row.responsibleUnit || 'Unassigned'}
-                      </Typography>
-                      {row.responsiblePerson && (
-                        <Typography variant="caption" color="text.secondary">{row.responsiblePerson}</Typography>
-                      )}
-                    </TableCell>
+                    {COLUMNS.map(c => (
+                      <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

@@ -49,6 +49,8 @@ ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS act_id BIGINT REFER
 -- Enrich sanctions with the laws-grid impact/penalty detail columns
 ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS risk_explanation TEXT;
 ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS penalty_details TEXT;
+-- Derived penalty kinds (e.g. ["MONETARY","MONETARY_PER_DAY"]) baked offline by tools/toolkit-md-points
+ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS penalty_type JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_obligation_mappings_act ON obligation_mappings(act_id);
 CREATE INDEX IF NOT EXISTS idx_sanctions_act ON sanctions_and_penalties(act_id);

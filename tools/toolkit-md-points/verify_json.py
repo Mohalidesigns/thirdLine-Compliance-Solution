@@ -28,11 +28,10 @@ EXPECTED = {
     "obligationRows": 1648,
     "obligationRowsSaved": 1541,
     "universeInstruments": 363,
-    "universeSanctions": 246,
     "sanctionsGridRows": 355,
     "sanctionsGridSaved": 351,
     "sanctionsGridDuplicate": 4,
-    "sanctionsTotal": 597,
+    "sanctionsTotal": 351,
     "returns": 139,
     "monitoringPlanRows": 192,
 }
@@ -80,7 +79,6 @@ def main():
     actual = {
         "obligationRows": sum(len(v) for v in d["obligations"].values()),
         "universeInstruments": len(d["universe"]),
-        "universeSanctions": len(d["universeSanctions"]),
         "sanctionsGridRows": len(d["sanctions"]),
         "returns": len(d["returns"]),
         "monitoringPlanRows": len(d["monitoringPlan"]),
@@ -151,7 +149,7 @@ def main():
             grid_saved += 1
     if dup != EXPECTED["sanctionsGridDuplicate"]:
         failures.append(f"re-derived grid sanctions dup={dup} expected {EXPECTED['sanctionsGridDuplicate']}")
-    sanctions_total = len(d["universeSanctions"]) + grid_saved
+    sanctions_total = grid_saved
     if grid_saved != EXPECTED["sanctionsGridSaved"]:
         failures.append(f"re-derived grid sanctions saved={grid_saved} expected {EXPECTED['sanctionsGridSaved']}")
     if sanctions_total != EXPECTED["sanctionsTotal"]:
@@ -182,6 +180,22 @@ def main():
                 saved_with_marker += 1
                 if not pts:
                     saved_missing_points += 1
+    # ── sanctions enrichment: every grid row must carry a penaltyType + a severity band ──
+    grid_missing_type = 0
+    grid_missing_severity = 0
+    grid_with_amount = 0
+    for r in d["sanctions"]:
+        if not (r.get("penaltyType") or []):
+            grid_missing_type += 1
+        if r.get("severityScore") is None:
+            grid_missing_severity += 1
+        if r.get("maxAmountNaira") is not None:
+            grid_with_amount += 1
+    if grid_missing_type:
+        failures.append(f"{grid_missing_type} grid sanctions have no penaltyType")
+    if grid_missing_severity:
+        failures.append(f"{grid_missing_severity} grid sanctions have no severityScore")
+
     if empty_text:
         failures.append(f"{empty_text} points have empty text")
     if saved_missing_points:
@@ -197,7 +211,9 @@ def main():
           f"({saved} obligations / {sanctions_total} sanctions / {len(d['returns'])} returns / "
           f"{actual['universeInstruments']} universe / {actual['monitoringPlanRows']} CMP); "
           f"points on {points_filled} rows "
-          f"({saved_with_marker} rows have a real verbatim marker)")
+          f"({saved_with_marker} rows have a real verbatim marker); "
+          f"sanctions penaltyType on {len(d['sanctions']) - grid_missing_type} grid rows "
+          f"({grid_with_amount} with a numeric amount)")
     return 0
 
 

@@ -10,21 +10,14 @@ import {
   Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
 } from '@mui/icons-material';
 import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
+import { instrumentColumns } from 'shared';
+import InstrumentDetailContent from './detail/InstrumentDetailContent';
 
 const RISK_CONFIG = {
   High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
   Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
   Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
 };
-
-const COLUMNS = [
-  { id: 'title', label: 'Title', minWidth: 280 },
-  { id: 'reference', label: 'Reference No', minWidth: 140 },
-  { id: 'regulator', label: 'Regulator', minWidth: 100 },
-  { id: 'risk', label: 'Risk', minWidth: 80 },
-  { id: 'status', label: 'Status', minWidth: 90 },
-  { id: 'actions', label: 'Actions', minWidth: 100 },
-];
 
 function formatDate(d) {
   if (!d) return '-';
@@ -77,6 +70,7 @@ export default function InstrumentsPage() {
   }, [regulators]);
 
   const regulatorsList = useMemo(() => ['All', ...regulators.map(r => r.abbreviation || r.name).filter(Boolean)], [regulators]);
+  const columns = useMemo(() => instrumentColumns({ regMap }), [regMap]);
 
   const statuses = useMemo(() => {
     const s = new Set(items.map(i => i.status).filter(Boolean));
@@ -175,144 +169,11 @@ export default function InstrumentsPage() {
         {detailLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
         ) : (
-          <>
-            <Paper sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                {riskChip(d.riskRating)}
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  {detailData?.regulator || regMap[d.regulatorId] || '-'}
-                </Typography>
-                {statusChip(d.status)}
-                <Chip size="small" label={d.areaOfFocus || 'General'} variant="outlined" />
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{d.sourceTitle}</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Risk Rating</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(d.riskRating)}</Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Regulator</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{detailData?.regulator || regMap[d.regulatorId] || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Area of Focus</Typography>
-                  <Typography variant="body2">{d.areaOfFocus || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Nature</Typography>
-                  <Typography variant="body2">{d.nature || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Obligations</Typography>
-                  <Typography variant="body2">{detailData?.obligations?.length || 0}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Confidence</Typography>
-                  <Typography variant="body2">{d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'}</Typography>
-                </Box>
-                {d.dateCommencement && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Effective Date</Typography>
-                    <Typography variant="body2">{formatDate(d.dateCommencement)}</Typography>
-                  </Box>
-                )}
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Published</Typography>
-                  <Typography variant="body2">{formatDate(d.firstPublishedAt || d.discoveredAt)}</Typography>
-                </Box>
-              </Box>
-            </Paper>
-
-            {detailData?.aiSummary && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Summary</Typography>
-                <Typography variant="body2" fontStyle="italic" color="text.secondary">{detailData.aiSummary}</Typography>
-              </Paper>
-            )}
-
-            {detailData?.pdfOcrText && (
-              <Paper sx={{ mb: 2 }}>
-                <Button size="small" onClick={() => setShowOcr(!showOcr)}
-                  endIcon={showOcr ? <ExpandLess /> : <ExpandMore />} sx={{ px: 2, py: 1 }}>
-                  {showOcr ? 'Hide' : 'Show'} Raw OCR Text
-                </Button>
-                <Collapse in={showOcr}>
-                  <Box sx={{
-                    p: 2, bgcolor: '#1A1A2E', color: '#E2E8F0',
-                    maxHeight: 400, overflow: 'auto', fontFamily: 'Roboto Mono, monospace',
-                    fontSize: '0.75rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                  }}>
-                    {detailData.pdfOcrText}
-                  </Box>
-                </Collapse>
-              </Paper>
-            )}
-
-            {detailData?.sanctions?.length > 0 && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Penalties</Typography>
-                {detailData.sanctions.map((s, i) => (
-                  <Box key={i} sx={{ mb: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                      {s.sanctionType}{s.amountNaira ? ` — ₦${s.amountNaira.toLocaleString()}` : ''}
-                    </Typography>
-                    {s.liableRoles?.length > 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        Liable: {s.liableRoles.join(', ')}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </Paper>
-            )}
-
-            <Paper>
-              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Obligations ({detailData?.obligations?.length || 0})
-                </Typography>
-              </Box>
-              {detailData?.obligations?.length > 0 ? (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>#</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Section</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Deadline</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {detailData.obligations.map(obl => (
-                        <TableRow key={obl.number} hover>
-                          <TableCell>{obl.number}</TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.statement}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{obl.type || '-'}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{obl.recurringDeadline || '-'}</Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-                  <Typography variant="body2">No specific obligations extracted for this instrument.</Typography>
-                </Box>
-              )}
-            </Paper>
-          </>
+          <InstrumentDetailContent
+            row={d}
+            detail={detailData}
+            regulatorLabel={regMap[d.regulatorId]}
+          />
         )}
       </Box>
     );
@@ -373,11 +234,12 @@ export default function InstrumentsPage() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  {COLUMNS.map(c => (
+                  {columns.map(c => (
                     <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
                       {c.label}
                     </TableCell>
                   ))}
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -390,29 +252,9 @@ export default function InstrumentsPage() {
                         '&:hover': { bgcolor: rc.bg || '#F7FAFC' },
                         borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent',
                       }}>
-                      <TableCell>
-                        <Tooltip title={item.sourceTitle}>
-                          <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceTitle}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.sourceReferenceNumber || '-'}>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceReferenceNumber || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={regMap[item.regulatorId] || '-'}>
-                          <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {regMap[item.regulatorId] || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>{riskChip(item.riskRating)}</TableCell>
-                      <TableCell>{statusChip(item.status)}</TableCell>
+                      {columns.map(c => (
+                        <TableCell key={c.id}>{c.render ? c.render(item) : (item[c.id] ?? '—')}</TableCell>
+                      ))}
                       <TableCell>
                         <Button size="small" variant="text" startIcon={<Visibility />}
                           onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>

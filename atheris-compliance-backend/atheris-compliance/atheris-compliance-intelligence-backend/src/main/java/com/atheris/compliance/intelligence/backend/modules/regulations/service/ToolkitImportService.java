@@ -208,20 +208,10 @@ public class ToolkitImportService {
             instruments.save(inst);
             linkCanonicalInstrument(actRepo.findById(actId).orElse(null));
 
-            // Sanctions described in the universe row (free text)
-            String sanText = u.getSanctions();
-            if (sanText != null && !sanText.isBlank()
-                && !"Not Specified".equalsIgnoreCase(sanText)
-                && !"Not specified".equalsIgnoreCase(sanText)) {
-                sanctions.save(SanctionsPenalty.builder()
-                    .instrumentId(inst.getInstrumentId())
-                    .regulationId(actId)
-                    .sanctionType("Regulatory")
-                    .description(sanText)
-                    .hasBeenEnforced(false)
-                    .build());
-                sanctionCount++;
-            }
+            // NOTE: the free-text "sanctions" cell on the universe sheet is NOT imported.
+            // The only valid sanctions are the structured grid rows (sanctions.xlsx), imported
+            // by importSanctions — the universe ones had no section/penalty/roles and polluted
+            // the register with empty rows.
         }
     }
 
@@ -291,6 +281,9 @@ public class ToolkitImportService {
 
             String penalty = s.getPenalty();
             String violationTrim = violation.trim();
+            List<String> penaltyType = s.getPenaltyType() != null && !s.getPenaltyType().isEmpty()
+                ? s.getPenaltyType() : List.of("QUALITATIVE");
+            BigDecimal maxAmount = s.getMaxAmountNaira() != null ? s.getMaxAmountNaira() : parseMoney(penalty);
             if (sanctions.existsByRegulationIdAndSourceSectionReferenceAndDescriptionAndPenaltyDetails(
                     actId, section, violationTrim, penalty)) {
                 log.debug("[ToolkitImport] Skipping duplicate sanction for {}: {}...",
@@ -303,10 +296,12 @@ public class ToolkitImportService {
                 .sanctionType("Regulatory")
                 .description(violation)
                 .sourceSectionReference(section)
-                .sanctionAmountNaira(parseMoney(penalty))
+                .sanctionAmountNaira(maxAmount)
                 .penaltyDetails(penalty)
                 .riskExplanation(s.getRiskExplanation())
                 .liableRoles(splitRoles(s.getLiableRoles()))
+                .penaltyType(penaltyType)
+                .severityScore(s.getSeverityScore())
                 .hasBeenEnforced(false)
                 .build());
             sanctionCount++;

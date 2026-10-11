@@ -21,6 +21,9 @@ public class SanctionsPenalty {
     private Boolean sanctionAmountPerDay;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private List<String> liableRoles;
+    /** Derived penalty kinds, e.g. ["MONETARY","MONETARY_PER_DAY"]. Filter facet. */
+    @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
+    private List<String> penaltyType;
     private BigDecimal personalLiabilityNaira;
     private Integer severityScore;
     @Builder.Default

@@ -242,7 +242,6 @@ def universe_columns(u_idx):
         "type": col(u_idx, "typeofregulatoryitem"),
         "nature": col(u_idx, "natureofcomplianceitemcoretopicalpertinentsecondaryorothers", "natureofcomplianceitem"),
         "area": col(u_idx, "areaoffocus"),
-        "sanctions": col(u_idx, "sanctionsincludespecificsectionanddetaiilswherenotexplicitlystatedincludenotspecified", "sanctions"),
         "status": col(u_idx, "statuscurrentoutdated", "status"),
         "comment": col(u_idx, "commentonstatus"),
         "link": col(u_idx, "linkofdocument"),
@@ -267,7 +266,7 @@ def build_model(sections):
         to count -> 139, which is the recorded DB value).
     """
     model = {
-        "universe": [], "universeSanctions": [],
+        "universe": [],
         "obligations": {s: [] for s in CRMP_SECTIONS},
         "sanctionsGrid": [], "returns": [], "monitoringPlan": [],
         "perSection": {}, "counts": {},
@@ -302,7 +301,6 @@ def build_model(sections):
             continue
         seen_titles.add(title)
         find_or_create_act(title)
-        san = get(r, uc["sanctions"])
         model["universe"].append({
             "title": title,
             "reference": extract_reference(r),
@@ -313,7 +311,6 @@ def build_model(sections):
             "type": get(r, uc["type"]),
             "nature": get(r, uc["nature"]),
             "areaOfFocus": get(r, uc["area"]),
-            "sanctions": san,
             "status": get(r, uc["status"]),
             "commentOnStatus": get(r, uc["comment"]),
             "documentUrl": get(r, uc["link"]),
@@ -323,8 +320,8 @@ def build_model(sections):
             "commercialBankComplianceContext": get(r, uc["context"]),
             "applicabilityToCommercialBanks": get(r, uc["app"]),
         })
-        if san is not None and not (san.lower() in ("not specified", "notspecified")):
-            model["universeSanctions"].append({"regulation": title, "violation": san})
+        # The universe sheet's free-text "sanctions" cell is intentionally NOT captured — the
+        # only valid sanctions are the structured grid rows (sanctions.xlsx).
 
     # ── importCrmp obligations + importCmpControlsFromSections ──
     total_saved = {}
@@ -450,7 +447,7 @@ def build_model(sections):
             "riskExplanation": get(r, 5),
             "liableRoles": get(r, 6),
         })
-    total_sanctions = len(model["universeSanctions"]) + grid_saved
+    total_sanctions = grid_saved
 
     # ── importReturns (header row excluded from the JSON -> 139) ──
     ret_rows = sections.get(RETURNS, [])
@@ -520,7 +517,6 @@ def build_model(sections):
 
     model["counts"] = {
         "universeInstruments": len(model["universe"]),
-        "universeSanctions": len(model["universeSanctions"]),
         "obligationRows": sum(len(v) for v in model["obligations"].values()),
         "obligationRowsSaved": total_obligations,
         "obligationRowsDuplicate": sum(total_dupes.values()),
@@ -547,7 +543,6 @@ def emit_json(model, out_path):
             "totals": model["counts"],
         },
         "universe": model["universe"],
-        "universeSanctions": model["universeSanctions"],
         "obligations": model["obligations"],
         "sanctions": model["sanctionsGrid"],
         "returns": model["returns"],
@@ -561,7 +556,7 @@ def report(model):
     c = model["counts"]
     print("\n=== PARITY REPORT (fresh-import ground truth: 1541 / 597 / 139) ===")
     print(f"Obligations saved (deduped): {c['obligationRowsSaved']}  (expected 1541)  [JSON rows {c['obligationRows']}]")
-    print(f"Sanctions (universe {c['universeSanctions']} + grid saved {c['sanctionsGridSaved']} of {c['sanctionsGridRows']}) = {c['sanctionsTotal']}  (expected 597)")
+    print(f"Sanctions (grid saved {c['sanctionsGridSaved']} of {c['sanctionsGridRows']}) = {c['sanctionsTotal']}  (expected 351)")
     print(f"Returns: {c['returns']}  (expected 139)")
     print(f"Universe instruments: {c['universeInstruments']}  | CMP controls: {c['monitoringPlanRows']}")
 
