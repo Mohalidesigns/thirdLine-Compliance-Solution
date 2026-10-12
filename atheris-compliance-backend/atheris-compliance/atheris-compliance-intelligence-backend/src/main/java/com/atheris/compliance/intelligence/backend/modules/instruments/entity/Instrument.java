@@ -61,4 +61,20 @@ public class Instrument {
     private Instant updatedAt;
     @PrePersist void onCreate() { createdAt = updatedAt = Instant.now(); discoveredAt = Instant.now(); }
     @PreUpdate void onUpdate() { updatedAt = Instant.now(); }
+
+    /**
+     * Ensure every instrument carries a reference number. Runs after the INSERT (so the
+     * generated id is available) and is a no-op when a real reference was supplied (e.g. the
+     * toolkit universe rows, or a scraped document whose regulator reference was extracted).
+     * Any instrument left blank gets a deterministic, source-prefixed code — `TKL-` for
+     * toolkit-seeded rows, `GEN-` for scraped/uploaded ones — so the register's Reference No
+     * column is never empty and the code is stable for a given instrument id.
+     */
+    @PostPersist
+    void assignGeneratedReference() {
+        if (sourceReferenceNumber == null || sourceReferenceNumber.isBlank()) {
+            String prefix = "toolkit_seed".equals(uploadSource) ? "TKL" : "GEN";
+            sourceReferenceNumber = String.format("%s-%04d", prefix, instrumentId);
+        }
+    }
 }

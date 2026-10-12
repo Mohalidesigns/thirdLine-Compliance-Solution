@@ -20,4 +20,6 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long>, J
     Page<Instrument> findByRegulatorIdAndStatus(Integer regulatorId, String status, Pageable pageable);
     List<Instrument> findByRegulatorIdOrderByDiscoveredAtDesc(Integer regulatorId);
     long countByRegulationId(Long regulationId);
+    List<Instrument> findBySourceReferenceNumberIsNull();
+    List<Instrument> findBySourceReferenceNumber(String sourceReferenceNumber);
 }
