@@ -111,6 +111,7 @@ public class AdminControlService {
             .theme(c.getTheme())
             .complianceArea(c.getComplianceArea())
             .riskLevel(c.getRiskLevel())
+            .residualRiskRating(c.getResidualRiskRating())
             .frequency(c.getFrequency())
             .responsibleOfficer(c.getResponsibleOfficer())
             .dueDate(c.getDueDate())

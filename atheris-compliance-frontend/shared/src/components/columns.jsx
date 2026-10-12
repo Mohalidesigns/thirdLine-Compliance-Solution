@@ -95,7 +95,7 @@ export function controlColumns({ withAct = true } = {}) {
     { id: 'theme', label: 'Theme / Area', minWidth: 220, maxWidth: 240, truncate: true, sortable: true, sortField: 'theme',
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(240)}>{r.complianceArea || r.theme || '—'}</Typography> },
     { id: 'riskLevel', label: 'Risk', minWidth: 110, sortable: true, sortField: 'riskLevel',
-      render: (r) => <Typography variant="body2">{r.riskLevel || '—'}</Typography> },
+      render: (r) => <Typography variant="body2">{r.riskLevel || r.residualRiskRating || '—'}</Typography> },
     { id: 'status', label: 'Status', minWidth: 110, sortable: true, sortField: 'status',
       render: (r) => <Typography variant="body2">{r.status || 'Open'}</Typography> },
   ];
