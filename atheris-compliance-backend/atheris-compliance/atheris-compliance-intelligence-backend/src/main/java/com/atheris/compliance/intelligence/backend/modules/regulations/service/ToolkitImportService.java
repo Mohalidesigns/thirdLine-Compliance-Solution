@@ -464,7 +464,14 @@ public class ToolkitImportService {
                 .status(Constants.INST_PUBLISHED)
                 .uploadSource("toolkit_seed")
                 .build();
-            instruments.save(stub);
+            stub = instruments.save(stub);
+            // Generated act stubs have no universe reference; give them a deterministic code so
+            // the register's Reference No is never blank. The code continues the universe
+            // sequence (universe instruments are seeded first, so ids line up with TKL-0001..N).
+            if (stub.getSourceReferenceNumber() == null || stub.getSourceReferenceNumber().isBlank()) {
+                stub.setSourceReferenceNumber(String.format("TKL-%04d", stub.getInstrumentId()));
+                stub = instruments.save(stub);
+            }
             instrumentCount++;
         } else if (stub.getRegulatorId() == null && reg.getRegulatorId() != null) {
             stub.setRegulatorId(reg.getRegulatorId());
