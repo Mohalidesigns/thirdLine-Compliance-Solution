@@ -60,10 +60,10 @@ public class ObligationService {
 
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
-            String status, Boolean hasGap, Boolean noControl, Pageable p) {
+            String status, Boolean hasGap, Boolean noControl, Long instrumentId, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId))
             .sorted(registerComparator(p))
             .toList();
         int total = filtered.size();
@@ -243,7 +243,9 @@ public class ObligationService {
     }
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
-                            String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl) {
+                            String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl,
+                            Long instrumentId) {
+        if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
         if (hasGap != null && hasGap && !Boolean.TRUE.equals(i.getHasGap())) return false;
         if (noControl != null && noControl && i.getControlCount() > 0) return false;
         if (risk != null && !risk.isBlank()

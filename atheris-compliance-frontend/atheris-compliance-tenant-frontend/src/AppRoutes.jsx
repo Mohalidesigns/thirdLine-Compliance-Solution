@@ -23,6 +23,8 @@ const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
 const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPage'));
 const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
+const ActsPage = lazy(() => import('./pages/ActsPage'));
+const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 
 function Loading() {
   return (
@@ -56,6 +58,8 @@ export default function AppRoutes() {
           <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
+          <Route path="acts" element={<ActsPage />} />
+          <Route path="acts/:id" element={<ActDetailPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />

@@ -1,6 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
+import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
+import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationPoint;
@@ -49,6 +51,7 @@ public class RegulationSeedService {
     private final RegulatorySanctionRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ControlRepository controlRepo;
+    private final ActRepository actRepo;
     private final TenantIdentityService tenantIdentity;
     private final PlatformTransactionManager txManager;
 
@@ -102,6 +105,7 @@ public class RegulationSeedService {
             return 0;
         }
         Long instrumentId = bundle.getCanonicalInstrument().getInstrumentId();
+        upsertAct(bundle, instrumentId);
         boolean hasObligations = obligationRepo.countByInstrumentId(instrumentId) > 0;
         TenantRegulator reg = tenantRegs.stream()
             .filter(r -> bundle.getRegulatorId() != null
@@ -297,6 +301,20 @@ public class RegulationSeedService {
             bundle.getReturns() != null ? bundle.getReturns().size() : 0,
             seededControls);
         return createdObligations.size();
+    }
+
+    /** Create/update the tenant act row for a bundle so acts are browsable and countable. Idempotent. */
+    private void upsertAct(PlatformRegulationSeed bundle, Long instrumentId) {
+        if (bundle.getRegulationId() == null) return;
+        if (bundle.getRegulationName() == null || bundle.getRegulationName().isBlank()) return;
+        Act act = actRepo.findByRegulationId(bundle.getRegulationId()).orElseGet(Act::new);
+        act.setRegulationId(bundle.getRegulationId());
+        act.setCanonicalInstrumentId(instrumentId);
+        act.setName(bundle.getRegulationName());
+        act.setAbbreviation(bundle.getRegulationAbbreviation());
+        act.setRegulatorId(bundle.getRegulatorId());
+        act.setRegulatorName(bundle.getRegulatorName());
+        actRepo.save(act);
     }
 
     private String deriveObligationName(PlatformRegulationSeed.ObligationItem o, int num) {

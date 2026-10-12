@@ -5,12 +5,13 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
   Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid, Skeleton,
-  Stepper, Step, StepLabel, Card, CardContent, CardHeader,
+  Stepper, Step, StepLabel,
   Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, CheckCircle,
   Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar, Event, Settings as SettingsIcon,
+  Flag, Timeline, StickyNote2, EventAvailable, AccessTime, WarningAmber,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,6 +21,7 @@ import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
+import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
@@ -30,6 +32,15 @@ const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
   'Submitted Late': 'warning', 'Overdue': 'error',
 };
+
+const STATUS_ACCENT = {
+  'Not Started': '#718096', 'In Progress': '#3182CE', 'Submitted': '#2D7D46',
+  'Submitted Late': '#DD6B20', 'Overdue': '#E53E3E',
+};
+
+function statusAccent(status) {
+  return STATUS_ACCENT[status] || '#2B6CB0';
+}
 
 // harmonized with ReviewInboxPage / ObligationsRegisterPage
 const INHERENT_RISK_CONFIG = {
@@ -768,108 +779,159 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
         <Typography color="text.primary">{detail.returnName}</Typography>
       </Breadcrumbs>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
-            <Box>
-              <Typography variant="h5">{detail.returnName}{detail.triggerDate ? ` · Trigger ${formatDate(detail.triggerDate)}` : detail.period ? ` · ${detail.period}` : ''}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {detail.dueDate ? `Due ${formatDate(detail.dueDate)}` : noPeriodLabel(detail)}
-                {detail.filingChannel && ` · Channel: ${detail.filingChannel}`}
-                {detail.returnOwnerName && ` · Owner: ${detail.returnOwnerName}`}
-              </Typography>
-              <Box sx={{ mt: 0.5 }}>
-                <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'} />
-              </Box>
-            </Box>
-            {onEditSchedule && (
-              <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
-                sx={{ fontWeight: 600, textTransform: 'none' }}>
-                Edit schedule
-              </Button>
-            )}
-            {onEditEventTrigger && (
-              <Button variant="outlined" size="small" startIcon={<SettingsIcon />} onClick={onEditEventTrigger}
-                sx={{ fontWeight: 600, textTransform: 'none' }}>Edit event trigger</Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h4">{detail.returnName}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+            <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'}
+              sx={{ height: 22, borderRadius: '4px' }} />
+            <Chip size="small" variant="outlined" label={detail.frequency || detail.frequencyType || 'Ad hoc'}
+              sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+            {detail.filingRegulator && (
+              <Chip size="small" variant="outlined" label={detail.filingRegulator}
+                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
             )}
           </Box>
-          {detail.eventTriggerDate && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Triggered {detail.eventTriggerLabel || 'Event'} on {formatDate(detail.eventTriggerDate)} · {detail.eventReference}
-              {detail.eventEvidenceFileId && <> · <EvidenceFileButton fileId={detail.eventEvidenceFileId} /></>}
-              {detail.eventUnadjustedDueDate && ` · Base deadline ${formatDate(detail.eventUnadjustedDueDate)}`}
-              {detail.eventMetadataJson && <Tooltip title={detail.eventMetadataJson}><Chip size="small" label="Trigger details" sx={{ ml: 1, height: 20 }} /></Tooltip>}
-              {detail.eventDueDateAdjusted && ` · adjusted to next working day (${formatDate(detail.dueDate)})`}
-            </Alert>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {onEditSchedule && (
+            <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
+              sx={{ fontWeight: 600, textTransform: 'none' }}>
+              Edit schedule
+            </Button>
           )}
-        </CardContent>
-      </Card>
+          {onEditEventTrigger && (
+            <Button variant="outlined" size="small" startIcon={<SettingsIcon />} onClick={onEditEventTrigger}
+              sx={{ fontWeight: 600, textTransform: 'none' }}>Edit event trigger</Button>
+          )}
+        </Box>
+      </Box>
 
-      {detail.escalationLevel > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
-          </Typography>
-          {detail.escalatedAt && (
-            <Typography variant="caption">Escalated since {formatDate(detail.escalatedAt)}</Typography>
-          )}
-        </Alert>
+      {/* Headline numbers */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile icon={<EventAvailable fontSize="small" />} label="Due Date"
+          value={detail.dueDate ? formatDate(detail.dueDate) : noPeriodLabel(detail)} />
+        <StatTile icon={<CheckCircle fontSize="small" />} label="Status" accent={statusAccent(detail.status)}
+          chip={<Chip size="small" label={detail.status || 'Not Started'}
+            color={STATUS_COLORS[detail.status] || 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 700 }} />} />
+        <StatTile icon={<AccessTime fontSize="small" />} label="Days Late"
+          value={detail.daysLate > 0 ? `${detail.daysLate}` : '—'}
+          accent={detail.daysLate > 0 ? '#E53E3E' : '#2D7D46'} />
+        <StatTile icon={<Flag fontSize="small" />} label="Escalation"
+          value={detail.escalationLevel > 0 ? `Level ${detail.escalationLevel}` : 'None'}
+          accent={detail.escalationLevel > 0 ? '#E53E3E' : '#2B6CB0'} />
+      </Box>
+
+      <Section icon={<Schedule fontSize="small" />} title="Schedule"
+        action={detail.currentStage
+          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
+          : null}>
+        <FieldGrid min={160}>
+          <Field label="Frequency" value={detail.frequency || detail.frequencyType} />
+          <Field label="Regulator" value={detail.filingRegulator} />
+          <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'Event-driven' : '—')} />
+          <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
+          <Field label="Prep Start" value={detail.prepStartDate ? formatDate(detail.prepStartDate) : '—'} />
+          <Field label="Filing Channel" value={detail.filingChannel} />
+          <Field label="Return Owner" value={detail.returnOwnerName} />
+          {detail.deadlineText && <Field label="Regulator Wording" value={detail.deadlineText} />}
+        </FieldGrid>
+      </Section>
+
+      {(detail.eventTriggerDate || detail.eventTriggerLabel) && (
+        <Section icon={<Event fontSize="small" />} title="Event Trigger">
+          <FieldGrid min={160}>
+            <Field label="Trigger" value={detail.eventTriggerLabel} />
+            <Field label="Trigger Date" value={detail.eventTriggerDate ? formatDate(detail.eventTriggerDate) : '—'} />
+            <Field label="Reference" value={detail.eventReference} />
+            <Field label="Base Deadline" value={detail.eventUnadjustedDueDate ? formatDate(detail.eventUnadjustedDueDate) : '—'} />
+            <Field label="Adjusted">
+              {detail.eventDueDateAdjusted
+                ? <Chip size="small" label="Moved to next working day" sx={{ height: 22, borderRadius: '4px' }} />
+                : <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>No</Typography>}
+            </Field>
+            {detail.eventEvidenceFileId && (
+              <Field label="Evidence"><EvidenceFileButton fileId={detail.eventEvidenceFileId} /></Field>
+            )}
+          </FieldGrid>
+        </Section>
       )}
 
-      <Card sx={{ mb: 2 }}>
-        <CardHeader title="Stages" />
-        <CardContent>
-          <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
-            {detail.stages && detail.stages.map((stage, i) => (
-              <Step key={i} completed={stage.completed} active={stage.current}>
-                <StepLabel optional={
-                  <Box sx={{ mt: 0.5 }}>
-                    {stage.completedAt && (
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Completed {formatDate(stage.completedAt)}
-                        {stage.completedByName && ` by ${stage.completedByName}`}
-                      </Typography>
-                    )}
-                    {stage.evidenceUrl && (
-                      <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
-                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                        <LinkIcon fontSize="inherit" /> Evidence
-                      </Link>
-                    )}
-                    {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
-                      <Box sx={{ mt: 1 }}>
-                        <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
-                          Mark complete → {STAGE_NAMES[i + 1]}
-                        </Button>
-                      </Box>
-                    )}
-                    {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
-                      <Box sx={{ mt: 1 }}>
-                        <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
-                          Mark as submitted
-                        </Button>
-                      </Box>
-                    )}
-                  </Box>
-                }>{stage.name}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+      {detail.escalationLevel > 0 && (
+        <Section icon={<WarningAmber fontSize="small" />} title="Escalation">
+          <Alert severity="error">
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
+            </Typography>
+            {detail.escalatedAt && (
+              <Typography variant="caption">Escalated since {formatDate(detail.escalatedAt)}</Typography>
+            )}
+          </Alert>
+        </Section>
+      )}
 
-          {isSubmitted && detail.submissionEvidenceUrl && (
-            <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <CheckCircle color="success" fontSize="small" />
-                Submitted {formatDate(detail.submittedDate)}
-                {detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
-              </Typography>
-              <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">
-                View submission receipt
-              </Link>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+      <Section icon={<Timeline fontSize="small" />} title="Stages"
+        action={detail.currentStage
+          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
+          : null}>
+        <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
+          {detail.stages && detail.stages.map((stage, i) => (
+            <Step key={i} completed={stage.completed} active={stage.current}>
+              <StepLabel optional={
+                <Box sx={{ mt: 0.5 }}>
+                  {stage.completedAt && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Completed {formatDate(stage.completedAt)}
+                      {stage.completedByName && ` by ${stage.completedByName}`}
+                    </Typography>
+                  )}
+                  {stage.evidenceUrl && (
+                    <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
+                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                      <LinkIcon fontSize="inherit" /> Evidence
+                    </Link>
+                  )}
+                  {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
+                        Mark complete → {STAGE_NAMES[i + 1]}
+                      </Button>
+                    </Box>
+                  )}
+                  {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
+                    <Box sx={{ mt: 1 }}>
+                      <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
+                        Mark as submitted
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              }>{stage.name}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+
+        {isSubmitted && detail.submissionEvidenceUrl && (
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <CheckCircle color="success" fontSize="small" />
+              Submitted {formatDate(detail.submittedDate)}
+              {detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
+            </Typography>
+            <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">
+              View submission receipt
+            </Link>
+          </Box>
+        )}
+      </Section>
+
+      {detail.notes && (
+        <Section icon={<StickyNote2 fontSize="small" />} title="Notes">
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.85rem' }}>
+            {detail.notes}
+          </Typography>
+        </Section>
+      )}
 
       <AdvanceDialog open={advanceOpen} onClose={() => setAdvanceOpen(false)}
         instanceId={detail.instanceId} stageName={detail.currentStage} nextStageName={nextStage}

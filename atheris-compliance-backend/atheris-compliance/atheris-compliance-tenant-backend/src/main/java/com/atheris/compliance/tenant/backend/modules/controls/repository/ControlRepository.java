@@ -25,6 +25,7 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
 
     long countByStatus(String status);
     long countByResidualRisk(String risk);
+    long countByActId(Integer actId);
 
     @Query(value = "SELECT DISTINCT ct.control_id FROM control_tasks ct WHERE ct.status = 'Pending' AND ct.due_date <= :today", nativeQuery = true)
     List<Integer> findControlIdsWithOverdueTasks(@Param("today") java.time.LocalDate today);

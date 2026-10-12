@@ -8,6 +8,7 @@ import {
 import {
   Visibility, Download, Edit, UploadFile, Link as LinkIcon,
   ArrowBack, Gavel, Close, Search,
+  Category, Description as DescriptionIcon, BuildCircle, Assignment, ReportProblem, History,
 } from '@mui/icons-material';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -17,6 +18,7 @@ import MapReturnModal from '../components/modals/MapReturnModal';
 import GapModal from '../components/modals/GapModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import FormattedText from '../components/FormattedText';
+import { Section, Field, FieldGrid, StatTile, RiskChip, MonoChip } from '../components/detailKit';
 
 const RISK_CONFIG = {
   Critical: { color: 'error', bg: '#FFF5F5' },
@@ -217,112 +219,103 @@ export default function ObligationDetailPage() {
 
       {selected && (
         <Box sx={{ maxWidth: 900 }}>
-          {/* Combined header: chips + title + metadata */}
-          <Box sx={{ mb: 2 }}>
-            {/* Top chips row */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-              {riskChip(selected.tenantRiskRating || selected.inherentRiskRating, 'small',
-                selected.likelihoodRating, selected.impactRating)}
-              {(selected.regulatorAbbreviation || selected.regulatorName) && (
-                <Chip size="small" label={selected.regulatorAbbreviation || selected.regulatorName} sx={{ height: 22 }} />
-              )}
-              {selected.areaOfFocus && <Chip size="small" label={selected.areaOfFocus} sx={{ height: 22 }} />}
-              {selected.sectionReference && (
-                <Chip size="small" variant="outlined" label={selected.sectionReference}
-                  sx={{ height: 22, fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
-              )}
-              {selected.recurringDeadlineType && <Chip size="small" label={prettify(selected.recurringDeadlineType)} variant="outlined" sx={{ height: 22 }} />}
-              <Chip size="small" label={selected.status || 'unknown'}
-                color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22 }} />
-              {selected.obligationNumber != null && (
-                <Typography variant="caption" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
-                  #{selected.obligationNumber}
-                </Typography>
-              )}
+          {/* Header: chips + title + headline numbers */}
+          <Section
+            icon={<Gavel fontSize="small" />}
+            title={selected.title || selected.name || 'Untitled obligation'}
+            subtitle={selected.sourceTitle}
+            action={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <RiskChip rating={selected.tenantRiskRating || selected.inherentRiskRating}
+                  likelihood={selected.likelihoodRating} impact={selected.impactRating} />
+                {(selected.regulatorAbbreviation || selected.regulatorName) && (
+                  <Chip size="small" label={selected.regulatorAbbreviation || selected.regulatorName} sx={{ height: 22, borderRadius: '4px' }} />
+                )}
+                {selected.areaOfFocus && <Chip size="small" variant="outlined" label={selected.areaOfFocus} sx={{ height: 22, borderRadius: '4px' }} />}
+                {selected.sectionReference && <MonoChip label={selected.sectionReference} />}
+                {selected.recurringDeadlineType && <Chip size="small" variant="outlined" label={prettify(selected.recurringDeadlineType)} sx={{ height: 22, borderRadius: '4px' }} />}
+                <Chip size="small" label={selected.status || 'unknown'}
+                  color={STATUS_COLOR[selected.status] || 'default'} sx={{ height: 22, borderRadius: '4px' }} />
+              </Box>
+            }>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2 }}>
+              <StatTile label="Risk Rating"
+                chip={<RiskChip rating={selected.tenantRiskRating || selected.inherentRiskRating}
+                  likelihood={selected.likelihoodRating} impact={selected.impactRating} />} />
+              <StatTile label="Applicability" chip={selected.applicability
+                ? <Chip size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 700 }} />
+                : undefined} />
+              <StatTile label="Obligation No." value={selected.obligationNumber != null ? `#${selected.obligationNumber}` : '—'} />
+              <StatTile label="Classification" value={selected.classificationVersion != null ? `v${selected.classificationVersion}` : '—'} />
             </Box>
+          </Section>
 
-            {/* Title + source */}
-            <Typography variant="h6" sx={{ fontWeight: 400, mb: 0.5 }}>
-              {selected.title || selected.name || 'Untitled obligation'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{selected.sourceTitle}</Typography>
-
-            {/* Metadata grid */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '4px 16px', alignItems: 'baseline' }}>
-              {[
-                ['Applicability', selected.applicability ? <Chip key="a" size="small" label={selected.applicability} color={selected.applicability === 'applicable' ? 'success' : 'default'} sx={{ height: 22 }} /> : '-'],
-                ['Owner', selected.controlOwner || selected.assignedOwnerName || 'Unassigned'],
-                ['Department', selected.assignedDepartment || '-'],
-                ['Risk Rating', selected.tenantRiskRating || '-'],
-                ['Likelihood', selected.likelihoodRating || '-'],
-                ['Impact', selected.impactRating || '-'],
-                ['Risk Justification', selected.riskJustification || '-'],
-                ['Obligation No.', selected.obligationNumber != null ? `#${selected.obligationNumber}` : '-'],
-                ['Section', selected.sectionReference || '-'],
-                ['Obligation Type', prettify(selected.obligationType) || '-'],
-                ['Deadline', prettify(selected.recurringDeadlineType) || '-'],
-                ['Act / Regulation', selected.actName || (selected.regulationId ? `Reg #${selected.regulationId}` : '-')],
-                ['Effective Date', selected.effectiveDate ? formatDate(selected.effectiveDate) : '-'],
-                ['Classified By', selected.classifiedByName || '-'],
-                ['Classified Date', selected.classifiedAt ? formatDate(selected.classifiedAt) : '-'],
-                ['Classification Version', selected.classificationVersion != null ? `v${selected.classificationVersion}` : '-'],
-              ].filter(([, val]) => val && val !== '-').map(([label, value]) => (
-                <Fragment key={label}>
-                  <Typography variant="body2" color="text.secondary">{label}</Typography>
-                  <Typography variant="body2" component="div">{value}</Typography>
-                </Fragment>
-              ))}
-            </Box>
-            {selected.applicabilityReasoning && (
-              <Box sx={{ mt: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Reasoning
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{selected.applicabilityReasoning}</Typography>
+          {/* Classification details */}
+          <Section icon={<Category fontSize="small" />} title="Classification" subtitle="Ownership, risk assessment and source">
+            <FieldGrid min={180}>
+              <Field label="Owner" value={selected.controlOwner || selected.assignedOwnerName || 'Unassigned'} />
+              <Field label="Department" value={selected.assignedDepartment} />
+              <Field label="Applicability" value={selected.applicability} />
+              <Field label="Risk Rating" value={selected.tenantRiskRating || selected.inherentRiskRating} />
+              <Field label="Likelihood" value={selected.likelihoodRating} />
+              <Field label="Impact" value={selected.impactRating} />
+              <Field label="Obligation No." value={selected.obligationNumber != null ? `#${selected.obligationNumber}` : null} />
+              <Field label="Section" value={selected.sectionReference} />
+              <Field label="Obligation Type" value={prettify(selected.obligationType)} />
+              <Field label="Deadline" value={prettify(selected.recurringDeadlineType)} />
+              <Field label="Act / Regulation" value={selected.actName} />
+              <Field label="Effective Date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : null} />
+              <Field label="Classified By" value={selected.classifiedByName} />
+              <Field label="Classified Date" value={selected.classifiedAt ? formatDate(selected.classifiedAt) : null} />
+              <Field label="Classification Version" value={selected.classificationVersion != null ? `v${selected.classificationVersion}` : null} />
+            </FieldGrid>
+            {selected.riskJustification && (
+              <Box sx={{ mt: 2 }}>
+                <Field label="Risk Justification" value={selected.riskJustification} />
               </Box>
             )}
-          </Box>
+            {selected.applicabilityReasoning && (
+              <Box sx={{ mt: 2 }}>
+                <Field label="Reasoning" value={selected.applicabilityReasoning} />
+              </Box>
+            )}
+          </Section>
 
           {/* Obligation Statement — verbatim + interpreted */}
           {(selected.description || selected.plainEnglishStatement) && (
-            <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+            <Section icon={<DescriptionIcon fontSize="small" />} title="Obligation Statement">
               {selected.description && (
-                <Box sx={{ mb: selected.plainEnglishStatement ? 2 : 0 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Source Text
-                  </Typography>
-                  <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
+                <Box sx={{ mb: selected.plainEnglishStatement ? 2.5 : 0 }}>
+                  <Field label="Source Text">
+                    <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
+                  </Field>
                 </Box>
               )}
               {selected.plainEnglishStatement && (
-                <Box>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Plain English
-                  </Typography>
+                <Field label="Plain English">
                   <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
-                </Box>
+                </Field>
               )}
-            </Paper>
+            </Section>
           )}
 
           {/* Controls — name-only list */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title={`Linked Controls (${selected.linkedControls?.length || 0})`}
-              action={
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {selected.linkedControls?.length > 0 && (
-                    <Button size="small" variant="text" onClick={() => openDrawer('controls')}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
-                  )}
-                  {selected.linkedControls?.length > 0 && (
-                    <Button size="small" variant="text" onClick={() => navigate(`/controls?obligationId=${obligationId}`)}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>Open in Controls</Button>
-                  )}
-                  <Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
-                    startIcon={<Edit sx={{ fontSize: 16 }} />}
-                    sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>
-                </Box>
-              } />
+          <Section icon={<BuildCircle fontSize="small" />} title={`Linked Controls (${selected.linkedControls?.length || 0})`}
+            action={
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {selected.linkedControls?.length > 0 && (
+                  <Button size="small" variant="text" onClick={() => openDrawer('controls')}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
+                )}
+                {selected.linkedControls?.length > 0 && (
+                  <Button size="small" variant="text" onClick={() => navigate(`/controls?obligationId=${obligationId}`)}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>Open in Controls</Button>
+                )}
+                <Button size="medium" variant="contained" onClick={() => setActiveModal('controls')}
+                  startIcon={<Edit sx={{ fontSize: 16 }} />}
+                  sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Link controls</Button>
+              </Box>
+            }>
             {selected.linkedControls?.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {selected.linkedControls.slice(0, 5).map((c, i) => (
@@ -346,22 +339,21 @@ export default function ObligationDetailPage() {
                 ))}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">No controls linked</Typography>}
-          </Paper>
+          </Section>
 
           {/* Returns — chip preview */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title={`Return Required (${selected.linkedReturns?.length || 0})`}
-              action={
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {selected.linkedReturns?.length > 0 && (
-                    <Button size="small" variant="text" onClick={() => openDrawer('returns')}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
-                  )}
-                  <Button size="medium" variant="contained" onClick={() => setActiveModal('returns')}
-                    startIcon={<Edit sx={{ fontSize: 16 }} />}
-                    sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Map return</Button>
-                </Box>
-              } />
+          <Section icon={<Assignment fontSize="small" />} title={`Return Required (${selected.linkedReturns?.length || 0})`}
+            action={
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {selected.linkedReturns?.length > 0 && (
+                  <Button size="small" variant="text" onClick={() => openDrawer('returns')}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
+                )}
+                <Button size="medium" variant="contained" onClick={() => setActiveModal('returns')}
+                  startIcon={<Edit sx={{ fontSize: 16 }} />}
+                  sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Map return</Button>
+              </Box>
+            }>
             {selected.linkedReturns?.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {selected.linkedReturns.slice(0, 5).map((r, i) => (
@@ -386,15 +378,14 @@ export default function ObligationDetailPage() {
                 )}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">None mapped</Typography>}
-          </Paper>
+          </Section>
 
           {/* Sanctions — compact preview */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title={`Regulatory Sanctions (${selected.sanctions?.length || 0})`}
-              action={selected.sanctions?.length > 0 ? (
-                <Button size="small" variant="text" onClick={() => openDrawer('sanctions')}
-                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
-              ) : null} />
+          <Section icon={<Gavel fontSize="small" />} title={`Regulatory Sanctions (${selected.sanctions?.length || 0})`}
+            action={selected.sanctions?.length > 0 ? (
+              <Button size="small" variant="text" onClick={() => openDrawer('sanctions')}
+                sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
+            ) : null}>
             {selected.sanctions?.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {selected.sanctions.slice(0, 5).map((s, i) => (
@@ -426,35 +417,33 @@ export default function ObligationDetailPage() {
                 )}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">No sanctions recorded</Typography>}
-          </Paper>
+          </Section>
 
           {/* Gap */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title="Control Gap"
-              action={actionEdit('gap', 'Identified Gaps')} />
+          <Section icon={<ReportProblem fontSize="small" />} title="Control Gap"
+            action={actionEdit('gap', 'Identified Gaps')}>
             {selected.hasGap ? (
-              <Alert severity="warning" sx={{ mt: -1, mb: 1 }}>
+              <Alert severity="warning">
                 <strong>Gap identified:</strong> {selected.gapDescription || 'No control covers this obligation'}
               </Alert>
             ) : (
               <Typography variant="body2" color="text.secondary">No gap identified — controls cover this obligation.</Typography>
             )}
-          </Paper>
+          </Section>
 
           {/* Evidence — compact preview */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title={`Evidence (${selected.evidence?.length || 0})`}
-              action={
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {selected.evidence?.length > 0 && (
-                    <Button size="small" variant="text" onClick={() => openDrawer('evidence')}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
-                  )}
-                  <Button size="medium" variant="contained" onClick={() => setActiveModal('evidence')}
-                    startIcon={<UploadFile sx={{ fontSize: 16 }} />}
-                    sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Upload</Button>
-                </Box>
-              } />
+          <Section icon={<UploadFile fontSize="small" />} title={`Evidence (${selected.evidence?.length || 0})`}
+            action={
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {selected.evidence?.length > 0 && (
+                  <Button size="small" variant="text" onClick={() => openDrawer('evidence')}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View all</Button>
+                )}
+                <Button size="medium" variant="contained" onClick={() => setActiveModal('evidence')}
+                  startIcon={<UploadFile sx={{ fontSize: 16 }} />}
+                  sx={{ width: 180, height: 40, textTransform: 'none', fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap' }}>Upload</Button>
+              </Box>
+            }>
             {selected.evidence?.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {selected.evidence.slice(0, 2).map(ev => (
@@ -472,19 +461,18 @@ export default function ObligationDetailPage() {
                 )}
               </Box>
             ) : <Typography variant="body2" color="text.secondary">No evidence uploaded</Typography>}
-          </Paper>
+          </Section>
 
           {/* History — button only */}
-          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
-            <SectionHeader title="Version History"
-              action={
-                <Button size="small" variant="text" onClick={() => openDrawer('history')}
-                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View history</Button>
-              } />
+          <Section icon={<History fontSize="small" />} title="Version History"
+            action={
+              <Button size="small" variant="text" onClick={() => openDrawer('history')}
+                sx={{ textTransform: 'none', fontWeight: 600, fontSize: 13 }}>View history</Button>
+            }>
             <Typography variant="body2" color="text.secondary">
               {selected.history?.length ? `${selected.history.length} version(s) recorded` : 'No version history recorded.'}
             </Typography>
-          </Paper>
+          </Section>
         </Box>
       )}
 
@@ -600,7 +588,7 @@ export default function ObligationDetailPage() {
                   <Box sx={{ mb: 1.5 }}>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Obligations</Typography>
                     {drawerControlDetail.linkedObligations.map((o, i) => (
-                      <Typography key={i} variant="body2" sx={{ mt: 0.5 }}>{o.name || o.title || o.description || `Obligation #${o.obligationId}`}</Typography>
+                      <Typography key={i} variant="body2" sx={{ mt: 0.5 }}>{o.name || o.title || o.description || 'Untitled obligation'}</Typography>
                     ))}
                   </Box>
                 )}
@@ -705,7 +693,7 @@ export default function ObligationDetailPage() {
                   Version {h.classificationVersion} — {h.changedAt ? formatDate(h.changedAt) : '-'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {h.changedByName || `User #${h.changedByUserId}`}
+                  {h.changedByName || 'Unknown user'}
                 </Typography>
                 {h.applicability && <Typography variant="body2">Applicability: {h.applicability}</Typography>}
                 {h.tenantRiskRating && <Typography variant="body2">Risk: {h.tenantRiskRating}</Typography>}

@@ -6,18 +6,20 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
   Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid,
-  Card, CardContent, CardHeader, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Gavel, Visibility, History,
-  PlaylistAddCheck, Science, ChevronRight, AccountBalance, UploadFile,
+  PlaylistAddCheck, Science, AccountBalance, UploadFile,
+  Category, TrendingUp, PersonOutline, Description as DescriptionIcon,
+  Link as LinkIcon, Schedule, WarningAmber, VerifiedUser, EventAvailable,
 } from '@mui/icons-material';
+import { RISK_COLOR } from 'shared';
 import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
-
-const RISK_COLORS = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success', Extreme: 'error' };
+import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '-';
@@ -26,10 +28,10 @@ function formatDate(d) {
 
 function actLabel(row) {
   if (!row) return '-';
-  if (row.actName) return row.actName;
-  if (row.actId) return `Act #${row.actId}`;
-  return '-';
+  return row.actName || '-';
 }
+
+const RISK_COLORS = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success', Extreme: 'error' };
 
 function residualRiskChip(rating, likelihood, impact) {
   const color = RISK_COLORS[rating];
@@ -294,7 +296,7 @@ export default function ControlsPage() {
                             {item.controlNumber}
                           </Typography>
                         )}
-                        <Tooltip title={item.actName || (item.actId ? `Act #${item.actId}` : 'No act linked')}>
+                        <Tooltip title={item.actName || 'No act linked'}>
                           <Typography variant="caption" color="text.secondary"
                             sx={{ display: 'flex', alignItems: 'center', gap: 0.25, maxWidth: 240,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -386,13 +388,15 @@ export default function ControlsPage() {
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
   const navigate = useNavigate();
   const obligations = detail.linkedObligations || [];
+  const testHistory = detail.testHistory || [];
   return (
     <Box>
       <Breadcrumbs sx={{ mb: 1 }}>
         <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={onBack}>Controls Register</Link>
         <Typography color="text.primary">{detail.controlNumber}</Typography>
       </Breadcrumbs>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h4">{detail.name}</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
@@ -402,6 +406,11 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
             <Chip size="small" variant="outlined" icon={<AccountBalance sx={{ fontSize: 14 }} />}
               label={actLabel(detail)}
               sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+            {detail.status && (
+              <Chip size="small" label={detail.status} color={detail.status === 'Active' ? 'success' : 'default'}
+                variant={detail.status === 'Active' ? 'outlined' : 'filled'}
+                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+            )}
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -410,193 +419,160 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         </Box>
       </Box>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card>
-            <CardHeader title="About this Control" />
-            <CardContent>
-              {detail.whatItDoes && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">What it does</Typography>
-                  <Typography variant="body2">{detail.whatItDoes}</Typography>
-                </Box>
-              )}
-              {detail.howTested && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">How it's tested</Typography>
-                  <Typography variant="body2">{detail.howTested}</Typography>
-                </Box>
-              )}
-              {detail.description && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Description</Typography>
-                  <Typography variant="body2">{detail.description}</Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
+      {/* Headline numbers */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile icon={<WarningAmber fontSize="small" />} label="Inherent Risk"
+          accent={RISK_COLOR[detail.inherentRisk] || '#2B6CB0'} chip={<RiskChip rating={detail.inherentRisk} />} />
+        <StatTile icon={<VerifiedUser fontSize="small" />} label="Residual Risk"
+          accent={RISK_COLOR[detail.residualRiskRating] || '#2B6CB0'}
+          chip={<RiskChip rating={detail.residualRiskRating || detail.residualRisk}
+            likelihood={detail.residualLikelihood} impact={detail.residualImpact} />} />
+        <StatTile icon={<Schedule fontSize="small" />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
+        <StatTile icon={<EventAvailable fontSize="small" />} label="Next Test Due"
+          value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
+      </Box>
 
-          <Card sx={{ mt: 2 }}>
-            <CardHeader
-              title="Linked Obligations"
-              subheader={obligations.length
-                ? `${obligations.length} obligation${obligations.length !== 1 ? 's' : ''} traced to this control`
-                : 'Traceability from this control back to the register'}
-              action={obligations.length > 0
-                ? <Chip size="small" label={obligations.length} color="primary" sx={{ height: 22, borderRadius: '4px', mt: 1, mr: 1 }} />
-                : null} />
-            <CardContent>
-              {obligations.length > 0 ? (
-                <TableContainer component={Paper} elevation={0}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Obligation</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Instrument</TableCell>
-                        <TableCell sx={{ fontWeight: 600, width: 48 }} />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {obligations.map((o) => (
-                        <TableRow key={o.obligationId} hover
-                          onClick={() => navigate(`/obligations/${o.obligationId}`)}
-                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                          <TableCell sx={{ fontFamily: 'Roboto Mono, monospace', color: '#718096', width: 80 }}>
-                            #{o.obligationId}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{o.description || 'Untitled obligation'}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">{o.instrumentTitle || '-'}</Typography>
-                          </TableCell>
-                          <TableCell sx={{ textAlign: 'right' }}>
-                            <Tooltip title="Open obligation">
-                              <IconButton size="small"
-                                onClick={e => { e.stopPropagation(); navigate(`/obligations/${o.obligationId}`); }}>
-                                <ChevronRight fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <Gavel sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    No obligations are linked to this control yet.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Use Edit to attach obligation IDs and establish traceability.
-                  </Typography>
-                </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
+        <Box>
+          <Section icon={<DescriptionIcon fontSize="small" />} title="About this Control">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {detail.whatItDoes && <Field label="What it does" value={detail.whatItDoes} />}
+              {detail.howTested && <Field label="How it's tested" value={detail.howTested} />}
+              {detail.description && <Field label="Description" value={detail.description} />}
+              {!detail.whatItDoes && !detail.howTested && !detail.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>Not recorded.</Typography>
               )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Control Details</Typography>
-              <DetailRow label="Theme" value={detail.theme} />
-              <DetailRow label="Type" value={detail.controlType} />
-              <DetailRow label="Owner" value={detail.controlOwnerName || 'Unassigned'} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Act / Regulation</Typography>
-              <DetailRow label="Act" value={actLabel(detail)} />
-              <DetailRow label="Regulatory Requirement" value={detail.regulatoryRequirement} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>CMP Information</Typography>
-              <DetailRow label="Compliance Area" value={detail.complianceArea} />
-              <DetailRow label="Monitoring Activity" value={detail.monitoringActivity} />
-              <DetailRow label="Due Date" value={detail.dueDate} />
-              <DetailRow label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Risk Assessment</Typography>
-              <DetailRow label="Inherent Risk" value={detail.inherentRisk} chip />
-              <DetailRow label="Residual Risk" value={detail.residualRisk} chip />
-              <DetailRow label="Residual Likelihood" value={detail.residualLikelihood} />
-              <DetailRow label="Residual Impact" value={detail.residualImpact} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">Residual Risk Rating</Typography>
-                {residualRiskChip(detail.residualRiskRating, detail.residualLikelihood, detail.residualImpact)}
-              </Box>
-              <DetailRow label="Owner" value={detail.ownerName || detail.controlOwnerName} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Testing</Typography>
-              <DetailRow label="Frequency" value={detail.testFrequency || 'Not set'} />
-              <DetailRow label="Next test due" value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Card sx={{ mt: 2 }}>
-        <CardHeader title="Test History" />
-        <CardContent>
-          {detail.testHistory && detail.testHistory.length > 0 ? (
-            <TableContainer component={Paper} elevation={0}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Tester</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Result</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Review</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Evidence</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {detail.testHistory.map((t) => (
-                    <TableRow key={t.testId}>
-                      <TableCell>{formatDate(t.testDate)}</TableCell>
-                      <TableCell>{t.testedByName || '-'}</TableCell>
-                      <TableCell>
-                        <Chip label={t.result} size="small"
-                          color={t.result === 'Passed' ? 'success' : t.result === 'Failed' ? 'error' : t.result === 'Partial' ? 'warning' : 'default'} />
-                      </TableCell>
-                      <TableCell>{t.failureSeverity || '-'}</TableCell>
-                      <TableCell>
-                        <Chip label={t.reviewStatus || 'Pending'} size="small"
-                          color={t.reviewStatus === 'Accepted' ? 'success' : t.reviewStatus === 'Rejected' ? 'error' : 'default'} />
-                      </TableCell>
-                      <TableCell>
-                        {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener">View</Link> : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Science sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
-              <Typography variant="body2" color="text.secondary">No tests recorded yet</Typography>
             </Box>
-          )}
-        </CardContent>
-      </Card>
+          </Section>
+
+          <Section icon={<LinkIcon fontSize="small" />} title="Linked Obligations"
+            subtitle={obligations.length
+              ? `${obligations.length} obligation${obligations.length !== 1 ? 's' : ''} traced to this control`
+              : 'Traceability from this control back to the register'}
+            action={obligations.length > 0
+              ? <Chip size="small" label={obligations.length} color="primary" sx={{ height: 22, borderRadius: '4px' }} />
+              : null}>
+            {obligations.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {obligations.map((o) => (
+                  <Tooltip key={o.obligationId} arrow
+                    title={o.instrumentTitle ? `Instrument: ${o.instrumentTitle}` : (o.description || '')}>
+                    <Chip clickable size="small"
+                      label={o.title || o.name || o.description || 'Untitled obligation'}
+                      onClick={() => navigate(`/obligations/${o.obligationId}`)}
+                      sx={{ height: 'auto', py: 0.4, borderRadius: '4px', bgcolor: '#EDF2F7',
+                        '& .MuiChip-label': { display: 'block', whiteSpace: 'normal', maxWidth: 460, fontSize: '0.75rem', lineHeight: 1.35, py: 0.25 } }} />
+                  </Tooltip>
+                ))}
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <Gavel sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No obligations are linked to this control yet.
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Use Edit to attach obligation IDs and establish traceability.
+                </Typography>
+              </Box>
+            )}
+          </Section>
+
+          <Section icon={<Science fontSize="small" />} title="Test History"
+            action={testHistory.length > 0
+              ? <Chip size="small" label={testHistory.length} color="primary" sx={{ height: 22, borderRadius: '4px' }} />
+              : null}>
+            {testHistory.length > 0 ? (
+              <TableContainer component={Paper} elevation={0} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Tester</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Result</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Review</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Evidence</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {testHistory.map((t) => (
+                      <TableRow key={t.testId}>
+                        <TableCell>{formatDate(t.testDate)}</TableCell>
+                        <TableCell>{t.testedByName || '-'}</TableCell>
+                        <TableCell>
+                          <Chip label={t.result} size="small"
+                            color={t.result === 'Passed' ? 'success' : t.result === 'Failed' ? 'error' : t.result === 'Partial' ? 'warning' : 'default'} />
+                        </TableCell>
+                        <TableCell>{t.failureSeverity || '-'}</TableCell>
+                        <TableCell>
+                          <Chip label={t.reviewStatus || 'Pending'} size="small"
+                            color={t.reviewStatus === 'Accepted' ? 'success' : t.reviewStatus === 'Rejected' ? 'error' : 'default'} />
+                        </TableCell>
+                        <TableCell>
+                          {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener">View</Link> : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <Science sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">No tests recorded yet</Typography>
+              </Box>
+            )}
+          </Section>
+        </Box>
+
+        <Box>
+          <Section icon={<Category fontSize="small" />} title="Classification">
+            <FieldGrid min={130}>
+              <Field label="Theme" value={detail.theme} />
+              <Field label="Type" value={detail.controlType} />
+              <Field label="Status" value={detail.status} />
+              <Field label="Compliance Area" value={detail.complianceArea} />
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<TrendingUp fontSize="small" />} title="Risk Assessment">
+            <FieldGrid min={130}>
+              <Field label="Inherent Risk"><RiskChip rating={detail.inherentRisk} /></Field>
+              <Field label="Residual Risk">
+                <RiskChip rating={detail.residualRiskRating || detail.residualRisk}
+                  likelihood={detail.residualLikelihood} impact={detail.residualImpact} />
+              </Field>
+              <Field label="Residual Likelihood" value={detail.residualLikelihood} />
+              <Field label="Residual Impact" value={detail.residualImpact} />
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<PersonOutline fontSize="small" />} title="Ownership">
+            <FieldGrid min={130}>
+              <Field label="Control Owner" value={detail.controlOwnerName || detail.ownerName || 'Unassigned'} />
+              {detail.ownerName && detail.controlOwnerName && detail.ownerName !== detail.controlOwnerName && (
+                <Field label="Owner" value={detail.ownerName} />
+              )}
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<AccountBalance fontSize="small" />} title="Act / Regulation">
+            <FieldGrid min={130}>
+              <Field label="Act" value={actLabel(detail)} />
+              <Field label="Regulatory Requirement" value={detail.regulatoryRequirement} />
+              <Field label="Monitoring Activity" value={detail.monitoringActivity} />
+              <Field label="Due Date" value={detail.dueDate} />
+              <Field label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
+            </FieldGrid>
+          </Section>
+        </Box>
+      </Box>
 
       <EditDialog open={editOpen} onClose={() => setEditOpen(false)} control={detail}
         onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
-    </Box>
-  );
-}
-
-function DetailRow({ label, value, chip }) {
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
-      {chip ? <Chip label={value || '-'} size="small" color={RISK_COLORS[value] || 'default'} />
-        : <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '-'}</Typography>}
     </Box>
   );
 }

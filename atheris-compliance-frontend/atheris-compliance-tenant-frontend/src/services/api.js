@@ -300,6 +300,16 @@ export const api = {
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
   },
+  acts: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/acts${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    stats: (opts = {}) => request('/acts/stats', { signal: opts.signal }),
+    detail: (id, opts = {}) => request(`/acts/${id}`, { signal: opts.signal }),
+  },
   findings: {
     register: (params = {}) => {
       const qs = new URLSearchParams();

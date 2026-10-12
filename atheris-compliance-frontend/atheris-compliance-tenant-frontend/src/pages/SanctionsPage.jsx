@@ -11,6 +11,7 @@ import {
   KeyboardArrowDown, KeyboardArrowUp,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import { Section, Field, FieldGrid, StatTile, MonoChip, LongTextBlock } from '../components/detailKit';
 
 const MONO_CHIP_SX = {
   height: 22, borderRadius: '4px',
@@ -35,29 +36,57 @@ const COLUMNS = [
 ];
 
 function SanctionDetail({ item }) {
-  const blocks = [
-    { key: 'violation', label: 'Violation', text: item.description },
-    { key: 'penalty', label: 'Penalty', text: item.penaltyDetails },
-    { key: 'impact', label: 'Impact', text: item.riskExplanation },
-  ].filter(b => b.text);
-
-  if (blocks.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No violation, penalty or impact detail recorded for this sanction.
-      </Typography>
-    );
-  }
+  const roles = Array.isArray(item.liableRoles) ? item.liableRoles : [];
+  const hasNarrative = !!(item.description || item.penaltyDetails || item.riskExplanation);
+  const severityColor = item.severityScore == null ? '#718096'
+    : item.severityScore > 7 ? '#E53E3E' : item.severityScore > 4 ? '#DD6B20' : '#2D7D46';
+  const amountLabel = formatNaira(item.sanctionAmountNaira) + (item.sanctionAmountPerDay ? ' / day' : '');
 
   return (
-    <>
-      {blocks.map((b, i) => (
-        <Box key={b.key} sx={{ mb: i === blocks.length - 1 ? 0 : 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{b.label}</Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{b.text}</Typography>
-        </Box>
-      ))}
-    </>
+    <Box>
+      {/* Headline numbers */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile label="Amount" value={amountLabel} accent="#DD6B20" />
+        <StatTile label="Severity" value={item.severityScore != null ? `Sev ${item.severityScore}` : '—'} accent={severityColor} />
+        <StatTile label="Enforcement" value={item.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
+          accent={item.hasBeenEnforced ? '#2D7D46' : '#718096'} />
+        <StatTile label="Sanction Type" value={item.sanctionType} accent="#C53030" />
+      </Box>
+
+      <Section title="Penalty" contentSx={{ p: 2 }}>
+        <FieldGrid min={150} gap={1.5}>
+          <Field label="Act" value={item.actName} />
+          <Field label="Section"><MonoChip label={item.sourceSectionReference} /></Field>
+          <Field label="Amount" value={amountLabel} />
+          <Field label="Type" value={item.sanctionType} />
+          <Field label="Severity" value={item.severityScore != null ? `Sev ${item.severityScore}` : null} />
+          <Field label="Enforced" value={item.hasBeenEnforced ? 'Yes' : 'No'} />
+        </FieldGrid>
+        {roles.length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <Field label="Liable Roles">
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
+                {roles.map(r => (
+                  <Chip key={r} size="small" label={r} sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
+                ))}
+              </Box>
+            </Field>
+          </Box>
+        )}
+      </Section>
+
+      {hasNarrative ? (
+        <>
+          {item.description && <LongTextBlock title="Violation" text={item.description} />}
+          {item.penaltyDetails && <LongTextBlock title="Penalty Details" text={item.penaltyDetails} />}
+          {item.riskExplanation && <LongTextBlock title="Impact" text={item.riskExplanation} />}
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No violation, penalty or impact detail recorded for this sanction.
+        </Typography>
+      )}
+    </Box>
   );
 }
 

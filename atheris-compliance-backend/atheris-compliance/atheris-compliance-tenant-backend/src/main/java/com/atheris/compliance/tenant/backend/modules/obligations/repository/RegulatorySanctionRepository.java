@@ -13,6 +13,7 @@ public interface RegulatorySanctionRepository extends JpaRepository<RegulatorySa
     List<RegulatorySanction> findByInstrumentId(Long instrumentId);
     List<RegulatorySanction> findByInstrumentIdIn(Collection<Long> instrumentIds);
     long countByInstrumentId(Long instrumentId);
+    long countByRegulationId(Long regulationId);
     void deleteByInstrumentId(Long instrumentId);
 
     @Query(value = "SELECT COALESCE(SUM(sanction_amount_naira), 0) FROM regulatory_sanctions", nativeQuery = true)
