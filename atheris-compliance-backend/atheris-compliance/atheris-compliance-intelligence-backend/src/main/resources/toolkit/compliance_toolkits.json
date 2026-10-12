@@ -21,7 +21,7 @@
   "universe": [
     {
       "title": "Circular on Illicit International Money Remittances Through The Banking System",
-      "reference": null,
+      "reference": "TKL-0001",
       "description": "To curb the activities of unlicensed International Money Transfer Operators (IMTOs) and prevent illicit cross-border money remittances through the Nigerian banking system by directing banks to block, freeze, and report suspicious accounts and transactions used for unauthorized remittance operations.",
       "dateIssued": "2016-08-25 00:00:00",
       "dateCommencement": "2016-08-25 00:00:00",
@@ -40,7 +40,7 @@
     },
     {
       "title": "Need to implement measures to dissuade issuance of dud cheques in the Nigerian Banking System",
-      "reference": null,
+      "reference": "TKL-0002",
       "description": "To reduce the prevalence of dishonoured (dud) cheques in the Nigerian banking system by enforcing sanctions against issuers of such cheques and promoting a culture of financial integrity and discipline among bank customers.",
       "dateIssued": "2015-03-31 00:00:00",
       "dateCommencement": "2015-03-31 00:00:00",
@@ -59,7 +59,7 @@
     },
     {
       "title": "Status and Reporting Line of Chief Compliance Officers",
-      "reference": null,
+      "reference": "TKL-0003",
       "description": "Financial institutions are required to appoint Chief Compliance Officers and compliance officers at managerial level in their branches. The required minimum grades for the appointment of CCOs and COs have been reviewed, along with the option for banks to operate a cluster structure where a designated CO is responsible for a cluster of branches instead of having a CO at each branch. Compliance Officers must be clearly separated from internal control and audit functions, and compliance officers must meet specific criteria based on the category of their institution. Compliance with these requirements is mandatory for all financial institutions.",
       "dateIssued": "2014-11-17 00:00:00",
       "dateCommencement": null,
@@ -78,7 +78,7 @@
     },
     {
       "title": "Regulatory Framework for Mobile Payments Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0004",
       "description": "To establish a regulatory framework that ensures the safety and efficiency of mobile payment services, promoting financial inclusion.a. Provision of an enabling environment for the adoption of mobile money services in reducing cash dominance in the Nigerian economy. b. Ensure a structured and orderly development of mobile money services in Nigeria with clear definition of various participants and their expected roles and responsibilities. c. Specification of the minimum technical and business requirements for the various participants recognized for the mobile money services industry in Nigeria.",
       "dateIssued": "2021-07-01 00:00:00",
       "dateCommencement": "2021-07-01 00:00:00",
@@ -97,7 +97,7 @@
     },
     {
       "title": "Guidelines on Mobile Money Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0005",
       "description": "This guideline addresses business rules governing the operation of mobile money services, and specifies basic functionalities expected of any mobile payment service and solution in Nigeria. It identifies the participants, and defines their expected roles and responsibilities in providing mobile money services in the system. In addition, it sets the basis for the regulation of services offered at different levels and by the participants.",
       "dateIssued": "2021-07-01 00:00:00",
       "dateCommencement": null,
@@ -116,7 +116,7 @@
     },
     {
       "title": "Guidelines on Operations of Electronic Payment Channels in Nigeria",
-      "reference": null,
+      "reference": "TKL-0006",
       "description": "To promote and facilitate the development of efficient and effective systems for the settlement of transactions, including the development of electronic payment systems, through comprehensive guidelines on operations of Electronic Payment Channels in Nigeria.",
       "dateIssued": "2020-05-31 00:00:00",
       "dateCommencement": "June 8, 2020",
@@ -135,7 +135,7 @@
     },
     {
       "title": "Guidelines for Banking Operations in the Free Zones in Nigeria",
-      "reference": null,
+      "reference": "TKL-0007",
       "description": "To regulate the establishment and operations of banks in Free Trade Zones (FTZs) in Nigeria, ensuring transparency, compliance with extant laws, and financial system stability.",
       "dateIssued": "2016-01-02 00:00:00",
       "dateCommencement": null,
@@ -154,7 +154,7 @@
     },
     {
       "title": "Circular on the Revised Nigeria Cheque Standard (NCS) and Nigeria Cheque Printers Accreditation Scheme (NICPAS)",
-      "reference": null,
+      "reference": "TKL-0008",
       "description": "To standardize cheque printing and processing to enhance efficiency and fraud prevention within the banking system.",
       "dateIssued": "2018-09-18 00:00:00",
       "dateCommencement": "2019-02-01 00:00:00",
@@ -173,7 +173,7 @@
     },
     {
       "title": "RE: Circular on the Revised Nigeria Cheque Standard (NCS) and Nigeria Cheque Printers Accreditation Scheme (NICPAS)",
-      "reference": null,
+      "reference": "TKL-0009",
       "description": "The circular aims to reduce rising MICR rejects in cheque processing by enforcing compliance with NCS and NICPAS version 2.0. Banks are directed to revalidate MICR details and ensure proper calibration of cheque processing equipment. From 1st November 2023, non-compliance will attract sanctions.",
       "dateIssued": "2023-10-09 00:00:00",
       "dateCommencement": null,
@@ -192,7 +192,7 @@
     },
     {
       "title": "Global Standing Instruction (GSI) - Individuals",
-      "reference": null,
+      "reference": "TKL-0010",
       "description": "The guideline on Global Standing Instruction (GSI) is to enhance loann recovery across the banking sector. The GSI shall serve as a last resort by a Creditor bank, without recourse to the Borrower, to recover past due obligations (Principal and Accrued Interest only, excluding any Penal Charges) from a defaulting Borrower through a direct set-off from deposits/investments held in the Borrower’s qualifying bank accounts with participating financial institutions.",
       "dateIssued": "2020-07-13 00:00:00",
       "dateCommencement": "2020-08-01 00:00:00",
@@ -211,7 +211,7 @@
     },
     {
       "title": "Teller Points at Bank Branches for the Sale of FX to Retail Customers",
-      "reference": null,
+      "reference": "TKL-0011",
       "description": "This is a directive issued by the Central Bank of Nigeria (CBN) mandating Deposit Money Banks (DMBs) to establish specific \"teller points\" within their branches to facilitate the sale of foreign exchange (FX) to retail customers. This policy change was implemented to streamline the process of obtaining FX for legitimate purposes like Personal Travel Allowance (PTA), Business Travel Allowance (BTA), tuition fees, medical payments, and Small and Medium Enterprises (SME) transactions.",
       "dateIssued": "2021-07-28 00:00:00",
       "dateCommencement": null,
@@ -230,7 +230,7 @@
     },
     {
       "title": "Automation of Form 'NCX' on the Trade Monitoring System",
-      "reference": null,
+      "reference": "TKL-0012",
       "description": "The Central Bank of Nigeria (CBN) has automated the process for completing and submitting Form NCX (Non-Commercial Export) through the Trade Monitoring System (TRMS) portal, effective November 30, 2021. This means that hard copies of Form NCX are no longer required, and all related transactions are now processed electronically on the TRMS portal.",
       "dateIssued": "November 29, 2021",
       "dateCommencement": "November 30, 2021",
@@ -249,7 +249,7 @@
     },
     {
       "title": "Automation of Form 'A' on the Trade Monitoring System",
-      "reference": null,
+      "reference": "TKL-0013",
       "description": "The Central Bank of Nigeria (CBN)automated Form A, previously used for payments for services (invisible trade), on the Trade Monitoring System (TRMS). This means that hard copies of Form A are no longer required, and all Form A applications must be completed and submitted electronically through the TRMS portal. The e-Form A replaces the hard copy for invisible transactions, including payments for PTA/BTA, medicals, education, and other remittances.",
       "dateIssued": "November 29, 2021",
       "dateCommencement": "November 30, 2021",
@@ -268,7 +268,7 @@
     },
     {
       "title": "Guidelines on the Operations of the Pan African Payment and Settlement System (PAPSS) in Nigeria",
-      "reference": null,
+      "reference": "TKL-0014",
       "description": "The Central Bank of Nigeria (CBN) issued guidelines on the operation of the Pan-African Payment and Settlement System (PAPSS) in Nigeria to facilitate intra-African trade, particularly within the context of the African Continental Free Trade Agreement (AfCFTA). The system aims to enable seamless cross-border payments in local currencies, reducing reliance on US dollars and simplifying transactions.",
       "dateIssued": "Oct 11, 2021",
       "dateCommencement": null,
@@ -287,7 +287,7 @@
     },
     {
       "title": "Circular: PAPSS Documentation Requirements",
-      "reference": null,
+      "reference": "TKL-0015",
       "description": "The circular reviews documentation requirements for PAPSS transactions in Nigeria. Basic KYC/AML is now sufficient for transactions below USD2,000 (individual) and USD5,000 (corporate). Full documentation is required for higher amounts, and applicants must ensure regulatory documents are available. ADBs may source FX for PAPSS without CBN recourse, and repatriated exports must be certified.",
       "dateIssued": "2025-04-28 00:00:00",
       "dateCommencement": null,
@@ -306,7 +306,7 @@
     },
     {
       "title": "Issuance of Revised Regulatory Framework for Bank Verification Number (BVN) Operations and Watch-List for the Nigerian Banking Industry",
-      "reference": null,
+      "reference": "TKL-0016",
       "description": "The objective of the Revised Regulatory Framework for BVN Operations and Watch-List is to strengthen Know Your Customer (KYC) processes within the Nigerian financial system. It aims to enhance the use of the Bank Verification Number (BVN) as a reliable means of verifying the identity of individuals. The framework seeks to improve the efficiency of banking operations and promote a safer, more transparent financial environment.",
       "dateIssued": "Oct 12, 2021",
       "dateCommencement": null,
@@ -325,7 +325,7 @@
     },
     {
       "title": "Observance of Due Diligence in the Processing of FX Transactions",
-      "reference": null,
+      "reference": "TKL-0017",
       "description": "To reiterate the importance of due diligence in foreign exchange transactions to prevent malpractices.",
       "dateIssued": "Sept 10, 2021",
       "dateCommencement": null,
@@ -344,7 +344,7 @@
     },
     {
       "title": "Disaggregation of Bulk Payment",
-      "reference": null,
+      "reference": "TKL-0018",
       "description": "To improve transparency and audit trails in bulk payment processing by banks and payment service providers.",
       "dateIssued": "Sep 6, 2021",
       "dateCommencement": null,
@@ -363,7 +363,7 @@
     },
     {
       "title": "Basel III Implementation by DMBs in Nigeria",
-      "reference": null,
+      "reference": "TKL-0019",
       "description": "To strengthen the resilience of banks by implementing Basel III standards, focusing on capital adequacy and liquidity.",
       "dateIssued": "Sep 2, 2021",
       "dateCommencement": null,
@@ -382,7 +382,7 @@
     },
     {
       "title": "Guidelines on Regulatory Capital",
-      "reference": null,
+      "reference": "TKL-0020",
       "description": "To provide a framework for determining the regulatory capital requirements for banks, ensuring financial stability.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": null,
@@ -401,7 +401,7 @@
     },
     {
       "title": "Guidelines on Leverage Ratio",
-      "reference": null,
+      "reference": "TKL-0021",
       "description": "To set out the requirements for leverage ratio, limiting the extent of leverage a bank can undertake.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": null,
@@ -420,7 +420,7 @@
     },
     {
       "title": "Guidelines on Liquidity Coverage Ratio (LCR)",
-      "reference": null,
+      "reference": "TKL-0022",
       "description": "To ensure that banks maintain an adequate level of unencumbered high-quality liquid assets to meet liquidity needs.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": null,
@@ -439,7 +439,7 @@
     },
     {
       "title": "Guidelines on Liquidity Monitoring Tools",
-      "reference": null,
+      "reference": "TKL-0023",
       "description": "To provide tools for monitoring liquidity risk, enhancing the ability of banks to manage liquidity effectively.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": null,
@@ -458,7 +458,7 @@
     },
     {
       "title": "Guidelines on Large Exposures (LEX)",
-      "reference": null,
+      "reference": "TKL-0024",
       "description": "To limit the risks associated with large exposures to a single counterparty or group of connected counterparties.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": "2021-09-01 00:00:00",
@@ -477,7 +477,7 @@
     },
     {
       "title": "Guidelines on Liquidity Risk Management and ILAAP",
-      "reference": null,
+      "reference": "TKL-0025",
       "description": "To establish a framework for managing liquidity risk and conducting internal assessments of liquidity adequacy.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": "2021-09-01 00:00:00",
@@ -496,7 +496,7 @@
     },
     {
       "title": "Revised Guidelines on Supervisory Review Process of ICAAP",
-      "reference": null,
+      "reference": "TKL-0026",
       "description": "To ensure banks perform an independent and complete forward-looking assessment of their exposed risks and approximate the internal capital requirement that adequately reflects their risk exposure, business strategy, and risk tolerance.",
       "dateIssued": "2021-09-01 00:00:00",
       "dateCommencement": "2021-09-01 00:00:00",
@@ -515,7 +515,7 @@
     },
     {
       "title": "Regulatory Guidelines on the eNaira",
-      "reference": null,
+      "reference": "TKL-0027",
       "description": "To provide a regulatory framework for the operation of the eNaira, ensuring its effective use and integration into the financial system.",
       "dateIssued": "Oct 25, 2021",
       "dateCommencement": "Oct 25, 2021",
@@ -534,7 +534,7 @@
     },
     {
       "title": "Publication of Names of Defaulters of the CBN Policy on Sale of FOREX for PTA/BTA",
-      "reference": null,
+      "reference": "TKL-0028",
       "description": "To enforce compliance with the CBN policy on the sale of foreign exchange for Personal and Business Travel Allowance by publishing names of defaulters.",
       "dateIssued": "Aug 31, 2021",
       "dateCommencement": null,
@@ -553,7 +553,7 @@
     },
     {
       "title": "Sugar Importation in Nigeria",
-      "reference": null,
+      "reference": "TKL-0029",
       "description": "To restrict sugar importation to specific companies that have made reasonable progress in backward integration, thereby promoting local production.",
       "dateIssued": "Jul 16, 2021",
       "dateCommencement": "Jul 16, 2021",
@@ -572,7 +572,7 @@
     },
     {
       "title": "Framework and Guidelines on Mobile Money Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0030",
       "description": "To provide a regulatory framework for the operation of mobile money services, enhancing financial inclusion and ensuring a secure and efficient payment system.",
       "dateIssued": "2021-07-01 00:00:00",
       "dateCommencement": "2021-07-01 00:00:00",
@@ -591,7 +591,7 @@
     },
     {
       "title": "Letter to All Banks - Defaulting Customers",
-      "reference": null,
+      "reference": "TKL-0031",
       "description": "To enforce compliance with credit obligations by borrowers and provide guidelines for banks on reporting defaulting customers.",
       "dateIssued": "August 30, 2021",
       "dateCommencement": null,
@@ -610,7 +610,7 @@
     },
     {
       "title": "Circular to All Deposit Money Banks, Payment Service Providers and Other Financial Institutions on Issuance of the Guidelines for Licensing and Regulation of Payments Service Holding Companies in Nigeria",
-      "reference": null,
+      "reference": "TKL-0032",
       "description": "To inform stakeholders about the issuance of guidelines for licensing and regulation of Payments Service Holding Companies (PSHCs) in Nigeria.",
       "dateIssued": "August 3, 2021",
       "dateCommencement": null,
@@ -629,7 +629,7 @@
     },
     {
       "title": "Regulatory Framework for Mobile Money Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0033",
       "description": "To establish a regulatory framework for mobile money services, specifying business rules and participant responsibilities.",
       "dateIssued": "2021-07-01 00:00:00",
       "dateCommencement": "2021-07-01 00:00:00",
@@ -648,7 +648,7 @@
     },
     {
       "title": "Supervisory Framework for Payment Service Banks",
-      "reference": null,
+      "reference": "TKL-0034",
       "description": "To provide a set of regulations aimed at streamlining the operations of Payment Service Banks (PSBs), ensuring transparency and customer protection.",
       "dateIssued": "2021-07-01 00:00:00",
       "dateCommencement": "2021-07-01 00:00:00",
@@ -667,7 +667,7 @@
     },
     {
       "title": "Regulatory Framework on Non-bank Merchant Acquiring in Nigeria",
-      "reference": null,
+      "reference": "TKL-0035",
       "description": "To establish a regulatory framework for non-bank merchant acquiring services, ensuring proper conduct and risk management in electronic payment systems.",
       "dateIssued": "2021-05-01 00:00:00",
       "dateCommencement": "2021-05-01 00:00:00",
@@ -686,7 +686,7 @@
     },
     {
       "title": "Guidelines for Shared Services Arrangements",
-      "reference": null,
+      "reference": "TKL-0036",
       "description": "To provide guidance on shared services arrangements between banks and other financial institutions, ensuring transparency and compliance with transfer pricing regulations.",
       "dateIssued": "2021-05-26 00:00:00",
       "dateCommencement": "June 1, 2022",
@@ -705,7 +705,7 @@
     },
     {
       "title": "New License Requirements for the Payments System",
-      "reference": null,
+      "reference": "TKL-0037",
       "description": "To outline the requirements for obtaining licenses in the Nigerian payments system, ensuring that only qualified entities operate within the system.",
       "dateIssued": "2020-12-09 00:00:00",
       "dateCommencement": "2020-12-01 00:00:00",
@@ -724,7 +724,7 @@
     },
     {
       "title": "Re: Introduction Of CBN's \"Naira For Dollar Scheme\"",
-      "reference": null,
+      "reference": "TKL-0038",
       "description": "To incentivize diaspora remittances by offering Naira bonuses for every USD received, aiming to increase foreign exchange inflows.",
       "dateIssued": "2021-05-05 00:00:00",
       "dateCommencement": null,
@@ -743,7 +743,7 @@
     },
     {
       "title": "The Rejection Of Old/Lower Denomination of United States Dollar by DMBs/FOREX Dealers",
-      "reference": null,
+      "reference": "TKL-0039",
       "description": "To enforce the acceptance of all denominations of USD notes by banks and forex dealers, ensuring smooth foreign exchange transactions.",
       "dateIssued": "2021-04-09 00:00:00",
       "dateCommencement": null,
@@ -762,7 +762,7 @@
     },
     {
       "title": "RE: The Rejection Of Old/Lower Denomination of United States Dollar by DMBs/FOREX Dealers",
-      "reference": null,
+      "reference": "TKL-0040",
       "description": "To enforce the acceptance of all denominations of USD notes by banks and forex dealers, ensuring smooth foreign exchange transactions.",
       "dateIssued": "2024-06-27 00:00:00",
       "dateCommencement": null,
@@ -781,7 +781,7 @@
     },
     {
       "title": "Guidelines for the Conduct of Repurchase Transactions under CBN Standing Facilities",
-      "reference": null,
+      "reference": "TKL-0041",
       "description": "Provides terms and conditions for DMBs and eligible institutions to engage in repurchase transactions via the Standing Lending Facility (SLF) and Term Repurchase Facility (TRF).",
       "dateIssued": "April 12, 2021",
       "dateCommencement": null,
@@ -800,7 +800,7 @@
     },
     {
       "title": "Acceptance of Machine Readable Convention Travel Document (MRCTD) and Refugee Identification Card as Means of Identification",
-      "reference": null,
+      "reference": "TKL-0042",
       "description": "Directs banks to accept MRCTD and Refugee ID cards as valid identification for refugees and asylum seekers.",
       "dateIssued": "February 08, 2021",
       "dateCommencement": "February 08, 2021",
@@ -819,7 +819,7 @@
     },
     {
       "title": "Circular on Issuance of the Framework for Regulatory Sandbox Operations",
-      "reference": null,
+      "reference": "TKL-0043",
       "description": "The Central Bank of Nigeria (CBN) issued a circular on the Framework for Regulatory Sandbox Operations to establish a controlled environment for testing innovative financial services. This framework allows firms to conduct live tests of new products, services, and delivery channels under regulatory supervision, promoting innovation while ensuring a safe and efficient payments system.",
       "dateIssued": "January 12, 2021",
       "dateCommencement": null,
@@ -838,7 +838,7 @@
     },
     {
       "title": "Issuance of the Framework for Regulatory Sandbox Operations",
-      "reference": null,
+      "reference": "TKL-0044",
       "description": "This Framework defines the establishment, rules and operations of a Regulatory Sandbox for the Nigerian Payments System to promote effective competition, embrace new technology, encourage Financial Inclusion and improve customer experience, with a view to engendering public confidence in the Financial System.",
       "dateIssued": "January 13, 2021",
       "dateCommencement": null,
@@ -857,7 +857,7 @@
     },
     {
       "title": "Framework for Quick Response (QR) Code Payments in Nigeria",
-      "reference": null,
+      "reference": "TKL-0045",
       "description": "Provides regulatory guidance for the operation of QR code payment services, ensuring safety and risk management.",
       "dateIssued": "January 13, 2021",
       "dateCommencement": "January 13, 2021",
@@ -876,7 +876,7 @@
     },
     {
       "title": "Regulatory Framework for Open Banking in Nigeria",
-      "reference": null,
+      "reference": "TKL-0046",
       "description": "Establishes principles for data sharing across banking and payment systems to promote innovation and competition.",
       "dateIssued": "February 17, 2021",
       "dateCommencement": "February 17, 2021",
@@ -895,7 +895,7 @@
     },
     {
       "title": "Operational Guidelines for Open Banking in Nigeria",
-      "reference": null,
+      "reference": "TKL-0047",
       "description": "Provides detailed operational guidelines for implementing open banking, including risk management and compliance requirements.",
       "dateIssued": "March 7, 2023",
       "dateCommencement": "March 7, 2023",
@@ -914,7 +914,7 @@
     },
     {
       "title": "New measures to enhance local currency liquidity for settlement of diaspora remittances",
-      "reference": null,
+      "reference": "TKL-0048",
       "description": "To enhance Naira liquidity and improve the timely settlement of diaspora remittances. The circular enables eligible International Money Transfer Operators (IMTOs) to access the CBN FX window directly or via Authorized Dealer Banks. It promotes same-day settlement for confirmed FX transactions.",
       "dateIssued": "June 24,2024",
       "dateCommencement": "June 24,2024",
@@ -933,7 +933,7 @@
     },
     {
       "title": "New Licence Categorisations for the Nigerian Payments System",
-      "reference": null,
+      "reference": "TKL-0049",
       "description": "Defines updated license types for payment system participants (Switches, PSBs, PSSPs, MMO, etc.) to streamline CBN supervision.",
       "dateIssued": "Dec 9, 2020",
       "dateCommencement": "Immediately",
@@ -952,7 +952,7 @@
     },
     {
       "title": "The Nigerian Stock Exchange (NSE) Sustainable Disclosure Guidelines",
-      "reference": null,
+      "reference": "TKL-0050",
       "description": "Provide a structured framework for listed companies to disclose Environmental, Social, and Governance (ESG) information and promote sustainability reporting.",
       "dateIssued": "December, 2018",
       "dateCommencement": "January 1, 2019",
@@ -971,7 +971,7 @@
     },
     {
       "title": "Introduction of Central Bank of Nigeria Special Bills",
-      "reference": null,
+      "reference": "TKL-0051",
       "description": "Introduces short-term CBN Special Bills as liquidity instruments with 90-day tenor, non-tradable, available to DMBs to absorb excess liquidity.",
       "dateIssued": "Dec 1, 2020",
       "dateCommencement": "Dec 7, 2020",
@@ -990,7 +990,7 @@
     },
     {
       "title": "Banks and Other Financial Institutions Act (BOFIA), 2020",
-      "reference": null,
+      "reference": "TKL-0052",
       "description": "Repeals BOFIA 1991, provides updated legal framework for regulating banking and financial institutions, strengthening CBN supervisory powers and financial stability mechanisms.",
       "dateIssued": "Nov 13, 2020",
       "dateCommencement": "Nov 13, 2020",
@@ -1009,7 +1009,7 @@
     },
     {
       "title": "Rulebook of the the Nigerian Stock  Exchange",
-      "reference": null,
+      "reference": "TKL-0053",
       "description": "The Rulebook of the Nigerian Stock Exchange (NGX) serves as the primary regulatory framework governing the admission, operation, and conduct of issuers, market participants, and intermediaries in Nigeria’s capital market.",
       "dateIssued": "Varies (current edition ~2015, updated continuously)",
       "dateCommencement": "On listing of securities",
@@ -1028,7 +1028,7 @@
     },
     {
       "title": "Compliance with the SWIFT Universal Payment Confirmations",
-      "reference": null,
+      "reference": "TKL-0054",
       "description": "Mandates Nigerian banks to confirm beneficiary receipt of SWIFT payments within specific timelines to promote transparency",
       "dateIssued": "Sept 23, 2020",
       "dateCommencement": "Nov 22,2020",
@@ -1047,7 +1047,7 @@
     },
     {
       "title": "Suspension of Extension of Export Proceeds on behalf of exporters",
-      "reference": null,
+      "reference": "TKL-0055",
       "description": "To enforce stricter compliance with repatriation timelines for export proceeds. The circular suspends the approval of extension requests for export repatriation by Authorized Dealers. It mandates that oil proceeds be repatriated within 180 days and non-oil within 90 days. Banks must ensure exporters comply with the extant Foreign Exchange Manual provisions.",
       "dateIssued": "Jan 08, 2025",
       "dateCommencement": "Jan 08, 2025",
@@ -1066,7 +1066,7 @@
     },
     {
       "title": "Destination Payment for All Form M Letters of Credit and Other Forms of Payment",
-      "reference": null,
+      "reference": "TKL-0056",
       "description": "To ensure prudent use of Nigeria’s foreign exchange resources by eliminating over-invoicing, transfer pricing, and avoidable transaction costs. The circular mandates Authorized Dealers to process Forms M and other payment instruments only in favor of the final supplier of goods or services.",
       "dateIssued": "Aug 24, 2020",
       "dateCommencement": "Sept 1, 2020",
@@ -1085,7 +1085,7 @@
     },
     {
       "title": "Operational Guidelines on Global Standing Instruction (GSI) – Individuals",
-      "reference": null,
+      "reference": "TKL-0057",
       "description": "The Global Standing Instruction (GSI), which is aimed at: i. Facilitating an improved credit repayment culture; ii. Reducing Non-Performing Loans in the Nigerian Banking System; and iii. Watch-listing consistent loan defaulters..",
       "dateIssued": "July 13, 2020",
       "dateCommencement": "Aug 1, 2020",
@@ -1104,7 +1104,7 @@
     },
     {
       "title": "Reduction of Chargeback Period for ATM, POS and Web Transactions in the Guidelines for the Operations of Electronic Payment Channels",
-      "reference": null,
+      "reference": "TKL-0058",
       "description": "To standardize and improve the efficiency of electronic payment transactions, this provision specifically mandates a reduction in the chargeback period for failed transactions, ensuring faster resolution and enhanced consumer protection.",
       "dateIssued": "2020-05-29 00:00:00",
       "dateCommencement": "2020-06-08 00:00:00",
@@ -1123,7 +1123,7 @@
     },
     {
       "title": "Companies and Allied Matters Act (CAMA) 2020",
-      "reference": null,
+      "reference": "TKL-0059",
       "description": "Governs company formation, directors, shares, disclosures, and statutory filings in Nigeria",
       "dateIssued": "Aug 7, 2020",
       "dateCommencement": "Aug 7, 2020",
@@ -1142,7 +1142,7 @@
     },
     {
       "title": "Clarifications on Operations of Ordinary Domiciliary Accounts",
-      "reference": null,
+      "reference": "TKL-0060",
       "description": "Directed banks not to restrict use of domiciliary accounts for eligible transactions (e.g. transfer, withdrawal)",
       "dateIssued": "2020-02-20 00:00:00",
       "dateCommencement": "2020-02-20 00:00:00",
@@ -1161,7 +1161,7 @@
     },
     {
       "title": "Prohibition of Registration of Forms M for the Importation of Fertilizers",
-      "reference": null,
+      "reference": "TKL-0061",
       "description": "Barred banks from issuing Form M for importation of fertilizers to protect local industry",
       "dateIssued": "Jan 10, 2020",
       "dateCommencement": "Jan 10, 2020",
@@ -1180,7 +1180,7 @@
     },
     {
       "title": "Finance Act, 2023",
-      "reference": null,
+      "reference": "TKL-0062",
       "description": "The Nigeria Finance Act 2023, signed into law on May 28, 2023, is the fourth in the series of Finance Acts and took effect from May 1, 2023. It introduced changes to various tax laws, including the Capital Gains Tax Act, Companies Income Tax Act, and Value Added Tax Act, among others. The Act aims to address tax equity, climate change, job creation, tax incentives, and revenue generation.",
       "dateIssued": "2023-05-01 00:00:00",
       "dateCommencement": "2023-05-01 00:00:00",
@@ -1199,7 +1199,7 @@
     },
     {
       "title": "Discontinuation of Death Benefits Account (DBA) for Deceased Employees under the Contributory Pension Scheme",
-      "reference": null,
+      "reference": "TKL-0063",
       "description": "Instructs banks and PFAs to transfer balances from DBAs to Retirement Savings Accounts (RSAs) for deceased contributors",
       "dateIssued": "2023-05-01 00:00:00",
       "dateCommencement": "2023-05-01 00:00:00",
@@ -1218,7 +1218,7 @@
     },
     {
       "title": "Nigerian Payments System Risk and Information Security Management Framework",
-      "reference": null,
+      "reference": "TKL-0064",
       "description": "Sets out minimum risk and cybersecurity controls for participants in the Nigerian payments system",
       "dateIssued": "2020-06-01 00:00:00",
       "dateCommencement": "2020-06-01 00:00:00",
@@ -1237,7 +1237,7 @@
     },
     {
       "title": "Circular on Pre-Authorisation of Cards in Nigeria",
-      "reference": null,
+      "reference": "TKL-0065",
       "description": "The circular outlines specific procedures and regulations for pre-authorization processes to ensure secure and efficient card payments within the Nigerian financial system.",
       "dateIssued": "December 30, 2019",
       "dateCommencement": null,
@@ -1256,7 +1256,7 @@
     },
     {
       "title": "CBN Consumer Protection Regulations",
-      "reference": null,
+      "reference": "TKL-0066",
       "description": "Establishes minimum standards for fair treatment, disclosures, complaints resolution, and data privacy in banking services",
       "dateIssued": "2019-12-01 00:00:00",
       "dateCommencement": "Jan 1, 2020",
@@ -1275,7 +1275,7 @@
     },
     {
       "title": "Review of  Automated Teller Machines Transaction Fees",
-      "reference": null,
+      "reference": "TKL-0067",
       "description": "Update ATM transaction charges to address rising operational costs and enhance service efficiency,",
       "dateIssued": "Feb 10, 2025",
       "dateCommencement": "1st March, 2025",
@@ -1294,7 +1294,7 @@
     },
     {
       "title": "Re: Guide to Charges by Banks, Other Financial and Non-Bank Financial Institutions",
-      "reference": null,
+      "reference": "TKL-0068",
       "description": "Provides standardized and maximum fees banks can charge for services (ATM, SMS, transfers, etc.)",
       "dateIssued": "Dec 20, 2019",
       "dateCommencement": "Jan 1, 2020",
@@ -1313,7 +1313,7 @@
     },
     {
       "title": "Revised Guidelines on Bancassurance Referral Model",
-      "reference": null,
+      "reference": "TKL-0069",
       "description": "Provides framework for banks to refer customers to insurance companies for insurance products, ensuring compliance with regulatory standards.",
       "dateIssued": "2017-03-01 00:00:00",
       "dateCommencement": "2017-03-01 00:00:00",
@@ -1332,7 +1332,7 @@
     },
     {
       "title": "Circular on Regulatory Guidelines for the Redesigned Credit Risk Management System (CRMS)",
-      "reference": null,
+      "reference": "TKL-0070",
       "description": "Provides comprehensive guidelines for the operation of the redesigned CRMS, enhancing credit risk monitoring and management across banks.",
       "dateIssued": "2017-02-01 00:00:00",
       "dateCommencement": "2017-04-01 00:00:00",
@@ -1351,7 +1351,7 @@
     },
     {
       "title": "Redesigned Credit Risk Management System (CRMS): Additional Regulatory Guidelines for the Operation of the Redesigned CRMS",
-      "reference": null,
+      "reference": "TKL-0071",
       "description": "Provides additional guidelines to enhance the functionality and compliance of the redesigned CRMS.",
       "dateIssued": "2018-09-01 00:00:00",
       "dateCommencement": "2018-09-01 00:00:00",
@@ -1370,7 +1370,7 @@
     },
     {
       "title": "Guidelines for the Operationalisation of the New Policy on PTA and School Fees",
-      "reference": null,
+      "reference": "TKL-0072",
       "description": "Outlines procedures for banks to process Personal Travel Allowance and school fees payments, ensuring compliance with FX regulations.",
       "dateIssued": "2017-02-20 00:00:00",
       "dateCommencement": null,
@@ -1389,7 +1389,7 @@
     },
     {
       "title": "Harmonisation of Reporting Requirements on Foreign Currency Exposures of Banks",
-      "reference": null,
+      "reference": "TKL-0073",
       "description": "Standardizes the reporting framework for banks' foreign currency exposures to enhance risk management and regulatory oversight.",
       "dateIssued": "2024-01-31 00:00:00",
       "dateCommencement": "2024-01-31 00:00:00",
@@ -1408,7 +1408,7 @@
     },
     {
       "title": "Amendment of S4 Business Rules and Guidelines",
-      "reference": null,
+      "reference": "TKL-0074",
       "description": "Updates the S4 business rules to streamline electronic funds transfer processes, enhancing efficiency and security in payment systems.",
       "dateIssued": "2017-02-01 00:00:00",
       "dateCommencement": "2017-02-01 00:00:00",
@@ -1427,7 +1427,7 @@
     },
     {
       "title": "Guidelines on Securities Settlement in Nigeria",
-      "reference": null,
+      "reference": "TKL-0075",
       "description": "Establishes procedures for the settlement of all types of securities in Nigeria, promoting efficient and effective systems for transaction settlement.",
       "dateIssued": "2016-12-29 00:00:00",
       "dateCommencement": null,
@@ -1446,7 +1446,7 @@
     },
     {
       "title": "Exposure Draft of the Revised Consumer Protection Regulations 2.0",
-      "reference": null,
+      "reference": "TKL-0076",
       "description": "The draft  indicates the direction of future consumer protection regulations and addresses new risks from financial technology.",
       "dateIssued": "2024-02-08 00:00:00",
       "dateCommencement": null,
@@ -1465,7 +1465,7 @@
     },
     {
       "title": "Amendments to the Guidelines on Transaction Switching in Nigeria",
-      "reference": null,
+      "reference": "TKL-0077",
       "description": "Updates the guidelines on transaction switching to enhance the efficiency and security of electronic payment systems.",
       "dateIssued": "2016-10-17 00:00:00",
       "dateCommencement": null,
@@ -1484,7 +1484,7 @@
     },
     {
       "title": "CBN Guidelines on Transactions Switching",
-      "reference": null,
+      "reference": "TKL-0078",
       "description": "Set operational, technical, and security standards for switching services, stakeholders’ roles and interconnectivity, fraud reporting, and dispute resolution in Nigeria’s payment ecosystem.",
       "dateIssued": "2016-04-01 00:00:00",
       "dateCommencement": "2016-04-01 00:00:00",
@@ -1503,7 +1503,7 @@
     },
     {
       "title": "Minimum Qualifications for the Position of the Chief Compliance Officers (CCOs) of Deposit Money Banks",
-      "reference": null,
+      "reference": "TKL-0079",
       "description": "Establishes the minimum qualifications and reporting lines for Chief Compliance Officers in Deposit Money Banks to enhance compliance oversight.",
       "dateIssued": "Sep 28, 2016",
       "dateCommencement": "Sep 28, 2016",
@@ -1522,7 +1522,7 @@
     },
     {
       "title": "Foreign Exchange Sales to End Users",
-      "reference": null,
+      "reference": "TKL-0080",
       "description": "Provides guidelines for the sale of foreign exchange to end-users, including limits and documentation requirements.",
       "dateIssued": "Feb 5, 2025",
       "dateCommencement": "Feb 5, 2025",
@@ -1541,7 +1541,7 @@
     },
     {
       "title": "Review of Restrictions and Limits on Level I and II of the Tiered KYC Accounts",
-      "reference": null,
+      "reference": "TKL-0081",
       "description": "Revises the transaction limits and requirements for Tier I and II accounts to enhance financial inclusion while maintaining compliance.",
       "dateIssued": "Jul 01, 2016",
       "dateCommencement": null,
@@ -1560,7 +1560,7 @@
     },
     {
       "title": "Revised Guidelines for Blacklisting for Banks and Other Financial Institutions in Nigeria",
-      "reference": null,
+      "reference": "TKL-0082",
       "description": "Provides procedures for blacklisting individuals in banks and other financial institutions, ensuring transparency and accountability in line with BOFIA 2020.",
       "dateIssued": "Mar 8, 2024",
       "dateCommencement": "Mar 8, 2024",
@@ -1579,7 +1579,7 @@
     },
     {
       "title": "Compliance with Bank Employees, Etc (Declaration of Assets) Act",
-      "reference": null,
+      "reference": "TKL-0083",
       "description": "Mandates all bank employees to declare their assets within specified timelines to promote transparency and combat corruption.",
       "dateIssued": "Sep 26, 1986",
       "dateCommencement": "Sep 26, 1986",
@@ -1598,7 +1598,7 @@
     },
     {
       "title": "Update to Foreign Exchange Directives",
-      "reference": null,
+      "reference": "TKL-0084",
       "description": "Provides revised guidelines for foreign exchange operations to enhance transparency and efficiency in the FX market.",
       "dateIssued": "2024-11-01 00:00:00",
       "dateCommencement": "2024-12-01 00:00:00",
@@ -1617,7 +1617,7 @@
     },
     {
       "title": "Revised Assessment Criteria for Approved Persons' Regime for Financial Institutions",
-      "reference": null,
+      "reference": "TKL-0085",
       "description": "Provides updated criteria for assessing the fitness and propriety of individuals in key positions within financial institutions.",
       "dateIssued": "2015-10-01 00:00:00",
       "dateCommencement": "2015-10-01 00:00:00",
@@ -1636,7 +1636,7 @@
     },
     {
       "title": "Proceeds of Crime (Recovery and Management) Act, 2022",
-      "reference": null,
+      "reference": "TKL-0086",
       "description": "Provides a legal framework for the recovery and management of proceeds of crime, including non-conviction-based forfeiture.",
       "dateIssued": "May 12, 2022",
       "dateCommencement": "May 12, 2022",
@@ -1655,7 +1655,7 @@
     },
     {
       "title": "Establishment of Industry Fraud Desks",
-      "reference": null,
+      "reference": "TKL-0087",
       "description": "Requires banks to set up dedicated fraud desks to monitor, report, and mitigate fraudulent activities within the banking sector.",
       "dateIssued": "Jun 15, 2015",
       "dateCommencement": "Jul 1, 2015",
@@ -1674,7 +1674,7 @@
     },
     {
       "title": "Immigration Act",
-      "reference": null,
+      "reference": "TKL-0088",
       "description": "Governs immigration processes, including the entry and exit of persons, and the issuance of visas and permits in Nigeria.",
       "dateIssued": "May 25, 2015",
       "dateCommencement": "May 25, 2015",
@@ -1693,7 +1693,7 @@
     },
     {
       "title": "Nigeria Deposit Insurance Corporation (Pass-Through Deposit Insurance) Regulation",
-      "reference": null,
+      "reference": "TKL-0089",
       "description": "Provides deposit insurance coverage to subscribers of Mobile Money Operators through pass-through arrangements, enhancing confidence in mobile payments.",
       "dateIssued": "June 01, 2015",
       "dateCommencement": null,
@@ -1712,7 +1712,7 @@
     },
     {
       "title": "Reporting Unethical Conduct/Whistle Blowing",
-      "reference": null,
+      "reference": "TKL-0090",
       "description": "Establishes a framework for reporting unethical practices within banks to promote integrity and accountability.",
       "dateIssued": "Apr 2, 2015",
       "dateCommencement": "Apr 2, 2015",
@@ -1731,7 +1731,7 @@
     },
     {
       "title": "Guidelines for whistle-blowing for banks and other financial institutions in Nigeria",
-      "reference": null,
+      "reference": "TKL-0091",
       "description": "Provides a framework for reporting unethical conduct by employees, management, directors, and stakeholders; ensures confidentiality, protection of whistle‑blowers, investigation, and remediation.",
       "dateIssued": "May, 2014",
       "dateCommencement": "May, 2014",
@@ -1750,7 +1750,7 @@
     },
     {
       "title": "Time Bar for Resolution of Customers' Complaints",
-      "reference": null,
+      "reference": "TKL-0092",
       "description": "Sets a six-year limit for the resolution of customer complaints to enhance efficiency and consumer protection.",
       "dateIssued": "Aug 21, 2015",
       "dateCommencement": "Aug 21, 2015",
@@ -1769,7 +1769,7 @@
     },
     {
       "title": "Circular on Nigerian Issued Card Present Fraud in Non-EMV Environments",
-      "reference": null,
+      "reference": "TKL-0093",
       "description": "Addresses the risks associated with card-present fraud in non-EMV environments, urging banks to enhance security measures.",
       "dateIssued": "Date Not Specified",
       "dateCommencement": "Date Not Specified",
@@ -1788,7 +1788,7 @@
     },
     {
       "title": "Cybercrime (Prohibition, Prevention, Etc) Act 2015, with Amendment Act 2024",
-      "reference": null,
+      "reference": "TKL-0094",
       "description": "Provides a legal framework for the prohibition, prevention, detection, and prosecution of cybercrimes, ensuring cybersecurity in Nigeria.",
       "dateIssued": "Feb 28,2024",
       "dateCommencement": "Feb 28, 2024",
@@ -1807,7 +1807,7 @@
     },
     {
       "title": "Employee Compensation Act 2010",
-      "reference": null,
+      "reference": "TKL-0095",
       "description": "Establishes a framework for compensating employees who suffer work-related injuries or disabilities, ensuring their welfare.",
       "dateIssued": "Dec 17, 2010",
       "dateCommencement": "Dec 17, 2010",
@@ -1826,7 +1826,7 @@
     },
     {
       "title": "Prudential Guidelines for Deposit Money Banks in Nigeria, 2019",
-      "reference": null,
+      "reference": "TKL-0096",
       "description": "Exposure Draft on Prudential Guidelines for DMB,",
       "dateIssued": "Jan 1, 2020",
       "dateCommencement": "Jan 1, 2020",
@@ -1845,7 +1845,7 @@
     },
     {
       "title": "Data Exchange Agreements with at least Two Licensed Credit Bureaus in Nigeria, April 2010",
-      "reference": null,
+      "reference": "TKL-0097",
       "description": "Mandates banks to establish data exchange agreements with at least two licensed credit bureaus to enhance credit risk assessment and reporting.",
       "dateIssued": "Apr 30, 2010",
       "dateCommencement": "Apr 30, 2010",
@@ -1864,7 +1864,7 @@
     },
     {
       "title": "UK Bribery Act 2010",
-      "reference": null,
+      "reference": "TKL-0098",
       "description": "Establishes comprehensive anti-bribery laws applicable to UK entities and those conducting business with UK connections, emphasizing corporate liability for bribery offenses.",
       "dateIssued": "Jul 1, 2011",
       "dateCommencement": "Jul 1, 2011",
@@ -1883,7 +1883,7 @@
     },
     {
       "title": "Joint Purchase of Business Travel Allowance (BTA) and Personal Travel Allowance (PTA), June 2024",
-      "reference": null,
+      "reference": "TKL-0099",
       "description": "Prohibits the joint purchase of BTA and PTA to prevent abuse and ensure proper utilization of foreign exchange resources.",
       "dateIssued": "2024-02-14 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -1902,7 +1902,7 @@
     },
     {
       "title": "Circular to All Banks and International Money Transfer Operators in Nigeria",
-      "reference": null,
+      "reference": "TKL-0100",
       "description": "Provides guidelines for operations of banks and IMTOs to ensure compliance with regulatory standards and promote efficient remittance services.",
       "dateIssued": "1/31/2024",
       "dateCommencement": "Date Not Specified",
@@ -1921,7 +1921,7 @@
     },
     {
       "title": "Harmonisation of Job Titles in the Banking Industry, December 2007",
-      "reference": null,
+      "reference": "TKL-0101",
       "description": "Standardizes job titles across the banking industry to promote clarity, reduce confusion, and enhance professionalism.",
       "dateIssued": "2007-12-01 00:00:00",
       "dateCommencement": "2007-12-01 00:00:00",
@@ -1940,7 +1940,7 @@
     },
     {
       "title": "Fiscal Responsibility Act, 2007",
-      "reference": null,
+      "reference": "TKL-0102",
       "description": "Provides for prudent management of national resources, ensuring long-term macroeconomic stability and transparency in fiscal operations.",
       "dateIssued": "Jul 30, 2007",
       "dateCommencement": "Jul 30, 2007",
@@ -1959,7 +1959,7 @@
     },
     {
       "title": "Companies Income Tax Act, 1990",
-      "reference": null,
+      "reference": "TKL-0103",
       "description": "Imposes tax on the profits of companies operating in Nigeria, detailing the computation, assessment, and collection processes.",
       "dateIssued": "Apr 1, 1977",
       "dateCommencement": "Apr 1, 1977",
@@ -1978,7 +1978,7 @@
     },
     {
       "title": "Central Bank of Nigeria (CBN) Act, 2007",
-      "reference": null,
+      "reference": "TKL-0104",
       "description": "Establishes the Central Bank of Nigeria, outlining its objectives, functions, and powers to ensure monetary and price stability.",
       "dateIssued": "May 25, 2007",
       "dateCommencement": "May 25, 2007",
@@ -1997,7 +1997,7 @@
     },
     {
       "title": "Federal Inland Revenue Service (Establishment) Act, 2007",
-      "reference": null,
+      "reference": "TKL-0105",
       "description": "Establishes the Federal Inland Revenue Service, detailing its functions, powers, and administrative structure for tax collection and enforcement.",
       "dateIssued": "Apr 16, 2007",
       "dateCommencement": "Apr 16, 2007",
@@ -2016,7 +2016,7 @@
     },
     {
       "title": "Chartered Institute of Bankers of Nigeria Act, 2007",
-      "reference": null,
+      "reference": "TKL-0106",
       "description": "Establishes the Chartered Institute of Bankers of Nigeria, promoting professionalism and ethical standards in the banking industry.",
       "dateIssued": "2007-05-01 00:00:00",
       "dateCommencement": "2007-05-01 00:00:00",
@@ -2035,7 +2035,7 @@
     },
     {
       "title": "National Identity Management Commission Act",
-      "reference": null,
+      "reference": "TKL-0107",
       "description": "Establishes the National Identity Management Commission, responsible for creating and managing a national identity database to enhance security and service delivery.",
       "dateIssued": "2007-05-01 00:00:00",
       "dateCommencement": "2007-05-01 00:00:00",
@@ -2054,7 +2054,7 @@
     },
     {
       "title": "National Identity Management Commission (NIMC) Act, 2007 (Access to Register Information in the National Identity Database Regulations, 2017)",
-      "reference": null,
+      "reference": "TKL-0108",
       "description": "To authorize and regulate how security agencies and public/private bodies may access and verify identity data in the National Identity Database for authentication and verification purposes",
       "dateIssued": "2017",
       "dateCommencement": "2017",
@@ -2073,7 +2073,7 @@
     },
     {
       "title": "Mandatory Use of the National Identification Number Regulations, 2017 (Issued under the National Identity Management Commission Act, 2007)",
-      "reference": null,
+      "reference": "TKL-0109",
       "description": "Provides for the mandatory use of the National Identification Number (NIN) for transactions, identification, and services in Nigeria. It operationalizes the provisions of the NIMC Act, 2007 by making the NIN a compulsory requirement for accessing specified public and private sector services, including financial services.",
       "dateIssued": "2017",
       "dateCommencement": "2017",
@@ -2092,7 +2092,7 @@
     },
     {
       "title": "Nigerian Deposit Insurance Corporation (NDIC) Act, 2023",
-      "reference": null,
+      "reference": "TKL-0110",
       "description": "Establishes the NDIC to protect depositors and ensure financial system stability by providing deposit insurance and resolving failing banks.",
       "dateIssued": "May 29, 2023",
       "dateCommencement": "May 29, 2023",
@@ -2111,7 +2111,7 @@
     },
     {
       "title": "Advance Fee Fraud and Other Fraud Related Offences Act, 2006",
-      "reference": null,
+      "reference": "TKL-0111",
       "description": "Criminalizes advance fee fraud and related offences, providing legal framework for prosecution and prevention of such crimes.",
       "dateIssued": "2006",
       "dateCommencement": "2006",
@@ -2130,7 +2130,7 @@
     },
     {
       "title": "National Youth Service Corps (NYSC) Act",
-      "reference": null,
+      "reference": "TKL-0112",
       "description": "Establishes the NYSC scheme, mandating participation of Nigerian graduates in national service to foster unity and development.",
       "dateIssued": "Jun 16, 1993",
       "dateCommencement": "Jun 16, 1993",
@@ -2149,7 +2149,7 @@
     },
     {
       "title": "Modifications to the Cash Reserve Requirement Framework",
-      "reference": null,
+      "reference": "TKL-0113",
       "description": "Introduces changes to the cash reserve framework to enhance monetary policy effectiveness.",
       "dateIssued": "2024-02-01 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -2168,7 +2168,7 @@
     },
     {
       "title": "Foreign Corrupt Practices Act (FCPA)",
-      "reference": null,
+      "reference": "TKL-0114",
       "description": "Prohibits U.S. entities and their affiliates from bribing foreign officials to obtain or retain business. Nigerian banks with U.S. affiliations must ensure compliance to avoid legal repercussions.",
       "dateIssued": "1977",
       "dateCommencement": "1977",
@@ -2187,7 +2187,7 @@
     },
     {
       "title": "National Drug Law Enforcement Agency Act, 2004",
-      "reference": null,
+      "reference": "TKL-0115",
       "description": "Establishes the NDLEA to enforce laws against drug trafficking and related offenses.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -2206,7 +2206,7 @@
     },
     {
       "title": "Guidelines for the Registration & Operation of Bank Neutral Cash Hubs (BNCH) in Nigeria",
-      "reference": null,
+      "reference": "TKL-0116",
       "description": "Provides a framework for the establishment and operation of BNCHs to improve cash management.",
       "dateIssued": "2022-06-01 00:00:00",
       "dateCommencement": "2022-06-01 00:00:00",
@@ -2225,7 +2225,7 @@
     },
     {
       "title": "Sanctions on Erring Banks and Cheque Printers/Personalisers for Infractions of the Revised Nigerian Cheque Standard (NCS) and Nigerian Cheque Printers Accreditation Scheme (NICPAS)",
-      "reference": null,
+      "reference": "TKL-0117",
       "description": "Imposes penalties for non-compliance with cheque printing and personalization standards.",
       "dateIssued": "November 5, 2019",
       "dateCommencement": null,
@@ -2244,7 +2244,7 @@
     },
     {
       "title": "Revised Guidelines for the Registration of Cash-in-Transit and Currency Processing Companies in Nigeria",
-      "reference": null,
+      "reference": "TKL-0118",
       "description": "Updates the regulatory framework for companies involved in cash handling and processing.",
       "dateIssued": "2019",
       "dateCommencement": "2019",
@@ -2263,7 +2263,7 @@
     },
     {
       "title": "Regulation for the Operation of Indirect Participants in the Payments System",
-      "reference": null,
+      "reference": "TKL-0119",
       "description": "Establishes procedures for integrating indirect participants into the payments system, standardizing their operations, and providing mechanisms for clearing and settlement through direct participating banks.",
       "dateIssued": "October 10, 2019",
       "dateCommencement": "November 11, 2019",
@@ -2282,7 +2282,7 @@
     },
     {
       "title": "Suspicious Transaction Reporting on United Nations Security Council Resolutions on Proliferation Financing",
-      "reference": null,
+      "reference": "TKL-0120",
       "description": "Mandates financial institutions to report transactions involving individuals or entities under UN sanctions related to the proliferation of weapons of mass destruction.",
       "dateIssued": "September 20, 2019",
       "dateCommencement": "September 20, 2019",
@@ -2301,7 +2301,7 @@
     },
     {
       "title": "Guidelines on the Issuance and Treatment of Bankers Acceptances and Commercial Papers",
-      "reference": null,
+      "reference": "TKL-0121",
       "description": "Provides uniform procedures for the issuance and treatment of Bankers Acceptances (BAs) and Commercial Papers (CPs) to ensure effective functioning of the money market.",
       "dateIssued": "September 11, 2019",
       "dateCommencement": "September 11, 2019",
@@ -2320,7 +2320,7 @@
     },
     {
       "title": "Re-Implementation of the Cash-less Policy",
-      "reference": null,
+      "reference": "TKL-0122",
       "description": "Reinforces the cash-less policy to reduce the use of physical cash in transactions, promoting electronic payments.",
       "dateIssued": "September 17, 2019",
       "dateCommencement": "September 17, 2019",
@@ -2339,7 +2339,7 @@
     },
     {
       "title": "Review of Process for Merchants Collections on Electronic Transactions",
-      "reference": null,
+      "reference": "TKL-0123",
       "description": "Revises the process for merchant settlement to deepen financial inclusion and enhance the efficiency of electronic transactions.",
       "dateIssued": "September 17, 2019",
       "dateCommencement": "September 17, 2019",
@@ -2358,7 +2358,7 @@
     },
     {
       "title": "Regulation on Electronic Payments and Collections for Public and Private Sectors in Nigeria (Revised)",
-      "reference": null,
+      "reference": "TKL-0124",
       "description": "Provides guidelines for end-to-end electronic payment of salaries, pensions, suppliers, and taxes to enhance transparency and efficiency.",
       "dateIssued": "2019-09-01 00:00:00",
       "dateCommencement": "2019-09-01 00:00:00",
@@ -2377,7 +2377,7 @@
     },
     {
       "title": "CBN Consumer Protection Framework",
-      "reference": null,
+      "reference": "TKL-0125",
       "description": "Establishes minimum disclosure and transparency requirements for financial institutions to ensure consumers are provided with clear, accurate, and timely information regarding financial products and services.",
       "dateIssued": "2016-11-01 00:00:00",
       "dateCommencement": "2016-11-01 00:00:00",
@@ -2396,7 +2396,7 @@
     },
     {
       "title": "Operation of Mobile Money Wallets by Deposit Money Banks",
-      "reference": null,
+      "reference": "TKL-0126",
       "description": "Allows Deposit Money Banks (DMBs) to offer mobile money wallet services without prior approval, provided they notify the CBN and operate within existing regulations.",
       "dateIssued": "2019-07-04 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -2415,7 +2415,7 @@
     },
     {
       "title": "Regulatory Measures to Improve Lending to the Real Sector of the Nigerian Economy",
-      "reference": null,
+      "reference": "TKL-0127",
       "description": "Implements policies to encourage banks to increase lending to the real sector, including setting minimum Loan-to-Deposit Ratios (LDR).",
       "dateIssued": "17th April, 2024",
       "dateCommencement": "17th April, 2024",
@@ -2434,7 +2434,7 @@
     },
     {
       "title": "Framework for Operation of the Shared Agent Network Expansion Facility (SANEF)",
-      "reference": null,
+      "reference": "TKL-0128",
       "description": "Establishes a facility to provide financing to CBN-licensed Super Agents and Mobile Money Operators to expand financial services access points, enhancing financial inclusion.",
       "dateIssued": "November, 2018",
       "dateCommencement": "November, 2018",
@@ -2453,7 +2453,7 @@
     },
     {
       "title": "Nigeria Data Protection Regulation (NDPR) 2019",
-      "reference": null,
+      "reference": "TKL-0129",
       "description": "Establishes a framework for data protection and privacy in Nigeria, ensuring the rights of individuals are safeguarded.",
       "dateIssued": "2019-01-01 00:00:00",
       "dateCommencement": "2019-01-01 00:00:00",
@@ -2472,7 +2472,7 @@
     },
     {
       "title": "Nigeria Data Protection Act (NDPA) 2023",
-      "reference": null,
+      "reference": "TKL-0130",
       "description": "To regulate the processing of personal data and safeguard privacy rights in Nigeria.",
       "dateIssued": "June 12, 2023",
       "dateCommencement": "`",
@@ -2491,7 +2491,7 @@
     },
     {
       "title": "General Application and Implementation Directive (GAID), 2025",
-      "reference": null,
+      "reference": "TKL-0131",
       "description": "To operationalize the Nigeria Data Protection Act (NDPA) 2023 by providing detailed guidance on lawful basis for processing, data subject rights, DPIAs, cross-border transfers, and enforcement",
       "dateIssued": "2025-03-20 00:00:00",
       "dateCommencement": "2025-09-19 00:00:00",
@@ -2510,7 +2510,7 @@
     },
     {
       "title": "Clean Note Policy Version 0.1",
-      "reference": null,
+      "reference": "TKL-0132",
       "description": "Outlines the policy for ensuring the circulation of clean and fit banknotes to promote public confidence in the currency.",
       "dateIssued": "September, 2018",
       "dateCommencement": "September, 2018",
@@ -2529,7 +2529,7 @@
     },
     {
       "title": "Penalty for Payment of Counterfeit Banknotes from ATMs/Teller Points",
-      "reference": null,
+      "reference": "TKL-0133",
       "description": "Establishes penalties for banks dispensing counterfeit banknotes through ATMs or teller points to deter negligence.",
       "dateIssued": "30th January, 2019",
       "dateCommencement": "30th January, 2019",
@@ -2548,7 +2548,7 @@
     },
     {
       "title": "Deployment of the Consumer Complaints Management System (CCMS)",
-      "reference": null,
+      "reference": "TKL-0134",
       "description": "Introduces an automated system for managing consumer complaints to enhance service delivery and customer satisfaction.",
       "dateIssued": "21st December, 2018",
       "dateCommencement": "2nd January, 2019",
@@ -2567,7 +2567,7 @@
     },
     {
       "title": "Circular on the Revised Nigerian Cheque Standard (NCS) and Nigerian Cheque Printers Accreditation Scheme (NICPAS): Sort Code and MICR Reject Flag",
-      "reference": null,
+      "reference": "TKL-0135",
       "description": "Updates standards for cheque printing and processing to enhance the efficiency and security of cheque transactions.",
       "dateIssued": "9th October, 2023",
       "dateCommencement": "1st November, 2023",
@@ -2586,7 +2586,7 @@
     },
     {
       "title": "Circular on the Redesigned CRMS: Release of Month End Update Template (CRMS-400D)",
-      "reference": null,
+      "reference": "TKL-0136",
       "description": "Ensures timely and accurate reporting of credit exposures by banks to enhance credit risk management.",
       "dateIssued": "17th October, 2018",
       "dateCommencement": "17th October, 2018",
@@ -2605,7 +2605,7 @@
     },
     {
       "title": "Issuance of Risk-Based Cybersecurity Framework and Guidelines for Deposit Money Banks and Payment Service Providers",
-      "reference": null,
+      "reference": "TKL-0137",
       "description": "Establishes minimum cybersecurity requirements to protect banking systems against cyber threats.",
       "dateIssued": "31st May, 2024",
       "dateCommencement": "31st May, 2024",
@@ -2624,7 +2624,7 @@
     },
     {
       "title": "Circular on the Revised Nigerian Cheque Standard (NCS) and Nigerian Cheque Printers Accreditation Scheme (NICPAS)",
-      "reference": null,
+      "reference": "TKL-0138",
       "description": "Updates standards for cheque design and printing to enhance security and processing efficiency.",
       "dateIssued": "9th June, 2023",
       "dateCommencement": "31st December, 2023",
@@ -2643,7 +2643,7 @@
     },
     {
       "title": "Circular on the Regulation on Instant (Inter-Bank) Electronic Funds Transfer Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0139",
       "description": "Provides guidelines for the operation of instant inter-bank electronic funds transfer services to ensure reliability and security.",
       "dateIssued": "13th September 2018",
       "dateCommencement": "2nd October 2018",
@@ -2662,7 +2662,7 @@
     },
     {
       "title": "Circular on Nigeria Bankers' Clearing System Rules, 2018 (Revised)",
-      "reference": null,
+      "reference": "TKL-0140",
       "description": "Updates the rules governing the clearing and settlement of inter-bank transactions to enhance efficiency.",
       "dateIssued": "31st July, 2018",
       "dateCommencement": "1st September, 2018",
@@ -2681,7 +2681,7 @@
     },
     {
       "title": "Introduction of the Revised Foreign Exchange Manual",
-      "reference": null,
+      "reference": "TKL-0141",
       "description": "Provides updated guidelines for foreign exchange transactions to enhance transparency and compliance.",
       "dateIssued": "26th July 2018",
       "dateCommencement": "1st August 2018",
@@ -2700,7 +2700,7 @@
     },
     {
       "title": "Revised Guidelines for Nigerian foreign Exchange Market ( NFEM)",
-      "reference": null,
+      "reference": "TKL-0142",
       "description": "The Revised Guidelines for the Nigerian Foreign Exchange Market (NFEM), 2024 were issued by the Central Bank of Nigeria to streamline FX operations, ensure transparency, and align with global best practices.",
       "dateIssued": "2024-11-29 00:00:00",
       "dateCommencement": null,
@@ -2719,7 +2719,7 @@
     },
     {
       "title": "Nigeria Foreign Exchange Code 2025",
-      "reference": null,
+      "reference": "TKL-0143",
       "description": null,
       "dateIssued": "Januarey , 2025",
       "dateCommencement": null,
@@ -2738,7 +2738,7 @@
     },
     {
       "title": "Shared Agency Network Expansion Fund Initiative: Regulatory Data Rendition Requirements",
-      "reference": null,
+      "reference": "TKL-0144",
       "description": "Specifies data reporting requirements for banks participating in the SANEF to promote financial inclusion.",
       "dateIssued": "5th July 2018",
       "dateCommencement": "10th July 2018",
@@ -2757,7 +2757,7 @@
     },
     {
       "title": "Circular on Compliance with the Cybercrime (Prohibition, Prevention, etc.) Act 2024: Collection and Remittance of Levy for the National Cybersecurity Fund",
-      "reference": null,
+      "reference": "TKL-0145",
       "description": "Mandates the collection and remittance of a cybersecurity levy to fund national cybersecurity initiatives.",
       "dateIssued": "6th May, 2024",
       "dateCommencement": "6th May, 2024",
@@ -2776,7 +2776,7 @@
     },
     {
       "title": "Federal Competition and Consumer Protection Act (FCCPA)",
-      "reference": null,
+      "reference": "TKL-0146",
       "description": "Establishes the legal framework for competition and consumer protection in Nigeria.",
       "dateIssued": "30th January, 2019",
       "dateCommencement": "30th January, 2019",
@@ -2795,7 +2795,7 @@
     },
     {
       "title": "Regulations for Transactions with Authorised Dealers in Renminbi",
-      "reference": null,
+      "reference": "TKL-0147",
       "description": "Provides guidelines for conducting transactions in Renminbi under the Nigeria-China currency swap agreement.",
       "dateIssued": "June 6, 2018",
       "dateCommencement": "June 6, 2018",
@@ -2814,7 +2814,7 @@
     },
     {
       "title": "Pledge of N1 Billion Worth of Government/CBN Securities for OTC Trade Settlement",
-      "reference": null,
+      "reference": "TKL-0148",
       "description": "Requires banks to pledge specified securities for over-the-counter (OTC) trade settlements to enhance market stability.",
       "dateIssued": "31st May 2018",
       "dateCommencement": "1st June 2018",
@@ -2833,7 +2833,7 @@
     },
     {
       "title": "The Regulatory Framework for the Use of Unstructured Supplementary Service Data (USSD) in the Nigerian Financial System",
-      "reference": null,
+      "reference": "TKL-0149",
       "description": "Provides guidelines for the use of USSD channels in delivering financial services to enhance accessibility and security.",
       "dateIssued": "17th April 2018",
       "dateCommencement": "1st June 2018",
@@ -2852,7 +2852,7 @@
     },
     {
       "title": "CBN Anti-Money Laundering and Combating the Financing of Terrorism (Administrative Sanctions) Regulations, 2018",
-      "reference": null,
+      "reference": "TKL-0150",
       "description": "Establishes administrative sanctions for breaches of AML/CFT obligations to strengthen compliance.",
       "dateIssued": "9th April, 2018",
       "dateCommencement": "2018-05-01 00:00:00",
@@ -2871,7 +2871,7 @@
     },
     {
       "title": "Regulation for Direct Debit Scheme in Nigeria, 2018 (Revised)",
-      "reference": null,
+      "reference": "TKL-0151",
       "description": "Provides a framework for the operation of direct debit services to facilitate automated payments.",
       "dateIssued": "February, 2018",
       "dateCommencement": "February, 2018",
@@ -2890,7 +2890,7 @@
     },
     {
       "title": "Regulation for Bill Payments in Nigeria, 2018",
-      "reference": null,
+      "reference": "TKL-0152",
       "description": "Establishes guidelines for bill payment services to ensure reliability and consumer protection.",
       "dateIssued": "February, 2018",
       "dateCommencement": "February, 2018",
@@ -2909,7 +2909,7 @@
     },
     {
       "title": "Commencement of the Non-Oil Exports Stimulation Facility (NESF)",
-      "reference": null,
+      "reference": "TKL-0153",
       "description": "Introduces a facility to support non-oil exports, diversifying Nigeria's export base.",
       "dateIssued": "9th March 2018",
       "dateCommencement": "9th March 2018",
@@ -2928,7 +2928,7 @@
     },
     {
       "title": "Amendment to the Commercial Agricultural Credit Scheme (CACS) Guideline",
-      "reference": null,
+      "reference": "TKL-0154",
       "description": "Updates the guidelines for the CACS to enhance access to credit for commercial agriculture.",
       "dateIssued": "16th February 2018",
       "dateCommencement": "16th February 2018",
@@ -2947,7 +2947,7 @@
     },
     {
       "title": "Internal Capital Generation and Dividend Payout Ratio",
-      "reference": null,
+      "reference": "TKL-0155",
       "description": "Provides guidelines on dividend payouts to ensure banks maintain adequate capital buffers.",
       "dateIssued": "January 31, 2018",
       "dateCommencement": "Immediate",
@@ -2966,7 +2966,7 @@
     },
     {
       "title": "Sanctions on Erring Banks/E-Payment Service Providers for Infractions of Payments System Rules and Regulations",
-      "reference": null,
+      "reference": "TKL-0156",
       "description": "Outlines penalties for violations of payment system regulations to maintain system integrity.",
       "dateIssued": "January 4, 2018",
       "dateCommencement": "Immediate",
@@ -2985,7 +2985,7 @@
     },
     {
       "title": "Regulatory Framework for Bank Verification Number (BVN) Operations and Watch-List for the Nigerian Financial System",
-      "reference": null,
+      "reference": "TKL-0157",
       "description": "Establishes BVN operations and a watch-list to enhance banking system security.",
       "dateIssued": "12th October 2021",
       "dateCommencement": "Immediate",
@@ -3004,7 +3004,7 @@
     },
     {
       "title": "Circular on Statements of Payment Finality for the Nigerian Payments Schemes",
-      "reference": null,
+      "reference": "TKL-0158",
       "description": "Establishes the point at which payments are considered final and irrevocable across various payment systems.",
       "dateIssued": "10th July 2017",
       "dateCommencement": null,
@@ -3023,7 +3023,7 @@
     },
     {
       "title": "Guidelines for Processing Requests from DMBs to Extend New/Additional Credit Facilities to Loan Defaulters and AMCON Obligors",
-      "reference": null,
+      "reference": "TKL-0159",
       "description": "Outlines the conditions under which banks may extend credit to defaulters and AMCON obligors.",
       "dateIssued": "10th October 2014",
       "dateCommencement": "Immediate effective",
@@ -3042,7 +3042,7 @@
     },
     {
       "title": "Guidelines for the Operation of International Money Transfer Services (IMTS) in Nigeria",
-      "reference": null,
+      "reference": "TKL-0160",
       "description": "Provides a framework for licensing and operating international money transfer services.",
       "dateIssued": "31st January 2024",
       "dateCommencement": null,
@@ -3061,7 +3061,7 @@
     },
     {
       "title": "Cash Reserve Requirement Framework Implementation Guidelines",
-      "reference": null,
+      "reference": "TKL-0161",
       "description": "Mandates maintenance of specific reserve ratios by banks to manage liquidity and support monetary stability.",
       "dateIssued": "February 2nd, 2024.",
       "dateCommencement": null,
@@ -3080,7 +3080,7 @@
     },
     {
       "title": "Circular on the Review of Operations of the NIBSS Instant Payment (NIP) System and Other Electronic Payments Options with Similar Features",
-      "reference": null,
+      "reference": "TKL-0162",
       "description": "To enhance the security and efficiency of electronic payment systems by setting transaction limits and operational guidelines.",
       "dateIssued": "26th May 2022",
       "dateCommencement": null,
@@ -3099,7 +3099,7 @@
     },
     {
       "title": "Guidelines on the Establishment and Rationalization of Branches and Other Outlets for Banks in Nigeria",
-      "reference": null,
+      "reference": "TKL-0163",
       "description": "To streamline the process of opening, closing, or relocating bank branches and outlets.",
       "dateIssued": "17th June 2014",
       "dateCommencement": "Immediate effective",
@@ -3118,7 +3118,7 @@
     },
     {
       "title": "Guideline for Card Issuance and Usage in Nigeria",
-      "reference": null,
+      "reference": "TKL-0164",
       "description": "To standardize the issuance and usage of payment cards, ensuring security and efficiency.",
       "dateIssued": "13th February 2014",
       "dateCommencement": null,
@@ -3137,7 +3137,7 @@
     },
     {
       "title": "Re: The Need for the CBN Prior Clearance of Prospective Employees of Banks",
-      "reference": null,
+      "reference": "TKL-0165",
       "description": "Requires banks to obtain CBN clearance for new employees to prevent rehiring of individuals with fraudulent history.",
       "dateIssued": "5th February 2014",
       "dateCommencement": "Immediate effective",
@@ -3156,7 +3156,7 @@
     },
     {
       "title": "Wolfsberg Anti-Money Laundering Principles for Correspondent Banking 2014",
-      "reference": null,
+      "reference": "TKL-0166",
       "description": "Provides a set of principles for managing money laundering risks in correspondent banking relationships.",
       "dateIssued": "2014",
       "dateCommencement": null,
@@ -3175,7 +3175,7 @@
     },
     {
       "title": "Pension Reform Act (Amendment) 2014",
-      "reference": null,
+      "reference": "TKL-0167",
       "description": "To provide a uniform set of rules for the administration and payment of retirement benefits for the public and private sectors.",
       "dateIssued": "June, 2014",
       "dateCommencement": null,
@@ -3194,7 +3194,7 @@
     },
     {
       "title": "Lagos State Special People's Law",
-      "reference": null,
+      "reference": "TKL-0168",
       "description": "To protect the rights of persons living with disabilities and provide for equal opportunities.",
       "dateIssued": "June, 2010",
       "dateCommencement": null,
@@ -3213,7 +3213,7 @@
     },
     {
       "title": "Discrimination against persons with disabilities (Prohibition) Act, 2018",
-      "reference": null,
+      "reference": "TKL-0169",
       "description": "Prohibits any form of discrimination against persons with disabilities in employment, education, access to facilities, and public services; establishes rights & protections; mandates employment quota; requires accessibility modifications; enables civil and criminal remedies.",
       "dateIssued": "2018",
       "dateCommencement": "2018",
@@ -3232,7 +3232,7 @@
     },
     {
       "title": "Lagos State Environmental Protection Law",
-      "reference": null,
+      "reference": "TKL-0170",
       "description": "To safeguard the Lagos environment through pollution control, waste management, and environmental health standards.",
       "dateIssued": "2017",
       "dateCommencement": "2017",
@@ -3251,7 +3251,7 @@
     },
     {
       "title": "Lagos State Signage and Advertisement Law",
-      "reference": null,
+      "reference": "TKL-0171",
       "description": "To regulate outdoor advertising and signage displays across Lagos.",
       "dateIssued": "2006",
       "dateCommencement": "2006",
@@ -3270,7 +3270,7 @@
     },
     {
       "title": "Lagos State Safety Commission Law",
-      "reference": null,
+      "reference": "TKL-0172",
       "description": "To promote safety and enforce standards in public and private workplaces.",
       "dateIssued": "2011",
       "dateCommencement": "2011",
@@ -3289,7 +3289,7 @@
     },
     {
       "title": "Lagos State Urban and Regional Planning and Development Law, Cap U2 & LASBCA Regulations 2019",
-      "reference": null,
+      "reference": "TKL-0173",
       "description": "To ensure orderly development through planning permits, construction approvals, and structural compliance under the supervision of LASBCA.",
       "dateIssued": "2019",
       "dateCommencement": "2019",
@@ -3308,7 +3308,7 @@
     },
     {
       "title": "Lagos State Physical Planning Permit Regulations",
-      "reference": null,
+      "reference": "TKL-0174",
       "description": "To regulate building construction and land use through approval permits and compliance with zoning regulations.",
       "dateIssued": "2019",
       "dateCommencement": "2019",
@@ -3327,7 +3327,7 @@
     },
     {
       "title": "Lagos State Land Use Charge Law, 2020",
-      "reference": null,
+      "reference": "TKL-0175",
       "description": "To consolidate property-related rates in Lagos State into a single annual Land Use Charge payable by property owners or occupiers for all real estate assets.",
       "dateIssued": "2020",
       "dateCommencement": "2020",
@@ -3346,7 +3346,7 @@
     },
     {
       "title": "Lagos State Parking Authority Regulation",
-      "reference": null,
+      "reference": "TKL-0176",
       "description": "To regulate and manage all forms of parking within Lagos State and ensure compliance with urban traffic and space use regulations.",
       "dateIssued": "2021",
       "dateCommencement": "2021",
@@ -3365,7 +3365,7 @@
     },
     {
       "title": "Reporting of All Credit Facilities of N1 Million and Above in the Credit Risk Management System",
-      "reference": null,
+      "reference": "TKL-0177",
       "description": "Mandates banks to report all credit facilities of N1 million and above to the Credit Risk Management System (CRMS).",
       "dateIssued": "10th September 2013",
       "dateCommencement": "Immediate effective",
@@ -3384,7 +3384,7 @@
     },
     {
       "title": "Submission of Fraud Report on E-Channels Using a Common Portal for the Payments Industry",
-      "reference": null,
+      "reference": "TKL-0178",
       "description": "Mandates the submission of fraud reports on electronic channels through a common portal to enhance fraud monitoring and prevention.",
       "dateIssued": "2013",
       "dateCommencement": "Immediate",
@@ -3403,7 +3403,7 @@
     },
     {
       "title": "SECURITIES AND EXCHANGE COMMISSION RULES AND REGULATIONS, 2013",
-      "reference": null,
+      "reference": "TKL-0179",
       "description": "Provides comprehensive rules and regulations governing securities and capital market operations in Nigeria.",
       "dateIssued": "June, 2013",
       "dateCommencement": "Immediate",
@@ -3422,7 +3422,7 @@
     },
     {
       "title": "Self-Submission of e-Form M by Importers/Traders",
-      "reference": null,
+      "reference": "TKL-0180",
       "description": "Enables importers/traders to submit e-Form M directly via the Nigeria Single Window for Trade portal, enhancing efficiency in trade documentation.",
       "dateIssued": "2013-03-01 00:00:00",
       "dateCommencement": "2013-03-01 00:00:00",
@@ -3441,7 +3441,7 @@
     },
     {
       "title": "Introduction of Three-Tiered Know Your Customer (KYC) Requirements",
-      "reference": null,
+      "reference": "TKL-0181",
       "description": "Implements a risk-based KYC framework with three tiers to facilitate financial inclusion while maintaining compliance.",
       "dateIssued": "January 18, 2013",
       "dateCommencement": "January 18, 2013",
@@ -3460,7 +3460,7 @@
     },
     {
       "title": "Terrorism (Prevention) (Amendment) Act, 2022",
-      "reference": null,
+      "reference": "TKL-0182",
       "description": "Repeal of 2011 and 2013 acts to Strengthen legal framework for preventing and combating terrorism financing.",
       "dateIssued": "May, 2022",
       "dateCommencement": "May,2022",
@@ -3479,7 +3479,7 @@
     },
     {
       "title": "COMPETENCY FRAMEWORK FOR THE NIGERIAN BANKING INDUSTRY, NOVEMBER 2012",
-      "reference": null,
+      "reference": "TKL-0183",
       "description": "Establishes minimum competency standards for banking professionals to promote sound human resource practices.",
       "dateIssued": "2012-11-26 00:00:00",
       "dateCommencement": "2012-11-26 00:00:00",
@@ -3498,7 +3498,7 @@
     },
     {
       "title": "UNIFORM ACCOUNT OPENING FORMS",
-      "reference": null,
+      "reference": "TKL-0184",
       "description": "Standardizes account opening forms across banks to ensure consistent KYC practices.",
       "dateIssued": "2014-02-01 00:00:00",
       "dateCommencement": "2014-02-01 00:00:00",
@@ -3517,7 +3517,7 @@
     },
     {
       "title": "Nigerian Sustainable Banking Principles (NSBP)",
-      "reference": null,
+      "reference": "TKL-0185",
       "description": "To integrate environmental and social risk management (ESRM), human rights, women’s economic empowerment, and ESG reporting into banking operations and lending decisions",
       "dateIssued": "2012-07-01 00:00:00",
       "dateCommencement": "2012-09-01 00:00:00",
@@ -3536,7 +3536,7 @@
     },
     {
       "title": "Climate Change Act, 2021",
-      "reference": null,
+      "reference": "TKL-0186",
       "description": "To provide a legal framework for achieving Nigeria’s climate goals including net-zero by 2060; mandates carbon budgeting, climate risk reporting, and climate mainstreaming in national planning and sectors",
       "dateIssued": "2021-11-01 00:00:00",
       "dateCommencement": "2021-11-01 00:00:00",
@@ -3555,7 +3555,7 @@
     },
     {
       "title": "INCLUSION OF INEC VOTER'S REGISTRATION CARD AS A MEANS OF CUSTOMER IDENTIFICATION, SEPTEMBER 2012",
-      "reference": null,
+      "reference": "TKL-0187",
       "description": "Adds INEC voter cards to the list of valid KYC documents.",
       "dateIssued": "2012-09-01 00:00:00",
       "dateCommencement": "2012-09-01 00:00:00",
@@ -3574,7 +3574,7 @@
     },
     {
       "title": "ISSUANCE OF AML/CFT RBS RETURN TEMPLATE, QUESTIONNAIRE, OTHER FORMATS AND EXPLANATORY NOTES. AUGUST 2012",
-      "reference": null,
+      "reference": "TKL-0188",
       "description": "Provides templates for AML/CFT risk-based supervision returns.",
       "dateIssued": "2012-08-13 00:00:00",
       "dateCommencement": "2012-08-13 00:00:00",
@@ -3593,7 +3593,7 @@
     },
     {
       "title": "Circular to all authorised dealers -Access to the discount window",
-      "reference": null,
+      "reference": "TKL-0189",
       "description": "To promote adherence to the CBN discount window including - Standing Lending Facility (SLF), the Automated Repo Conversion (AREPO), the Funding for Liquidity Facility (FfLF), and the Tenored Repurchase Transactions (REPO).",
       "dateIssued": "2022-10-07 00:00:00",
       "dateCommencement": null,
@@ -3612,7 +3612,7 @@
     },
     {
       "title": "RE: LIBERALIZATION OF UNCONFIRMED LETTERS OF CREDIT, APRIL 2012",
-      "reference": null,
+      "reference": "TKL-0190",
       "description": "Allows authorized dealers to process unconfirmed letters of credit, enhancing trade facilitation.",
       "dateIssued": "2012-04-01 00:00:00",
       "dateCommencement": "2012-04-01 00:00:00",
@@ -3631,7 +3631,7 @@
     },
     {
       "title": "DUD/DISHONOURED CHEQUES",
-      "reference": null,
+      "reference": "TKL-0191",
       "description": "Addresses the issue of dishonoured cheques and mandates reporting to the CBN.",
       "dateIssued": "5th July 2013",
       "dateCommencement": null,
@@ -3650,7 +3650,7 @@
     },
     {
       "title": "WOLFSBERG ANTI-MONEY LAUNDERING PRINCIPLES FOR PRIVATE BANKING (2012)",
-      "reference": null,
+      "reference": "TKL-0192",
       "description": "Provides global standards for AML practices in private banking.",
       "dateIssued": "2012",
       "dateCommencement": "2012",
@@ -3669,7 +3669,7 @@
     },
     {
       "title": "RE-THE NEED FOR BANKS TO DEVELOP AND IMPLEMENT A RISK-BASED PRICING MODEL",
-      "reference": null,
+      "reference": "TKL-0193",
       "description": "Encourages banks to adopt risk-based pricing to enhance credit risk management.",
       "dateIssued": "2011",
       "dateCommencement": "2011",
@@ -3688,7 +3688,7 @@
     },
     {
       "title": "De-marketing of Banks by Other Banks",
-      "reference": null,
+      "reference": "TKL-0194",
       "description": "Prohibits unethical practices where banks discredit competitors to gain market advantage.",
       "dateIssued": "October 21, 2008",
       "dateCommencement": "October 21, 2008",
@@ -3707,7 +3707,7 @@
     },
     {
       "title": "Guidelines on Point of Sale (POS) Card Acceptance Services",
-      "reference": null,
+      "reference": "TKL-0195",
       "description": "Establishes standards for POS operations to ensure secure and efficient card transactions.",
       "dateIssued": "2011-08-01 00:00:00",
       "dateCommencement": "2011-08-01 00:00:00",
@@ -3726,7 +3726,7 @@
     },
     {
       "title": "Personal Income Tax (Amendment) Act, 2011",
-      "reference": null,
+      "reference": "TKL-0196",
       "description": "Amends the Personal Income Tax Act to improve tax administration and compliance.",
       "dateIssued": "June 14, 2011",
       "dateCommencement": "June 14, 2011",
@@ -3745,7 +3745,7 @@
     },
     {
       "title": "Industrial Training Fund (Amendment) Act, 2011",
-      "reference": null,
+      "reference": "TKL-0197",
       "description": "Revises the Industrial Training Fund Act to enhance skill development and training.",
       "dateIssued": "June 22, 2011",
       "dateCommencement": "June 22, 2011",
@@ -3764,7 +3764,7 @@
     },
     {
       "title": "National Minimum Wage Act, 2019",
-      "reference": null,
+      "reference": "TKL-0198",
       "description": "An Act to prescribe a national minimum wage for workers and for related matters connected therewith",
       "dateIssued": "18th April 2019",
       "dateCommencement": "18th April 2019",
@@ -3783,7 +3783,7 @@
     },
     {
       "title": "Financial Reporting Council of Nigeria Act( Amendment) 2023",
-      "reference": null,
+      "reference": "TKL-0199",
       "description": "The FRC Amendment Act 2023 expands the definition of Public Interest Entities and mandates electronic filing of financial statements. It revises annual levies, introduces stricter penalties for non-compliance, and strengthens enforcement powers.",
       "dateIssued": "July 19,2023",
       "dateCommencement": "May 3,2023",
@@ -3802,7 +3802,7 @@
     },
     {
       "title": "Evidence Act, 2011",
-      "reference": null,
+      "reference": "TKL-0200",
       "description": "Provides the legal framework for admissibility of evidence in Nigerian courts.",
       "dateIssued": "2011",
       "dateCommencement": "2011",
@@ -3821,7 +3821,7 @@
     },
     {
       "title": "Trade Dispute Act, 2006",
-      "reference": null,
+      "reference": "TKL-0201",
       "description": "Provides for the settlement of trade disputes and related matters.",
       "dateIssued": "2006",
       "dateCommencement": "2006",
@@ -3840,7 +3840,7 @@
     },
     {
       "title": "Additional Know Your Customer (KYC) Requirement in respect of Non-profit organization (NPOs)",
-      "reference": null,
+      "reference": "TKL-0202",
       "description": "To strengthen Anti‑Money Laundering and Counter‑Terrorism Financing (AML/CFT) controls by requiring banks and other financial institutions to obtain evidence of SCUMLregistration from NPOs before opening or maintaining their accounts.",
       "dateIssued": "8th, December 2023",
       "dateCommencement": "2023-12-08 00:00:00",
@@ -3859,7 +3859,7 @@
     },
     {
       "title": "Industry Dispute Resolution System - Notification of Go-Live Date",
-      "reference": null,
+      "reference": "TKL-0203",
       "description": "Announce the launch of the Industry Dispute Resolution System (IDRS) for timely resolution of customer complaints across the payments ecosystem.",
       "dateIssued": "20th February, 2024",
       "dateCommencement": "20th February, 2024",
@@ -3878,7 +3878,7 @@
     },
     {
       "title": "National Lottery Act",
-      "reference": null,
+      "reference": "TKL-0204",
       "description": "Regulates the operation of lottery businesses in Nigeria.",
       "dateIssued": "2005",
       "dateCommencement": "2005",
@@ -3897,7 +3897,7 @@
     },
     {
       "title": "Nigeria Labour Act (Cap L1, Laws of the Federation of Nigeria) (2004)",
-      "reference": null,
+      "reference": "TKL-0205",
       "description": "Labour Act to regulate employment conditions, industrial relations, recruitment, termination, trade union rights, record‑keeping, and employer obligations.",
       "dateIssued": "1st August, 1971",
       "dateCommencement": "1st August, 1971",
@@ -3916,7 +3916,7 @@
     },
     {
       "title": "Trade Union (Amendment) Act, 2005",
-      "reference": null,
+      "reference": "TKL-0206",
       "description": "Amends existing labor laws to address issues related to trade unions, strikes, and collective bargaining.",
       "dateIssued": "2005-03-01 00:00:00",
       "dateCommencement": "2005-03-01 00:00:00",
@@ -3935,7 +3935,7 @@
     },
     {
       "title": "Trade Marks Act",
-      "reference": null,
+      "reference": "TKL-0207",
       "description": "Provides the legal framework for the registration and protection of trademarks in Nigeria.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -3954,7 +3954,7 @@
     },
     {
       "title": "ECONOMIC AND FINANCIAL CRIMES COMMISSION (ESTABLISHMENT) ACT 2004",
-      "reference": null,
+      "reference": "TKL-0208",
       "description": "Establishes the EFCC and outlines its powers to combat economic and financial crimes.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -3973,7 +3973,7 @@
     },
     {
       "title": "NATIONAL HOUSING FUND ACT, 2004",
-      "reference": null,
+      "reference": "TKL-0209",
       "description": "Establishes the National Housing Fund to facilitate the provision of affordable housing.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -3992,7 +3992,7 @@
     },
     {
       "title": "STAMP DUTIES ACT, 2004",
-      "reference": null,
+      "reference": "TKL-0210",
       "description": "Provides for the imposition of stamp duties on certain documents and transactions.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -4011,7 +4011,7 @@
     },
     {
       "title": "Clarifications on the provisions of the Stamp Duties Act",
-      "reference": null,
+      "reference": "TKL-0211",
       "description": "Clarifies interpretation and implementation of the Stamp Duties Act (Cap S8, LFN 2004), including amendments under the Finance Act 2019 expanding the scope to include electronic instruments",
       "dateIssued": "3 June 2021",
       "dateCommencement": "3 June 2021",
@@ -4030,7 +4030,7 @@
     },
     {
       "title": "THE BILLS OF EXCHANGE ACT",
-      "reference": null,
+      "reference": "TKL-0212",
       "description": "Provides legal framework for negotiable instruments including bills of exchange, promissory notes, and cheques.",
       "dateIssued": "2004",
       "dateCommencement": "2004",
@@ -4049,7 +4049,7 @@
     },
     {
       "title": "CORRUPT PRACTICES AND OTHER RELATED OFFENCES ACT (ICPC), 2003",
-      "reference": null,
+      "reference": "TKL-0213",
       "description": "Establishes the Independent Corrupt Practices and Other Related Offences Commission and outlines offences and penalties.",
       "dateIssued": "2003",
       "dateCommencement": "2003",
@@ -4068,7 +4068,7 @@
     },
     {
       "title": "DEBT MANAGEMENT OFFICE ACT",
-      "reference": null,
+      "reference": "TKL-0214",
       "description": "Establishes the Debt Management Office and outlines its functions and powers.",
       "dateIssued": "2003",
       "dateCommencement": "2003",
@@ -4087,7 +4087,7 @@
     },
     {
       "title": "USA PATRIOT Act",
-      "reference": null,
+      "reference": "TKL-0215",
       "description": "Enhances law enforcement investigatory tools to detect and prevent terrorism, including anti-money laundering provisions.",
       "dateIssued": "2001-10-01 00:00:00",
       "dateCommencement": "2001-10-01 00:00:00",
@@ -4106,7 +4106,7 @@
     },
     {
       "title": "Nigerian Investment Promotion Commission Act",
-      "reference": null,
+      "reference": "TKL-0216",
       "description": "Establishes the Nigerian Investment Promotion Commission to encourage and promote investment in the Nigerian economy.",
       "dateIssued": "1995",
       "dateCommencement": "1995",
@@ -4125,7 +4125,7 @@
     },
     {
       "title": "Bank Customers Bill of Rights",
-      "reference": null,
+      "reference": "TKL-0217",
       "description": "Outlines the rights and responsibilities of bank customers to ensure fair treatment and service.",
       "dateIssued": "2022",
       "dateCommencement": "2022",
@@ -4144,7 +4144,7 @@
     },
     {
       "title": "Guidelines on the Introduction of e-Evaluator, e-Invoicing for Import and Export in Nigeria",
-      "reference": null,
+      "reference": "TKL-0218",
       "description": "Establishes electronic invoicing and valuation systems to enhance transparency and efficiency in trade transactions.",
       "dateIssued": "January 21, 2022",
       "dateCommencement": "February 1, 2022",
@@ -4163,7 +4163,7 @@
     },
     {
       "title": "RE: Further Clarifications on the Circular on Cash Pooling of Repatriated Oil And Gas Export Proceeds by International Oil Companies (IOCs)",
-      "reference": null,
+      "reference": "TKL-0219",
       "description": "Provides additional guidance on the cash pooling circular for IOCs to ensure compliance with repatriation rules.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4182,7 +4182,7 @@
     },
     {
       "title": "Central Bank of Nigeria Risk-Based Cybersecurity Framework and Guidelines for Deposit Money Banks and Payment Service Banks",
-      "reference": null,
+      "reference": "TKL-0220",
       "description": "Sets out cybersecurity risk management expectations for banks and PSPs.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4201,7 +4201,7 @@
     },
     {
       "title": "Re: Processing Fees on Cash Deposits",
-      "reference": null,
+      "reference": "TKL-0221",
       "description": "Communicates the suspension of processing fees on cash deposits to encourage banking transactions.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4220,7 +4220,7 @@
     },
     {
       "title": "Letter to all Banks - The Use of Foreign-Currency Denominated Collaterals for Naira Loans",
-      "reference": null,
+      "reference": "TKL-0222",
       "description": "Provides guidance on the use of foreign-currency denominated collaterals for Naira-denominated loans to mitigate risks.",
       "dateIssued": "2024-04-01 00:00:00",
       "dateCommencement": "2024",
@@ -4239,7 +4239,7 @@
     },
     {
       "title": "Re: Impact of Recent Policy Reforms - Prudential Guidance to the Banking Sector",
-      "reference": null,
+      "reference": "TKL-0223",
       "description": "Provides prudential guidance to banks in light of recent policy reforms to ensure stability and compliance.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4258,7 +4258,7 @@
     },
     {
       "title": "Mandatory Reporting of Foreign Exchange Transactions",
-      "reference": null,
+      "reference": "TKL-0224",
       "description": "Establishes the requirement for authorized dealers to report all foreign exchange transactions to the CBN within a stipulated timeframe to enhance transparency and monitoring.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4277,7 +4277,7 @@
     },
     {
       "title": "Foreign Exchange Rates for Import Duty Assessment",
-      "reference": null,
+      "reference": "TKL-0225",
       "description": "Directs the use of the closing FX rate on the date of opening Form M for import duty assessments to stabilize and standardize duty calculations.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4296,7 +4296,7 @@
     },
     {
       "title": "Allowable Deviation Limit on The Price Verification System",
-      "reference": null,
+      "reference": "TKL-0226",
       "description": "Revises the allowable deviation limits for the Price Verification System (PVS) to ±15% from global average prices, aiming to curb over-invoicing and under-invoicing in trade transactions.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4315,7 +4315,7 @@
     },
     {
       "title": "Allowable Channels for Payout of Personal Travel Allowance (PTA) and Business Travel Allowance (BTA)",
-      "reference": null,
+      "reference": "TKL-0227",
       "description": "Mandates that all PTA and BTA disbursements be made exclusively through electronic channels, eliminating cash payments to enhance transparency.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4334,7 +4334,7 @@
     },
     {
       "title": "Removal of the Spread on Foreign Exchange Transaction",
-      "reference": null,
+      "reference": "TKL-0228",
       "description": "Eliminates the ±2.5% cap on interbank FX transaction spreads, allowing rates to be determined by market forces to enhance price discovery.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4353,7 +4353,7 @@
     },
     {
       "title": "Reviewed Guidelines of International Money Transfer Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0229",
       "description": "Updates the regulatory framework for International Money Transfer Operators (IMTOs), including licensing requirements, operational standards, and compliance obligations.",
       "dateIssued": "2024-01-01 00:00:00",
       "dateCommencement": "2024-01-01 00:00:00",
@@ -4372,7 +4372,7 @@
     },
     {
       "title": "Removal of Allowable Limit of Exchange Rate Quoted by the International Money Transfer Operators",
-      "reference": null,
+      "reference": "TKL-0230",
       "description": "Removes the previous ±2.5% limit on exchange rates quoted by IMTOs, allowing them to set rates based on prevailing market conditions to enhance competitiveness.",
       "dateIssued": "2024-01-01 00:00:00",
       "dateCommencement": "2024-01-01 00:00:00",
@@ -4391,7 +4391,7 @@
     },
     {
       "title": "Circular to All Authorised Dealers - Financial Markets Price Transparency",
-      "reference": null,
+      "reference": "TKL-0231",
       "description": "Emphasizes the need for transparency in pricing within the financial markets, directing authorized dealers to adhere to fair pricing practices.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4410,7 +4410,7 @@
     },
     {
       "title": "Guidelines on Operations of Bank Accounts for Virtual Assets Service Providers (VASPs)",
-      "reference": null,
+      "reference": "TKL-0232",
       "description": "Provides a regulatory framework for banks in managing accounts held by VASPs, including due diligence and monitoring requirements to mitigate risks associated with virtual assets.",
       "dateIssued": "2023-12-01 00:00:00",
       "dateCommencement": "2023-12-01 00:00:00",
@@ -4429,7 +4429,7 @@
     },
     {
       "title": "Exposure of Draft Baseline Standards for Automated Anti-Money Laundering (AML) Solutions",
-      "reference": null,
+      "reference": "TKL-0233",
       "description": "Introduces draft standards for the implementation of automated AML solutions in banks to enhance the effectiveness of AML/CFT measures.",
       "dateIssued": "2025-05-01 00:00:00",
       "dateCommencement": null,
@@ -4448,7 +4448,7 @@
     },
     {
       "title": "Review of Documentation Requirements for PAPSS Transactions in Nigeria",
-      "reference": null,
+      "reference": "TKL-0234",
       "description": "Simplify documentation for low-value PAPSS transactions to enhance intra-African trade and financial inclusion.",
       "dateIssued": "April 28, 2025",
       "dateCommencement": "April 28, 2025",
@@ -4467,7 +4467,7 @@
     },
     {
       "title": "RE: Reminder on Sanctions Compliance Obligations",
-      "reference": null,
+      "reference": "TKL-0235",
       "description": "Reiterate the need for compliance with international and domestic sanctions regimes.",
       "dateIssued": "April 17, 2025",
       "dateCommencement": "April 17, 2025",
@@ -4486,7 +4486,7 @@
     },
     {
       "title": "CBN AML/CFT/CPF Regulations 2022",
-      "reference": null,
+      "reference": "TKL-0236",
       "description": "Strengthen the framework for anti-money laundering, combating financing of terrorism, and counter-proliferation financing.",
       "dateIssued": "March 1, 2022",
       "dateCommencement": "March 1, 2022",
@@ -4505,7 +4505,7 @@
     },
     {
       "title": "Requirements for Foreign Currency Cash Pooling on behalf of International Oil Companies (IOCs) in Nigeria",
-      "reference": null,
+      "reference": "TKL-0237",
       "description": "Provides guidelines for authorized dealers on cash pooling arrangements for IOCs, including limits and documentation requirements to manage FX liquidity.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -4524,7 +4524,7 @@
     },
     {
       "title": "Review Of Terminal Allocation To Pre-Shipment Inspection Agents (PIAs) And Allocation Of PIAs To Monitoring And Evaluation Agents (MEAs)",
-      "reference": null,
+      "reference": "TKL-0238",
       "description": "Review of terminal allocation to Pre-Shipment Inspection Agents (PIAs) and allocation of PIAs to Monitoring and Evaluation Agents (MEAs).",
       "dateIssued": "March 28, 2025",
       "dateCommencement": "March 28, 2025",
@@ -4543,7 +4543,7 @@
     },
     {
       "title": "Nigeria Foreign Exchange (FX) Code",
-      "reference": null,
+      "reference": "TKL-0239",
       "description": "Notification of signed Statement of Commitment to the Nigeria Foreign Exchange Code by the CBN.",
       "dateIssued": "2025-01-01 00:00:00",
       "dateCommencement": "2025-01-01 00:00:00",
@@ -4562,7 +4562,7 @@
     },
     {
       "title": "CBN Guidelines on Management of Dormant Accounts, Unclaimed Balances and Other Financial Assets",
-      "reference": null,
+      "reference": "TKL-0240",
       "description": "Provide a framework for managing dormant accounts and unclaimed balances in banks and other financial institutions.",
       "dateIssued": "July 19, 2024",
       "dateCommencement": "July 19, 2024",
@@ -4581,7 +4581,7 @@
     },
     {
       "title": "RE: Guidelines on Management of Dormant Accounts, Unclaimed Balances and Other Financial Assets in Banks and Other Financial Institutions in Nigeria",
-      "reference": null,
+      "reference": "TKL-0241",
       "description": "Provide a framework for managing dormant accounts and unclaimed balances in banks and other financial institutions.",
       "dateIssued": "February 17, 2025",
       "dateCommencement": "Date Not Specified",
@@ -4600,7 +4600,7 @@
     },
     {
       "title": "CBN Circular on Review of Automated Teller Machine (ATM) Transaction Fees",
-      "reference": null,
+      "reference": "TKL-0242",
       "description": "Review of ATM transaction fees to improve efficiency and reduce costs.",
       "dateIssued": "February 10, 2025",
       "dateCommencement": "March 1, 2025",
@@ -4619,7 +4619,7 @@
     },
     {
       "title": "CBN Circular on Introduction of Non-Resident Nigerian Ordinary Account and Non-Resident Nigerian Investment Account",
-      "reference": null,
+      "reference": "TKL-0243",
       "description": "Introduction of specialized accounts for non-resident Nigerians to facilitate investment and remittances.",
       "dateIssued": "2025-02-01 00:00:00",
       "dateCommencement": "2025-02-01 00:00:00",
@@ -4638,7 +4638,7 @@
     },
     {
       "title": "Investment and Securities Act, 2025",
-      "reference": null,
+      "reference": "TKL-0244",
       "description": "Comprehensive legislation governing investment and securities operations in Nigeria.",
       "dateIssued": "2025-04-01 00:00:00",
       "dateCommencement": "2025-04-01 00:00:00",
@@ -4657,7 +4657,7 @@
     },
     {
       "title": "FIRS Circular No. 2021/04",
-      "reference": null,
+      "reference": "TKL-0245",
       "description": "Clarifies VAT applicability on services rendered by financial institutions.",
       "dateIssued": "March 31, 2021",
       "dateCommencement": "March 31, 2021",
@@ -4676,7 +4676,7 @@
     },
     {
       "title": "FIRS Circular No. 2021/08",
-      "reference": null,
+      "reference": "TKL-0246",
       "description": "Provides guidance on the implementation of the VAT Act, as amended by the Finance Act, 2020.",
       "dateIssued": "June 3, 2021",
       "dateCommencement": "June 3, 2021",
@@ -4695,7 +4695,7 @@
     },
     {
       "title": "FIRS Circular No. 2021/12",
-      "reference": null,
+      "reference": "TKL-0247",
       "description": "Clarifies provisions of the Stamp Duties Act, including electronic documents.",
       "dateIssued": "June 3, 2021",
       "dateCommencement": "June 3, 2021",
@@ -4714,7 +4714,7 @@
     },
     {
       "title": "FIRS Circular No. 2022/15",
-      "reference": null,
+      "reference": "TKL-0248",
       "description": "Provides guidance on claiming tax treaty benefits and Commonwealth tax relief in Nigeria.",
       "dateIssued": "May 11, 2022",
       "dateCommencement": "May 11, 2022",
@@ -4733,7 +4733,7 @@
     },
     {
       "title": "Deduction of Tax at Source (Withholding) Regulations, 2024",
-      "reference": null,
+      "reference": "TKL-0249",
       "description": "Sets out rules for the deduction of tax at source from payments to taxable persons.",
       "dateIssued": "October 2, 2024",
       "dateCommencement": "January 1, 2025",
@@ -4752,7 +4752,7 @@
     },
     {
       "title": "CBN Circular on Suspension of Extension of Export Proceeds on behalf of Exporters",
-      "reference": null,
+      "reference": "TKL-0250",
       "description": "Suspension of the practice of banks requesting extension of export proceeds on behalf of exporters.",
       "dateIssued": "2025-03-01 00:00:00",
       "dateCommencement": "2025-03-01 00:00:00",
@@ -4771,7 +4771,7 @@
     },
     {
       "title": "CBN Circular",
-      "reference": null,
+      "reference": "TKL-0251",
       "description": "Addresses the rejection of old/lower denomination USD by DMBs/forex dealers.",
       "dateIssued": "2024-06-01 00:00:00",
       "dateCommencement": null,
@@ -4790,7 +4790,7 @@
     },
     {
       "title": "2023 NFIU Guidelines on Data Management Framework",
-      "reference": null,
+      "reference": "TKL-0252",
       "description": "Establishes data management framework for financial institutions.",
       "dateIssued": "2023-05-02 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -4809,7 +4809,7 @@
     },
     {
       "title": "Guidance to Reporting Institutions on Preparing a Complete Suspicious Transaction / Activity Report and Filing Electronically to the NFIU",
-      "reference": null,
+      "reference": "TKL-0253",
       "description": "Provides instructions on preparing and filing Suspicious Transaction Reports (STRs).",
       "dateIssued": "2023-05-02 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -4828,7 +4828,7 @@
     },
     {
       "title": "CBN Regulation for Direct Debit Scheme in Nigeria, 2018 (Revised)",
-      "reference": null,
+      "reference": "TKL-0254",
       "description": "Establishes a standardized framework for direct debit transactions to enhance payment efficiency.",
       "dateIssued": "2018",
       "dateCommencement": "2018",
@@ -4847,7 +4847,7 @@
     },
     {
       "title": "CBN Circular on Review of Daily Mobile Money Wallet Transaction & Balance Limit & BVN Requirement for Mobile Money Wallet Holders",
-      "reference": null,
+      "reference": "TKL-0255",
       "description": "Revises transaction and balance limits for mobile money wallets and outlines BVN requirements.",
       "dateIssued": "September 7, 2017",
       "dateCommencement": "September 7, 2017",
@@ -4866,7 +4866,7 @@
     },
     {
       "title": "CBN Circular on Clarification on Accounts with BVN Related Issues",
-      "reference": null,
+      "reference": "TKL-0256",
       "description": "Provides guidance on handling accounts with BVN discrepancies to ensure compliance.",
       "dateIssued": "2016-02-01 00:00:00",
       "dateCommencement": "2016-02-01 00:00:00",
@@ -4885,7 +4885,7 @@
     },
     {
       "title": "CBN Circular on Process for Linking the BVN with Customer's Account on the Core Banking Applications by Banks",
-      "reference": null,
+      "reference": "TKL-0257",
       "description": "Outlines the process for linking BVN to customer accounts to enhance KYC compliance.",
       "dateIssued": "2015",
       "dateCommencement": "2015",
@@ -4904,7 +4904,7 @@
     },
     {
       "title": "Authorized Signatories Verification Portal for the Nigerian Banking Industry",
-      "reference": null,
+      "reference": "TKL-0258",
       "description": "Introduces a portal for verifying authorized signatories to enhance transaction security.",
       "dateIssued": "2014-08-01 00:00:00",
       "dateCommencement": "2014-08-01 00:00:00",
@@ -4923,7 +4923,7 @@
     },
     {
       "title": "Revised Guidelines on Stored Value/Prepaid Card Issuance and Operations",
-      "reference": null,
+      "reference": "TKL-0259",
       "description": "Provides updated regulations for the issuance and management of stored value/prepaid cards.",
       "dateIssued": "2012-10-01 00:00:00",
       "dateCommencement": "2012-10-01 00:00:00",
@@ -4942,7 +4942,7 @@
     },
     {
       "title": "Revised Nigeria Bankers' Clearing House Rules",
-      "reference": null,
+      "reference": "TKL-0260",
       "description": "Updates the rules governing clearing house operations to improve efficiency and reduce fraud.",
       "dateIssued": "July 31, 2018",
       "dateCommencement": "September 1, 2018",
@@ -4961,7 +4961,7 @@
     },
     {
       "title": "Compliance with CIFTS Operating Hours",
-      "reference": null,
+      "reference": "TKL-0261",
       "description": "Mandates adherence to CIFTS operating hours (8:00 a.m. to 3:30 p.m. on working days) to ensure efficient interbank fund transfers.",
       "dateIssued": "2009-02-27 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -4980,7 +4980,7 @@
     },
     {
       "title": "Harmonisation of Participants' Codes on the CIFTS Database at CBN and Participants' TAD",
-      "reference": null,
+      "reference": "TKL-0262",
       "description": "Ensures consistency in participants' codes across CIFTS and TAD systems to prevent transaction errors.",
       "dateIssued": "2008-01-02 00:00:00",
       "dateCommencement": "January 5, 2008",
@@ -4999,7 +4999,7 @@
     },
     {
       "title": "Credit Reporting Act",
-      "reference": null,
+      "reference": "TKL-0263",
       "description": "to promote a sound credit reporting system that supports financial stability, promotes access to credit, and protects data subjects.",
       "dateIssued": "2017",
       "dateCommencement": "Date Not Specified",
@@ -5018,7 +5018,7 @@
     },
     {
       "title": "External Auditors Recommendations in the Management Letters in Banks Audited Financial",
-      "reference": null,
+      "reference": "TKL-0264",
       "description": "Requires banks to address recommendations made by external auditors in management letters.",
       "dateIssued": "2013-05-30 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5037,7 +5037,7 @@
     },
     {
       "title": "Anti-Money Laundering/Combating the Financing of Terrorism (AML/CFT) Policy and Procedure Manual",
-      "reference": null,
+      "reference": "TKL-0265",
       "description": "Provides comprehensive guidelines for AML/CFT compliance to prevent financial crimes.",
       "dateIssued": "2019-02-08 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5056,7 +5056,7 @@
     },
     {
       "title": "Receipt of Diaspora Remittances: Additional Operational Guidelines",
-      "reference": null,
+      "reference": "TKL-0266",
       "description": "Provides directives to enhance transparency and efficiency in the receipt of diaspora remittances.",
       "dateIssued": "2020-12-18 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5075,7 +5075,7 @@
     },
     {
       "title": "New License Categorization for Nigerian Payments Service Providers",
-      "reference": null,
+      "reference": "TKL-0267",
       "description": "Introduces a revised licensing framework to streamline the operations of payment service providers.",
       "dateIssued": "2020-12-09 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5094,7 +5094,7 @@
     },
     {
       "title": "Revised Standards on Nigeria Uniform Bank Account Number (NUBAN) for Banks and Other Financial Institutions",
-      "reference": null,
+      "reference": "TKL-0268",
       "description": "Mandates the adoption of a standardized 10-digit NUBAN structure by all banks and OFIs to enhance payment system efficiency.",
       "dateIssued": "2020-03-09 00:00:00",
       "dateCommencement": "20th April, 2020",
@@ -5113,7 +5113,7 @@
     },
     {
       "title": "Operations of Domiciliary Accounts",
-      "reference": null,
+      "reference": "TKL-0269",
       "description": "Clarifies permissible operations for domiciliary accounts to prevent misuse and ensure compliance with forex regulations.",
       "dateIssued": "2020-11-30 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5132,7 +5132,7 @@
     },
     {
       "title": "Destination Payment for all Forms M, Letters of Credit and Other Forms of Payment",
-      "reference": null,
+      "reference": "TKL-0270",
       "description": "Mandates that payments for imports be made directly to the ultimate supplier to curb over-invoicing and other malpractices.",
       "dateIssued": "2020-11-18 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5151,7 +5151,7 @@
     },
     {
       "title": "Compliance with Exports Procedure in Nigeria",
-      "reference": null,
+      "reference": "TKL-0271",
       "description": "Mandates strict adherence to export proceeds repatriation timelines: 90 days for oil exports and 180 days for non-oil exports.",
       "dateIssued": "2020-10-06 00:00:00",
       "dateCommencement": "Date Not Specified",
@@ -5170,7 +5170,7 @@
     },
     {
       "title": "Financial Action Task Force Statements on Jurisdictions under Increased Monitoring and High-Risk Jurisdictions",
-      "reference": null,
+      "reference": "TKL-0272",
       "description": "Highlights countries with strategic deficiencies in AML/CFT regimes, requiring enhanced due diligence.",
       "dateIssued": "23rd  December 2022",
       "dateCommencement": "Date Not Specified",
@@ -5189,7 +5189,7 @@
     },
     {
       "title": "Guidelines on Targeted Financial Sanctions Related to Terrorism and Terrorism Financing",
-      "reference": null,
+      "reference": "TKL-0273",
       "description": "Provides procedures for implementing targeted financial sanctions against terrorism and its financing.",
       "dateIssued": "15th December 2022",
       "dateCommencement": "Date Not Specified",
@@ -5208,7 +5208,7 @@
     },
     {
       "title": "Guidelines on Targeted Financial Sanctions Relating to Proliferation Financing",
-      "reference": null,
+      "reference": "TKL-0274",
       "description": "Outlines measures to prevent financing of proliferation of weapons of mass destruction.",
       "dateIssued": "14th December 2022",
       "dateCommencement": "Date Not Specified",
@@ -5227,7 +5227,7 @@
     },
     {
       "title": "Renewed Guidelines of International Money Transfer Services in Nigeria",
-      "reference": null,
+      "reference": "TKL-0275",
       "description": "Strengthen regulatory oversight of International Money Transfer Operators (IMTOs) and their local banking partners.",
       "dateIssued": "31st January, 2024",
       "dateCommencement": "Date Not Specified",
@@ -5246,7 +5246,7 @@
     },
     {
       "title": "Circular on Interoperability and Interconnectivity",
-      "reference": null,
+      "reference": "TKL-0276",
       "description": "Mandates that all payment acceptance devices support multiple card schemes to ensure seamless transactions.",
       "dateIssued": "5th December 2022",
       "dateCommencement": "Date Not Specified",
@@ -5265,7 +5265,7 @@
     },
     {
       "title": "Guidelines for Licensing of Banks and Other Financial Institutions on AML/CFT/CPF",
-      "reference": null,
+      "reference": "TKL-0277",
       "description": "Provides AML/CFT/CPF requirements for licensing banks and other financial institutions.",
       "dateIssued": "23rd November 2022",
       "dateCommencement": "Date Not Specified",
@@ -5284,7 +5284,7 @@
     },
     {
       "title": "Exposure Draft of the Guidelines for Contactless Payments in Nigeria",
-      "reference": null,
+      "reference": "TKL-0278",
       "description": "Introduces standards for implementing contactless payment solutions to enhance transaction efficiency.",
       "dateIssued": "17th October 2022",
       "dateCommencement": "Date Not Specified",
@@ -5303,7 +5303,7 @@
     },
     {
       "title": "Circular to All Authorized Dealers: Access to the Discount Window",
-      "reference": null,
+      "reference": "TKL-0279",
       "description": "Provides guidelines on accessing the CBN's discount window facilities.",
       "dateIssued": "7th October 2022",
       "dateCommencement": "Date Not Specified",
@@ -5322,7 +5322,7 @@
     },
     {
       "title": "Adjustment of Interest Rate on All Central Bank of Nigeria Interventions",
-      "reference": null,
+      "reference": "TKL-0280",
       "description": "Revises interest rates on CBN intervention facilities to align with current economic conditions.",
       "dateIssued": "17/08/2022",
       "dateCommencement": "Date Not Specified",
@@ -5341,7 +5341,7 @@
     },
     {
       "title": "Guidance Note on Anti-Money Laundering and Combating the Financing of Terrorism (AML/CFT) Regulations for Other Financial Institutions",
-      "reference": null,
+      "reference": "TKL-0281",
       "description": "Provides detailed guidance on AML/CFT compliance requirements for OFIs to prevent financial crimes.",
       "dateIssued": "2022-03-01 00:00:00",
       "dateCommencement": "2022-03-01 00:00:00",
@@ -5360,7 +5360,7 @@
     },
     {
       "title": "REGULATION FOR THE IMPLEMENTATION OF TARGETED FINANCIAL SANCTIONS ON TERRORISM,TERRORISM FINANCING AND OTHER RELATED MEASURES, 2022.",
-      "reference": null,
+      "reference": "TKL-0282",
       "description": "Implements provisions of the Terrorism (Prevention & Prohibition) Act, 2022 and UN Security Council Resolutions to freeze assets, prohibit supply of funds, and enforce targeted financial sanctions (TFS) related to terrorism and terrorism financing in Nigeria",
       "dateIssued": "2022",
       "dateCommencement": "2022",
@@ -5379,7 +5379,7 @@
     },
     {
       "title": "Treatment of Composed Banknotes",
-      "reference": null,
+      "reference": "TKL-0283",
       "description": "Addresses the issue of composed banknotes and imposes penalties for their circulation to maintain currency integrity.",
       "dateIssued": "March 31, 2022",
       "dateCommencement": "April 1, 2022",
@@ -5398,7 +5398,7 @@
     },
     {
       "title": "Guidelines for Regulation and Supervision of Credit Guarantee Companies in Nigeria",
-      "reference": null,
+      "reference": "TKL-0284",
       "description": "Establishes regulatory framework for Credit Guarantee Companies (CGCs) to enhance credit access for MSMEs.",
       "dateIssued": "2022-03-01 00:00:00",
       "dateCommencement": "2022-03-01 00:00:00",
@@ -5417,7 +5417,7 @@
     },
     {
       "title": "National Financial Literacy Framework",
-      "reference": null,
+      "reference": "TKL-0285",
       "description": "Provides a blueprint for implementing financial literacy programs to enhance financial inclusion.",
       "dateIssued": "October, 2015",
       "dateCommencement": null,
@@ -5436,7 +5436,7 @@
     },
     {
       "title": "RE: Operationalization of the Standing Deposit Facility (SDF) Asymmetric Corridor",
-      "reference": null,
+      "reference": "TKL-0286",
       "description": "Implements an asymmetric corridor for the SDF to manage excess liquidity.",
       "dateIssued": "2024-11-29 00:00:00",
       "dateCommencement": null,
@@ -5455,7 +5455,7 @@
     },
     {
       "title": "Penalties for Rejection of Over Circulated-Mutilated Banknotes by Deposit Money Banks",
-      "reference": null,
+      "reference": "TKL-0287",
       "description": "Mandates DMBs to accept over-circulated/mutilated Naira notes and outlines penalties for non-compliance.",
       "dateIssued": "2024-06-28 00:00:00",
       "dateCommencement": "2024-06-28 00:00:00",
@@ -5474,7 +5474,7 @@
     },
     {
       "title": "The Rejection of Old-Lower Denomination of United States Dollar by Deposit Money Banks (DMBs)-Forex Dealers",
-      "reference": null,
+      "reference": "TKL-0288",
       "description": "Prohibits DMBs and forex dealers from rejecting old or lower denomination USD notes.",
       "dateIssued": "2024-06-27 00:00:00",
       "dateCommencement": "2024-06-27 00:00:00",
@@ -5493,7 +5493,7 @@
     },
     {
       "title": "Revised Guidelines for the Deposit of Foreign Currency at Lagos and Abuja Branches by Deposit Money Banks (DMBs)",
-      "reference": null,
+      "reference": "TKL-0289",
       "description": "Outlines procedures for DMBs to deposit excess foreign currency at specified CBN branches.",
       "dateIssued": "2024-06-01 00:00:00",
       "dateCommencement": "2024-06-01 00:00:00",
@@ -5512,7 +5512,7 @@
     },
     {
       "title": "New Measures to Enhance Local Currency Liquidity for Settlement of Diaspora Remittances",
-      "reference": null,
+      "reference": "TKL-0290",
       "description": "Introduces mechanisms to improve Naira liquidity for settling diaspora remittances.",
       "dateIssued": "2024-06-01 00:00:00",
       "dateCommencement": "2024-06-01 00:00:00",
@@ -5531,7 +5531,7 @@
     },
     {
       "title": "Cash Reserve Requirement (CRR) Framework Implementation Guidelines",
-      "reference": null,
+      "reference": "TKL-0291",
       "description": "Provides updated procedures for CRR computation and maintenance.",
       "dateIssued": "2024-02-01 00:00:00",
       "dateCommencement": "2024-02-01 00:00:00",
@@ -5550,7 +5550,7 @@
     },
     {
       "title": "Re: Repatriation of Export Proceeds (Oil and Non-Oil)",
-      "reference": null,
+      "reference": "TKL-0292",
       "description": "Mandates exporters to repatriate proceeds within specified timelines: 90 days for oil exports, 180 days for non-oil exports.",
       "dateIssued": "2025-01-08 00:00:00",
       "dateCommencement": "2025-01-08 00:00:00",
@@ -5569,7 +5569,7 @@
     },
     {
       "title": "Guidelines for the Operation of International Money Transfer Services (IMTS) in Nigeria - Review of the Allowable Limit",
-      "reference": null,
+      "reference": "TKL-0293",
       "description": "Provides updated regulations for IMTS operations, including the removal of the allowable exchange rate limit and expansion of permissible activities.",
       "dateIssued": "January 31, 2024",
       "dateCommencement": "January 31, 2024",
@@ -5588,7 +5588,7 @@
     },
     {
       "title": "Import Guidelines, Procedures and Documentation Requirements under the Destination Inspection Scheme in Nigeria",
-      "reference": null,
+      "reference": "TKL-0294",
       "description": "Outlines procedures and documentation requirements for imports under the Destination Inspection Scheme to ensure compliance with trade regulations.",
       "dateIssued": "April 30, 2014",
       "dateCommencement": "April 30, 2014",
@@ -5607,7 +5607,7 @@
     },
     {
       "title": "Re: Guidelines for the Deposit of Foreign Currency at CBN by Deposit Money Banks (DMBs)",
-      "reference": null,
+      "reference": "TKL-0295",
       "description": "Provides procedures for DMBs to deposit foreign currency at CBN branches, including advance notice and documentation requirements.",
       "dateIssued": "June 28, 2024",
       "dateCommencement": "June 28, 2024",
@@ -5626,7 +5626,7 @@
     },
     {
       "title": "Patronage of Registered Cash-In-Transit (CIT) and Currency Processing Companies (CPC) Operating in Nigeria",
-      "reference": null,
+      "reference": "TKL-0296",
       "description": "Mandates DMBs to engage only CBN-registered CIT and CPC firms for cash handling and processing services.",
       "dateIssued": "April 30, 2019",
       "dateCommencement": "April 30, 2019",
@@ -5645,7 +5645,7 @@
     },
     {
       "title": "Nigerian Export - Import Bank (NEXIM) Operating Guidelines For The Export Rediscounting & Refinancing Facility (RRF)",
-      "reference": null,
+      "reference": "TKL-0297",
       "description": "Provides operational guidelines for the RRF, facilitating short-term export finance through rediscounting and refinancing.",
       "dateIssued": "16th June 2016",
       "dateCommencement": null,
@@ -5664,7 +5664,7 @@
     },
     {
       "title": "Non-Oil Export Stimulation Facility (ESF) Operating Guidelines",
-      "reference": null,
+      "reference": "TKL-0298",
       "description": "Establishes guidelines for the ESF to provide concessionary finance to non-oil exporters, promoting economic diversification.",
       "dateIssued": "16th June 2016",
       "dateCommencement": null,
@@ -5683,7 +5683,7 @@
     },
     {
       "title": "Collateral Registry Regulations 2014",
-      "reference": null,
+      "reference": "TKL-0299",
       "description": "Establishes a legal framework for the registration of security interests in movable assets, enhancing access to credit.",
       "dateIssued": "24th September 2014",
       "dateCommencement": null,
@@ -5702,7 +5702,7 @@
     },
     {
       "title": "Access to the CBN Discount Window on Auction Days",
-      "reference": null,
+      "reference": "TKL-0300",
       "description": "Restricts market participants from accessing the CBN's discount window on auction days to maintain market integrity.",
       "dateIssued": "7th October, 2022",
       "dateCommencement": null,
@@ -5721,7 +5721,7 @@
     },
     {
       "title": "Onboarding Corporates on FMDQ-Advised FX Trading and Surveillance System",
-      "reference": null,
+      "reference": "TKL-0301",
       "description": "Mandates authorised dealers to execute all FX trades with corporate clients through the FMDQ-advised FX Trading and Surveillance Systems.",
       "dateIssued": "8th July, 2016",
       "dateCommencement": null,
@@ -5740,7 +5740,7 @@
     },
     {
       "title": "Secured Transactions and National Collateral Registry for MSME Financing in Nigeria",
-      "reference": null,
+      "reference": "TKL-0302",
       "description": "Establishes a framework for registering security interests in movable assets to enhance MSME access to credit.",
       "dateIssued": "29th June 2016",
       "dateCommencement": null,
@@ -5759,7 +5759,7 @@
     },
     {
       "title": "Introduction of Negotiable Current Account Maintenance Fee Not Exceeding N1/Mille",
-      "reference": null,
+      "reference": "TKL-0303",
       "description": "Allows banks to charge a maintenance fee not exceeding N1 per N1,000 on customer-induced debit transactions.",
       "dateIssued": "20th January 2016",
       "dateCommencement": null,
@@ -5778,7 +5778,7 @@
     },
     {
       "title": "Release of Guidelines for Licensing and Regulation of Financial Holding Companies in Nigeria",
-      "reference": null,
+      "reference": "TKL-0304",
       "description": "Provides a framework for the establishment and regulation of financial holding companies.",
       "dateIssued": "August 29, 2014",
       "dateCommencement": null,
@@ -5797,7 +5797,7 @@
     },
     {
       "title": "Report on the Three-Tiered Know Your Customer (TKYC) Compliance Exercise",
-      "reference": null,
+      "reference": "TKL-0305",
       "description": "Implements a risk-based KYC framework to enhance financial inclusion.",
       "dateIssued": "2013",
       "dateCommencement": null,
@@ -5816,7 +5816,7 @@
     },
     {
       "title": "Customer Due Diligence Regulations, 2023",
-      "reference": null,
+      "reference": "TKL-0306",
       "description": "To strengthen the AML/CFT framework by providing comprehensive guidelines for customer identification, verification, and due diligence procedures",
       "dateIssued": "2023",
       "dateCommencement": null,
@@ -5835,7 +5835,7 @@
     },
     {
       "title": "Terrorism (Prevention) (Proscription Order) Notice, 2013",
-      "reference": null,
+      "reference": "TKL-0307",
       "description": "Proscribes certain organizations involved in terrorism, criminalizing support and association.",
       "dateIssued": "2013",
       "dateCommencement": "2013",
@@ -5854,7 +5854,7 @@
     },
     {
       "title": "Nigeria Criminal Code Act, 1990",
-      "reference": null,
+      "reference": "TKL-0308",
       "description": "Establishes the criminal law regime in Nigeria, covering offences such as fraud, forgery, stealing, cyber‑crime, and white‑collar offences like section 419 (obtaining property by false pretense)",
       "dateIssued": "1 st June 1916",
       "dateCommencement": "1990",
@@ -5873,7 +5873,7 @@
     },
     {
       "title": "ISO20022 SWIFT Updated Timelines for Migration",
-      "reference": null,
+      "reference": "TKL-0309",
       "description": "Mandates financial institutions to migrate to the ISO20022 messaging standard to enhance payment systems.",
       "dateIssued": "July 28, 2020",
       "dateCommencement": "2022-11-01 00:00:00",
@@ -5892,7 +5892,7 @@
     },
     {
       "title": "Implementation of the Nigeria Cheque Standard (NCS) and Nigeria Cheque Printers Accreditation Scheme (NICPAS) Version 2.0",
-      "reference": null,
+      "reference": "TKL-0310",
       "description": "Standardizes cheque issuance and processing to reduce fraud and enhance efficiency.",
       "dateIssued": "September 18, 2018",
       "dateCommencement": "April 1, 2021",
@@ -5911,7 +5911,7 @@
     },
     {
       "title": "Additional Data Fields for Industry Customer Account Database (ICAD) Submission to NIBSS PLC",
-      "reference": null,
+      "reference": "TKL-0311",
       "description": "Mandates banks to submit additional customer data fields to NIBSS to enhance data quality.",
       "dateIssued": "January 31, 2019",
       "dateCommencement": "January 31, 2019",
@@ -5930,7 +5930,7 @@
     },
     {
       "title": "Re: Interest Rate on Savings Deposit",
-      "reference": null,
+      "reference": "TKL-0312",
       "description": "Sets the minimum interest rate on savings deposits at 30% of the Monetary Policy Rate (MPR).",
       "dateIssued": "August 1, 2022",
       "dateCommencement": "August 1, 2022",
@@ -5949,7 +5949,7 @@
     },
     {
       "title": "Circular on the Implementation of e-Dividend Mandate Management System (eDMMS) Portal",
-      "reference": null,
+      "reference": "TKL-0313",
       "description": "To implement and integrate with the e‑Dividend Mandate Management System (e‑DMMS)  via scanned forms uploaded through banks or registrars.",
       "dateIssued": "14th September 2015",
       "dateCommencement": "14th September 2015",
@@ -5968,7 +5968,7 @@
     },
     {
       "title": "Dishonoured Cheques (Offences) Act, LFN 2004",
-      "reference": null,
+      "reference": "TKL-0314",
       "description": "Establishes criminal liability for issuing cheques that are dishonoured due to insufficient funds",
       "dateIssued": "1977",
       "dateCommencement": "1977",
@@ -6006,7 +6006,7 @@
     },
     {
       "title": "New Offer Letter Clause for Credit Facilities",
-      "reference": null,
+      "reference": "TKL-0316",
       "description": "Introduces a clause allowing banks to set off a defaulting customer's indebtedness from any funds in other banks.",
       "dateIssued": "August 26, 2019",
       "dateCommencement": "August 26, 2019",
@@ -6025,7 +6025,7 @@
     },
     {
       "title": "Guidelines on Pillar 2 Risks and Stress Testing for Banks",
-      "reference": null,
+      "reference": "TKL-0317",
       "description": "Provides framework for identifying and managing Pillar 2 risks through stress testing.",
       "dateIssued": "April 18, 2019",
       "dateCommencement": "April 18, 2019",
@@ -6044,7 +6044,7 @@
     },
     {
       "title": "Guideline on Stress Testing for the Nigerian Banks",
-      "reference": null,
+      "reference": "TKL-0318",
       "description": "Outlines procedures for conducting stress tests to assess banks' capital adequacy under adverse conditions.",
       "dateIssued": "April 18, 2019",
       "dateCommencement": "April 18, 2019",
@@ -6063,7 +6063,7 @@
     },
     {
       "title": "Guidelines for the Management of Reputational Risk",
-      "reference": null,
+      "reference": "TKL-0319",
       "description": "Provides framework for identifying, assessing, and mitigating reputational risks.",
       "dateIssued": "2019-03-01 00:00:00",
       "dateCommencement": "2019-03-01 00:00:00",
@@ -6082,7 +6082,7 @@
     },
     {
       "title": "Guidelines on the Management of Interest Rate Risk in the Banking Book (IRRBB)",
-      "reference": null,
+      "reference": "TKL-0320",
       "description": "Provides principles and methods for banks to measure, monitor, and control interest rate risk in the banking book as part of their Internal Capital Adequacy Assessment Process (ICAAP).",
       "dateIssued": "February 21, 2019",
       "dateCommencement": "2020-01-01 00:00:00",
@@ -6101,7 +6101,7 @@
     },
     {
       "title": "Guidelines on Management of Credit Concentration Risk Under the Supervisory Review Process",
-      "reference": null,
+      "reference": "TKL-0321",
       "description": "Defines minimum requirements for managing credit concentration risk, including identification, measurement, monitoring, and reporting, within the ICAAP framework.",
       "dateIssued": "2019-03-01 00:00:00",
       "dateCommencement": "2019-03-01 00:00:00",
@@ -6120,7 +6120,7 @@
     },
     {
       "title": "Re: Status of Chief Compliance Officers",
-      "reference": null,
+      "reference": "TKL-0322",
       "description": "Provides guidelines on the appointment and reporting lines of Chief Compliance Officers (CCOs) in banks.",
       "dateIssued": "October 9, 2020",
       "dateCommencement": "Immediate",
@@ -6139,7 +6139,7 @@
     },
     {
       "title": "Restoration of Fees on the National Collateral Registry (NCR) Platform",
-      "reference": null,
+      "reference": "TKL-0323",
       "description": "Announces the reinstatement of fees on the NCR platform to sustain its operations.",
       "dateIssued": "September 4, 2020",
       "dateCommencement": "November 1, 2020",
@@ -6158,7 +6158,7 @@
     },
     {
       "title": "Secured Transactions in Movable Assets (STMA) Act, 2017",
-      "reference": null,
+      "reference": "TKL-0324",
       "description": "To promote access to credit using movable assets by creating a centralized collateral registry and legally recognizing non-traditional security interests",
       "dateIssued": "2017-05-30 00:00:00",
       "dateCommencement": null,
@@ -6177,7 +6177,7 @@
     },
     {
       "title": "Requirement to Display Corporate Names on Websites, Portals, Applications, and Other Online Business Platforms",
-      "reference": null,
+      "reference": "TKL-0325",
       "description": "Directs financial institutions to conspicuously display their corporate names and the statement “Licensed by the Central Bank of Nigeria” on all online platforms to foster transparency and consumer trust.",
       "dateIssued": "December 13, 2023",
       "dateCommencement": "January 31, 2024",
@@ -6196,7 +6196,7 @@
     },
     {
       "title": "Circular on Tier 1 Wallets and Accounts, Guidance Note, and Profiling of All Customer Accounts/Wallets",
-      "reference": null,
+      "reference": "TKL-0326",
       "description": "Provides guidance on the enrolment and profiling of Tier 1 accounts and wallets, emphasizing the need for BVN/NIN linkage and adherence to transaction limits to strengthen KYC processes.",
       "dateIssued": "December 1, 2023",
       "dateCommencement": "Immediate",
@@ -6215,7 +6215,7 @@
     },
     {
       "title": "Circular on the Revised Nigeria Cheque Standard (NCS) and Nigeria Cheque Printers Accreditation Scheme (NICPAS) MICR Rejects",
-      "reference": null,
+      "reference": "TKL-0327",
       "description": "Mandates compliance with the revised NCS and NICPAS standards, including the activation of MICR reject/repair flags to ensure the integrity of cheque processing.",
       "dateIssued": "October 9, 2023",
       "dateCommencement": "November 1, 2023",
@@ -6234,7 +6234,7 @@
     },
     {
       "title": "Appointment of Designated Bank for the Collection of Fees under the Nigerian Export Supervision Scheme (NESS)",
-      "reference": null,
+      "reference": "TKL-0328",
       "description": "Announces the appointment of specific banks authorized to collect NESS fees, facilitating compliance with export supervision requirements.",
       "dateIssued": "October 10, 2023",
       "dateCommencement": "Immediate",
@@ -6253,7 +6253,7 @@
     },
     {
       "title": "Payout Option in Naira for Receipt of Proceeds of Diaspora Remittances",
-      "reference": null,
+      "reference": "TKL-0329",
       "description": "Introduces the option for beneficiaries to receive diaspora remittances in Naira to enhance flexibility and accessibility.",
       "dateIssued": "July 10, 2023",
       "dateCommencement": "Immediate",
@@ -6272,7 +6272,7 @@
     },
     {
       "title": "Introduction of the Pan African Payments and Settlement System (PAPSS)",
-      "reference": null,
+      "reference": "TKL-0330",
       "description": "Introduces PAPSS to facilitate cross-border payments and settlements within Africa, promoting intra-African trade.",
       "dateIssued": "October 11, 2021",
       "dateCommencement": "Immediate",
@@ -6291,7 +6291,7 @@
     },
     {
       "title": "Re: Introduction of the Pan African Payments and Settlement System (PAPSS)",
-      "reference": null,
+      "reference": "TKL-0331",
       "description": "Further introduces PAPSS to facilitate cross-border payments and settlements within Africa, promoting intra-African trade.",
       "dateIssued": "July 25, 2023",
       "dateCommencement": "Immediate",
@@ -6310,7 +6310,7 @@
     },
     {
       "title": "Corporate Governance Guidelines for Commercial Banks, Merchant, Non-Interest and Payment Service Banks and Financial Holding Companies in Nigeria",
-      "reference": null,
+      "reference": "TKL-0332",
       "description": "Provides comprehensive governance frameworks to ensure accountability, transparency, and sound management practices.",
       "dateIssued": "July 13, 2023",
       "dateCommencement": "Agust 1, 2023",
@@ -6329,7 +6329,7 @@
     },
     {
       "title": "Transaction Limits on Contactless Payments",
-      "reference": null,
+      "reference": "TKL-0333",
       "description": "Sets transaction limits for contactless payments to mitigate risks associated with such payment methods.",
       "dateIssued": "June 27, 2023",
       "dateCommencement": "Immediate",
@@ -6348,7 +6348,7 @@
     },
     {
       "title": "Guidelines for Contactless Payments in Nigeria",
-      "reference": null,
+      "reference": "TKL-0334",
       "description": "Provides a regulatory framework for the implementation and operation of contactless payment solutions.",
       "dateIssued": "June 27, 2023",
       "dateCommencement": "Immediate",
@@ -6367,7 +6367,7 @@
     },
     {
       "title": "Guidance Note on Politically Exposed Persons (PEP)",
-      "reference": null,
+      "reference": "TKL-0335",
       "description": "Provides directives on the identification and management of PEPs to prevent money laundering and terrorist financing.",
       "dateIssued": "2023-05-01 00:00:00",
       "dateCommencement": "Immediate",
@@ -6386,7 +6386,7 @@
     },
     {
       "title": "Operational Framework for eNaira Payment Option to Recipients of Diaspora Remittances",
-      "reference": null,
+      "reference": "TKL-0336",
       "description": "Provides guidelines for the use of eNaira as a payment option for diaspora remittances to enhance financial inclusion and reduce transaction costs.",
       "dateIssued": "June 15, 2023",
       "dateCommencement": "Immediate",
@@ -6405,7 +6405,7 @@
     },
     {
       "title": "List of Cheque Printers and Personalizers with Valid Accreditation License",
-      "reference": null,
+      "reference": "TKL-0337",
       "description": "Provides an updated list of accredited cheque printers and personalizers to ensure compliance with NCS and NICPAS standards.",
       "dateIssued": "July 19, 2023",
       "dateCommencement": "Immediate",
@@ -6424,7 +6424,7 @@
     },
     {
       "title": "Regulatory Framework for Agent Banking in Nigeria",
-      "reference": null,
+      "reference": "TKL-0338",
       "description": "Provides a framework for the operation of agent banking to promote financial inclusion and extend banking services to underserved areas.",
       "dateIssued": "March 9, 2023",
       "dateCommencement": "Immediate",
@@ -6443,7 +6443,7 @@
     },
     {
       "title": "Re: Review of Tenure of Executive Management and Non-Executive Directors of Deposit Money Banks in Nigeria",
-      "reference": null,
+      "reference": "TKL-0339",
       "description": "Revises the tenure limits for executive management and non-executive directors to strengthen corporate governance in banks.",
       "dateIssued": "February 24, 2023",
       "dateCommencement": "Immediate",
@@ -6462,7 +6462,7 @@
     },
     {
       "title": "Circular to All Banks and Other Financial Institutions and Payment Service Providers Re: Changes to the ISIL (Da'esh) & Al-Qaida Sanction List and to the United Nations Security Council Consolidated List",
-      "reference": null,
+      "reference": "TKL-0340",
       "description": "Notifies financial institutions of updates to international sanctions lists, mandating compliance with the revised listings to prevent terrorism financing.",
       "dateIssued": "2023-02-02 00:00:00",
       "dateCommencement": "Immediate",
@@ -6481,7 +6481,7 @@
     },
     {
       "title": "Guidance on Ultimate Beneficial Owners of Legal Persons and Legal Arrangements",
-      "reference": null,
+      "reference": "TKL-0341",
       "description": "Provides directives for identifying and verifying the ultimate beneficial owners (UBOs) of legal entities to enhance transparency and combat illicit financial activities.",
       "dateIssued": "2023-01-01 00:00:00",
       "dateCommencement": "Immediate",
@@ -6500,7 +6500,7 @@
     },
     {
       "title": "Circular on Cash-Out Limits for Agent Banking Transactions",
-      "reference": null,
+      "reference": "TKL-0342",
       "description": "Sets maximum cash withdrawal limits for agent banking transactions to promote cashless transactions and enhance financial inclusion.",
       "dateIssued": "December 17, 2024",
       "dateCommencement": "Immediate",
@@ -6519,7 +6519,7 @@
     },
     {
       "title": "Cash Availability Over the Counter in Deposit Money Banks (DMBs) and Automated Teller Machines (ATMs)",
-      "reference": null,
+      "reference": "TKL-0343",
       "description": "Mandates DMBs to ensure the availability of cash over the counter and through ATMs to meet customer demands and support economic activities.",
       "dateIssued": "November 29, 2024",
       "dateCommencement": "December 1, 2024",
@@ -6538,7 +6538,7 @@
     },
     {
       "title": "Updated Penalty on Inappropriate Cash Disbursement Practices by Deposit Money Banks (DMBs)",
-      "reference": null,
+      "reference": "TKL-0344",
       "description": "Introduces revised penalties for DMBs engaging in improper cash disbursement practices to ensure compliance with cash handling regulations.",
       "dateIssued": "December 13, 2024",
       "dateCommencement": "Immediate",
@@ -6557,7 +6557,7 @@
     },
     {
       "title": "Revised Guidelines for The Nigeria Foreign Exchange Market (NFEM)",
-      "reference": null,
+      "reference": "TKL-0345",
       "description": "Provides updated regulations for the operation of the Nigerian Foreign Exchange Market to enhance transparency and efficiency.",
       "dateIssued": "November 29, 2024",
       "dateCommencement": "December 2, 2024",
@@ -6576,7 +6576,7 @@
     },
     {
       "title": "Implementation of the Bloomberg BMATCH System for Foreign Exchange Trading",
-      "reference": null,
+      "reference": "TKL-0346",
       "description": "Introduces the Bloomberg BMatch platform for automated matching of FX trades to improve market transparency.",
       "dateIssued": "November 25, 2024",
       "dateCommencement": "December 2, 2024",
@@ -6595,7 +6595,7 @@
     },
     {
       "title": "Guidelines for the Electronic Foreign Exchange Matching System (EFEMS)",
-      "reference": null,
+      "reference": "TKL-0347",
       "description": "Establishes regulations for the operation of EFEMS to automate FX trading processes.",
       "dateIssued": "November 25, 2024",
       "dateCommencement": "December 1, 2024",
@@ -6614,7 +6614,7 @@
     },
     {
       "title": "Mystery Shopping and Spot Checks on Cash Requirement Activities of Deposit Money Banks (DMBs)",
-      "reference": null,
+      "reference": "TKL-0348",
       "description": "Implements measures to monitor and ensure responsible cash disbursement by DMBs.",
       "dateIssued": "November 13, 2024",
       "dateCommencement": "December 1, 2024",
@@ -6633,7 +6633,7 @@
     },
     {
       "title": "Circular To All Commercial, Merchant and Non-Interest Banks on Implementation of the Foreign Currency Disclosure, Deposit, Repatriation and Investment Scheme, 2024",
-      "reference": null,
+      "reference": "TKL-0349",
       "description": "Introduces a scheme for voluntary disclosure and repatriation of foreign currency to enhance financial transparency.",
       "dateIssued": "November 5, 2024",
       "dateCommencement": "Immediate",
@@ -6652,7 +6652,7 @@
     },
     {
       "title": "Nigeria Foreign Exchange (FX) Code Book - EXPOSURE DRAFT",
-      "reference": null,
+      "reference": "TKL-0350",
       "description": "Introduces a draft code of conduct for FX market participants to enhance integrity and transparency.",
       "dateIssued": "2025-01-01 00:00:00",
       "dateCommencement": "Pending Finalization",
@@ -6671,7 +6671,7 @@
     },
     {
       "title": "GUIDELINES ON FINANCIAL AND TECHNICAL ASSISTANCE TO OPERATING INSURED BANKS AND DEPOSIT TAKING FINANCIAL INSTITUTIONS",
-      "reference": null,
+      "reference": "TKL-0351",
       "description": "Outlines the framework for NDIC to provide support to insured banks facing financial difficulties to maintain stability in the banking sector.",
       "dateIssued": "2014-08-01 00:00:00",
       "dateCommencement": "Date not specified",
@@ -6690,7 +6690,7 @@
     },
     {
       "title": "Exposure Draft - Revised Framework for Differential Premium Assessment System (DPAS) in NDIC",
-      "reference": null,
+      "reference": "TKL-0352",
       "description": "Proposes a more risk-sensitive premium assessment system for insured institutions to enhance fairness and financial stability.",
       "dateIssued": "April 3, 2023",
       "dateCommencement": "Pending Finalization",
@@ -6709,7 +6709,7 @@
     },
     {
       "title": "Guidelines for Recapitalization of Banks and Other Financial Institutions",
-      "reference": null,
+      "reference": "TKL-0353",
       "description": "Sets new minimum capital requirements for banks to strengthen the financial system and enhance resilience.",
       "dateIssued": "March 28, 2024",
       "dateCommencement": "April 1, 2024",
@@ -6728,7 +6728,7 @@
     },
     {
       "title": "FRCN Rules (1-13)",
-      "reference": null,
+      "reference": "TKL-0354",
       "description": "Establishes the rules in accordance with Section 8(2), 30 and 53(2) of the Financial Reporting CouncilAct No. 6 2011 (FRC Act),",
       "dateIssued": "2022",
       "dateCommencement": "2022",
@@ -6747,7 +6747,7 @@
     },
     {
       "title": "Nigerian Code of Corporate Governance 2018",
-      "reference": null,
+      "reference": "TKL-0355",
       "description": "Establishes principles and practices for good corporate governance to promote transparency, accountability, and value creation in public and private entities",
       "dateIssued": "2019-01-15 00:00:00",
       "dateCommencement": "2020-01-01 00:00:00",
@@ -6766,7 +6766,7 @@
     },
     {
       "title": "SEC Guidance on Sections 60–63 ISA 2007",
-      "reference": null,
+      "reference": "TKL-0356",
       "description": "To guide public companies (including banks) in implementing internal control requirements under Sections 60–63 of the ISA 2007, covering CEO/CFO certifications, internal control reporting, and auditor attestations",
       "dateIssued": "2021-03-01 00:00:00",
       "dateCommencement": "December 2023",
@@ -6785,7 +6785,7 @@
     },
     {
       "title": "Guidance on Management Report on Internal Control Over Financial Reporting",
-      "reference": null,
+      "reference": "TKL-0357",
       "description": "Provides directives for entities to assess and report on internal controls over financial reporting, enhancing transparency and accountability.",
       "dateIssued": "2024",
       "dateCommencement": "2024",
@@ -6804,7 +6804,7 @@
     },
     {
       "title": "Framework on Banking Sector Recapitalisation Programme – 2024",
-      "reference": null,
+      "reference": "TKL-0358",
       "description": "Sets out the roadmap for Nigerian banks to increase their capital base to enhance financial stability and support economic growth.",
       "dateIssued": "March 28, 2024",
       "dateCommencement": "April 1, 2024",
@@ -6823,7 +6823,7 @@
     },
     {
       "title": "Regulatory Guidelines for Electronic Invoicing in Nigeria",
-      "reference": null,
+      "reference": "TKL-0359",
       "description": "Establishes the framework for the implementation of electronic invoicing to enhance transparency and efficiency in trade transactions.",
       "dateIssued": "2024",
       "dateCommencement": "Date not specified",
@@ -6842,7 +6842,7 @@
     },
     {
       "title": "Money Laundering (Prevention and Prohibition) Act, 2022",
-      "reference": null,
+      "reference": "TKL-0360",
       "description": "Establishes a comprehensive legal and institutional framework for the prevention and prohibition of money laundering in Nigeria.",
       "dateIssued": "May 12, 2022",
       "dateCommencement": "May 12, 2022",
@@ -6861,7 +6861,7 @@
     },
     {
       "title": "Mandatory Provision of Bank Verification Number (BVN)",
-      "reference": null,
+      "reference": "TKL-0361",
       "description": "Mandates the provision of BVN for all RSA registrations and data recapture exercises to enhance the integrity of the pension system.",
       "dateIssued": "2025-01-01 00:00:00",
       "dateCommencement": "2025-01-01 00:00:00",
@@ -6880,7 +6880,7 @@
     },
     {
       "title": "Guidelines on Accessing RSA for Mortgage",
-      "reference": null,
+      "reference": "TKL-0362",
       "description": "Allows RSA holders to access up to 25% of their RSA balance as equity contribution for residential mortgages, subject to specified conditions.",
       "dateIssued": "2022-09-01 00:00:00",
       "dateCommencement": "2022-09-01 00:00:00",
@@ -6899,7 +6899,7 @@
     },
     {
       "title": "SEC Corporate Governance Guidelines (SCGG)",
-      "reference": null,
+      "reference": "TKL-0363",
       "description": "Enhances transparency, accountability, and governance standards for public companies in Nigeria—including board composition, audit and risk committees, director independence, remuneration policies, ethics, and disclosures.",
       "dateIssued": "2020-10-01 00:00:00",
       "dateCommencement": null,
