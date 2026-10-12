@@ -93,7 +93,7 @@ export function controlColumns({ withAct = true } = {}) {
     { id: 'controlNumber', label: 'Control', minWidth: 320, maxWidth: 340, truncate: true, sortable: true, sortField: 'controlNumber',
       render: (r) => <Typography variant="body2" sx={ellipsis(340)}>{r.controlSummary || r.controlNumber || '—'}</Typography> },
     { id: 'theme', label: 'Theme / Area', minWidth: 220, maxWidth: 240, truncate: true, sortable: true, sortField: 'theme',
-      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(240)}>{r.complianceArea || r.theme || '—'}</Typography> },
+      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(240)}>{r.theme || r.complianceArea || '—'}</Typography> },
     { id: 'riskLevel', label: 'Risk', minWidth: 110, sortable: true, sortField: 'riskLevel',
       render: (r) => <Typography variant="body2">{r.riskLevel || '—'}</Typography> },
     { id: 'status', label: 'Status', minWidth: 110, sortable: true, sortField: 'status',
