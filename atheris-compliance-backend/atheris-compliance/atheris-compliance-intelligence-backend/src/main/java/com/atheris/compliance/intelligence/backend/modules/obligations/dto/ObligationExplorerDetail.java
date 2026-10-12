@@ -1,6 +1,7 @@
 package com.atheris.compliance.intelligence.backend.modules.obligations.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.AdminControlDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,6 +52,12 @@ public class ObligationExplorerDetail {
     private String assignedDepartment;
     @Builder.Default
     private List<ControlInfo> linkedControls = List.of();
+    /**
+     * The same rows the controls register serves ({@code AdminControlDto}), for the linked
+     * controls only — so the obligation's Controls tab renders identical columns/values.
+     */
+    @Builder.Default
+    private List<AdminControlDto> controls = List.of();
     @Builder.Default
     private List<EvidenceInfo> evidence = List.of();
     @Builder.Default

@@ -126,4 +126,9 @@ public class AdminControlService {
         String flat = text.replaceAll("\\s+", " ").trim();
         return flat.length() <= SUMMARY_LENGTH ? flat : flat.substring(0, SUMMARY_LENGTH) + "...";
     }
+
+    /** Maps entities to the register DTO — reused so an embedder (e.g. obligation detail) renders identical rows. */
+    public List<AdminControlDto> toDtoList(List<ComplianceControl> controls) {
+        return controls.stream().map(this::toDto).toList();
+    }
 }

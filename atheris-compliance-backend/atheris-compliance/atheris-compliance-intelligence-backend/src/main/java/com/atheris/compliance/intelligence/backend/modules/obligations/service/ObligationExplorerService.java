@@ -68,6 +68,7 @@ public class ObligationExplorerService {
     private final SanctionsRepository sanctionsRepo;
     private final RegulatoryReturnRepository returnRepo;
     private final ComplianceControlRepository controlRepo;
+    private final com.atheris.compliance.intelligence.backend.modules.regulations.service.AdminControlService adminControlService;
     private final ObligationBrowserService browserService;
 
     @PersistenceContext
@@ -379,6 +380,7 @@ public class ObligationExplorerService {
                 .assignedOwnerName(ob.getControlOwner())
                 .assignedDepartment(ob.getAreaOfFocus())
                 .linkedControls(resolveControls(ob.getObligationId()))
+                .controls(adminControlService.toDtoList(mergedControls(ob.getObligationId())))
                 .evidence(List.of())
                 .history(List.of())
                 .regulatorAbbreviation(regulatorAbbr)
@@ -519,16 +521,7 @@ public class ObligationExplorerService {
     }
 
     private List<ObligationExplorerDetail.ControlInfo> resolveControls(Long obligationId) {
-        if (obligationId == null) return List.of();
-        // Two link styles: the foreign-key column obligation_id (monitoring-plan imports) AND the
-        // comma-separated linked_obligation_ids on the control row (toolkit CRMP imports). Union
-        // both, deduped by control id, so controls created either way show on the obligation.
-        Map<Long, ComplianceControl> merged = new LinkedHashMap<>();
-        controlRepo.findByObligationId(obligationId)
-            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
-        controlRepo.findByLinkedObligationId(obligationId)
-            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
-        return merged.values().stream()
+        return mergedControls(obligationId).stream()
                 .map(cc -> ObligationExplorerDetail.ControlInfo.builder()
                         .controlId(cc.getComplianceControlId())
                         .name(cc.getControlNumber())
@@ -541,6 +534,22 @@ public class ObligationExplorerService {
                         .controlNumber(cc.getControlNumber())
                         .build())
                 .toList();
+    }
+
+    /**
+     * Controls linked to an obligation via either link style: the foreign-key column
+     * {@code obligation_id} (monitoring-plan imports) AND the comma-separated
+     * {@code linked_obligation_ids} on the control row (toolkit CRMP imports). Union both,
+     * deduped by control id, preserving insertion order.
+     */
+    private List<ComplianceControl> mergedControls(Long obligationId) {
+        if (obligationId == null) return List.of();
+        Map<Long, ComplianceControl> merged = new LinkedHashMap<>();
+        controlRepo.findByObligationId(obligationId)
+            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
+        controlRepo.findByLinkedObligationId(obligationId)
+            .forEach(cc -> merged.putIfAbsent(cc.getComplianceControlId(), cc));
+        return List.copyOf(merged.values());
     }
 
     private static Predicate likeLower(CriteriaBuilder cb, Expression<String> path, String like) {

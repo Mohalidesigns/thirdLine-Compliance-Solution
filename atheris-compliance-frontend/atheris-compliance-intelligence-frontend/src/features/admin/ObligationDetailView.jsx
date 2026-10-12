@@ -62,9 +62,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
     notify('success', message);
   };
 
-  const controls = useMemo(() => (selected?.linkedControls || []).map((c) => ({
-    ...c, controlSummary: c.name, complianceArea: c.theme,
-  })), [selected]);
+  const controls = useMemo(() => selected?.controls || [], [selected]);
   const returns = useMemo(() => selected?.linkedReturns || selected?.returns || [], [selected]);
   const sanctions = useMemo(() => selected?.sanctions || [], [selected]);
   const evidence = useMemo(() => selected?.evidence || [], [selected]);
@@ -117,7 +115,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
   };
 
   const drillKind = { controls: 'control', returns: 'return', sanctions: 'sanction' };
-  const rowId = { controls: (r) => r.controlId, returns: (r) => r.returnId, sanctions: (r) => r.sanctionId };
+  const rowId = { controls: (r) => r.complianceControlId, returns: (r) => r.returnId, sanctions: (r) => r.sanctionId };
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
