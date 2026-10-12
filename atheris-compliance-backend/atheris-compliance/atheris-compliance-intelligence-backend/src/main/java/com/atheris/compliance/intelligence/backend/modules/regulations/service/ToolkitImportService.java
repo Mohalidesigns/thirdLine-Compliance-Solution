@@ -81,11 +81,13 @@ public class ToolkitImportService {
     private int returnCount = 0;
     private int controlCount = 0;
     private int controlDedupCount = 0;
+    private int skippedNoControlRows = 0;
 
     public ToolkitImportResult importToolkit() {
         unmapped.clear();
         regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
         controlDedupCount = 0;
+        skippedNoControlRows = 0;
         try {
             return transactionTemplate.execute(status -> {
                 try {
@@ -107,7 +109,6 @@ public class ToolkitImportService {
                     }
                     importSanctions(doc.getSanctions() == null ? List.of() : doc.getSanctions());
                     importReturns(doc.getReturns() == null ? List.of() : doc.getReturns());
-                    importCmpControls(doc.getMonitoringPlan() == null ? List.of() : doc.getMonitoringPlan());
                     importCmpControlsFromSections(doc.getObligations() == null ? Map.of() : doc.getObligations());
                     return successResult();
                 } catch (Exception e) {
@@ -728,11 +729,16 @@ public class ToolkitImportService {
     private String normalizeRiskLabel(String s) {
         if (s == null) return null;
         String v = s.toLowerCase(Locale.ROOT).trim();
-        if (v.contains("very high") || v.contains("veryhigh")) return "Very High";
-        if (v.contains("very low") || v.contains("verylow")) return "Very Low";
-        if (v.contains("high")) return "High";
-        if (v.contains("medium") || v.contains("moderate")) return "Medium";
-        if (v.contains("low")) return "Low";
+        if (v.isEmpty()) return null;
+        // Strip leading list punctuation ("- High" -> "high") and any trailing parenthetical
+        // ("High (due to …)" -> "high (due to …)"). A leading label followed by "(" or " - "/","
+        // is taken as the label; a bare "A to B" collapses to the highest band mentioned.
+        String lead = v.replaceFirst("^[\\s\\-•*]+", "");
+        if (lead.contains("very high") || lead.contains("veryhigh")) return "Very High";
+        if (lead.contains("very low") || lead.contains("verylow")) return "Very Low";
+        if (lead.contains("high")) return "High";
+        if (lead.contains("medium") || lead.contains("moderate")) return "Medium";
+        if (lead.contains("low")) return "Low";
         return null;
     }
 
@@ -934,137 +940,6 @@ public class ToolkitImportService {
         return now.withDayOfMonth(now.lengthOfMonth());
     }
 
-    // ── CMP controls (Compliance Monitoring Plan) ──
-    @Transactional
-    public void importCmpControls(List<ToolkitSeedDoc.MonitoringRow> rows) {
-        if (rows.isEmpty()) return;
-
-        for (ToolkitSeedDoc.MonitoringRow row : rows) {
-            // Column 1: control number (e.g., ABAC001)
-            String controlNumber = row.getControlNumber();
-            if (controlNumber == null || controlNumber.isBlank()) continue;
-            controlNumber = controlNumber.trim();
-
-            // Skip if already seeded (re-runnable)
-            if (complianceControls.existsByControlNumber(controlNumber)) continue;
-
-            // Column 2: regulatory requirement
-            String regRequirement = row.getRegulatoryRequirement();
-
-            // Match act from regulatory requirement text
-            Long actId = null;
-            if (regRequirement != null && !regRequirement.isBlank()) {
-                String actName = extractActName(regRequirement);
-                if (actName != null) {
-                    actId = findOrCreateAct(actName, null);
-                }
-            }
-
-            // Match obligation by section reference
-            Long obligationId = null;
-            if (actId != null && regRequirement != null) {
-                String sectionRef = extractSectionRef(regRequirement);
-                if (sectionRef != null) {
-                    obligationId = obligations.findByRegulationId(actId).stream()
-                        .filter(o -> o.getSpecificSectionReference() != null
-                            && sectionRef.toLowerCase(Locale.ROOT)
-                                .contains(o.getSpecificSectionReference().toLowerCase(Locale.ROOT)))
-                        .findFirst()
-                        .map(ObligationMapping::getObligationId)
-                        .orElse(null);
-                }
-            }
-
-            complianceControls.save(ComplianceControl.builder()
-                .controlNumber(controlNumber)
-                .theme(row.getTheme())
-                .regulatoryRequirement(regRequirement)
-                .complianceArea(row.getComplianceArea())
-                .riskLevel(normalizeRisk(row.getRiskLevel()))
-                .complianceControl(row.getComplianceControl())
-                .monitoringActivity(row.getMonitoringActivity())
-                .frequency(row.getFrequency())
-                .responsibleOfficer(row.getResponsibleOfficer())
-                .dueDate(row.getDueDate())
-                .status(normalizeControlStatus(row.getStatus()))
-                .controlEffectivenessMeasure(row.getControlEffectivenessMeasure())
-                .actId(actId)
-                .actName(extractActName(regRequirement))
-                .obligationId(obligationId)
-                .build());
-            controlCount++;
-        }
-        log.info("[ToolkitImport] CMP controls imported: {}", controlCount);
-    }
-
-    /**
-     * Extracts the act name from a regulatory requirement string.
-     * E.g., "EFCC Act 2004 - Section 34(3)" → "EFCC Act 2004"
-     *       "ICPC Act 2003 - Section 13(1)" → "ICPC Act 2003"
-     *       "CBN Cybersecurity Framework - Section 1.1" → "CBN Cybersecurity Framework"
-     */
-    private String extractActName(String regRequirement) {
-        if (regRequirement == null) return null;
-        // Try common delimiters: " - ", " — ", ": "
-        String[] delimiters = {" - ", " — ", ": ", " – "};
-        for (String d : delimiters) {
-            int idx = regRequirement.indexOf(d);
-            if (idx > 0) return regRequirement.substring(0, idx).trim();
-        }
-        // If no delimiter, try to find "Section" keyword
-        int secIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("section");
-        if (secIdx > 0) return regRequirement.substring(0, secIdx).trim();
-        // Try "Rule" keyword
-        int ruleIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("rule");
-        if (ruleIdx > 0) return regRequirement.substring(0, ruleIdx).trim();
-        // Try "Article" keyword
-        int artIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("article");
-        if (artIdx > 0) return regRequirement.substring(0, artIdx).trim();
-        // Try "Principle" keyword
-        int princIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("principle");
-        if (princIdx > 0) return regRequirement.substring(0, princIdx).trim();
-        // Try "Circular" keyword
-        int circIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("circular");
-        if (circIdx > 0) return regRequirement.substring(0, circIdx).trim();
-        // Try "Guidelines" keyword
-        int guidIdx = regRequirement.toLowerCase(Locale.ROOT).indexOf("guideline");
-        if (guidIdx > 0) return regRequirement.substring(0, guidIdx).trim();
-        return null;
-    }
-
-    /**
-     * Extracts the section reference from a regulatory requirement string.
-     * E.g., "EFCC Act 2004 - Section 34(3)" → "Section 34(3)"
-     *       "SEC Rule 38(1)" → "Rule 38(1)"
-     */
-    private String extractSectionRef(String regRequirement) {
-        if (regRequirement == null) return null;
-        // Find after the act name delimiter
-        String[] delimiters = {" - ", " — ", " – "};
-        for (String d : delimiters) {
-            int idx = regRequirement.indexOf(d);
-            if (idx > 0 && idx + d.length() < regRequirement.length()) {
-                return regRequirement.substring(idx + d.length()).trim();
-            }
-        }
-        // Try after "Section", "Rule", "Article", etc.
-        String lower = regRequirement.toLowerCase(Locale.ROOT);
-        String[] keywords = {"section", "rule", "article", "principle", "paragraph", "regulation"};
-        for (String kw : keywords) {
-            int idx = lower.indexOf(kw);
-            if (idx >= 0) return regRequirement.substring(idx).trim();
-        }
-        return null;
-    }
-
-    private String normalizeControlStatus(String s) {
-        if (s == null || s.isBlank()) return "Open";
-        String v = s.trim().toLowerCase(Locale.ROOT);
-        if (v.contains("completed") || v.contains("done")) return "Completed";
-        if (v.contains("progress") || v.contains("ongoing")) return "In Progress";
-        return "Open";
-    }
-
     // ── CRMP sections → extract Control + Additional Control ──
     /**
      * Imports the Control and Additional Control of every CRMP row.
@@ -1115,13 +990,20 @@ public class ToolkitImportService {
                 String impactResidual = normalizeRiskLabel(o.getResidualImpact());
                 String residualRiskRating = computeRiskBand(likelihoodResidual, impactResidual);
 
+                // Inherent risk of the control — from the obligation row's inherent likelihood × impact.
+                String inherentRisk = computeRiskBand(
+                    normalizeRiskLabel(o.getLikelihoodInherent()),
+                    normalizeRiskLabel(o.getImpactInherent()));
+
                 String[][] variants = {
                     { o.getPrimaryControl(), "PRIMARY", "C" },       // Primary Control
                     { o.getAdditionalControl(), "ADDITIONAL", "A" }  // Additional Control
                 };
+                boolean rowHadControl = false;
                 for (String[] v : variants) {
                     String text = v[0];
                     if (text == null || text.isBlank()) continue;
+                    rowHadControl = true;
                     String controlType = v[1];
                     String key = ToolkitControlDedup.naturalKey(actId, text, controlType);
                     // Already present (any date, or earlier in this file): never inserted again,
@@ -1132,7 +1014,7 @@ public class ToolkitImportService {
                         .theme(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
                         .regulatoryRequirement(source)
                         .complianceArea(sectionName)
-                        .riskLevel(normalizeRisk(o.getTitle()))
+                        .riskLevel(inherentRisk)
                         .complianceControl(text)
                         .controlType(controlType)
                         .residualLikelihood(likelihoodResidual)
@@ -1147,11 +1029,12 @@ public class ToolkitImportService {
                     byKey.put(key, saved);
                     cmpCount++;
                 }
+                if (!rowHadControl) { skippedNoControlRows++; }
             }
         }
         controlCount += cmpCount;
-        log.info("[ToolkitImport] CRMP section controls imported: {}, duplicates removed: {}",
-            cmpCount, controlDedupCount);
+        log.info("[ToolkitImport] CRMP section controls imported: {}, duplicates removed: {}, "
+            + "obligation rows skipped (no control): {}", cmpCount, controlDedupCount, skippedNoControlRows);
     }
 
     /**

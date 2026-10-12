@@ -10,7 +10,6 @@ public class AdminControlDto {
     private String theme;
     private String complianceArea;
     private String riskLevel;
-    private String residualRiskRating;
     private String frequency;
     private String responsibleOfficer;
     private String dueDate;

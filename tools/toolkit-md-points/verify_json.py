@@ -25,15 +25,14 @@ DEFAULT_JSON = Path(__file__).resolve().parents[2] / "atheris-compliance-backend
     "atheris-compliance-intelligence-backend" / "src" / "main" / "resources" / "toolkit" / "compliance_toolkits.json"
 
 EXPECTED = {
-    "obligationRows": 1648,
-    "obligationRowsSaved": 1541,
+    "obligationRows": 1630,
+    "obligationRowsSaved": 1533,
     "universeInstruments": 363,
     "sanctionsGridRows": 355,
     "sanctionsGridSaved": 351,
     "sanctionsGridDuplicate": 4,
     "sanctionsTotal": 351,
     "returns": 139,
-    "monitoringPlanRows": 192,
 }
 
 
@@ -81,7 +80,6 @@ def main():
         "universeInstruments": len(d["universe"]),
         "sanctionsGridRows": len(d["sanctions"]),
         "returns": len(d["returns"]),
-        "monitoringPlanRows": len(d["monitoringPlan"]),
     }
     for k, v in actual.items():
         if totals[k] != v:
@@ -209,7 +207,7 @@ def main():
         return 2
     print("VERIFY OK — JSON reproduces fresh-import parity "
           f"({saved} obligations / {sanctions_total} sanctions / {len(d['returns'])} returns / "
-          f"{actual['universeInstruments']} universe / {actual['monitoringPlanRows']} CMP); "
+          f"{actual['universeInstruments']} universe); "
           f"points on {points_filled} rows "
           f"({saved_with_marker} rows have a real verbatim marker); "
           f"sanctions penaltyType on {len(d['sanctions']) - grid_missing_type} grid rows "

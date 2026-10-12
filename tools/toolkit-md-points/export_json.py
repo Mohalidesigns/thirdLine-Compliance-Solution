@@ -3,7 +3,7 @@
 Toolkit markdown -> compliance_toolkits.json generator + parity verifier.
 
 Replicates ToolkitImportService's table parsing and count logic EXACTLY so the
-generated JSON preserves DB parity (1541 obligations / 597 sanctions / 139 returns)
+generated JSON preserves DB parity (1533 obligations / 351 sanctions / 139 returns)
 without re-reading the raw markdown at import time.
 
 Milestone 1 (this file's current scope): --analyze
@@ -175,6 +175,20 @@ def is_sub_header(row, c_title, c_desc):
 
 
 # ── Column resolver shared by importCrmp / importCmpControlsFromSections ──
+def _label_col(rows, needle):
+    """Find the column index whose header (any of the first two header rows) contains
+    `needle` (case-insensitive). The toolkit tables carry a generic header row (e.g.
+    'Inherent Risk' / 'Col9') followed by a sub-header row ('Likelihood (Inherent)' /
+    'Impact (Inherent)'), and the risk columns are not at fixed indices across sheets
+    (ABAC is 7/8, most are 8/9, AMLCFT is 8/9 of 16 cols) — so we resolve them by name."""
+    n = needle.lower()
+    for r in rows[:2]:
+        for i, c in enumerate(r):
+            if c is not None and n in c.strip().lower():
+                return i
+    return -1
+
+
 def resolve_columns(section_rows):
     idx = header_index(section_rows[0])
     col_format = "col0" in idx
@@ -193,33 +207,40 @@ def resolve_columns(section_rows):
     type_col = col(idx, "obligationtype")
     deadline = col(idx, "recurringdeadlinetype", "duedate")
     has_theme = "theme" in idx
+
+    # Risk columns: resolve by label from the two header rows (robust across sheets).
+    ctrl_lik_inh = _label_col(section_rows, "likelihood (inherent)")
+    ctrl_imp_inh = _label_col(section_rows, "impact (inherent)")
+    ctrl_lik_res = _label_col(section_rows, "likelihood (residual)")
+    ctrl_imp_res = _label_col(section_rows, "impact (residual)")
+
     if col_format:
         risk_desc = 7
-        lik_inh = 8
-        imp_inh = 9
+        lik_inh = ctrl_lik_inh if ctrl_lik_inh >= 0 else 8
+        imp_inh = ctrl_imp_inh if ctrl_imp_inh >= 0 else 9
         owner = 10
     elif has_theme:
         risk_desc = 7
-        lik_inh = 8
-        imp_inh = 9
+        lik_inh = ctrl_lik_inh if ctrl_lik_inh >= 0 else 8
+        imp_inh = ctrl_imp_inh if ctrl_imp_inh >= 0 else 9
         owner = 10
     else:
         risk_desc = 6
-        lik_inh = 7
-        imp_inh = 8
+        lik_inh = ctrl_lik_inh if ctrl_lik_inh >= 0 else 7
+        imp_inh = ctrl_imp_inh if ctrl_imp_inh >= 0 else 8
         owner = 9
     points = col(idx, "points")
     # controls (importCmpControlsFromSections)
     if col_format:
         c_control = 11
-        c_lik_res = 12
-        c_imp_res = 13
+        c_lik_res = ctrl_lik_res if ctrl_lik_res >= 0 else 12
+        c_imp_res = ctrl_imp_res if ctrl_imp_res >= 0 else 13
         c_add = -1
         c_ctrl_owner = -1
     else:
         c_control = col(idx, "control")
-        c_lik_res = col(idx, "likelihoodresidual", "residuerisk")
-        c_imp_res = col(idx, "impactresidual", "col13", "col12")
+        c_lik_res = ctrl_lik_res if ctrl_lik_res >= 0 else col(idx, "likelihoodresidual", "residuerisk")
+        c_imp_res = ctrl_imp_res if ctrl_imp_res >= 0 else col(idx, "impactresidual", "col13", "col12")
         c_add = col(idx, "additionalcontrol")
         c_ctrl_owner = col(idx, "responsibility")
     return {
@@ -257,9 +278,11 @@ def build_model(sections):
     """
     Java-faithful transcription of ToolkitImportService into a single model used by
     BOTH --analyze (parity report) and --emit (the JSON). Design decision:
-      - Obligation / sanctions / returns / CMP rows are emitted VERBATIM (all rows with a
+      - Obligation / sanctions / returns rows are emitted VERBATIM (all rows with a
         source; duplicate rows kept) — the reworked importer keeps the existsBy dedup and
         the single global control-number sequence, so parity is preserved by construction.
+      - CRMP obligation rows with neither a primary nor an additional control are NOT
+        emitted (controls come only from the CRMP sheet).
       - Universe duplicate-title rows are pre-skipped (Java's existsBySourceTitle skips the
         ENTIRE row including its free-text sanctions).
       - Returns: the markdown header row is NOT emitted (the reworked importer has no header
@@ -268,7 +291,7 @@ def build_model(sections):
     model = {
         "universe": [],
         "obligations": {s: [] for s in CRMP_SECTIONS},
-        "sanctionsGrid": [], "returns": [], "monitoringPlan": [],
+        "sanctionsGrid": [], "returns": [],
         "perSection": {}, "counts": {},
     }
 
@@ -328,6 +351,7 @@ def build_model(sections):
     total_dupes = {s: 0 for s in CRMP_SECTIONS}
     total_no_plain = {s: 0 for s in CRMP_SECTIONS}
     total_obligations = 0
+    total_skipped_control = 0
     obligation_keys_seen = set()
     for section_name in CRMP_SECTIONS:
         rows = sections.get(section_name, [])
@@ -338,7 +362,7 @@ def build_model(sections):
         c = resolve_columns(rows)
         prim_by_status = {"saved": 0, "dup": 0, "no_plain": 0, "no_source": 0}
         add_by_status = {"saved": 0, "dup": 0, "no_plain": 0, "no_source": 0}
-        n_plain_ok = n_dup = n_no_plain = n_no_source = 0
+        n_plain_ok = n_dup = n_no_plain = n_no_source = n_no_control = 0
         last_source = None
         sin = model["obligations"][section_name]
         for i in range(1, len(rows)):
@@ -371,6 +395,19 @@ def build_model(sections):
                         obligation_keys_seen.add(key)
                     n_plain_ok += 1
                     status = "saved"
+            # Controls come ONLY from CRMP rows: a row with neither a primary nor an
+            # additional control contributes no control, so it is not emitted at all
+            # (matches the importer, which now prunes these rows).
+            ctrl_val = get(r, c["cControl"])
+            addt_val = get(r, c["cAdd"])
+            has_control = bool((ctrl_val or "").strip() or (addt_val or "").strip())
+            if not has_control:
+                n_no_control += 1
+                total_skipped_control += 1
+                n_no_plain -= (1 if status == "no_plain" else 0)
+                n_dup -= (1 if status == "dup" else 0)
+                n_plain_ok -= (1 if status == "saved" else 0)
+                continue
             sin.append({
                 "source": source,
                 "sectionRef": get(r, c["cSection"]),
@@ -481,40 +518,8 @@ def build_model(sections):
             "responsiblePerson": get(r, 7),
         })
 
-    # ── importCmpControls ──
-    cmp_rows = sections.get(CMP, [])
-    current_theme = None
-    for r in cmp_rows:
-        if len(r) < 6:
-            continue
-        theme_cell = get(r, 0)
-        if theme_cell is not None and theme_cell.strip() != "":
-            if theme_cell.strip().lower() == "theme" or (get(r, 1) or "").strip().lower() == "id":
-                continue
-            current_theme = theme_cell.strip()
-        if current_theme is None:
-            continue
-        control_number = get(r, 1)
-        if control_number is None or control_number.strip() == "":
-            continue
-        control_number = control_number.strip()
-        if control_number.lower() == "id":
-            continue
-        model["monitoringPlan"].append({
-            "theme": current_theme,
-            "controlNumber": control_number,
-            "regulatoryRequirement": get(r, 2),
-            "complianceArea": get(r, 3),
-            "riskLevel": get(r, 4),
-            "complianceControl": get(r, 5),
-            "monitoringActivity": get(r, 6),
-            "frequency": get(r, 7),
-            "responsibleOfficer": get(r, 8),
-            "dueDate": get(r, 9),
-            "status": get(r, 10),
-            "controlEffectivenessMeasure": get(r, 11),
-        })
-
+    # NOTE: the Compliance Monitoring Plan sheet is intentionally NOT emitted — controls
+    # come only from the CRMP obligation rows (primary/additional control).
     model["counts"] = {
         "universeInstruments": len(model["universe"]),
         "obligationRows": sum(len(v) for v in model["obligations"].values()),
@@ -526,7 +531,6 @@ def build_model(sections):
         "sanctionsGridDuplicate": grid_dupes,
         "sanctionsTotal": total_sanctions,
         "returns": len(model["returns"]),
-        "monitoringPlanRows": len(model["monitoringPlan"]),
     }
     return model
 
@@ -546,7 +550,6 @@ def emit_json(model, out_path):
         "obligations": model["obligations"],
         "sanctions": model["sanctionsGrid"],
         "returns": model["returns"],
-        "monitoringPlan": model["monitoringPlan"],
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -554,11 +557,11 @@ def emit_json(model, out_path):
 
 def report(model):
     c = model["counts"]
-    print("\n=== PARITY REPORT (fresh-import ground truth: 1541 / 597 / 139) ===")
-    print(f"Obligations saved (deduped): {c['obligationRowsSaved']}  (expected 1541)  [JSON rows {c['obligationRows']}]")
+    print("\n=== PARITY REPORT (fresh-import ground truth: 1533 / 351 / 139) ===")
+    print(f"Obligations saved (deduped): {c['obligationRowsSaved']}  (expected 1533)  [JSON rows {c['obligationRows']}]")
     print(f"Sanctions (grid saved {c['sanctionsGridSaved']} of {c['sanctionsGridRows']}) = {c['sanctionsTotal']}  (expected 351)")
     print(f"Returns: {c['returns']}  (expected 139)")
-    print(f"Universe instruments: {c['universeInstruments']}  | CMP controls: {c['monitoringPlanRows']}")
+    print(f"Universe instruments: {c['universeInstruments']}")
 
     print("\n=== PER-SECTION OBLIGATIONS ===")
     hdr = (f"{'section':<22}{'rows':>6}{'saved':>7}{'dup':>5}{'no_plain':>9}{'no_src':>7}"
@@ -589,7 +592,7 @@ def report(model):
     print(f"additional controls on no-plain rows:             {total_add_on_noplain}")
     print(f"additional controls on no-source rows:            {total_add_on_nosrc}")
 
-    ok = (c["obligationRowsSaved"] == 1541 and c["sanctionsTotal"] == 597 and c["returns"] == 139)
+    ok = (c["obligationRowsSaved"] == 1533 and c["sanctionsTotal"] == 351 and c["returns"] == 139)
     print(f"\nPARITY {'OK' if ok else 'MISMATCH'}")
     return ok
 

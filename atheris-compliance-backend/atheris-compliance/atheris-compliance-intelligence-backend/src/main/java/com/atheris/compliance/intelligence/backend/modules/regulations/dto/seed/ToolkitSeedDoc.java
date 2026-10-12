@@ -15,8 +15,8 @@ import java.util.Map;
  * The importer consumes these nested rows instead of re-parsing the markdown tables.
  * Rows are emitted verbatim (duplicate obligation rows included); the importer keeps its
  * existsBy dedup and the single global control-number sequence, so fresh-import DB parity
- * (1541 obligations / 597 sanctions / 139 returns / 363 universe / 192 CMP) is preserved
- * by construction.
+ * (1533 obligations / 351 sanctions / 139 returns / 363 universe) is preserved by
+ * construction. Controls come ONLY from the CRMP obligation rows (primary/additional).
  */
 @Data @JsonIgnoreProperties(ignoreUnknown = true)
 public class ToolkitSeedDoc {
@@ -26,7 +26,6 @@ public class ToolkitSeedDoc {
     private Map<String, List<ObligationRow>> obligations;
     private List<SanctionsRow> sanctions;
     private List<ReturnsRow> returns;
-    private List<MonitoringRow> monitoringPlan;
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Meta {
@@ -103,21 +102,5 @@ public class ToolkitSeedDoc {
         private String frequency;
         private String responsibleUnit;
         private String responsiblePerson;
-    }
-
-    @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class MonitoringRow {
-        private String theme;
-        private String controlNumber;
-        private String regulatoryRequirement;
-        private String complianceArea;
-        private String riskLevel;
-        private String complianceControl;
-        private String monitoringActivity;
-        private String frequency;
-        private String responsibleOfficer;
-        private String dueDate;
-        private String status;
-        private String controlEffectivenessMeasure;
     }
 }
