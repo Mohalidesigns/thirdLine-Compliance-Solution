@@ -1,46 +1,11 @@
-import { Box, Typography, Card, CardContent, Grid, Chip, Divider, Paper } from '@mui/material';
-import { Gavel, CheckCircle, Link as LinkIcon } from '@mui/icons-material';
-
-const MONO_CHIP_SX = {
-  height: 22, borderRadius: '4px',
-  fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem',
-};
-
-function formatNaira(amount) {
-  if (amount == null) return '-';
-  const n = Number(amount);
-  if (Number.isNaN(n)) return String(amount);
-  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
-}
-
-function formatDate(d) {
-  if (!d) return '-';
-  const parsed = new Date(d);
-  if (Number.isNaN(parsed.getTime())) return String(d);
-  return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function Field({ label, children }) {
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.62rem' }}>
-        {label}
-      </Typography>
-      <Box sx={{ mt: 0.25 }}>{children}</Box>
-    </Box>
-  );
-}
-
-function TextBlock({ label, text, empty }) {
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
-      {text
-        ? <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{text}</Typography>
-        : <Typography variant="body2" color="text.secondary">{empty}</Typography>}
-    </Box>
-  );
-}
+import { Box, Card, CardContent, Chip, Typography } from '@mui/material';
+import {
+  Gavel, CheckCircle, Link as LinkIcon, Paid, Person, Schedule, Folder, WarningAmber,
+} from '@mui/icons-material';
+import { formatNaira, formatDate, friendlyPenaltyTypes } from 'shared';
+import {
+  Section, Field, FieldGrid, StatTile, MonoChip, LongTextBlock, InstrumentRef, CARD_SX,
+} from './detailKit';
 
 /**
  * Presentational body of a sanction. Shared by `SanctionDetailPage` (full page) and the
@@ -49,118 +14,80 @@ function TextBlock({ label, text, empty }) {
 export default function SanctionDetailContent({ sanction }) {
   if (!sanction) return null;
   const roles = Array.isArray(sanction.liableRoles) ? sanction.liableRoles : [];
+  const penaltyTypes = friendlyPenaltyTypes(sanction.penaltyType);
+  const sevColor = sanction.severityScore > 7 ? '#C53030' : sanction.severityScore > 4 ? '#DD6B20' : '#2C7A7B';
 
   return (
     <Box>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                <Gavel sx={{ color: '#C53030' }} />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {sanction.sanctionType || 'Sanction'}
-                </Typography>
-                {sanction.severityScore != null && (
-                  <Chip size="small" label={`Sev ${sanction.severityScore}`}
-                    color={sanction.severityScore > 7 ? 'error' : sanction.severityScore > 4 ? 'warning' : 'default'}
-                    sx={{ height: 22, borderRadius: '4px' }} />
-                )}
-                {sanction.hasBeenEnforced
-                  ? <Chip icon={<CheckCircle sx={{ fontSize: 14 }} />} label="Enforced" size="small" color="success"
-                      sx={{ height: 22, borderRadius: '4px' }} />
-                  : <Chip label="Not enforced" size="small" variant="outlined"
-                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', color: 'text.secondary' }} />}
-              </Box>
-
-              {sanction.actName && (
-                <Typography variant="body2" sx={{ color: '#3182CE', fontWeight: 600, mb: 0.5 }}>
-                  <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                  {sanction.actName}
-                  {sanction.actAbbreviation ? ` (${sanction.actAbbreviation})` : ''}
-                </Typography>
-              )}
-              {sanction.sourceSectionReference && (
-                <Chip size="small" variant="outlined" label={sanction.sourceSectionReference} sx={{ ...MONO_CHIP_SX, mb: 1 }} />
-              )}
-
-              <Divider sx={{ my: 1.5 }} />
-
-              <TextBlock label="Violation" text={sanction.description} empty="No violation description recorded." />
-              <TextBlock label="Penalty Type" text={(sanction.penaltyType || []).join(', ')} empty="No penalty type recorded." />
-              <TextBlock label="Penalty" text={sanction.penaltyDetails} empty="No penalty breakdown recorded." />
-              <TextBlock label="Impact" text={sanction.riskExplanation} empty="No impact explanation recorded." />
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', mb: 2 }}>
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>
-                Exposure
+      <Card sx={{ ...CARD_SX, mb: 2.5 }}>
+        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
+            <Gavel sx={{ color: '#C53030' }} />
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>{sanction.sanctionType || 'Sanction'}</Typography>
+            {sanction.severityScore != null && (
+              <Chip size="small" label={`Severity ${sanction.severityScore}/10`}
+                sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: `${sevColor}18`, color: sevColor }} />
+            )}
+            {sanction.hasBeenEnforced
+              ? <Chip icon={<CheckCircle sx={{ fontSize: 14 }} />} label="Enforced" size="small" color="success"
+                  sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.68rem' }} />
+              : <Chip icon={<WarningAmber sx={{ fontSize: 14 }} />} label="Not enforced" size="small" variant="outlined"
+                  sx={{ height: 22, borderRadius: '4px', fontSize: '0.68rem', color: 'text.secondary' }} />}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <MonoChip label={sanction.sourceSectionReference} />
+            {sanction.actName && (
+              <Typography variant="body2" sx={{ color: '#3182CE', fontWeight: 600, fontSize: '0.85rem' }}>
+                <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
+                {sanction.actName}{sanction.actAbbreviation ? ` (${sanction.actAbbreviation})` : ''}
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#C53030', mt: 0.5, mb: 1.5 }}>
-                {formatNaira(sanction.sanctionAmountNaira)}{sanction.sanctionAmountPerDay ? ' /day' : ''}
-              </Typography>
-              <Field label="Personal liability">
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatNaira(sanction.personalLiabilityNaira)}</Typography>
-              </Field>
-              <Field label="Liable roles">
-                {roles.length > 0 ? (
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {roles.map(r => <Chip key={r} size="small" label={r} sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />)}
-                  </Box>
-                ) : <Typography variant="body2" color="text.secondary">-</Typography>}
-              </Field>
-            </CardContent>
-          </Card>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
 
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>
-                Enforcement history
-              </Typography>
-              <Box sx={{ mt: 1 }}>
-                <Field label="Most recent enforcement">
-                  <Typography variant="body2">{formatDate(sanction.recentEnforcementDate)}</Typography>
-                </Field>
-                <Field label="Amount enforced">
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatNaira(sanction.recentEnforcementAmount)}</Typography>
-                </Field>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 2.5 }}>
+        <StatTile icon={<Paid fontSize="small" />} label="Maximum exposure" accent="#C53030"
+          value={`${formatNaira(sanction.sanctionAmountNaira, { perDay: sanction.sanctionAmountPerDay })}`} />
+        <StatTile icon={<Person fontSize="small" />} label="Personal liability" accent="#DD6B20"
+          value={formatNaira(sanction.personalLiabilityNaira)} />
+        <StatTile icon={<WarningAmber fontSize="small" />} label="Penalty type" accent="#6B46C1" value={penaltyTypes} />
+        <StatTile icon={<CheckCircle fontSize="small" />} label="Liable roles" accent="#2C7A7B"
+          value={roles.length ? `${roles.length} role${roles.length > 1 ? 's' : ''}` : null} />
+      </Box>
 
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>
-          Metadata
-        </Typography>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Sanction ID"><Typography variant="body2">{sanction.sanctionId}</Typography></Field>
-          </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Act ID"><Typography variant="body2">{sanction.regulationId ?? '-'}</Typography></Field>
-          </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Instrument ID"><Typography variant="body2">{sanction.instrumentId ?? '-'}</Typography></Field>
-          </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Instrument">
-              <Typography variant="body2">{sanction.instrumentTitle || '-'}</Typography>
-            </Field>
-          </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Created"><Typography variant="body2">{formatDate(sanction.createdAt)}</Typography></Field>
-          </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Field label="Updated"><Typography variant="body2">{formatDate(sanction.updatedAt)}</Typography></Field>
-          </Grid>
-        </Grid>
-      </Paper>
+      <LongTextBlock icon={<Gavel fontSize="small" />} title="Violation" text={sanction.description} />
+      <LongTextBlock icon={<WarningAmber fontSize="small" />} title="Penalty" text={sanction.penaltyDetails} />
+      <LongTextBlock icon={<Schedule fontSize="small" />} title="Impact" text={sanction.riskExplanation} />
+
+      <Section icon={<Person fontSize="small" />} title="Liable Roles" subtitle="Persons/roles the penalty attaches to">
+        {roles.length ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {roles.map((r) => (
+              <Chip key={r} size="small" label={r}
+                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem', bgcolor: '#EDF2F7' }} />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>No liable roles recorded.</Typography>
+        )}
+      </Section>
+
+      <Section icon={<Gavel fontSize="small" />} title="Enforcement History">
+        <FieldGrid>
+          <Field label="Enforcement basis" value={sanction.hasBeenEnforced ? 'Enforced' : 'Not enforced'} />
+          <Field label="Most recent enforcement" value={formatDate(sanction.recentEnforcementDate)} />
+          <Field label="Amount enforced" value={formatNaira(sanction.recentEnforcementAmount)} />
+        </FieldGrid>
+      </Section>
+
+      <Section icon={<Folder fontSize="small" />} title="Linked Record">
+        <FieldGrid>
+          <Field label="Instrument"><InstrumentRef id={sanction.instrumentId} /></Field>
+          <Field label="Recorded" value={formatDate(sanction.createdAt)} />
+          <Field label="Updated" value={formatDate(sanction.updatedAt)} />
+        </FieldGrid>
+      </Section>
     </Box>
   );
 }

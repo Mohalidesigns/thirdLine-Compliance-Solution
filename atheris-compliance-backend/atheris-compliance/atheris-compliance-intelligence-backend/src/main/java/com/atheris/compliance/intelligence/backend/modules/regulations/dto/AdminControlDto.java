@@ -3,6 +3,8 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data @Builder
 public class AdminControlDto {
     private Long complianceControlId;
@@ -17,8 +19,6 @@ public class AdminControlDto {
     private Long actId;
     private String actName;
     private String controlSummary;
-    /** First cleaned control point (null when the control has no baked points). */
-    private String firstPoint;
-    /** Number of cleaned control points; 0 when none. */
-    private Integer pointCount;
+    /** Cleaned control statements (the register shows the first; hover reveals the rest). */
+    private List<String> controlPoints;
 }

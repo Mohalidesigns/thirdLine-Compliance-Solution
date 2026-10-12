@@ -1,4 +1,4 @@
-import { Chip, Typography, Box } from '@mui/material';
+import { Chip, Typography, Box, Tooltip } from '@mui/material';
 import { friendlyPenaltyTypes } from './formatters';
 
 /**
@@ -12,7 +12,7 @@ import { friendlyPenaltyTypes } from './formatters';
  *   obligation : title, plainEnglishStatement, regulatorAbbreviation, riskRating, hasPoints
  *   sanction   : description, penaltyType[], penaltyDetails, liableRoles[]
  *   return     : title, frequencyType, frequency, deadline, responsibleUnit, responsiblePerson
- *   control    : controlSummary, controlNumber, firstPoint, pointCount, complianceArea, theme, riskLevel, status, actName
+ *   control    : controlSummary, controlNumber, controlPoints[], complianceArea, theme, riskLevel, status, actName
  *   instrument : sourceTitle, sourceReferenceNumber, riskRating, status  (+ regMap[regulatorId])
  */
 
@@ -92,17 +92,26 @@ export function controlColumns({ withAct = true } = {}) {
   const cols = [
     { id: 'controlNumber', label: 'Control', minWidth: 320, maxWidth: 340, truncate: true, sortable: true, sortField: 'controlNumber',
       render: (r) => {
-        // A control may decompose into several cleaned points; show the first + a count badge.
-        const extra = (r.pointCount || 0) - 1;
-        const text = r.firstPoint || r.controlSummary || r.controlNumber || '—';
+        // A control may decompose into several cleaned points: show the first, hover reveals all.
+        const pts = Array.isArray(r.controlPoints) ? r.controlPoints : [];
+        const text = pts[0] || r.controlSummary || r.controlNumber || '—';
+        const cell = <Typography variant="body2" sx={ellipsis(340)}>{text}</Typography>;
+        if (pts.length <= 1) return cell;
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-            <Typography variant="body2" sx={ellipsis(300)}>{text}</Typography>
-            {extra > 0 && (
-              <Chip size="small" label={`+${extra}`} variant="outlined"
-                sx={{ height: 20, flexShrink: 0, fontSize: '0.7rem', fontWeight: 600 }} />
-            )}
-          </Box>
+          <Tooltip
+            arrow
+            placement="top-start"
+            slotProps={{ tooltip: { sx: { maxWidth: 520, p: 1.25 } } }}
+            title={
+              <Box component="ol" sx={{ m: 0, pl: 2.25 }}>
+                {pts.map((p, i) => (
+                  <Box component="li" key={i} sx={{ mb: 0.25, fontSize: '0.78rem', lineHeight: 1.5 }}>{p}</Box>
+                ))}
+              </Box>
+            }
+          >
+            {cell}
+          </Tooltip>
         );
       } },
     { id: 'theme', label: 'Theme / Area', minWidth: 220, maxWidth: 240, truncate: true, sortable: true, sortField: 'theme',

@@ -3,6 +3,7 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data @Builder
@@ -23,4 +24,12 @@ public class AdminControlDetailDto {
     private String monitoringActivity;
     private String controlEffectivenessMeasure;
     private List<ControlPoint> points;
+    private String controlType;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualRiskRating;
+    private String ownerName;
+    private Long obligationId;
+    private String linkedObligationIds;
+    private Instant createdAt;
 }

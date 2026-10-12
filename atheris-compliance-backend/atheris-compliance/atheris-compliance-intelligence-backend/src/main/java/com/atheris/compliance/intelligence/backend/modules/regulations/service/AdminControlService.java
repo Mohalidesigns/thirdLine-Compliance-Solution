@@ -67,6 +67,14 @@ public class AdminControlService {
             .monitoringActivity(c.getMonitoringActivity())
             .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
             .points(c.getPoints() == null ? List.of() : c.getPoints())
+            .controlType(c.getControlType())
+            .residualLikelihood(c.getResidualLikelihood())
+            .residualImpact(c.getResidualImpact())
+            .residualRiskRating(c.getResidualRiskRating())
+            .ownerName(c.getOwnerName())
+            .obligationId(c.getObligationId())
+            .linkedObligationIds(c.getLinkedObligationIds())
+            .createdAt(c.getCreatedAt())
             .build();
     }
 
@@ -107,8 +115,6 @@ public class AdminControlService {
     }
 
     private AdminControlDto toDto(ComplianceControl c) {
-        List<ControlPoint> pts = c.getPoints() == null ? List.of() : c.getPoints();
-        String firstPoint = pts.isEmpty() ? null : pointText(pts.get(0));
         return AdminControlDto.builder()
             .complianceControlId(c.getComplianceControlId())
             .controlNumber(c.getControlNumber())
@@ -122,12 +128,19 @@ public class AdminControlService {
             .actId(c.getActId())
             .actName(c.getActName())
             .controlSummary(summarise(c.getComplianceControl()))
-            .firstPoint(firstPoint)
-            .pointCount(pts.size())
+            .controlPoints(pointTexts(c.getPoints()))
             .build();
     }
 
-    /** The display text of a control point: its `content` (verbatim) or `text` fallback. */
+    /** The display text of each control point (`content`, falling back to `text`). */
+    private List<String> pointTexts(List<ControlPoint> points) {
+        if (points == null || points.isEmpty()) return List.of();
+        return points.stream()
+            .map(this::pointText)
+            .filter(t -> t != null && !t.isBlank())
+            .toList();
+    }
+
     private String pointText(ControlPoint point) {
         if (point == null) return null;
         if (point.getContent() != null && !point.getContent().isBlank()) return point.getContent().trim();
