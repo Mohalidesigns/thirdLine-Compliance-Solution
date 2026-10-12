@@ -1,8 +1,12 @@
 package com.atheris.compliance.intelligence.backend.modules.regulations.entity;
 
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.ControlPoint;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(name = "compliance_controls")
@@ -29,6 +33,11 @@ public class ComplianceControl {
 
     @Column(columnDefinition = "text")
     private String complianceControl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private List<ControlPoint> points = List.of();
 
     @Column(columnDefinition = "text")
     private String monitoringActivity;

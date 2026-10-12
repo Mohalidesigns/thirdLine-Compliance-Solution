@@ -30,6 +30,21 @@ CREATE TABLE IF NOT EXISTS instruments (
     uploaded_by                INT,
     is_historical_backfill     BOOLEAN DEFAULT false,
     ai_summary                 TEXT,
+    -- toolkit curation columns (per-act enrichment; act_id FK is added in V15 once `acts` exists)
+    regulatory_item_type       VARCHAR(100),
+    comment_on_status          TEXT,
+    risk_rating_explanation    TEXT,
+    commercial_bank_relevance  TEXT,
+    commercial_bank_compliance_context TEXT,
+    applicability_to_commercial_banks VARCHAR(20),
+    document_url               TEXT,
+    search_vector              tsvector GENERATED ALWAYS AS (
+        to_tsvector('english',
+            coalesce(source_title,'') || ' ' ||
+            coalesce(area_of_focus,'') || ' ' ||
+            coalesce(ai_summary,'')
+        )
+    ) STORED,
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -39,15 +54,5 @@ CREATE UNIQUE INDEX idx_instruments_pdf_hash   ON instruments(pdf_hash)   WHERE 
 CREATE INDEX idx_instruments_regulator_status  ON instruments(regulator_id, status);
 CREATE INDEX idx_instruments_risk_rating       ON instruments(risk_rating);
 CREATE INDEX idx_instruments_area_of_focus     ON instruments(area_of_focus);
-
--- Full text search index
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS
-    search_vector tsvector GENERATED ALWAYS AS (
-        to_tsvector('english',
-            coalesce(source_title,'') || ' ' ||
-            coalesce(area_of_focus,'') || ' ' ||
-            coalesce(ai_summary,'')
-        )
-    ) STORED;
 
 CREATE INDEX idx_instruments_fts ON instruments USING GIN(search_vector);

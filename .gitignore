@@ -34,3 +34,8 @@ sanctions.xlsx
 # tools/toolkit-md-points/fix_inherent_risk.py; the baked result lives in the committed JSON + md)
 tools/toolkit-md-points/inherent_risk_fixed.json
 tools/toolkit-md-points/inherent_risk_review.csv
+
+# Offline control-points bake sidecar + review CSV (regenerable via
+# tools/toolkit-md-points/control_points.py; the baked result lives in the committed JSON)
+tools/toolkit-md-points/control_points.json
+tools/toolkit-md-points/control_points_review.csv

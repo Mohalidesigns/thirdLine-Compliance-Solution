@@ -17,4 +17,8 @@ public class AdminControlDto {
     private Long actId;
     private String actName;
     private String controlSummary;
+    /** First cleaned control point (null when the control has no baked points). */
+    private String firstPoint;
+    /** Number of cleaned control points; 0 when none. */
+    private Integer pointCount;
 }

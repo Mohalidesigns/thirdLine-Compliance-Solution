@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS sanctions_and_penalties (
     recent_enforcement_amount DECIMAL(15,2),
     description               TEXT,
     source_section_reference  TEXT,
+    risk_explanation          TEXT,
+    penalty_details           TEXT,
+    -- Derived penalty kinds (e.g. ["MONETARY","MONETARY_PER_DAY"]) baked offline by tools/toolkit-md-points
+    penalty_type              JSONB,
     created_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

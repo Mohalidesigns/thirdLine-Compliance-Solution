@@ -1,6 +1,7 @@
 package com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.ControlPoint;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -73,6 +74,8 @@ public class ToolkitSeedDoc {
         private String responsibility;
         private String primaryControl;
         private String additionalControl;
+        private List<ControlPoint> primaryControlPoints;
+        private List<ControlPoint> additionalControlPoints;
         private String residualLikelihood;
         private String residualImpact;
         private String status;

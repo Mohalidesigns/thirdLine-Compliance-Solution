@@ -1,5 +1,6 @@
 import { Box, Typography, Card, CardContent, Grid, Chip, Divider } from '@mui/material';
 import { FactCheck, Link as LinkIcon } from '@mui/icons-material';
+import FormattedText from '../../../../components/FormattedText';
 
 const RISK_COLOR = {
   Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success',
@@ -18,16 +19,21 @@ function Meta({ label, value }) {
   );
 }
 
-function LongText({ title, text }) {
+function LongText({ title, text, points }) {
+  const hasPoints = Array.isArray(points) && points.length > 0;
   return (
     <Card sx={{ mb: 2, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
       <Box sx={{ p: 2, borderBottom: '1px solid #EDF2F7' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
       </Box>
       <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        {text
-          ? <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{text}</Typography>
-          : <Typography variant="body2" color="text.secondary">Not recorded.</Typography>}
+        {hasPoints ? (
+          <FormattedText points={points} pointType="control" />
+        ) : text ? (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{text}</Typography>
+        ) : (
+          <Typography variant="body2" color="text.secondary">Not recorded.</Typography>
+        )}
       </CardContent>
     </Card>
   );
@@ -79,7 +85,7 @@ export default function ControlDetailContent({ control, onActClick }) {
         </CardContent>
       </Card>
 
-      <LongText title="Compliance Control" text={ctl.complianceControl} />
+      <LongText title="Compliance Control" text={ctl.complianceControl} points={ctl.points} />
       <LongText title="Regulatory Requirement" text={ctl.regulatoryRequirement} />
       <LongText title="Monitoring Activity" text={ctl.monitoringActivity} />
       <LongText title="Control Effectiveness Measure" text={ctl.controlEffectivenessMeasure} />

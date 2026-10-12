@@ -12,7 +12,7 @@ import { friendlyPenaltyTypes } from './formatters';
  *   obligation : title, plainEnglishStatement, regulatorAbbreviation, riskRating, hasPoints
  *   sanction   : description, penaltyType[], penaltyDetails, liableRoles[]
  *   return     : title, frequencyType, frequency, deadline, responsibleUnit, responsiblePerson
- *   control    : controlSummary, controlNumber, complianceArea, theme, riskLevel, status, actName
+ *   control    : controlSummary, controlNumber, firstPoint, pointCount, complianceArea, theme, riskLevel, status, actName
  *   instrument : sourceTitle, sourceReferenceNumber, riskRating, status  (+ regMap[regulatorId])
  */
 
@@ -91,7 +91,20 @@ export function returnColumns() {
 export function controlColumns({ withAct = true } = {}) {
   const cols = [
     { id: 'controlNumber', label: 'Control', minWidth: 320, maxWidth: 340, truncate: true, sortable: true, sortField: 'controlNumber',
-      render: (r) => <Typography variant="body2" sx={ellipsis(340)}>{r.controlSummary || r.controlNumber || '—'}</Typography> },
+      render: (r) => {
+        // A control may decompose into several cleaned points; show the first + a count badge.
+        const extra = (r.pointCount || 0) - 1;
+        const text = r.firstPoint || r.controlSummary || r.controlNumber || '—';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <Typography variant="body2" sx={ellipsis(300)}>{text}</Typography>
+            {extra > 0 && (
+              <Chip size="small" label={`+${extra}`} variant="outlined"
+                sx={{ height: 20, flexShrink: 0, fontSize: '0.7rem', fontWeight: 600 }} />
+            )}
+          </Box>
+        );
+      } },
     { id: 'theme', label: 'Theme / Area', minWidth: 220, maxWidth: 240, truncate: true, sortable: true, sortField: 'theme',
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(240)}>{r.theme || r.complianceArea || '—'}</Typography> },
     { id: 'riskLevel', label: 'Risk', minWidth: 110, sortable: true, sortField: 'riskLevel',

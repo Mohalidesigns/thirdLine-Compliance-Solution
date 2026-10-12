@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS compliance_controls (
     compliance_area              VARCHAR(255),
     risk_level                   VARCHAR(50),
     compliance_control           TEXT,
+    points                       JSONB DEFAULT '[]'::jsonb,
     monitoring_activity          TEXT,
     frequency                    VARCHAR(50),
     responsible_officer          VARCHAR(255),

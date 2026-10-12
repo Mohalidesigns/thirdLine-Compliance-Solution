@@ -423,6 +423,8 @@ def build_model(sections):
                 "responsibility": get(r, c["cCtrlOwner"]),
                 "primaryControl": get(r, c["cControl"]),
                 "additionalControl": get(r, c["cAdd"]),
+                "primaryControlPoints": [],
+                "additionalControlPoints": [],
                 "residualLikelihood": get(r, c["cLikRes"]),
                 "residualImpact": get(r, c["cImpRes"]),
                 "status": status,

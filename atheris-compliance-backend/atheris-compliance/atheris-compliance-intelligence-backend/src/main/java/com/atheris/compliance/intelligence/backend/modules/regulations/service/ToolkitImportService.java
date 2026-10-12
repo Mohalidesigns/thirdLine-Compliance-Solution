@@ -6,6 +6,7 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.entity.Ob
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.ControlPoint;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitImportResult;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitSeedDoc;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
@@ -999,10 +1000,15 @@ public class ToolkitImportService {
                     { o.getPrimaryControl(), "PRIMARY", "C" },       // Primary Control
                     { o.getAdditionalControl(), "ADDITIONAL", "A" }  // Additional Control
                 };
+                List<List<ControlPoint>> pointVariants = List.of(
+                    o.getPrimaryControlPoints() == null ? List.of() : o.getPrimaryControlPoints(),
+                    o.getAdditionalControlPoints() == null ? List.of() : o.getAdditionalControlPoints());
                 boolean rowHadControl = false;
-                for (String[] v : variants) {
+                for (int vi = 0; vi < variants.length; vi++) {
+                    String[] v = variants[vi];
                     String text = v[0];
                     if (text == null || text.isBlank()) continue;
+                    List<ControlPoint> controlPoints = pointVariants.get(vi);
                     rowHadControl = true;
                     String controlType = v[1];
                     String key = ToolkitControlDedup.naturalKey(actId, text, controlType);
@@ -1016,6 +1022,7 @@ public class ToolkitImportService {
                         .complianceArea(sectionName)
                         .riskLevel(inherentRisk)
                         .complianceControl(text)
+                        .points(controlPoints)
                         .controlType(controlType)
                         .residualLikelihood(likelihoodResidual)
                         .residualImpact(impactResidual)

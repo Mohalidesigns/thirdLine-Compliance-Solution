@@ -30,27 +30,16 @@ CREATE TABLE IF NOT EXISTS act_aliases (
 
 CREATE UNIQUE INDEX idx_act_aliases_alias ON act_aliases(alias);
 
--- Enrich instruments with toolkit curation columns
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS act_id   BIGINT REFERENCES acts(act_id);
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS regulatory_item_type VARCHAR(100);
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS comment_on_status    TEXT;
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS risk_rating_explanation TEXT;
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS commercial_bank_relevance TEXT;
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS commercial_bank_compliance_context TEXT;
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS applicability_to_commercial_banks VARCHAR(20);
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS document_url TEXT;
+-- Link instruments to their toolkit act. `act_id` stays an ALTER here because `acts` is created
+-- in this migration (later than `instruments` in V2), and `acts.canonical_instrument_id`
+-- references instruments, so the two columns form a genuine mutual reference.
+ALTER TABLE instruments ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
 
 CREATE INDEX idx_instruments_act ON instruments(act_id);
 
 -- Link obligations + sanctions to acts too
 ALTER TABLE obligation_mappings ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
 ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
-
--- Enrich sanctions with the laws-grid impact/penalty detail columns
-ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS risk_explanation TEXT;
-ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS penalty_details TEXT;
--- Derived penalty kinds (e.g. ["MONETARY","MONETARY_PER_DAY"]) baked offline by tools/toolkit-md-points
-ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS penalty_type JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_obligation_mappings_act ON obligation_mappings(act_id);
 CREATE INDEX IF NOT EXISTS idx_sanctions_act ON sanctions_and_penalties(act_id);

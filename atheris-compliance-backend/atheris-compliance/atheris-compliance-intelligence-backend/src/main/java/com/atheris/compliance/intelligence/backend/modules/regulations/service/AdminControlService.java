@@ -2,6 +2,7 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.service;
 
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.AdminControlDetailDto;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.AdminControlDto;
+import com.atheris.compliance.intelligence.backend.modules.regulations.dto.ControlPoint;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import jakarta.persistence.criteria.Predicate;
@@ -65,6 +66,7 @@ public class AdminControlService {
             .regulatoryRequirement(c.getRegulatoryRequirement())
             .monitoringActivity(c.getMonitoringActivity())
             .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
+            .points(c.getPoints() == null ? List.of() : c.getPoints())
             .build();
     }
 
@@ -105,6 +107,8 @@ public class AdminControlService {
     }
 
     private AdminControlDto toDto(ComplianceControl c) {
+        List<ControlPoint> pts = c.getPoints() == null ? List.of() : c.getPoints();
+        String firstPoint = pts.isEmpty() ? null : pointText(pts.get(0));
         return AdminControlDto.builder()
             .complianceControlId(c.getComplianceControlId())
             .controlNumber(c.getControlNumber())
@@ -118,7 +122,16 @@ public class AdminControlService {
             .actId(c.getActId())
             .actName(c.getActName())
             .controlSummary(summarise(c.getComplianceControl()))
+            .firstPoint(firstPoint)
+            .pointCount(pts.size())
             .build();
+    }
+
+    /** The display text of a control point: its `content` (verbatim) or `text` fallback. */
+    private String pointText(ControlPoint point) {
+        if (point == null) return null;
+        if (point.getContent() != null && !point.getContent().isBlank()) return point.getContent().trim();
+        return point.getText() == null ? null : point.getText().trim();
     }
 
     private String summarise(String text) {
