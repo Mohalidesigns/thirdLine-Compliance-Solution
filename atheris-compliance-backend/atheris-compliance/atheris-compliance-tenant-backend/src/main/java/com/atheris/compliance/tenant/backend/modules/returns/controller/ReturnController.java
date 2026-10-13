@@ -48,9 +48,12 @@ public class ReturnController {
             @RequestParam(required = false) String frequency,
             @RequestParam(required = false) String regulator,
             @RequestParam(required = false) String act,
+            @RequestParam(required = false) String frequencyType,
+            @RequestParam(required = false) String responsibleUnit,
+            @RequestParam(required = false) Long actId,
             @RequestParam(required = false) String status,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, status, p));
+        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, frequencyType, responsibleUnit, actId, status, p));
     }
 
     @GetMapping("/stats")

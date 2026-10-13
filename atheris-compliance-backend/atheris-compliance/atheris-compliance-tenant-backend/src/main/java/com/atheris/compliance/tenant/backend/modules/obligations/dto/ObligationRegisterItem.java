@@ -31,6 +31,9 @@ public class ObligationRegisterItem {
 
     private String applicability;
     private String tenantRiskRating;
+    /** Alias of {@link #tenantRiskRating} so the register can bind the shared intel column set. */
+    private String riskRating;
+    private Boolean hasPoints;
     private String inherentRiskRating;
     private String inherentLikelihood;
     private String inherentImpact;

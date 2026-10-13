@@ -8,10 +8,16 @@ import java.util.List;
 public class ObligationStats {
     private long total;
     private long highRisk;
+    private long withPoints;
+    private long withoutPoints;
     private long gaps;
     private long underReview;
     private List<String> regulators;
     private List<String> themes;
     private List<String> owners;
     private List<String> riskLevels;
+    /** Aliases consumed by the shared intel register config. */
+    private List<String> risks;
+    private List<String> areas;
+    private List<String> acts;
 }

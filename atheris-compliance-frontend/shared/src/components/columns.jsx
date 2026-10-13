@@ -65,7 +65,7 @@ export function sanctionColumns() {
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(180)}>{friendlyPenaltyTypes(r.penaltyType)}</Typography> },
     { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 300, truncate: true, sortable: true, sortField: 'penaltyDetails',
       render: (r) => <Typography variant="body2" sx={ellipsis(300)}>{r.penaltyDetails || '—'}</Typography> },
-    { id: 'liableRoles', label: 'Responsible Party', minWidth: 190, sortable: true, sortField: 'liableRole',
+    { id: 'liableRoles', label: 'Responsible Party', minWidth: 190, sortable: true, sortField: 'liableRoles',
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(220)}>{r.liableRoles?.length ? r.liableRoles.join(', ') : '—'}</Typography> },
   ];
 }

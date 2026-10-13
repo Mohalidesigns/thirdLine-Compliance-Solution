@@ -9,6 +9,8 @@ public class ControlRegisterItem {
     private Integer controlId;
     private String controlNumber;
     private String name;
+    /** Alias of {@link #name} so the shared intel control column can bind. */
+    private String controlSummary;
     private String theme;
     private String controlOwnerName;
     private String ownerName;
@@ -17,6 +19,8 @@ public class ControlRegisterItem {
     private String residualLikelihood;
     private String residualImpact;
     private String residualRiskRating;
+    /** Alias of {@link #residualRiskRating} (fallback {@link #residualRisk}) for the shared intel column. */
+    private String riskLevel;
     private String status;
     private LocalDate nextTestDueDate;
     private String complianceArea;

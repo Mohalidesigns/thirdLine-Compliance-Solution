@@ -50,9 +50,24 @@ public class ControlService {
         List<String> themes = repo.findDistinctThemes();
         List<String> owners = repo.findDistinctOwners();
         List<String> acts = repo.findDistinctActNames();
+
+        List<Control> all = repo.findAll();
+        Map<String, Long> byRiskLevel = all.stream()
+            .map(c -> c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
+            .filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+        Map<String, Long> byStatus = all.stream()
+            .map(Control::getStatus).filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+        List<String> riskLevels = new ArrayList<>(byRiskLevel.keySet());
+        List<String> statuses = new ArrayList<>(byStatus.keySet());
+
         return ControlStatsDto.builder()
             .total(total).active(active).highRisk(highRisk).testsDue(testsDue)
-            .themes(themes).owners(owners).acts(acts).build();
+            .themes(themes).owners(owners).acts(acts)
+            .totalControls(total).byRiskLevel(byRiskLevel).byStatus(byStatus)
+            .riskLevels(riskLevels).statuses(statuses)
+            .build();
     }
 
     private Map<Integer, ControlTask> getLatestPendingTasks(List<Integer> ids) {
@@ -64,6 +79,7 @@ public class ControlService {
     private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask) {
         return ControlRegisterItem.builder()
             .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
+            .controlSummary(c.getName())
             .theme(c.getTheme()).controlOwnerName(c.getControlOwnerName())
             .ownerName(c.getOwnerName())
             .controlType(c.getControlType())
@@ -71,6 +87,7 @@ public class ControlService {
             .residualLikelihood(c.getResidualLikelihood())
             .residualImpact(c.getResidualImpact())
             .residualRiskRating(c.getResidualRiskRating())
+            .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
             .status(c.getStatus())
             .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
             .complianceArea(c.getComplianceArea())

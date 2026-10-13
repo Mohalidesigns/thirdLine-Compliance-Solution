@@ -9,10 +9,14 @@ import java.util.List;
 public class ReturnRegisterItem {
     private Long returnId;
     private String returnName;
+    /** Alias of {@link #returnName} for the shared intel return column. */
+    private String title;
     private String actName;
     private String filingRegulator;
     private String frequency;
     private String frequencyType;
+    /** Alias shown in the shared "Deadline" column: the regulator's wording, else the current due date. */
+    private String deadline;
     private String responsibleUnit;
     private String responsiblePerson;
     private String currentPeriod;

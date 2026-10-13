@@ -7,12 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface ObligationPointRepository extends JpaRepository<ObligationPoint, Long> {
     List<ObligationPoint> findByObligationIdAndPointTypeOrderBySortOrder(Long obligationId, String pointType);
     List<ObligationPoint> findByObligationIdOrderBySortOrder(Long obligationId);
+    List<ObligationPoint> findByObligationIdIn(Collection<Long> obligationIds);
 
     @Modifying
     @Query(value = "DELETE FROM obligation_points WHERE obligation_id = :obligationId", nativeQuery = true)

@@ -13,6 +13,9 @@ export {
   obligationColumns, sanctionColumns, returnColumns, controlColumns, instrumentColumns, riskChip, statusChip,
 } from './components/columns';
 export {
+  obligationRegister, controlRegister, returnRegister, sanctionRegister,
+} from './components/registerConfig';
+export {
   formatNaira, formatDate, friendlyPenaltyTypes,
   PENALTY_TYPE_LABEL, RISK_COLOR, STATUS_COLOR,
 } from './components/formatters';

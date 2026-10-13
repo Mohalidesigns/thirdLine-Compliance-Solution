@@ -12,6 +12,8 @@ public class SanctionListItem {
     private Long actId;
     private String actName;
     private String sanctionType;
+    /** Alias of {@link #sanctionType} as a list, so the shared intel penalty-type column can bind. */
+    private List<String> penaltyType;
     private BigDecimal sanctionAmountNaira;
     private Boolean sanctionAmountPerDay;
     private List<String> liableRoles;

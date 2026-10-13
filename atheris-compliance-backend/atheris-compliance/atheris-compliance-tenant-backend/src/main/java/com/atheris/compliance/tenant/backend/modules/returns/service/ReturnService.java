@@ -183,7 +183,8 @@ public class ReturnService {
 
     @Transactional
     public Page<ReturnRegisterItem> getRegister(String q, String frequency, String regulator,
-                                                 String act, String status, Pageable p) {
+                                                 String act, String frequencyType, String responsibleUnit,
+                                                 Long actId, String status, Pageable p) {
 
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
 
@@ -192,6 +193,17 @@ public class ReturnService {
             String al = act.toLowerCase();
             allReturns = allReturns.stream().filter(r ->
                 r.getActName() != null && r.getActName().toLowerCase().contains(al)).toList();
+        }
+        if (actId != null) {
+            allReturns = allReturns.stream().filter(r -> actId.equals(r.getActId())).toList();
+        }
+        if (frequencyType != null && !frequencyType.isBlank()) {
+            allReturns = allReturns.stream().filter(r ->
+                frequencyType.equalsIgnoreCase(r.getFrequencyType())).toList();
+        }
+        if (responsibleUnit != null && !responsibleUnit.isBlank()) {
+            allReturns = allReturns.stream().filter(r ->
+                responsibleUnit.equalsIgnoreCase(r.getResponsibleUnit())).toList();
         }
         if (frequency != null && !frequency.isBlank()) {
             allReturns = allReturns.stream().filter(r -> matchesFrequency(r, frequency)).toList();
@@ -275,6 +287,13 @@ public class ReturnService {
             || ReturnFilingStatus.SUBMITTED_LATE.db().equalsIgnoreCase(status);
     }
 
+    /** Display deadline for the shared register column: the regulator's wording, else the current due date. */
+    private static String deadlineOf(RegulatoryReturn r, LocalDate currentDue) {
+        String text = r.getDeadlineText();
+        if (text != null && !text.isBlank()) return text;
+        return currentDue != null ? currentDue.toString() : null;
+    }
+
     /**
      * One register row: the return's schedule fields plus its current instance (closest non-submitted one
      * due today or later, else the latest) and the next five. A return without instances (event-driven, not
@@ -285,6 +304,8 @@ public class ReturnService {
         ReturnRegisterItem.ReturnRegisterItemBuilder b = ReturnRegisterItem.builder()
             .returnId(r.getReturnId())
             .returnName(r.getReturnName())
+            .title(r.getReturnName())
+            .deadline(r.getDeadlineText())
             .actName(r.getActName())
             .filingRegulator(r.getFilingRegulator())
             .frequency(r.getFrequency())
@@ -327,6 +348,7 @@ public class ReturnService {
             if (currentEvent == null) return b.upcomingInstances(List.of()).totalInstances(insts.size())
                 .overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
             return b.currentPeriod(currentEvent.getTriggerDate().toString()).currentDueDate(currentEvent.getDueDate())
+                .deadline(deadlineOf(r, currentEvent.getDueDate()))
                 .currentStatus(currentEvent.getStatus() != null ? currentEvent.getStatus().db() : null)
                 .currentStage(currentEvent.getCurrentStage() != null ? currentEvent.getCurrentStage().db() : null)
                 .currentInstanceId(currentEvent.getInstanceId()).upcomingInstances(List.of())
@@ -368,6 +390,7 @@ public class ReturnService {
         return b
             .currentPeriod(current.getPeriod())
             .currentDueDate(current.getDueDate())
+            .deadline(deadlineOf(r, current.getDueDate()))
             .currentStatus(current.getStatus() != null ? current.getStatus().db() : null)
             .currentStage(current.getCurrentStage() != null ? current.getCurrentStage().db() : null)
             .currentInstanceId(current.getInstanceId())
@@ -429,11 +452,35 @@ public class ReturnService {
             .filter(r -> ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY) != ReturnFrequency.EVENT_DRIVEN)
             .filter(DueRule::dueDateNeeded).count();
 
+        Map<String, Long> byFrequencyType = allReturns.stream()
+            .map(RegulatoryReturn::getFrequencyType).filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+        Map<String, Long> byResponsibleUnit = allReturns.stream()
+            .map(RegulatoryReturn::getResponsibleUnit).filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+        long unassigned = allReturns.stream()
+            .filter(r -> r.getResponsibleUnit() == null || r.getResponsibleUnit().isBlank()).count();
+        List<ReturnStatsDto.ActOption> actOptions = allReturns.stream()
+            .filter(r -> r.getActId() != null)
+            .collect(Collectors.toMap(RegulatoryReturn::getActId,
+                r -> new ReturnStatsDto.ActOption(r.getActId(), r.getActName()),
+                (a, b) -> a, TreeMap::new))
+            .values().stream().toList();
+
         return ReturnStatsDto.builder()
             .total(allInstances.size())
             .overdue(overdue).inProgress(inProgress).submitted(submitted)
             .dueDateNeeded(dueDateNeeded)
             .frequencies(frequencies).regulators(regulators).actNames(actNames)
+            .totalReturns(allReturns.size())
+            .frequencyTypeCount(byFrequencyType.size())
+            .responsibleUnitCount(byResponsibleUnit.size())
+            .unassignedCount(unassigned)
+            .byFrequencyType(byFrequencyType)
+            .byResponsibleUnit(byResponsibleUnit)
+            .frequencyTypes(new ArrayList<>(byFrequencyType.keySet()))
+            .responsibleUnits(new ArrayList<>(byResponsibleUnit.keySet()))
+            .acts(actOptions)
             .build();
     }
 
