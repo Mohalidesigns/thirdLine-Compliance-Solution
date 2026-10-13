@@ -45,6 +45,7 @@
         <aws.sdk.version>2.25.60</aws.sdk.version>
         <spring.ai.version>1.1.0</spring.ai.version>
         <poi.version>5.3.0</poi.version>
+        <openhtmltopdf.version>1.0.10</openhtmltopdf.version>
     </properties>
 
     <dependencyManagement>

@@ -171,6 +171,10 @@ public class DashboardV2Service {
         }
         Map<Long, String> aofMap = buildAreaOfFocusMap();
 
+        // One query for all departments (avoids an N+1 in the department grouping below).
+        Map<Integer, String> deptNames = departmentRepo.findAll().stream()
+            .collect(Collectors.toMap(Department::getDepartmentId, Department::getName, (a, b) -> a));
+
         Map<String, Map<Long, RegulatoryReturn>> groupedReturns = new LinkedHashMap<>();
         Map<String, Map<Long, Map<String, ReturnFilingInstance>>> gridData = new LinkedHashMap<>();
 
@@ -187,7 +191,7 @@ public class DashboardV2Service {
                     .findFirst()
                     .orElse("Unassigned");
             } else {
-                groupName = resolveDepartmentName(rr.getDepartmentId());
+                groupName = resolveDepartmentName(deptNames, rr.getDepartmentId());
             }
 
             groupedReturns.computeIfAbsent(groupName, k -> new LinkedHashMap<>())
@@ -619,11 +623,9 @@ public class DashboardV2Service {
 
     // ------------------------------------------------------------------ helpers
 
-    private String resolveDepartmentName(Integer departmentId) {
+    private String resolveDepartmentName(Map<Integer, String> deptNames, Integer departmentId) {
         if (departmentId == null) return "Unassigned";
-        return departmentRepo.findById(departmentId)
-            .map(Department::getName)
-            .orElse("Unassigned");
+        return deptNames.getOrDefault(departmentId, "Unassigned");
     }
 
     private List<String> getMonthRange(LocalDate from, LocalDate to) {

@@ -96,6 +96,13 @@
             <version>${poi.version}</version>
         </dependency>
 
+        <!-- Server-side HTML -> PDF rendering for the board pack report -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>${openhtmltopdf.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.atheris.compliance</groupId>
             <artifactId>atheris-compliance-common</artifactId>
