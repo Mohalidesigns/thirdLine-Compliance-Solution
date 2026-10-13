@@ -3,16 +3,23 @@ CREATE TABLE IF NOT EXISTS regulatory_sanctions (
     instrument_id           BIGINT NOT NULL,
     act_id                  BIGINT,
     act_name                TEXT,
+    act_abbreviation        VARCHAR(50),
     sanction_type           VARCHAR(100),
+    penalty_type            JSONB,
     sanction_amount_naira   NUMERIC(15,2),
     sanction_amount_per_day BOOLEAN DEFAULT FALSE,
+    personal_liability_naira NUMERIC(15,2),
     liable_roles            JSONB,
     severity_score          INTEGER,
     has_been_enforced       BOOLEAN DEFAULT FALSE,
+    recent_enforcement_date DATE,
+    recent_enforcement_amount NUMERIC(15,2),
     description             TEXT,
     source_section_reference TEXT,
     risk_explanation        TEXT,
     penalty_details         TEXT,
-    created_at              TIMESTAMPTZ DEFAULT now()
+    instrument_title        TEXT,
+    created_at              TIMESTAMPTZ DEFAULT now(),
+    updated_at              TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_reg_sanctions_instrument ON regulatory_sanctions (instrument_id);

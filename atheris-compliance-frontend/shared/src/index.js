@@ -9,6 +9,8 @@ export { default as CoverageStrip } from './components/CoverageStrip';
 export { default as SectionTabs } from './components/SectionTabs';
 export { default as SectionTable } from './components/SectionTable';
 export { default as EntityDrawer } from './components/EntityDrawer';
+export { default as KpiCards, KpiCard } from './components/KpiCards';
+export { default as FilterBar } from './components/FilterBar';
 export {
   obligationColumns, sanctionColumns, returnColumns, controlColumns, instrumentColumns, riskChip, statusChip,
 } from './components/columns';

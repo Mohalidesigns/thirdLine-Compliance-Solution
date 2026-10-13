@@ -152,17 +152,23 @@ public class ObligationSyncService {
                     for (var s : detail.getSanctions()) {
                         extractedSanctions.add(ReviewSanction.builder()
                             .sanctionType(s.getSanctionType())
+                            .penaltyType(s.getPenaltyType())
                             .amountNaira(s.getAmountNaira())
                             .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                            .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                             .liableRoles(s.getLiableRoles())
                             .severityScore(s.getSeverityScore())
                             .hasBeenEnforced(s.getHasBeenEnforced())
+                            .recentEnforcementDate(s.getRecentEnforcementDate())
+                            .recentEnforcementAmount(s.getRecentEnforcementAmount())
                             .description(s.getDescription())
                             .sourceSectionReference(s.getSourceSectionReference())
                             .riskExplanation(s.getRiskExplanation())
                             .penaltyDetails(s.getPenaltyDetails())
                             .regulationId(s.getRegulationId())
                             .actName(shorten(s.getActName(), 500))
+                            .actAbbreviation(s.getActAbbreviation())
+                            .instrumentTitle(s.getInstrumentTitle())
                             .build());
                     }
                 }

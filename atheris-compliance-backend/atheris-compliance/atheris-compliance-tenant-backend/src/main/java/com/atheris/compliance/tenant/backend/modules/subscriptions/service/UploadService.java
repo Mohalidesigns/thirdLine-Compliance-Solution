@@ -194,17 +194,23 @@ public class UploadService {
             for (var s : detail.getSanctions()) {
                 sanctions.add(ReviewSanction.builder()
                     .sanctionType(s.getSanctionType())
+                    .penaltyType(s.getPenaltyType())
                     .amountNaira(s.getAmountNaira())
                     .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                    .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                     .liableRoles(s.getLiableRoles())
                     .severityScore(s.getSeverityScore())
                     .hasBeenEnforced(s.getHasBeenEnforced())
+                    .recentEnforcementDate(s.getRecentEnforcementDate())
+                    .recentEnforcementAmount(s.getRecentEnforcementAmount())
                     .description(s.getDescription())
                     .sourceSectionReference(s.getSourceSectionReference())
                     .riskExplanation(s.getRiskExplanation())
                     .penaltyDetails(s.getPenaltyDetails())
                     .regulationId(s.getRegulationId())
                     .actName(s.getActName())
+                    .actAbbreviation(s.getActAbbreviation())
+                    .instrumentTitle(s.getInstrumentTitle())
                     .build());
             }
         }
@@ -300,17 +306,23 @@ public class UploadService {
             for (var s : detail.getSanctions()) {
                 sanctions.add(ReviewSanction.builder()
                     .sanctionType(s.getSanctionType())
+                    .penaltyType(s.getPenaltyType())
                     .amountNaira(s.getAmountNaira())
                     .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                    .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                     .liableRoles(s.getLiableRoles())
                     .severityScore(s.getSeverityScore())
                     .hasBeenEnforced(s.getHasBeenEnforced())
+                    .recentEnforcementDate(s.getRecentEnforcementDate())
+                    .recentEnforcementAmount(s.getRecentEnforcementAmount())
                     .description(s.getDescription())
                     .sourceSectionReference(s.getSourceSectionReference())
                     .riskExplanation(s.getRiskExplanation())
                     .penaltyDetails(s.getPenaltyDetails())
                     .regulationId(s.getRegulationId())
                     .actName(s.getActName())
+                    .actAbbreviation(s.getActAbbreviation())
+                    .instrumentTitle(s.getInstrumentTitle())
                     .build());
             }
         }

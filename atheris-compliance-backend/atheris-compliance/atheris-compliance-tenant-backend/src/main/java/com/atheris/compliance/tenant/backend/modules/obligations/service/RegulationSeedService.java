@@ -210,16 +210,23 @@ public class RegulationSeedService {
                     .instrumentId(instrumentId)
                     .regulationId(bundle.getRegulationId())
                     .regulationName(bundle.getRegulationName())
+                    .actAbbreviation(s.getActAbbreviation() != null
+                        ? s.getActAbbreviation() : bundle.getRegulationAbbreviation())
                     .sanctionType(s.getSanctionType())
+                    .penaltyType(s.getPenaltyType())
                     .sanctionAmountNaira(s.getSanctionAmountNaira())
                     .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                    .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                     .liableRoles(s.getLiableRoles())
                     .severityScore(s.getSeverityScore())
                     .hasBeenEnforced(s.getHasBeenEnforced())
+                    .recentEnforcementDate(s.getRecentEnforcementDate())
+                    .recentEnforcementAmount(s.getRecentEnforcementAmount())
                     .description(s.getDescription())
                     .sourceSectionReference(s.getSourceSectionReference())
                     .riskExplanation(s.getRiskExplanation())
                     .penaltyDetails(s.getPenaltyDetails())
+                    .instrumentTitle(s.getInstrumentTitle())
                     .build());
             }
         }

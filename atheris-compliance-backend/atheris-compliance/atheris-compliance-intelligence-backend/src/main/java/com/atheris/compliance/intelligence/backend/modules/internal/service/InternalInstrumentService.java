@@ -100,6 +100,7 @@ public class InternalInstrumentService {
         List<ObligationMapping> obList = obligations.findByInstrumentId(instrumentId);
         List<SanctionsPenalty> sanList = sanctions.findByInstrumentId(instrumentId);
         Map<Long, String> actNameMap = buildActNameMap(obList, sanList);
+        Map<Long, String> actAbbrMap = buildActAbbrMap(obList, sanList);
 
         return InternalInstrumentDetail.builder()
             .instrumentId(inst.getInstrumentId())
@@ -119,7 +120,7 @@ public class InternalInstrumentService {
             .publishedAt(inst.getPublishedAt())
             .status(inst.getStatus())
             .obligations(obList.stream().map(o -> toObligationItem(o, actNameMap)).toList())
-            .sanctions(sanList.stream().map(s -> toSanctionItem(s, actNameMap)).toList())
+            .sanctions(sanList.stream().map(s -> toSanctionItem(s, actNameMap, actAbbrMap, inst.getSourceTitle())).toList())
             .build();
     }
 
@@ -160,6 +161,7 @@ public class InternalInstrumentService {
         List<ObligationMapping> allObs = obMap.values().stream().flatMap(List::stream).toList();
         List<SanctionsPenalty> allSans = sanMap.values().stream().flatMap(List::stream).toList();
         Map<Long, String> actNameMap = buildActNameMap(allObs, allSans);
+        Map<Long, String> actAbbrMap = buildActAbbrMap(allObs, allSans);
 
         Map<Long, InternalInstrumentDetail> result = new LinkedHashMap<>();
         for (Instrument inst : found) {
@@ -184,7 +186,7 @@ public class InternalInstrumentService {
                 .publishedAt(inst.getPublishedAt())
                 .status(inst.getStatus())
                 .obligations(instOb.stream().map(o -> toObligationItem(o, actNameMap)).toList())
-                .sanctions(instSan.stream().map(s -> toSanctionItem(s, actNameMap)).toList())
+                .sanctions(instSan.stream().map(s -> toSanctionItem(s, actNameMap, actAbbrMap, inst.getSourceTitle())).toList())
                 .build());
         }
         return result;
@@ -210,21 +212,44 @@ public class InternalInstrumentService {
             .build();
     }
 
-    private InternalInstrumentDetail.SanctionItem toSanctionItem(SanctionsPenalty s, Map<Long, String> actNameMap) {
+    private InternalInstrumentDetail.SanctionItem toSanctionItem(SanctionsPenalty s, Map<Long, String> actNameMap,
+                                                                Map<Long, String> actAbbrMap, String instrumentTitle) {
         return InternalInstrumentDetail.SanctionItem.builder()
             .sanctionType(s.getSanctionType())
+            .penaltyType(s.getPenaltyType())
             .amountNaira(s.getSanctionAmountNaira())
+            .sanctionAmountNaira(s.getSanctionAmountNaira())
             .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+            .personalLiabilityNaira(s.getPersonalLiabilityNaira())
             .liableRoles(s.getLiableRoles())
             .severityScore(s.getSeverityScore())
             .hasBeenEnforced(s.getHasBeenEnforced())
+            .recentEnforcementDate(s.getRecentEnforcementDate())
+            .recentEnforcementAmount(s.getRecentEnforcementAmount())
             .description(s.getDescription())
             .sourceSectionReference(s.getSourceSectionReference())
             .riskExplanation(s.getRiskExplanation())
             .penaltyDetails(s.getPenaltyDetails())
             .regulationId(s.getRegulationId())
             .actName(s.getRegulationId() != null ? actNameMap.get(s.getRegulationId()) : null)
+            .actAbbreviation(s.getRegulationId() != null ? actAbbrMap.get(s.getRegulationId()) : null)
+            .instrumentTitle(instrumentTitle)
             .build();
+    }
+
+    private Map<Long, String> buildActAbbrMap(List<ObligationMapping> obs, List<SanctionsPenalty> sans) {
+        Set<Long> ids = new HashSet<>();
+        for (ObligationMapping o : obs) if (o.getRegulationId() != null) ids.add(o.getRegulationId());
+        for (SanctionsPenalty s : sans) if (s.getRegulationId() != null) ids.add(s.getRegulationId());
+        if (ids.isEmpty()) return Map.of();
+        try {
+            return actRepository.findAllById(ids).stream()
+                .filter(r -> r.getAbbreviation() != null)
+                .collect(Collectors.toMap(Regulation::getRegulationId, Regulation::getAbbreviation, (a, b) -> a));
+        } catch (Exception e) {
+            log.warn("Failed to fetch act abbreviations for {} ids: {}", ids.size(), e.getMessage());
+            return Map.of();
+        }
     }
 
     private Map<Long, String> buildActNameMap(List<ObligationMapping> obs, List<SanctionsPenalty> sans) {
