@@ -204,8 +204,6 @@ public class ClassificationService {
             }
             ClassificationResult result = callLLm(ocrText);
             applyClassification(instrumentId, result, ocrText);
-            jobQueue.enqueue(Constants.JOB_APPLICABILITY, instrumentId,
-                Map.of("instrument_id", instrumentId), "classifier");
             log.info("Classified instrument {}: {} / {} act={} obligations={} sanctions={}", instrumentId,
                 result.getAreaOfFocus(), result.getRiskRating(), result.getActName(),
                 result.getObligations() != null ? result.getObligations().size() : 0,

@@ -8,6 +8,8 @@ import com.atheris.compliance.intelligence.backend.modules.jobs.repository.JobQu
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.pending.entity.PendingDownload;
 import com.atheris.compliance.intelligence.backend.modules.pending.repository.PendingDownloadRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.dto.*;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.Regulator;
 import com.atheris.compliance.intelligence.backend.modules.regulators.entity.ScraperRunLog;
@@ -31,6 +33,7 @@ public class RegulatorService {
     private final PendingDownloadRepository pendingRepo;
     private final JobQueueRepository jobQueueRepo;
     private final ObligationMappingRepository obligationRepo;
+    private final RegulatoryReturnRepository returnRepo;
 
     public List<RegulatorDto> findAll(Boolean activeOnly) {
         List<Regulator> list = Boolean.TRUE.equals(activeOnly)
@@ -205,7 +208,7 @@ public class RegulatorService {
         Map<Integer, long[]> map = new HashMap<>();
         allInstruments.forEach(i -> {
             if (i.getRegulatorId() == null) return;
-            long[] arr = map.computeIfAbsent(i.getRegulatorId(), k -> new long[]{0, 0, 0, 0});
+            long[] arr = map.computeIfAbsent(i.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0});
             arr[0]++;
             if (i.getDiscoveredAt() != null) {
                 long epoch = i.getDiscoveredAt().toEpochMilli();
@@ -215,14 +218,21 @@ public class RegulatorService {
         List<PendingDownload> allPending = pendingRepo.findByStatusOrderByDiscoveredAtDesc("pending");
         allPending.forEach(p -> {
             if (p.getRegulatorId() == null) return;
-            map.computeIfAbsent(p.getRegulatorId(), k -> new long[]{0, 0, 0, 0})[2]++;
+            map.computeIfAbsent(p.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0})[2]++;
         });
         // obligation count per regulator: sum obligations of each instrument the regulator owns
         obligationRepo.findAll().forEach(o -> {
             Integer regId = instrumentRegulator.get(o.getInstrumentId());
             if (regId == null) return;
-            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0});
+            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0});
             arr[3]++;
+        });
+        // return count per regulator: sum regulatory returns of each instrument the regulator owns
+        returnRepo.findAll().forEach(rt -> {
+            Integer regId = instrumentRegulator.get(rt.getInstrumentId());
+            if (regId == null) return;
+            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0});
+            arr[4]++;
         });
         return map;
     }
@@ -249,6 +259,7 @@ public class RegulatorService {
             .instrumentCount(stats != null ? (int) stats[0] : 0)
             .pendingDownloadCount(stats != null ? (int) stats[2] : 0)
             .obligationCount(stats != null ? stats[3] : 0)
+            .returnCount(stats != null ? stats[4] : 0)
             .lastInstrumentDiscoveredAt(stats != null && stats[1] > 0 ? Instant.ofEpochMilli(stats[1]) : null)
             .build();
     }

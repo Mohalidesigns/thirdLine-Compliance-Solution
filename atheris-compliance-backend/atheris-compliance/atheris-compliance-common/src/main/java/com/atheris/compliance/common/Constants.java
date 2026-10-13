@@ -94,8 +94,6 @@ public final class Constants {
     // ── Job Types ──
     public static final String JOB_OCR = "ocr_document";
     public static final String JOB_CLASSIFY = "classify_instrument";
-    public static final String JOB_APPLICABILITY = "evaluate_applicability";
-    public static final String JOB_CHANGE_NOTIFICATION = "deliver_change_notification";
 
     // ── Webhook ──
     public static final String WEBHOOK_EVENT_RECEIVED = "obligation.received";
@@ -118,10 +116,6 @@ public final class Constants {
     // ── Audit / Change ──
     public static final String AUDIT_SOURCE_SYSTEM = "system";
     public static final String AUDIT_SOURCE_USER = "user";
-    public static final String CHANGE_TYPE_AI_RECLASSIFICATION = "ai_reclassification";
-    public static final String CHANGE_TYPE_PLATFORM_ADMIN = "platform_admin";
-    public static final String CHANGE_TYPE_SUPERSEDED = "superseded";
-    public static final String CHANGE_TYPE_APPLICABILITY_CLARIFIED = "applicability_clarified";
 
     // ── License Statuses ──
     public static final String LICENSE_INACTIVE = "inactive";

@@ -188,7 +188,7 @@ public class InstrumentService {
             .applicabilityConfidence(i.getApplicabilityConfidence())
             .aiSummary(i.getAiSummary()).licenceTypesApplicable(i.getLicenceTypesApplicable())
             .dateIssued(i.getDateIssued()).dateCommencement(i.getDateCommencement())
-            .status(i.getStatus()).discoveredAt(i.getDiscoveredAt())
+            .status(i.getStatus()).uploadSource(i.getUploadSource()).discoveredAt(i.getDiscoveredAt())
             .firstPublishedAt(i.getFirstPublishedAt()).build();
     }
 

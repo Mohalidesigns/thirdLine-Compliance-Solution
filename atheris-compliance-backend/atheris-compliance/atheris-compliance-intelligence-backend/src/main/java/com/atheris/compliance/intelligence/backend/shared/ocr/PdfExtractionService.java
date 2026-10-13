@@ -8,7 +8,9 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 
 @Service
@@ -16,6 +18,47 @@ import java.io.IOException;
 public class PdfExtractionService {
 
     private static final int MIN_TEXT_LENGTH = 100;
+
+    /** Common tessdata locations (Homebrew Intel/ARM, Linux distro packages). */
+    private static final String[] DEFAULT_TESSDATA_PATHS = {
+        "/opt/homebrew/share/tessdata",
+        "/usr/local/share/tessdata",
+        "/usr/share/tessdata",
+        "/usr/share/tesseract-ocr/tessdata",
+        "/opt/homebrew/share/tesseract-ocr/tessdata",
+        "/usr/local/share/tesseract-ocr/tessdata"
+    };
+
+    /** Common native libtesseract locations (JNA searches these). */
+    private static final String[] DEFAULT_LIBRARY_PATHS = {
+        "/opt/homebrew/lib",
+        "/usr/local/lib",
+        "/usr/lib",
+        "/usr/lib/x86_64-linux-gnu",
+        "/usr/lib/aarch64-linux-gnu"
+    };
+
+    /**
+     * Tess4J loads the native libtesseract via JNA, which does not search the Homebrew
+     * lib directory by default. Add the existing candidates to {@code jna.library.path}
+     * before Tess4J is first initialised so OCR works without external JVM flags.
+     */
+    @PostConstruct
+    void configureJnaLibraryPath() {
+        StringBuilder sb = new StringBuilder();
+        String existing = System.getProperty("jna.library.path");
+        if (existing != null && !existing.isBlank()) sb.append(existing);
+        for (String dir : DEFAULT_LIBRARY_PATHS) {
+            if (new File(dir).isDirectory()) {
+                if (sb.length() > 0) sb.append(File.pathSeparatorChar);
+                sb.append(dir);
+            }
+        }
+        if (sb.length() > 0) {
+            System.setProperty("jna.library.path", sb.toString());
+            log.debug("jna.library.path = {}", sb);
+        }
+    }
 
     /**
      * Extract text from a PDF.
@@ -44,9 +87,9 @@ public class PdfExtractionService {
     }
 
     public String extractWithTesseract(byte[] pdfBytes) {
-        String tessData = System.getenv("TESSDATA_PREFIX");
-        if (tessData == null || !new java.io.File(tessData).exists()) {
-            log.warn("TESSDATA_PREFIX not set or path missing — skipping Tesseract OCR");
+        String tessData = resolveTessDataPath();
+        if (tessData == null) {
+            log.warn("No Tesseract tessdata directory found (set TESSDATA_PREFIX or install tesseract) — skipping Tesseract OCR");
             return "";
         }
         try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
@@ -81,5 +124,27 @@ public class PdfExtractionService {
             log.error("PDF loading failed: {}", e.getMessage());
             throw new RuntimeException("PDF text extraction failed", e);
         }
+    }
+
+    private String resolveTessDataPath() {
+        String env = System.getenv("TESSDATA_PREFIX");
+        if (env != null && !env.isBlank()) {
+            File dir = new File(env);
+            if (hasLangData(dir)) return dir.getPath();
+            File nested = new File(dir, "tessdata");
+            if (hasLangData(nested)) return nested.getPath();
+        }
+        for (String path : DEFAULT_TESSDATA_PATHS) {
+            File dir = new File(path);
+            if (hasLangData(dir)) {
+                log.info("Using Tesseract tessdata at {}", dir.getPath());
+                return dir.getPath();
+            }
+        }
+        return null;
+    }
+
+    private boolean hasLangData(File dir) {
+        return dir.isDirectory() && new File(dir, "eng.traineddata").isFile();
     }
 }

@@ -32,16 +32,16 @@ CREATE TABLE IF NOT EXISTS regulators (
 CREATE INDEX idx_regulators_active ON regulators(is_active);
 CREATE INDEX idx_regulators_abbreviation ON regulators(abbreviation);
 
-INSERT INTO regulators (name, abbreviation, publication_page_url, scraper_strategy, scraper_frequency) VALUES
-('Central Bank of Nigeria',                     'CBN',   'https://www.cbn.gov.ng/Documents/circulars.html',            'headless', '15min'),
-('Securities and Exchange Commission',          'SEC',   'https://sec.gov.ng/regulations',                            'html',     'daily'),
-('National Deposit Insurance Corporation',      'NDIC',  'https://ndic.gov.ng/publications',                          'html',     'weekly'),
-('National Insurance Commission',               'NAICOM','https://www.naicom.gov.ng/index.php/publications',           'html',     'weekly'),
-('National Pension Commission',                 'PenCom','https://www.pencom.gov.ng/publications',                     'html',     'weekly'),
-('Nigerian Financial Intelligence Unit',        'NFIU',  'https://nfiu.gov.ng/index.php/publications',                 'html',     'weekly'),
-('Federal Competition and Consumer Protection Commission','FCCPC','https://fccpc.gov.ng/publications',                 'html',     'weekly'),
-('Nigeria Data Protection Commission',          'NDPC',  'https://ndpc.gov.ng/publications',                          'html',     'weekly'),
-('Economic and Financial Crimes Commission',    'EFCC',  'https://efcc.gov.ng/publications',                          'html',     'weekly'),
-('Corporate Affairs Commission',                'CAC',   'https://cac.gov.ng/publications',                           'html',     'weekly'),
-('Federal Inland Revenue Service',              'FIRS',  'https://www.firs.gov.ng/publications',                      'html',     'weekly'),
-('National Identity Management Commission',     'NIMC',  'https://nimc.gov.ng/publications',                          'html',     'weekly');
+INSERT INTO regulators (name, abbreviation, publication_page_url, scraper_strategy, scraper_frequency, pdf_link_selector) VALUES
+('Central Bank of Nigeria',                     'CBN',   'https://www.cbn.gov.ng/Documents/circulars.html',            'headless', '15min', NULL),
+('Securities and Exchange Commission',          'SEC',   'https://sec.gov.ng/regulations',                            'html',     'daily', NULL),
+('National Deposit Insurance Corporation',      'NDIC',  'https://ndic.gov.ng/publications?category=policy-frameworks&view=reader&id=0', 'html', 'weekly', 'a[href*="/storage/cms/media/"]'),
+('National Insurance Commission',               'NAICOM','https://www.naicom.gov.ng/index.php/publications',           'html',     'weekly', NULL),
+('National Pension Commission',                 'PenCom','https://www.pencom.gov.ng/publications',                     'html',     'weekly', NULL),
+('Nigerian Financial Intelligence Unit',        'NFIU',  'https://nfiu.gov.ng/index.php/publications',                 'html',     'weekly', NULL),
+('Federal Competition and Consumer Protection Commission','FCCPC','https://fccpc.gov.ng/publications',                 'html',     'weekly', NULL),
+('Nigeria Data Protection Commission',          'NDPC',  'https://ndpc.gov.ng/publications',                          'html',     'weekly', NULL),
+('Economic and Financial Crimes Commission',    'EFCC',  'https://efcc.gov.ng/publications',                          'html',     'weekly', NULL),
+('Corporate Affairs Commission',                'CAC',   'https://cac.gov.ng/publications',                           'html',     'weekly', NULL),
+('Federal Inland Revenue Service',              'FIRS',  'https://www.firs.gov.ng/publications',                      'html',     'weekly', NULL),
+('National Identity Management Commission',     'NIMC',  'https://nimc.gov.ng/publications',                          'html',     'weekly', NULL);

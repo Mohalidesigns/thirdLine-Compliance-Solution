@@ -14,8 +14,7 @@ public class JobQueue {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long jobId;
     @Column(nullable = false) private String jobType;
-    // ocr_document | classify_instrument | evaluate_applicability
-    // send_webhooks | retry_webhook | deliver_change_notification
+    // ocr_document | classify_instrument
     private String subjectType;
     private Long subjectId;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb", nullable = false)

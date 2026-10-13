@@ -21,6 +21,7 @@ public class InstrumentDto {
     private LocalDate dateIssued;
     private LocalDate dateCommencement;
     private String status;
+    private String uploadSource;
     private Instant discoveredAt;
     private Instant firstPublishedAt;
 }

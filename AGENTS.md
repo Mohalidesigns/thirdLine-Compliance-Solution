@@ -140,6 +140,14 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Pipeline cleanup + NDIC scrape scope + Tesseract OCR enabled
+- **`evaluate_applicability` stage removed end-to-end** — enqueue removed from `ClassificationService`, `JobQueueProcessors.processApplicabilityQueue`+`findMatchingTenants` deleted, `Constants.JOB_APPLICABILITY` deleted, `JobQueue` comment updated, `JobDetailPage` labels → "Extract Text"/"Analyze & Tag", 2 legacy jobs purged from `job_queue`, and the whole `modules/applicability` package (ApplicabilityService/TenantEligibilityRule/Repo) deleted. It was a no-op stub.
+- **NDIC scrapes policy frameworks only** — `V1__create_regulators.sql` NDIC `publication_page_url` → `https://ndic.gov.ng/publications?category=policy-frameworks&view=reader&id=0` **and** `pdf_link_selector = a[href*="/storage/cms/media/"]` (the page's site-wide "latest publications" sidebar emits a dead `NDIC-Quarterly.pdf` link ×14 returning HTML; the selector restricts NDIC to CMS media = the actual frameworks). Live row updated via `PUT /platform/regulators/3` (not SQL). Dry-run before: 20 links/14 failed → after: **6 links / 5 new / 1 skipped / 0 failed**. Caveat: the `category=` param is only honored for `policy-frameworks` (other categories return a generic list) and Jsoup does not run the site's JS filtering.
+- **Flyway repair is now runnable from the module** — added `flyway-maven-plugin` (with `flyway-database-postgresql` + `postgresql` plugin deps) to the intel `pom.xml`, so `mvn flyway:repair -Dflyway.url=… -Dflyway.user=… -Dflyway.password=…` works (previously the driver/db-module were absent from the plugin classpath → "No database found to handle jdbc:postgresql"). V1 & V5 edited in place + repaired.
+- **Tesseract OCR fallback actually enabled** — `PdfExtractionService` already fell back to Tesseract when PDFBox yields <100 chars, but Tesseract was not installed and Tess4J could not load `libtesseract.dylib` via JNA. `brew install tesseract` (binary + `eng.traineddata` at `/opt/homebrew/share/tessdata`); `PdfExtractionService` now (a) auto-detects tessdata across common paths (incl. `/opt/homebrew/share/tessdata`) and (b) a `@PostConstruct` appends existing lib dirs to `jna.library.path` (`/opt/homebrew/lib:…`) so OCR works with no external JVM flags. Verified: OCR'd a stored PDF to ~16k chars with no flags. OCR runs only at ingest, so already-stored image PDFs need re-ingest.
+- **Dead change-notification chain pruned** — removed `ChangeNotificationService.notifyWatchers`+`computeSeverity`, the `ObligationChange` entity/repo, `EmailService.sendChangeNotification`, `Constants.JOB_CHANGE_NOTIFICATION`/`CHANGE_TYPE_*`, the `obligation_changes` table (V5 edited + repaired + dropped), and the `deliver_change_notification` mention in `JobQueue`. Kept `upsertWatch`/`removeWatch` (used by `ObligationBrowserService`). *Still dead (out of scope): `EmailService.sendScraperAlert`/`sendSupersededNotification` — the class has no injection sites.*
+- **Verify:** intel + tenant + intel-frontend all build green; intel restarted clean (Flyway validated 16 migrations; log shows `jna.library.path = /opt/homebrew/lib:…`).
+
 ### Reusable UI kit + Intel Act Explorer & Detail (tabs)
 - **`shared/src/components/`** (imported by BOTH frontends via `import { … } from 'shared'`; `shared` is already a workspace dep of each) — `DataCard`, `DetailHeader`, `CoverageStrip` (clickable tiles), `SectionTabs` (count badges), `SectionTable` (≤5 cols, single-line truncated cells + hover tooltip, server pagination/sort/search, optional `actions(row)` for tenant CRUD), `formatters` (`formatNaira`/`formatDate`/`friendlyPenaltyTypes`/`PENALTY_TYPE_LABEL`/`RISK_COLOR`/`STATUS_COLOR`). `@mui/icons-material` added to `shared` deps. **Intel act pages adopt it first; tenant + other pages migrate later (deferred).**
 - **Act Explorer** (`RegulationExplorerPage.jsx`) — 5 columns `Act | Regulator | Obligations | Sanctions | Returns` (Status column + filter dropped); TanStack + `useSearchParams`; filters **Search · Regulator**; 5 KPI cards with breakdown dropdowns (Total Acts→by Regulator; counts→top Acts). Backend `RegulationService`: fix N+1 (grouped counts per page), `controlCount` added, `stats()` via Criteria aggregates + `regulators:[{regulatorId,name}]` facet (fixes the old name-vs-id filter bug). **Count columns are sorted via correlated subqueries** (`countOrder`) because they are service-resolved, not entity properties — a plain `Sort` on them throws `PropertyReferenceException` (mapped to 401). Only `name` is a native sort; `regulatorName` is not sortable.
@@ -352,7 +360,12 @@ Findings page → Import (CCO / TENANT_ADMIN — closed rows carry a CCO sign-of
 - **Dashboard refresh:** afterCommit calls `DashboardService.recomputeInNewTransaction()` (REQUIRES_NEW — a plain `@Transactional` call from afterCommit joins the finished transaction and its insert is never committed). `getLatest` now orders by snapshot date then id, because several snapshots can share a date.
 
 ### Verified (live, browser pane)
-8-row file → 5 valid (one per status + unreferenced) / 2 invalid / 1 case-insensitive reference duplicate; stored dates 2025-11-05 → 2026-01-20 preserved, SLA deadlines derived, CCO sign-off on the Closed row, controls linked by number; dashboard snapshot recomputed at import; re-upload → 0 valid / 6 duplicate. Zero backend errors.
+- **Phase 1:** 6-row file → 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
+- **Phase 2 (controls):** 7-row file → 3 valid / 2 invalid / 2 duplicate; commit → CTL-0100 (explicit) + CTL-0101/0102 (auto), both link lists written (obligation 5 kept its 3 existing links), register "2 controls", No Control 2 → 0; re-upload → 0 valid / 5 duplicate.
+- **Phase 3 (returns):** 8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Repair (2026-10-03): 113/143 retyped, 564 untouched periods removed, 96 rebuilt; overdue 268 → 92; second dry run → 0.
+- **Phase 4 (findings):** 8-row file → 5 valid / 2 invalid / 1 case-insensitive duplicate; stored dates 2025-11-05 → 2026-01-20 preserved, SLA deadlines derived, CCO sign-off on the Closed row, controls linked by number; re-upload → 0 valid / 6 duplicate.
+
+**Dev gotcha:** running `mvn clean compile` while a backend is running deletes its classes underneath it — requests then 401 and the UI logs out. Restart the backend after any clean build.
 
 ## Done — Bulk Import Phase 3 (Returns) + Return Frequency Fixes
 
@@ -365,11 +378,6 @@ Returns page → Import (CCO / TENANT_ADMIN only). `ReturnImportHandler`; shared
 - **Register:** returns with no instances (event-driven) are now listed, not hidden. Frequency filter uses the stored type. ISO week label uses `WEEK_BASED_YEAR`. `linkObligations` evicts the obligations register cache.
 - **Repair action** for already-seeded tenants: `GET/POST /api/v1/returns/frequency-repair` (TENANT_ADMIN). Dry run first; retypes from the platform's text (classified by the tenant's stricter classifier; platform MONTHLY treated as "no answer"), deletes only untouched instances (Not Started, no stage owner/data, no submission, notes or evidence; system escalation ignored), rebuilds via `ensureInstances`, audits `returns_frequency_repaired`. Idempotent. UI: warning banner + `ReturnRepairDialog` on the Returns page for admins.
 
-### Verified (live, browser pane)
-8-row file → 4 valid / 3 invalid / 1 duplicate; Annual 31 Mar 2027 → single 2027-03 period; Quarterly 15 Jan 2027 → starts 15 Jan; Event-driven listed with no period, not overdue; re-upload → 0 valid / 5 duplicate; analyst → 403 on returns import. Add Return form: Annual + 30 Jun 2027 → ANNUAL, one 2027-06 period. Repair applied on the dev tenant (2026-10-03): 113 of 143 retyped (37 Annual, 58 Event-driven, 11 Quarterly…), 564 untouched periods removed, 1 kept, 96 rebuilt; overdue 268 → 92; second dry run proposes 0.
-
-**Dev gotcha:** running `mvn clean compile` while a backend is running deletes its classes underneath it — requests then 401 and the UI logs out. Restart the backend after any clean build.
-
 ## Done — Bulk Import Phase 2 (Controls)
 
 Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). New `ControlImportHandler`; `ImportService` stayed generic (no type branches).
@@ -381,32 +389,23 @@ Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). 
 - Test Frequency Days derived when blank (30/90/182/365). Name capped at 500 (`control_tasks.control_name`).
 - **Frontend:** `ImportDialog` gained `itemLabel`, `contextLabel` and `invalidateKeys` props (controls invalidates `controls`, `obligations`, `dashboard`). No DB migration.
 
-### Verified (live, browser pane)
-7-row file → 3 valid / 2 invalid / 2 duplicate; commit → CTL-0100 (explicit) + CTL-0101/0102 (auto), both link lists written (obligation 5 kept its 3 existing links), register showed "2 controls" and No Control 2 → 0; re-upload → 0 valid / 5 duplicate. Zero backend errors.
-
 ## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
 
 **Flow (tenant `:5174`, Obligations Register → Import):** download the `.xlsx` template → upload → row-by-row preview (valid / invalid with reasons / duplicate) → "Import N obligations". Imported rows go **straight to the register** (`source='imported'`, `applicability='applicable'`) — the preview confirm is the human check, by user decision; they do NOT pass through the Review Inbox. Invalid rows download as an errors `.xlsx` with an "Error" column to fix and re-upload.
 
 ### Backend (`modules/imports/`)
-- `ImportHandler` interface + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (all POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`.
-- Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed` on repeat; batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`.
-- New table `import_batches` (**V31**) keeps each upload's parsed rows (JSONB), counts and status.
-- Validation: title + regulator required (tenant regulator by name/abbrev); Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical → Minor/Moderate/Major/Severe); Likelihood `Rare..Almost Certain`; Owner must match an active owner; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act, against the register and earlier rows in the file.
-- Commit: one transaction; obligation numbers allocated once per batch; inherent risk computed by `@PrePersist`; **one** `obligations_imported` audit event per batch (with all ids), not one per row; register cache evicted.
-- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place, index only — `tenant_regulators` is created later in V14). Register/detail fall back to the tenant regulator when there is no platform instrument, so standalone obligations no longer show "–". Dev DB got `ALTER TABLE` + Flyway repair.
-- Dependency: Apache POI `poi-ooxml` 5.3.0 (`poi.version` in the parent pom).
+- `ImportHandler` + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`. Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed`, batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`. New table `import_batches` (**V31**, JSONB rows/counts/status).
+- Validation: title + regulator required; Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical); Likelihood `Rare..Almost Certain`; owner must be active; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act. Commit: one transaction, numbers allocated once per batch, `@PrePersist` inherent risk, **one** `obligations_imported` audit per batch, register cache evicted.
+- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place) — register/detail fall back to the tenant regulator when there is no platform instrument. Dependency: Apache POI `poi-ooxml` 5.3.0.
 
 ### Frontend
-- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview table, clickable result chips); "Import" button beside "New Obligation".
-- `api.js` `rawRequest` (multipart + blob download, keeps the 401 refresh) and `api.imports.*`.
+- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview, result chips); "Import" button beside "New Obligation"; `api.js` `rawRequest` (multipart + blob, keeps the 401 refresh) + `api.imports.*`.
 
 ### Auth status codes (tenant)
-- `SecurityConfig` had no entry point, so Spring answered an expired/missing token with **403** — which is why `api.js` treated 403 as session expiry. Now: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401; a 403 shows the server message and keeps the user logged in. License-blocked 402/403 from `LicenseFilter` unchanged.
-- Client disconnects (`ClientAbortException`, broken pipe) log at DEBUG instead of "Unhandled exception".
+- `SecurityConfig` got an entry point: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401 (403 keeps the user logged in). License 402/403 unchanged. `ClientAbortException`/broken pipe log at DEBUG.
 
 ### Dev user seeder (tenant)
-- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD` in `.env`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` (one per role) on start. Idempotent, never resets existing users, rejects weak passwords. Off by default — dev only.
+- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` on start (idempotent, never resets existing users, off by default).
 
 ### Verified (live, browser pane, `admin@mamcorp.test`)
 6-row test file → preview 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown, Under Review unchanged); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
@@ -567,30 +566,7 @@ One register row = one enforceable duty for both `toolkit_seed` and `ai_extracte
 
 ## Done — Toolkit Seed via Committed JSON (points baked offline, no runtime LLM)
 
-**Problem:** `classpath:toolkit/compliance_toolkits.md` never travelled into the JAR, so a fresh boot parsed nothing; points were generated per-startup via batched LLM calls — Gemini/OpenRouter 429 / cooldown / quota burned, the points backlog never finished, obligating an AI call for data the markdown already contained.
-
-**Solution:** the markdown was converted once, offline, to a committed typed JSON (`compliance_toolkits.json`, ~4.8 MB) and verified for parity. Points (verbatim markers + interpreted text) were generated in a **one-time offline pass** (DeepSeek via the AI gateway) and baked into the same JSON, so the importer reads a single deterministic file — **no LLM calls at seed time**, no points scheduler. *(The offline conversion/verification toolchain under `tools/toolkit-md-points/` has since been removed; `compliance_toolkits.json` is now the committed source of truth and is edited in place.)*
-
-### Changes
-- **`compliance_toolkits.json`** (committed, `src/main/resources/toolkit/`) — typed `ToolkitSeedDoc`: `meta` (with per-table totals), `universe` (informational), `obligations` (Map<String, List<ObligationRow>>), `sanctions`, `returns`, `monitoringPlan` (CMP controls). Each obligation row carries baked `points` (verbatim + interpreted, flat with `level`). `compliance_toolkits.md` retained as the human source.
-- **`ToolkitImportService`** — all six importers over typed DTOs (`importUniverse`, `importCrmp`, `importSanctions`, `importReturns`, `importCmpControls`, `importCmpControlsFromSections`); markdown row-parsing helpers deleted. Business logic kept: findOrCreateAct chain, canonical instrument linking, verbatim/interpreted split, **points passthrough** (`.points(o.getPoints())`), existsBy dedup, and **CRMP control idempotency** (`ToolkitControlDedup`: natural-key dedup, collision-free numbering, re-insert repair) merged in from PR #3.
-- **`ToolkitImportResult`** (new, `dto/seed/`) — typed result DTO used by `importToolkit()`/`successResult()`/`errorResult()`; `AdminRegulationController` → `ResponseEntity<ToolkitImportResult>`; `ToolkitStartupSeeder` reads `result.getError()`.
-- **Deleted** — `PointsRetryScheduler`, `BatchPointsResponse`, `generatePointsForToolkit`, and `atheris.points.*` config: points come from the committed JSON, not the LLM. Kept `AiClient` (one model call per `completeEntity`) + `AiConfig`/`ReasoningToggleInterceptor` for the classifier.
-- **DB env vars** — datasource username reads `DB_USERNAME` (was `DB_USER`), password reads `DB_PASSWORD`; **no hardcoded fallbacks** in `application.yml` (both backends).
-
-### Verified
-- `verify_json.py` → `VERIFY OK … (1541/351/139/363/192)` + point-presence check, EXIT 0.
-- `JAVA_HOME=<graalvm-ce-21.0.2> mvn -q clean compile` clean (default JDK 27 breaks Lombok — always compile with GraalVM 21).
-
-## Done — Offline Points Bake + `origin/main` Reconcile
-
-Merged a colleague's PR #3 (`origin/main` `846ae1d`) into this branch and finished the points story.
-
-- **Offline bake** — `tools/toolkit-md-points/verbatim_matcher.py` is a stdlib-only Python port of the intel `VerbatimMarkerMatcher` (validated against the Java test cases); `generate_points.py` calls the AI gateway (`deepseek-v4.1`, key via `AI_GATEWAY_API_KEY`) in resumable batches and writes a `points_generated.json` sidecar keyed by `source|sectionRef|title|plain` (1541 unique keys — the toolkit repeats 97 `(source,section,title)` groups with different `plain`). `export_json.py --fill-points` merges it (idempotent, only fills empty `points`). Result: **1536 rows carry points; all 1278 marker-bearing rows covered**. The 5 empties are genuine prose with no list marker (nothing to quote verbatim; the UI falls back to the plain text). The matcher (Python + tenant `ObligationPointParser`) also accepts square-bracket markers (`a]`, `b]`) — 4 rows use that style.
-- **Wire-key trap** — the model treats `|` as a separator and truncates the KEY at the third field (and drops the ASCII unit separator), so the prompt KEY joins the three fields with `>>`; the sidecar key still carries `plain`.
-- **Merge resolutions** — `ToolkitImportService` kept our JSON importers + **folded in main's `ToolkitControlDedup` idempotency** (natural-key dedup, collision-free numbering, re-insert repair) and `controlsDeduplicated` in `ToolkitImportResult`; `application.yml` kept `AI_MAX_TOKENS`/`AI_REASONING_ENABLED`, dropped `atheris.points.*`. Removed the now-pointless `VerbatimMarkerMatcher.java` + its test and `ToolkitBackfillTest` (kept `ToolkitControlDedupTest`, `ReasoningToggleInterceptorTest`).
-- **Tenant `ObligationPointParser`** — rewritten to handle **inline** markers (lead-in + `(a)`/`i.`/`1.`/`7.1.` on one line), with word/cross-reference rejection mirroring the matcher; `ObligationPointParserTest` covers the cases.
-- **`.env.example`** — dropped `POINTS_*`; **`.gitignore`** — the sidecar and `returns.xlsx` are regenerable/scratch.
+`classpath:toolkit/compliance_toolkits.md` never travelled into the JAR, so a fresh boot parsed nothing and points were generated per-startup via LLM calls (429/quota). Fixed by converting the markdown **once, offline** to a committed typed JSON (`src/main/resources/toolkit/compliance_toolkits.json`, ~4.8 MB) with baked points (verbatim + interpreted) — the importer reads a single deterministic file, **no LLM at seed time**. `ToolkitImportService` (six typed importers: universe/CRMP/sanctions/returns/controls + CRMP-sections), `ToolkitImportResult`, `ToolkitControlDedup` idempotency (PR #3), keep `AiClient` for the classifier. Deleted `PointsRetryScheduler`/`BatchPointsResponse`/`atheris.points.*`. Datasource reads `DB_USERNAME`/`DB_PASSWORD` (no hardcoded fallbacks). The offline toolchain under `tools/toolkit-md-points/` (Python points bake, `export_json.py --fill-points`, sanction/control/return bakes, verdicts, reconcile with `origin/main`) has since been **removed** — the JSON is now hand-edited in place (re-apply bakes only when re-emitting). Result was 1541 obligations / 351 sanctions / 139 returns with points on all 1278 marker-bearing rows. Always compile with GraalVM 21 (default JDK 27 breaks Lombok).
 
 # CRITICAL RULES - MUST FOLLOW
 

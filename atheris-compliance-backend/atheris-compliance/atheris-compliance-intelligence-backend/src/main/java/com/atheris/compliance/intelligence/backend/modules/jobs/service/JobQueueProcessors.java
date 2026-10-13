@@ -5,8 +5,6 @@ import com.atheris.compliance.intelligence.backend.modules.instruments.entity.In
 import com.atheris.compliance.intelligence.backend.modules.instruments.repository.InstrumentRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.service.ScraperService;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
-import com.atheris.compliance.intelligence.backend.modules.tenants.entity.Tenant;
-import com.atheris.compliance.intelligence.backend.modules.tenants.repository.TenantRepository;
 import com.atheris.compliance.common.Constants;
 import com.atheris.compliance.intelligence.backend.shared.ai.AiClient;
 import com.atheris.compliance.intelligence.backend.shared.ocr.PdfExtractionService;
@@ -26,14 +24,12 @@ public class JobQueueProcessors {
 
     private static final int OCR_BATCH = 3;
     private static final int CLASSIFY_BATCH = 10;
-    private static final int APPLICABILITY_BATCH = 10;
 
     private final JobQueueService jobQueue;
     private final ScraperService scraperService;
     private final PdfExtractionService pdfExtractor;
     private final ClassificationService classifier;
     private final RegulatorRepository regulators;
-    private final TenantRepository tenants;
     private final StorageService storage;
     private final InstrumentRepository instruments;
     private final TransactionTemplate tx;
@@ -143,34 +139,6 @@ public class JobQueueProcessors {
         }
     }
 
-    // ── Applicability evaluator: every 5 minutes ──
-    @Scheduled(fixedDelayString = "${atheris.jobs.applicability-interval-ms:300000}")
-    public void processApplicabilityQueue() {
-        for (int i = 0; i < APPLICABILITY_BATCH; i++) {
-            var jobOpt = jobQueue.claimOne(Constants.JOB_APPLICABILITY);
-            if (jobOpt.isEmpty()) break;
-            var job = jobOpt.get();
-            try {
-                tx.executeWithoutResult(status -> {
-                    Long instrumentId = job.getSubjectId();
-                    List<Long> matchedTenantIds = findMatchingTenants(instrumentId);
-
-                    jobQueue.markCompleted(job.getJobId());
-                    log.info("Applicability job {} done. {} tenants matched.", job.getJobId(), matchedTenantIds.size());
-                });
-            } catch (Throwable e) {
-                log.error("Applicability job {} failed: {}", job.getJobId(), e.getMessage());
-                jobQueue.markFailed(job.getJobId(), e.getMessage(), job.getAttemptCount());
-            }
-        }
-    }
-
-    // ── Webhook sender/retry: removed — tenant data delivered via polling only ──
-
-    private List<Long> findMatchingTenants(Long instrumentId) {
-        // Simplified — full implementation queries instruments + tenants tables
-        return tenants.findByIsActiveTrue().stream()
-            .map(Tenant::getTenantId)
-            .toList();
-    }
+    // ── Applicability evaluator + webhook sender: removed — tenant data is
+    //    delivered by the tenant's own polling (ObligationSyncService). ──
 }

@@ -1,7 +1,6 @@
 package com.atheris.compliance.intelligence.backend.shared.email;
 
 import com.atheris.compliance.common.Constants;
-import com.atheris.compliance.intelligence.backend.modules.notifications.entity.ObligationChange;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,37 +40,6 @@ public class EmailService {
 
             — Atheris Platform
             """.formatted(regulatorName, reason, publicationUrl, baseUrl);
-
-        send(toEmail, subject, body);
-    }
-
-    /**
-     * Notify a tenant user that an obligation they classified has changed.
-     * Trigger: ClassificationService detects a diff after re-classification.
-     */
-    public void sendChangeNotification(String toEmail, String toName,
-                                        String instrumentTitle, ObligationChange change,
-                                        String currentClassification, String reviewLink) {
-        String subject = "Update: " + instrumentTitle + " — action may be required";
-        String body = """
-            Hi %s,
-
-            A regulatory obligation you have classified has been updated on the Atheris platform.
-
-            Obligation: %s
-            Your classification: %s
-            Change severity: %s
-
-            What changed:
-            %s
-
-            Please review your classification and confirm it is still correct.
-
-            Review update: %s
-
-            — The Atheris Platform
-            """.formatted(toName, instrumentTitle, currentClassification,
-                change.getChangeSeverity(), change.getChangeSummary(), reviewLink);
 
         send(toEmail, subject, body);
     }

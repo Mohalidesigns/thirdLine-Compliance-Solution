@@ -55,7 +55,9 @@ spring:
         options:
           model: ${AI_MODEL:google/gemini-2.5-flash-lite}
           temperature: 0.0
-          max-tokens: ${AI_MAX_TOKENS:3500}
+          # OpenRouter free tier rejects an uncapped request (default 65535 > balance) with
+          # HTTP 402. Set AI_MAX_TOKENS (env) or delete this line once the account has credits.
+          max-tokens: ${AI_MAX_TOKENS:32000}
 
 server:
   port: ${PORT:9090}

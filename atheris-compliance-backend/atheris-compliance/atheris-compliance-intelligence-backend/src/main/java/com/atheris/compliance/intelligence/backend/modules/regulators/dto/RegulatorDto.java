@@ -31,4 +31,5 @@ public class RegulatorDto {
     private Integer pendingDownloadCount;
     private Instant lastInstrumentDiscoveredAt;
     private Long obligationCount;
+    private Long returnCount;
 }
