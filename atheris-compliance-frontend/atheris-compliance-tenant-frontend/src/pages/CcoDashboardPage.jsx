@@ -1,6 +1,13 @@
-import { Box, CircularProgress, Typography, Fade, Divider } from '@mui/material';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box, CircularProgress, Typography, Fade, Divider, Button, Card, CardContent,
+  IconButton, Menu, MenuItem, Tooltip,
+} from '@mui/material';
+import { ArrowDropDown, Add, Shield, Warning, CheckCircle, Assessment } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import AttentionSection from '../components/dashboard/AttentionSection';
 import ComplianceTrendChart from '../components/dashboard/ComplianceTrendChart';
 import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
@@ -26,7 +33,48 @@ function SectionHeader({ title, subtitle, color }) {
   );
 }
 
+function KpiCard({ kpi, onDrill }) {
+  const [anchor, setAnchor] = useState(null);
+  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  return (
+    <Card variant="outlined" sx={{ borderLeft: `4px solid ${kpi.color}` }}>
+      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
+          </Box>
+          {entries.length > 0 && kpi.onDrill && (
+            <IconButton size="small" aria-label={`${kpi.label} breakdown`} onClick={(e) => setAnchor(e.currentTarget)}>
+              <ArrowDropDown fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
+        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
+        {kpi.delta != null && (
+          <Typography variant="caption" sx={{ color: kpi.delta >= 0 ? '#2e7d32' : '#c62828' }}>
+            {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta)} pts vs prior
+          </Typography>
+        )}
+        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
+          {entries.map(([label, count]) => (
+            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
+                <span>{label}</span>
+                <span style={{ color: '#718096' }}>{count}</span>
+              </Box>
+            </MenuItem>
+          ))}
+        </Menu>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CcoDashboardPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canGenerate = ['CCO', 'TENANT_ADMIN'].includes(user?.role);
   // each section fetches independently — one failing endpoint must never blank the page
   const attentionQuery = useQuery({
     queryKey: ['dashboard', 'attention-items'],
@@ -68,6 +116,11 @@ export default function CcoDashboardPage() {
     queryFn: () => api.dashboard.v2.controlCoverage('areaOfFocus'),
     refetchInterval: POLL_INTERVAL,
   });
+  const metricsQuery = useQuery({
+    queryKey: ['dashboard', 'metrics'],
+    queryFn: ({ signal }) => api.dashboard.metrics(undefined, undefined, { signal }),
+    refetchInterval: POLL_INTERVAL,
+  });
 
   const queries = [
     attentionQuery, trendQuery, returnsStatsQuery, calendarQuery,
@@ -83,6 +136,24 @@ export default function CcoDashboardPage() {
   const summary = summaryQuery.data || {};
   const riskProfile = riskProfileQuery.data || {};
   const coverage = coverageQuery.data || {};
+  const metrics = metricsQuery.data || {};
+
+  const kpis = [
+    { key: 'score', label: 'Compliance Score', color: '#1976d2', icon: <Assessment sx={{ fontSize: 20 }} />,
+      value: metrics.complianceScore != null ? `${metrics.complianceScore}%` : '—' },
+    { key: 'coverage', label: 'Control Coverage', color: '#2e7d32', icon: <CheckCircle sx={{ fontSize: 20 }} />,
+      value: `${metrics.controlCoverage ?? 0}%` },
+    { key: 'highRisk', label: 'High-Risk Items', color: '#d32f2f', icon: <Warning sx={{ fontSize: 20 }} />,
+      value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {} },
+    { key: 'gaps', label: 'No Control', color: '#ed6c02', icon: <Shield sx={{ fontSize: 20 }} />,
+      value: metrics.obligationsWithGaps ?? 0 },
+  ];
+
+  function onKpiDrill(key, label) {
+    if (key === 'highRisk') navigate(`/obligations?risk=${encodeURIComponent(label)}`);
+    else if (key === 'gaps') navigate('/obligations?hasGap=true');
+    else if (key === 'coverage') navigate('/controls');
+  }
 
   if (loading) {
     return (
@@ -95,9 +166,23 @@ export default function CcoDashboardPage() {
   return (
     <Fade in timeout={400}>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          Compliance Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Typography variant="h5" fontWeight={700} gutterBottom>
+            Compliance Dashboard
+          </Typography>
+          {canGenerate && (
+            <Tooltip title="Generate a board-ready PDF report">
+              <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/reports')}>
+                Generate Board Pack
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+
+        {/* KPI row — every card has a breakdown dropdown */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+          {kpis.map((k) => <KpiCard key={k.key} kpi={k} onDrill={onKpiDrill} />)}
+        </Box>
 
         {/* Section 1: Attention */}
         <SectionHeader

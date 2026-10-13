@@ -34,6 +34,16 @@ public class FileStorageService {
         return Files.readAllBytes(Path.of(storagePath));
     }
 
+    /** Stores raw bytes under a UUID-prefixed name and returns the absolute path. */
+    public String storeBytes(String originalName, byte[] bytes) throws IOException {
+        String ext = "";
+        if (originalName != null && originalName.contains("."))
+            ext = originalName.substring(originalName.lastIndexOf("."));
+        Path target = Path.of(storagePath, UUID.randomUUID() + ext);
+        Files.write(target, bytes);
+        return target.toAbsolutePath().toString();
+    }
+
     public void delete(String storagePath) throws IOException {
         Files.deleteIfExists(Path.of(storagePath));
     }

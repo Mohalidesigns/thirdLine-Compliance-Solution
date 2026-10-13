@@ -184,6 +184,40 @@ public class FindingService {
         return repo.save(f);
     }
 
+    public FindingStatsDto getStats() {
+        List<Finding> all = repo.findAll();
+        LocalDate today = LocalDate.now();
+        List<String> openStatuses = List.of("Open", "In Remediation");
+        List<String> highSeverities = List.of("Critical", "High");
+
+        Map<String, Long> bySeverity = all.stream()
+            .collect(Collectors.groupingBy(f -> f.getSeverity() != null ? f.getSeverity() : "Unknown", Collectors.counting()));
+        Map<String, Long> byStatus = all.stream()
+            .collect(Collectors.groupingBy(f -> f.getStatus() != null ? f.getStatus() : "Unknown", Collectors.counting()));
+
+        List<Finding> open = all.stream().filter(f -> openStatuses.contains(f.getStatus())).toList();
+        long overdue = open.stream()
+            .filter(f -> f.getRemediationDeadline() != null && f.getRemediationDeadline().isBefore(today)).count();
+
+        List<FindingStatsDto.Bucket> bySeverityOpen = open.stream()
+            .collect(Collectors.groupingBy(f -> f.getSeverity() != null ? f.getSeverity() : "Unknown", Collectors.counting()))
+            .entrySet().stream()
+            .map(e -> FindingStatsDto.Bucket.builder().key(e.getKey()).count(e.getValue()).build())
+            .sorted(Comparator.comparingLong(FindingStatsDto.Bucket::getCount).reversed())
+            .toList();
+
+        return FindingStatsDto.builder()
+            .total(all.size())
+            .open(open.size())
+            .highSeverity(open.stream().filter(f -> highSeverities.contains(f.getSeverity())).count())
+            .overdueRemediation(overdue)
+            .closed(all.stream().filter(f -> f.getClosedAt() != null).count())
+            .bySeverity(bySeverity)
+            .byStatus(byStatus)
+            .bySeverityOpen(bySeverityOpen)
+            .build();
+    }
+
     private String determineSeverity(String testSev, String inherent) {
         if ("High".equals(testSev) || "High".equals(inherent)) return "High";
         if ("Medium".equals(testSev) || "Medium".equals(inherent)) return "Medium";

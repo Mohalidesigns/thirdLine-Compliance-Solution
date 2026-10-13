@@ -1,35 +1,33 @@
 package com.atheris.compliance.tenant.backend.modules.dashboard.service;
 
-import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
+import com.atheris.compliance.tenant.backend.modules.dashboard.dto.ComplianceMetricsDto;
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.DashboardSnapshot;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.DashboardSnapshotRepository;
-import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
-import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
-import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import java.math.BigDecimal;
-import java.time.*;
-import java.util.*;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Snapshot orchestration. All metric values come from {@link ComplianceMetricsService}
+ * (the single source of truth) so the nightly snapshot, the dashboards and the board pack
+ * never disagree.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class DashboardService {
 
     private final DashboardSnapshotRepository snapshots;
-    private final ObligationClassificationRepository obligations;
-    private final ControlRepository controls;
-    private final FindingRepository findings;
-    private final ReturnFilingInstanceRepository returnsRepo;
-    private final RegulatorySanctionRepository sanctions;
+    private final ComplianceMetricsService metrics;
 
     public DashboardSnapshot getLatest() {
         return snapshots.findTopByOrderBySnapshotDateDescSnapshotIdDesc()
@@ -40,22 +38,32 @@ public class DashboardService {
         return snapshots.findTop12ByOrderBySnapshotDateDesc();
     }
 
+    /**
+     * Live attention items for the dashboard. Derived from the same metrics service, so the
+     * counts match the board pack and the drill-downs.
+     */
     public Map<String, Object> getAttentionItems() {
+        ComplianceMetricsDto m = metrics.compute(LocalDate.now().minusYears(1), LocalDate.now());
         return Map.of(
-            "high_risk_findings", findings.findByStatusAndSeverity("Open", "Critical").size(),
-            "overdue_returns", returnsRepo.findByStatusNotInAndDueDateBefore(
-                List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE), LocalDate.now()).size(),
-            "obligations_no_control", obligations.findByHasGapTrue().size(),
-            "controls_failing", controls.findByResidualRisk("High").size()
+            "high_risk_findings", m.getFindingsHighSeverity(),
+            "overdue_returns", m.getReturnsOverdue(),
+            "obligations_no_control", m.getObligationsWithGaps(),
+            "controls_failing", m.getControlsHighResidualRisk()
         );
     }
 
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public DashboardSnapshot computeAndStore() {
-        DashboardSnapshot s = computeSnapshot();
-        log.info("Dashboard snapshot computed. Score: {}", s.getComplianceScore());
-        return s;
+        try {
+            DashboardSnapshot s = computeSnapshot();
+            log.info("Dashboard snapshot computed. Score: {}", s.getComplianceScore());
+            return s;
+        } catch (Throwable e) {
+            log.error("Dashboard snapshot computation failed: {}", e.getMessage(), e);
+            try { TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); } catch (Throwable ignored) {}
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+        }
     }
 
     /**
@@ -66,61 +74,33 @@ public class DashboardService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public DashboardSnapshot recomputeInNewTransaction() {
-        return computeAndStore();
+        return computeSnapshot();
     }
 
     @Transactional
     public DashboardSnapshot computeSnapshot() {
-        long totalActive = obligations.countByApplicability("applicable");
-        long totalInapplicable = obligations.countByApplicability("not_applicable");
-        long gaps = obligations.countByHasGapTrue();
-        long highRisk = obligations.findAll().stream()
-            .filter(c -> "applicable".equals(c.getApplicability()))
-            .map(c -> c.getInherentRiskRating() != null ? c.getInherentRiskRating() : c.getTenantRiskRating())
-            .filter(r -> "Extreme".equals(r) || "High".equals(r))
-            .count();
-        long totalControls = controls.count();
-        long failing = controls.findByResidualRisk("High").size();
-        long passing = totalControls - failing;
-        double testRate = totalControls > 0 ? (double) passing / totalControls * 100 : 0;
-        long openFindings = findings.countByStatus("Open");
-        long highFindings = findings.countBySeverity("High");
-        long overdueFix = findings.findByStatusInAndRemediationDeadlineBefore(List.of("Open", "In Remediation"), LocalDate.now()).size();
-        long totalReturns = returnsRepo.count();
-        long onTime = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED);
-        long late = returnsRepo.countByStatus(ReturnFilingStatus.SUBMITTED_LATE);
-        long pending = returnsRepo.countByStatus(ReturnFilingStatus.NOT_STARTED) + returnsRepo.countByStatus(ReturnFilingStatus.IN_PROGRESS);
-        BigDecimal penaltyExposure = sanctions.sumExposure();
-
-        Double score;
-        if (totalActive + totalInapplicable == 0) {
-            score = null;
-        } else {
-            score = Math.min(100.0,
-                (totalControls > 0 ? (passing / (double) totalControls) * 40 : 0) +
-                (totalReturns > 0 ? (onTime / (double) totalReturns) * 30 : 30) + 20.0 +
-                10.0);
-        }
+        ComplianceMetricsDto m = metrics.compute(LocalDate.now().minusYears(1), LocalDate.now());
 
         DashboardSnapshot s = DashboardSnapshot.builder()
             .snapshotDate(LocalDate.now()).computedAt(Instant.now())
-            .totalObligationsActive((int) totalActive)
-            .totalObligationsInapplicable((int) totalInapplicable)
-            .obligationsHighRisk((int) highRisk)
-            .obligationsWithGaps((int) gaps)
-            .controlsTotal((int) totalControls)
-            .controlsPassing((int) passing)
-            .controlsFailing((int) failing)
-            .controlsTestCompletionRate(testRate)
-            .findingsOpen((int) openFindings)
-            .findingsHighSeverity((int) highFindings)
-            .findingsOverdueRemediation((int) overdueFix)
-            .returnsTotal((int) totalReturns)
-            .returnsSubmittedOnTime((int) onTime)
-            .returnsSubmittedLate((int) late)
-            .returnsPending((int) pending)
-            .totalPenaltyExposureNaira(penaltyExposure != null ? penaltyExposure : BigDecimal.ZERO)
-            .complianceScore(score).build();
+            .totalObligationsActive(m.getObligationsApplicable())
+            .totalObligationsInapplicable(m.getObligationsNotApplicable())
+            .obligationsHighRisk(m.getObligationsHighRisk())
+            .obligationsWithGaps(m.getObligationsWithGaps())
+            .controlsTotal(m.getControlsTotal())
+            .controlsPassing(m.getControlsPassing())
+            .controlsFailing(m.getControlsHighResidualRisk())
+            .controlsTestCompletionRate(m.getControlTestCompletion())
+            .findingsOpen(m.getFindingsOpen())
+            .findingsHighSeverity(m.getFindingsHighSeverity())
+            .findingsOverdueRemediation(m.getFindingsOverdueRemediation())
+            .returnsTotal(m.getReturnsTotal())
+            .returnsSubmittedOnTime(m.getReturnsSubmittedOnTime())
+            .returnsSubmittedLate(m.getReturnsSubmittedLate())
+            .returnsPending(m.getReturnsPending())
+            .totalPenaltyExposureNaira(m.getPenaltyExposureNaira())
+            .complianceScore(m.getComplianceScore())
+            .build();
         return snapshots.save(s);
     }
 }

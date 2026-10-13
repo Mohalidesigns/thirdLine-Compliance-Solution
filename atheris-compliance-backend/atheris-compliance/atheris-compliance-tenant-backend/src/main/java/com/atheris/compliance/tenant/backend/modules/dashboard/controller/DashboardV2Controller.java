@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.dashboard.service.Dashboard
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -63,6 +64,7 @@ public class DashboardV2Controller {
     }
 
     @PutMapping("/thresholds")
+    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
     public ResponseEntity<Void> saveThresholds(@RequestBody ThresholdDto dto) {
         service.saveThresholds(dto);
         return ResponseEntity.ok().build();

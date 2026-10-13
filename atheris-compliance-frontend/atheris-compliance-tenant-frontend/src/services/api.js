@@ -318,6 +318,7 @@ export const api = {
       return request(`/findings/register${s ? '?' + s : ''}`);
     },
     detail: (id) => request(`/findings/${id}/detail`),
+    stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -453,10 +454,43 @@ export const api = {
     acknowledge: (id) => request(`/notifications/${id}/acknowledge`, { method: 'PUT' }),
     markAllRead: () => request('/notifications/mark-all-read', { method: 'PUT' }),
   },
+  reports: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/reports/board-packs${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    get: (id, opts = {}) => request(`/reports/board-packs/${id}`, { signal: opts.signal }),
+    preview: (from, to, sections, opts = {}) => {
+      const qs = new URLSearchParams({ from, to });
+      (sections || []).forEach(s => qs.append('sections', s));
+      return request(`/reports/board-packs/preview?${qs.toString()}`, { signal: opts.signal });
+    },
+    generate: (data) => request('/reports/board-packs', { method: 'POST', body: JSON.stringify(data) }),
+    signOff: (id, note) => request(`/reports/board-packs/${id}/sign-off`, {
+      method: 'POST', body: JSON.stringify({ note }),
+    }),
+    download: (id, opts = {}) => rawRequest(`/reports/board-packs/${id}/download`, {
+      responseType: 'blob', fallbackName: 'board-pack.pdf', signal: opts.signal,
+    }).then((file) => { saveBlob(file); return file; }),
+  },
   dashboard: {
     summary: () => request('/dashboard/summary'),
     trends: () => request('/dashboard/trends'),
     attentionItems: () => request('/dashboard/attention-items'),
+    metrics: (from, to, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (from) qs.set('from', from);
+      if (to) qs.set('to', to);
+      const s = qs.toString();
+      return request(`/dashboard/metrics${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    refresh: () => request('/dashboard/refresh', { method: 'POST' }),
+    scoreWeights: (opts = {}) => request('/dashboard/score-weights', { signal: opts.signal }),
+    saveScoreWeights: (data) => request('/dashboard/score-weights', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
     v2: {
       returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
       renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
