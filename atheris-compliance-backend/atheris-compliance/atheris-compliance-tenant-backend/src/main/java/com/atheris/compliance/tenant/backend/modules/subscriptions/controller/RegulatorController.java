@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.CreateReg
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.TenantRegulatorDto;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UpdateRegulatorRequest;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.RegulatorService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +35,13 @@ public class RegulatorController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<TenantRegulatorDto> create(@Valid @RequestBody CreateRegulatorRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<TenantRegulatorDto> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateRegulatorRequest req) {
@@ -48,14 +49,14 @@ public class RegulatorController {
     }
 
     @PutMapping("/{id}/disable")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> disable(@PathVariable Long id) {
         service.disable(id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/bulk-disable")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> bulkDisable(@RequestBody List<Long> ids) {
         service.bulkDisable(ids);
         return ResponseEntity.ok().build();

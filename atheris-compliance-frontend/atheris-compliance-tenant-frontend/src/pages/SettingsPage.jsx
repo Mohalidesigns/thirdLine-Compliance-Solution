@@ -650,6 +650,11 @@ function SystemUsersTab({ isAdmin }) {
     catch (e) { setError(e.message); }
   };
 
+  const handleManager = async (u, managerUserId) => {
+    try { await api.users.updateManager(u.userId, managerUserId || null); load(); }
+    catch (e) { setError(e.message); }
+  };
+
   const handleToggleActive = async (u) => {
     try {
       if (u.isActive) await api.users.deactivate(u.userId);
@@ -685,6 +690,7 @@ function SystemUsersTab({ isAdmin }) {
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Manager</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
               </TableRow>
@@ -705,6 +711,18 @@ function SystemUsersTab({ isAdmin }) {
                         {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                       </TextField>
                     ) : <Chip size="small" label={u.role} />}
+                  </TableCell>
+                  <TableCell>
+                    {isAdmin ? (
+                      <TextField select size="small" value={u.managerUserId ?? ''}
+                        onChange={e => handleManager(u, e.target.value)}
+                        sx={{ minWidth: 160 }}>
+                        <MenuItem value="">— None —</MenuItem>
+                        {users.filter(m => m.userId !== u.userId).map(m => (
+                          <MenuItem key={m.userId} value={m.userId}>{m.fullName}</MenuItem>
+                        ))}
+                      </TextField>
+                    ) : (u.managerName || '—')}
                   </TableCell>
                   <TableCell>
                     <Chip size="small" color={u.isActive ? 'success' : 'default'}

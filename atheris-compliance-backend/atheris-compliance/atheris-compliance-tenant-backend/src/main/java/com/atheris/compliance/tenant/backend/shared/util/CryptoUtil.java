@@ -17,7 +17,7 @@ public class CryptoUtil {
 
     private final byte[] keyBytes;
 
-    public CryptoUtil(@Value("${atheris.encryption-key:temporary-dev-encryption-key-change-in-prod}") String encryptionKey) {
+    public CryptoUtil(@Value("${atheris.platform.encryption-key:temporary-dev-encryption-key-change-in-prod}") String encryptionKey) {
         try {
             this.keyBytes = MessageDigest.getInstance("SHA-256").digest(encryptionKey.getBytes());
         } catch (NoSuchAlgorithmException e) {

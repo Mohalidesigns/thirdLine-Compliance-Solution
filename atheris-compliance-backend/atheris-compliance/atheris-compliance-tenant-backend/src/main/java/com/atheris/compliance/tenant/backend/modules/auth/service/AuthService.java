@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.auth.service;
 import com.atheris.compliance.tenant.backend.modules.auth.dto.*;
 import com.atheris.compliance.tenant.backend.modules.auth.entity.*;
 import com.atheris.compliance.tenant.backend.modules.auth.repository.*;
+import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
@@ -27,6 +28,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokens;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final LdapAuthService ldapAuth;
 
     private static final int INVITE_EXPIRY_HOURS = 72;
     private static final int RESET_EXPIRY_HOURS = 1;
@@ -78,23 +80,44 @@ public class AuthService {
             throw LoginFailedException.blocked("Please accept your invite first");
         if (u.getLockedUntil() != null && Instant.now().isBefore(u.getLockedUntil()))
             throw LoginFailedException.blocked("Account locked");
-        if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
-            if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
-                u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
-                users.save(u);
-            }             else
-                users.findById(u.getUserId()).ifPresent(user -> {
-                    user.setFailedLoginAttempts(user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() + 1 : 1);
-                    users.save(user);
-                });
+
+        // The tenant's chosen authentication mode decides how the password is verified. LDAP
+        // users are matched by email to an existing (invited) row — we never auto-provision.
+        if (ldapAuth.isLdapEnabled()) {
+            LdapAuthService.LdapResult r = ldapAuth.authenticate(u.getEmail(), req.getPassword());
+            if (r.status() == LdapAuthService.Status.UNAVAILABLE)
+                throw LoginFailedException.blocked(r.message());
+            if (!r.ok()) {
+                recordFailedAttempt(u);
+                throw LoginFailedException.invalidCredentials();
+            }
+            if (r.fullName() != null && !r.fullName().isBlank()
+                    && !r.fullName().equals(u.getFullName())) {
+                u.setFullName(r.fullName());
+            }
+        } else if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
+            recordFailedAttempt(u);
             throw LoginFailedException.invalidCredentials();
         }
+
         u.setFailedLoginAttempts(0);
         u.setLockedUntil(null);
         u.setLastLoginAt(Instant.now());
         u.setLastLoginIp(req.getIpAddress());
         users.save(u);
         return issueTokens(u, req.getDeviceName(), req.getIpAddress());
+    }
+
+    /** Count a bad password and lock the account once the threshold is reached. */
+    private void recordFailedAttempt(User u) {
+        if (u.getFailedLoginAttempts() == null) u.setFailedLoginAttempts(0);
+        if (u.getFailedLoginAttempts() + 1 >= MAX_FAILED) {
+            u.setLockedUntil(Instant.now().plus(LOCKOUT_MINUTES, ChronoUnit.MINUTES));
+            users.save(u);
+        } else {
+            u.setFailedLoginAttempts(u.getFailedLoginAttempts() + 1);
+            users.save(u);
+        }
     }
 
     @Transactional

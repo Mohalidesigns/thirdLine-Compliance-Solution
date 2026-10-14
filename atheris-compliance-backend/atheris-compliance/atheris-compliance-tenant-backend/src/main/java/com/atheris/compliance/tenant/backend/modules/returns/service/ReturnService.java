@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.EscalationNotifier;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.*;
@@ -11,6 +13,8 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.Tenant
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +50,8 @@ public class ReturnService {
     private final TenantIdentityService tenantIdentity;
     private final ObligationService obligationService;
     private final UntouchedInstances untouched;
+    private final EscalationNotifier escalationNotifier;
+    private final NotificationService notifications;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @PersistenceContext
@@ -535,6 +541,16 @@ public class ReturnService {
         instances.save(inst);
         audit.log(userId, "return_stage_advanced", "return_instance", instanceId,
             Map.of("from", STAGES.get(idx).db(), "to", next.db()));
+        // When a filing reaches Sign-off it is ready for the CCO to submit.
+        if (next == ReturnStage.SIGN_OFF) {
+            try {
+                notifications.notifyRoleEmailed(AppRole.CCO, NotificationConstants.CATEGORY_RETURNS, NotificationConstants.SEVERITY_MEDIUM,
+                    "Return filing " + inst.getPeriod() + " is ready for sign-off and submission",
+                    "/returns", "Return ready to submit");
+            } catch (Exception e) {
+                log.warn("Sign-off notification failed for instance {}: {}", instanceId, e.getMessage());
+            }
+        }
     }
 
     @Transactional
@@ -544,6 +560,10 @@ public class ReturnService {
         if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
         if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
             throw ApiException.conflict("already_submitted", "This return has already been submitted");
+        // The CCO submits only once the analyst has taken the filing through to Sign-off.
+        if (inst.getCurrentStage() != ReturnStage.SIGN_OFF)
+            throw ApiException.conflict("not_ready_to_submit",
+                "A return can only be submitted once it reaches the Sign-off stage");
         LocalDate today = LocalDate.now();
         boolean late = today.isAfter(inst.getDueDate());
         int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
@@ -929,6 +949,14 @@ public class ReturnService {
                     audit.log(SYSTEM_USER_ID, "return_escalated", "return_instance", inst.getInstanceId(),
                         Collections.singletonMap("level", implied));
                     log.info("Escalated return instance {} to level {}", inst.getInstanceId(), implied);
+                    try {
+                        escalationNotifier.escalate(implied, inst.getStageOwnerUserId(), NotificationConstants.CATEGORY_RETURNS,
+                            "Regulatory return overdue",
+                            "Return filing " + inst.getPeriod() + " is " + days + " day(s) overdue (L" + implied + ")",
+                            "/returns");
+                    } catch (Exception ne) {
+                        log.warn("Escalation notification failed for instance {}: {}", inst.getInstanceId(), ne.getMessage());
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Escalation check failed for instance {}: {}", inst.getInstanceId(), e.getMessage());

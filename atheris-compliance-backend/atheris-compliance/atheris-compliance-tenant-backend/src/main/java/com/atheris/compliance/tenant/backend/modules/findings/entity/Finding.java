@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.findings.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -34,13 +35,16 @@ public class Finding {
     private Integer assignedToOwnerId;
     private Instant assignedAt;
     @Builder.Default
-    private String status = "Open";
+    private String status = WorkflowStatus.FINDING_OPEN;
     private LocalDate remediationDeadline;
     private Integer slaDays;
     @Column(columnDefinition = "text")
     private String remediationNotes;
     private String remediationEvidenceUrl;
     private Instant remediationSubmittedAt;
+    private Integer remediationSubmittedByUserId;
+    @Column(columnDefinition = "text")
+    private String reviewNotes;
     private Integer ccoSignOffUserId;
     private Instant ccoSignOffAt;
     private Instant closedAt;

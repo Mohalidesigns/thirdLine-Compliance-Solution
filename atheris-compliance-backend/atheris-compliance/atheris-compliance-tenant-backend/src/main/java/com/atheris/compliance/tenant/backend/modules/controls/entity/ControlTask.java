@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.controls.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -25,7 +26,7 @@ public class ControlTask {
     private String assignedToName;
     private LocalDate dueDate;
     @Builder.Default
-    private String status = "Pending";
+    private String status = WorkflowStatus.TASK_PENDING;
     @Builder.Default
     private Integer escalationLevel = 0;
     private Instant escalatedAt;

@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.dashboard.entity.DashboardS
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.ComplianceMetricsService;
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.DashboardService;
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.ScoreWeightsService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +48,7 @@ public class DashboardController {
     }
 
     @PostMapping("/refresh")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<DashboardSnapshot> refresh() {
         return ResponseEntity.ok(service.computeAndStore());
     }
@@ -58,7 +59,7 @@ public class DashboardController {
     }
 
     @PutMapping("/score-weights")
-    @PreAuthorize("hasRole('CCO')")
+    @PreAuthorize("hasRole('" + AppRole.CCO + "')")
     public ResponseEntity<ScoreWeightsDto> saveScoreWeights(@RequestBody ScoreWeightsDto dto) {
         return ResponseEntity.ok(scoreWeights.save(dto));
     }

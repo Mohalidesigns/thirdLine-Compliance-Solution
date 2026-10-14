@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.reports.controller;
 import com.atheris.compliance.tenant.backend.modules.reports.dto.*;
 import com.atheris.compliance.tenant.backend.modules.reports.service.ReportsService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,13 +30,13 @@ public class ReportsController {
     private final ReportsService service;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<Page<BoardPackDto>> list(Pageable p) {
         return ResponseEntity.ok(service.list(p));
     }
 
     @GetMapping("/preview")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<BoardPackPreviewDto> preview(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -44,13 +45,13 @@ public class ReportsController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<BoardPackDto> get(@PathVariable Long id) {
         return ResponseEntity.ok(service.get(id));
     }
 
     @GetMapping("/{id}/download")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<byte[]> download(@PathVariable Long id) {
         byte[] pdf = service.download(id);
         return ResponseEntity.ok()
@@ -60,7 +61,7 @@ public class ReportsController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<BoardPackDto> generate(
             @Valid @RequestBody GenerateBoardPackRequest req,
             @AuthenticationPrincipal User u) {
@@ -68,7 +69,7 @@ public class ReportsController {
     }
 
     @PostMapping("/{id}/sign-off")
-    @PreAuthorize("hasRole('CCO')")
+    @PreAuthorize("hasRole('" + AppRole.CCO + "')")
     public ResponseEntity<BoardPackDto> signOff(
             @PathVariable Long id,
             @RequestBody(required = false) SignOffRequest req,

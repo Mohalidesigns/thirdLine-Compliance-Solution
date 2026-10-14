@@ -13,6 +13,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Obli
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -88,7 +89,7 @@ public class FindingImportHandler implements ImportHandler {
     @Override public List<ImportColumn> columns() { return COLUMNS; }
 
     /** Closed rows carry a CCO sign-off, and closing a finding is CCO / TENANT_ADMIN only. */
-    @Override public Set<String> requiredRoles() { return Set.of("CCO", "TENANT_ADMIN"); }
+    @Override public Set<String> requiredRoles() { return Set.of(AppRole.CCO, AppRole.TENANT_ADMIN); }
 
     @Override
     public LinkedHashMap<String, List<String>> allowedValues() {

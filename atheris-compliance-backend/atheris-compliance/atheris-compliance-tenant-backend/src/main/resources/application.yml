@@ -28,9 +28,26 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  # Outbound email. If SMTP_HOST is unset, mail is disabled and every send is
+  # logged and skipped (the app still boots). Point it at Mailpit for local dev.
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
   flyway:
     enabled: true
     locations: classpath:db/migration/tenant
+  # LDAP is configured per-tenant at runtime (stored on tenant_profile, bind password
+  # encrypted). Connections are built programmatically, so no global spring.ldap.urls is
+  # needed and the app boots whether or not a directory is reachable.
+  data:
+    ldap:
+      repositories:
+        enabled: false
 
 atheris:
   jwt:
@@ -42,6 +59,15 @@ atheris:
   platform:
     base-url: ${PLATFORM_BASE_URL:http://localhost:9090}
     encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
+  email:
+    from: ${EMAIL_FROM:noreply@atheris.com}
+    # Base URL used to build click-through links in emails (the remediation page).
+    base-url: ${BASE_URL:http://localhost:5174}
+  # Remediation links let an owner submit evidence without an account.
+  remediation:
+    link-expiry-grace-days: ${REMEDIATION_LINK_GRACE_DAYS:7}
+    max-file-size-mb: ${REMEDIATION_MAX_FILE_MB:20}
+    max-files: ${REMEDIATION_MAX_FILES:5}
   # Dev only — never enable in production. Seeds admin@/cco@/analyst@/auditor@<domain>.
   seed:
     users:

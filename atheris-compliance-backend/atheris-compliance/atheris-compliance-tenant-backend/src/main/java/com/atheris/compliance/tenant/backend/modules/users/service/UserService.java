@@ -107,11 +107,29 @@ public class UserService {
         return toDto(users.save(u));
     }
 
+    /** Set (or clear) a user's manager — the escalation target for level-2 notifications. */
+    public UserDto updateManager(Integer id, Integer managerUserId) {
+        User u = users.findById(id)
+            .orElseThrow(() -> ApiException.notFound("User not found: " + id));
+        if (managerUserId != null) {
+            if (managerUserId.equals(id))
+                throw ApiException.badRequest("A user cannot be their own manager");
+            if (!users.existsById(managerUserId))
+                throw ApiException.badRequest("Manager not found: " + managerUserId);
+        }
+        u.setManagerUserId(managerUserId);
+        return toDto(users.save(u));
+    }
+
     private UserDto toDto(User u) {
+        String managerName = u.getManagerUserId() == null ? null
+            : users.findById(u.getManagerUserId()).map(User::getFullName).orElse(null);
         return UserDto.builder()
             .userId(u.getUserId()).email(u.getEmail()).fullName(u.getFullName())
             .jobTitle(u.getJobTitle()).department(u.getDepartment()).role(u.getRole())
+            .managerUserId(u.getManagerUserId()).managerName(managerName)
             .isActive(u.getIsActive()).inviteStatus(u.getInviteStatus())
+            .isBreakGlass(u.getIsBreakGlass())
             .lastLoginAt(u.getLastLoginAt()).invitedAt(u.getInvitedAt()).build();
     }
 

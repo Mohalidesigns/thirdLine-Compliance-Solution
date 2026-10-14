@@ -43,6 +43,20 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Outbound email for escalations, hand-offs and remediation links.
+             Optional at runtime: if SMTP_HOST is unset the app boots and skips sends. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- LDAP authentication. Optional at runtime: the app boots without a directory;
+             a tenant using LDAP supplies the connection settings during onboarding. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-ldap</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

@@ -26,6 +26,7 @@ const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
 const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 
 function Loading() {
   return (
@@ -50,6 +51,8 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        {/* Public, no-login owner remediation page reached via an emailed token link. */}
+        <Route path="/remediate/:token" element={<PublicRemediatePage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />

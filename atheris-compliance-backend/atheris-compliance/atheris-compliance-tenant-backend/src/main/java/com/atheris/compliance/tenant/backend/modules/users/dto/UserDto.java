@@ -13,8 +13,12 @@ public class UserDto {
     private String jobTitle;
     private String department;
     private String role;
+    private Integer managerUserId;
+    private String managerName;
     private Boolean isActive;
     private String inviteStatus;
+    /** LDAP tenants only: a local-admin escape hatch that signs in without the directory. */
+    private Boolean isBreakGlass;
     private Instant lastLoginAt;
     private Instant invitedAt;
 }

@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.auth.service.AuthService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,10 +28,10 @@ public class DevUserSeeder implements CommandLineRunner {
     private record SeedUser(String localPart, String role, String fullName) {}
 
     private static final List<SeedUser> SEED_USERS = List.of(
-        new SeedUser("admin", "TENANT_ADMIN", "Dev Tenant Admin"),
-        new SeedUser("cco", "CCO", "Dev CCO"),
-        new SeedUser("analyst", "ANALYST", "Dev Analyst"),
-        new SeedUser("auditor", "AUDITOR", "Dev Auditor"));
+        new SeedUser("admin", AppRole.TENANT_ADMIN, "Dev Tenant Admin"),
+        new SeedUser("cco", AppRole.CCO, "Dev CCO"),
+        new SeedUser("analyst", AppRole.ANALYST, "Dev Analyst"),
+        new SeedUser("auditor", AppRole.AUDITOR, "Dev Auditor"));
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;

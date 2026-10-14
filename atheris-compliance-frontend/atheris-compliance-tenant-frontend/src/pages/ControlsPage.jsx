@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { RISK_COLOR } from 'shared';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -387,6 +388,9 @@ export default function ControlsPage() {
 /* ───────── Detail View ───────── */
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canReview = ['ANALYST', 'CCO', 'TENANT_ADMIN'].includes(user?.role);
+  const [reviewTarget, setReviewTarget] = useState(null);
   const obligations = detail.linkedObligations || [];
   const testHistory = detail.testHistory || [];
   return (
@@ -506,8 +510,27 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                         </TableCell>
                         <TableCell>{t.failureSeverity || '-'}</TableCell>
                         <TableCell>
-                          <Chip label={t.reviewStatus || 'Pending'} size="small"
-                            color={t.reviewStatus === 'Accepted' ? 'success' : t.reviewStatus === 'Rejected' ? 'error' : 'default'} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Chip label={t.reviewStatus || 'Pending'} size="small"
+                              color={t.reviewStatus === 'Accepted' ? 'success' : t.reviewStatus === 'Rejected' ? 'error' : 'default'} />
+                            {t.reviewStatus === 'Pending' && canReview && t.testedByUserId !== user?.userId && (
+                              <Tooltip title="Review this test result">
+                                <IconButton size="small" color="warning" onClick={() => setReviewTarget(t)}>
+                                  <Gavel fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {t.reviewStatus === 'Pending' && t.testedByUserId === user?.userId && (
+                              <Tooltip title="You recorded this test — a different analyst must review it">
+                                <span><IconButton size="small" disabled><Gavel fontSize="small" /></IconButton></span>
+                              </Tooltip>
+                            )}
+                          </Box>
+                          {t.reviewNotes && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                              {t.reviewNotes}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener">View</Link> : '-'}
@@ -573,7 +596,67 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
+
+      <TestReviewDialog open={!!reviewTarget} test={reviewTarget} controlId={detail.controlId}
+        onClose={() => setReviewTarget(null)}
+        onSaved={() => { setReviewTarget(null); onRefresh(); }}
+        onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
     </Box>
+  );
+}
+
+/* ───────── Test Review Dialog ───────── */
+function TestReviewDialog({ open, test, controlId, onClose, onSaved, onSnackbar, saving, setSaving }) {
+  const [decision, setDecision] = useState('Accepted');
+  const [notes, setNotes] = useState('');
+  useEffect(() => { if (open) { setDecision('Accepted'); setNotes(''); } }, [open]);
+  if (!test) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.controls.reviewTest(controlId, test.testId, decision, notes.trim() || undefined);
+      onSaved();
+    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Review Test Result</DialogTitle>
+      <DialogContent>
+        <Alert severity={decision === 'Accepted' ? 'success' : 'warning'} sx={{ mb: 2 }}>
+          {decision === 'Accepted'
+            ? 'Accepting records this result as reviewed.'
+            : 'Rejecting reopens the control and lines up a fresh test task.'}
+        </Alert>
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Typography variant="body2"><strong>{test.result}</strong> · recorded by {test.testedByName || 'unknown'} on {formatDate(test.testDate)}</Typography>
+          {test.resultDescription && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{test.resultDescription}</Typography>
+          )}
+        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12 }}>
+            <TextField select label="Decision" fullWidth size="small" value={decision}
+              onChange={e => setDecision(e.target.value)}>
+              <MenuItem value="Accepted">Accept</MenuItem>
+              <MenuItem value="Rejected">Reject</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField label="Review notes" fullWidth size="small" multiline minRows={3} value={notes}
+              onChange={e => setNotes(e.target.value)} />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" color={decision === 'Accepted' ? 'success' : 'warning'}
+          onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : decision === 'Accepted' ? 'Accept' : 'Reject'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

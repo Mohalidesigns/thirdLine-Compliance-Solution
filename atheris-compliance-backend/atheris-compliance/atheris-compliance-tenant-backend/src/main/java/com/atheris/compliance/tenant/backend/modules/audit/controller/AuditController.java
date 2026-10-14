@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.audit.controller;
 
 import com.atheris.compliance.tenant.backend.modules.audit.dto.AuditEventItem;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +19,7 @@ public class AuditController {
     private final AuditService service;
 
     @GetMapping("/register")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<Page<AuditEventItem>> register(
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) Long subjectId,
@@ -30,7 +31,7 @@ public class AuditController {
     }
 
     @GetMapping("/verify")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<Map<String, Object>> verify() {
         boolean valid = service.verifyChain();
         return ResponseEntity.ok(Map.of(

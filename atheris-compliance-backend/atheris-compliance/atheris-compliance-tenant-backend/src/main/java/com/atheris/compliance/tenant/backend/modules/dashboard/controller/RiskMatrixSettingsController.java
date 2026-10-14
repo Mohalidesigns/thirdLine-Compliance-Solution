@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.dashboard.controller;
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.RiskMatrixConfig;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.RiskMatrixConfigRepository;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,7 +30,7 @@ public class RiskMatrixSettingsController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<RiskMatrixConfig> update(@RequestBody RiskMatrixConfig incoming) {
         Long tenantId = tenantIdentity.currentTenantId();
         RiskMatrixConfig config = repo.findByTenantId(tenantId)

@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.RiskType
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RiskTypeRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -51,7 +52,7 @@ public class ObligationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ObligationRegisterItem> create(
             @Valid @RequestBody ObligationRequest req,
             @AuthenticationPrincipal User u) {
@@ -59,7 +60,7 @@ public class ObligationController {
     }
 
     @PutMapping("/obligation/{obligationId}")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ObligationRegisterItem> update(
             @PathVariable Long obligationId,
             @Valid @RequestBody ObligationRequest req,
@@ -68,7 +69,7 @@ public class ObligationController {
     }
 
     @DeleteMapping("/obligation/{obligationId}")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> delete(
             @PathVariable Long obligationId,
             @AuthenticationPrincipal User u) {
@@ -82,7 +83,7 @@ public class ObligationController {
     }
 
     @PutMapping("/obligation/{obligationId}/returns")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> linkReturns(
             @PathVariable Long obligationId,
             @RequestBody LinkReturnRequest req,
@@ -97,7 +98,7 @@ public class ObligationController {
     }
 
     @GetMapping("/gaps")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','ANALYST')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<List<ObligationClassificationDto>> gaps() {
         return ResponseEntity.ok(service.getGaps());
     }
@@ -108,7 +109,7 @@ public class ObligationController {
     }
 
     @PostMapping("/{id}/classify")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ObligationClassificationDto> classify(
             @PathVariable Long id,
             @Valid @RequestBody ClassifyObligationRequest req,
@@ -117,7 +118,7 @@ public class ObligationController {
     }
 
     @PutMapping("/{id}/classify")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ObligationClassificationDto> update(
             @PathVariable Long id,
             @Valid @RequestBody ClassifyObligationRequest req,
@@ -126,7 +127,7 @@ public class ObligationController {
     }
 
     @PutMapping("/{id}/owner")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> assignOwner(
             @PathVariable Long id,
             @RequestBody AssignOwnerRequest req,
@@ -136,7 +137,7 @@ public class ObligationController {
     }
 
     @PutMapping("/{id}/risk")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> updateRisk(
             @PathVariable Long id,
             @RequestBody RiskAssessmentRequest req,
@@ -146,7 +147,7 @@ public class ObligationController {
     }
 
     @PutMapping("/{id}/gap")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> updateGap(
             @PathVariable Long id,
             @RequestBody GapRequest req,
@@ -156,7 +157,7 @@ public class ObligationController {
     }
 
     @PutMapping("/{id}/controls")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> linkControls(
             @PathVariable Long id,
             @RequestBody LinkControlsRequest req,

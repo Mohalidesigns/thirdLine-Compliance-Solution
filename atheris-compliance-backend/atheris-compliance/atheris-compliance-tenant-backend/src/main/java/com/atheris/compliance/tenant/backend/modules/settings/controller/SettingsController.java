@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.settings.controller;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.service.SettingsService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,7 @@ public class SettingsController {
     }
 
     @PutMapping("/polling")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> updatePolling(@Valid @RequestBody PollingConfigRequest req) {
         service.updatePollingConfig(req.getIntervalMinutes());
         return ResponseEntity.noContent().build();

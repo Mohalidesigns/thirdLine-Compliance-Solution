@@ -9,6 +9,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
+/**
+ * A caller only ever sees their own notifications plus anything broadcast to their role.
+ */
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
@@ -18,13 +21,14 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<List<ObligationNotification>> list(
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(service.findByStatus(status));
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.forUser(u.getUserId(), u.getRole(), status));
     }
 
     @GetMapping("/count")
-    public ResponseEntity<Map<String, Long>> count() {
-        return ResponseEntity.ok(service.getCount());
+    public ResponseEntity<Map<String, Long>> count(@AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.countForUser(u.getUserId(), u.getRole()));
     }
 
     @GetMapping("/{id}")
@@ -47,8 +51,8 @@ public class NotificationController {
     }
 
     @PutMapping("/mark-all-read")
-    public ResponseEntity<Void> markAllRead() {
-        service.markAllRead();
+    public ResponseEntity<Void> markAllRead(@AuthenticationPrincipal User u) {
+        service.markAllRead(u.getUserId(), u.getRole());
         return ResponseEntity.noContent().build();
     }
 }

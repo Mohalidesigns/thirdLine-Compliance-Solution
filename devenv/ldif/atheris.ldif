@@ -1,0 +1,70 @@
+# Seed directory for the Atheris LDAP test bed.
+#
+# Loaded automatically by the bitnami/openldap image on first start (via
+# LDAP_CUSTOM_LDIF_DIR). ROOT is dc=atheris,dc=test; the service account is
+# cn=admin,dc=atheris,dc=test / adminpassword.
+#
+# The tenant app's onboarding should use:
+#   URL               ldap://localhost:1389
+#   Bind DN           cn=admin,dc=atheris,dc=test
+#   Bind password     adminpassword
+#   User search base  ou=people,dc=atheris,dc=test
+#   Search attribute  mail
+#   Full-name attr    cn
+#
+# Identities (all directory passwords: Passw0rd!):
+#   analyst@atheris.test  — used as the tester/reviewer in SoD tests
+#   cco@atheris.test      — escalation L3 + board-pack sign-off
+#   manager@atheris.test  — escalation L2 target (set as manager of analyst)
+#   owner@atheris.test    — a finding owner who has a login
+#
+# NOTE: the bitnami image hashes any plaintext userPassword with SSHA on load, so
+# the cleartext below is only a seed placeholder. Re-importing replaces them.
+
+dn: ou=people,dc=atheris,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: cn=analyst,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Adaeze Analyst
+sn: Analyst
+givenName: Adaeze
+mail: analyst@atheris.test
+uid: analyst
+userPassword: Passw0rd!
+
+dn: cn=cco,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chidi Compliance
+sn: Compliance
+givenName: Chidi
+mail: cco@atheris.test
+uid: cco
+userPassword: Passw0rd!
+
+dn: cn=manager,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Muna Manager
+sn: Manager
+givenName: Muna
+mail: manager@atheris.test
+uid: manager
+userPassword: Passw0rd!
+
+dn: cn=owner,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Obi Owner
+sn: Owner
+givenName: Obi
+mail: owner@atheris.test
+uid: owner
+userPassword: Passw0rd!

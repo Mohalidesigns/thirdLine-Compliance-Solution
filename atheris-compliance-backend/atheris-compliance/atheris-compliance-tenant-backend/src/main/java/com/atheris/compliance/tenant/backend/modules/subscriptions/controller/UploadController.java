@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.*;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.UploadJob;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.UploadService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,7 +24,7 @@ public class UploadController {
     private final UploadService service;
 
     @PostMapping(value = "/upload-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<UploadJobResponse> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "tenant_regulator_id", required = false) Long tenantRegulatorId,
@@ -44,13 +45,13 @@ public class UploadController {
     }
 
     @GetMapping("/uploads/{uploadId}/review")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<UploadReviewResponse> getReview(@PathVariable UUID uploadId) {
         return ResponseEntity.ok(service.getReview(uploadId));
     }
 
     @PostMapping("/uploads/{uploadId}/confirm")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<UploadJobResponse> confirm(@PathVariable UUID uploadId,
                                                       @RequestBody ConfirmUploadRequest req) {
         return ResponseEntity.ok(service.confirm(uploadId, req));

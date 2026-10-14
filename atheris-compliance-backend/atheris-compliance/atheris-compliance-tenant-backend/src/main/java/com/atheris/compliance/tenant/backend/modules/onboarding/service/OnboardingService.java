@@ -4,6 +4,8 @@ import com.atheris.compliance.tenant.backend.modules.license.dto.LicenseStatusRe
 import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseActivationException;
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import com.atheris.compliance.tenant.backend.modules.license.service.LicenseService;
+import com.atheris.compliance.tenant.backend.modules.ldap.dto.LdapSettings;
+import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
@@ -17,6 +19,9 @@ import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
+import com.atheris.compliance.tenant.backend.shared.util.CryptoUtil;
+import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import static com.atheris.compliance.common.Constants.*;
 
 import lombok.RequiredArgsConstructor;
@@ -42,11 +47,13 @@ public class OnboardingService {
     private final LicenseService licenseService;
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
+    private final CryptoUtil crypto;
     private final PlatformApiClient platformApi;
     private final ObligationSyncService syncService;
     private final RegulationSeedService regulationSeedService;
     private final TenantIdentityService tenantIdentity;
     private final SeedService seedService;
+    private final LdapAuthService ldapAuth;
 
     public OnboardingStatusResponse getStatus() {
         List<RegulatorSummary> regulators = platformApi.fetchRegulators();
@@ -128,27 +135,38 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse saveUserSetup(UserSetupRequest req) {
         TenantProfile p = getProfile();
+        boolean ldap = "ldap".equalsIgnoreCase(req.getAuthType());
+        p.setAuthType(ldap ? "ldap" : "local");
 
-        if ("ldap".equalsIgnoreCase(req.getAuthType())) {
-            p.setAuthType("ldap");
-            p.setLdapConfig(req.getLdapConfig());
-        } else {
-            p.setAuthType("local");
-            if (req.getLocalAdmin() != null) {
-                String email = req.getLocalAdmin().getEmail().toLowerCase().trim();
-                if (!users.existsByEmail(email)) {
-                    User admin = User.builder()
-                        .email(email)
-                        .fullName(req.getLocalAdmin().getFullName())
-                        .role("TENANT_ADMIN")
-                        .passwordHash(passwordEncoder.encode(req.getLocalAdmin().getPassword()))
-                        .isActive(true)
-                        .emailVerified(true)
-                        .inviteStatus("active")
-                        .build();
-                    users.save(admin);
-                    log.info("Admin user created during onboarding: {}", email);
-                }
+        if (ldap) {
+            p.setLdapConfig(encryptLdapConfig(req.getLdapConfig()));
+            // A local tenant-admin with a password so the tenant can always get in if the
+            // directory is unavailable (break-glass). Flagged so the UI can mark it.
+            if (req.getBreakGlassAdmin() != null) {
+                User admin = upsertUser(
+                    req.getBreakGlassAdmin().getEmail(), req.getBreakGlassAdmin().getFullName(),
+                    AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getBreakGlassAdmin().getPassword()));
+                admin.setIsBreakGlass(true);
+                users.save(admin);
+            }
+        } else if (req.getLocalAdmin() != null) {
+            upsertUser(req.getLocalAdmin().getEmail(), req.getLocalAdmin().getFullName(),
+                AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getLocalAdmin().getPassword()));
+        }
+
+        // Provision the CCO and Analyst identities for both auth types. LDAP users get no
+        // local password — the directory authenticates them; local users are invited (pending).
+        if (req.getSeedUsers() != null) {
+            for (UserSetupRequest.SeededUser s : req.getSeedUsers()) {
+                String role = normalizeRole(s.getRole());
+                if (role == null) continue;
+                String passwordHash = ldap ? null
+                    : (s.getPassword() != null && !s.getPassword().isBlank()
+                        ? passwordEncoder.encode(s.getPassword()) : null);
+                User u = upsertUser(s.getEmail(), s.getFullName(), role, passwordHash);
+                // LDAP identities are immediately able to sign in; local ones await invite.
+                u.setInviteStatus(ldap ? "active" : (passwordHash != null ? "active" : "pending"));
+                users.save(u);
             }
         }
 
@@ -159,6 +177,58 @@ public class OnboardingService {
             .authType(p.getAuthType())
             .licenseStatus(p.getLicenseStatus())
             .legalName(p.getLegalName()).build();
+    }
+
+    /** Create the user if new; otherwise update name/role and (when supplied) password. */
+    private User upsertUser(String rawEmail, String fullName, String role, String passwordHash) {
+        String email = rawEmail.toLowerCase().trim();
+        User u = users.findByEmail(email).orElseGet(() -> User.builder()
+            .email(email).isActive(true).emailVerified(true).build());
+        u.setFullName(fullName);
+        u.setRole(role);
+        if (passwordHash != null) u.setPasswordHash(passwordHash);
+        if (u.getInviteStatus() == null) u.setInviteStatus("active");
+        return users.save(u);
+    }
+
+    private static String normalizeRole(String role) {
+        if (role == null) return null;
+        return switch (role.trim().toUpperCase()) {
+            case "CCO" -> AppRole.CCO;
+            case "ANALYST" -> AppRole.ANALYST;
+            case "TENANT_ADMIN", "ADMIN" -> AppRole.TENANT_ADMIN;
+            case "AUDITOR" -> AppRole.AUDITOR;
+            default -> null;
+        };
+    }
+
+    /** Store the LDAP config with the bind password encrypted at rest. */
+    private Map<String, Object> encryptLdapConfig(UserSetupRequest.LdapConfigRequest cfg) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("url", cfg.getUrl());
+        m.put("bindDn", cfg.getBindDn());
+        m.put("bindPassword", crypto.encrypt(cfg.getBindPassword()));
+        m.put("userSearchBase", cfg.getUserSearchBase());
+        m.put("userSearchFilterAttribute",
+            cfg.getUserSearchFilterAttribute() != null ? cfg.getUserSearchFilterAttribute() : "mail");
+        m.put("fullNameAttribute",
+            cfg.getFullNameAttribute() != null ? cfg.getFullNameAttribute() : "cn");
+        return m;
+    }
+
+    /** Bind with the candidate service account to validate an LDAP config before saving it. */
+    public Map<String, Object> testLdapConnection(UserSetupRequest.LdapConfigRequest cfg) {
+        if (cfg == null || cfg.getUrl() == null || cfg.getBindDn() == null
+                || cfg.getBindPassword() == null || cfg.getUserSearchBase() == null) {
+            return Map.of("ok", false, "message", "URL, bind DN, bind password and user search base are all required");
+        }
+        LdapSettings settings = LdapSettings.builder()
+            .url(cfg.getUrl()).bindDn(cfg.getBindDn()).bindPassword(cfg.getBindPassword())
+            .userSearchBase(cfg.getUserSearchBase())
+            .userSearchFilterAttribute(cfg.getUserSearchFilterAttribute())
+            .fullNameAttribute(cfg.getFullNameAttribute()).build();
+        LdapAuthService.LdapResult r = ldapAuth.testConnection(settings);
+        return Map.of("ok", r.ok(), "message", r.message());
     }
 
     @Transactional
@@ -204,7 +274,7 @@ public class OnboardingService {
     public OnboardingStatusResponse saveDocumentTypes(DocumentTypeRequest req) {
         TenantProfile p = getProfile();
         p.setSubscribedDocumentTypes(List.of("circulars", "guidelines", "directives", "regulations", "standards", "frameworks"));
-        p.setNotificationRiskRatings(List.of("high", "medium", "low"));
+        p.setNotificationRiskRatings(List.of(NotificationConstants.SEVERITY_HIGH, NotificationConstants.SEVERITY_MEDIUM, NotificationConstants.SEVERITY_LOW));
         p.setOnboardingStep(5);
         profiles.save(p);
         return OnboardingStatusResponse.builder()

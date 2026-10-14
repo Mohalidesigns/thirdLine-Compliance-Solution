@@ -8,6 +8,35 @@ export const getToken = () => authToken;
 export const setRefreshToken = (t) => { authRefreshToken = t; };
 export const getRefreshToken = () => authRefreshToken;
 
+// Public remediation endpoints — reached by an owner via a link, with no login/token.
+// Kept separate from `api` so it never attaches the Authorization header or triggers
+// the 401-refresh/logout path.
+export const publicApi = {
+  async remediationView(token) {
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This remediation link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async remediationSubmit(token, { notes, files }) {
+    const form = new FormData();
+    if (notes) form.append('notes', notes);
+    (files || []).forEach((f) => form.append('files', f));
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+};
+
 // A PDF endpoint answers 404 with {error, message} when the record has no stored
 // document (common: toolkit-imported instruments never carry one). Turn that into
 // a message worth showing, and fall back to the generic one for real failures.
@@ -208,6 +237,7 @@ export const api = {
     activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
     institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
+    testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
@@ -322,6 +352,12 @@ export const api = {
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
+    review: (id, decision, notes) => {
+      const qs = new URLSearchParams({ decision });
+      if (notes) qs.set('notes', notes);
+      return request(`/findings/${id}/review?${qs.toString()}`, { method: 'PUT' });
+    },
+    remediationLink: (id) => request(`/findings/${id}/remediation-link`, { method: 'POST' }),
     close: (id) => request(`/findings/${id}/close`, { method: 'PUT' }),
   },
   controls: {
@@ -343,6 +379,16 @@ export const api = {
     create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/controls/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
+    tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
+    reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {
+      method: 'PUT', body: JSON.stringify({ decision, notes }),
+    }),
+    tasks: (id, opts = {}) => request(`/controls/${id}/tasks`, { signal: opts.signal }),
+    pendingReviewTests: (opts = {}) => request('/tests/pending-review', { signal: opts.signal }),
+  },
+  tasks: {
+    mine: (opts = {}) => request('/tasks', { signal: opts.signal }),
+    overdue: (opts = {}) => request('/tasks/overdue', { signal: opts.signal }),
   },
   returns: {
     list: () => request('/returns/list'),
@@ -568,5 +614,8 @@ export const api = {
     }),
     deactivate: (id) => request(`/users/${id}/deactivate`, { method: 'PUT' }),
     reactivate: (id) => request(`/users/${id}/reactivate`, { method: 'PUT' }),
+    updateManager: (id, managerUserId) => request(`/users/${id}/manager`, {
+      method: 'PUT', body: JSON.stringify({ managerUserId }),
+    }),
   },
 };

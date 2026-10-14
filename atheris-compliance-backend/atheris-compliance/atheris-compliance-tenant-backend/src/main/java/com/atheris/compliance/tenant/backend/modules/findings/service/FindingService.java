@@ -1,14 +1,19 @@
 package com.atheris.compliance.tenant.backend.modules.findings.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingSpecification;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +32,7 @@ public class FindingService {
     private final OwnerRepository ownerRepo;
     private final ControlRepository controlRepo;
     private final AuditService audit;
+    private final NotificationService notifications;
 
     public Page<FindingRegisterItem> getRegisterList(
             String status, String severity, Boolean overdueOnly, Integer assignedToUserId, Pageable p) {
@@ -67,7 +73,7 @@ public class FindingService {
         timeline.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
 
         long remaining = 0;
-        if (f.getRemediationDeadline() != null && !"Closed".equals(f.getStatus())) {
+        if (f.getRemediationDeadline() != null && !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
             remaining = Math.max(0, LocalDate.now().until(f.getRemediationDeadline(), ChronoUnit.DAYS));
         }
 
@@ -84,6 +90,8 @@ public class FindingService {
             .remediationNotes(f.getRemediationNotes())
             .remediationEvidenceUrl(f.getRemediationEvidenceUrl())
             .remediationSubmittedAt(f.getRemediationSubmittedAt())
+            .remediationSubmittedByUserId(f.getRemediationSubmittedByUserId())
+            .reviewNotes(f.getReviewNotes())
             .ccoSignOffUserId(f.getCcoSignOffUserId()).ccoSignOffAt(f.getCcoSignOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
             .linkedControlId(f.getLinkedControlId())
@@ -114,10 +122,11 @@ public class FindingService {
             .assignedToName(resolveOwnerName(ownerId))
             .assignedAt(ownerId != null ? Instant.now() : null)
             .remediationDeadline(LocalDate.now().plus(sla, ChronoUnit.DAYS))
-            .slaDays(sla).createdByUserId(test.getTestedByUserId()).status("Open").build();
+            .slaDays(sla).createdByUserId(test.getTestedByUserId()).status(WorkflowStatus.FINDING_OPEN).build();
         Finding saved = repo.save(f);
         audit.log(test.getTestedByUserId(), "finding_auto_raised", "finding", saved.getFindingId(),
             Map.of("severity", severity));
+        notifyOwnerOfAssignment(saved);
         return saved;
     }
 
@@ -134,10 +143,12 @@ public class FindingService {
             .assignedToName(resolveOwnerName(req.getAssignedToOwnerId()))
             .assignedAt(req.getAssignedToOwnerId() != null ? Instant.now() : null)
             .remediationDeadline(req.getRemediationDeadline()).slaDays(sla)
-            .createdByUserId(userId).status(req.getAssignedToOwnerId() != null ? "In Remediation" : "Open").build();
+            .createdByUserId(userId).status(req.getAssignedToOwnerId() != null
+                ? WorkflowStatus.FINDING_IN_REMEDIATION : WorkflowStatus.FINDING_OPEN).build();
         Finding saved = repo.save(f);
         audit.log(userId, "finding_raised_manually", "finding", saved.getFindingId(),
             Map.of("severity", req.getSeverity()));
+        notifyOwnerOfAssignment(saved);
         return new FindingRaisedResponse(saved.getFindingId(), saved.getStatus());
     }
 
@@ -147,10 +158,12 @@ public class FindingService {
         f.setAssignedToOwnerId(req.getAssignedToOwnerId());
         f.setAssignedToName(resolveOwnerName(req.getAssignedToOwnerId()));
         f.setRemediationDeadline(req.getRemediationDeadline());
-        f.setStatus("In Remediation");
+        f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
         f.setAssignedAt(Instant.now());
         audit.log(userId, "finding_assigned", "finding", id, Map.of());
-        return repo.save(f);
+        Finding saved = repo.save(f);
+        notifyOwnerOfAssignment(saved);
+        return saved;
     }
 
     private String resolveOwnerName(Integer ownerId) {
@@ -160,23 +173,95 @@ public class FindingService {
             .getFullName();
     }
 
+    /**
+     * Notify the assigned owner that a finding needs remediation. Sends an in-app
+     * notification (when the owner has a login) and always emails the owner's address,
+     * which is how an owner without system access receives their remediation link.
+     */
+    private void notifyOwnerOfAssignment(Finding f) {
+        if (f.getAssignedToOwnerId() == null) return;
+        ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
+            String summary = "Finding #" + f.getFindingId() + " (" + f.getSeverity() + ") needs remediation"
+                + (f.getRemediationDeadline() != null ? " by " + f.getRemediationDeadline() : "");
+            if (o.getUserId() != null)
+                notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_HIGH,
+                    summary, "/findings", "Action required: finding remediation");
+            else
+                // No login — email the owner directly; the analyst will share the remediation link.
+                log.info("Finding {} assigned to owner {} with no user login (email {})",
+                    f.getFindingId(), o.getOwnerId(), o.getEmail());
+        });
+    }
+
     @Transactional
     public Finding submitRemediation(Long id, SubmitRemediationRequest req, Integer userId) {
         Finding f = findById(id);
+        if (!WorkflowStatus.FINDING_IN_REMEDIATION.equals(f.getStatus())
+                && !WorkflowStatus.FINDING_OPEN.equals(f.getStatus()))
+            throw ApiException.conflict("invalid_transition",
+                "Remediation can only be submitted while a finding is Open or In Remediation");
         f.setRemediationNotes(req.getRemediationNotes());
         f.setRemediationEvidenceUrl(req.getEvidenceUrl());
         f.setRemediationSubmittedAt(Instant.now());
-        f.setStatus("Remediated");
+        f.setRemediationSubmittedByUserId(userId);
+        f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
+
+        // Hand off to a reviewer: notify analysts.
+        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
+            "Finding #" + id + " remediation submitted — awaiting your review",
+            "/findings", "Remediation submitted — review required");
+        return repo.save(f);
+    }
+
+    /**
+     * Analyst approves or rejects the owner's remediation. No CCO is involved.
+     * Rejection returns the finding to In Remediation; the owner is re-notified and can
+     * resubmit with the same remediation link.
+     */
+    @Transactional
+    public Finding reviewRemediation(Long id, String decision, String notes, User reviewer) {
+        Finding f = findById(id);
+        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus()))
+            throw ApiException.conflict("invalid_transition", "Finding must be Remediated before review");
+        if (f.getRemediationSubmittedByUserId() != null
+                && f.getRemediationSubmittedByUserId().equals(reviewer.getUserId()))
+            throw ApiException.conflict("self_review",
+                "You cannot approve a remediation you submitted yourself");
+
+        if (WorkflowStatus.REVIEW_ACCEPTED.equals(decision)) {
+            f.setStatus(WorkflowStatus.FINDING_CLOSED);
+            f.setClosedAt(Instant.now());
+            f.setCcoSignOffUserId(reviewer.getUserId());
+            f.setCcoSignOffAt(Instant.now());
+            audit.log(reviewer.getUserId(), "finding_approved", "finding", id, Map.of());
+        } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
+            if (notes == null || notes.isBlank())
+                throw ApiException.badRequest("A reason is required when rejecting remediation");
+            f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
+            f.setReviewNotes(notes);
+            audit.log(reviewer.getUserId(), "finding_rejected", "finding", id, Map.of("reason", notes));
+            // Tell the owner it needs more work; their link still works.
+            if (f.getAssignedToOwnerId() != null)
+                ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
+                    if (o.getUserId() != null)
+                        notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
+                            "Remediation for finding #" + id + " was rejected: " + notes,
+                            "/findings", "Remediation rejected — action required");
+                });
+        } else {
+            throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
+                + " or " + WorkflowStatus.REVIEW_REJECTED);
+        }
         return repo.save(f);
     }
 
     @Transactional
     public Finding close(Long id, Integer ccoUserId) {
         Finding f = findById(id);
-        if (!"Remediated".equals(f.getStatus()))
+        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus()))
             throw ApiException.conflict("invalid_transition", "Finding must be Remediated before closing");
-        f.setStatus("Closed");
+        f.setStatus(WorkflowStatus.FINDING_CLOSED);
         f.setCcoSignOffUserId(ccoUserId);
         f.setCcoSignOffAt(Instant.now());
         f.setClosedAt(Instant.now());
@@ -187,8 +272,8 @@ public class FindingService {
     public FindingStatsDto getStats() {
         List<Finding> all = repo.findAll();
         LocalDate today = LocalDate.now();
-        List<String> openStatuses = List.of("Open", "In Remediation");
-        List<String> highSeverities = List.of("Critical", "High");
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        List<String> highSeverities = List.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
 
         Map<String, Long> bySeverity = all.stream()
             .collect(Collectors.groupingBy(f -> f.getSeverity() != null ? f.getSeverity() : "Unknown", Collectors.counting()));
@@ -219,17 +304,17 @@ public class FindingService {
     }
 
     private String determineSeverity(String testSev, String inherent) {
-        if ("High".equals(testSev) || "High".equals(inherent)) return "High";
-        if ("Medium".equals(testSev) || "Medium".equals(inherent)) return "Medium";
-        return "Low";
+        if (WorkflowStatus.RISK_HIGH.equals(testSev) || WorkflowStatus.RISK_HIGH.equals(inherent)) return WorkflowStatus.RISK_HIGH;
+        if (WorkflowStatus.RISK_MEDIUM.equals(testSev) || WorkflowStatus.RISK_MEDIUM.equals(inherent)) return WorkflowStatus.RISK_MEDIUM;
+        return WorkflowStatus.RISK_LOW;
     }
 
     /** Remediation SLA in days per severity; shared with the findings bulk import. */
     public static int slaDays(String severity) {
         return switch (severity) {
-            case "Critical" -> 1;
-            case "High" -> 14;
-            case "Medium" -> 30;
+            case WorkflowStatus.RISK_CRITICAL -> 1;
+            case WorkflowStatus.RISK_HIGH -> 14;
+            case WorkflowStatus.RISK_MEDIUM -> 30;
             default -> 60;
         };
     }

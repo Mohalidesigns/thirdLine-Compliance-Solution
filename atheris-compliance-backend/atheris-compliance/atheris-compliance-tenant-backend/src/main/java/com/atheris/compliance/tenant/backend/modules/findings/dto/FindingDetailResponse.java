@@ -26,6 +26,10 @@ public class FindingDetailResponse {
     private String remediationNotes;
     private String remediationEvidenceUrl;
     private Instant remediationSubmittedAt;
+    /** Who submitted the remediation — the reviewer must not be the submitter (SoD). */
+    private Integer remediationSubmittedByUserId;
+    /** Reviewer's reason when a remediation is rejected. */
+    private String reviewNotes;
     private Integer ccoSignOffUserId;
     private Instant ccoSignOffAt;
     private Instant closedAt;

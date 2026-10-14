@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -37,6 +38,13 @@ public class OnboardingController {
     public ResponseEntity<OnboardingStatusResponse> saveUserSetup(
             @Valid @RequestBody UserSetupRequest req) {
         return ResponseEntity.ok(service.saveUserSetup(req));
+    }
+
+    /** Try a candidate LDAP config before committing it (service-account bind only). */
+    @PostMapping("/ldap/test-connection")
+    public ResponseEntity<Map<String, Object>> testLdap(
+            @RequestBody UserSetupRequest.LdapConfigRequest req) {
+        return ResponseEntity.ok(service.testLdapConnection(req));
     }
 
     @PostMapping("/regulators")

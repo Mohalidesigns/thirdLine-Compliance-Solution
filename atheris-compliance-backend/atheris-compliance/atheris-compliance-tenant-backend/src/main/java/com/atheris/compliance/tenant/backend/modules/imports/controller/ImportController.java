@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.imports.dto.ImportFile;
 import com.atheris.compliance.tenant.backend.modules.imports.dto.ImportPreviewResponse;
 import com.atheris.compliance.tenant.backend.modules.imports.service.ImportService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/imports")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+@PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
 public class ImportController {
 
     private static final MediaType XLSX =

@@ -1,0 +1,52 @@
+# Local test bed for the Atheris workflow features (Part 1 notifications + Part 2 LDAP).
+#
+#   docker compose -f devenv/docker-compose.testenv.yml up -d
+#
+# Services
+#   mailpit   SMTP sink on 1025, web inbox on http://localhost:8025  (escalations, invites,
+#             remediation links). No auth, no TLS — matches the tenant app's SMTP_* defaults.
+#   openldap  Directory on ldap://localhost:1389, seeded from ldif/atheris.ldif. The tenant
+#             app's LDAP settings point here.
+#   phpldapadmin  Web UI to inspect/edit the directory at http://localhost:8080
+#
+# The LDIF seeds four identities used by onboarding/SoD tests:
+#   analyst@atheris.test / cco@atheris.test / owner@atheris.test / manager@atheris.test
+# and one owner with no directory entry (see ldif/README in this folder).
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: atheris-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    restart: unless-stopped
+
+  openldap:
+    image: bitnami/openldap:2.6
+    container_name: atheris-openldap
+    ports:
+      - "1389:1389"   # LDAP
+      - "1636:1636"   # LDAPS (unused by default)
+    environment:
+      LDAP_ADMIN_USERNAME: admin
+      LDAP_ADMIN_PASSWORD: adminpassword
+      LDAP_ROOT: dc=atheris,dc=test
+      LDAP_CUSTOM_LDIF_DIR: /ldifs
+    volumes:
+      - ./ldif:/ldifs:ro
+    restart: unless-stopped
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: atheris-phpldapadmin
+    depends_on:
+      - openldap
+    ports:
+      - "8080:80"
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    restart: unless-stopped

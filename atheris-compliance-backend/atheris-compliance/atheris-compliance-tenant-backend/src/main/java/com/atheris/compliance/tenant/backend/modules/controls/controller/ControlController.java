@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.controls.controller;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.*;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -64,7 +65,7 @@ public class ControlController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlDto> create(
             @Valid @RequestBody CreateControlRequest req,
             @AuthenticationPrincipal User u) {
@@ -72,7 +73,7 @@ public class ControlController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlDto> update(
             @PathVariable Integer id,
             @RequestBody CreateControlRequest req,

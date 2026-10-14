@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.org.controller;
 
 import com.atheris.compliance.tenant.backend.modules.org.dto.*;
 import com.atheris.compliance.tenant.backend.modules.org.service.OrgService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -28,13 +29,13 @@ public class OrgController {
     }
 
     @PostMapping("/departments")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<DepartmentDto> createDepartment(@Valid @RequestBody DepartmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createDepartment(request));
     }
 
     @PutMapping("/departments/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<DepartmentDto> updateDepartment(
             @PathVariable Integer id,
             @RequestBody DepartmentRequest request) {
@@ -42,7 +43,7 @@ public class OrgController {
     }
 
     @DeleteMapping("/departments/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> deleteDepartment(@PathVariable Integer id) {
         service.deleteDepartment(id);
         return ResponseEntity.noContent().build();
@@ -54,13 +55,13 @@ public class OrgController {
     }
 
     @PostMapping("/teams")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<TeamDto> createTeam(@Valid @RequestBody TeamRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createTeam(request));
     }
 
     @PutMapping("/teams/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<TeamDto> updateTeam(
             @PathVariable Integer id,
             @RequestBody TeamRequest request) {
@@ -68,7 +69,7 @@ public class OrgController {
     }
 
     @DeleteMapping("/teams/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> deleteTeam(@PathVariable Integer id) {
         service.deleteTeam(id);
         return ResponseEntity.noContent().build();
@@ -82,13 +83,13 @@ public class OrgController {
     }
 
     @PostMapping("/owners")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<OwnerDto> createOwner(@Valid @RequestBody OwnerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createOwner(request));
     }
 
     @PutMapping("/owners/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<OwnerDto> updateOwner(
             @PathVariable Integer id,
             @RequestBody OwnerRequest request) {
@@ -96,7 +97,7 @@ public class OrgController {
     }
 
     @DeleteMapping("/owners/{id}")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> deleteOwner(@PathVariable Integer id) {
         service.deleteOwner(id);
         return ResponseEntity.noContent().build();

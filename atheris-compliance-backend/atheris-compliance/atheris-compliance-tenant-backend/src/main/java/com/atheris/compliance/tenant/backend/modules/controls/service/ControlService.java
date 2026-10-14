@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.*;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
@@ -28,6 +29,7 @@ public class ControlService {
     private final ObligationRepository obligationRepo;
     private final OwnerRepository ownerRepo;
     private final AuditService audit;
+    private final ControlTestService testService;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
@@ -71,7 +73,7 @@ public class ControlService {
     }
 
     private Map<Integer, ControlTask> getLatestPendingTasks(List<Integer> ids) {
-        List<ControlTask> tasks = taskRepo.findByControlIdInAndStatus(ids, "Pending");
+        List<ControlTask> tasks = taskRepo.findByControlIdInAndStatus(ids, WorkflowStatus.TASK_PENDING);
         return tasks.stream().collect(Collectors.toMap(
             ControlTask::getControlId, t -> t, (a, b) -> a.getDueDate().isBefore(b.getDueDate()) ? a : b));
     }
@@ -130,7 +132,7 @@ public class ControlService {
             .toList();
 
         LocalDate nextTest = null;
-        ControlTask task = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(id, "Pending");
+        ControlTask task = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(id, WorkflowStatus.TASK_PENDING);
         if (task != null) nextTest = task.getDueDate();
 
         return ControlDetailResponse.builder()
@@ -184,6 +186,8 @@ public class ControlService {
         Control saved = repo.save(c);
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
             Map.of("control_number", saved.getControlNumber()));
+        // Line up the first test task from the control's test frequency.
+        testService.scheduleNextTest(saved);
         return toDto(saved);
     }
 
@@ -207,7 +211,13 @@ public class ControlService {
             if (c.getResidualRisk() == null) c.setResidualRisk(req.getInherentRisk());
         }
         audit.log(userId, "control_updated", "control", id.longValue(), Map.of());
-        return toDto(repo.save(c));
+        Control saved = repo.save(c);
+        // If the frequency changed and no open task exists, line up the next test.
+        boolean hasOpenTask = taskRepo.findByControlId(id).stream()
+            .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
+        if (!hasOpenTask && saved.getTestFrequencyDays() != null)
+            testService.scheduleNextTest(saved);
+        return toDto(saved);
     }
 
     private String resolveOwnerName(Integer ownerId) {

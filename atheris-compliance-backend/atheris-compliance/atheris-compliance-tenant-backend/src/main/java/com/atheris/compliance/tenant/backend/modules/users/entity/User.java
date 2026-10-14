@@ -34,6 +34,9 @@ public class User {
     @Builder.Default
     private Boolean mfaEnabled = false;
     private String mfaSecret;
+    /** A local-admin escape hatch for LDAP tenants — can sign in without the directory. */
+    @Builder.Default
+    private Boolean isBreakGlass = false;
     @Builder.Default
     private Integer failedLoginAttempts = 0;
     private Instant lockedUntil;

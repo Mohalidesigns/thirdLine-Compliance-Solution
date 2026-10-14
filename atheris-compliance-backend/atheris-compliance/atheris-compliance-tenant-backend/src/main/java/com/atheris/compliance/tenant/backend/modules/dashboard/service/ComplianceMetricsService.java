@@ -17,6 +17,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Regu
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -54,9 +55,9 @@ public class ComplianceMetricsService {
     private final RegulatorySanctionRepository sanctions;
     private final ComplianceScoreWeightsRepository scoreWeights;
 
-    private static final Set<String> HIGH_RISK = Set.of("Critical", "High");
-    private static final Set<String> OPEN_FINDING_STATUS = Set.of("Open", "In Remediation");
-    private static final Set<String> HIGH_SEVERITY = Set.of("Critical", "High");
+    private static final Set<String> HIGH_RISK = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
+    private static final Set<String> OPEN_FINDING_STATUS = Set.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+    private static final Set<String> HIGH_SEVERITY = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
 
     @Transactional(readOnly = true)
     public ComplianceMetricsDto compute(LocalDate fromIn, LocalDate toIn) {

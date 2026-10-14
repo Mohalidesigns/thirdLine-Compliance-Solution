@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.findings.controller;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.service.FindingService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -44,7 +45,7 @@ public class FindingController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingRaisedResponse> raise(
             @Valid @RequestBody RaiseFindingRequest req,
             @AuthenticationPrincipal User u) {
@@ -53,7 +54,7 @@ public class FindingController {
     }
 
     @PutMapping("/{id}/assign")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> assign(
             @PathVariable Long id,
             @Valid @RequestBody RaiseRemediationRequest req,
@@ -62,7 +63,12 @@ public class FindingController {
         return ResponseEntity.ok(service.getDetail(id));
     }
 
+    /**
+     * Submit remediation in-app. Used by owners who have a login; owners without one use
+     * the public remediation link. An Analyst records remediation; the CCO is not part of it.
+     */
     @PutMapping("/{id}/remediate")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> remediate(
             @PathVariable Long id,
             @Valid @RequestBody SubmitRemediationRequest req,
@@ -71,8 +77,24 @@ public class FindingController {
         return ResponseEntity.ok(service.getDetail(id));
     }
 
+    /**
+     * Approve or reject a submitted remediation. An Analyst (or Tenant Admin) reviews;
+     * the reviewer must not be the person who submitted it. No CCO is involved.
+     */
+    @PutMapping("/{id}/review")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<FindingDetailResponse> review(
+            @PathVariable Long id,
+            @RequestParam String decision,
+            @RequestParam(required = false) String notes,
+            @AuthenticationPrincipal User u) {
+        service.reviewRemediation(id, decision, notes, u);
+        return ResponseEntity.ok(service.getDetail(id));
+    }
+
+    /** Legacy CCO close; kept as a Tenant-Admin fallback. Prefer /review. */
     @PutMapping("/{id}/close")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> close(
             @PathVariable Long id,
             @AuthenticationPrincipal User u) {

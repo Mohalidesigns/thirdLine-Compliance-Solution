@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnFrequ
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnEventService;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -67,7 +68,7 @@ public class ReturnController {
     }
 
     @PutMapping("/instances/{id}/advance")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> advance(
             @PathVariable Long id,
             @Valid @RequestBody AdvanceStageRequest req,
@@ -77,7 +78,7 @@ public class ReturnController {
     }
 
     @PutMapping("/instances/{id}/submit")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> submit(
             @PathVariable Long id,
             @RequestBody AdvanceStageRequest req,
@@ -87,7 +88,7 @@ public class ReturnController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Long> create(
             @Valid @RequestBody CreateReturnRequest req,
             @AuthenticationPrincipal User u) {
@@ -97,7 +98,7 @@ public class ReturnController {
 
     /** Sets the frequency and due-date rule; regenerates untouched periods. Returns the updated register row. */
     @PutMapping("/{returnId}/schedule")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> updateSchedule(
             @PathVariable Long returnId,
             @RequestBody UpdateScheduleRequest req,
@@ -106,7 +107,7 @@ public class ReturnController {
     }
 
     @PutMapping("/{returnId}/event-trigger")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> configureEventTrigger(
             @PathVariable Long returnId,
             @Valid @RequestBody ConfigureEventTriggerRequest req,
@@ -115,7 +116,7 @@ public class ReturnController {
     }
 
     @PostMapping("/{returnId}/events")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnEventFilingItem> recordEvent(
             @PathVariable Long returnId,
             @Valid @RequestBody RecordReturnEventRequest req,
@@ -124,7 +125,7 @@ public class ReturnController {
     }
 
     @PostMapping(value = "/{returnId}/events/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnEventFilingItem> recordEventWithEvidence(
             @PathVariable Long returnId,
             @RequestPart("event") @Valid RecordReturnEventRequest req,
@@ -134,19 +135,19 @@ public class ReturnController {
     }
 
     @GetMapping("/{returnId}/events")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<List<ReturnEventFilingItem>> eventFilings(@PathVariable Long returnId) {
         return ResponseEntity.ok(returnEvents.list(returnId));
     }
 
     @GetMapping("/{returnId}/obligations")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<List<LinkedObligationItem>> linkedObligations(@PathVariable Long returnId) {
         return ResponseEntity.ok(service.linkedObligations(returnId));
     }
 
     @PutMapping("/{returnId}/obligations")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> linkObligations(
             @PathVariable Long returnId,
             @RequestBody LinkObligationsRequest req,
@@ -157,14 +158,14 @@ public class ReturnController {
 
     /** Dry run of the one-off frequency_type repair; changes nothing. */
     @GetMapping("/frequency-repair")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FrequencyRepairPreview> frequencyRepairPreview() {
         return ResponseEntity.ok(frequencyRepair.preview());
     }
 
     /** Applies the frequency_type repair (idempotent). */
     @PostMapping("/frequency-repair")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FrequencyRepairResult> frequencyRepairApply(@AuthenticationPrincipal User u) {
         return ResponseEntity.ok(frequencyRepair.apply(u.getUserId()));
     }

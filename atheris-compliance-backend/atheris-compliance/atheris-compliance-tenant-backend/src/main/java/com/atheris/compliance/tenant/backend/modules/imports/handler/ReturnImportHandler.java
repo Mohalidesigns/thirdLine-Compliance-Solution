@@ -16,6 +16,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Te
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -83,7 +84,7 @@ public class ReturnImportHandler implements ImportHandler {
     @Override public List<ImportColumn> columns() { return COLUMNS; }
 
     /** Same roles as {@code POST /returns}. */
-    @Override public Set<String> requiredRoles() { return Set.of("CCO", "TENANT_ADMIN"); }
+    @Override public Set<String> requiredRoles() { return Set.of(AppRole.CCO, AppRole.TENANT_ADMIN); }
 
     @Override
     public LinkedHashMap<String, List<String>> allowedValues() {

@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.SubscriptionService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,7 +20,7 @@ public class SubscriptionController {
     private final RegulationSeedService regulationSeedService;
 
     @PostMapping("/seed")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Map<String, Object>> seed() {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("seededObligations", regulationSeedService.seedAll());
@@ -32,7 +33,7 @@ public class SubscriptionController {
     }
 
     @PutMapping("/regulators")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Map<String, Object>> updateRegulators(
             @RequestBody Map<String, List<Integer>> body,
             @AuthenticationPrincipal User u) {
@@ -41,7 +42,7 @@ public class SubscriptionController {
     }
 
     @PostMapping("/regulators/{regulatorId}")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Map<String, Object>> addRegulator(
             @PathVariable Integer regulatorId,
             @AuthenticationPrincipal User u) {
@@ -49,7 +50,7 @@ public class SubscriptionController {
     }
 
     @DeleteMapping("/regulators/{regulatorId}")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> removeRegulator(
             @PathVariable Integer regulatorId,
             @AuthenticationPrincipal User u) {
@@ -58,7 +59,7 @@ public class SubscriptionController {
     }
 
     @PutMapping("/regulators/{regulatorId}/preferences")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Map<String, Object>> updatePreferences(
             @PathVariable Integer regulatorId,
             @RequestBody Map<String, Object> body,
@@ -70,14 +71,14 @@ public class SubscriptionController {
     }
 
     @DeleteMapping("/regulators/{regulatorId}/preferences")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Map<String, Object>> resetPreferences(@PathVariable Integer regulatorId) {
         service.resetRegulatorPreferences(regulatorId);
         return ResponseEntity.ok(Map.of("regulator_id", regulatorId, "overrides_cleared", true));
     }
 
     @PutMapping("/document-types")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> updateDocumentTypes(
             @RequestBody Map<String, List<String>> body,
             @AuthenticationPrincipal User u) {
@@ -87,7 +88,7 @@ public class SubscriptionController {
     }
 
     @PutMapping("/notifications")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<Void> updateNotificationFrequency(
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal User u) {

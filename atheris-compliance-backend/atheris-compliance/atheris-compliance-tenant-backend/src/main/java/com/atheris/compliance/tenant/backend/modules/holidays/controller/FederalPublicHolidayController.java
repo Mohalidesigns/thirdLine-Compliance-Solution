@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.holidays.dto.FederalPublicH
 import com.atheris.compliance.tenant.backend.modules.holidays.dto.FederalPublicHolidayRequest;
 import com.atheris.compliance.tenant.backend.modules.holidays.service.FederalPublicHolidayService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,19 +26,19 @@ public class FederalPublicHolidayController {
         return ResponseEntity.ok(service.list(year));
     }
     @PostMapping
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FederalPublicHolidayDto> create(@Valid @RequestBody FederalPublicHolidayRequest req,
                                                            @AuthenticationPrincipal User user) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, user.getUserId()));
     }
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FederalPublicHolidayDto> update(@PathVariable Long id, @Valid @RequestBody FederalPublicHolidayRequest req,
                                                            @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(service.update(id, req, user.getUserId()));
     }
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal User user) {
         service.delete(id, user.getUserId());
         return ResponseEntity.noContent().build();

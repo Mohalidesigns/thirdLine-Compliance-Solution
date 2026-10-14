@@ -12,4 +12,14 @@ public interface ObligationNotificationRepository extends JpaRepository<Obligati
     List<ObligationNotification> findByChangeSeverityAndStatus(String severity, String status);
     long countByStatus(String status);
     long countByChangeSeverityAndStatus(String severity, String status);
+
+    /** Everything addressed to one user, newest first. */
+    List<ObligationNotification> findByRecipientUserIdOrderByCreatedAtDesc(Integer recipientUserId);
+    /** Unread addressed to one user. */
+    List<ObligationNotification> findByRecipientUserIdAndStatusOrderByCreatedAtDesc(Integer recipientUserId, String status);
+    /** Unread broadcast to a role (recipient_user_id null). */
+    List<ObligationNotification> findByRecipientRoleAndRecipientUserIdIsNullAndStatusOrderByCreatedAtDesc(String recipientRole, String status);
+    long countByRecipientUserIdAndStatus(Integer recipientUserId, String status);
+    long countByRecipientRoleAndRecipientUserIdIsNullAndStatus(String recipientRole, String status);
+    List<ObligationNotification> findByRecipientRoleAndRecipientUserIdIsNullOrderByCreatedAtDesc(String recipientRole);
 }

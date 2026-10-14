@@ -35,6 +35,7 @@ public class LicenseFilter extends OncePerRequestFilter {
         "/api/v1/license/checkup",
         "/api/v1/license/audit",
         "/api/v1/recommendations/",
+        "/api/v1/public/",
         "/actuator/health"
     );
 

@@ -43,6 +43,7 @@ public class SecurityConfig {
                     "/api/v1/onboarding/**",
                     "/api/v1/recommendations/**",
                     "/api/v1/license/**",
+                    "/api/v1/public/**",
                     "/actuator/health"
                 ).permitAll()
                 .anyRequest().authenticated())

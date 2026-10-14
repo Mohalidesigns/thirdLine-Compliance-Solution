@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.findings.dto;
 
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDate;
@@ -26,7 +27,7 @@ public class FindingRegisterItem {
     public static FindingRegisterItem from(com.atheris.compliance.tenant.backend.modules.findings.entity.Finding f,
                                            String linkedControlNumber) {
         long remaining = 0;
-        if (f.getRemediationDeadline() != null && !"Closed".equals(f.getStatus())) {
+        if (f.getRemediationDeadline() != null && !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
             remaining = LocalDate.now().until(f.getRemediationDeadline(), ChronoUnit.DAYS);
         }
         return FindingRegisterItem.builder()

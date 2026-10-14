@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     invite_status          VARCHAR(50) DEFAULT 'pending',
     mfa_enabled            BOOLEAN DEFAULT false,
     mfa_secret             VARCHAR(255),
+    is_break_glass         BOOLEAN DEFAULT false,
     failed_login_attempts  INT DEFAULT 0,
     locked_until           TIMESTAMP WITH TIME ZONE,
     invited_by_user_id     INT,

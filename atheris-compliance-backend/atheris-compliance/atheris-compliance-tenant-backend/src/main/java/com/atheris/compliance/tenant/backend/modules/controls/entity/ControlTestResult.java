@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.controls.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -34,7 +35,7 @@ public class ControlTestResult {
     private Integer remediationOwnerId;
     private LocalDate remediationDeadline;
     @Builder.Default
-    private String reviewStatus = "Pending";
+    private String reviewStatus = WorkflowStatus.REVIEW_PENDING;
     private Integer reviewedByUserId;
     private String reviewedByName;
     private String reviewNotes;

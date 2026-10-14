@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.users.controller;
 import com.atheris.compliance.tenant.backend.modules.users.dto.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.service.UserService;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -32,13 +33,13 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','CCO')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<List<UserDto>> list() {
         return ResponseEntity.ok(service.findAll());
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<UserDto> invite(
             @Valid @RequestBody InviteUserRequest req,
             @AuthenticationPrincipal User u) {
@@ -46,7 +47,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/role")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<UserDto> updateRole(
             @PathVariable Integer id,
             @RequestBody Map<String, String> body) {
@@ -54,14 +55,25 @@ public class UserController {
     }
 
     @PutMapping("/{id}/deactivate")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> deactivate(@PathVariable Integer id) {
         service.deactivate(id);
         return ResponseEntity.noContent().build();
     }
 
+    /** Assign a manager (escalation target for level-2 notifications). */
+    @PutMapping("/{id}/manager")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<UserDto> updateManager(
+            @PathVariable Integer id,
+            @RequestBody Map<String, Object> body) {
+        Object raw = body.get("managerUserId");
+        Integer managerUserId = raw == null || "".equals(raw) ? null : Integer.valueOf(String.valueOf(raw));
+        return ResponseEntity.ok(service.updateManager(id, managerUserId));
+    }
+
     @PutMapping("/{id}/reactivate")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<UserDto> reactivate(@PathVariable Integer id) {
         return ResponseEntity.ok(service.reactivate(id));
     }

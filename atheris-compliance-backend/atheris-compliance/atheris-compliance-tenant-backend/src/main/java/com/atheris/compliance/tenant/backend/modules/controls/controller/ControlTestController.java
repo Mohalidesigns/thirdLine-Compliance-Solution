@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequ
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlTestService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -24,7 +25,7 @@ public class ControlTestController {
     }
 
     @PostMapping("/api/v1/controls/{id}/tests")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlTestResult> recordTest(
             @PathVariable Integer id,
             @Valid @RequestBody RecordTestRequest req,
@@ -34,18 +35,25 @@ public class ControlTestController {
     }
 
     @PutMapping("/api/v1/controls/{id}/tests/{testId}/review")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','ANALYST')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<ControlTestResult> reviewTest(
             @PathVariable Integer id,
             @PathVariable Long testId,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal User u) {
+        // Segregation of duties (self-review block) is enforced in the service.
         return ResponseEntity.ok(
             service.reviewTest(testId, body.get("decision"), body.get("notes"), u));
     }
 
+    /** Open (Pending/In Progress/Overdue) test tasks for one control. */
+    @GetMapping("/api/v1/controls/{id}/tasks")
+    public ResponseEntity<List<ControlTask>> controlTasks(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.getTasksForControl(id));
+    }
+
     @GetMapping("/api/v1/tests/pending-review")
-    @PreAuthorize("hasAnyRole('ANALYST','CCO','TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<List<ControlTestResult>> pendingReview() {
         return ResponseEntity.ok(service.getPendingReview());
     }
@@ -56,7 +64,7 @@ public class ControlTestController {
     }
 
     @GetMapping("/api/v1/tasks/overdue")
-    @PreAuthorize("hasAnyRole('CCO','TENANT_ADMIN','ANALYST')")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<List<ControlTask>> overdueTasks() {
         return ResponseEntity.ok(service.getAllOverdue());
     }

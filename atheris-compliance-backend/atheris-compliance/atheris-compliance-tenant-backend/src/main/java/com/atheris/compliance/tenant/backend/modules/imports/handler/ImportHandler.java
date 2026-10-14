@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.imports.handler;
 
 import com.atheris.compliance.tenant.backend.modules.imports.entity.ImportRowData;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -16,7 +17,7 @@ public interface ImportHandler {
     String entityType();
 
     /** Roles (without the {@code ROLE_} prefix) allowed to preview, commit and see batches of this type. */
-    default Set<String> requiredRoles() { return Set.of("ANALYST", "CCO", "TENANT_ADMIN"); }
+    default Set<String> requiredRoles() { return Set.of(AppRole.ANALYST, AppRole.CCO, AppRole.TENANT_ADMIN); }
 
     /** Name of the data sheet in the template. */
     String sheetName();

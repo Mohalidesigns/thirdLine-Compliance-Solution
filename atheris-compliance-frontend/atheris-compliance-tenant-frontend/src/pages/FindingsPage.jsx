@@ -8,7 +8,7 @@ import {
   Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
-  Add, Warning, Schedule, UploadFile
+  Add, Warning, Schedule, UploadFile, ContentCopy, CheckCircle, Cancel, Link as LinkIcon
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useTheme } from '@mui/material/styles';
@@ -32,6 +32,8 @@ export default function FindingsPage() {
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [remediateOpen, setRemediateOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [snackbar, setSnackbar] = useState(null);
   const [success, setSuccess] = useState('');
   const [importOpen, setImportOpen] = useState(false);
@@ -67,7 +69,9 @@ export default function FindingsPage() {
         onRemediate={() => setRemediateOpen(true)}
         assignOpen={assignOpen} setAssignOpen={setAssignOpen}
         remediateOpen={remediateOpen} setRemediateOpen={setRemediateOpen}
-        onSnackbar={setSnackbar} theme={theme}
+        reviewOpen={reviewOpen} setReviewOpen={setReviewOpen}
+        linkOpen={linkOpen} setLinkOpen={setLinkOpen}
+        onSnackbar={setSnackbar} onSuccess={setSuccess} theme={theme}
       />
     );
   }
@@ -213,13 +217,19 @@ export default function FindingsPage() {
   );
 }
 
-function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOpen, setAssignOpen, remediateOpen, setRemediateOpen, onSnackbar, theme }) {
+function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOpen, setAssignOpen, remediateOpen, setRemediateOpen, reviewOpen, setReviewOpen, linkOpen, setLinkOpen, onSnackbar, onSuccess, theme }) {
+  const { user } = useAuth();
+  const canReview = ['ANALYST', 'TENANT_ADMIN'].includes(user?.role);
+  const canLink = ['ANALYST', 'CCO', 'TENANT_ADMIN'].includes(user?.role);
   const isOpen = detail.status === 'Open';
   const isInRemediation = detail.status === 'In Remediation';
   const isRemediated = detail.status === 'Remediated';
   const isClosed = detail.status === 'Closed';
   const deadline = detail.remediationDeadline ? new Date(detail.remediationDeadline) : null;
   const isOverdue = deadline && deadline < new Date() && !isClosed;
+  // SoD: the person who submitted the remediation cannot also review it.
+  const isSubmitter = detail.remediationSubmittedByUserId != null
+    && user?.userId === detail.remediationSubmittedByUserId;
 
   return (
     <Box>
@@ -245,15 +255,30 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
                 </Typography>
               )}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
               {isInRemediation && (
                 <Button variant="contained" size="small" onClick={onRemediate}>Submit Remediation</Button>
               )}
-              {isRemediated && (
+              {isRemediated && canReview && !isSubmitter && (
+                <Button variant="contained" color="success" size="small" onClick={() => setReviewOpen(true)}>
+                  Review Remediation
+                </Button>
+              )}
+              {isRemediated && canReview && isSubmitter && (
+                <Tooltip title="You submitted this remediation — a different analyst must review it.">
+                  <span><Button variant="outlined" size="small" disabled>Review Remediation</Button></span>
+                </Tooltip>
+              )}
+              {isRemediated && !canReview && (
                 <Button variant="contained" color="success" size="small"
                   onClick={async () => { try { await api.findings.close(detail.findingId); onRefresh(); } catch (e) { onSnackbar(e.message); } }}>
                   Close Finding
+                </Button>
+              )}
+              {canLink && !isClosed && (
+                <Button variant="outlined" size="small" startIcon={<LinkIcon />} onClick={() => setLinkOpen(true)}>
+                  Remediation Link
                 </Button>
               )}
             </Box>
@@ -319,6 +344,10 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Remediation</Typography>
               <DetailRow label="Owner" value={detail.assignedToName || 'Unassigned'} />
               <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString() : '-'} />
+              {detail.remediationSubmittedAt && (
+                <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString()} />
+              )}
+              {detail.reviewNotes && <DetailRow label="Last review note" value={detail.reviewNotes} />}
               {detail.remediationEvidenceUrl && (
                 <Box sx={{ mt: 1 }}>
                   <Link href={detail.remediationEvidenceUrl} target="_blank" rel="noopener" variant="body2">View evidence</Link>
@@ -336,6 +365,15 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, assignOp
       <RemediateDialog open={remediateOpen} onClose={() => setRemediateOpen(false)}
         findingId={detail.findingId} onSaved={() => { setRemediateOpen(false); onRefresh(); }}
         onSnackbar={onSnackbar} />
+
+      <ReviewDialog open={reviewOpen} onClose={() => setReviewOpen(false)}
+        findingId={detail.findingId}
+        onSaved={(decision) => { setReviewOpen(false); onRefresh();
+          onSuccess?.(decision === 'Accepted' ? 'Remediation approved — finding closed.' : 'Remediation rejected — returned to the owner.'); }}
+        onSnackbar={onSnackbar} />
+
+      <RemediationLinkDialog open={linkOpen} onClose={() => setLinkOpen(false)}
+        findingId={detail.findingId} onSnackbar={onSnackbar} onSuccess={onSuccess} />
     </Box>
   );
 }
@@ -503,6 +541,107 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? 'Submitting...' : 'Submit Remediation'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------- Review Dialog (approve / reject remediation) ---------- */
+function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
+  const [decision, setDecision] = useState('Accepted');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (open) { setDecision('Accepted'); setNotes(''); } }, [open]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.findings.review(findingId, decision, notes.trim() || undefined);
+      onSaved(decision);
+    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  };
+
+  const rejectNeedsReason = decision === 'Rejected' && !notes.trim();
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Review Remediation</DialogTitle>
+      <DialogContent>
+        <Alert severity={decision === 'Accepted' ? 'success' : 'warning'} sx={{ mb: 2 }}>
+          {decision === 'Accepted'
+            ? 'Approving closes the finding.'
+            : 'Rejecting returns the finding to the owner for further work; it keeps the same remediation link.'}
+        </Alert>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12 }}>
+            <TextField select label="Decision" fullWidth size="small" value={decision}
+              onChange={e => setDecision(e.target.value)}>
+              <MenuItem value="Accepted">Approve — close the finding</MenuItem>
+              <MenuItem value="Rejected">Reject — send back to owner</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField label={decision === 'Rejected' ? 'Reason (required)' : 'Notes (optional)'}
+              fullWidth size="small" multiline minRows={3} value={notes}
+              onChange={e => setNotes(e.target.value)} />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" color={decision === 'Accepted' ? 'success' : 'warning'}
+          onClick={handleSave} disabled={saving || rejectNeedsReason}
+          startIcon={decision === 'Accepted' ? <CheckCircle /> : <Cancel />}>
+          {saving ? 'Saving...' : decision === 'Accepted' ? 'Approve & Close' : 'Reject'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------- Remediation Link Dialog (owner without a login) ---------- */
+function RemediationLinkDialog({ open, onClose, findingId, onSnackbar, onSuccess }) {
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true); setUrl('');
+    api.findings.remediationLink(findingId)
+      .then(res => setUrl(res.url || ''))
+      .catch(e => onSnackbar(e.message))
+      .finally(() => setLoading(false));
+  }, [open, findingId, onSnackbar]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      onSuccess?.('Remediation link copied to clipboard.');
+    } catch {
+      onSnackbar('Could not copy — select the link and copy manually.');
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Remediation Link</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          A link the owner can open without logging in. It has been emailed to the owner (when
+          their address is on file) and stays valid until the finding is approved.
+        </Typography>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress /></Box>
+        ) : (
+          <TextField fullWidth size="small" value={url} InputProps={{ readOnly: true }}
+            onFocus={e => e.target.select()} />
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+        <Button variant="contained" startIcon={<ContentCopy />} onClick={handleCopy} disabled={!url}>
+          Copy Link
         </Button>
       </DialogActions>
     </Dialog>
