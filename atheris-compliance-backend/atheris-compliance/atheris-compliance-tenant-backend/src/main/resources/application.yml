@@ -49,6 +49,16 @@ spring:
       repositories:
         enabled: false
 
+# LDAP and mail are optional integrations: connections are built per-request and email
+# is skipped when SMTP is unset. Their auto-configured health probes would otherwise mark
+# the whole app DOWN when a directory/mail server is unreachable.
+management:
+  health:
+    ldap:
+      enabled: false
+    mail:
+      enabled: false
+
 atheris:
   jwt:
     secret: ${JWT_SECRET:change-me-in-production-use-a-long-random-base64-secret}

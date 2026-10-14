@@ -1,8 +1,8 @@
-# Seed directory for the Atheris LDAP test bed.
+# Seed directory for the Atheris LDAP test bed (osixia/openldap 1.5.0).
 #
-# Loaded automatically by the bitnami/openldap image on first start (via
-# LDAP_CUSTOM_LDIF_DIR). ROOT is dc=atheris,dc=test; the service account is
-# cn=admin,dc=atheris,dc=test / adminpassword.
+# Loaded via LDAP_SEED_INTERNAL_LDIF_PATH on first start. The base entry
+# dc=atheris,dc=test is created by the image from LDAP_DOMAIN, so it is NOT repeated here.
+# The service account is cn=admin,dc=atheris,dc=test / adminpassword.
 #
 # The tenant app's onboarding should use:
 #   URL               ldap://localhost:1389
@@ -17,9 +17,6 @@
 #   cco@atheris.test      — escalation L3 + board-pack sign-off
 #   manager@atheris.test  — escalation L2 target (set as manager of analyst)
 #   owner@atheris.test    — a finding owner who has a login
-#
-# NOTE: the bitnami image hashes any plaintext userPassword with SSHA on load, so
-# the cleartext below is only a seed placeholder. Re-importing replaces them.
 
 dn: ou=people,dc=atheris,dc=test
 objectClass: organizationalUnit

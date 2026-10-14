@@ -9,9 +9,9 @@
 #             app's LDAP settings point here.
 #   phpldapadmin  Web UI to inspect/edit the directory at http://localhost:8080
 #
-# The LDIF seeds four identities used by onboarding/SoD tests:
+# The LDIF seeds the identities used by onboarding/SoD tests:
 #   analyst@atheris.test / cco@atheris.test / owner@atheris.test / manager@atheris.test
-# and one owner with no directory entry (see ldif/README in this folder).
+# and one owner with no directory entry (see devenv/README.md).
 services:
   mailpit:
     image: axllent/mailpit:latest
@@ -25,22 +25,29 @@ services:
     restart: unless-stopped
 
   openldap:
-    image: bitnami/openldap:2.6
+    image: osixia/openldap:1.5.0
     container_name: atheris-openldap
+    command: ["--copy-service", "--loglevel", "info"]
     ports:
-      - "1389:1389"   # LDAP
-      - "1636:1636"   # LDAPS (unused by default)
+      - "1389:389"    # LDAP
+      - "1636:636"    # LDAPS (unused by default)
     environment:
-      LDAP_ADMIN_USERNAME: admin
+      LDAP_ORGANISATION: Atheris
+      LDAP_DOMAIN: atheris.test
+      LDAP_BASE_DN: dc=atheris,dc=test
       LDAP_ADMIN_PASSWORD: adminpassword
-      LDAP_ROOT: dc=atheris,dc=test
-      LDAP_CUSTOM_LDIF_DIR: /ldifs
+      # Extra entries seeded after bootstrap (the base dc=atheris,dc=test is created
+      # from LDAP_DOMAIN above, so the LDIF only adds ou=people + users).
+      LDAP_SEED_INTERNAL_LDIF_PATH: /ldifs
     volumes:
-      - ./ldif:/ldifs:ro
+      # NOTE (colima): the VM only shares $HOME, not macOS /var or /tmp. If the repo
+      # lives outside $HOME, set LDIF_DIR to a copy under $HOME, e.g.
+      #   LDIF_DIR="$HOME/.atheris-devenv/ldif" docker compose ... up -d
+      - ${LDIF_DIR:-./ldif}:/ldifs:ro
     restart: unless-stopped
 
   phpldapadmin:
-    image: osixia/phpldapadmin:latest
+    image: osixia/phpldapadmin:0.9.0
     container_name: atheris-phpldapadmin
     depends_on:
       - openldap

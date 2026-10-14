@@ -126,7 +126,9 @@ public class LdapAuthService {
         ctx.setUrl(s.getUrl());
         ctx.setUserDn(s.getBindDn());
         ctx.setPassword(s.getBindPassword());
-        ctx.setBase(s.getUserSearchBase());
+        // Do NOT set a context base here: the search query supplies its own base, and
+        // setting both makes spring-ldap concatenate them into a non-existent DN
+        // (error 32 "No Such Object"). A DN-based user bind also needs a root context.
         ctx.afterPropertiesSet();
         return ctx;
     }

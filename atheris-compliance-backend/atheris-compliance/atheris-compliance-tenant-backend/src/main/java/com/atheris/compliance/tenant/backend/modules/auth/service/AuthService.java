@@ -83,7 +83,15 @@ public class AuthService {
 
         // The tenant's chosen authentication mode decides how the password is verified. LDAP
         // users are matched by email to an existing (invited) row — we never auto-provision.
-        if (ldapAuth.isLdapEnabled()) {
+        // A break-glass admin is always local, so the tenant can get in even if the
+        // directory is down (that is the whole point of the account).
+        boolean useLocalPassword = !ldapAuth.isLdapEnabled() || Boolean.TRUE.equals(u.getIsBreakGlass());
+        if (useLocalPassword) {
+            if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
+                recordFailedAttempt(u);
+                throw LoginFailedException.invalidCredentials();
+            }
+        } else {
             LdapAuthService.LdapResult r = ldapAuth.authenticate(u.getEmail(), req.getPassword());
             if (r.status() == LdapAuthService.Status.UNAVAILABLE)
                 throw LoginFailedException.blocked(r.message());
@@ -95,9 +103,6 @@ public class AuthService {
                     && !r.fullName().equals(u.getFullName())) {
                 u.setFullName(r.fullName());
             }
-        } else if (!passwordEncoder.matches(req.getPassword(), u.getPasswordHash())) {
-            recordFailedAttempt(u);
-            throw LoginFailedException.invalidCredentials();
         }
 
         u.setFailedLoginAttempts(0);

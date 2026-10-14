@@ -55,6 +55,10 @@ public class OnboardingService {
     private final SeedService seedService;
     private final LdapAuthService ldapAuth;
 
+    /** users.invite_status — an onboarded identity is usable at once; an invited one is not. */
+    private static final String ACTIVE = "active";
+    private static final String PENDING = "pending";
+
     public OnboardingStatusResponse getStatus() {
         List<RegulatorSummary> regulators = platformApi.fetchRegulators();
         return tenantIdentity.currentProfile()
@@ -144,13 +148,14 @@ public class OnboardingService {
             if (req.getBreakGlassAdmin() != null) {
                 User admin = upsertUser(
                     req.getBreakGlassAdmin().getEmail(), req.getBreakGlassAdmin().getFullName(),
-                    AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getBreakGlassAdmin().getPassword()));
+                    AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getBreakGlassAdmin().getPassword()),
+                    ACTIVE);
                 admin.setIsBreakGlass(true);
                 users.save(admin);
             }
         } else if (req.getLocalAdmin() != null) {
             upsertUser(req.getLocalAdmin().getEmail(), req.getLocalAdmin().getFullName(),
-                AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getLocalAdmin().getPassword()));
+                AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getLocalAdmin().getPassword()), ACTIVE);
         }
 
         // Provision the CCO and Analyst identities for both auth types. LDAP users get no
@@ -162,10 +167,10 @@ public class OnboardingService {
                 String passwordHash = ldap ? null
                     : (s.getPassword() != null && !s.getPassword().isBlank()
                         ? passwordEncoder.encode(s.getPassword()) : null);
-                User u = upsertUser(s.getEmail(), s.getFullName(), role, passwordHash);
-                // LDAP identities are immediately able to sign in; local ones await invite.
-                u.setInviteStatus(ldap ? "active" : (passwordHash != null ? "active" : "pending"));
-                users.save(u);
+                // LDAP identities are immediately able to sign in; a local user with a
+                // password too. A local user without one awaits an invite.
+                String inviteStatus = (ldap || passwordHash != null) ? ACTIVE : PENDING;
+                User u = upsertUser(s.getEmail(), s.getFullName(), role, passwordHash, inviteStatus);
                 // The CCO identity is the single source of the profile's CCO contact.
                 if (AppRole.CCO.equals(role)) {
                     p.setCcoName(s.getFullName());
@@ -184,14 +189,14 @@ public class OnboardingService {
     }
 
     /** Create the user if new; otherwise update name/role and (when supplied) password. */
-    private User upsertUser(String rawEmail, String fullName, String role, String passwordHash) {
+    private User upsertUser(String rawEmail, String fullName, String role, String passwordHash, String inviteStatus) {
         String email = rawEmail.toLowerCase().trim();
         User u = users.findByEmail(email).orElseGet(() -> User.builder()
             .email(email).isActive(true).emailVerified(true).build());
         u.setFullName(fullName);
         u.setRole(role);
         if (passwordHash != null) u.setPasswordHash(passwordHash);
-        if (u.getInviteStatus() == null) u.setInviteStatus("active");
+        u.setInviteStatus(inviteStatus);
         return users.save(u);
     }
 
