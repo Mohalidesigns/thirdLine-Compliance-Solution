@@ -63,15 +63,21 @@ public class InternalRegulationSeed {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class SanctionItem {
         private String sanctionType;
+        private List<String> penaltyType;
         private BigDecimal sanctionAmountNaira;
         private Boolean sanctionAmountPerDay;
+        private BigDecimal personalLiabilityNaira;
         private List<String> liableRoles;
         private Integer severityScore;
         private Boolean hasBeenEnforced;
+        private LocalDate recentEnforcementDate;
+        private BigDecimal recentEnforcementAmount;
         private String description;
         private String sourceSectionReference;
         private String riskExplanation;
         private String penaltyDetails;
+        private String instrumentTitle;
+        private String actAbbreviation;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

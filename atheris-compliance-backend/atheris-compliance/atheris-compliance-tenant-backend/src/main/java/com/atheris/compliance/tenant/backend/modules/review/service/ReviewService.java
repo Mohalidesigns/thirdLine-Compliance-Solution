@@ -163,17 +163,23 @@ public class ReviewService {
                     try {
                         List<ReviewSanction> toPersist = d.getSanctions().stream().map(s -> ReviewSanction.builder()
                             .sanctionType(s.getSanctionType())
+                            .penaltyType(s.getPenaltyType())
                             .amountNaira(s.getAmountNaira())
                             .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                            .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                             .liableRoles(s.getLiableRoles())
                             .severityScore(s.getSeverityScore())
                             .hasBeenEnforced(s.getHasBeenEnforced())
+                            .recentEnforcementDate(s.getRecentEnforcementDate())
+                            .recentEnforcementAmount(s.getRecentEnforcementAmount())
                             .description(s.getDescription())
                             .sourceSectionReference(s.getSourceSectionReference())
                             .riskExplanation(s.getRiskExplanation())
                             .penaltyDetails(s.getPenaltyDetails())
                             .regulationId(s.getRegulationId())
                             .actName(s.getActName())
+                            .actAbbreviation(s.getActAbbreviation())
+                            .instrumentTitle(s.getInstrumentTitle())
                             .build()).collect(Collectors.toList());
                         r.setSanctions(toPersist);
                         reviews.save(r);
@@ -335,17 +341,23 @@ public class ReviewService {
                 if (d != null && d.getSanctions() != null && !d.getSanctions().isEmpty()) {
                     pendingSanctions = d.getSanctions().stream().map(s -> ReviewSanction.builder()
                         .sanctionType(s.getSanctionType())
+                        .penaltyType(s.getPenaltyType())
                         .amountNaira(s.getAmountNaira())
                         .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                        .personalLiabilityNaira(s.getPersonalLiabilityNaira())
                         .liableRoles(s.getLiableRoles())
                         .severityScore(s.getSeverityScore())
                         .hasBeenEnforced(s.getHasBeenEnforced())
+                        .recentEnforcementDate(s.getRecentEnforcementDate())
+                        .recentEnforcementAmount(s.getRecentEnforcementAmount())
                         .description(s.getDescription())
                         .sourceSectionReference(s.getSourceSectionReference())
                         .riskExplanation(s.getRiskExplanation())
                         .penaltyDetails(s.getPenaltyDetails())
                         .regulationId(s.getRegulationId())
                         .actName(s.getActName())
+                        .actAbbreviation(s.getActAbbreviation())
+                        .instrumentTitle(s.getInstrumentTitle())
                         .build()).collect(Collectors.toList());
                 }
             }
@@ -406,16 +418,22 @@ public class ReviewService {
             .instrumentId(instrumentId)
             .regulationId(rs.getRegulationId())
             .regulationName(shorten(rs.getActName(), 500))
+            .actAbbreviation(shorten(rs.getActAbbreviation(), 50))
             .sanctionType(shorten(rs.getSanctionType(), 100))
+            .penaltyType(rs.getPenaltyType())
             .sanctionAmountNaira(rs.getAmountNaira())
             .sanctionAmountPerDay(rs.getSanctionAmountPerDay() != null ? rs.getSanctionAmountPerDay() : false)
+            .personalLiabilityNaira(rs.getPersonalLiabilityNaira())
             .liableRoles(rs.getLiableRoles())
             .severityScore(rs.getSeverityScore())
             .hasBeenEnforced(rs.getHasBeenEnforced() != null ? rs.getHasBeenEnforced() : false)
+            .recentEnforcementDate(rs.getRecentEnforcementDate())
+            .recentEnforcementAmount(rs.getRecentEnforcementAmount())
             .description(rs.getDescription())
             .sourceSectionReference(shorten(rs.getSourceSectionReference(), 255))
             .riskExplanation(rs.getRiskExplanation())
             .penaltyDetails(rs.getPenaltyDetails())
+            .instrumentTitle(rs.getInstrumentTitle())
             .build();
         return sanctionRepo.save(news);
     }
