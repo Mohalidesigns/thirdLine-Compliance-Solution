@@ -121,7 +121,6 @@ public class OnboardingService {
         p.setAddress(req.getAddress());
         p.setContactPhone(req.getContactPhone());
         p.setContactEmail(req.getContactEmail());
-        if (req.getCcoEmail() != null) p.setCcoEmail(req.getCcoEmail());
         p.setOnboardingStep(2);
         profiles.save(p);
         List<RegulatorSummary> regulators = platformApi.fetchRegulators();
@@ -167,6 +166,11 @@ public class OnboardingService {
                 // LDAP identities are immediately able to sign in; local ones await invite.
                 u.setInviteStatus(ldap ? "active" : (passwordHash != null ? "active" : "pending"));
                 users.save(u);
+                // The CCO identity is the single source of the profile's CCO contact.
+                if (AppRole.CCO.equals(role)) {
+                    p.setCcoName(s.getFullName());
+                    p.setCcoEmail(s.getEmail().toLowerCase().trim());
+                }
             }
         }
 

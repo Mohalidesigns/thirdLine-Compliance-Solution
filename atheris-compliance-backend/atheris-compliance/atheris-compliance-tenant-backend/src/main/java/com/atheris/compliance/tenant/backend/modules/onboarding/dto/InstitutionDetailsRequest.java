@@ -9,5 +9,4 @@ public class InstitutionDetailsRequest {
     private String address;
     private String contactPhone;
     private String contactEmail;
-    private String ccoEmail;
 }

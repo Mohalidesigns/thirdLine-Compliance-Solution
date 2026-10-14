@@ -33,7 +33,7 @@ export default function OnboardingPage() {
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
 
   const [institution, setInstitution] = useState({
-    legalName: '', address: '', contactPhone: '', contactEmail: '', ccoEmail: '',
+    legalName: '', address: '', contactPhone: '', contactEmail: '',
   });
 
   const [authType, setAuthType] = useState('local');
@@ -150,7 +150,6 @@ export default function OnboardingPage() {
   function handleInstitution() {
     const checks = [
       { v: validateName(institution.legalName), label: 'Legal name' },
-      { v: validateEmail(institution.ccoEmail), label: 'CCO email' },
     ];
     if (institution.address) checks.push({ v: required(institution.address, 'Address'), label: 'Address' });
     if (institution.contactEmail) checks.push({ v: validateEmail(institution.contactEmail), label: 'Contact email' });
@@ -163,7 +162,6 @@ export default function OnboardingPage() {
         address: institution.address || undefined,
         contactPhone: institution.contactPhone || undefined,
         contactEmail: institution.contactEmail || undefined,
-        ccoEmail: institution.ccoEmail || undefined,
       }),
       2
     );
@@ -332,10 +330,6 @@ export default function OnboardingPage() {
                 <TextField fullWidth size="small" label="Contact Email" type="email"
                   value={institution.contactEmail}
                   onChange={e => setInstitution(p => ({ ...p, contactEmail: e.target.value }))}
-                  sx={{ mb: 2 }} />
-                <TextField fullWidth size="small" label="CCO Email" type="email"
-                  value={institution.ccoEmail}
-                  onChange={e => setInstitution(p => ({ ...p, ccoEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleInstitution} disabled={submitting}
