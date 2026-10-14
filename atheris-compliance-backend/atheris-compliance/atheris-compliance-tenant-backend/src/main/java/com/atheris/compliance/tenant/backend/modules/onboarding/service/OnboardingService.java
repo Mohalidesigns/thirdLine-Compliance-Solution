@@ -55,7 +55,6 @@ public class OnboardingService {
     private final SeedService seedService;
     private final LdapAuthService ldapAuth;
 
-    /** users.invite_status — an onboarded identity is usable at once; an invited one is not. */
     private static final String ACTIVE = "active";
     private static final String PENDING = "pending";
 
@@ -89,12 +88,24 @@ public class OnboardingService {
     }
 
     private Integer computeNextStep(Integer step, boolean completed) {
-        if (completed) return 6;
-        if (step == null || step == 0) return 1;
-        if (step == 1) return 2;
-        if (step == 2) return 3;
-        if (step == 3) return 4;
-        if (step == 4) return 5;
+        if (completed) {
+            return 6;
+        }
+        if (step == null || step == 0) {
+            return 1;
+        }
+        if (step == 1) {
+            return 2;
+        }
+        if (step == 2) {
+            return 3;
+        }
+        if (step == 3) {
+            return 4;
+        }
+        if (step == 4) {
+            return 5;
+        }
         return 6;
     }
 
@@ -143,8 +154,6 @@ public class OnboardingService {
 
         if (ldap) {
             p.setLdapConfig(encryptLdapConfig(req.getLdapConfig()));
-            // A local tenant-admin with a password so the tenant can always get in if the
-            // directory is unavailable (break-glass). Flagged so the UI can mark it.
             if (req.getBreakGlassAdmin() != null) {
                 User admin = upsertUser(
                     req.getBreakGlassAdmin().getEmail(), req.getBreakGlassAdmin().getFullName(),
@@ -158,20 +167,17 @@ public class OnboardingService {
                 AppRole.TENANT_ADMIN, passwordEncoder.encode(req.getLocalAdmin().getPassword()), ACTIVE);
         }
 
-        // Provision the CCO and Analyst identities for both auth types. LDAP users get no
-        // local password — the directory authenticates them; local users are invited (pending).
         if (req.getSeedUsers() != null) {
             for (UserSetupRequest.SeededUser s : req.getSeedUsers()) {
                 String role = normalizeRole(s.getRole());
-                if (role == null) continue;
+                if (role == null) {
+                    continue;
+                }
                 String passwordHash = ldap ? null
                     : (s.getPassword() != null && !s.getPassword().isBlank()
                         ? passwordEncoder.encode(s.getPassword()) : null);
-                // LDAP identities are immediately able to sign in; a local user with a
-                // password too. A local user without one awaits an invite.
                 String inviteStatus = (ldap || passwordHash != null) ? ACTIVE : PENDING;
                 User u = upsertUser(s.getEmail(), s.getFullName(), role, passwordHash, inviteStatus);
-                // The CCO identity is the single source of the profile's CCO contact.
                 if (AppRole.CCO.equals(role)) {
                     p.setCcoName(s.getFullName());
                     p.setCcoEmail(s.getEmail().toLowerCase().trim());
@@ -188,20 +194,23 @@ public class OnboardingService {
             .legalName(p.getLegalName()).build();
     }
 
-    /** Create the user if new; otherwise update name/role and (when supplied) password. */
     private User upsertUser(String rawEmail, String fullName, String role, String passwordHash, String inviteStatus) {
         String email = rawEmail.toLowerCase().trim();
         User u = users.findByEmail(email).orElseGet(() -> User.builder()
             .email(email).isActive(true).emailVerified(true).build());
         u.setFullName(fullName);
         u.setRole(role);
-        if (passwordHash != null) u.setPasswordHash(passwordHash);
+        if (passwordHash != null) {
+            u.setPasswordHash(passwordHash);
+        }
         u.setInviteStatus(inviteStatus);
         return users.save(u);
     }
 
     private static String normalizeRole(String role) {
-        if (role == null) return null;
+        if (role == null) {
+            return null;
+        }
         return switch (role.trim().toUpperCase()) {
             case "CCO" -> AppRole.CCO;
             case "ANALYST" -> AppRole.ANALYST;
@@ -211,7 +220,6 @@ public class OnboardingService {
         };
     }
 
-    /** Store the LDAP config with the bind password encrypted at rest. */
     private Map<String, Object> encryptLdapConfig(UserSetupRequest.LdapConfigRequest cfg) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("url", cfg.getUrl());
@@ -225,7 +233,6 @@ public class OnboardingService {
         return m;
     }
 
-    /** Bind with the candidate service account to validate an LDAP config before saving it. */
     public Map<String, Object> testLdapConnection(UserSetupRequest.LdapConfigRequest cfg) {
         if (cfg == null || cfg.getUrl() == null || cfg.getBindDn() == null
                 || cfg.getBindPassword() == null || cfg.getUserSearchBase() == null) {
@@ -258,7 +265,9 @@ public class OnboardingService {
                 .toList();
 
             for (RegulatorSummary summary : allRegs) {
-                if (existingIds.contains(summary.getRegulatorId())) continue;
+                if (existingIds.contains(summary.getRegulatorId())) {
+                    continue;
+                }
                 tenantRegulatorRepo.save(TenantRegulator.builder()
                     .tenantId(tid)
                     .name(summary.getName())
@@ -295,7 +304,9 @@ public class OnboardingService {
     @Transactional
     public OnboardingStatusResponse confirm(OnboardingConfirmRequest req) {
         TenantProfile p = getProfile();
-        if (req.getWebhookUrl() != null) p.setWebhookUrl(req.getWebhookUrl());
+        if (req.getWebhookUrl() != null) {
+            p.setWebhookUrl(req.getWebhookUrl());
+        }
         p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(6);
@@ -309,7 +320,9 @@ public class OnboardingService {
                 .filter(Objects::nonNull)
                 .toList();
             for (RegulatorSummary summary : allRegs) {
-                if (existingIds.contains(summary.getRegulatorId())) continue;
+                if (existingIds.contains(summary.getRegulatorId())) {
+                    continue;
+                }
                 tenantRegulatorRepo.save(TenantRegulator.builder()
                     .tenantId(tid)
                     .name(summary.getName())
@@ -329,9 +342,14 @@ public class OnboardingService {
         log.info("Onboarding completed for tenant {}", tenantIdentity.currentTenantId());
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
+            @Override
+            public void afterCommit() {
                 TenantProfile fresh = profiles.findByTenantId(tenantIdentity.currentTenantId()).orElse(p);
-                try { platformApi.clearCache(); } catch (Exception ce) { log.warn("clearCache failed: {}", ce.getMessage()); }
+                try {
+                    platformApi.clearCache();
+                } catch (Exception ce) {
+                    log.warn("clearCache failed: {}", ce.getMessage());
+                }
                 try {
                     Map<String, Object> tenantReq = new HashMap<>();
                     tenantReq.put("legalName", fresh.getLegalName());

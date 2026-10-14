@@ -66,13 +66,13 @@ public class RemediationLinkService {
     @Value("${atheris.remediation.max-files:5}")
     private int maxFiles;
 
-    /** Create a link for a finding and return the raw token (shown once). */
     @Transactional
     public String createLink(Long findingId, Integer userId) {
         Finding f = findings.findById(findingId)
             .orElseThrow(() -> ApiException.notFound("Finding not found: " + findingId));
-        if (WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+        if (WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
             throw ApiException.conflict("finding_closed", "This finding is already closed");
+        }
 
         String raw = randomToken();
         LocalDate base = f.getRemediationDeadline() != null ? f.getRemediationDeadline() : LocalDate.now();
@@ -102,13 +102,15 @@ public class RemediationLinkService {
         return email.baseUrl() + "/remediate/" + rawToken;
     }
 
-    /** Email the link to the finding's owner (no login required). */
     @Transactional
     public void emailLink(Long findingId, String rawToken, Integer userId) {
         Finding f = findings.findById(findingId)
             .orElseThrow(() -> ApiException.notFound("Finding not found: " + findingId));
         String to = ownerEmail(f);
-        if (to == null) { log.info("No owner email for finding {}", findingId); return; }
+        if (to == null) {
+            log.info("No owner email for finding {}", findingId);
+            return;
+        }
         email.send(to, "Action required: remediation for finding #" + findingId,
             "You have been asked to provide remediation evidence for finding #" + findingId
                 + " (" + f.getSeverity() + ").\n\n"
@@ -138,32 +140,37 @@ public class RemediationLinkService {
             .build();
     }
 
-    /** Public submission: notes + up to N evidence files. Moves the finding to Remediated. */
     @Transactional
     public void submit(String rawToken, String notes, List<MultipartFile> files) throws Exception {
         RemediationLink link = resolve(rawToken);
         Finding f = findings.findById(link.getFindingId())
             .orElseThrow(() -> ApiException.notFound("Finding not found"));
-        if (WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+        if (WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
             throw ApiException.conflict("finding_closed", "This finding is already closed");
-        if (WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus()))
+        }
+        if (WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus())) {
             throw ApiException.conflict("already_submitted", "Remediation has already been submitted");
+        }
 
         List<MultipartFile> uploads = files == null ? List.of()
             : files.stream().filter(x -> x != null && !x.isEmpty()).toList();
-        if (uploads.size() > maxFiles)
+        if (uploads.size() > maxFiles) {
             throw ApiException.badRequest("Too many files (max " + maxFiles + ")");
+        }
 
         for (MultipartFile file : uploads) {
-            if (file.getSize() > (long) maxFileMb * 1024 * 1024)
+            if (file.getSize() > (long) maxFileMb * 1024 * 1024) {
                 throw ApiException.badRequest("File too large (max " + maxFileMb + " MB): " + file.getOriginalFilename());
+            }
             String type = file.getContentType();
-            if (type == null || !ALLOWED_TYPES.contains(type))
+            if (type == null || !ALLOWED_TYPES.contains(type)) {
                 throw ApiException.badRequest("Unsupported file type: " + file.getOriginalFilename());
+            }
             EvidenceFile saved = evidence.upload(file, "finding", f.getFindingId(),
                 "Remediation evidence (via link)", null);
-            if (f.getRemediationEvidenceUrl() == null)
+            if (f.getRemediationEvidenceUrl() == null) {
                 f.setRemediationEvidenceUrl("/api/v1/evidence/" + saved.getFileId() + "/download");
+            }
         }
 
         f.setRemediationNotes(notes);
@@ -182,20 +189,22 @@ public class RemediationLinkService {
             "/findings", "Remediation submitted — review required");
     }
 
-    // ── helpers ──
-
     private RemediationLink resolve(String rawToken) {
         RemediationLink link = links.findByTokenHash(sha256(rawToken))
             .orElseThrow(() -> ApiException.notFound("This remediation link is not valid"));
-        if (link.getRevokedAt() != null)
+        if (link.getRevokedAt() != null) {
             throw ApiException.gone("link_revoked", "This remediation link has been revoked");
-        if (Instant.now().isAfter(link.getExpiresAt()))
+        }
+        if (Instant.now().isAfter(link.getExpiresAt())) {
             throw ApiException.gone("link_expired", "This remediation link has expired");
+        }
         return link;
     }
 
     private String ownerEmail(Finding f) {
-        if (f.getAssignedToOwnerId() == null) return null;
+        if (f.getAssignedToOwnerId() == null) {
+            return null;
+        }
         return owners.findById(f.getAssignedToOwnerId())
             .map(Owner::getEmail).filter(e -> e != null && !e.isBlank()).orElse(null);
     }

@@ -20,7 +20,9 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service @Slf4j @RequiredArgsConstructor
+@Service
+@Slf4j
+@RequiredArgsConstructor
 public class ControlService {
 
     private final ControlRepository repo;
@@ -65,10 +67,18 @@ public class ControlService {
         List<String> statuses = new ArrayList<>(byStatus.keySet());
 
         return ControlStatsDto.builder()
-            .total(total).active(active).highRisk(highRisk).testsDue(testsDue)
-            .themes(themes).owners(owners).acts(acts)
-            .totalControls(total).byRiskLevel(byRiskLevel).byStatus(byStatus)
-            .riskLevels(riskLevels).statuses(statuses)
+            .total(total)
+            .active(active)
+            .highRisk(highRisk)
+            .testsDue(testsDue)
+            .themes(themes)
+            .owners(owners)
+            .acts(acts)
+            .totalControls(total)
+            .byRiskLevel(byRiskLevel)
+            .byStatus(byStatus)
+            .riskLevels(riskLevels)
+            .statuses(statuses)
             .build();
     }
 
@@ -80,9 +90,12 @@ public class ControlService {
 
     private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask) {
         return ControlRegisterItem.builder()
-            .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .name(c.getName())
             .controlSummary(c.getName())
-            .theme(c.getTheme()).controlOwnerName(c.getControlOwnerName())
+            .theme(c.getTheme())
+            .controlOwnerName(c.getControlOwnerName())
             .ownerName(c.getOwnerName())
             .controlType(c.getControlType())
             .residualRisk(c.getResidualRisk())
@@ -110,11 +123,16 @@ public class ControlService {
             obligations = distinctIds.stream()
                 .map(oid -> {
                     var o = obligationRepo.findById(oid).orElse(null);
-                    if (o == null) return null;
+                    if (o == null) {
+                        return null;
+                    }
                     return ControlDetailResponse.LinkedObligation.builder()
-                        .obligationId(o.getObligationId()).name(o.getName()).title(o.getTitle())
+                        .obligationId(o.getObligationId())
+                        .name(o.getName())
+                        .title(o.getTitle())
                         .description(o.getDescription())
-                        .instrumentTitle("Instrument " + o.getInstrumentId()).build();
+                        .instrumentTitle("Instrument " + o.getInstrumentId())
+                        .build();
                 })
                 .filter(Objects::nonNull)
                 .toList();
@@ -123,27 +141,44 @@ public class ControlService {
         List<ControlDetailResponse.TestResultItem> tests = testRepo
             .findByControlIdOrderByTestDateDesc(id).stream()
             .map(t -> ControlDetailResponse.TestResultItem.builder()
-                .testId(t.getTestId()).testDate(t.getTestDate())
-                .testedByUserId(t.getTestedByUserId()).testedByName(t.getTestedByName())
-                .result(t.getResult()).resultDescription(t.getResultDescription())
-                .failureDetails(t.getFailureDetails()).failureSeverity(t.getFailureSeverity())
-                .evidenceUrl(t.getEvidenceUrl()).remediationRequired(t.getRemediationRequired())
-                .reviewStatus(t.getReviewStatus()).createdAt(t.getCreatedAt()).build())
+                .testId(t.getTestId())
+                .testDate(t.getTestDate())
+                .testedByUserId(t.getTestedByUserId())
+                .testedByName(t.getTestedByName())
+                .result(t.getResult())
+                .resultDescription(t.getResultDescription())
+                .failureDetails(t.getFailureDetails())
+                .failureSeverity(t.getFailureSeverity())
+                .evidenceUrl(t.getEvidenceUrl())
+                .remediationRequired(t.getRemediationRequired())
+                .reviewStatus(t.getReviewStatus())
+                .createdAt(t.getCreatedAt())
+                .build())
             .toList();
 
         LocalDate nextTest = null;
         ControlTask task = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(id, WorkflowStatus.TASK_PENDING);
-        if (task != null) nextTest = task.getDueDate();
+        if (task != null) {
+            nextTest = task.getDueDate();
+        }
 
         return ControlDetailResponse.builder()
-            .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
-            .description(c.getDescription()).theme(c.getTheme()).controlType(c.getControlType())
-            .whatItDoes(c.getWhatItDoes()).howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerId(c.getControlOwnerId())
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .name(c.getName())
+            .description(c.getDescription())
+            .theme(c.getTheme())
+            .controlType(c.getControlType())
+            .whatItDoes(c.getWhatItDoes())
+            .howTested(c.getHowTested())
+            .controlOwnerUserId(c.getControlOwnerUserId())
+            .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
             .ownerName(c.getOwnerName())
-            .testFrequency(c.getTestFrequency()).testFrequencyDays(c.getTestFrequencyDays())
-            .linkedObligations(obligations).inherentRisk(c.getInherentRisk())
+            .testFrequency(c.getTestFrequency())
+            .testFrequencyDays(c.getTestFrequencyDays())
+            .linkedObligations(obligations)
+            .inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk())
             .residualLikelihood(c.getResidualLikelihood())
             .residualImpact(c.getResidualImpact())
@@ -156,8 +191,12 @@ public class ControlService {
             .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
             .actId(c.getActId())
             .actName(c.getActName())
-            .createdByUserId(c.getCreatedByUserId()).createdAt(c.getCreatedAt()).updatedAt(c.getUpdatedAt())
-            .testHistory(tests).nextTestDueDate(nextTest).build();
+            .createdByUserId(c.getCreatedByUserId())
+            .createdAt(c.getCreatedAt())
+            .updatedAt(c.getUpdatedAt())
+            .testHistory(tests)
+            .nextTestDueDate(nextTest)
+            .build();
     }
 
     public ControlDto findById(Integer id) {
@@ -170,23 +209,30 @@ public class ControlService {
         if (controlNumber == null || controlNumber.isBlank()) {
             controlNumber = nextControlNumber();
         }
-        if (repo.existsByControlNumber(controlNumber))
+        if (repo.existsByControlNumber(controlNumber)) {
             throw new IllegalArgumentException("Control number already exists");
+        }
         Control c = Control.builder()
-            .controlNumber(controlNumber).name(req.getName())
-            .description(req.getDescription()).theme(req.getTheme())
-            .controlType(req.getControlType()).whatItDoes(req.getWhatItDoes())
+            .controlNumber(controlNumber)
+            .name(req.getName())
+            .description(req.getDescription())
+            .theme(req.getTheme())
+            .controlType(req.getControlType())
+            .whatItDoes(req.getWhatItDoes())
             .howTested(req.getHowTested())
             .controlOwnerId(req.getControlOwnerId())
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
-            .testFrequency(req.getTestFrequency()).testFrequencyDays(req.getTestFrequencyDays())
+            .testFrequency(req.getTestFrequency())
+            .testFrequencyDays(req.getTestFrequencyDays())
             .linkedObligationIds(req.getLinkedObligationIds() == null ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())))
-            .inherentRisk(req.getInherentRisk()).residualRisk(req.getInherentRisk())
-            .status("Active").createdByUserId(userId).build();
+            .inherentRisk(req.getInherentRisk())
+            .residualRisk(req.getInherentRisk())
+            .status("Active")
+            .createdByUserId(userId)
+            .build();
         Control saved = repo.save(c);
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
             Map.of("control_number", saved.getControlNumber()));
-        // Line up the first test task from the control's test frequency.
         testService.scheduleNextTest(saved);
         return toDto(saved);
     }
@@ -195,33 +241,51 @@ public class ControlService {
     public ControlDto update(Integer id, CreateControlRequest req, Integer userId) {
         Control c = repo.findById(id)
             .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
-        if (req.getName() != null) c.setName(req.getName());
-        if (req.getDescription() != null) c.setDescription(req.getDescription());
-        if (req.getWhatItDoes() != null) c.setWhatItDoes(req.getWhatItDoes());
-        if (req.getHowTested() != null) c.setHowTested(req.getHowTested());
+        if (req.getName() != null) {
+            c.setName(req.getName());
+        }
+        if (req.getDescription() != null) {
+            c.setDescription(req.getDescription());
+        }
+        if (req.getWhatItDoes() != null) {
+            c.setWhatItDoes(req.getWhatItDoes());
+        }
+        if (req.getHowTested() != null) {
+            c.setHowTested(req.getHowTested());
+        }
         if (req.getControlOwnerId() != null) {
             c.setControlOwnerId(req.getControlOwnerId());
             c.setControlOwnerName(resolveOwnerName(req.getControlOwnerId()));
         }
-        if (req.getTestFrequency() != null) c.setTestFrequency(req.getTestFrequency());
-        if (req.getTestFrequencyDays() != null) c.setTestFrequencyDays(req.getTestFrequencyDays());
-        if (req.getLinkedObligationIds() != null) c.setLinkedObligationIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())));
+        if (req.getTestFrequency() != null) {
+            c.setTestFrequency(req.getTestFrequency());
+        }
+        if (req.getTestFrequencyDays() != null) {
+            c.setTestFrequencyDays(req.getTestFrequencyDays());
+        }
+        if (req.getLinkedObligationIds() != null) {
+            c.setLinkedObligationIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())));
+        }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());
-            if (c.getResidualRisk() == null) c.setResidualRisk(req.getInherentRisk());
+            if (c.getResidualRisk() == null) {
+                c.setResidualRisk(req.getInherentRisk());
+            }
         }
         audit.log(userId, "control_updated", "control", id.longValue(), Map.of());
         Control saved = repo.save(c);
-        // If the frequency changed and no open task exists, line up the next test.
         boolean hasOpenTask = taskRepo.findByControlId(id).stream()
             .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
-        if (!hasOpenTask && saved.getTestFrequencyDays() != null)
+        if (!hasOpenTask && saved.getTestFrequencyDays() != null) {
             testService.scheduleNextTest(saved);
+        }
         return toDto(saved);
     }
 
     private String resolveOwnerName(Integer ownerId) {
-        if (ownerId == null) return null;
+        if (ownerId == null) {
+            return null;
+        }
         return ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
             .getFullName();
@@ -240,26 +304,40 @@ public class ControlService {
     public List<ControlDto> findAll() {
         return repo.findByStatus("Active").stream().map(this::toDto).toList();
     }
+
     public List<ControlDto> findByTheme(String theme) {
         return repo.findByTheme(theme).stream().map(this::toDto).toList();
     }
+
     public List<ControlDto> findByOwner(Integer ownerId) {
         return repo.findByControlOwnerId(ownerId).stream().map(this::toDto).toList();
     }
+
     public List<ControlDto> findHighRisk() {
         return repo.findByResidualRisk("High").stream().map(this::toDto).toList();
     }
 
     private ControlDto toDto(Control c) {
         return ControlDto.builder()
-            .controlId(c.getControlId()).controlNumber(c.getControlNumber()).name(c.getName())
-            .description(c.getDescription()).theme(c.getTheme()).controlType(c.getControlType())
-            .whatItDoes(c.getWhatItDoes()).howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId()).controlOwnerId(c.getControlOwnerId())
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .name(c.getName())
+            .description(c.getDescription())
+            .theme(c.getTheme())
+            .controlType(c.getControlType())
+            .whatItDoes(c.getWhatItDoes())
+            .howTested(c.getHowTested())
+            .controlOwnerUserId(c.getControlOwnerUserId())
+            .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
-            .testFrequency(c.getTestFrequency()).testFrequencyDays(c.getTestFrequencyDays())
+            .testFrequency(c.getTestFrequency())
+            .testFrequencyDays(c.getTestFrequencyDays())
             .linkedObligationIds(c.getLinkedObligationIds())
-            .inherentRisk(c.getInherentRisk()).residualRisk(c.getResidualRisk())
-            .status(c.getStatus()).createdAt(c.getCreatedAt()).updatedAt(c.getUpdatedAt()).build();
+            .inherentRisk(c.getInherentRisk())
+            .residualRisk(c.getResidualRisk())
+            .status(c.getStatus())
+            .createdAt(c.getCreatedAt())
+            .updatedAt(c.getUpdatedAt())
+            .build();
     }
 }

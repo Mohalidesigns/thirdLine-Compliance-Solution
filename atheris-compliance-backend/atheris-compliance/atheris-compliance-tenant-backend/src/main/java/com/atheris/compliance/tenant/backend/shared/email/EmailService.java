@@ -6,13 +6,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-/**
- * Outbound email for the tenant app (escalations, hand-offs, remediation links).
- *
- * <p>Email is optional: when {@code SMTP_HOST} is unset the sender is disabled and every
- * send is logged and skipped, so the app boots and works without any mail configuration.
- * A send failure never propagates — mail must never break a business transaction.
- */
 @Service
 @Slf4j
 public class EmailService {
@@ -30,14 +23,19 @@ public class EmailService {
         this.fromAddress = fromAddress;
         this.baseUrl = baseUrl;
         this.enabled = smtpHost != null && !smtpHost.isBlank();
-        if (!enabled) log.info("Email sending disabled (SMTP_HOST not set) — sends will be logged and skipped");
+        if (!enabled) {
+            log.info("Email sending disabled (SMTP_HOST not set) — sends will be logged and skipped");
+        }
     }
 
-    public boolean isEnabled() { return enabled; }
+    public boolean isEnabled() {
+        return enabled;
+    }
 
-    public String baseUrl() { return baseUrl; }
+    public String baseUrl() {
+        return baseUrl;
+    }
 
-    /** Plain body; a caller may pass a click-through {@code link} that is appended. */
     public void send(String to, String subject, String body, String link) {
         if (!enabled) {
             log.info("[email-skipped] to={} subject={}", to, subject);

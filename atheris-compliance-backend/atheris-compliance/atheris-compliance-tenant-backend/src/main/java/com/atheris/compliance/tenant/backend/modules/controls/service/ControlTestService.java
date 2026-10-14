@@ -25,7 +25,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ControlTestService {
 
-    /** A test due / overdue by more than these many days escalates to L1 then L2. */
     private static final long ESCALATE_TO_MANAGER_AFTER_DAYS = 2;
     private static final long ESCALATE_TO_CCO_AFTER_DAYS = 5;
 
@@ -54,7 +53,6 @@ public class ControlTestService {
         return taskRepo.findByStatusAndDueDateBefore(WorkflowStatus.TASK_PENDING, LocalDate.now());
     }
 
-    /** Open (Pending/In Progress/Overdue) tasks for a control, for the Controls detail view. */
     public List<ControlTask> getTasksForControl(Integer controlId) {
         return taskRepo.findByControlId(controlId).stream()
             .filter(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()))
@@ -66,23 +64,30 @@ public class ControlTestService {
         Control control = controls.findById(controlId)
             .orElseThrow(() -> ApiException.notFound("Control not found: " + controlId));
         ControlTestResult result = ControlTestResult.builder()
-            .controlId(controlId).testDate(req.getTestDate())
-            .testedByUserId(tester.getUserId()).testedByName(tester.getFullName())
-            .result(req.getResult()).resultDescription(req.getResultDescription())
-            .failureDetails(req.getFailureDetails()).failureSeverity(req.getFailureSeverity())
-            .evidenceUrl(req.getEvidenceUrl()).remediationRequired(req.getRemediationRequired())
+            .controlId(controlId)
+            .testDate(req.getTestDate())
+            .testedByUserId(tester.getUserId())
+            .testedByName(tester.getFullName())
+            .result(req.getResult())
+            .resultDescription(req.getResultDescription())
+            .failureDetails(req.getFailureDetails())
+            .failureSeverity(req.getFailureSeverity())
+            .evidenceUrl(req.getEvidenceUrl())
+            .remediationRequired(req.getRemediationRequired())
             .remediationOwnerUserId(req.getRemediationOwnerUserId())
             .remediationOwnerId(req.getRemediationOwnerId())
             .remediationDeadline(req.getRemediationDeadline())
-            .reviewStatus(WorkflowStatus.REVIEW_PENDING).build();
+            .reviewStatus(WorkflowStatus.REVIEW_PENDING)
+            .build();
         testRepo.save(result);
         updateResidualRisk(control, req.getResult());
 
         boolean failed = WorkflowStatus.TEST_FAILED.equals(req.getResult())
                       || WorkflowStatus.TEST_PARTIAL.equals(req.getResult());
-        if (failed) findingService.autoRaiseFromTest(result, control);
+        if (failed) {
+            findingService.autoRaiseFromTest(result, control);
+        }
 
-        // Close any open task for this control, then line up the next test.
         taskRepo.findByControlId(controlId).stream()
             .filter(t -> WorkflowStatus.TASK_PENDING.equals(t.getStatus())
                       || WorkflowStatus.TASK_IN_PROGRESS.equals(t.getStatus())
@@ -94,7 +99,6 @@ public class ControlTestService {
             });
         scheduleNextTest(control);
 
-        // Notify the control owner (or the tester as fallback) when a test fails.
         if (failed) {
             Integer notifyUser = control.getControlOwnerUserId() != null
                 ? control.getControlOwnerUserId() : tester.getUserId();
@@ -113,19 +117,19 @@ public class ControlTestService {
     public ControlTestResult reviewTest(Long testId, String decision, String notes, User reviewer) {
         ControlTestResult t = testRepo.findById(testId)
             .orElseThrow(() -> ApiException.notFound("Control test not found: " + testId));
-        if (!WorkflowStatus.REVIEW_ACCEPTED.equals(decision) && !WorkflowStatus.REVIEW_REJECTED.equals(decision))
+        if (!WorkflowStatus.REVIEW_ACCEPTED.equals(decision) && !WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
             throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
-        // Segregation of duties: nobody reviews a test they recorded themselves.
-        if (t.getTestedByUserId() != null && t.getTestedByUserId().equals(reviewer.getUserId()))
+        }
+        if (t.getTestedByUserId() != null && t.getTestedByUserId().equals(reviewer.getUserId())) {
             throw ApiException.conflict("self_review",
                 "You cannot review a control test you recorded yourself");
+        }
         t.setReviewedByUserId(reviewer.getUserId());
         t.setReviewedByName(reviewer.getFullName());
         t.setReviewStatus(decision);
         t.setReviewNotes(notes);
         t.setReviewedAt(Instant.now());
-        // A rejected test reopens the control's task so the work is re-done.
         if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
             boolean openTaskExists = taskRepo.findByControlId(t.getControlId()).stream()
                 .anyMatch(task -> !WorkflowStatus.TASK_COMPLETED.equals(task.getStatus()));
@@ -151,7 +155,9 @@ public class ControlTestService {
 
     @Transactional
     public void scheduleNextTest(Control control) {
-        if (control.getTestFrequencyDays() == null) return;
+        if (control.getTestFrequencyDays() == null) {
+            return;
+        }
         LocalDate nextDue = LocalDate.now().plus(control.getTestFrequencyDays(), ChronoUnit.DAYS);
         taskRepo.save(ControlTask.builder()
             .controlId(control.getControlId())
@@ -160,17 +166,12 @@ public class ControlTestService {
             .taskType(WorkflowStatus.TASK_TYPE_SCHEDULED_TEST)
             .assignedToUserId(control.getControlOwnerUserId())
             .assignedToName(control.getControlOwnerName())
-            .dueDate(nextDue).status(WorkflowStatus.TASK_PENDING).escalationLevel(0).build());
+            .dueDate(nextDue)
+            .status(WorkflowStatus.TASK_PENDING)
+            .escalationLevel(0)
+            .build());
     }
 
-    /**
-     * Runs daily. Marks due tasks Overdue and escalates tasks that are already overdue by
-     * more than the thresholds: L1 to the assignee is implicit (they own the task), L2 to
-     * their manager, L3 to the CCO. Each level fires once (guarded by {@code escalationLevel}).
-     *
-     * <p>The previous implementation filtered on {@code status = Pending} *after* marking those
-     * same rows Overdue in the same run, so no task was ever escalated.
-     */
     @Scheduled(cron = "0 0 1 * * *")
     @Transactional
     public void processOverdueTasks() {
@@ -188,7 +189,9 @@ public class ControlTestService {
                         : daysOverdue > ESCALATE_TO_MANAGER_AFTER_DAYS ? 2
                         : 1;
             int current = t.getEscalationLevel() != null ? t.getEscalationLevel() : 0;
-            if (implied <= current) continue;
+            if (implied <= current) {
+                continue;
+            }
             t.setEscalationLevel(implied);
             t.setEscalatedAt(Instant.now());
             taskRepo.save(t);

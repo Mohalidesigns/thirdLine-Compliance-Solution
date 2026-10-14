@@ -25,7 +25,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service @Slf4j @RequiredArgsConstructor
+@Service
+@Slf4j
+@RequiredArgsConstructor
 public class FindingService {
 
     private final FindingRepository repo;
@@ -42,34 +44,39 @@ public class FindingService {
         Set<Integer> controlIds = page.getContent().stream().map(Finding::getLinkedControlId)
             .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Integer, String> controlNumbers = new HashMap<>();
-        if (!controlIds.isEmpty())
+        if (!controlIds.isEmpty()) {
             controlRepo.findAllById(controlIds).forEach(c -> controlNumbers.put(c.getControlId(), c.getControlNumber()));
+        }
         return page.map(f -> FindingRegisterItem.from(f, controlNumbers.get(f.getLinkedControlId())));
     }
 
     public FindingDetailResponse getDetail(Long id) {
         Finding f = repo.findById(id).orElseThrow(() -> ApiException.notFound("Finding not found: " + id));
         List<FindingDetailResponse.TimelineEvent> timeline = new ArrayList<>();
-        if (f.getCreatedAt() != null)
+        if (f.getCreatedAt() != null) {
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
                 .timestamp(f.getCreatedAt()).eventType("raised")
                 .description("Finding raised" + (f.getTriggerReason() != null ? " (" + f.getTriggerReason() + ")" : ""))
                 .build());
-        if (f.getAssignedAt() != null)
+        }
+        if (f.getAssignedAt() != null) {
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
                 .timestamp(f.getAssignedAt()).eventType("assigned")
                 .description("Assigned to " + (f.getAssignedToName() != null ? f.getAssignedToName() : "user " + f.getAssignedToUserId()))
                 .build());
-        if (f.getRemediationSubmittedAt() != null)
+        }
+        if (f.getRemediationSubmittedAt() != null) {
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
                 .timestamp(f.getRemediationSubmittedAt()).eventType("remediated")
                 .description("Remediation submitted" + (f.getRemediationNotes() != null ? " — " + f.getRemediationNotes() : ""))
                 .build());
-        if (f.getCcoSignOffAt() != null)
+        }
+        if (f.getCcoSignOffAt() != null) {
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
                 .timestamp(f.getCcoSignOffAt()).eventType("closed")
                 .description("Finding closed by CCO sign-off")
                 .build());
+        }
         timeline.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
 
         long remaining = 0;
@@ -167,29 +174,29 @@ public class FindingService {
     }
 
     private String resolveOwnerName(Integer ownerId) {
-        if (ownerId == null) return null;
+        if (ownerId == null) {
+            return null;
+        }
         return ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
             .getFullName();
     }
 
-    /**
-     * Notify the assigned owner that a finding needs remediation. Sends an in-app
-     * notification (when the owner has a login) and always emails the owner's address,
-     * which is how an owner without system access receives their remediation link.
-     */
     private void notifyOwnerOfAssignment(Finding f) {
-        if (f.getAssignedToOwnerId() == null) return;
+        if (f.getAssignedToOwnerId() == null) {
+            return;
+        }
         ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
             String summary = "Finding #" + f.getFindingId() + " (" + f.getSeverity() + ") needs remediation"
                 + (f.getRemediationDeadline() != null ? " by " + f.getRemediationDeadline() : "");
-            if (o.getUserId() != null)
+            if (o.getUserId() != null) {
                 notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_HIGH,
                     summary, "/findings", "Action required: finding remediation");
-            else
+            } else {
                 // No login — email the owner directly; the analyst will share the remediation link.
                 log.info("Finding {} assigned to owner {} with no user login (email {})",
                     f.getFindingId(), o.getOwnerId(), o.getEmail());
+            }
         });
     }
 
@@ -197,9 +204,10 @@ public class FindingService {
     public Finding submitRemediation(Long id, SubmitRemediationRequest req, Integer userId) {
         Finding f = findById(id);
         if (!WorkflowStatus.FINDING_IN_REMEDIATION.equals(f.getStatus())
-                && !WorkflowStatus.FINDING_OPEN.equals(f.getStatus()))
+                && !WorkflowStatus.FINDING_OPEN.equals(f.getStatus())) {
             throw ApiException.conflict("invalid_transition",
                 "Remediation can only be submitted while a finding is Open or In Remediation");
+        }
         f.setRemediationNotes(req.getRemediationNotes());
         f.setRemediationEvidenceUrl(req.getEvidenceUrl());
         f.setRemediationSubmittedAt(Instant.now());
@@ -207,27 +215,23 @@ public class FindingService {
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
 
-        // Hand off to a reviewer: notify analysts.
         notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
             "Finding #" + id + " remediation submitted — awaiting your review",
             "/findings", "Remediation submitted — review required");
         return repo.save(f);
     }
 
-    /**
-     * Analyst approves or rejects the owner's remediation. No CCO is involved.
-     * Rejection returns the finding to In Remediation; the owner is re-notified and can
-     * resubmit with the same remediation link.
-     */
     @Transactional
     public Finding reviewRemediation(Long id, String decision, String notes, User reviewer) {
         Finding f = findById(id);
-        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus()))
+        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus())) {
             throw ApiException.conflict("invalid_transition", "Finding must be Remediated before review");
+        }
         if (f.getRemediationSubmittedByUserId() != null
-                && f.getRemediationSubmittedByUserId().equals(reviewer.getUserId()))
+                && f.getRemediationSubmittedByUserId().equals(reviewer.getUserId())) {
             throw ApiException.conflict("self_review",
                 "You cannot approve a remediation you submitted yourself");
+        }
 
         if (WorkflowStatus.REVIEW_ACCEPTED.equals(decision)) {
             f.setStatus(WorkflowStatus.FINDING_CLOSED);
@@ -236,19 +240,22 @@ public class FindingService {
             f.setCcoSignOffAt(Instant.now());
             audit.log(reviewer.getUserId(), "finding_approved", "finding", id, Map.of());
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
-            if (notes == null || notes.isBlank())
+            if (notes == null || notes.isBlank()) {
                 throw ApiException.badRequest("A reason is required when rejecting remediation");
+            }
             f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
             f.setReviewNotes(notes);
             audit.log(reviewer.getUserId(), "finding_rejected", "finding", id, Map.of("reason", notes));
             // Tell the owner it needs more work; their link still works.
-            if (f.getAssignedToOwnerId() != null)
+            if (f.getAssignedToOwnerId() != null) {
                 ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
-                    if (o.getUserId() != null)
+                    if (o.getUserId() != null) {
                         notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
                             "Remediation for finding #" + id + " was rejected: " + notes,
                             "/findings", "Remediation rejected — action required");
+                    }
                 });
+            }
         } else {
             throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
@@ -259,8 +266,9 @@ public class FindingService {
     @Transactional
     public Finding close(Long id, Integer ccoUserId) {
         Finding f = findById(id);
-        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus()))
+        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus())) {
             throw ApiException.conflict("invalid_transition", "Finding must be Remediated before closing");
+        }
         f.setStatus(WorkflowStatus.FINDING_CLOSED);
         f.setCcoSignOffUserId(ccoUserId);
         f.setCcoSignOffAt(Instant.now());
@@ -304,12 +312,15 @@ public class FindingService {
     }
 
     private String determineSeverity(String testSev, String inherent) {
-        if (WorkflowStatus.RISK_HIGH.equals(testSev) || WorkflowStatus.RISK_HIGH.equals(inherent)) return WorkflowStatus.RISK_HIGH;
-        if (WorkflowStatus.RISK_MEDIUM.equals(testSev) || WorkflowStatus.RISK_MEDIUM.equals(inherent)) return WorkflowStatus.RISK_MEDIUM;
+        if (WorkflowStatus.RISK_HIGH.equals(testSev) || WorkflowStatus.RISK_HIGH.equals(inherent)) {
+            return WorkflowStatus.RISK_HIGH;
+        }
+        if (WorkflowStatus.RISK_MEDIUM.equals(testSev) || WorkflowStatus.RISK_MEDIUM.equals(inherent)) {
+            return WorkflowStatus.RISK_MEDIUM;
+        }
         return WorkflowStatus.RISK_LOW;
     }
 
-    /** Remediation SLA in days per severity; shared with the findings bulk import. */
     public static int slaDays(String severity) {
         return switch (severity) {
             case WorkflowStatus.RISK_CRITICAL -> 1;

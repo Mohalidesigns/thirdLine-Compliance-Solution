@@ -16,12 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * One-time, idempotent startup pass that gives every active control with a test frequency
- * a pending test task. Controls created before scheduling existed have none, so the
- * "tests due" list and escalation would otherwise be empty for the whole seed.
- * Safe to run on every boot: it only touches controls that have no open task.
- */
 @Component
 @Order(40)
 @Slf4j
@@ -39,14 +33,20 @@ public class ControlTaskBackfill implements ApplicationRunner {
             List<Control> all = controls.findAll();
             int created = 0;
             for (Control c : all) {
-                if (c.getTestFrequencyDays() == null) continue;
+                if (c.getTestFrequencyDays() == null) {
+                    continue;
+                }
                 boolean hasOpen = tasks.findByControlId(c.getControlId()).stream()
                     .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
-                if (hasOpen) continue;
+                if (hasOpen) {
+                    continue;
+                }
                 testService.scheduleNextTest(c);
                 created++;
             }
-            if (created > 0) log.info("Control-test backfill scheduled {} task(s)", created);
+            if (created > 0) {
+                log.info("Control-test backfill scheduled {} task(s)", created);
+            }
         } catch (Throwable e) {
             // Never block startup on a backfill.
             log.warn("Control-test backfill failed: {}", e.getMessage());

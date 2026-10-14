@@ -17,17 +17,6 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Authenticates a login against the tenant's configured LDAP directory.
- *
- * <p>Flow: bind with the configured service account, search {@code userSearchBase} for the
- * login email (matched on {@code userSearchFilterAttribute}), then re-bind as the found
- * DN with the supplied password to verify it. A user must already have been provisioned in
- * Atheris (by invite) — this service only authenticates, it never creates users.
- *
- * <p>Every failure is turned into a stable outcome rather than an exception escaping to the
- * login path, so a directory outage reads as "authentication unavailable" not a 500.
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -36,35 +25,36 @@ public class LdapAuthService {
     private final TenantIdentityService tenantIdentity;
     private final CryptoUtil crypto;
 
-    /** Outcome of an LDAP authentication attempt. */
     public enum Status { SUCCESS, INVALID_CREDENTIALS, UNAVAILABLE, NOT_CONFIGURED }
 
     public record LdapResult(Status status, String fullName, String message) {
-        public boolean ok() { return status == Status.SUCCESS; }
+        public boolean ok() {
+            return status == Status.SUCCESS;
+        }
     }
 
-    /** Whether this tenant authenticates against LDAP and has a usable config. */
     public boolean isLdapEnabled() {
         return currentSettings().isPresent();
     }
 
-    /**
-     * The tenant's decrypted LDAP settings, or empty when the tenant uses local auth or has
-     * not completed configuration.
-     */
     public Optional<LdapSettings> currentSettings() {
         TenantProfile p = tenantIdentity.currentProfile().orElse(null);
-        if (p == null || !"ldap".equalsIgnoreCase(p.getAuthType())) return Optional.empty();
+        if (p == null || !"ldap".equalsIgnoreCase(p.getAuthType())) {
+            return Optional.empty();
+        }
         return settingsFromConfig(p.getLdapConfig());
     }
 
-    /** Parse a stored (password-encrypted) config map into a ready-to-use settings object. */
     public Optional<LdapSettings> settingsFromConfig(Map<String, Object> config) {
-        if (config == null) return Optional.empty();
+        if (config == null) {
+            return Optional.empty();
+        }
         String url = str(config.get("url"));
         String bindDn = str(config.get("bindDn"));
         String userSearchBase = str(config.get("userSearchBase"));
-        if (url == null || bindDn == null || userSearchBase == null) return Optional.empty();
+        if (url == null || bindDn == null || userSearchBase == null) {
+            return Optional.empty();
+        }
         return Optional.of(LdapSettings.builder()
             .url(url)
             .bindDn(bindDn)
@@ -75,20 +65,23 @@ public class LdapAuthService {
             .build());
     }
 
-    /** Authenticate a login. Never throws for bad credentials or an unreachable server. */
     public LdapResult authenticate(String email, String password) {
         Optional<LdapSettings> settings = currentSettings();
-        if (settings.isEmpty()) return new LdapResult(Status.NOT_CONFIGURED, null, "LDAP is not configured");
-        if (password == null || password.isBlank())
+        if (settings.isEmpty()) {
+            return new LdapResult(Status.NOT_CONFIGURED, null, "LDAP is not configured");
+        }
+        if (password == null || password.isBlank()) {
             return new LdapResult(Status.INVALID_CREDENTIALS, null, "Invalid credentials");
+        }
 
         LdapSettings s = settings.get();
         LdapContextSource ctx = contextSource(s);
         try {
             String userDn = findUserDn(ctx, s, email);
-            if (userDn == null) return new LdapResult(Status.INVALID_CREDENTIALS, null, "Invalid credentials");
+            if (userDn == null) {
+                return new LdapResult(Status.INVALID_CREDENTIALS, null, "Invalid credentials");
+            }
             String fullName = findFullName(ctx, s, email);
-            // Re-bind as the user to verify the password.
             LdapContextSource userCtx = new LdapContextSource();
             userCtx.setUrl(s.getUrl());
             userCtx.setUserDn(userDn);
@@ -99,13 +92,11 @@ public class LdapAuthService {
         } catch (org.springframework.ldap.AuthenticationException e) {
             return new LdapResult(Status.INVALID_CREDENTIALS, null, "Invalid credentials");
         } catch (Exception e) {
-            // CommunicationException, partial-result, TLS failure, search misconfig, etc.
             log.warn("LDAP authentication unavailable for {}: {}", email, e.getMessage());
             return new LdapResult(Status.UNAVAILABLE, null, "Directory is unavailable — try again shortly");
         }
     }
 
-    /** Verify a candidate config by binding with its service account. Used by the test endpoint. */
     public LdapResult testConnection(LdapSettings s) {
         try {
             LdapContextSource ctx = contextSource(s);
@@ -119,21 +110,17 @@ public class LdapAuthService {
         }
     }
 
-    // ── helpers ──
-
     private LdapContextSource contextSource(LdapSettings s) {
         LdapContextSource ctx = new LdapContextSource();
         ctx.setUrl(s.getUrl());
         ctx.setUserDn(s.getBindDn());
         ctx.setPassword(s.getBindPassword());
-        // Do NOT set a context base here: the search query supplies its own base, and
-        // setting both makes spring-ldap concatenate them into a non-existent DN
-        // (error 32 "No Such Object"). A DN-based user bind also needs a root context.
+        // Do not set a context base here: the search query supplies its own base, and
+        // setting both makes spring-ldap concatenate them into a non-existent DN.
         ctx.afterPropertiesSet();
         return ctx;
     }
 
-    /** DN of the user whose search attribute equals {@code email}, or null if not found. */
     private String findUserDn(LdapContextSource ctx, LdapSettings s, String email) {
         LdapTemplate template = new LdapTemplate(ctx);
         var results = template.search(
@@ -157,17 +144,22 @@ public class LdapAuthService {
     }
 
     private static String str(Object o) {
-        if (o == null) return null;
+        if (o == null) {
+            return null;
+        }
         String s = String.valueOf(o).trim();
         return s.isEmpty() ? null : s;
     }
 
-    private static String orDefault(String v, String def) { return v != null ? v : def; }
+    private static String orDefault(String v, String def) {
+        return v != null ? v : def;
+    }
 
-    /** Stored bind password is encrypted; accept a plaintext legacy value gracefully. */
     private String decrypt(Object stored) {
         String v = str(stored);
-        if (v == null) return null;
+        if (v == null) {
+            return null;
+        }
         try {
             return crypto.decrypt(v);
         } catch (Exception e) {

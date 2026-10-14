@@ -15,13 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
 
-/**
- * In-app notifications, per recipient. A notification targets either one user or
- * everyone holding a role. A user sees their own, plus anything broadcast to their role.
- *
- * <p>Delivery that also emails (escalations, hand-offs) goes through {@link #notifyUserEmailed};
- * plain in-app items use {@link #notifyUser} / {@link #notifyRole}.
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -31,11 +24,12 @@ public class NotificationService {
     private final UserRepository users;
     private final EmailService email;
 
-    /** In-app only, to one user. */
     @Transactional
     public ObligationNotification notifyUser(Integer userId, String category, String severity,
                                              String summary, String link) {
-        if (userId == null) return null;
+        if (userId == null) {
+            return null;
+        }
         ObligationNotification n = ObligationNotification.builder()
             .recipientUserId(userId)
             .category(category)
@@ -47,11 +41,12 @@ public class NotificationService {
         return repo.save(n);
     }
 
-    /** In-app only, to everyone holding a role. */
     @Transactional
     public ObligationNotification notifyRole(String role, String category, String severity,
                                              String summary, String link) {
-        if (role == null) return null;
+        if (role == null) {
+            return null;
+        }
         return repo.save(ObligationNotification.builder()
             .recipientRole(role)
             .category(category)
@@ -62,35 +57,39 @@ public class NotificationService {
             .build());
     }
 
-    /** In-app to one user, and email the same message. */
     @Transactional
     public void notifyUserEmailed(Integer userId, String category, String severity,
                                   String summary, String link, String subject) {
         notifyUser(userId, category, severity, summary, link);
-        if (userId == null) return;
+        if (userId == null) {
+            return;
+        }
         users.findById(userId).map(User::getEmail).ifPresent(to ->
             email.send(to, subject, summary, absolute(link)));
     }
 
-    /** In-app to a role, and email every active holder of that role. */
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject) {
         notifyRole(role, category, severity, summary, link);
         List<User> holders = users.findByRole(role);
         for (User u : holders) {
-            if (Boolean.FALSE.equals(u.getIsActive())) continue;
+            if (Boolean.FALSE.equals(u.getIsActive())) {
+                continue;
+            }
             email.send(u.getEmail(), subject, summary, absolute(link));
         }
     }
 
     private String absolute(String link) {
-        if (link == null || link.isBlank()) return null;
-        if (link.startsWith("http")) return link;
+        if (link == null || link.isBlank()) {
+            return null;
+        }
+        if (link.startsWith("http")) {
+            return link;
+        }
         return email.baseUrl() + link;
     }
-
-    // ── reads, scoped to the caller ──
 
     public List<ObligationNotification> forUser(Integer userId, String role, String status) {
         Set<Long> seen = new LinkedHashSet<>();
@@ -100,13 +99,21 @@ public class NotificationService {
         List<ObligationNotification> mine = unreadOnly
             ? repo.findByRecipientUserIdAndStatusOrderByCreatedAtDesc(userId, NotificationConstants.STATUS_UNREAD)
             : repo.findByRecipientUserIdOrderByCreatedAtDesc(userId);
-        for (ObligationNotification n : mine) if (seen.add(n.getNotificationId())) out.add(n);
+        for (ObligationNotification n : mine) {
+            if (seen.add(n.getNotificationId())) {
+                out.add(n);
+            }
+        }
 
         if (role != null) {
             List<ObligationNotification> broadcast = unreadOnly
                 ? repo.findByRecipientRoleAndRecipientUserIdIsNullAndStatusOrderByCreatedAtDesc(role, NotificationConstants.STATUS_UNREAD)
                 : repo.findByRecipientRoleAndRecipientUserIdIsNullOrderByCreatedAtDesc(role);
-            for (ObligationNotification n : broadcast) if (seen.add(n.getNotificationId())) out.add(n);
+            for (ObligationNotification n : broadcast) {
+                if (seen.add(n.getNotificationId())) {
+                    out.add(n);
+                }
+            }
         }
         out.sort(Comparator.comparing(ObligationNotification::getCreatedAt).reversed());
         return out;
