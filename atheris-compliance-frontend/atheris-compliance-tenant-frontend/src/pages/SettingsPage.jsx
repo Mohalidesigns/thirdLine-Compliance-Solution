@@ -1,13 +1,14 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, CardHeader, TextField, Button, Alert,
-  CircularProgress, Divider, Tabs, Tab, Table, TableHead, TableBody, TableRow,
-  TableCell, TableContainer, Paper, Chip, MenuItem, IconButton, Dialog,
+  CircularProgress, Table, TableHead, TableBody, TableRow,
+  TableCell, TableContainer, Chip, MenuItem, IconButton, Dialog,
   DialogTitle, DialogContent, DialogActions, Grid, Tooltip,
 } from '@mui/material';
 import {
-  Add, Edit, Delete, PersonAdd, AccountBalance, Group, Person,
-} from '@mui/icons-material';
+  PageHeader, SectionTabs, DataCard, StateBadge, TL,
+  PlusIcon, PencilSquareIcon, TrashIcon, BuildingLibraryIcon, UserGroupIcon, UserCircleIcon,
+} from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
@@ -21,16 +22,18 @@ export default function SettingsPage() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>Settings</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Configure your compliance workspace
-      </Typography>
+      <PageHeader title="Settings" subtitle="Configure your compliance workspace" />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="General" />
-        <Tab label="Organization" />
-        {(isAdmin || user?.role === 'CCO') && <Tab label="System Users" />}
-      </Tabs>
+      <SectionTabs
+        value={tab}
+        onChange={setTab}
+        sx={{ mb: 3 }}
+        tabs={[
+          { key: 0, label: 'General' },
+          { key: 1, label: 'Organization' },
+          ...((isAdmin || user?.role === 'CCO') ? [{ key: 2, label: 'System Users' }] : []),
+        ]}
+      />
 
       {tab === 0 && <GeneralTab />}
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
@@ -74,12 +77,11 @@ function GeneralTab() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card sx={{ maxWidth: 600, mb: 3 }}>
-        <CardContent sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Polling Configuration</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            How often to check the central platform for newly classified instruments
-          </Typography>
+      <DataCard
+        title="Polling Configuration"
+        subtitle="How often to check the central platform for newly classified instruments"
+        sx={{ maxWidth: 600, mb: 3 }}
+      >
           <TextField
             fullWidth size="small" type="number"
             label="Polling Interval (minutes)"
@@ -92,21 +94,13 @@ function GeneralTab() {
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save Interval'}
           </Button>
-        </CardContent>
-      </Card>
+      </DataCard>
 
-      <Card sx={{ maxWidth: 600 }}>
-        <CardContent sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Account</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Manage your account settings
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          <Typography variant="body2" color="text.secondary">
-            Contact your platform administrator for account changes, user management, and billing.
-          </Typography>
-        </CardContent>
-      </Card>
+      <DataCard title="Account" subtitle="Manage your account settings" sx={{ maxWidth: 600 }}>
+        <Typography sx={{ fontSize: '0.875rem', color: TL.gray600 }}>
+          Contact your platform administrator for account changes, user management, and billing.
+        </Typography>
+      </DataCard>
     </Box>
   );
 }
@@ -147,13 +141,13 @@ function OrganizationTab({ isAdmin }) {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h6">Departments &amp; Teams</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: TL.gray800 }}>Departments &amp; Teams</Typography>
+          <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
             Manage your organizational hierarchy and compliance owners
           </Typography>
         </Box>
         {isAdmin && (
-          <Button variant="contained" startIcon={<Add />} onClick={() => setDeptModal({})}>
+          <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setDeptModal({})}>
             Add Department
           </Button>
         )}
@@ -162,32 +156,36 @@ function OrganizationTab({ isAdmin }) {
       {snackbar && <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} sx={{ mb: 2 }}>{snackbar.message}</Alert>}
 
       {(!tree || tree.departments.length === 0) && (
-        <Card><CardContent sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-          <AccountBalance sx={{ fontSize: 48, mb: 1, color: 'action.disabled' }} />
-          <Typography>No departments yet</Typography>
+        <Card><CardContent sx={{ textAlign: 'center', py: 6, color: TL.gray500 }}>
+          <BuildingLibraryIcon size={40} sx={{ mb: 1, color: TL.gray300 }} />
+          <Typography sx={{ fontSize: '0.875rem' }}>No departments yet</Typography>
         </CardContent></Card>
       )}
 
       {tree?.departments.map(dept => (
         <Card key={dept.department.departmentId} sx={{ mb: 2 }}>
           <CardHeader
-            avatar={<AccountBalance />}
+            avatar={(
+              <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: '#EFF6FF', color: TL.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BuildingLibraryIcon size={16} />
+              </Box>
+            )}
             title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{dept.department.name}</Typography>
-              {dept.department.isActive === false && <Chip size="small" label="Inactive" color="default" />}
+              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, color: TL.gray800 }}>{dept.department.name}</Typography>
+              {dept.department.isActive === false && <StateBadge value="Inactive" />}
             </Box>}
             subheader={
-              <Typography variant="caption" color="text.secondary">
-                {dept.department.teamCount ?? dept.teams.length} team(s) Â·
+              <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+                {dept.department.teamCount ?? dept.teams.length} team(s) ·
                 {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
-                {dept.department.headOwnerName ? ` Â· Head: ${dept.department.headOwnerName}` : ''}
+                {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
             action={isAdmin && (
               <Box>
-                <IconButton size="small" onClick={() => setDeptModal(dept.department)}><Edit fontSize="small" /></IconButton>
+                <Tooltip title="Edit"><IconButton size="small" onClick={() => setDeptModal(dept.department)}><PencilSquareIcon size={16} /></IconButton></Tooltip>
                 <IconButton size="small" onClick={() => handleDelete(() => api.org.deleteDepartment(dept.department.departmentId), 'Department')}>
-                  <Delete fontSize="small" />
+                  <TrashIcon size={16} />
                 </IconButton>
               </Box>
             )}
@@ -196,35 +194,35 @@ function OrganizationTab({ isAdmin }) {
             {dept.teams.map(team => (
               <Box key={team.team.teamId} sx={{ pl: 4, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Group fontSize="small" color="action" />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{team.team.name}</Typography>
-                  {team.team.isActive === false && <Chip size="small" label="Inactive" color="default" />}
-                  <Typography variant="caption" color="text.secondary">Â· {team.owners.length} owner(s)</Typography>
+                  <UserGroupIcon size={16} sx={{ color: TL.gray400 }} />
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>{team.team.name}</Typography>
+                  {team.team.isActive === false && <StateBadge value="Inactive" />}
+                  <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>· {team.owners.length} owner(s)</Typography>
                   {isAdmin && (
                     <Box sx={{ ml: 'auto' }}>
                       <IconButton size="small" onClick={() => setTeamModal({ team: team.team, departmentId: dept.department.departmentId })}>
-                        <Edit fontSize="small" />
+                        <PencilSquareIcon size={16} />
                       </IconButton>
                       <IconButton size="small" onClick={() => handleDelete(() => api.org.deleteTeam(team.team.teamId), 'Team')}>
-                        <Delete fontSize="small" />
+                        <TrashIcon size={16} />
                       </IconButton>
                     </Box>
                   )}
                 </Box>
                 {team.owners.map(owner => (
                   <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
-                    <Person fontSize="small" color="action" />
-                    <Typography variant="body2">{owner.fullName}</Typography>
-                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">Â· {owner.jobTitle}</Typography>}
-                    {owner.email && <Typography variant="caption" color="text.secondary">Â· {owner.email}</Typography>}
-                    {owner.isActive === false && <Chip size="small" label="Inactive" color="default" />}
+                    <UserCircleIcon size={16} sx={{ color: TL.gray400 }} />
+                    <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{owner.fullName}</Typography>
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
+                    {owner.isActive === false && <StateBadge value="Inactive" />}
                     {isAdmin && (
                       <Box sx={{ ml: 'auto' }}>
                         <IconButton size="small" onClick={() => setOwnerModal({ owner, teamId: team.team.teamId, departmentId: dept.department.departmentId })}>
-                          <Edit fontSize="small" />
+                          <PencilSquareIcon size={16} />
                         </IconButton>
                         <IconButton size="small" onClick={() => handleDelete(() => api.org.deleteOwner(owner.ownerId), 'Owner')}>
-                          <Delete fontSize="small" />
+                          <TrashIcon size={16} />
                         </IconButton>
                       </Box>
                     )}
@@ -234,7 +232,7 @@ function OrganizationTab({ isAdmin }) {
                   <Typography variant="caption" color="text.secondary" sx={{ pl: 4 }}>No owners in this team</Typography>
                 )}
                 {isAdmin && (
-                  <Button size="small" startIcon={<Add />} sx={{ pl: 4, mt: 0.5 }}
+                  <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ pl: 4, mt: 0.5 }}
                     onClick={() => setOwnerModal({ teamId: team.team.teamId, departmentId: dept.department.departmentId })}>
                     Add owner
                   </Button>
@@ -245,7 +243,7 @@ function OrganizationTab({ isAdmin }) {
               <Typography variant="caption" color="text.secondary" sx={{ pl: 4 }}>No teams in this department</Typography>
             )}
             {isAdmin && (
-              <Button size="small" startIcon={<Add />} sx={{ pl: 4 }}
+              <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ pl: 4 }}
                 onClick={() => setTeamModal({ departmentId: dept.department.departmentId })}>
                 Add team
               </Button>
@@ -444,7 +442,7 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
                 {departments.length === 0 && <MenuItem value="" disabled>No departments yet</MenuItem>}
               </TextField>
             </Box>
-            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }}
+            <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ whiteSpace: 'nowrap' }}
               onClick={() => setDeptOpen(true)}>
               {departments.length === 0 ? 'Add department' : 'Add new department'}
             </Button>
@@ -463,14 +461,14 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
                 )}
               </TextField>
             </Box>
-            <Button size="small" startIcon={<Add />} sx={{ whiteSpace: 'nowrap' }} disabled={!form.departmentId}
+            <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ whiteSpace: 'nowrap' }} disabled={!form.departmentId}
               onClick={() => setTeamOpen(true)}>
               {departmentTeams.length === 0 ? 'Add team' : 'Add new team'}
             </Button>
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !form.fullName.trim() || !isAdmin}>
           {saving ? 'Saving...' : 'Save'}
@@ -523,36 +521,36 @@ function SystemUsersTab({ isAdmin }) {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h6">System Users</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: TL.gray800 }}>System Users</Typography>
+          <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
             Operators with access to this tenant workspace
           </Typography>
         </Box>
         {isAdmin && (
-          <Button variant="contained" startIcon={<PersonAdd />} onClick={() => setInviteOpen(true)}>
+          <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setInviteOpen(true)}>
             Invite User
           </Button>
         )}
       </Box>
 
       <Card>
-        <TableContainer component={Paper} elevation={0}>
+        <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {users.map(u => (
                 <TableRow key={u.userId} hover>
                   <TableCell>
-                    {u.fullName}
-                    {u.jobTitle && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{u.jobTitle}</Typography>}
+                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{u.fullName}</Typography>
+                    {u.jobTitle && <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500 }}>{u.jobTitle}</Typography>}
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
@@ -565,8 +563,7 @@ function SystemUsersTab({ isAdmin }) {
                     ) : <Chip size="small" label={u.role} />}
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" color={u.isActive ? 'success' : 'default'}
-                      label={u.isActive ? (u.inviteStatus === 'pending' ? 'Pending' : 'Active') : 'Inactive'} />
+                    <StateBadge value={u.isActive ? (u.inviteStatus === 'pending' ? 'Pending' : 'Active') : 'Inactive'} />
                   </TableCell>
                   <TableCell align="right">
                     {isAdmin && (

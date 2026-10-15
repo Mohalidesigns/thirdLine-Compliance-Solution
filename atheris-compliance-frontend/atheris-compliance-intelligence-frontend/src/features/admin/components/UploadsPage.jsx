@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Button, TextField, Select, MenuItem, FormControl,
+  Box, Typography, Button, TextField, Select, MenuItem,
   Alert, CircularProgress, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  Chip, Tooltip, Paper, Snackbar,
+  Chip, Tooltip, Paper, Snackbar, IconButton,
 } from '@mui/material';
 import {
-  CloudUpload as CloudUploadIcon, Visibility, Refresh, ErrorOutline, CheckCircle,
-  HourglassEmpty, PlayArrow, AutoFixHigh, Description, UploadFile,
-} from '@mui/icons-material';
+  PageHeader, DataCard, FilterBar, FilterField, StatusBadge,
+  ArrowPathIcon, ArrowUpTrayIcon, CloudArrowUpIcon, EyeIcon,
+} from 'shared';
 import api from '../../../services/api';
 
 const DOC_TYPES = ['circulars', 'guidelines', 'directives', 'regulations', 'standards', 'frameworks'];
@@ -20,20 +20,17 @@ const UploadStatus = Object.freeze({
 });
 
 const STATUS_CONFIG = {
-  [UploadStatus.PENDING]:    { label: 'Pending',      icon: <HourglassEmpty sx={{ fontSize: 14 }} />, color: '#A0AEC0', bg: '#EDF2F7' },
-  [UploadStatus.EXTRACTING]: { label: 'Extracting',   icon: <PlayArrow sx={{ fontSize: 14 }} />,      color: '#3182CE', bg: '#EBF4FF' },
-  [UploadStatus.EXTRACTED]:  { label: 'Extracted',    icon: <Description sx={{ fontSize: 14 }} />,     color: '#805AD5', bg: '#F3E8FF' },
-  [UploadStatus.CLASSIFYING]:{ label: 'Classifying',  icon: <AutoFixHigh sx={{ fontSize: 14 }} />,     color: '#DD6B20', bg: '#FFFAF0' },
-  [UploadStatus.COMPLETED]:  { label: 'Completed',    icon: <CheckCircle sx={{ fontSize: 14 }} />,     color: '#38A169', bg: '#F0FFF4' },
-  [UploadStatus.FAILED]:     { label: 'Failed',       icon: <ErrorOutline sx={{ fontSize: 14 }} />,     color: '#E53E3E', bg: '#FFF5F5' },
+  [UploadStatus.PENDING]:    { label: 'Pending',     tone: 'gray' },
+  [UploadStatus.EXTRACTING]: { label: 'Extracting',  tone: 'blue' },
+  [UploadStatus.EXTRACTED]:  { label: 'Extracted',   tone: 'purple' },
+  [UploadStatus.CLASSIFYING]:{ label: 'Classifying', tone: 'orange' },
+  [UploadStatus.COMPLETED]:  { label: 'Completed',   tone: 'green' },
+  [UploadStatus.FAILED]:     { label: 'Failed',      tone: 'red' },
 };
 
 function StatusChip({ status }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG[UploadStatus.PENDING];
-  return (
-    <Chip icon={cfg.icon} label={cfg.label} size="small"
-      sx={{ fontWeight: 600, fontSize: '0.7rem', bgcolor: cfg.bg, color: cfg.color, '& .MuiChip-icon': { color: cfg.color } }} />
-  );
+  return <StatusBadge label={cfg.label} tone={cfg.tone} />;
 }
 
 function formatDt(ts) {
@@ -130,109 +127,120 @@ export default function UploadsPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Upload Document</Typography>
+      <PageHeader
+        title="Upload Document"
+        subtitle="Upload a regulatory PDF to extract text and analyse obligations"
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={fetchRecords}>Refresh</Button>
+        }
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Paper sx={{ p: 1.5, mb: 3, display: 'flex', gap: 1, alignItems: 'center' }}>
-        <input type="file" accept=".pdf" hidden id="upload-file-input"
-          onChange={e => {
-            const f = e.target.files[0];
-            setFile(f);
-            if (f) setTitle(f.name.replace(/\.[^.]+$/, ''));
-          }} />
-        <label htmlFor="upload-file-input" style={{ display: 'flex' }}>
-          <Button variant="outlined" component="span" size="small" startIcon={<UploadFile />}
-            sx={{ whiteSpace: 'nowrap', textTransform: 'none', fontSize: '0.78rem', px: 2, minWidth: 0, maxWidth: 160, justifyContent: 'flex-start', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {file ? file.name : 'Choose PDF'}
+      <DataCard title="New Upload" sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <input type="file" accept=".pdf" hidden id="upload-file-input"
+            onChange={e => {
+              const f = e.target.files[0];
+              setFile(f);
+              if (f) setTitle(f.name.replace(/\.[^.]+$/, ''));
+            }} />
+          <FilterField label="File" minWidth={160}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <label htmlFor="upload-file-input" style={{ display: 'flex' }}>
+                <Button variant="outlined" component="span" startIcon={<ArrowUpTrayIcon size={16} />}
+                  sx={{ height: 40, whiteSpace: 'nowrap', maxWidth: 200, justifyContent: 'flex-start', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {file ? file.name : 'Choose PDF'}
+                </Button>
+              </label>
+              {file && (
+                <Button size="small" variant="text" color="error" onClick={() => { setFile(null); setTitle(''); }}
+                  sx={{ minWidth: 0, px: 1 }}>
+                  Cancel
+                </Button>
+              )}
+            </Box>
+          </FilterField>
+          <FilterField label="Title" grow>
+            <TextField size="small" placeholder="Title" value={title}
+              onChange={e => setTitle(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+          </FilterField>
+          <FilterField label="Regulator" minWidth={150}>
+            <Select size="small" value={regulatorId} displayEmpty sx={{ height: 40 }}
+              onChange={e => setRegulatorId(e.target.value)}>
+              <MenuItem value="">Regulator (opt)</MenuItem>
+              {regulators.filter(r => r.isActive).map(r => (
+                <MenuItem key={r.regulatorId} value={r.regulatorId}>{r.abbreviation}</MenuItem>
+              ))}
+            </Select>
+          </FilterField>
+          <FilterField label="Document Type" minWidth={150}>
+            <Select size="small" value={documentType} displayEmpty sx={{ height: 40 }}
+              onChange={e => setDocumentType(e.target.value)}>
+              <MenuItem value="">Type (opt)</MenuItem>
+              {DOC_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </Select>
+          </FilterField>
+          <Button variant="contained" onClick={handleSubmit} disabled={uploading || !file}
+            sx={{ height: 40, minWidth: 120 }}
+            startIcon={uploading ? <CircularProgress size={14} sx={{ color: 'inherit' }} /> : <CloudArrowUpIcon size={16} />}>
+            {uploading ? 'Uploading' : 'Upload'}
           </Button>
-        </label>
-        {file && (
-          <Button size="small" variant="text" color="error" onClick={() => { setFile(null); setTitle(''); }}
-            sx={{ minWidth: 0, px: 0.5, fontSize: '0.75rem' }}>
-            Cancel
-          </Button>
-        )}
-        <TextField size="small" placeholder="Title" value={title}
-          onChange={e => setTitle(e.target.value)} sx={{ flex: 1 }} />
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <Select value={regulatorId} displayEmpty
-            onChange={e => setRegulatorId(e.target.value)}>
-            <MenuItem value="">Regulator (opt)</MenuItem>
-            {regulators.filter(r => r.isActive).map(r => (
-              <MenuItem key={r.regulatorId} value={r.regulatorId}>{r.abbreviation}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 110 }}>
-          <Select value={documentType} displayEmpty
-            onChange={e => setDocumentType(e.target.value)}>
-            <MenuItem value="">Type (opt)</MenuItem>
-            {DOC_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <Button variant="contained" size="small" onClick={handleSubmit} disabled={uploading || !file}
-          sx={{ px: 3, width: 120 }}
-          startIcon={uploading ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CloudUploadIcon />}>
-          {uploading ? 'Uploading' : 'Upload'}
-        </Button>
-      </Paper>
+        </Box>
+      </DataCard>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <Button size="small" variant="outlined" startIcon={<Refresh />} onClick={fetchRecords}>Refresh</Button>
-      </Box>
+      <FilterBar
+        search={{ value: titleFilter, onChange: (v) => { setTitleFilter(v); setPage(0); }, placeholder: 'Filter title', label: 'Title' }}
+        showClear={!!(titleFilter || regFilter || statusFilter)}
+        onClear={() => { setTitleFilter(''); setRegFilter(''); setStatusFilter(''); setPage(0); }}
+      >
+        <FilterField label="Regulator" minWidth={160}>
+          <Select size="small" value={regFilter} displayEmpty sx={{ height: 40 }}
+            onChange={e => { setRegFilter(e.target.value); setPage(0); }}>
+            <MenuItem value="">All</MenuItem>
+            {regOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          </Select>
+        </FilterField>
+        <FilterField label="Status" minWidth={160}>
+          <Select size="small" value={statusFilter} displayEmpty sx={{ height: 40 }}
+            onChange={e => { setStatusFilter(e.target.value); setPage(0); }}>
+            <MenuItem value="">All</MenuItem>
+            {statusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+          </Select>
+        </FilterField>
+      </FilterBar>
 
-      <TableContainer component={Paper}>
+      <Paper sx={{ overflow: 'hidden' }}>
+      <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem' }}>Title</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 90 }}>Regulator</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 120 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 120 }}>Uploaded</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', width: 80 }}>Action</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell sx={{ p: 0.5 }}>
-                <TextField size="small" placeholder="Filter title" value={titleFilter}
-                  onChange={e => { setTitleFilter(e.target.value); setPage(0); }}
-                  sx={{ '& .MuiInputBase-root': { fontSize: '0.7rem' } }} />
-              </TableCell>
-              <TableCell sx={{ p: 0.5 }}>
-                <Select size="small" value={regFilter} displayEmpty onChange={e => { setRegFilter(e.target.value); setPage(0); }}
-                  sx={{ fontSize: '0.7rem', width: '100%' }}>
-                  <MenuItem value="">All</MenuItem>
-                  {regOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                </Select>
-              </TableCell>
-              <TableCell sx={{ p: 0.5 }}>
-                <Select size="small" value={statusFilter} displayEmpty onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-                  sx={{ fontSize: '0.7rem', width: '100%' }}>
-                  <MenuItem value="">All</MenuItem>
-                  {statusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </Select>
-              </TableCell>
-              <TableCell sx={{ p: 0.5 }} />
-              <TableCell sx={{ p: 0.5 }} />
+              <TableCell>Title</TableCell>
+              <TableCell sx={{ width: 110 }}>Regulator</TableCell>
+              <TableCell sx={{ width: 130 }}>Status</TableCell>
+              <TableCell sx={{ width: 170 }}>Uploaded</TableCell>
+              <TableCell align="right" sx={{ width: 80 }}>Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {tableLoading && records.length === 0 ? (
               <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: '#A0AEC0' }}>No uploads found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No uploads found.</TableCell></TableRow>
             ) : (
-              filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((r, i) => (
-                <TableRow key={r.id} hover sx={{ bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}>
-                  <TableCell><Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.originalFilename || '—'}</Typography></TableCell>
-                  <TableCell><Chip label={regMap[r.regulatorId] || '—'} size="small" sx={{ fontWeight: 600, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff' }} /></TableCell>
-                  <TableCell>{r.status === 'FAILED' && r.errorMessage ? <Tooltip title={r.errorMessage}><Box><StatusChip status={r.status} /></Box></Tooltip> : <StatusChip status={r.status} />}</TableCell>
+              filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((r) => (
+                <TableRow key={r.id} hover>
+                  <TableCell><Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.originalFilename || '—'}</Typography></TableCell>
+                  <TableCell><Chip label={regMap[r.regulatorId] || '—'} size="small" /></TableCell>
+                  <TableCell>{r.status === 'FAILED' && r.errorMessage ? <Tooltip title={r.errorMessage}><Box component="span"><StatusChip status={r.status} /></Box></Tooltip> : <StatusChip status={r.status} />}</TableCell>
                   <TableCell><Typography variant="caption" color="text.secondary">{formatDt(r.createdAt)}</Typography></TableCell>
-                  <TableCell>
+                  <TableCell align="right">
                     {r.status === UploadStatus.FAILED ? (
-                      <Button size="small" variant="contained" disabled sx={{ fontSize: '0.7rem', py: 0.2 }}>View</Button>
+                      <IconButton size="small" disabled aria-label="View"><EyeIcon size={16} /></IconButton>
                     ) : r.status === UploadStatus.COMPLETED && r.instrumentId ? (
-                      <Button size="small" variant="contained" onClick={() => navigate(`/admin/instruments/${r.instrumentId}`)} sx={{ fontSize: '0.7rem', py: 0.2 }}>View</Button>
+                      <Tooltip title="View">
+                        <IconButton size="small" onClick={() => navigate(`/admin/instruments/${r.instrumentId}`)}><EyeIcon size={16} /></IconButton>
+                      </Tooltip>
                     ) : (
                       <Typography variant="caption" color="text.secondary">Processing...</Typography>
                     )}
@@ -245,6 +253,7 @@ export default function UploadsPage() {
       </TableContainer>
       <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)}
         rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} />
+      </Paper>
 
       <Snackbar open={!!success} autoHideDuration={4000} onClose={() => setSuccess('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>

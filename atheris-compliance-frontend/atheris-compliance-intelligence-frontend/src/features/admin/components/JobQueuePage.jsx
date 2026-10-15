@@ -1,48 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Typography, Card, CardContent, Chip, Table, TableBody,
+  Box, Typography, Paper, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  IconButton, Tooltip, CircularProgress, Alert, Button, TextField,
-  InputAdornment, Tabs, Tab,
+  IconButton, Tooltip, CircularProgress, Alert, Button,
+  Tabs, Tab,
 } from '@mui/material';
 import {
-  Refresh, CloudUpload, CheckCircle, ErrorOutline, HourglassEmpty,
-  PlayArrow, Close, Search, BugReport, Group, AccountTree,
-  PictureAsPdf,
-} from '@mui/icons-material';
+  PageHeader, FilterBar, TL, tone,
+  ArrowPathIcon, CloudArrowUpIcon, ArrowUpTrayIcon, CheckCircleIcon, ExclamationCircleIcon, ClockIcon,
+  XMarkIcon, UserGroupIcon, QueueListIcon, CpuChipIcon, EyeIcon, ChevronRightIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 import UploadDialog from './UploadDialog';
 
 const TABS = [
-  { key: 'all', label: 'All', icon: <AccountTree sx={{ fontSize: 16 }} /> },
-  { key: 'system', label: 'System Errors', icon: <BugReport sx={{ fontSize: 16 }} /> },
-  { key: 'ai', label: 'Awaiting AI', icon: <HourglassEmpty sx={{ fontSize: 16 }} /> },
-  { key: 'tenant', label: 'Awaiting Tenant', icon: <Group sx={{ fontSize: 16 }} /> },
+  { key: 'all', label: 'All', icon: <QueueListIcon size={16} /> },
+  { key: 'system', label: 'System Errors', icon: <ExclamationCircleIcon size={16} /> },
+  { key: 'ai', label: 'Awaiting AI', icon: <CpuChipIcon size={16} /> },
+  { key: 'tenant', label: 'Awaiting Tenant', icon: <UserGroupIcon size={16} /> },
 ];
 
 const STAGE_LABELS = [
-  { key: 'download', label: 'Download', color: '#3182CE' },
-  { key: 'ocr', label: 'Extract Text', color: '#805AD5' },
-  { key: 'classify', label: 'Analyze & Tag', color: '#DD6B20' },
-  { key: 'publish', label: 'Send Alerts', color: '#2D7D46' },
+  { key: 'download', label: 'Download', color: tone('blue').dot },
+  { key: 'ocr', label: 'Extract Text', color: tone('purple').dot },
+  { key: 'classify', label: 'Analyze & Tag', color: tone('orange').dot },
+  { key: 'publish', label: 'Send Alerts', color: tone('green').dot },
 ];
 
 const stageStatusIcon = {
   idle: null,
-  pending: <HourglassEmpty sx={{ fontSize: 14 }} />,
-  processing: <PlayArrow sx={{ fontSize: 14 }} />,
-  completed: <CheckCircle sx={{ fontSize: 14 }} />,
-  failed: <ErrorOutline sx={{ fontSize: 14 }} />,
+  pending: <ClockIcon size={14} />,
+  processing: <ArrowPathIcon size={14} />,
+  completed: <CheckCircleIcon size={14} />,
+  failed: <ExclamationCircleIcon size={14} />,
 };
 
-const stageStatusColor = {
-  idle: '#E2E8F0',
-  pending: '#A0AEC0',
-  processing: '#3182CE',
-  completed: '#2D7D46',
-  failed: '#C53030',
+const stageStatusTone = {
+  idle: { bg: TL.gray50, fg: TL.gray400 },
+  pending: { bg: tone('amber').bg, fg: tone('amber').fg },
+  processing: { bg: tone('blue').bg, fg: tone('blue').fg },
+  completed: { bg: tone('green').bg, fg: tone('green').fg },
+  failed: { bg: tone('red').bg, fg: tone('red').fg },
 };
 
 function formatDt(ts) {
@@ -55,20 +55,20 @@ function PipelineStages({ stages }) {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
       {STAGE_LABELS.map((st, i) => {
         const status = stages?.[st.key] || 'idle';
-        const color = stageStatusColor[status];
+        const st2 = stageStatusTone[status] || stageStatusTone.idle;
         const icon = stageStatusIcon[status];
         return (
           <Box key={st.key} sx={{ display: 'flex', alignItems: 'center' }}>
             <Tooltip title={`${st.label}: ${status}`}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, px: 0.6, py: 0.3, borderRadius: 1, bgcolor: `${color}14` }}>
-                {icon && <Box sx={{ color }}>{icon}</Box>}
-                <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25, borderRadius: 9999, bgcolor: st2.bg, color: st2.fg }}>
+                {icon && <Box sx={{ display: 'flex' }}>{icon}</Box>}
+                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: 'inherit', whiteSpace: 'nowrap' }}>
                   {st.label}
                 </Typography>
               </Box>
             </Tooltip>
             {i < STAGE_LABELS.length - 1 && (
-              <Typography sx={{ color: '#CBD5E0', mx: 0.3, fontSize: '0.6rem' }}>▸</Typography>
+              <ChevronRightIcon size={12} sx={{ color: TL.gray300, mx: 0.25 }} />
             )}
           </Box>
         );
@@ -262,58 +262,57 @@ export default function JobQueuePage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Document Pipeline</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track documents through every stage of the pipeline.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" startIcon={<CloudUpload />} onClick={() => setUploadOpen(true)}>
-            Upload Document
-          </Button>
-          <IconButton onClick={fetchAll}><Refresh /></IconButton>
-        </Box>
-      </Box>
-
-      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2, '& .MuiTab-root': { minHeight: 36, py: 0.5, fontSize: '0.8rem' } }}>
-        {TABS.map(t => (
-          <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
-        ))}
-      </Tabs>
+      <PageHeader
+        title="Document Pipeline"
+        subtitle="Track documents through every stage of the pipeline."
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={fetchAll}>Refresh</Button>
+            <Button variant="contained" startIcon={<CloudArrowUpIcon size={16} />} onClick={() => setUploadOpen(true)}>
+              Upload Document
+            </Button>
+          </>
+        )}
+        sx={{ pb: 0 }}
+      >
+        <Tabs value={tab} onChange={handleTabChange} sx={{ mb: '-1px' }}>
+          {TABS.map(t => (
+            <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
+          ))}
+        </Tabs>
+      </PageHeader>
 
       {tab === 'all' && (
-        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {STAGE_LABELS.map((st) => (
-                <Box key={st.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: st.color }} />
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: st.color }}>
-                      {st.label}
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: '#718096' }}>
-                      {stageDescriptions[st.key]}
-                    </Typography>
-                  </Box>
+        <Paper sx={{ mb: 3, p: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 3 }}>
+            {STAGE_LABELS.map((st, i) => (
+              <Box key={st.key} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: '8px', bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  fontSize: '0.8125rem', fontWeight: 700, color: st.color,
+                }}>
+                  {i + 1}
                 </Box>
-              ))}
-            </Box>
-          </CardContent>
-        </Card>
+                <Box>
+                  <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: TL.gray800 }}>
+                    {st.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+                    {stageDescriptions[st.key]}
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <TextField
-          size="small" placeholder="Search by document title or regulator..." value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }} sx={{ flex: 1 }}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
-          }}
-        />
-      </Box>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search by document title or regulator...' }}
+        showClear={!!search}
+        onClear={() => { setSearch(''); setPage(0); }}
+      />
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
@@ -322,32 +321,32 @@ export default function JobQueuePage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {!loading && !error && (
-        <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Document</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Regulator</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Progress</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 120 }}>Updated</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Actions</TableCell>
+                  <TableCell>Document</TableCell>
+                  <TableCell sx={{ width: 100 }}>Regulator</TableCell>
+                  <TableCell>Progress</TableCell>
+                  <TableCell sx={{ width: 120 }}>Updated</TableCell>
+                  <TableCell align="right" sx={{ width: 100 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paged.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#A0AEC0' }}>
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: TL.gray500 }}>
                     {search ? 'No documents match your search' : 'No documents in this view'}
                   </TableCell></TableRow>
-                ) : paged.map((item, i) => (
+                ) : paged.map((item) => (
                   <TableRow
                     key={item.id}
                     hover
-                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
+                    sx={{ cursor: 'pointer' }}
                     onClick={() => handleRowClick(item)}
                   >
                     <TableCell>
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{item.title}</Typography>
+                      <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main' }}>{item.title}</Typography>
                       {item.sourceUrl && (
                         <Typography
                           component="a"
@@ -355,46 +354,45 @@ export default function JobQueuePage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          sx={{ fontSize: '0.6rem', color: '#3182CE', textDecoration: 'underline', display: 'block', mt: 0.3, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: '#1A365D' } }}
+                          sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500, textDecoration: 'none', display: 'block', mt: 0.25, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: TL.primary, textDecoration: 'underline' } }}
                         >
                           {item.sourceUrl}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={item.regulator} size="small"
-                        sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff', borderRadius: 1 }} />
+                      <Chip label={item.regulator} size="small" />
                     </TableCell>
                     <TableCell>
                       <PipelineStages stages={item.stages} />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>
+                    <TableCell sx={{ fontSize: '0.8125rem', color: TL.gray500, whiteSpace: 'nowrap' }}>
                       {formatDt(item.updatedAt)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       {item._source === 'pending' ? (
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                           <Tooltip title="Upload PDF">
                             <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendUpload(item._data.id); }}>
-                              <CloudUpload sx={{ fontSize: 16, color: '#3182CE' }} />
+                              <ArrowUpTrayIcon size={16} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Skip">
                             <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendSkip(item._data.id); }}>
-                              <Close sx={{ fontSize: 16, color: '#A0AEC0' }} />
+                              <XMarkIcon size={16} />
                             </IconButton>
                           </Tooltip>
                         </Box>
                       ) : item._source === 'instrument' ? (
                         <Tooltip title="View tenant classifications">
                           <IconButton size="small">
-                            <Group sx={{ fontSize: 16, color: '#3182CE' }} />
+                            <UserGroupIcon size={16} />
                           </IconButton>
                         </Tooltip>
                       ) : (
                         <Tooltip title="View job details">
                           <IconButton size="small">
-                            <PictureAsPdf sx={{ fontSize: 16, color: '#718096' }} />
+                            <EyeIcon size={16} />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -413,7 +411,7 @@ export default function JobQueuePage() {
             onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
             rowsPerPageOptions={[10, 20, 50]}
           />
-        </Card>
+        </Paper>
       )}
 
       <UploadDialog

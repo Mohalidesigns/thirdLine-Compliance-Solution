@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Paper, Snackbar,
+  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Snackbar,
 } from '@mui/material';
-import { Edit, UploadFile, Download, Link as LinkIcon, ArrowBack } from '@mui/icons-material';
 import {
-  DetailHeader, CoverageStrip, SectionTabs, SectionTable,
+  DetailHeader, CoverageStrip, SectionTabs, SectionTable, DataCard, StatusBadge, TL,
   controlColumns, returnColumns, sanctionColumns,
+  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon,
+  ShieldCheckIcon, CalendarDaysIcon, ScaleIcon, FolderIcon, ClockIcon,
 } from 'shared';
 import api from '../../services/api';
 import RiskAssessmentModal from '../../components/modals/RiskAssessmentModal';
@@ -18,8 +19,12 @@ import EvidenceUploadModal from '../../components/modals/EvidenceUploadModal';
 import FormattedText from '../../components/FormattedText';
 import EntityDrillDrawer from './components/detail/EntityDrillDrawer';
 
-const APPLICABILITY_COLOR = { applicable: '#2D7D46', not_applicable: '#C53030', under_review: '#DD6B20' };
-const STATUS_COLOR = { applicable: 'success', not_applicable: 'error', under_review: 'warning' };
+const APPLICABILITY_TONE = { applicable: 'green', not_applicable: 'red', under_review: 'amber' };
+
+const MICRO_LABEL_SX = {
+  display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
+  textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5,
+};
 
 function formatDate(d) {
   if (!d) return '-';
@@ -83,12 +88,12 @@ export default function ObligationDetailView({ obligationId, onBack }) {
   const pageRows = filtered.slice(page * size, (page + 1) * size);
 
   const actionFor = {
-    controls: <Button size="small" variant="contained" startIcon={<Edit sx={{ fontSize: 16 }} />}
-      onClick={() => setModal('controls')} sx={{ textTransform: 'none' }}>Link controls</Button>,
-    returns: <Button size="small" variant="contained" startIcon={<Edit sx={{ fontSize: 16 }} />}
-      onClick={() => setModal('returns')} sx={{ textTransform: 'none' }}>Map return</Button>,
-    evidence: <Button size="small" variant="contained" startIcon={<UploadFile sx={{ fontSize: 16 }} />}
-      onClick={() => setModal('evidence')} sx={{ textTransform: 'none' }}>Upload</Button>,
+    controls: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setModal('controls')}>Link controls</Button>,
+    returns: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setModal('returns')}>Map return</Button>,
+    evidence: <Button size="small" variant="contained" startIcon={<ArrowUpTrayIcon size={16} />}
+      onClick={() => setModal('evidence')}>Upload</Button>,
   };
 
   const columnsByTab = {
@@ -100,7 +105,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
       { id: 'uploadedByName', label: 'Uploaded By', minWidth: 160,
         render: (r) => <Typography variant="body2">{r.uploadedByName || '—'}</Typography> },
       { id: 'createdAt', label: 'Date', minWidth: 130,
-        render: (r) => <Typography variant="body2" color="text.secondary">{formatDate(r.createdAt)}</Typography> },
+        render: (r) => <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{formatDate(r.createdAt)}</Typography> },
     ],
     history: [
       { id: 'classificationVersion', label: 'Version', minWidth: 90,
@@ -108,7 +113,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
       { id: 'changedByName', label: 'Changed By', minWidth: 180,
         render: (r) => <Typography variant="body2">{r.changedByName || `User #${r.changedByUserId ?? '—'}`}</Typography> },
       { id: 'changedAt', label: 'Date', minWidth: 130,
-        render: (r) => <Typography variant="body2" color="text.secondary">{formatDate(r.changedAt)}</Typography> },
+        render: (r) => <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{formatDate(r.changedAt)}</Typography> },
       { id: 'applicability', label: 'Applicability', minWidth: 140,
         render: (r) => <Typography variant="body2">{r.applicability || '—'}</Typography> },
     ],
@@ -123,7 +128,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
   if (error || !selected) {
     return (
       <Box>
-        {onBack && <Button startIcon={<ArrowBack />} onClick={onBack} sx={{ mb: 2 }}>Back</Button>}
+        {onBack && <DetailHeader title="Obligation" onBack={onBack} />}
         <Alert severity="error">{error?.message || 'Failed to load obligation detail.'}</Alert>
       </Box>
     );
@@ -139,38 +144,35 @@ export default function ObligationDetailView({ obligationId, onBack }) {
 
   return (
     <Box>
-      {onBack && (
-        <Button startIcon={<ArrowBack />} onClick={onBack} sx={{ mb: 1.5, textTransform: 'none' }}>Back to Obligations</Button>
-      )}
-
       <DetailHeader
+        onBack={onBack}
+        backLabel="Back to Obligations"
         title={selected.title || 'Untitled obligation'}
         status={selected.applicability}
-        statusColor={APPLICABILITY_COLOR[selected.applicability]}
+        statusTone={APPLICABILITY_TONE[selected.applicability]}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             {selected.actName && (
-              <Typography variant="body2" sx={{ color: '#3182CE', fontWeight: 600, mr: 0.5 }}>
-                <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
+              <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'primary.main', fontWeight: 500, fontSize: '0.875rem', mr: 0.5 }}>
+                <LinkIcon size={14} />
                 {selected.actName}
               </Typography>
             )}
             {chips.map((c) => (
               <Chip key={c} size="small" variant="outlined" label={c}
-                sx={{ height: 22, borderRadius: '4px', fontFamily: c === selected.sectionReference ? 'Roboto Mono, monospace' : undefined, fontSize: '0.7rem' }} />
+                sx={c === selected.sectionReference ? { fontFamily: TL.mono, fontSize: '0.7rem' } : undefined} />
             ))}
-            <Chip size="small" label={selected.hasPoints ? 'With Points' : 'Without Points'}
-              color={selected.hasPoints ? 'success' : 'default'} sx={{ height: 22, borderRadius: '4px' }} />
+            <StatusBadge label={selected.hasPoints ? 'With Points' : 'Without Points'} tone={selected.hasPoints ? 'green' : 'gray'} />
           </Box>
         )}
         description={selected.plainEnglishStatement}
       />
 
       {(selected.description || selected.plainEnglishStatement) && (
-        <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5 }}>
+        <DataCard title="Obligation Statement" sx={{ mb: 3 }}>
           {selected.description && (
-            <Box sx={{ mb: selected.plainEnglishStatement ? 2 : 0 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <Box sx={{ mb: selected.plainEnglishStatement ? 2.5 : 0 }}>
+              <Typography component="span" sx={MICRO_LABEL_SX}>
                 Source Text
               </Typography>
               <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
@@ -178,24 +180,24 @@ export default function ObligationDetailView({ obligationId, onBack }) {
           )}
           {selected.plainEnglishStatement && (
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              <Typography component="span" sx={MICRO_LABEL_SX}>
                 Plain English
               </Typography>
               <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
             </Box>
           )}
-        </Paper>
+        </DataCard>
       )}
 
       <Box sx={{ mb: 3, width: '100%' }}>
         <CoverageStrip
           title="Coverage"
           items={[
-            { key: 'controls', label: 'Controls', value: counts.controls, color: '#DD6B20' },
-            { key: 'returns', label: 'Returns', value: counts.returns, color: '#6B46C1' },
-            { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, color: '#C53030' },
-            { key: 'evidence', label: 'Evidence', value: counts.evidence, color: '#2B6CB0' },
-            { key: 'history', label: 'History', value: counts.history, color: '#2C7A7B' },
+            { key: 'controls', label: 'Controls', value: counts.controls, tone: 'orange', icon: <ShieldCheckIcon /> },
+            { key: 'returns', label: 'Returns', value: counts.returns, tone: 'purple', icon: <CalendarDaysIcon /> },
+            { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, tone: 'red', icon: <ScaleIcon /> },
+            { key: 'evidence', label: 'Evidence', value: counts.evidence, tone: 'blue', icon: <FolderIcon /> },
+            { key: 'history', label: 'History', value: counts.history, tone: 'teal', icon: <ClockIcon /> },
           ]}
           onTileClick={switchTab}
         />
@@ -220,7 +222,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
         emptyMessage={`No ${tab} recorded for this obligation.`}
         columns={columnsByTab[tab]}
         actions={tab === 'evidence' ? (ev) => (
-          <IconButton size="small" title="Download" onClick={() => handleDownload(ev)}><Download fontSize="small" /></IconButton>
+          <IconButton size="small" title="Download" onClick={() => handleDownload(ev)}><ArrowDownTrayIcon size={16} /></IconButton>
         ) : undefined}
       />
 

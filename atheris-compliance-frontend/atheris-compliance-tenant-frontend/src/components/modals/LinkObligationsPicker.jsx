@@ -4,7 +4,7 @@ import {
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   Paper, TextField, Box, Typography, CircularProgress, InputAdornment,
 } from '@mui/material';
-import { Search, Add } from '@mui/icons-material';
+import { MagnifyingGlassIcon, PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import CreateObligationDialog from './CreateObligationDialog';
 
@@ -58,9 +58,9 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
           <Box sx={{ flex: 1 }}>
             <TextField size="small" fullWidth placeholder="Search obligation, section or regulator..."
               value={search} onChange={e => setSearch(e.target.value)}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon size={18} /></InputAdornment> } }} />
           </Box>
-          <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}
+          <Button size="small" variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ width: 170, whiteSpace: 'nowrap' }}
             onClick={() => setCreateOpen(true)}>
             Add New Obligation
           </Button>
@@ -74,9 +74,9 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Obligation</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Regulator</TableCell>
-                  <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                  <TableCell>Obligation</TableCell>
+                  <TableCell>Regulator</TableCell>
+                  <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>Select</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -98,7 +98,7 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
           </TableContainer>
         )}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={() => { onSave?.(selected); onClose(); }}>
           Save ({selected.length})

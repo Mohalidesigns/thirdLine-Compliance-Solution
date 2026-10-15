@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
-  TableSortLabel, IconButton, Button, MenuItem, Collapse,
+  TableRow, TablePagination, CircularProgress, Alert, Chip, Tooltip,
+  TableSortLabel, IconButton, Button, Collapse,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, Gavel, CheckCircle, KeyboardArrowDown, KeyboardArrowUp,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, StatusBadge,
+  ArrowPathIcon, ScaleIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon, BanknotesIcon, ChevronDownIcon,
+} from 'shared';
 import api from '../../../services/api';
 
 const MONO_CHIP_SX = {
-  height: 22, borderRadius: '4px',
   fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem',
 };
 
@@ -49,7 +49,7 @@ function SanctionDetail({ item }) {
     <>
       {blocks.map((b, i) => (
         <Box key={b.key} sx={{ mb: i === blocks.length - 1 ? 0 : 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{b.label}</Typography>
+          <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{b.label}</Typography>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{b.text}</Typography>
         </Box>
       ))}
@@ -63,12 +63,12 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
 
   return (
     <>
-      <TableRow hover onClick={onOpen} sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+      <TableRow hover onClick={onOpen} sx={{ cursor: 'pointer' }}>
         <TableCell sx={{ width: 72, p: 0.5, whiteSpace: 'nowrap' }}>
           {hasDetail ? (
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggle(); }}
               title={open ? 'Hide detail' : 'Show violation, penalty and impact'}>
-              {open ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+              <ChevronDownIcon size={16} sx={{ transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }} />
             </IconButton>
           ) : (
             <Box sx={{ display: 'inline-block', width: 30 }} />
@@ -77,7 +77,7 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
         </TableCell>
         <TableCell>
           <Tooltip title={item.actName || '-'}>
-            <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 280,
+            <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 280,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.actName || '-'}
             </Typography>
@@ -89,36 +89,32 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
         </TableCell>
         <TableCell>
           {item.sanctionType
-            ? <Chip size="small" label={item.sanctionType} color="error" variant="outlined"
-                sx={{ height: 22, borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize' }} />
+            ? <StatusBadge label={item.sanctionType} tone="red" sx={{ textTransform: 'capitalize' }} />
             : <Typography variant="body2" color="text.secondary">-</Typography>}
         </TableCell>
         <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.82rem' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono, monospace', fontSize: '0.8125rem' }}>
             {formatNaira(item.sanctionAmountNaira)}{item.sanctionAmountPerDay ? ' /day' : ''}
           </Typography>
         </TableCell>
         <TableCell>
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
             {item.severityScore != null ? (
-              <Chip size="small" label={`Sev ${item.severityScore}`}
-                color={item.severityScore > 7 ? 'error' : item.severityScore > 4 ? 'warning' : 'default'}
-                sx={{ height: 22, borderRadius: '4px' }} />
+              <StatusBadge label={`Sev ${item.severityScore}`}
+                tone={item.severityScore > 7 ? 'red' : item.severityScore > 4 ? 'orange' : 'gray'} />
             ) : (
               <Typography variant="body2" color="text.secondary">-</Typography>
             )}
             {item.hasBeenEnforced
-              ? <Chip icon={<CheckCircle sx={{ fontSize: 14 }} />} label="Enforced" size="small" color="success"
-                  sx={{ height: 22, borderRadius: '4px' }} />
-              : <Chip label="Not enforced" size="small" variant="outlined"
-                  sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', color: 'text.secondary' }} />}
+              ? <StatusBadge label="Enforced" tone="green" />
+              : <StatusBadge label="Not enforced" tone="gray" />}
           </Box>
         </TableCell>
         <TableCell>
           {roles.length > 0 ? (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               {roles.map(r => (
-                <Chip key={r} size="small" label={r} sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
+                <Chip key={r} size="small" label={r} />
               ))}
             </Box>
           ) : (
@@ -129,10 +125,8 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
       <TableRow>
         <TableCell colSpan={COLUMNS.length + 1} sx={{ p: 0, border: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box onClick={(e) => e.stopPropagation()} sx={{ p: 2, bgcolor: '#F7FAFC' }}>
-              <Paper variant="outlined" sx={{ p: 1.5, borderColor: '#FED7D7', bgcolor: '#FFFAFA' }}>
-                <SanctionDetail item={item} />
-              </Paper>
+            <Box onClick={(e) => e.stopPropagation()} sx={{ px: 3, py: 2, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <SanctionDetail item={item} />
             </Box>
           </Collapse>
         </TableCell>
@@ -160,7 +154,8 @@ export default function SanctionExplorerPage() {
   const mounted = useRef(true);
   const requestId = useRef(0);
 
-  useEffect(() => () => { mounted.current = false; }, []);
+  // Re-arm on setup: under StrictMode the simulated unmount would otherwise leave it false forever.
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const hasFilters = search || typeFilter !== 'All' || enforcedFilter !== 'All';
 
@@ -212,88 +207,70 @@ export default function SanctionExplorerPage() {
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Sanctions', value: stats?.total ?? 0, color: '#2B6CB0' },
-    { key: 'highSeverity', label: 'High Severity', value: stats?.highSeverity ?? 0, color: '#E53E3E' },
-    { key: 'enforced', label: 'Enforced', value: stats?.enforced ?? 0, color: '#38A169' },
-    { key: 'notEnforced', label: 'Not Enforced', value: stats?.notEnforced ?? 0, color: '#718096' },
-    { key: 'exposure', label: 'Total Exposure', value: formatNaira(stats?.totalExposure), color: '#DD6B20' },
+    { key: 'total', label: 'Total Sanctions', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
+    { key: 'highSeverity', label: 'High Severity', value: stats?.highSeverity ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'enforced', label: 'Enforced', value: stats?.enforced ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
+    { key: 'notEnforced', label: 'Not Enforced', value: stats?.notEnforced ?? 0, tone: 'gray', icon: <ClockIcon /> },
+    { key: 'exposure', label: 'Total Exposure', value: formatNaira(stats?.totalExposure), tone: 'orange', icon: <BanknotesIcon /> },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Sanction Explorer</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} sanction{total !== 1 ? 's' : ''} — penalties, enforcement and monetary exposure
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Sanction Explorer"
+        subtitle={`${total} sanction${total !== 1 ? 's' : ''} — penalties, enforcement and monetary exposure`}
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { loadRows(); loadStats(); }}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            sx={{ p: 2, borderLeft: `3px solid ${k.color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-              <Box sx={{ color: k.color, opacity: 0.5 }}><Gavel sx={{ fontSize: 20 }} /></Box>
-            </Box>
-            <Typography variant={k.key === 'exposure' ? 'h5' : 'h4'} sx={{ fontWeight: 700, color: k.color }}>
-              {k.value}
-            </Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpis} columns={5} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search description, penalty or type..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); setExpandedRow(null); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 280 }} />
-        <TextField select size="small" value={typeFilter}
-          onChange={e => { setTypeFilter(e.target.value); setPage(0); setExpandedRow(null); }}
-          label="Sanction Type" sx={{ minWidth: 180 }}>
-          <MenuItem value="All">All types</MenuItem>
-          {(stats?.sanctionTypes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={enforcedFilter}
-          onChange={e => { setEnforcedFilter(e.target.value); setPage(0); setExpandedRow(null); }}
-          label="Enforced" sx={{ minWidth: 130 }}>
-          <MenuItem value="All">All</MenuItem>
-          <MenuItem value="Yes">Yes</MenuItem>
-          <MenuItem value="No">No</MenuItem>
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{
+          value: search,
+          onChange: (v) => { setSearch(v); setPage(0); setExpandedRow(null); },
+          placeholder: 'Search description, penalty or type...',
+        }}
+        filters={[
+          {
+            key: 'type', label: 'Sanction Type', value: typeFilter, allLabel: 'All types',
+            onChange: (v) => { setTypeFilter(v); setPage(0); setExpandedRow(null); },
+            options: (stats?.sanctionTypes || []).map(t => ({ value: t, label: t })),
+          },
+          {
+            key: 'enforced', label: 'Enforced', value: enforcedFilter, allLabel: 'All', minWidth: 130,
+            onChange: (v) => { setEnforcedFilter(v); setPage(0); setExpandedRow(null); },
+            options: [{ value: 'Yes', label: 'Yes' }, { value: 'No', label: 'No' }],
+          },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearFilters}
+      />
 
       {/* Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : rows.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Gavel sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <ScaleIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No sanctions found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 72 }}>#</TableCell>
+                  <TableCell sx={{ width: 72 }}>#</TableCell>
                   {COLUMNS.map(c => {
                     const active = sortField === c.sortField;
                     return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                      <TableCell key={c.id} sx={{ minWidth: c.minWidth,
                         cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                         onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
                         {c.sortField

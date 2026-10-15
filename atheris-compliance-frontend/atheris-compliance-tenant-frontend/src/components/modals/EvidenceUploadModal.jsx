@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   CircularProgress, Typography, Box, List, ListItem, ListItemText, IconButton, Tooltip,
 } from '@mui/material';
-import { UploadFile, Download } from '@mui/icons-material';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from 'shared';
 import { api } from '../../services/api';
 
 export default function EvidenceUploadModal({ open, onClose, obligationId, evidence = [], onSaved, onError }) {
@@ -45,7 +45,7 @@ export default function EvidenceUploadModal({ open, onClose, obligationId, evide
       <DialogTitle>Evidence</DialogTitle>
       <DialogContent dividers>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Button component="label" variant="outlined" startIcon={<UploadFile />} size="small">
+          <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} size="small">
             {file ? file.name : 'Choose file'}
             <input type="file" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
           </Button>
@@ -64,7 +64,7 @@ export default function EvidenceUploadModal({ open, onClose, obligationId, evide
             {evidence.map(ev => (
               <ListItem key={ev.fileId} disableGutters
                 secondaryAction={
-                  <Tooltip title="Download"><IconButton size="small" onClick={() => handleDownload(ev)}><Download fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Download"><IconButton size="small" onClick={() => handleDownload(ev)}><ArrowDownTrayIcon size={16} /></IconButton></Tooltip>
                 }>
                 <ListItemText primary={<Typography variant="body2" sx={{ fontWeight: 500 }}>{ev.originalName}</Typography>} />
               </ListItem>

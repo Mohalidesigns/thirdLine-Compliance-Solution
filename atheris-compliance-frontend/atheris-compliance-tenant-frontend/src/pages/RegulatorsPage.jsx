@@ -1,26 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Box, Typography, Alert, IconButton, Tooltip, Chip, Button } from '@mui/material';
-import {
-  Refresh, AccountBalance, Gavel, Assignment, EventAvailable, Add,
-} from '@mui/icons-material';
+import { Box, Typography, Alert, Tooltip, Chip, Button } from '@mui/material';
 import { api } from '../services/api';
-import { KpiCards, FilterBar, SectionTable } from 'shared';
+import {
+  KpiCards, FilterBar, SectionTable, PageHeader,
+  ArrowPathIcon, BuildingLibraryIcon, ScaleIcon, ClipboardDocumentListIcon, CalendarDaysIcon, PlusIcon,
+} from 'shared';
 import RegulatorFormDialog from '../components/modals/RegulatorFormDialog';
 import { useAuth } from '../contexts/AuthContext';
 
 const KPI_ICONS = {
-  total: <AccountBalance sx={{ fontSize: 20 }} />,
-  sanctions: <Gavel sx={{ fontSize: 20 }} />,
-  obligations: <Assignment sx={{ fontSize: 20 }} />,
-  returns: <EventAvailable sx={{ fontSize: 20 }} />,
+  total: <BuildingLibraryIcon />,
+  sanctions: <ScaleIcon />,
+  obligations: <ClipboardDocumentListIcon />,
+  returns: <CalendarDaysIcon />,
 };
 
 const COLUMNS = [
   { id: 'name', label: 'Regulator', minWidth: 300, sortable: true, render: (r) => (
     <Tooltip title={r.name || ''}>
-      <Typography variant="body2" sx={{ maxWidth: 360, overflow: 'hidden',
+      <Typography variant="body2" sx={{ maxWidth: 360, overflow: 'hidden', color: 'primary.main', fontWeight: 500,
         textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {r.name || 'Untitled'}
       </Typography>
@@ -28,18 +28,17 @@ const COLUMNS = [
   ) },
   { id: 'abbreviation', label: 'Abbrev', minWidth: 110, sortable: true, render: (r) => (
     r.abbreviation
-      ? <Chip label={r.abbreviation} size="small"
-          sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />
+      ? <Chip label={r.abbreviation} size="small" />
       : <Typography variant="body2" color="text.secondary">—</Typography>
   ) },
   { id: 'obligationCount', label: 'Obligations', minWidth: 120, render: (r) => (
-    <Typography variant="body2" sx={{ color: '#2D7D46' }}>{r.obligationCount ?? 0}</Typography>
+    <Typography variant="body2">{r.obligationCount ?? 0}</Typography>
   ) },
   { id: 'returnCount', label: 'Returns', minWidth: 100, render: (r) => (
-    <Typography variant="body2" sx={{ color: '#DD6B20' }}>{r.returnCount ?? 0}</Typography>
+    <Typography variant="body2">{r.returnCount ?? 0}</Typography>
   ) },
   { id: 'sanctionCount', label: 'Sanctions', minWidth: 110, render: (r) => (
-    <Typography variant="body2" sx={{ color: '#805AD5' }}>{r.sanctionCount ?? 0}</Typography>
+    <Typography variant="body2">{r.sanctionCount ?? 0}</Typography>
   ) },
 ];
 
@@ -118,37 +117,37 @@ export default function RegulatorsPage() {
   }
 
   const kpiItems = [
-    { key: 'total', label: 'Total Regulators', color: '#2B6CB0', icon: KPI_ICONS.total,
+    { key: 'total', label: 'Total Regulators', tone: 'blue', icon: KPI_ICONS.total,
       value: stats?.total ?? 0, breakdown: stats?.totalBreakdown },
-    { key: 'sanctions', label: 'Sanctions', color: '#805AD5', icon: KPI_ICONS.sanctions,
+    { key: 'sanctions', label: 'Sanctions', tone: 'purple', icon: KPI_ICONS.sanctions,
       value: stats?.sanctions ?? 0, breakdown: stats?.sanctionsBreakdown },
-    { key: 'obligations', label: 'Obligations', color: '#2D7D46', icon: KPI_ICONS.obligations,
+    { key: 'obligations', label: 'Obligations', tone: 'green', icon: KPI_ICONS.obligations,
       value: stats?.obligations ?? 0, breakdown: stats?.obligationsBreakdown },
-    { key: 'returns', label: 'Returns', color: '#DD6B20', icon: KPI_ICONS.returns,
+    { key: 'returns', label: 'Returns', tone: 'orange', icon: KPI_ICONS.returns,
       value: stats?.returns ?? 0, breakdown: stats?.returnsBreakdown },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Regulators</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} regulator{total !== 1 ? 's' : ''} — your regulatory subscriptions
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}><Refresh /></IconButton>
-          </Tooltip>
-          {canManage && (
-            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}
-              sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
-              Add Regulator
-            </Button>
-          )}
-        </Box>
-      </Box>
+      <PageHeader
+        title="Regulators"
+        subtitle={`${total} regulator${total !== 1 ? 's' : ''} — your regulatory subscriptions`}
+        actions={(
+          <>
+            <Tooltip title="Refresh">
+              <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />}
+                onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}>
+                Refresh
+              </Button>
+            </Tooltip>
+            {canManage && (
+              <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
+                Add Regulator
+              </Button>
+            )}
+          </>
+        )}
+      />
 
       {listQuery.error && <Alert severity="error" sx={{ mb: 2 }}>{listQuery.error.message}</Alert>}
 

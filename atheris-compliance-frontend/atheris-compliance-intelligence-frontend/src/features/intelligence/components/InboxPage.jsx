@@ -1,23 +1,22 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
+  Box, Typography, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
-  Tabs, Tab, Drawer, Divider, Stack, Paper, CircularProgress, Alert,
+  Tabs, Tab, Drawer, Divider, Stack, Paper, CircularProgress, Alert, LinearProgress,
 } from '@mui/material';
 import {
-  CheckCircle, Cancel, HourglassEmpty, Visibility, OpenInNew,
-  History, Bookmark, AssignmentTurnedIn, InfoOutlined,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, RiskBadge, StatusBadge, TL,
+  CheckCircleIcon, XMarkIcon, ClockIcon, EyeIcon, ChevronRightIcon, FingerPrintIcon,
+  ClipboardDocumentCheckIcon, InformationCircleIcon, ExclamationTriangleIcon, InboxIcon,
+} from 'shared';
 import api from '../../../services/api';
 
 const statusConfig = {
-  unclassified: { label: 'Unclassified', color: '#718096', bg: '#EDF2F7', icon: <HourglassEmpty sx={{ fontSize: 14 }} /> },
-  applicable: { label: 'Applicable', color: '#2D7D46', bg: '#E6F4EA', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-  not_applicable: { label: 'Not Applicable', color: '#C53030', bg: '#FEE2E2', icon: <Cancel sx={{ fontSize: 14 }} /> },
-  under_review: { label: 'Under Review', color: '#DD6B20', bg: '#FEF3E2', icon: <InfoOutlined sx={{ fontSize: 14 }} /> },
+  unclassified: { label: 'Unclassified', tone: 'gray' },
+  applicable: { label: 'Applicable', tone: 'green' },
+  not_applicable: { label: 'Not Applicable', tone: 'red' },
+  under_review: { label: 'Under Review', tone: 'orange' },
 };
-
-const riskColors = { High: '#C53030', Medium: '#DD6B20', Low: '#2D7D46' };
 
 function formatConfidence(val) {
   if (val == null) return '—';
@@ -66,42 +65,34 @@ export default function InboxPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Review Inbox</Typography>
-          <Typography variant="body2" color="text.secondary">Review and classify incoming regulatory intelligence relevant to your license</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<History />}>Classification History</Button>
-          <Button variant="contained" size="small" startIcon={<AssignmentTurnedIn />}>Bulk Confirm</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Review Inbox"
+        subtitle="Review and classify incoming regulatory intelligence relevant to your license"
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<FingerPrintIcon size={16} />}>Classification History</Button>
+            <Button variant="contained" startIcon={<ClipboardDocumentCheckIcon size={16} />}>Bulk Confirm</Button>
+          </>
+        )}
+        sx={{ pb: 0 }}
+      >
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: '-1px' }}>
+          <Tab label="Needs Review" />
+          <Tab label="Applicable" />
+          <Tab label="Archived" />
+        </Tabs>
+      </PageHeader>
 
       {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[
-          { label: 'Pending Review', value: inboxItems.filter(i => i.tenantClassification === 'unclassified').length, color: '#D4AF37' },
-          { label: 'High Risk', value: inboxItems.filter(i => i.riskRating === 'High').length, color: '#C53030' },
-          { label: 'AI Confirmed', value: inboxItems.filter(i => i.applicabilityConfidence > 0.9).length, color: '#2D7D46' },
-          { label: 'Total Inbox', value: inboxItems.length, color: '#1A365D' },
-        ].map((s) => (
-          <Grid size={{ xs: 6, md: 3 }} key={s.label}>
-            <Card>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{s.value}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Filter Tabs */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="Needs Review" sx={{ textTransform: 'none', fontWeight: 600 }} />
-        <Tab label="Applicable" sx={{ textTransform: 'none', fontWeight: 600 }} />
-        <Tab label="Archived" sx={{ textTransform: 'none', fontWeight: 600 }} />
-      </Tabs>
+      <KpiCards
+        columns={4}
+        items={[
+          { key: 'pending', label: 'Pending Review', value: inboxItems.filter(i => i.tenantClassification === 'unclassified').length, tone: 'amber', icon: <ClockIcon /> },
+          { key: 'high', label: 'High Risk', value: inboxItems.filter(i => i.riskRating === 'High').length, tone: 'red', icon: <ExclamationTriangleIcon /> },
+          { key: 'confirmed', label: 'AI Confirmed', value: inboxItems.filter(i => i.applicabilityConfidence > 0.9).length, tone: 'green', icon: <CheckCircleIcon /> },
+          { key: 'total', label: 'Total Inbox', value: inboxItems.length, tone: 'blue', icon: <InboxIcon /> },
+        ]}
+      />
 
       {/* Loading / Error / Table */}
       {loading ? (
@@ -109,7 +100,7 @@ export default function InboxPage() {
       ) : error ? (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       ) : (
-        <Card>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -118,49 +109,48 @@ export default function InboxPage() {
                   <TableCell>Regulator</TableCell>
                   <TableCell>AI Confidence</TableCell>
                   <TableCell>Risk</TableCell>
-                  <TableCell>Discovered</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {inboxItems.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: '#718096' }}>No items in this view</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: TL.gray500 }}>No items in this view</TableCell></TableRow>
                 ) : inboxItems.map((item) => (
                   <TableRow key={item.instrumentId} hover sx={{ cursor: 'pointer' }} onClick={() => handleRowClick(item)}>
-                    <TableCell sx={{ py: 1.5 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.sourceTitle}</Typography>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{item.sourceTitle}</Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>Discovered {formatDate(item.discoveredAt)}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label={item.regulatorAbbreviation || '—'} size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                      <Chip label={item.regulatorAbbreviation || '—'} size="small" />
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 40, height: 4, bgcolor: '#EDF2F7', borderRadius: 2 }}>
-                          <Box sx={{ width: formatConfidence(item.applicabilityConfidence), height: '100%', bgcolor: '#2D7D46', borderRadius: 2 }} />
-                        </Box>
-                        <Typography variant="caption" sx={{ fontWeight: 700 }}>{formatConfidence(item.applicabilityConfidence)}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={item.applicabilityConfidence != null ? Math.round(item.applicabilityConfidence * 100) : 0}
+                          sx={{ width: 56, '& .MuiLinearProgress-bar': { bgcolor: TL.success } }}
+                        />
+                        <Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 600, color: TL.gray700 }}>{formatConfidence(item.applicabilityConfidence)}</Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: riskColors[item.riskRating] || '#718096' }}>{item.riskRating || '—'}</Typography>
+                      <RiskBadge value={item.riskRating} emptyLabel="—" />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', color: '#718096' }}>{formatDate(item.discoveredAt)}</TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        icon={statusConfig[item.tenantClassification]?.icon}
+                      <StatusBadge
                         label={statusConfig[item.tenantClassification]?.label || item.tenantClassification}
-                        sx={{ bgcolor: statusConfig[item.tenantClassification]?.bg || '#EDF2F7', color: statusConfig[item.tenantClassification]?.color || '#718096', fontWeight: 600, fontSize: '0.65rem' }}
+                        tone={statusConfig[item.tenantClassification]?.tone || 'gray'}
                       />
                     </TableCell>
-                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      <Stack direction="row" spacing={1} justifyContent="center">
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Tooltip title="Mark Applicable">
-                          <IconButton size="small" sx={{ color: '#2D7D46' }}><CheckCircle sx={{ fontSize: 18 }} /></IconButton>
+                          <IconButton size="small"><CheckCircleIcon size={16} /></IconButton>
                         </Tooltip>
                         <Tooltip title="Not Applicable">
-                          <IconButton size="small" sx={{ color: '#C53030' }}><Cancel sx={{ fontSize: 18 }} /></IconButton>
+                          <IconButton size="small"><XMarkIcon size={16} /></IconButton>
                         </Tooltip>
                       </Stack>
                     </TableCell>
@@ -169,7 +159,7 @@ export default function InboxPage() {
               </TableBody>
             </Table>
           </TableContainer>
-        </Card>
+        </Paper>
       )}
 
       {/* Detail View Drawer */}
@@ -177,38 +167,46 @@ export default function InboxPage() {
         {selectedItem && (
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-              <Chip label={selectedItem.regulatorAbbreviation || '—'} size="small" sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff' }} />
-              <IconButton onClick={() => setDrawerOpen(false)} size="small"><Cancel /></IconButton>
+              <Chip label={selectedItem.regulatorAbbreviation || '—'} size="small" />
+              <IconButton onClick={() => setDrawerOpen(false)} size="small"><XMarkIcon size={20} /></IconButton>
             </Box>
 
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, lineHeight: 1.3 }}>{selectedItem.sourceTitle}</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
+            <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: TL.gray800, mb: 0.5, lineHeight: 1.4 }}>{selectedItem.sourceTitle}</Typography>
+            <Typography sx={{ display: 'block', mb: 3, fontSize: '0.75rem', color: TL.gray500 }}>
               Discovered {formatDate(selectedItem.discoveredAt)} • AI Confidence: {formatConfidence(selectedItem.applicabilityConfidence)}
             </Typography>
 
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#F7FAFC', mb: 3 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#1A365D', display: 'block', mb: 0.5 }}>DETAILS</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                Area of Focus: {selectedItem.areaOfFocus || '—'}<br />
-                Nature: {selectedItem.nature || '—'}<br />
-                Risk Rating: {selectedItem.riskRating || '—'}
-              </Typography>
-            </Paper>
+            <Box sx={{ p: 2, bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`, borderRadius: '8px', mb: 3 }}>
+              <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1 }}>Details</Typography>
+              {[
+                ['Area of Focus', selectedItem.areaOfFocus || '—'],
+                ['Nature', selectedItem.nature || '—'],
+              ].map(([k, val]) => (
+                <Box key={k} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 0.5 }}>
+                  <Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>{k}</Typography>
+                  <Typography sx={{ fontSize: '0.8125rem', color: TL.gray800, fontWeight: 500, textAlign: 'right' }}>{val}</Typography>
+                </Box>
+              ))}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, py: 0.5 }}>
+                <Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>Risk Rating</Typography>
+                <RiskBadge value={selectedItem.riskRating} emptyLabel="—" />
+              </Box>
+            </Box>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Classification Actions</Typography>
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800, mb: 1.5 }}>Classification Actions</Typography>
             <Grid container spacing={1.5} sx={{ mb: 4 }}>
               <Grid size={{ xs: 12 }}>
-                <Button fullWidth variant="contained" sx={{ bgcolor: '#2D7D46', '&:hover': { bgcolor: '#276749' } }} startIcon={<CheckCircle />}>
+                <Button fullWidth variant="contained" color="success" startIcon={<CheckCircleIcon size={16} />}>
                   Confirm as Applicable
                 </Button>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Button fullWidth variant="outlined" color="error" startIcon={<Cancel />}>
+                <Button fullWidth variant="outlined" color="error" startIcon={<XMarkIcon size={16} />}>
                   Not Applicable
                 </Button>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Button fullWidth variant="outlined" sx={{ color: '#DD6B20', borderColor: '#DD6B20' }} startIcon={<InfoOutlined />}>
+                <Button fullWidth variant="outlined" startIcon={<InformationCircleIcon size={16} />}>
                   Under Review
                 </Button>
               </Grid>
@@ -216,11 +214,11 @@ export default function InboxPage() {
 
             <Divider sx={{ mb: 3 }} />
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Document Preview</Typography>
-            <Box sx={{ height: 200, bgcolor: '#EDF2F7', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1, border: '2px dashed #CBD5E0' }}>
-              <Visibility sx={{ fontSize: 32, color: '#A0AEC0' }} />
-              <Typography variant="caption" color="text.secondary">PDF Preview Component</Typography>
-              <Button size="small" variant="text" startIcon={<OpenInNew />}>Open Original Source</Button>
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800, mb: 1.5 }}>Document Preview</Typography>
+            <Box sx={{ height: 200, bgcolor: TL.gray50, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1, border: `2px dashed ${TL.gray200}`, color: TL.gray400 }}>
+              <EyeIcon size={32} />
+              <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>PDF Preview Component</Typography>
+              <Button size="small" variant="text" endIcon={<ChevronRightIcon size={16} />}>Open Original Source</Button>
             </Box>
           </Box>
         )}

@@ -4,7 +4,7 @@ import {
   TableBody, TableRow, TableCell, TableContainer, Paper, TextField, Box,
   Typography, CircularProgress, InputAdornment, Checkbox,
 } from '@mui/material';
-import { Search, Add } from '@mui/icons-material';
+import { MagnifyingGlassIcon, PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import CreateControlDialog from './CreateControlDialog';
 
@@ -65,9 +65,9 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
             <Box sx={{ flex: 1 }}>
               <TextField size="small" fullWidth placeholder="Search control number or name..."
                 value={search} onChange={e => setSearch(e.target.value)}
-                slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon size={18} /></InputAdornment> } }} />
             </Box>
-            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}
+            <Button size="small" variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ width: 170, whiteSpace: 'nowrap' }}
               onClick={() => setCreateOpen(true)}>
               Add New Control
             </Button>
@@ -82,9 +82,9 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Control</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Theme / Type</TableCell>
-                    <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                    <TableCell>Control</TableCell>
+                    <TableCell>Theme / Type</TableCell>
+                    <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>Select</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -105,7 +105,7 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
             </TableContainer>
           )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center' }}>
+        <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={loading || !selected.length}>
             {loading ? <CircularProgress size={18} /> : `Save (${selected.length})`}

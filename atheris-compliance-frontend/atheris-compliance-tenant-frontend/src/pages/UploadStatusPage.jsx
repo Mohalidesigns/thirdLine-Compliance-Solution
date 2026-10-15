@@ -1,14 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, Chip, CircularProgress, Alert, IconButton, Tooltip,
+  Box, Typography, Table, TableBody, TableCell, TableHead,
+  TableRow, Paper, Chip, CircularProgress, Alert, Button,
 } from '@mui/material';
-import { Refresh } from '@mui/icons-material';
+import { PageHeader, StateBadge, TL, ArrowPathIcon } from 'shared';
 import { api } from '../services/api';
-
-const STATUS_COLORS = {
-  pending: 'warning', processing: 'info', completed: 'success', failed: 'error',
-};
 
 export default function UploadStatusPage() {
   const [uploads, setUploads] = useState([]);
@@ -30,24 +26,23 @@ export default function UploadStatusPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4">Upload History</Typography>
-          <Typography variant="body2" color="text.secondary">Track document processing status</Typography>
-        </Box>
-        <Tooltip title="Refresh"><IconButton onClick={load}><Refresh /></IconButton></Tooltip>
-      </Box>
+      <PageHeader
+        title="Upload History"
+        subtitle="Track document processing status"
+        actions={(
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={load}>Refresh</Button>
+        )}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Card>
-        <TableContainer component={Paper} elevation={0}>
+      <Paper sx={{ overflow: 'hidden' }}>
+        <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Title</TableCell>
+                <TableCell>Document</TableCell>
                 <TableCell>Regulator</TableCell>
-                <TableCell>Type</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Instrument</TableCell>
                 <TableCell>Uploaded</TableCell>
@@ -55,27 +50,30 @@ export default function UploadStatusPage() {
             </TableHead>
             <TableBody>
               {uploads.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>No uploads yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No uploads yet.</TableCell></TableRow>
               ) : uploads.map(u => (
-                <TableRow key={u.id}>
-                  <TableCell sx={{ fontWeight: 500 }}>{u.title}</TableCell>
-                  <TableCell>{u.regulatorName || '-'}</TableCell>
-                  <TableCell><Chip size="small" label={u.documentType || '-'} variant="outlined" /></TableCell>
+                <TableRow key={u.id} hover>
                   <TableCell>
-                    <Chip size="small" label={u.status} color={STATUS_COLORS[u.status] || 'default'} />
+                    <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>{u.title}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{u.documentType || '-'}</Typography>
+                  </TableCell>
+                  <TableCell>{u.regulatorName || '-'}</TableCell>
+                  <TableCell>
+                    <StateBadge value={u.status} />
                   </TableCell>
                   <TableCell>
                     {u.instrumentId ? (
-                      <Chip size="small" label={`#${u.instrumentId}`} color="primary" variant="outlined" />
+                      <Chip size="small" label={`#${u.instrumentId}`} variant="outlined"
+                        sx={{ fontFamily: TL.mono, fontSize: '0.7rem' }} />
                     ) : '-'}
                   </TableCell>
-                  <TableCell>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell sx={{ color: TL.gray500 }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TableContainer>
-      </Card>
+        </Box>
+      </Paper>
     </Box>
   );
 }

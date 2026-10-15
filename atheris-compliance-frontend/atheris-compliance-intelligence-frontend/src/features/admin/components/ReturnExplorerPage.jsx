@@ -2,31 +2,30 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
-  TableSortLabel, IconButton, Button, MenuItem,
+  TableRow, TablePagination, CircularProgress, Alert, Chip, Tooltip,
+  TableSortLabel, Button,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, RequestQuote, EventRepeat, Groups, HelpOutline,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, StatusBadge,
+  ArrowPathIcon, DocumentTextIcon, CalendarDaysIcon, UserGroupIcon, ExclamationCircleIcon,
+} from 'shared';
 import api from '../../../services/api';
 
-const FREQUENCY_COLOR = {
-  Daily: '#C53030',
-  Weekly: '#DD6B20',
-  Monthly: '#2B6CB0',
-  Quarterly: '#2C7A7B',
-  Biannual: '#6B46C1',
-  Annual: '#2D7D46',
-  Adhoc: '#718096',
-  'Ad-hoc': '#718096',
-  Event: '#805AD5',
+const FREQUENCY_TONE = {
+  Daily: 'red',
+  Weekly: 'orange',
+  Monthly: 'blue',
+  Quarterly: 'teal',
+  Biannual: 'purple',
+  Annual: 'green',
+  Adhoc: 'gray',
+  'Ad-hoc': 'gray',
+  Event: 'purple',
 };
 
 const SECTION_CHIP_SX = {
   fontFamily: 'Roboto Mono, monospace',
   fontSize: '0.7rem',
-  height: 22,
-  borderRadius: '4px',
 };
 
 const COLUMNS = [
@@ -107,83 +106,63 @@ export default function ReturnExplorerPage() {
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Returns', value: stats?.totalReturns ?? 0, color: '#DD6B20', icon: <RequestQuote sx={{ fontSize: 20 }} /> },
-    { key: 'frequencies', label: 'Frequency Types', value: stats?.frequencyTypeCount ?? 0, color: '#2B6CB0', icon: <EventRepeat sx={{ fontSize: 20 }} /> },
-    { key: 'units', label: 'Responsible Units', value: stats?.responsibleUnitCount ?? 0, color: '#2C7A7B', icon: <Groups sx={{ fontSize: 20 }} /> },
-    { key: 'unassigned', label: 'Unassigned', value: stats?.unassignedCount ?? 0, color: '#805AD5', icon: <HelpOutline sx={{ fontSize: 20 }} /> },
+    { key: 'total', label: 'Total Returns', value: stats?.totalReturns ?? 0, tone: 'blue', icon: <DocumentTextIcon /> },
+    { key: 'frequencies', label: 'Frequency Types', value: stats?.frequencyTypeCount ?? 0, tone: 'teal', icon: <CalendarDaysIcon /> },
+    { key: 'units', label: 'Responsible Units', value: stats?.responsibleUnitCount ?? 0, tone: 'purple', icon: <UserGroupIcon /> },
+    { key: 'unassigned', label: 'Unassigned', value: stats?.unassignedCount ?? 0, tone: 'orange', icon: <ExclamationCircleIcon /> },
   ];
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Return Explorer</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} regulatory return{total !== 1 ? 's' : ''} — filing obligations across the compliance universe
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Return Explorer"
+        subtitle={`${total} regulatory return${total !== 1 ? 's' : ''} — filing obligations across the compliance universe`}
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { loadRows(); loadStats(); }}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            sx={{ p: 2, borderLeft: `3px solid ${k.color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-              <Box sx={{ color: k.color, opacity: 0.5 }}>{k.icon}</Box>
-            </Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpis} columns={4} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search returns..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <TextField select size="small" value={frequencyFilter}
-          onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}
-          label="Frequency type" sx={{ minWidth: 180 }}>
-          <MenuItem value="All">All frequencies</MenuItem>
-          {(stats?.frequencyTypes || []).map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={unitFilter}
-          onChange={e => { setUnitFilter(e.target.value); setPage(0); }}
-          label="Responsible unit" sx={{ minWidth: 220 }}>
-          <MenuItem value="All">All units</MenuItem>
-          {(stats?.responsibleUnits || []).map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search returns...' }}
+        filters={[
+          {
+            key: 'frequency', label: 'Frequency type', value: frequencyFilter, allLabel: 'All frequencies',
+            onChange: (v) => { setFrequencyFilter(v); setPage(0); },
+            options: (stats?.frequencyTypes || []).map(f => ({ value: f, label: f })),
+          },
+          {
+            key: 'unit', label: 'Responsible unit', value: unitFilter, allLabel: 'All units', minWidth: 220,
+            onChange: (v) => { setUnitFilter(v); setPage(0); },
+            options: (stats?.responsibleUnits || []).map(u => ({ value: u, label: u })),
+          },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearFilters}
+      />
 
       {/* Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : rows.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <RequestQuote sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <DocumentTextIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No returns found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  <TableCell sx={{ minWidth: 50 }}>#</TableCell>
                   {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth,
                       cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                       onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
                       {c.sortField
@@ -201,10 +180,10 @@ export default function ReturnExplorerPage() {
                   <TableRow key={row.returnId} hover
                     onClick={() => navigate(`/admin/returns/${row.returnId}`)}
                     sx={{ cursor: 'pointer' }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
                     <TableCell>
                       <Tooltip title={row.title || 'Untitled return'}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 380,
+                        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 380,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {row.title}
                         </Typography>
@@ -216,14 +195,11 @@ export default function ReturnExplorerPage() {
                     </TableCell>
                     <TableCell>
                       {row.frequencyType && (
-                        <Chip size="small" label={row.frequencyType}
-                          sx={{ height: 22, fontWeight: 700, fontSize: '0.65rem',
-                            bgcolor: `${FREQUENCY_COLOR[row.frequencyType] || '#718096'}14`,
-                            color: FREQUENCY_COLOR[row.frequencyType] || '#718096' }} />
+                        <StatusBadge label={row.frequencyType} tone={FREQUENCY_TONE[row.frequencyType] || 'gray'} />
                       )}
                       {row.frequency && (
                         <Chip size="small" variant="outlined" label={row.frequency}
-                          sx={{ height: 22, fontSize: '0.65rem', ml: row.frequencyType ? 0.5 : 0, maxWidth: 160 }} />
+                          sx={{ ml: row.frequencyType ? 0.5 : 0, maxWidth: 160 }} />
                       )}
                       {!row.frequencyType && !row.frequency && (
                         <Typography variant="body2" color="text.secondary">-</Typography>
@@ -241,17 +217,15 @@ export default function ReturnExplorerPage() {
                     </TableCell>
                     <TableCell>
                       {row.actName
-                        ? <Chip size="small" label={row.actName}
-                            sx={{ height: 22, fontSize: '0.65rem', fontWeight: 600, maxWidth: 190,
-                              bgcolor: '#EBF8FF', color: '#2B6CB0' }} />
+                        ? <Chip size="small" label={row.actName} sx={{ maxWidth: 190 }} />
                         : <Typography variant="body2" color="text.secondary">-</Typography>}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <Typography variant="body2">
                         {row.responsibleUnit || 'Unassigned'}
                       </Typography>
                       {row.responsiblePerson && (
-                        <Typography variant="caption" color="text.secondary">{row.responsiblePerson}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.75rem' }}>{row.responsiblePerson}</Typography>
                       )}
                     </TableCell>
                   </TableRow>

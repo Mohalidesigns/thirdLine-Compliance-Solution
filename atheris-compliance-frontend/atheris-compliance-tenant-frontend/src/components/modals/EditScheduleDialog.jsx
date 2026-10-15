@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Box, CircularProgress, Alert, Divider, Typography, RadioGroup, Radio, FormControlLabel,
+  Box, CircularProgress, Alert, Typography, RadioGroup, Radio, FormControlLabel,
 } from '@mui/material';
 import { api } from '../../services/api';
 
@@ -122,14 +122,13 @@ export default function EditScheduleDialog({ open, onClose, item, onSaved }) {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>
+      <DialogTitle>
         Edit schedule
         {item?.returnName && (
-          <Typography variant="body2" color="text.secondary">{item.returnName}</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 400, color: 'text.secondary' }}>{item.returnName}</Typography>
         )}
       </DialogTitle>
-      <Divider />
-      <DialogContent>
+      <DialogContent sx={{ '&&': { pt: 2.5 } }}>
         {item?.deadlineText && (
           <Alert severity="info" sx={{ mb: 2 }}>Regulator wording: {item.deadlineText}</Alert>
         )}
@@ -142,7 +141,7 @@ export default function EditScheduleDialog({ open, onClose, item, onSaved }) {
 
         {showRule && (
           <>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block' }}>
+            <Typography variant="caption" sx={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block' }}>
               Due rule
             </Typography>
             <RadioGroup row value={form.ruleType} onChange={e => set('ruleType', e.target.value)} sx={{ mb: 1 }}>
@@ -178,7 +177,6 @@ export default function EditScheduleDialog({ open, onClose, item, onSaved }) {
           </Typography>
         </Box>
       </DialogContent>
-      <Divider />
       <DialogActions>
         <Button onClick={handleClose} disabled={mutation.isPending}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={mutation.isPending}

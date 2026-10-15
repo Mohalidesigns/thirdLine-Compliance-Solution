@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, Breadcrumbs, Link,
-  IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
+  Box, Typography, Chip, Button, CircularProgress, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
+import { Block } from '@mui/icons-material';
 import {
-  Edit, Block, AccountBalance, Assignment, Description as DescriptionIcon,
-  Category, EventAvailable, Info,
-} from '@mui/icons-material';
+  PageHeader, StateBadge, TL,
+  PencilSquareIcon, BuildingLibraryIcon, ClipboardDocumentListIcon, DocumentTextIcon,
+  Squares2x2Icon, CalendarDaysIcon, InformationCircleIcon,
+} from 'shared';
 import { api } from '../services/api';
 import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 import RegulatorFormDialog from '../components/modals/RegulatorFormDialog';
@@ -57,7 +59,7 @@ export default function RegulatorDetailPage() {
     return (
       <Box>
         <Alert severity="error" sx={{ mb: 2 }}>{detailQuery.error?.message || 'Failed to load regulator.'}</Alert>
-        <Button onClick={() => navigate('/regulators')}>Back to Regulators</Button>
+        <Button variant="outlined" onClick={() => navigate('/regulators')}>Back to Regulators</Button>
       </Box>
     );
   }
@@ -66,64 +68,54 @@ export default function RegulatorDetailPage() {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={() => navigate('/regulators')}>
-          Regulators
-        </Link>
-        <Typography color="text.primary">{r.abbreviation || r.name}</Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="h4">{r.name}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+      <PageHeader
+        title={r.name}
+        onBack={() => navigate('/regulators')}
+        backLabel="Back to Regulators"
+        subtitle={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             {r.abbreviation && (
-              <Typography variant="body2" sx={{ color: '#A0AEC0', fontFamily: 'Roboto Mono, monospace' }}>
+              <Typography component="span" sx={{ color: TL.gray500, fontFamily: TL.mono, fontSize: '0.75rem' }}>
                 {r.abbreviation}
               </Typography>
             )}
-            <Chip size="small" label={r.isActive ? 'Active' : 'Inactive'}
-              color={r.isActive ? 'success' : 'default'}
-              variant={r.isActive ? 'outlined' : 'filled'}
-              sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+            <StateBadge value={r.isActive ? 'Active' : 'Inactive'} />
             {r.platformRegulatorId != null && (
-              <Chip size="small" label={`Platform #${r.platformRegulatorId}`} variant="outlined"
-                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
-            )}
-          </Box>
-        </Box>
-        {canManage && (
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" startIcon={<Edit />} onClick={() => setEditOpen(true)}>Edit</Button>
-            {r.isActive && (
-              <Button variant="outlined" color="error" startIcon={<Block />} onClick={() => setDisableOpen(true)}>
-                Disable
-              </Button>
+              <Chip size="small" label={`Platform #${r.platformRegulatorId}`} variant="outlined" />
             )}
           </Box>
         )}
-      </Box>
+        actions={canManage ? (
+          <>
+            <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={() => setEditOpen(true)}>Edit</Button>
+            {r.isActive && (
+              <Button variant="outlined" color="error" startIcon={<Block fontSize="small" />} onClick={() => setDisableOpen(true)}>
+                Disable
+              </Button>
+            )}
+          </>
+        ) : null}
+      />
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<Assignment fontSize="small" />} label="Linked Obligations" value={r.obligationCount ?? 0} accent="#2B6CB0" />
-        <StatTile icon={<EventAvailable fontSize="small" />} label="Linked Returns" value={r.returnCount ?? 0} accent="#2C7A7B" />
-        <StatTile icon={<AccountBalance fontSize="small" />} label="Status" chip={
-          <Chip size="small" label={r.isActive ? 'Active' : 'Inactive'}
-            color={r.isActive ? 'success' : 'default'} sx={{ height: 22, borderRadius: '4px' }} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 3, mb: 3 }}>
+        <StatTile icon={<ClipboardDocumentListIcon />} label="Linked Obligations" value={r.obligationCount ?? 0} accent={TL.primary} />
+        <StatTile icon={<CalendarDaysIcon />} label="Linked Returns" value={r.returnCount ?? 0} accent={TL.info} />
+        <StatTile icon={<BuildingLibraryIcon />} label="Status" accent={TL.success} chip={
+          <StateBadge value={r.isActive ? 'Active' : 'Inactive'} />
         } />
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3, alignItems: 'start' }}>
         <Box>
-          <Section icon={<DescriptionIcon fontSize="small" />} title="About this Regulator">
+          <Section icon={<DocumentTextIcon size={18} />} title="About this Regulator">
             {r.description
-              ? <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{r.description}</Typography>
-              : <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>No description recorded.</Typography>}
+              ? <Typography sx={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem', lineHeight: 1.7, color: TL.gray700 }}>{r.description}</Typography>
+              : <Typography sx={{ fontStyle: 'italic', fontSize: '0.875rem', color: TL.gray400 }}>No description recorded.</Typography>}
           </Section>
         </Box>
 
         <Box>
-          <Section icon={<Category fontSize="small" />} title="Details">
+          <Section icon={<Squares2x2Icon size={18} />} title="Details">
             <FieldGrid min={130}>
               <Field label="Name" value={r.name} />
               <Field label="Abbreviation" value={r.abbreviation} mono />
@@ -132,7 +124,7 @@ export default function RegulatorDetailPage() {
             </FieldGrid>
           </Section>
 
-          <Section icon={<Info fontSize="small" />} title="Record">
+          <Section icon={<InformationCircleIcon size={18} />} title="Record">
             <FieldGrid min={130}>
               <Field label="Created" value={formatDate(r.createdAt)} />
               <Field label="Updated" value={formatDate(r.updatedAt)} />

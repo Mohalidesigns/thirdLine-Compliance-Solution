@@ -1,7 +1,9 @@
 import {
   Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  TablePagination, TableSortLabel, TextField, Tooltip, Typography, CircularProgress, Alert,
+  TablePagination, TableSortLabel, Tooltip, Typography, CircularProgress, Alert,
 } from '@mui/material';
+import { TL } from '../theme/tokens';
+import { SearchInput } from './FilterBar';
 
 /**
  * Shared register table used by every list/detail-section page.
@@ -24,7 +26,7 @@ function CellContent({ col, row }) {
     return (
       <Tooltip title={text} placement="top">
         <Typography variant="body2" sx={{
-          maxWidth: col.maxWidth || 260, overflow: 'hidden',
+          color: 'inherit', maxWidth: col.maxWidth || 260, overflow: 'hidden',
           textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {text}
@@ -32,7 +34,7 @@ function CellContent({ col, row }) {
       </Tooltip>
     );
   }
-  return <Typography variant="body2">{text}</Typography>;
+  return <Typography variant="body2" sx={{ color: 'inherit' }}>{text}</Typography>;
 }
 
 export default function SectionTable({
@@ -55,25 +57,22 @@ export default function SectionTable({
 
       {search && (
         <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder={search.placeholder || 'Search…'}
+          <SearchInput
             value={search.value}
-            onChange={(e) => search.onChange(e.target.value)}
-            slotProps={search.startAdornment
-              ? { input: { startAdornment: search.startAdornment } }
-              : undefined}
-            sx={{ minWidth: 260 }}
+            onChange={search.onChange}
+            placeholder={search.placeholder || 'Search…'}
+            fullWidth={false}
+            sx={{ minWidth: 300 }}
           />
           {search.action}
         </Box>
       )}
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Paper variant="outlined" sx={{ borderRadius: '12px', overflow: 'hidden' }}>
         {rows.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <Box sx={{ textAlign: 'center', py: 8, color: TL.gray400 }}>
             {emptyIcon}
-            <Typography variant="body1">{emptyMessage}</Typography>
+            <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>{emptyMessage}</Typography>
           </Box>
         ) : (
           <>
@@ -88,7 +87,7 @@ export default function SectionTable({
                         <TableCell
                           key={c.id}
                           sx={{
-                            minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                            minWidth: c.minWidth,
                             cursor: c.sortable ? 'pointer' : 'default', userSelect: 'none',
                           }}
                           onClick={c.sortable && onSort ? () => onSort(sortKey) : undefined}
@@ -107,7 +106,7 @@ export default function SectionTable({
                         </TableCell>
                       );
                     })}
-                    {showActions && <TableCell key="__actions" sx={{ width: 90, bgcolor: '#F7FAFC' }} />}
+                    {showActions && <TableCell key="__actions" align="right" sx={{ width: 90 }}>Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -116,7 +115,7 @@ export default function SectionTable({
                       key={rowKey(row)}
                       hover={!!onRowClick}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
-                      sx={{ cursor: onRowClick ? 'pointer' : 'default', '& td': { py: 1.5, verticalAlign: 'middle' } }}
+                      sx={{ cursor: onRowClick ? 'pointer' : 'default', '& td': { verticalAlign: 'middle' } }}
                     >
                       {columns.map((c) => (
                         <TableCell key={c.id}><CellContent col={c} row={row} /></TableCell>

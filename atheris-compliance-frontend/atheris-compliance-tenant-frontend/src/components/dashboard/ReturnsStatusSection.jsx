@@ -1,73 +1,34 @@
-import { Paper, Typography, Box, Chip, List, ListItem, ListItemText, useTheme } from '@mui/material';
+import { Typography, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import {
-  Error as OverdueIcon,
-  CheckCircle as OnTimeIcon,
-  Schedule as SoonIcon,
-} from '@mui/icons-material';
+import { DataCard, CardLink, StatusBadge, TL, tone } from 'shared';
 
-function StatusCard({ title, count, total, icon: Icon, color, items, drillLabel }) {
-  const theme = useTheme();
-  const navigate = useNavigate();
+/** Key-value row with an 8px rounded progress bar on a gray-200 track. */
+function ProgressRow({ label, count, total, toneName, onClick }) {
   const pct = total > 0 ? ((count / total) * 100) : 0;
-  const chipColor = pct >= 90 ? 'success' : pct >= 70 ? 'warning' : 'error';
-
+  const badgeTone = pct >= 90 ? 'green' : pct >= 70 ? 'orange' : 'red';
   return (
-    <Paper
-      elevation={0}
-      onClick={() => navigate('/returns')}
-      sx={{
-        p: 3, height: '100%', cursor: 'pointer',
-        borderTop: `4px solid ${color}`,
-        border: '1px solid',
-        borderColor: theme.palette.divider,
-        borderTopWidth: 4,
-        borderTopColor: color,
-        transition: 'all 0.15s',
-        '&:hover': { bgcolor: theme.palette.action.hover, transform: 'translateY(-1px)' },
-      }}
+    <Box
+      onClick={onClick}
+      sx={{ cursor: onClick ? 'pointer' : 'default', '&:hover .tl-kv-label': onClick ? { color: TL.primary } : undefined }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="body2" color="text.secondary" gutterBottom>{title}</Typography>
-          <Typography variant="h3" fontWeight={700} color={color}>{count}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+        <Typography className="tl-kv-label" sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{label}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {total > 0 && <StatusBadge label={`${pct.toFixed(2)}%`} tone={badgeTone} />}
+          <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800, minWidth: 28, textAlign: 'right' }}>
+            {count}
+          </Typography>
         </Box>
-        <Icon sx={{ color, fontSize: 36, opacity: 0.6 }} />
       </Box>
-      {total > 0 && (
-        <Chip
-          label={`${pct.toFixed(2)}%`}
-          size="small"
-          color={chipColor}
-          sx={{ mt: 1, fontWeight: 600, fontSize: 12 }}
-        />
-      )}
-      {items && items.length > 0 && (
-        <List dense sx={{ mt: 1.5, maxHeight: 140, overflow: 'auto' }}>
-          {items.map((item, i) => (
-            <ListItem key={i} sx={{ px: 0, py: 0.25 }}>
-              <ListItemText
-                primary={
-                  <Typography variant="caption" noWrap sx={{ display: 'block', maxWidth: 200 }}>
-                    {item.title || item.name || `Return #${item.returnId || ''}`}
-                  </Typography>
-                }
-                secondary={
-                  <Typography variant="caption" color="text.secondary">
-                    {item.regulator || ''} {item.dueDate ? `· Due ${new Date(item.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
-                  </Typography>
-                }
-                secondaryTypographyProps={{ component: 'span' }}
-              />
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </Paper>
+      <Box sx={{ height: 8, borderRadius: 9999, bgcolor: TL.gray200, overflow: 'hidden' }}>
+        <Box sx={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: 9999, bgcolor: tone(toneName).dot, transition: 'width 0.5s' }} />
+      </Box>
+    </Box>
   );
 }
 
 export default function ReturnsStatusSection({ stats = {}, calendar = [] }) {
+  const navigate = useNavigate();
   const overdue = stats.overdue || 0;
   const submitted = stats.submitted || 0;
   const total = stats.total || 1;
@@ -77,30 +38,47 @@ export default function ReturnsStatusSection({ stats = {}, calendar = [] }) {
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
     .slice(0, 3);
 
+  const toReturns = () => navigate('/returns');
+
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
-      <StatusCard
-        title="Overdue"
-        count={overdue}
-        total={total}
-        icon={OverdueIcon}
-        color="#d32f2f"
-      />
-      <StatusCard
-        title="On Time"
-        count={submitted}
-        total={total}
-        icon={OnTimeIcon}
-        color="#2e7d32"
-      />
-      <StatusCard
-        title="Coming Soon"
-        count={upcoming.length}
-        total={total}
-        icon={SoonIcon}
-        color="#ed6c02"
-        items={upcoming}
-      />
-    </Box>
+    <DataCard
+      title="Regulatory Returns Status"
+      subtitle="Filing progress and upcoming deadlines"
+      actions={<CardLink onClick={toReturns}>View All</CardLink>}
+      sx={{ height: '100%' }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <ProgressRow label="Overdue" count={overdue} total={total} toneName="red" onClick={toReturns} />
+        <ProgressRow label="On Time" count={submitted} total={total} toneName="green" onClick={toReturns} />
+        <ProgressRow label="Coming Soon" count={upcoming.length} total={total} toneName="orange" onClick={toReturns} />
+      </Box>
+
+      {upcoming.length > 0 && (
+        <Box sx={{ mt: 3, pt: 2, borderTop: `1px solid ${TL.gray100}` }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: TL.gray500, textTransform: 'uppercase', letterSpacing: '0.025em', mb: 1 }}>
+            Upcoming deadlines
+          </Typography>
+          {upcoming.map((item, i) => (
+            <Box
+              key={i}
+              onClick={toReturns}
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, py: 1, cursor: 'pointer', borderTop: i ? `1px solid ${TL.gray100}` : 'none' }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main', maxWidth: 240 }}>
+                  {item.title || item.name || `Return #${item.returnId || ''}`}
+                </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{item.regulator || ''}</Typography>
+              </Box>
+              {item.dueDate && (
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500, whiteSpace: 'nowrap' }}>
+                  Due {new Date(item.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </DataCard>
   );
 }

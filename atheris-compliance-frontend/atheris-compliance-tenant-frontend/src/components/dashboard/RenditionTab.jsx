@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  ToggleButton, ToggleButtonGroup, Chip, CircularProgress, Alert, IconButton, Tooltip,
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  ToggleButton, ToggleButtonGroup, CircularProgress, Alert, IconButton, Tooltip,
 } from '@mui/material';
-import { Refresh, WarningAmber } from '@mui/icons-material';
+import { DataCard, StatusBadge, TL, ArrowPathIcon, ExclamationTriangleIcon } from 'shared';
 import { api } from '../../services/api';
 
-const STATUS_COLORS = {
-  SUBMITTED: 'success',
-  SUBMITTED_LATE: 'warning',
-  IN_PROGRESS: 'info',
-  NOT_STARTED: 'error',
-  'N/A': 'default',
+const STATUS_TONES = {
+  SUBMITTED: 'green',
+  SUBMITTED_LATE: 'orange',
+  IN_PROGRESS: 'blue',
+  NOT_STARTED: 'red',
+  'N/A': 'gray',
 };
 
 const STATUS_LABELS = {
@@ -29,46 +29,53 @@ function EscalationSection({ data }) {
   if (!data?.escalations?.length) return null;
   const { summary, escalations } = data;
   return (
-    <Paper variant="outlined" sx={{ mt: 2 }}>
-      <Box sx={{ p: 2, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningAmber sx={{ color: '#FF9800' }} />
-          <Typography variant="h6">Escalation Matrix</Typography>
+    <DataCard
+      noPadding
+      sx={{ mt: 3 }}
+      title={(
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          <ExclamationTriangleIcon size={16} sx={{ color: '#F97316' }} />
+          Escalation Matrix
         </Box>
+      )}
+      actions={(
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {summary?.l1 > 0 && <Chip size="small" label={`L1: ${summary.l1}`} color="warning" />}
-          {summary?.l2 > 0 && <Chip size="small" label={`L2: ${summary.l2}`} color="error" />}
-          {summary?.l3 > 0 && <Chip size="small" label={`L3: ${summary.l3}`} sx={{ bgcolor: '#D32F2F', color: '#fff' }} />}
+          {summary?.l1 > 0 && <StatusBadge label={`L1: ${summary.l1}`} tone="amber" />}
+          {summary?.l2 > 0 && <StatusBadge label={`L2: ${summary.l2}`} tone="orange" />}
+          {summary?.l3 > 0 && <StatusBadge label={`L3: ${summary.l3}`} tone="red" />}
         </Box>
-      </Box>
+      )}
+    >
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Return</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Regulator</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Department</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Area of Focus</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Owner</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Dept Head</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Level</TableCell>
-              <TableCell sx={{ fontWeight: 700 }} align="right">Days Late</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Period</TableCell>
+              <TableCell>Return</TableCell>
+              <TableCell>Regulator</TableCell>
+              <TableCell>Department</TableCell>
+              <TableCell>Area of Focus</TableCell>
+              <TableCell>Owner</TableCell>
+              <TableCell>Dept Head</TableCell>
+              <TableCell>Level</TableCell>
+              <TableCell align="right">Days Late</TableCell>
+              <TableCell>Period</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {escalations.map((e, i) => (
               <TableRow key={e.returnId ? `${e.returnId}-${e.period}-${i}` : i} hover
-                sx={{ bgcolor: e.escalationLevel >= 3 ? '#FFF5F5' : e.escalationLevel >= 2 ? '#FFF8E1' : 'inherit' }}>
-                <TableCell>{e.returnName || '-'}</TableCell>
+                sx={{ bgcolor: e.escalationLevel >= 3 ? '#FEF2F2' : e.escalationLevel >= 2 ? '#FFFBEB' : 'inherit' }}>
+                <TableCell>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{e.returnName || '-'}</Typography>
+                </TableCell>
                 <TableCell>{e.regulator || '-'}</TableCell>
                 <TableCell>{e.department || '-'}</TableCell>
                 <TableCell>{e.areaOfFocus || '-'}</TableCell>
                 <TableCell>{e.returnOwner || '-'}</TableCell>
                 <TableCell>{e.departmentHead || '-'}</TableCell>
                 <TableCell>
-                  <Chip size="small" label={e.escalationLabel}
-                    color={e.escalationLevel >= 3 ? 'error' : e.escalationLevel >= 2 ? 'warning' : 'info'} />
+                  <StatusBadge label={e.escalationLabel}
+                    tone={e.escalationLevel >= 3 ? 'red' : e.escalationLevel >= 2 ? 'orange' : 'blue'} />
                 </TableCell>
                 <TableCell align="right">{e.daysLate ?? 0}</TableCell>
                 <TableCell>{e.period || '-'}</TableCell>
@@ -77,7 +84,7 @@ function EscalationSection({ data }) {
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </DataCard>
   );
 }
 
@@ -114,24 +121,6 @@ export default function RenditionTab() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Box>
-          <Typography variant="h6">Rendition Tracker</Typography>
-          <Typography variant="caption" color="text.secondary">
-            Q{quarter} {year} — {data?.summary?.totalReturns ?? 0} returns,{' '}
-            {data?.summary?.totalSubmitted ?? 0} submitted, {data?.summary?.totalOverdue ?? 0} overdue
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <ToggleButtonGroup size="small" value={groupBy} exclusive
-            onChange={(_, v) => { if (v) setGroupBy(v); }}>
-            <ToggleButton value="department">Department</ToggleButton>
-            <ToggleButton value="areaOfFocus">Area of Focus</ToggleButton>
-          </ToggleButtonGroup>
-          <Tooltip title="Refresh"><IconButton onClick={refresh}><Refresh /></IconButton></Tooltip>
-        </Box>
-      </Box>
-
       {gridQuery.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{gridQuery.error?.message || 'Failed to load rendition grid'}</Alert>
       )}
@@ -139,20 +128,35 @@ export default function RenditionTab() {
         <Alert severity="warning" sx={{ mb: 2 }}>{escalationQuery.error?.message || 'Failed to load escalation matrix'}</Alert>
       )}
 
-      {gridQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
-        <>
-          {groups.length > 0 ? (
-            <TableContainer component={Paper} variant="outlined">
+      <DataCard
+        noPadding
+        title="Rendition Tracker"
+        subtitle={`Q${quarter} ${year} — ${data?.summary?.totalReturns ?? 0} returns, ${data?.summary?.totalSubmitted ?? 0} submitted, ${data?.summary?.totalOverdue ?? 0} overdue`}
+        actions={(
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <ToggleButtonGroup size="small" value={groupBy} exclusive
+              onChange={(_, v) => { if (v) setGroupBy(v); }}>
+              <ToggleButton value="department">Department</ToggleButton>
+              <ToggleButton value="areaOfFocus">Area of Focus</ToggleButton>
+            </ToggleButtonGroup>
+            <Tooltip title="Refresh"><IconButton size="small" onClick={refresh}><ArrowPathIcon size={16} /></IconButton></Tooltip>
+          </Box>
+        )}
+      >
+
+        {gridQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
+          groups.length > 0 ? (
+            <TableContainer>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 160 }}>
+                    <TableCell sx={{ minWidth: 160 }}>
                       {groupBy === 'department' ? 'Department' : 'Area of Focus'}
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 180 }}>Return</TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Regulator</TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>Return</TableCell>
+                    <TableCell>Regulator</TableCell>
                     {months.map(m => (
-                      <TableCell key={m} sx={{ fontWeight: 700, bgcolor: '#F7FAFC', textAlign: 'center', minWidth: 90 }}>{m}</TableCell>
+                      <TableCell key={m} sx={{ textAlign: 'center', minWidth: 90 }}>{m}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
@@ -161,14 +165,16 @@ export default function RenditionTab() {
                     (group.returns || []).map((ret, ri) => (
                       <TableRow key={`${gi}-${ret.returnId ?? ri}`} hover>
                         {ri === 0 && (
-                          <TableCell rowSpan={group.returns.length} sx={{ fontWeight: 600, bgcolor: '#F7FAFC', verticalAlign: 'top', borderRight: '2px solid #E2E8F0' }}>
-                            {group.name}
-                            <Typography variant="caption" display="block" color="text.secondary">
+                          <TableCell rowSpan={group.returns.length} sx={{ bgcolor: TL.gray50, verticalAlign: 'top', borderRight: `1px solid ${TL.gray100}` }}>
+                            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>{group.name}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                               {group.groupSummary?.submitted ?? 0}/{group.groupSummary?.total ?? 0} submitted
                             </Typography>
                           </TableCell>
                         )}
-                        <TableCell>{ret.returnName || '-'}</TableCell>
+                        <TableCell>
+                          <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{ret.returnName || '-'}</Typography>
+                        </TableCell>
                         <TableCell>{ret.regulator || '-'}</TableCell>
                         {months.map((m, ci) => {
                           const cell = ret.cells?.[ci];
@@ -176,13 +182,15 @@ export default function RenditionTab() {
                           return (
                             <TableCell key={m} sx={{ textAlign: 'center' }}>
                               {status === 'N/A' ? (
-                                <Typography variant="caption" color="text.secondary">-</Typography>
+                                <Typography component="span" sx={{ fontSize: '0.75rem', color: TL.gray400 }}>-</Typography>
                               ) : (
                                 <Tooltip title={cell?.dueDate ? `Due ${cell.dueDate}` : status}>
-                                  <Chip size="small"
-                                    label={STATUS_LABELS[status] || status}
-                                    color={STATUS_COLORS[status] || 'default'}
-                                    sx={{ height: 22, minWidth: 40 }} />
+                                  <span>
+                                    <StatusBadge
+                                      label={STATUS_LABELS[status] || status}
+                                      tone={STATUS_TONES[status] || 'gray'}
+                                      sx={{ minWidth: 40, justifyContent: 'center' }} />
+                                  </span>
                                 </Tooltip>
                               )}
                             </TableCell>
@@ -195,14 +203,14 @@ export default function RenditionTab() {
               </Table>
             </TableContainer>
           ) : (
-            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-              <Typography>No rendition data for this quarter.</Typography>
-            </Paper>
-          )}
+            <Typography sx={{ p: 4, textAlign: 'center', fontSize: '0.875rem', color: TL.gray500 }}>
+              No rendition data for this quarter.
+            </Typography>
+          )
+        )}
+      </DataCard>
 
-          <EscalationSection data={escalationQuery.data} />
-        </>
-      )}
+      {!gridQuery.isPending && <EscalationSection data={escalationQuery.data} />}
     </Box>
   );
 }

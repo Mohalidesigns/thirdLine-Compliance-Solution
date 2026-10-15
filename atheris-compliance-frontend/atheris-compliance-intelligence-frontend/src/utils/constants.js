@@ -81,24 +81,26 @@ export const LABELS = {
 
 export const NAV_SECTIONS = [
   { label: 'MAIN', items: [
-    { text: 'Dashboard', icon: 'Dashboard', path: ROUTES.DASHBOARD },
+    { text: 'Dashboard', icon: 'Squares2x2', path: ROUTES.DASHBOARD },
   ]},
   { label: 'INTELLIGENCE', items: [
-    { text: 'Review Inbox', icon: 'Inbox', path: ROUTES.INBOX },
-    { text: 'Watchlist', icon: 'Visibility', path: ROUTES.WATCHLIST },
+    { text: 'Review Inbox', icon: 'InboxArrowDown', path: ROUTES.INBOX },
+    { text: 'Watchlist', icon: 'Eye', path: ROUTES.WATCHLIST },
   ]},
   { label: 'PLATFORM', items: [
-    { text: 'Regulators', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATORS },
-    { text: 'Tenant Management', icon: 'AdminPanelSettings', path: ROUTES.ADMIN_TENANTS },
-    { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
-    { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
-    { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
-    { text: 'Act Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_ACTS },
-    { text: 'Obligations', icon: 'Gavel', path: ROUTES.ADMIN_OBLIGATIONS },
-    { text: 'Sanctions', icon: 'Warning', path: ROUTES.ADMIN_SANCTIONS },
-    { text: 'Returns', icon: 'RequestQuote', path: ROUTES.ADMIN_RETURNS },
-    { text: 'Controls', icon: 'FactCheck', path: ROUTES.ADMIN_CONTROLS },
-    { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
+    { text: 'Regulators', icon: 'BuildingLibrary', path: ROUTES.ADMIN_REGULATORS },
+    { text: 'Tenant Management', icon: 'BuildingOffice2', path: ROUTES.ADMIN_TENANTS },
+    { text: 'License Management', icon: 'Key', path: ROUTES.ADMIN_LICENSES },
+    { text: 'Pipeline Jobs', icon: 'QueueList', path: ROUTES.ADMIN_PIPELINE },
+  ]},
+  { label: 'LIBRARY', admin: true, items: [
+    { text: 'Instruments', icon: 'DocumentText', path: ROUTES.ADMIN_INSTRUMENTS },
+    { text: 'Act Explorer', icon: 'BookOpen', path: ROUTES.ADMIN_ACTS },
+    { text: 'Obligations', icon: 'Scale', path: ROUTES.ADMIN_OBLIGATIONS },
+    { text: 'Sanctions', icon: 'Banknotes', path: ROUTES.ADMIN_SANCTIONS },
+    { text: 'Returns', icon: 'Calendar', path: ROUTES.ADMIN_RETURNS },
+    { text: 'Controls', icon: 'ShieldCheck', path: ROUTES.ADMIN_CONTROLS },
+    { text: 'Compliance Universe', icon: 'GlobeAlt', path: ROUTES.ADMIN_UNIVERSE },
   ]},
 ];
 

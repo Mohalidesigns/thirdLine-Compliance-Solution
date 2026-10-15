@@ -3,16 +3,15 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Checkbox, Chip, Button, CircularProgress, Alert, TextField, MenuItem,
+  Checkbox, Button, CircularProgress, Alert,
   Tooltip, TableContainer, Paper, TablePagination,
 } from '@mui/material';
-import { Search, Close, Block } from '@mui/icons-material';
+import { PageHeader, FilterBar, StatusBadge, TL, XMarkIcon } from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
 const COLUMNS = [
-  { id: 'name', label: 'Name', minWidth: 260 },
-  { id: 'abbreviation', label: 'Abbreviation', minWidth: 110 },
+  { id: 'name', label: 'Regulator', minWidth: 280 },
   { id: 'instrumentCount', label: 'Discovered', minWidth: 90 },
   { id: 'downloaded', label: 'Downloaded', minWidth: 90 },
   { id: 'failed', label: 'Failed', minWidth: 70 },
@@ -39,6 +38,7 @@ export default function RegulatorAdminPage() {
   const [rowsPerPage] = useState(20);
   const [selected, setSelected] = useState(new Set());
   const [bulking, setBulking] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const { data: regulators, isLoading, error, refetch } = useQuery({
     queryKey: ['regulators', search, statusFilter],
@@ -71,12 +71,13 @@ export default function RegulatorAdminPage() {
 
   async function handleBulkDisable() {
     setBulking(true);
+    setActionError('');
     try {
       await api.platform.regulators.bulkDisable([...selected]);
       setSelected(new Set());
       refetch();
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message || 'Failed to disable regulators');
     } finally {
       setBulking(false);
     }
@@ -84,50 +85,42 @@ export default function RegulatorAdminPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulators</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Browse all platform regulators
-          </Typography>
-        </Box>
-        {selected.size > 0 && (
-          <Button variant="contained" color="warning" startIcon={<Block />}
+      <PageHeader
+        title="Regulators"
+        subtitle={regulators ? `${filtered.length} of ${regulators.length} platform regulators` : 'Browse all platform regulators'}
+        actions={selected.size > 0 && (
+          <Button variant="contained" color="error" startIcon={<XMarkIcon size={16} />}
             onClick={handleBulkDisable} disabled={bulking}>
             {bulking ? 'Disabling...' : `Disable ${selected.size}`}
           </Button>
         )}
-      </Box>
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => {}}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Failed to load regulators'}</Alert>}
+      {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search name or abbreviation..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 220 }} />
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 110 }}>
-          {['All', 'Active', 'Disabled'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        {(search || statusFilter !== 'All') && (
-          <Button size="small" startIcon={<Close />} onClick={() => { setSearch(''); setStatusFilter('All'); }}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search name or abbreviation...' }}
+        filters={[
+          { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); }, options: [{ value: 'Active', label: 'Active' }, { value: 'Disabled', label: 'Disabled' }], allLabel: 'All', minWidth: 150 },
+        ]}
+        showClear={!!(search || statusFilter !== 'All')}
+        onClear={() => { setSearch(''); setStatusFilter('All'); }}
+      />
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Typography variant="body1">No regulators found.</Typography>
+        <Paper sx={{ textAlign: 'center', py: 8 }}>
+          <Typography color="text.secondary">No regulators found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 40, padding: 0, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                  <TableCell padding="checkbox">
                     <Checkbox size="small"
                       checked={filtered.length > 0 && selected.size === filtered.length}
                       indeterminate={selected.size > 0 && selected.size < filtered.length}
@@ -140,51 +133,45 @@ export default function RegulatorAdminPage() {
                       }} />
                   </TableCell>
                   {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
                       {c.label}
                     </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((reg, i) => (
+                {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((reg) => (
                   <TableRow key={reg.regulatorId} hover
                     onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
-                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC',
-                      borderLeft: !reg.isActive ? '3px solid #C53030' : '3px solid transparent',
-                    }}>
-                    <TableCell sx={{ padding: 0 }} onClick={e => e.stopPropagation()}>
+                    sx={{ cursor: 'pointer' }}>
+                    <TableCell padding="checkbox" onClick={e => e.stopPropagation()}>
                       <Checkbox size="small" checked={selected.has(reg.regulatorId)}
                         onChange={() => handleToggleSelect(reg.regulatorId)} />
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={reg.name}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {reg.name}
-                        </Typography>
-                      </Tooltip>
+                      <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>{reg.abbreviation}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <Tooltip title={reg.name}>
+                          <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 420 }}>
+                            {reg.name}
+                          </Typography>
+                        </Tooltip>
+                        {!reg.isActive && <StatusBadge label="Disabled" tone="red" />}
+                      </Box>
                     </TableCell>
+                    <TableCell>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</TableCell>
                     <TableCell>
-                      <Chip label={reg.abbreviation} size="small"
-                        sx={{ fontWeight: 700, bgcolor: '#1A365D', color: '#fff', fontSize: '0.7rem', borderRadius: 1 }} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#2D7D46' }}>{reg.instrumentCount ?? 0}</Typography>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.success }}>{reg.instrumentCount ?? 0}</Typography>
                     </TableCell>
                     <TableCell>
                       {(reg.pendingDownloadCount ?? 0) > 0 ? (
-                        <Chip label={reg.pendingDownloadCount} size="small" sx={{ fontWeight: 700, bgcolor: '#FED7D7', color: '#C53030', fontSize: '0.7rem', borderRadius: 1 }} />
+                        <StatusBadge label={reg.pendingDownloadCount} tone="red" />
                       ) : (
-                        <Typography variant="body2" sx={{ color: '#A0AEC0' }}>0</Typography>
+                        <Typography component="span" sx={{ fontSize: '0.875rem', color: TL.gray400 }}>0</Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.78rem', color: '#718096' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.78rem', color: '#718096' }}>
-                        {formatDt(reg.lastInstrumentDiscoveredAt)}
-                      </Typography>
+                    <TableCell sx={{ color: TL.gray500, whiteSpace: 'nowrap' }}>
+                      {formatDt(reg.lastInstrumentDiscoveredAt)}
                     </TableCell>
                   </TableRow>
                 ))}

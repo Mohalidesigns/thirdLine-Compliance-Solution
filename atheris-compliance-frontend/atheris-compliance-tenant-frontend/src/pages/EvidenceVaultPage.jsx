@@ -1,22 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Typography, Card, CardContent, CardHeader,
+  Box, Typography,
   Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, Grid, Chip, CircularProgress, Alert,
   TablePagination, Paper, Table, TableHead, TableBody, TableRow, TableCell,
-  TableContainer, Tooltip
+  Tooltip
 } from '@mui/material';
 import {
-  Upload, Download, InsertDriveFile, Image, PictureAsPdf, Description
-} from '@mui/icons-material';
+  PageHeader, TL,
+  ArrowUpTrayIcon, ArrowDownTrayIcon, DocumentIcon, DocumentTextIcon, FolderOpenIcon,
+} from 'shared';
 import { api } from '../services/api';
-import { useTheme } from '@mui/material/styles';
 
 function fileIcon(mime) {
-  if (!mime) return <InsertDriveFile />;
-  if (mime.startsWith('image/')) return <Image />;
-  if (mime.includes('pdf')) return <PictureAsPdf />;
-  return <Description />;
+  if (!mime) return <DocumentIcon size={18} />;
+  if (mime.startsWith('image/')) return <DocumentIcon size={18} />;
+  if (mime.includes('pdf')) return <DocumentTextIcon size={18} />;
+  return <DocumentTextIcon size={18} />;
 }
 
 function formatSize(bytes) {
@@ -33,7 +33,6 @@ export default function EvidenceVaultPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [snackbar, setSnackbar] = useState(null);
-  const theme = useTheme();
 
   const loadList = useCallback(() => {
     setLoading(true);
@@ -59,50 +58,53 @@ export default function EvidenceVaultPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Evidence Vault</Typography>
-          <Typography variant="body2" color="text.secondary">Upload and browse all evidence files</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<Upload />} onClick={() => setUploadOpen(true)}>
-          Upload Evidence
-        </Button>
-      </Box>
+      <PageHeader
+        title="Evidence Vault"
+        subtitle="Upload and browse all evidence files"
+        actions={(
+          <Button variant="contained" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setUploadOpen(true)}>
+            Upload Evidence
+          </Button>
+        )}
+      />
 
-      <Card>
+      <Paper sx={{ overflow: 'hidden' }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
         ) : data.content.length === 0 ? (
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <InsertDriveFile sx={{ fontSize: 48, color: theme.palette.action.disabled, mb: 1 }} />
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <FolderOpenIcon size={40} sx={{ color: TL.gray300, mb: 1 }} />
             <Typography color="text.secondary">No evidence files uploaded yet</Typography>
-          </CardContent>
+          </Box>
         ) : (
           <>
-            <TableContainer component={Paper} elevation={0}>
+            <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>File</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Size</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Uploaded</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                    <TableCell>File</TableCell>
+                    <TableCell>Size</TableCell>
+                    <TableCell>Source</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell>Uploaded</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {data.content.map((f) => (
                     <TableRow key={f.fileId} hover>
-                      <TableCell sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {fileIcon(f.mimeType)}
-                        <Typography variant="body2" sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {f.originalName}
-                        </Typography>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                          <Box sx={{ color: TL.gray400, display: 'flex', flexShrink: 0 }}>{fileIcon(f.mimeType)}</Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'primary.main', fontWeight: 500 }}>
+                              {f.originalName}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: TL.gray500, fontFamily: TL.mono }}>{f.mimeType || '-'}</Typography>
+                          </Box>
+                        </Box>
                       </TableCell>
-                      <TableCell><Chip label={f.mimeType || '-'} size="small" variant="outlined" /></TableCell>
-                      <TableCell>{formatSize(f.fileSize)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatSize(f.fileSize)}</TableCell>
                       <TableCell>
                         {f.sourceType
                           ? <Chip label={`${f.sourceType} #${f.sourceId}`} size="small" variant="outlined" />
@@ -111,11 +113,11 @@ export default function EvidenceVaultPage() {
                       <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {f.description || '-'}
                       </TableCell>
-                      <TableCell>{f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: TL.gray500 }}>{f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '-'}</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Download">
                           <IconButton size="small" onClick={() => handleDownload(f.fileId)}>
-                            <Download fontSize="small" />
+                            <ArrowDownTrayIcon size={16} />
                           </IconButton>
                         </Tooltip>
                       </TableCell>
@@ -123,14 +125,14 @@ export default function EvidenceVaultPage() {
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </Box>
             <TablePagination component="div" count={data.totalElements} page={page}
               onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
               onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
               rowsPerPageOptions={[10, 25, 50]} />
           </>
         )}
-      </Card>
+      </Paper>
 
       <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)}
         onSaved={() => { setUploadOpen(false); loadList(); }} onSnackbar={setSnackbar} />
@@ -170,7 +172,7 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid size={{ xs: 12 }}>
-            <Button variant="outlined" component="label" fullWidth sx={{ py: 3, borderStyle: 'dashed' }}>
+            <Button variant="outlined" component="label" fullWidth startIcon={<ArrowUpTrayIcon size={16} />} sx={{ py: 3, borderStyle: 'dashed' }}>
               {file ? file.name : 'Click to select file'}
               <input type="file" hidden onChange={e => setFile(e.target.files[0])} />
             </Button>
@@ -196,7 +198,7 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !file}>
           {saving ? 'Uploading...' : 'Upload'}
         </Button>

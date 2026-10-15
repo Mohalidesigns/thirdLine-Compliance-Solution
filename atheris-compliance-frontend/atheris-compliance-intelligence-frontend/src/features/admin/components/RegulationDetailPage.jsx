@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert,
+  Box, Typography, Chip, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert, IconButton,
 } from '@mui/material';
 import {
-  ArrowBack, Description, Gavel, Rule, EventRepeat, Link as LinkIcon, OpenInNew,
-} from '@mui/icons-material';
+  DetailHeader, CoverageStrip, DataCard, StatusBadge, RiskBadge, TL,
+  DocumentTextIcon, ScaleIcon, ClipboardDocumentListIcon, CalendarDaysIcon, LinkIcon, ChevronRightIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
-
-const riskColors = { High: '#C53030', Medium: '#DD6B20', Low: '#2D7D46' };
 
 function formatDt(d) {
   if (!d) return '—';
@@ -24,26 +23,29 @@ function fmtNaira(v) {
   return Number(num).toLocaleString('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 }
 
-function SectionCard({ icon, color, title, count, subtitle, emptyMsg, columns, rows, renderCell }) {
+function SectionCard({ icon, title, count, subtitle, emptyMsg, columns, rows, renderCell }) {
   return (
-    <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: '1px solid #EDF2F7' }}>
-        <Box sx={{ color }}>{icon}</Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
-          {subtitle && <Typography variant="caption" color="text.secondary">{subtitle}</Typography>}
+    <DataCard
+      noPadding
+      sx={{ mb: 3 }}
+      title={(
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+          <Box component="span" sx={{ color: TL.gray400, display: 'inline-flex' }}>{icon}</Box>
+          {title}
         </Box>
-        <Chip label={count} size="small" sx={{ fontWeight: 700, bgcolor: `${color}14`, color }} />
-      </Box>
+      )}
+      subtitle={subtitle}
+      actions={<StatusBadge label={count} tone="gray" />}
+    >
       {rows.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>{emptyMsg}</Typography>
+        <Typography sx={{ py: 4, textAlign: 'center', fontSize: '0.875rem', color: TL.gray500 }}>{emptyMsg}</Typography>
       ) : (
         <TableContainer sx={{ maxHeight: 420 }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
                 {columns.map((c) => (
-                  <TableCell key={c.key} sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: c.width }}>
+                  <TableCell key={c.key} sx={{ width: c.width }}>
                     {c.label}
                   </TableCell>
                 ))}
@@ -51,9 +53,9 @@ function SectionCard({ icon, color, title, count, subtitle, emptyMsg, columns, r
             </TableHead>
             <TableBody>
               {rows.map((row, i) => (
-                <TableRow key={row.key || i} sx={{ '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}>
+                <TableRow key={row.key || i} hover sx={{ '&:last-child td': { border: 0 } }}>
                   {columns.map((c) => (
-                    <TableCell key={c.key} sx={{ fontSize: '0.75rem', py: 1, verticalAlign: 'top', ...c.sx }}>
+                    <TableCell key={c.key} sx={{ verticalAlign: 'top', ...c.sx }}>
                       {renderCell ? renderCell(c.key, row) : row[c.key] ?? '—'}
                     </TableCell>
                   ))}
@@ -63,7 +65,7 @@ function SectionCard({ icon, color, title, count, subtitle, emptyMsg, columns, r
           </Table>
         </TableContainer>
       )}
-    </Card>
+    </DataCard>
   );
 }
 
@@ -90,7 +92,7 @@ export default function RegulationDetailPage() {
   if (error || !reg) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_ACTS)} sx={{ mb: 2 }}>Back to Acts</Button>
+        <DetailHeader band title="Act" onBack={() => navigate(ROUTES.ADMIN_ACTS)} backLabel="Back to Acts" />
         <Alert severity="error">{error || 'Act not found'}</Alert>
       </Box>
     );
@@ -98,62 +100,45 @@ export default function RegulationDetailPage() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_ACTS)} sx={{ mb: 2 }}>Back to Acts</Button>
+      <DetailHeader
+        band
+        onBack={() => navigate(ROUTES.ADMIN_ACTS)}
+        backLabel="Back to Acts"
+        title={reg.name}
+        status={reg.status || 'Active'}
+        statusTone={reg.status === 'Superseded' || reg.status === 'Outdated' ? 'red' : 'teal'}
+        meta={(reg.regulatorName || reg.abbreviation) ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            {reg.regulatorName && (
+              <Typography sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'primary.main', fontWeight: 500, fontSize: '0.875rem' }}>
+                <LinkIcon size={14} />
+                {reg.regulatorName}
+              </Typography>
+            )}
+            {reg.abbreviation && (
+              <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
+                {reg.abbreviation}
+              </Typography>
+            )}
+          </Box>
+        ) : null}
+        description={reg.description}
+      />
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>{reg.name}</Typography>
-                <Chip label={reg.status || 'Active'} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: reg.status === 'Superseded' || reg.status === 'Outdated' ? '#FED7D7' : '#E6FFFA', color: reg.status === 'Superseded' || reg.status === 'Outdated' ? '#C53030' : '#2C7A7B', borderRadius: 1 }} />
-              </Box>
-              {reg.regulatorName && (
-                <Typography variant="body2" sx={{ color: '#3182CE', fontWeight: 600, mb: 0.5 }}>
-                  <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                  {reg.regulatorName}
-                </Typography>
-              )}
-              {reg.abbreviation && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.7rem' }}>
-                  {reg.abbreviation}
-                </Typography>
-              )}
-              {reg.description && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, fontSize: '0.82rem' }}>{reg.description}</Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', height: '100%' }}>
-            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.65rem', fontWeight: 700 }}>Coverage</Typography>
-              <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                {[
-                  { label: 'Instruments', value: reg.instrumentCount, color: '#3182CE' },
-                  { label: 'Obligations', value: reg.obligationCount, color: '#2D7D46' },
-                  { label: 'Sanctions', value: reg.sanctionCount, color: '#C53030' },
-                  { label: 'Returns', value: reg.returnCount, color: '#6B46C1' },
-                ].map((c) => (
-                  <Grid size={{ xs: 3 }} key={c.label}>
-                    <Box sx={{ textAlign: 'center', p: 1, borderRadius: 1.5, bgcolor: '#F7FAFC' }}>
-                      <Typography variant="h5" sx={{ fontWeight: 700, color: c.color, lineHeight: 1.2 }}>{c.value}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem' }}>{c.label}</Typography>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <CoverageStrip
+        title="Coverage"
+        items={[
+          { key: 'instruments', label: 'Instruments', value: reg.instrumentCount ?? 0, tone: 'blue', icon: <DocumentTextIcon /> },
+          { key: 'obligations', label: 'Obligations', value: reg.obligationCount ?? 0, tone: 'green', icon: <ClipboardDocumentListIcon /> },
+          { key: 'sanctions', label: 'Sanctions', value: reg.sanctionCount ?? 0, tone: 'red', icon: <ScaleIcon /> },
+          { key: 'returns', label: 'Returns', value: reg.returnCount ?? 0, tone: 'purple', icon: <CalendarDaysIcon /> },
+        ]}
+      />
 
       <SectionCard
         title="Instruments"
         count={reg.instruments?.length || 0}
-        icon={<Description sx={{ fontSize: 20 }} />}
-        color="#3182CE"
+        icon={<DocumentTextIcon size={18} />}
         emptyMsg="No instruments linked to this act"
         columns={[
           { key: 'sourceTitle', label: 'Title', sx: { maxWidth: 420 } },
@@ -166,16 +151,16 @@ export default function RegulationDetailPage() {
         ]}
         rows={(reg.instruments || []).map((i) => ({ key: i.instrumentId, ...i }))}
         renderCell={(key, row) => {
-          if (key === 'sourceTitle') return <Typography sx={{ fontWeight: 600, fontSize: '0.78rem' }}>{row.sourceTitle}</Typography>;
-          if (key === 'riskRating') return row.riskRating ? <Typography variant="caption" sx={{ fontWeight: 700, color: riskColors[row.riskRating] }}>{row.riskRating}</Typography> : '—';
-          if (key === 'dateIssued') return <Typography sx={{ fontSize: '0.72rem', color: '#718096', whiteSpace: 'nowrap' }}>{formatDt(row.dateIssued)}</Typography>;
-          if (key === 'status') return row.status ? <Chip label={row.status} size="small" sx={{ fontWeight: 600, fontSize: '0.62rem', bgcolor: row.status === 'Superseded' ? '#FED7D7' : '#E6F4EA', color: row.status === 'Superseded' ? '#C53030' : '#2D7D46' }} /> : '—';
+          if (key === 'sourceTitle') return <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main' }}>{row.sourceTitle}</Typography>;
+          if (key === 'riskRating') return row.riskRating ? <RiskBadge value={row.riskRating} /> : '—';
+          if (key === 'dateIssued') return <Typography sx={{ fontSize: '0.75rem', color: TL.gray500, whiteSpace: 'nowrap' }}>{formatDt(row.dateIssued)}</Typography>;
+          if (key === 'status') return row.status ? <StatusBadge label={row.status} tone={row.status === 'Superseded' ? 'red' : 'green'} /> : '—';
           if (key === '_doc') {
             if (!row.documentUrl) return '—';
             return (
-              <a href={row.documentUrl} target="_blank" rel="noopener noreferrer">
-                <OpenInNew sx={{ fontSize: 16, color: '#3182CE' }} />
-              </a>
+              <IconButton size="small" component="a" href={row.documentUrl} target="_blank" rel="noopener noreferrer" title="Open document">
+                <ChevronRightIcon size={16} />
+              </IconButton>
             );
           }
           return row[key] ?? '—';
@@ -185,8 +170,7 @@ export default function RegulationDetailPage() {
       <SectionCard
         title="Obligations"
         count={reg.obligations?.length || 0}
-        icon={<Rule sx={{ fontSize: 20 }} />}
-        color="#2D7D46"
+        icon={<ClipboardDocumentListIcon size={18} />}
         subtitle="Extracted compliance obligations for commercial banks"
         emptyMsg="No obligations extracted for this act"
         columns={[
@@ -197,8 +181,8 @@ export default function RegulationDetailPage() {
         ]}
         rows={(reg.obligations || []).map((o) => ({ key: o.obligationId, ...o }))}
         renderCell={(key, row) => {
-          if (key === 'statement') return <Typography sx={{ fontSize: '0.75rem', lineHeight: 1.5 }}>{row.statement}</Typography>;
-          if (key === 'sectionReference') return row.sectionReference ? <Chip label={row.sectionReference} size="small" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.65rem', fontFamily: 'Roboto Mono' }} /> : '—';
+          if (key === 'statement') return <Typography sx={{ fontSize: '0.875rem', lineHeight: 1.5, color: TL.gray700 }}>{row.statement}</Typography>;
+          if (key === 'sectionReference') return row.sectionReference ? <Chip label={row.sectionReference} size="small" variant="outlined" sx={{ fontSize: '0.7rem', fontFamily: TL.mono }} /> : '—';
           return row[key] ?? '—';
         }}
       />
@@ -206,8 +190,7 @@ export default function RegulationDetailPage() {
       <SectionCard
         title="Sanctions & Penalties"
         count={reg.sanctions?.length || 0}
-        icon={<Gavel sx={{ fontSize: 20 }} />}
-        color="#C53030"
+        icon={<ScaleIcon size={18} />}
         subtitle="Fines and enforcement exposure for non-compliance"
         emptyMsg="No sanctions recorded for this act"
         columns={[
@@ -220,23 +203,23 @@ export default function RegulationDetailPage() {
         ]}
         rows={(reg.sanctions || []).map((s) => ({ key: s.sanctionId, ...s }))}
         renderCell={(key, row) => {
-          if (key === 'description') return <Typography sx={{ fontSize: '0.75rem', lineHeight: 1.5 }}>{row.description}</Typography>;
+          if (key === 'description') return <Typography sx={{ fontSize: '0.875rem', lineHeight: 1.5, color: TL.gray700 }}>{row.description}</Typography>;
           if (key === 'amountNaira') {
             const amt = fmtNaira(row.amountNaira);
-            return amt ? <Typography sx={{ fontWeight: 700, color: '#C53030', fontSize: '0.78rem' }}>{amt}{row.amountPerDay ? ' / day' : ''}</Typography> : '—';
+            return amt ? <Typography sx={{ fontWeight: 600, color: TL.error, fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{amt}{row.amountPerDay ? ' / day' : ''}</Typography> : '—';
           }
           if (key === 'penaltyDetails') {
             if (!row.penaltyDetails) return '—';
-            return <Typography sx={{ fontSize: '0.72rem', color: '#B7791F', fontFamily: 'Roboto Mono' }}>{row.penaltyDetails}</Typography>;
+            return <Typography sx={{ fontSize: '0.75rem', color: TL.gray600, fontFamily: TL.mono }}>{row.penaltyDetails}</Typography>;
           }
           if (key === 'riskExplanation') {
             if (!row.riskExplanation) return '—';
-            return <Typography sx={{ fontSize: '0.72rem', color: '#718096', lineHeight: 1.4 }}>{row.riskExplanation}</Typography>;
+            return <Typography sx={{ fontSize: '0.75rem', color: TL.gray500, lineHeight: 1.4 }}>{row.riskExplanation}</Typography>;
           }
           if (key === 'liableRoles') {
             if (!row.liableRoles || row.liableRoles.length === 0) return '—';
             return row.liableRoles.map((r, j) => (
-              <Chip key={j} label={r} size="small" sx={{ mr: 0.5, mb: 0.5, fontSize: '0.62rem', fontWeight: 600, bgcolor: '#FAF5FF', color: '#6B46C1' }} />
+              <Chip key={j} label={r} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
             ));
           }
           return row[key] ?? '—';
@@ -246,8 +229,7 @@ export default function RegulationDetailPage() {
       <SectionCard
         title="Returns & Remittance"
         count={reg.returns?.length || 0}
-        icon={<EventRepeat sx={{ fontSize: 20 }} />}
-        color="#6B46C1"
+        icon={<CalendarDaysIcon size={18} />}
         subtitle="Periodic regulatory returns obligations"
         emptyMsg="No returns recorded for this act"
         columns={[
@@ -260,12 +242,12 @@ export default function RegulationDetailPage() {
         ]}
         rows={(reg.returns || []).map((rt) => ({ key: rt.returnId, ...rt }))}
         renderCell={(key, row) => {
-          if (key === 'title') return <Typography sx={{ fontWeight: 600, fontSize: '0.78rem' }}>{row.title}</Typography>;
-          if (key === 'sectionReference') return row.sectionReference ? <Chip label={row.sectionReference} size="small" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.65rem', fontFamily: 'Roboto Mono' }} /> : '—';
-          if (key === 'frequency') return <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'normal' }}>{row.frequency || '—'}</Typography>;
-          if (key === 'responsibleUnit') return <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#553C9A' }}>{row.responsibleUnit || '—'}</Typography>;
-          if (key === 'responsiblePerson') return <Typography sx={{ fontSize: '0.72rem', color: '#718096' }}>{row.responsiblePerson || '—'}</Typography>;
-          if (key === 'statutoryBasis') return <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.4, color: '#4A5568' }}>{row.statutoryBasis || '—'}</Typography>;
+          if (key === 'title') return <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main' }}>{row.title}</Typography>;
+          if (key === 'sectionReference') return row.sectionReference ? <Chip label={row.sectionReference} size="small" variant="outlined" sx={{ fontSize: '0.7rem', fontFamily: TL.mono }} /> : '—';
+          if (key === 'frequency') return <Typography sx={{ fontSize: '0.875rem', whiteSpace: 'normal', color: TL.gray700 }}>{row.frequency || '—'}</Typography>;
+          if (key === 'responsibleUnit') return <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{row.responsibleUnit || '—'}</Typography>;
+          if (key === 'responsiblePerson') return <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>{row.responsiblePerson || '—'}</Typography>;
+          if (key === 'statutoryBasis') return <Typography sx={{ fontSize: '0.75rem', lineHeight: 1.4, color: TL.gray600 }}>{row.statutoryBasis || '—'}</Typography>;
           return row[key] ?? '—';
         }}
       />

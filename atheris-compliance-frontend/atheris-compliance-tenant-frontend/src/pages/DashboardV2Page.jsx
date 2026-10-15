@@ -1,54 +1,59 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Box, Typography, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Chip, CircularProgress, Alert,
+  Box, Typography, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, CircularProgress, Alert,
 } from '@mui/material';
-import { CalendarMonth, Shield, Assessment } from '@mui/icons-material';
+import { PageHeader, SectionTabs, DataCard, StatusBadge, TL, riskTone } from 'shared';
 import RenditionTab from '../components/dashboard/RenditionTab';
 import ControlCoverageTab from '../components/dashboard/ControlCoverageTab';
 import RiskHeatmap from '../components/dashboard/RiskHeatmap';
 import { api } from '../services/api';
 
-const LEVEL_COLORS = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success' };
+const TABS = [
+  { key: 0, label: 'Rendition Tracker' },
+  { key: 1, label: 'Control Coverage' },
+  { key: 2, label: 'Risk Profile' },
+];
 
 function TabPanel({ children, value, index }) {
-  return value === index ? <Box sx={{ mt: 2 }}>{children}</Box> : null;
+  return value === index ? <Box>{children}</Box> : null;
 }
 
 function BreakdownTable({ title, label, rows, nameKey }) {
   return (
-    <Paper variant="outlined">
-      <Box sx={{ p: 2, borderBottom: '1px solid #E2E8F0' }}>
-        <Typography variant="h6">{title}</Typography>
-      </Box>
+    <DataCard title={title} noPadding>
       {rows.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No applicable obligations.</Typography>
+        <Typography sx={{ p: 3, fontSize: '0.875rem', color: TL.gray500 }}>No applicable obligations.</Typography>
       ) : (
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>{label}</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Total</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Critical</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">High</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Moderate</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Low</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Gaps</TableCell>
+                <TableCell>{label}</TableCell>
+                <TableCell align="right">Total</TableCell>
+                <TableCell align="right">Critical</TableCell>
+                <TableCell align="right">High</TableCell>
+                <TableCell align="right">Moderate</TableCell>
+                <TableCell align="right">Low</TableCell>
+                <TableCell align="right">Gaps</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {rows.map((row, i) => (
                 <TableRow key={`${row[nameKey]}-${i}`} hover>
-                  <TableCell>{row[nameKey] || 'Unassigned'}</TableCell>
+                  <TableCell>
+                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>
+                      {row[nameKey] || 'Unassigned'}
+                    </Typography>
+                  </TableCell>
                   <TableCell align="right">{row.total ?? 0}</TableCell>
                   <TableCell align="right">{row.extreme ?? 0}</TableCell>
                   <TableCell align="right">{row.high ?? 0}</TableCell>
                   <TableCell align="right">{row.medium ?? 0}</TableCell>
                   <TableCell align="right">{row.low ?? 0}</TableCell>
                   <TableCell align="right">
-                    <Chip size="small" label={row.gaps ?? 0} color={row.gaps > 0 ? 'error' : 'default'} variant="outlined" />
+                    <StatusBadge label={row.gaps ?? 0} tone={row.gaps > 0 ? 'red' : 'gray'} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -56,7 +61,7 @@ function BreakdownTable({ title, label, rows, nameKey }) {
           </Table>
         </TableContainer>
       )}
-    </Paper>
+    </DataCard>
   );
 }
 
@@ -70,7 +75,7 @@ function RiskProfileTab() {
   const summary = profile?.summary;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <RiskHeatmap />
 
       {profileQuery.isError && (
@@ -79,23 +84,28 @@ function RiskProfileTab() {
 
       {profileQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
         <>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Risk Profile</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {summary?.totalApplicable ?? 0} applicable obligations — {summary?.gapsCount ?? 0} without a linked control
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+          <DataCard
+            title="Risk Profile"
+            subtitle={`${summary?.totalApplicable ?? 0} applicable obligations — ${summary?.gapsCount ?? 0} without a linked control`}
+          >
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {(profile?.riskLevels || []).map(level => (
-                <Chip key={level.level} color={LEVEL_COLORS[level.level] || 'default'}
-                  label={`${level.level}: ${level.count ?? 0} (${level.percentage ?? 0}%)`} />
+                <StatusBadge
+                  key={level.level}
+                  dot
+                  tone={riskTone(level.level)}
+                  label={`${level.level}: ${level.count ?? 0} (${level.percentage ?? 0}%)`}
+                />
               ))}
             </Box>
-          </Paper>
+          </DataCard>
 
-          <BreakdownTable title="By Area of Focus" label="Area of Focus"
-            rows={profile?.byAreaOfFocus || []} nameKey="areaOfFocus" />
-          <BreakdownTable title="By Act" label="Act"
-            rows={profile?.byAct || []} nameKey="actName" />
+          <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' } }}>
+            <BreakdownTable title="By Area of Focus" label="Area of Focus"
+              rows={profile?.byAreaOfFocus || []} nameKey="areaOfFocus" />
+            <BreakdownTable title="By Act" label="Act"
+              rows={profile?.byAct || []} nameKey="actName" />
+          </Box>
         </>
       )}
     </Box>
@@ -107,12 +117,11 @@ export default function DashboardV2Page() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 1 }}>Dashboard</Typography>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tab icon={<CalendarMonth />} iconPosition="start" label="Rendition Tracker" />
-        <Tab icon={<Shield />} iconPosition="start" label="Control Coverage" />
-        <Tab icon={<Assessment />} iconPosition="start" label="Risk Profile" />
-      </Tabs>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Rendition tracker, control coverage and risk profile for the current quarter"
+      />
+      <SectionTabs tabs={TABS} value={tab} onChange={setTab} sx={{ mb: 3 }} />
       <TabPanel value={tab} index={0}>
         <RenditionTab />
       </TabPanel>

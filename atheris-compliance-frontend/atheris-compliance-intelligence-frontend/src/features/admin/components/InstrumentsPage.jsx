@@ -1,21 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem,
-  Collapse, TableContainer, Paper, TablePagination, Card, CardContent, Tooltip,
+  Chip, Button, CircularProgress, Alert, IconButton,
+  Collapse, TableContainer, Paper, TablePagination, Tooltip,
 } from '@mui/material';
 import {
-  Visibility, Search, Close, ExpandMore, ExpandLess,
-  Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
-} from '@mui/icons-material';
+  PageHeader, FilterBar, DataCard, RiskBadge, StateBadge,
+  EyeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ChevronDownIcon, DocumentTextIcon,
+} from 'shared';
 import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
-
-const RISK_CONFIG = {
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
-};
 
 const COLUMNS = [
   { id: 'title', label: 'Title', minWidth: 280 },
@@ -23,7 +17,7 @@ const COLUMNS = [
   { id: 'regulator', label: 'Regulator', minWidth: 100 },
   { id: 'risk', label: 'Risk', minWidth: 80 },
   { id: 'status', label: 'Status', minWidth: 90 },
-  { id: 'actions', label: 'Actions', minWidth: 100 },
+  { id: 'actions', label: 'Actions', minWidth: 80, align: 'right' },
 ];
 
 function formatDate(d) {
@@ -32,15 +26,17 @@ function formatDate(d) {
 }
 
 function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, fontWeight: 600 }} />;
+  return <RiskBadge value={rating} emptyLabel="Unrated" />;
 }
 
 function statusChip(status) {
-  const colors = { Published: 'success', Triage: 'warning', Superseded: 'default', Withdrawn: 'error' };
-  return <Chip size="small" label={status || 'Unknown'} color={colors[status] || 'default'} sx={{ height: 22, fontWeight: 600 }} />;
+  return <StateBadge value={status} emptyLabel="Unknown" />;
 }
+
+const FIELD_LABEL_SX = {
+  fontSize: '0.625rem', fontWeight: 600, color: 'text.secondary',
+  textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block',
+};
 
 export default function InstrumentsPage() {
   const navigate = useNavigate();
@@ -48,11 +44,15 @@ export default function InstrumentsPage() {
   const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') || '');
   const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(0);
+  // The top-bar search routes here as /admin/instruments?q=…; follow it even when already mounted.
+  const urlQuery = searchParams.get('q');
+  useEffect(() => { if (urlQuery != null) { setSearch(urlQuery); setPage(0); } }, [urlQuery]);
   const [rowsPerPage] = useState(20);
   const [detailItem, setDetailItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
@@ -159,16 +159,22 @@ export default function InstrumentsPage() {
     const d = detailItem;
     return (
       <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <IconButton onClick={closeDetail}><ArrowBack /></IconButton>
-          <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<Visibility />}>
-            View Instrument
-          </Button>
-          <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<Download />}>
-            Download
-          </Button>
-        </Box>
+        <PageHeader
+          title={d.sourceTitle || 'Instrument'}
+          subtitle={[detailData?.regulator || regMap[d.regulatorId], d.sourceReferenceNumber].filter(Boolean).join(' · ') || undefined}
+          onBack={closeDetail}
+          backLabel="Back to Instruments"
+          actions={
+            <>
+              <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<EyeIcon size={16} />}>
+                View Instrument
+              </Button>
+              <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<ArrowDownTrayIcon size={16} />}>
+                Download
+              </Button>
+            </>
+          }
+        />
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -176,8 +182,8 @@ export default function InstrumentsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
         ) : (
           <>
-            <Paper sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+            <DataCard title="Overview" sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
                 {riskChip(d.riskRating)}
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
                   {detailData?.regulator || regMap[d.regulatorId] || '-'}
@@ -185,58 +191,62 @@ export default function InstrumentsPage() {
                 {statusChip(d.status)}
                 <Chip size="small" label={d.areaOfFocus || 'General'} variant="outlined" />
               </Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{d.sourceTitle}</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Risk Rating</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Risk Rating</Typography>
                   <Box sx={{ mt: 0.5 }}>{riskChip(d.riskRating)}</Box>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Regulator</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Regulator</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{detailData?.regulator || regMap[d.regulatorId] || '-'}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Area of Focus</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Area of Focus</Typography>
                   <Typography variant="body2">{d.areaOfFocus || '-'}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Nature</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Nature</Typography>
                   <Typography variant="body2">{d.nature || '-'}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Obligations</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Obligations</Typography>
                   <Typography variant="body2">{detailData?.obligations?.length || 0}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Confidence</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Confidence</Typography>
                   <Typography variant="body2">{d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'}</Typography>
                 </Box>
                 {d.dateCommencement && (
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Effective Date</Typography>
+                    <Typography variant="caption" sx={FIELD_LABEL_SX}>Effective Date</Typography>
                     <Typography variant="body2">{formatDate(d.dateCommencement)}</Typography>
                   </Box>
                 )}
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Published</Typography>
+                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Published</Typography>
                   <Typography variant="body2">{formatDate(d.firstPublishedAt || d.discoveredAt)}</Typography>
                 </Box>
               </Box>
-            </Paper>
+            </DataCard>
 
             {detailData?.aiSummary && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Summary</Typography>
+              <DataCard title="AI Summary" sx={{ mb: 3 }}>
                 <Typography variant="body2" fontStyle="italic" color="text.secondary">{detailData.aiSummary}</Typography>
-              </Paper>
+              </DataCard>
             )}
 
             {detailData?.pdfOcrText && (
-              <Paper sx={{ mb: 2 }}>
-                <Button size="small" onClick={() => setShowOcr(!showOcr)}
-                  endIcon={showOcr ? <ExpandLess /> : <ExpandMore />} sx={{ px: 2, py: 1 }}>
-                  {showOcr ? 'Hide' : 'Show'} Raw OCR Text
-                </Button>
+              <DataCard
+                title="Raw OCR Text"
+                noPadding
+                sx={{ mb: 3 }}
+                actions={
+                  <Button size="small" variant="text" onClick={() => setShowOcr(!showOcr)}
+                    endIcon={<ChevronDownIcon size={16} sx={{ transition: 'transform .15s', transform: showOcr ? 'rotate(180deg)' : 'none' }} />}>
+                    {showOcr ? 'Hide' : 'Show'} Raw OCR Text
+                  </Button>
+                }
+              >
                 <Collapse in={showOcr}>
                   <Box sx={{
                     p: 2, bgcolor: '#1A1A2E', color: '#E2E8F0',
@@ -246,12 +256,11 @@ export default function InstrumentsPage() {
                     {detailData.pdfOcrText}
                   </Box>
                 </Collapse>
-              </Paper>
+              </DataCard>
             )}
 
             {detailData?.sanctions?.length > 0 && (
-              <Paper sx={{ p: 3, mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Penalties</Typography>
+              <DataCard title="Penalties" sx={{ mb: 3 }}>
                 {detailData.sanctions.map((s, i) => (
                   <Box key={i} sx={{ mb: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
@@ -264,25 +273,20 @@ export default function InstrumentsPage() {
                     )}
                   </Box>
                 ))}
-              </Paper>
+              </DataCard>
             )}
 
-            <Paper>
-              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Obligations ({detailData?.obligations?.length || 0})
-                </Typography>
-              </Box>
+            <DataCard title={`Obligations (${detailData?.obligations?.length || 0})`} noPadding>
               {detailData?.obligations?.length > 0 ? (
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>#</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Section</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Deadline</TableCell>
+                        <TableCell>#</TableCell>
+                        <TableCell>Description</TableCell>
+                        <TableCell>Section</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Deadline</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -293,7 +297,7 @@ export default function InstrumentsPage() {
                             <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.statement}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                            <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: '"Roboto Mono", monospace', fontSize: '0.7rem' }} />
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">{obl.type || '-'}</Typography>
@@ -311,7 +315,7 @@ export default function InstrumentsPage() {
                   <Typography variant="body2">No specific obligations extracted for this instrument.</Typography>
                 </Box>
               )}
-            </Paper>
+            </DataCard>
           </>
         )}
       </Box>
@@ -321,60 +325,59 @@ export default function InstrumentsPage() {
   // ── List View ──
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Instruments</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Browse all regulatory instruments in the platform
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<CloudUploadIcon />}
-          onClick={() => navigate('/admin/uploads')}>
-          Upload Instrument
-        </Button>
-      </Box>
+      <PageHeader
+        title="Instruments"
+        subtitle="Browse all regulatory instruments in the platform"
+        actions={
+          <Button variant="contained" startIcon={<ArrowUpTrayIcon size={16} />}
+            onClick={() => navigate('/admin/uploads')}>
+            Upload Instrument
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search title or regulator..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 220 }} />
-        <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk" sx={{ minWidth: 110 }}>
-          {['All', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
-          label="Regulator" sx={{ minWidth: 130 }}>
-          {regulatorsList.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 120 }}>
-          {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        {(search || riskFilter !== 'All' || regulatorFilter !== 'All' || statusFilter !== 'All') && (
-          <Button size="small" startIcon={<Close />} onClick={() => {
-            setSearch(''); setRiskFilter('All'); setRegulatorFilter('All'); setStatusFilter('All');
-          }}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search title or regulator...' }}
+        filters={[
+          {
+            key: 'risk', label: 'Risk', value: riskFilter, allLabel: 'All', minWidth: 130,
+            onChange: (v) => { setRiskFilter(v); setPage(0); },
+            options: ['High', 'Medium', 'Low'].map(r => ({ value: r, label: r })),
+          },
+          {
+            key: 'regulator', label: 'Regulator', value: regulatorFilter, allLabel: 'All', minWidth: 150,
+            onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: regulatorsList.filter(r => r !== 'All').map(r => ({ value: r, label: r })),
+          },
+          {
+            key: 'status', label: 'Status', value: statusFilter, allLabel: 'All', minWidth: 140,
+            onChange: (v) => { setStatusFilter(v); setPage(0); },
+            options: statuses.filter(st => st !== 'All').map(st => ({ value: st, label: st })),
+          },
+        ]}
+        showClear={!!(search || riskFilter !== 'All' || regulatorFilter !== 'All' || statusFilter !== 'All')}
+        onClear={() => {
+          setSearch(''); setRiskFilter('All'); setRegulatorFilter('All'); setStatusFilter('All');
+        }}
+      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <DocumentTextIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No instruments found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
                   {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                    <TableCell key={c.id} align={c.align} sx={{ minWidth: c.minWidth }}>
                       {c.label}
                     </TableCell>
                   ))}
@@ -382,24 +385,20 @@ export default function InstrumentsPage() {
               </TableHead>
               <TableBody>
                 {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map(item => {
-                  const rc = RISK_CONFIG[item.riskRating] || {};
                   return (
                     <TableRow key={item.instrumentId} hover
                       onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', bgcolor: rc.bg || 'inherit',
-                        '&:hover': { bgcolor: rc.bg || '#F7FAFC' },
-                        borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent',
-                      }}>
+                      sx={{ cursor: 'pointer' }}>
                       <TableCell>
                         <Tooltip title={item.sourceTitle}>
-                          <Typography variant="body2" sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.sourceTitle}
                           </Typography>
                         </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Tooltip title={item.sourceReferenceNumber || '-'}>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.72rem', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Typography variant="body2" sx={{ fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem', color: 'text.secondary', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.sourceReferenceNumber || '-'}
                           </Typography>
                         </Tooltip>
@@ -413,11 +412,12 @@ export default function InstrumentsPage() {
                       </TableCell>
                       <TableCell>{riskChip(item.riskRating)}</TableCell>
                       <TableCell>{statusChip(item.status)}</TableCell>
-                      <TableCell>
-                        <Button size="small" variant="text" startIcon={<Visibility />}
-                          onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>
-                          View
-                        </Button>
+                      <TableCell align="right">
+                        <Tooltip title="View">
+                          <IconButton size="small" onClick={e => { e.stopPropagation(); openDetail(item); }}>
+                            <EyeIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   );

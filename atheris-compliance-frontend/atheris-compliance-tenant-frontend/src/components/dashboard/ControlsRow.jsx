@@ -1,14 +1,13 @@
-import { Paper, Typography, Box, LinearProgress, Chip, useTheme } from '@mui/material';
+import { Typography, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import {
-  Settings as TotalIcon,
-  CheckCircle as PassingIcon,
-  Cancel as FailingIcon,
-  AssignmentLate as DueIcon,
-} from '@mui/icons-material';
+import { DataCard, CardLink, StatusBadge, TL } from 'shared';
 
-function RingProgress({ value, color, size = 64 }) {
-  const theme = useTheme();
+const GREEN = '#22C55E';
+const ORANGE = '#F97316';
+const RED = '#EF4444';
+const NAVY = '#1A365D';
+
+function RingProgress({ value, color, size = 72 }) {
   const radius = (size - 8) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (value / 100) * circumference;
@@ -17,7 +16,7 @@ function RingProgress({ value, color, size = 64 }) {
     <Box sx={{ position: 'relative', width: size, height: size, mx: 'auto' }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
         <circle cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke={theme.palette.divider} strokeWidth={6} />
+          fill="none" stroke={TL.gray200} strokeWidth={6} />
         <circle cx={size / 2} cy={size / 2} r={radius}
           fill="none" stroke={color} strokeWidth={6}
           strokeDasharray={circumference} strokeDashoffset={offset}
@@ -26,14 +25,13 @@ function RingProgress({ value, color, size = 64 }) {
       <Box sx={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Typography variant="body2" fontWeight={700}>{value.toFixed(2)}%</Typography>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: TL.gray800 }}>{value.toFixed(2)}%</Typography>
       </Box>
     </Box>
   );
 }
 
 export default function ControlsRow({ snapshot = {} }) {
-  const theme = useTheme();
   const navigate = useNavigate();
 
   const total = snapshot.controlsTotal || 0;
@@ -42,91 +40,69 @@ export default function ControlsRow({ snapshot = {} }) {
   const testRate = snapshot.controlsTestCompletionRate || 0;
 
   const effectivenessPct = total > 0 ? ((passing / total) * 100) : 0;
-  const effectColor = effectivenessPct >= 90 ? '#4caf50' : effectivenessPct >= 70 ? '#ed6c02' : '#d32f2f';
+  const effectColor = effectivenessPct >= 90 ? GREEN : effectivenessPct >= 70 ? ORANGE : RED;
 
   const stats = [
-    { label: 'Total Controls', value: total, icon: TotalIcon, color: '#1976d2', route: '/controls' },
-    { label: 'Passing', value: passing, icon: PassingIcon, color: '#4caf50', route: '/controls' },
-    { label: 'Failing (High Risk)', value: failing, icon: FailingIcon, color: '#d32f2f', route: '/controls?residualRisk=High' },
-    { label: 'Tests Due', value: snapshot.findingsOverdueRemediation || 0, icon: DueIcon, color: '#ed6c02', route: '/controls' },
+    { label: 'Total Controls', value: total, color: NAVY, route: '/controls' },
+    { label: 'Passing', value: passing, color: GREEN, route: '/controls' },
+    { label: 'Failing (High Risk)', value: failing, color: RED, route: '/controls?residualRisk=High' },
+    { label: 'Tests Due', value: snapshot.findingsOverdueRemediation || 0, color: ORANGE, route: '/controls' },
   ];
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        border: '1px solid',
-        borderColor: theme.palette.divider,
-        borderLeftWidth: 4,
-        borderLeftColor: '#1976d2',
-      }}
+    <DataCard
+      title="Controls Effectiveness"
+      subtitle={`${total} controls monitored across all themes`}
+      actions={<CardLink onClick={() => navigate('/controls')}>View All</CardLink>}
+      sx={{ height: '100%' }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <TotalIcon sx={{ color: '#1976d2', fontSize: 28 }} />
-          <Box>
-            <Typography variant="h6" fontWeight={700}>Controls Effectiveness</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {total} controls monitored across all themes
-            </Typography>
-          </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', gap: 2, mb: 2.5 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <RingProgress value={effectivenessPct} color={effectColor} />
+          <Typography sx={{ mt: 0.75, fontSize: '0.75rem', color: TL.gray500 }}>Effectiveness</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <RingProgress value={effectivenessPct} color={effectColor} />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Effectiveness
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <RingProgress value={testRate} color="#9c27b0" />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Test Coverage
-            </Typography>
-          </Box>
+        <Box sx={{ textAlign: 'center' }}>
+          <RingProgress value={testRate} color={NAVY} />
+          <Typography sx={{ mt: 0.75, fontSize: '0.75rem', color: TL.gray500 }}>Test Coverage</Typography>
         </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 2 }}>
-        {stats.map(({ label, value, icon: Icon, color, route }) => (
-          <Paper
+      {/* legend list: colour dot · label · right-aligned count */}
+      <Box>
+        {stats.map(({ label, value, color, route }, i) => (
+          <Box
             key={label}
-            elevation={0}
             onClick={() => navigate(route)}
             sx={{
-              p: 2, cursor: 'pointer', textAlign: 'center',
-              border: '1px solid', borderColor: theme.palette.divider,
-              borderRadius: 2, transition: 'all 0.15s',
-              '&:hover': { bgcolor: theme.palette.action.hover, transform: 'translateY(-1px)' },
+              display: 'flex', alignItems: 'center', gap: 1.25, py: 1, cursor: 'pointer',
+              borderTop: i ? `1px solid ${TL.gray100}` : 'none',
+              '&:hover .tl-legend-label': { color: TL.primary },
             }}
           >
-            <Icon sx={{ color, fontSize: 28, mb: 0.5 }} />
-            <Typography variant="h4" fontWeight={700}>{value}</Typography>
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-            {label === 'Failing (High Risk)' && value > 0 && (
-              <Chip label="Action needed" size="small" sx={{ mt: 0.5, bgcolor: '#d32f2f14', color: '#d32f2f', fontWeight: 600, fontSize: 11 }} />
-            )}
-          </Paper>
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+            <Typography className="tl-legend-label" sx={{ flex: 1, fontSize: '0.875rem', color: TL.gray700 }}>{label}</Typography>
+            {label === 'Failing (High Risk)' && value > 0 && <StatusBadge label="Action needed" tone="red" />}
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800, minWidth: 28, textAlign: 'right' }}>{value}</Typography>
+          </Box>
         ))}
       </Box>
 
       {total > 0 && (
         <Box sx={{ mt: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">Effectiveness distribution</Typography>
-            <Typography variant="caption" color="text.secondary">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>Effectiveness distribution</Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
               {passing} passing / {failing} failing
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden' }}>
-            <Box sx={{ width: `${effectivenessPct}%`, bgcolor: '#4caf50', transition: 'width 0.5s' }} />
+          <Box sx={{ display: 'flex', height: 8, borderRadius: 9999, overflow: 'hidden', bgcolor: TL.gray200 }}>
+            <Box sx={{ width: `${effectivenessPct}%`, bgcolor: GREEN, transition: 'width 0.5s' }} />
             {failing > 0 && (
-              <Box sx={{ width: `${((failing / total) * 100).toFixed(2)}%`, bgcolor: '#d32f2f', transition: 'width 0.5s' }} />
+              <Box sx={{ width: `${((failing / total) * 100).toFixed(2)}%`, bgcolor: RED, transition: 'width 0.5s' }} />
             )}
           </Box>
         </Box>
       )}
-    </Paper>
+    </DataCard>
   );
 }

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Chip, Typography, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination,
   CircularProgress, Tooltip,
 } from '@mui/material';
-import { ArrowForward } from '@mui/icons-material';
+import { ChevronRightIcon, StatusBadge } from 'shared';
 import { api } from '../../services/api';
 
 const PAGE_SIZE = 25;
@@ -29,8 +29,6 @@ function typeLabel(t) {
 
 const SOURCE_LABELS = { platform: 'Platform', frequency_text: 'From text' };
 
-const HEAD_SX = { fontWeight: 700, bgcolor: '#F7FAFC' };
-const CHIP_SX = { height: 22, borderRadius: '4px' };
 
 export default function ReturnRepairDialog({ open, onClose, preview }) {
   const queryClient = useQueryClient();
@@ -62,7 +60,7 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>Repair return schedules</DialogTitle>
+      <DialogTitle>Repair return schedules</DialogTitle>
       <DialogContent dividers>
         {done ? (
           <Alert severity="success">
@@ -73,10 +71,10 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
         ) : (
           <>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-              <Chip label={`To retype ${toRetype}`} color="warning" sx={{ fontWeight: 600 }} />
-              <Chip label={`To reschedule ${toReschedule}`} color="warning" variant="outlined" sx={{ fontWeight: 600 }} />
-              <Chip label={`Periods to remove ${preview?.instancesToRemove ?? 0}`} color="error" variant="outlined" sx={{ fontWeight: 600 }} />
-              <Chip label={`Periods kept ${preview?.instancesKept ?? 0}`} color="success" variant="outlined" sx={{ fontWeight: 600 }} />
+              <StatusBadge label={`To retype ${toRetype}`} tone="orange" />
+              <StatusBadge label={`To reschedule ${toReschedule}`} tone="amber" />
+              <StatusBadge label={`Periods to remove ${preview?.instancesToRemove ?? 0}`} tone="red" />
+              <StatusBadge label={`Periods kept ${preview?.instancesKept ?? 0}`} tone="green" />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Frequency types and due rules are corrected; frequency text is kept. Periods nobody has worked on
@@ -94,27 +92,27 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 220 }}>Return</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 190 }}>Frequency</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 200 }}>Due date</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 110 }}>Periods</TableCell>
-                      <TableCell sx={{ ...HEAD_SX, minWidth: 90 }}>Source</TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>Return</TableCell>
+                      <TableCell sx={{ minWidth: 190 }}>Frequency</TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>Due date</TableCell>
+                      <TableCell sx={{ minWidth: 110 }}>Periods</TableCell>
+                      <TableCell sx={{ minWidth: 90 }}>Source</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {pageItems.map(it => (
                       <TableRow key={it.returnId} hover>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{it.returnName}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>{it.returnName}</Typography>
                           <Typography variant="caption" color="text.secondary">{it.regulator || '-'}</Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">{it.frequency || '-'}</Typography>
                           {it.typeChanged && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                              <Chip size="small" label={typeLabel(it.currentType)} variant="outlined" sx={CHIP_SX} />
-                              <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
-                              <Chip size="small" label={typeLabel(it.proposedType)} color="primary" sx={{ ...CHIP_SX, fontWeight: 600 }} />
+                              <StatusBadge label={typeLabel(it.currentType)} tone="gray" />
+                              <ChevronRightIcon size={16} sx={{ color: 'text.secondary' }} />
+                              <StatusBadge label={typeLabel(it.proposedType)} tone="blue" />
                             </Box>
                           )}
                         </TableCell>
@@ -141,8 +139,7 @@ export default function ReturnRepairDialog({ open, onClose, preview }) {
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>keep {it.keptInstances ?? 0}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip size="small" variant="outlined" sx={CHIP_SX}
-                            label={SOURCE_LABELS[it.source] || it.source || '-'} />
+                          <StatusBadge tone="gray" label={SOURCE_LABELS[it.source] || it.source || '-'} />
                         </TableCell>
                       </TableRow>
                     ))}

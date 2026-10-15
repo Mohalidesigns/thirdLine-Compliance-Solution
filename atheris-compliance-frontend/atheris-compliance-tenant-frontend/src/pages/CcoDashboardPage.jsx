@@ -1,5 +1,7 @@
-import { Box, CircularProgress, Typography, Fade, Divider } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { PageHeader, ArrowPathIcon, ScaleIcon } from 'shared';
 import { api } from '../services/api';
 import AttentionSection from '../components/dashboard/AttentionSection';
 import ComplianceTrendChart from '../components/dashboard/ComplianceTrendChart';
@@ -10,23 +12,16 @@ import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../componen
 
 const POLL_INTERVAL = 30000;
 
-function SectionHeader({ title, subtitle, color }) {
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ width: 4, height: 24, borderRadius: 2, bgcolor: color }} />
-        <Typography variant="h6" fontWeight={700}>{title}</Typography>
-      </Box>
-      {subtitle && (
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 1.75 }}>
-          {subtitle}
-        </Typography>
-      )}
-    </Box>
-  );
-}
+const row = (cols) => ({
+  display: 'grid',
+  gap: 3,
+  mb: 3,
+  alignItems: 'stretch',
+  gridTemplateColumns: { xs: '1fr', lg: cols },
+});
 
 export default function CcoDashboardPage() {
+  const navigate = useNavigate();
   // each section fetches independently — one failing endpoint must never blank the page
   const attentionQuery = useQuery({
     queryKey: ['dashboard', 'attention-items'],
@@ -74,6 +69,7 @@ export default function CcoDashboardPage() {
     sanctionsQuery, summaryQuery, riskProfileQuery, coverageQuery,
   ];
   const loading = queries.some(q => q.isPending);
+  const refreshing = queries.some(q => q.isFetching);
 
   const attention = attentionQuery.data || {};
   const trend = Array.isArray(trendQuery.data) ? trendQuery.data : [];
@@ -93,90 +89,48 @@ export default function CcoDashboardPage() {
   }
 
   return (
-    <Fade in timeout={400}>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={700} gutterBottom>
-          Compliance Dashboard
-        </Typography>
+    <Box>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Compliance posture across returns, controls, obligations and sanctions"
+        actions={(
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowPathIcon size={16} />}
+              disabled={refreshing}
+              onClick={() => queries.forEach(q => q.refetch())}
+            >
+              Refresh
+            </Button>
+            <Button variant="contained" startIcon={<ScaleIcon size={16} />} onClick={() => navigate('/obligations')}>
+              Obligations Register
+            </Button>
+          </>
+        )}
+      />
 
-        {/* Section 1: Attention */}
-        <SectionHeader
-          title="Needs Attention"
-          subtitle="Items requiring immediate action"
-          color="#d32f2f"
-        />
-        <AttentionSection items={attention} />
+      {/* Needs attention — stat cards */}
+      <AttentionSection items={attention} />
 
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 2: Returns Status */}
-        <SectionHeader
-          title="Regulatory Returns Status"
-          subtitle="Filing progress and upcoming deadlines"
-          color="#2e7d32"
-        />
+      {/* Returns · Controls · Sanctions */}
+      <Box sx={row('repeat(3, 1fr)')}>
         <ReturnsStatusSection stats={returnsStats} calendar={calendar} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 3: Compliance Trend */}
-        <SectionHeader
-          title="Compliance Trend"
-          subtitle="Score and control performance over time"
-          color="#1976d2"
-        />
-        <ComplianceTrendChart trend={trend} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 4: Controls Effectiveness */}
-        <SectionHeader
-          title="Controls Effectiveness"
-          subtitle="Control performance and remediation status"
-          color="#1976d2"
-        />
         <ControlsRow snapshot={summary} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 5: Inherent Risk Profile */}
-        <SectionHeader
-          title="Inherent Risk Profile"
-          subtitle="Applicable obligations by inherent risk, with control gaps"
-          color="#d32f2f"
-        />
-        <RiskProfileRow profile={riskProfile} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 6: Area of Focus */}
-        <SectionHeader
-          title="Risk by Area of Focus"
-          subtitle="Where inherent risk and control gaps concentrate"
-          color="#1976d2"
-        />
-        <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 7: Act */}
-        <SectionHeader
-          title="Risk by Act"
-          subtitle="Obligation risk and gaps per originating act"
-          color="#9c27b0"
-        />
-        <ActBreakdownTable profile={riskProfile} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 8: Sanctions & Penalty Exposure */}
-        <SectionHeader
-          title="Sanctions & Penalty Exposure"
-          subtitle="Regulatory penalties and enforcement status"
-          color="#d32f2f"
-        />
         <SanctionsExposureRow stats={sanctionsStats} />
       </Box>
-    </Fade>
+
+      {/* Compliance trend · inherent risk donut */}
+      <Box sx={row('2fr 1fr')}>
+        <ComplianceTrendChart trend={trend} />
+        <RiskProfileRow profile={riskProfile} />
+      </Box>
+
+      {/* Area of focus · act tables */}
+      <Box sx={row('1fr 1fr')}>
+        <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
+        <ActBreakdownTable profile={riskProfile} />
+      </Box>
+    </Box>
   );
 }

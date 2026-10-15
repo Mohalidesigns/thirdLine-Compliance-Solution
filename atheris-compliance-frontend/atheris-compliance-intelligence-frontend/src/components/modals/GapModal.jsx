@@ -36,7 +36,7 @@ export default function GapModal({ open, onClose, obligationId, initial = {}, on
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Control Gap</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent sx={{ '&&&': { pt: 2.5 } }}>
         <FormControlLabel control={
           <Switch checked={!!form.hasGap}
             onChange={e => setForm({ ...form, hasGap: e.target.checked })} />
@@ -50,7 +50,7 @@ export default function GapModal({ open, onClose, obligationId, initial = {}, on
           value={form.changeReason || ''} onChange={e => setForm({ ...form, changeReason: e.target.value })} sx={{ mt: 2 }} />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading}>
           {loading ? <CircularProgress size={18} /> : 'Save'}
         </Button>

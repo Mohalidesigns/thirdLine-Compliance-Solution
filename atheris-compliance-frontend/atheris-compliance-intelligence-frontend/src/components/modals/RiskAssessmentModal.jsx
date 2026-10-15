@@ -46,7 +46,7 @@ export default function RiskAssessmentModal({ open, onClose, obligationId, initi
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Risk Assessment</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent sx={{ '&&&': { pt: 2.5 } }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
           <TextField select size="small" label="Risk Rating" value={form.tenantRiskRating || ''} onChange={set('tenantRiskRating')}>
             <MenuItem value=""><em>None</em></MenuItem>
@@ -70,7 +70,7 @@ export default function RiskAssessmentModal({ open, onClose, obligationId, initi
           value={form.changeReason || ''} onChange={set('changeReason')} sx={{ mt: 2 }} />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading}>
           {loading ? <CircularProgress size={18} /> : 'Save'}
         </Button>

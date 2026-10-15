@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import {
-  Box, Typography, Card, CardContent, Grid, Button, TextField,
-  InputAdornment, IconButton, Divider, Alert, AlertTitle,
-  Paper, Switch, FormControlLabel, Tooltip, Chip
+  Box, Typography, Grid, Button, TextField,
+  InputAdornment, IconButton, Alert, AlertTitle,
+  Switch, FormControlLabel, Chip
 } from '@mui/material';
+import { ContentCopy } from '@mui/icons-material';
 import {
-  ContentCopy, Refresh, CheckCircle, Warning, VpnKey,
-  Webhook, Save, Terminal, Code
-} from '@mui/icons-material';
+  PageHeader, DataCard, FilterField, TL,
+  ArrowPathIcon, CheckCircleIcon, KeyIcon, LinkIcon, DocumentCheckIcon, DocumentTextIcon,
+} from 'shared';
+
+const monoInput = { '& .MuiInputBase-input': { fontFamily: TL.mono, fontSize: '0.8125rem' } };
+
+function PanelTitle({ icon, children }) {
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      <Box component="span" sx={{ display: 'inline-flex', color: TL.gray400 }}>{icon}</Box>
+      {children}
+    </Box>
+  );
+}
 
 export default function ApiSettingsPage() {
   const [showSecret, setShowSecret] = useState(false);
@@ -19,152 +31,129 @@ export default function ApiSettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyButton = (text) => (
+    <IconButton size="small" onClick={() => handleCopy(text)}><ContentCopy sx={{ fontSize: 16 }} /></IconButton>
+  );
+
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Integration API</Typography>
-        <Typography variant="body2" color="text.secondary">Manage your webhook endpoints and API credentials for automated intelligence delivery</Typography>
-      </Box>
+      <PageHeader
+        title="Integration API"
+        subtitle="Manage your webhook endpoints and API credentials for automated intelligence delivery"
+      />
 
       <Grid container spacing={3}>
         {/* API Credentials */}
         <Grid size={{ xs: 12, md: 7 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <VpnKey sx={{ color: '#1A365D' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Authentication Credentials</Typography>
-              </Box>
-              
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>TENANT ID</Typography>
-                <TextField
-                  fullWidth
-                  readOnly
-                  size="small"
-                  value="TENANT-5d324818-4e41-4501"
-                  sx={{ mt: 0.5, '& .MuiInputBase-input': { fontFamily: 'Roboto Mono', fontSize: '0.8rem' } }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => handleCopy('TENANT-5d324818-4e41-4501')}><ContentCopy sx={{ fontSize: 16 }} /></IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
+          <DataCard title={<PanelTitle icon={<KeyIcon size={18} />}>Authentication Credentials</PanelTitle>} sx={{ height: '100%' }}>
+            <FilterField label="Tenant ID" sx={{ mb: 2.5 }}>
+              <TextField
+                fullWidth
+                readOnly
+                size="small"
+                value="TENANT-5d324818-4e41-4501"
+                sx={monoInput}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {copyButton('TENANT-5d324818-4e41-4501')}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </FilterField>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>API KEY</Typography>
-                <TextField
-                  fullWidth
-                  readOnly
-                  size="small"
-                  value="ath_live_8k3m2n9p7v5x1z4w..."
-                  sx={{ mt: 0.5, '& .MuiInputBase-input': { fontFamily: 'Roboto Mono', fontSize: '0.8rem' } }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => handleCopy('ath_live_8k3m2n9p7v5x1z4w...')}><ContentCopy sx={{ fontSize: 16 }} /></IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
+            <FilterField label="API Key" sx={{ mb: 2.5 }}>
+              <TextField
+                fullWidth
+                readOnly
+                size="small"
+                value="ath_live_8k3m2n9p7v5x1z4w..."
+                sx={monoInput}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {copyButton('ath_live_8k3m2n9p7v5x1z4w...')}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </FilterField>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>WEBHOOK SECRET</Typography>
-                <TextField
-                  fullWidth
-                  readOnly
-                  size="small"
-                  type={showSecret ? 'text' : 'password'}
-                  value="whsec_0987654321fedcba0987654321"
-                  sx={{ mt: 0.5, '& .MuiInputBase-input': { fontFamily: 'Roboto Mono', fontSize: '0.8rem' } }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Button size="small" onClick={() => setShowSecret(!showSecret)} sx={{ fontSize: '0.65rem' }}>
-                          {showSecret ? 'Hide' : 'Show'}
-                        </Button>
-                        <IconButton size="small" onClick={() => handleCopy('whsec_0987654321fedcba0987654321')}><ContentCopy sx={{ fontSize: 16 }} /></IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
+            <FilterField label="Webhook Secret" sx={{ mb: 2.5 }}>
+              <TextField
+                fullWidth
+                readOnly
+                size="small"
+                type={showSecret ? 'text' : 'password'}
+                value="whsec_0987654321fedcba0987654321"
+                sx={monoInput}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button size="small" variant="text" onClick={() => setShowSecret(!showSecret)}>
+                        {showSecret ? 'Hide' : 'Show'}
+                      </Button>
+                      {copyButton('whsec_0987654321fedcba0987654321')}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </FilterField>
 
-              <Alert severity="warning" sx={{ py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-                <AlertTitle sx={{ fontSize: '0.8rem', fontWeight: 700 }}>Security Warning</AlertTitle>
-                Rotating your secret will immediately invalidate the previous one. Ensure your endpoint is updated.
-              </Alert>
-              
-              <Button variant="outlined" color="error" size="small" startIcon={<Refresh />} sx={{ mt: 2 }}>
-                Rotate Webhook Secret
-              </Button>
-            </CardContent>
-          </Card>
+            <Alert severity="warning">
+              <AlertTitle sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Security Warning</AlertTitle>
+              Rotating your secret will immediately invalidate the previous one. Ensure your endpoint is updated.
+            </Alert>
+
+            <Button variant="outlined" color="error" startIcon={<ArrowPathIcon size={16} />} sx={{ mt: 2 }}>
+              Rotate Webhook Secret
+            </Button>
+          </DataCard>
         </Grid>
 
         {/* Webhook Configuration */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Webhook sx={{ color: '#1A365D' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Webhook Configuration</Typography>
-              </Box>
+          <DataCard title={<PanelTitle icon={<LinkIcon size={18} />}>Webhook Configuration</PanelTitle>} sx={{ height: '100%' }}>
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={<Switch defaultChecked size="small" />}
+                label={<Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: TL.gray700 }}>Enable Webhook Delivery</Typography>}
+              />
+            </Box>
 
-              <Box sx={{ mb: 3 }}>
-                <FormControlLabel
-                  control={<Switch defaultChecked size="small" />}
-                  label={<Typography variant="body2" sx={{ fontWeight: 600 }}>Enable Webhook Delivery</Typography>}
-                />
-              </Box>
-
+            <FilterField label="Destination URL" sx={{ mb: 2.5 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="Destination URL"
                 placeholder="https://your-api.com/webhooks/atheris"
                 defaultValue="https://api.standardchartered.com/compliance/v1/hooks"
-                sx={{ mb: 2 }}
               />
+            </FilterField>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>EVENTS TO SUBSCRIBE</Typography>
-                <Grid container spacing={1}>
-                  {['new_instrument', 'obligation_flagged', 'sanction_alert', 'backfill_completed'].map(event => (
-                    <Grid key={event}>
-                      <Chip label={event} size="small" onClick={() => {}} sx={{ fontSize: '0.7rem' }} />
-                    </Grid>
-                  ))}
-                </Grid>
+            <FilterField label="Events to Subscribe" sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {['new_instrument', 'obligation_flagged', 'sanction_alert', 'backfill_completed'].map(event => (
+                  <Chip key={event} label={event} size="small" onClick={() => {}} sx={{ fontFamily: TL.mono, fontWeight: 500 }} />
+                ))}
               </Box>
+            </FilterField>
 
-              <Button variant="contained" fullWidth startIcon={<Save />}>
-                Save Configuration
-              </Button>
-            </CardContent>
-          </Card>
+            <Button variant="contained" fullWidth startIcon={<DocumentCheckIcon size={16} />}>
+              Save Configuration
+            </Button>
+          </DataCard>
         </Grid>
 
         {/* Quick Guide / Snippet */}
         <Grid size={{ xs: 12 }}>
-          <Card sx={{ bgcolor: '#1A202C', color: '#E2E8F0' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Code sx={{ color: '#63B3ED' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Implementation Guide</Typography>
-              </Box>
-              
-              <Typography variant="body2" sx={{ mb: 2, color: '#A0AEC0' }}>
-                All webhook payloads are signed with **HMAC-SHA256**. Verify the `X-Atheris-Signature` header using your Webhook Secret.
-              </Typography>
-
-              <Box sx={{ bgcolor: '#2D3748', p: 2, borderRadius: 1, position: 'relative' }}>
-                <Typography variant="caption" sx={{ color: '#63B3ED', position: 'absolute', top: 8, right: 12 }}>NODE.JS</Typography>
-                <Box component="pre" sx={{ m: 0, fontFamily: 'Roboto Mono', fontSize: '0.75rem', overflowX: 'auto' }}>
+          <DataCard
+            title={<PanelTitle icon={<DocumentTextIcon size={18} />}>Implementation Guide</PanelTitle>}
+            subtitle="All webhook payloads are signed with HMAC-SHA256. Verify the X-Atheris-Signature header using your Webhook Secret."
+          >
+            <Box sx={{ bgcolor: TL.gray800, color: TL.gray100, p: 2, borderRadius: '8px', position: 'relative' }}>
+              <Typography sx={{ color: TL.gray400, position: 'absolute', top: 8, right: 12, fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.05em' }}>NODE.JS</Typography>
+              <Box component="pre" sx={{ m: 0, fontFamily: TL.mono, fontSize: '0.75rem', overflowX: 'auto' }}>
 {`const crypto = require('crypto');
 
 app.post('/webhooks/atheris', (req, res) => {
@@ -179,26 +168,25 @@ app.post('/webhooks/atheris', (req, res) => {
     res.status(401).send('Invalid Signature');
   }
 });`}
-                </Box>
               </Box>
-            </CardContent>
-          </Card>
+            </Box>
+          </DataCard>
         </Grid>
       </Grid>
 
       {copied && (
-        <Paper
-          elevation={6}
+        <Box
           sx={{
-            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-            bgcolor: '#2D7D46', color: '#fff', px: 3, py: 1, borderRadius: 20
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1400,
+            bgcolor: TL.gray800, color: '#fff', px: 2.5, py: 1, borderRadius: '8px',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CheckCircle sx={{ fontSize: 18 }} />
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>Copied to clipboard</Typography>
+            <CheckCircleIcon size={18} sx={{ color: '#4ADE80' }} />
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 500 }}>Copied to clipboard</Typography>
           </Box>
-        </Paper>
+        </Box>
       )}
     </Box>
   );
