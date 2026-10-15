@@ -23,6 +23,10 @@ public class ControlRegisterItem {
     private String riskLevel;
     private String status;
     private LocalDate nextTestDueDate;
+    private String lastTestResult;
+    private LocalDate lastTestDate;
+    private String lastTestReviewStatus;
+    private Long openFindings;
     private String complianceArea;
     private String regulatoryRequirement;
     private String frequency;

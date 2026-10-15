@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -17,4 +18,5 @@ public interface FindingRepository extends JpaRepository<Finding, Long>, JpaSpec
     List<Finding> findByStatusNotOrderByCreatedAtDesc(String status);
     List<Finding> findByStatusAndSeverity(String status, String severity);
     List<Finding> findByStatusInAndRemediationDeadlineBefore(List<String> statuses, LocalDate today);
+    List<Finding> findByLinkedControlIdIn(Collection<Integer> controlIds);
 }
