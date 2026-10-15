@@ -97,12 +97,15 @@ def call_gateway(batch, api_key, base_url, model, retries=3):
             {"role": "user", "content": json.dumps(payload_items)},
         ],
         "temperature": 0.1,
+        # Free/limited OpenRouter accounts reject an uncapped request (default 65535 > balance).
+        "max_tokens": 2000,
     }
     data = json.dumps(body).encode("utf-8")
     url = base_url.rstrip("/") + "/v1/chat/completions"
     req = urllib.request.Request(url, data=data, headers={
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        "User-Agent": "atheris-toolkit-frequency/1.0",
     })
     last_err = None
     for attempt in range(retries):
