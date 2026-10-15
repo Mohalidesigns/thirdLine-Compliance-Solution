@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS control_tasks (
     task_id              BIGSERIAL PRIMARY KEY,
     control_id           INT NOT NULL REFERENCES controls(control_id),
     control_number       VARCHAR(100),
-    control_name         VARCHAR(500),
+    control_name         TEXT,
     task_type            VARCHAR(100),
     assigned_to_user_id  INT,
     assigned_to_name     VARCHAR(255),

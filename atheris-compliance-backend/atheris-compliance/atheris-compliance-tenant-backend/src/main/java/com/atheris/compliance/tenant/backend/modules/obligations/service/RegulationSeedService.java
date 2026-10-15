@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
 import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
@@ -269,7 +270,8 @@ public class RegulationSeedService {
                     .howTested(c.getComplianceControl())
                     .controlOwnerName(c.getResponsibleOfficer())
                     .ownerName(c.getOwnerName())
-                    .testFrequency(c.getFrequency())
+                    .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))
+                    .testFrequencyDays(ControlSchedule.daysForFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel())))
                     .inherentRisk(c.getRiskLevel())
                     .residualRisk(c.getRiskLevel())
                     .residualLikelihood(c.getResidualLikelihood())
@@ -398,5 +400,13 @@ public class RegulationSeedService {
         if (type != ReturnFrequency.EVENT_DRIVEN && ReturnFrequency.classify(frequency).isPresent())
             return type.label();
         return frequency.length() <= 50 ? frequency.trim() : frequency.trim().substring(0, 50);
+    }
+
+    /** A control's cadence: the platform-supplied frequency, else a risk-tiered default. */
+    private String controlFrequency(String frequency, String riskLevel) {
+        if (frequency != null && !frequency.isBlank()) {
+            return frequency;
+        }
+        return ControlSchedule.frequencyForRisk(riskLevel);
     }
 }
