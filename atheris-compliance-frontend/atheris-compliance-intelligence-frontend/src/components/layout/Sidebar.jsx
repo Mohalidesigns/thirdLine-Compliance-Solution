@@ -40,7 +40,7 @@ export default function Sidebar() {
 
   const visibleSections = isAdmin
     ? NAV_SECTIONS.filter(s => s.label !== 'INTELLIGENCE')
-    : NAV_SECTIONS.filter(s => s.label !== 'OPERATIONS' && s.label !== 'TENANTS');
+    : NAV_SECTIONS.filter(s => s.label !== 'PLATFORM');
 
   return (
     <Drawer

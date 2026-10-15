@@ -5,13 +5,12 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
   Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid, Skeleton,
-  Stepper, Step, StepLabel,
+  Stepper, Step, StepLabel, Card, CardContent, CardHeader,
   Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Schedule, CheckCircle,
-  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar, Event, Settings as SettingsIcon,
-  Flag, Timeline, StickyNote2, EventAvailable, AccessTime, WarningAmber,
+  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar,
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,28 +18,15 @@ import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
-import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
-import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
-import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
-const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 const DUE_DATE_NEEDED = 'Due date needed';
 
 const STATUS_COLORS = {
   'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
   'Submitted Late': 'warning', 'Overdue': 'error',
 };
-
-const STATUS_ACCENT = {
-  'Not Started': '#718096', 'In Progress': '#3182CE', 'Submitted': '#2D7D46',
-  'Submitted Late': '#DD6B20', 'Overdue': '#E53E3E',
-};
-
-function statusAccent(status) {
-  return STATUS_ACCENT[status] || '#2B6CB0';
-}
 
 // harmonized with ReviewInboxPage / ObligationsRegisterPage
 const INHERENT_RISK_CONFIG = {
@@ -94,14 +80,11 @@ export default function ReturnsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const isTenantAdmin = user?.role === 'TENANT_ADMIN';
   const canEditSchedule = SCHEDULE_ROLES.includes(user?.role);
-  const canRecordEvent = EVENT_ROLES.includes(user?.role);
   const [repairOpen, setRepairOpen] = useState(false);
   // Register item whose schedule is being edited (null = dialog closed).
   const [scheduleItem, setScheduleItem] = useState(null);
   // Register row the detail view was opened from (for "Edit schedule" in the header).
   const [detailItem, setDetailItem] = useState(null);
-  const [eventSetupItem, setEventSetupItem] = useState(null);
-  const [recordEventItem, setRecordEventItem] = useState(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -152,7 +135,7 @@ export default function ReturnsPage() {
 
   const detailQuery = useQuery({
     queryKey: ['returns', 'detail', String(detailId)],
-    queryFn: ({ signal }) => api.returns.detail(detailId, { signal }),
+    queryFn: () => api.returns.detail(detailId),
     enabled: detailId != null,
   });
 
@@ -197,18 +180,6 @@ export default function ReturnsPage() {
         setSnackbar('Schedule saved.');
       }} />
   );
-  const eventDialogs = (
-    <>
-      {canEditSchedule && <EventTriggerSetupDialog open={eventSetupItem != null} item={eventSetupItem}
-        onClose={() => setEventSetupItem(null)} onSaved={() => { setEventSetupItem(null); queryClient.invalidateQueries({ queryKey: ['returns'] }); setSnackbar('Event trigger saved.'); }} />}
-      <RecordReturnEventDialog open={recordEventItem != null} item={recordEventItem}
-        onClose={() => setRecordEventItem(null)} onSaved={(instance) => {
-          setRecordEventItem(null);
-          setSnackbar('Event filing created.');
-          if (instance?.instanceId) { setDetailItem(null); setDetailId(instance.instanceId); }
-        }} />
-    </>
-  );
   const snackbarEl = (
     <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -236,13 +207,6 @@ export default function ReturnsPage() {
           onBack={() => { setDetailId(null); setDetailItem(null); }}
           onRefresh={refresh}
           onSnackbar={setSnackbar}
-          onEditEventTrigger={canEditSchedule && isEventDriven(detail) ? () => {
-            setEventSetupItem({ returnId: detail.returnId, returnName: detail.returnName,
-              frequency: detail.frequency, frequencyType: detail.frequencyType,
-              deadlineText: detail.deadlineText, eventTriggerLabel: detail.eventTriggerLabel,
-              eventDeadlineMode: detail.eventDeadlineMode, eventDeadlineDays: detail.eventDeadlineDays,
-              eventDeadlineUnit: detail.eventDeadlineUnit });
-          } : null}
           onEditSchedule={canEditSchedule && detail?.returnId != null && !isEventDriven(detailItem || detail)
             ? () => setScheduleItem(detailItem?.returnId === detail.returnId
               ? detailItem
@@ -250,7 +214,6 @@ export default function ReturnsPage() {
             : null}
         />
         {scheduleDialog}
-        {eventDialogs}
         {snackbarEl}
       </>
     );
@@ -263,7 +226,7 @@ export default function ReturnsPage() {
         <Box>
           <Typography variant="h4">Returns Register</Typography>
           <Typography variant="body2" color="text.secondary">
-            {total} return{total !== 1 ? 's' : ''} — track calendar schedules and triggered filing events
+            {total} return{total !== 1 ? 's' : ''} — track filing deadlines and status
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -400,16 +363,14 @@ export default function ReturnsPage() {
                       status={status}
                       onExpand={() => setExpandedRow(isExpanded ? null : item.returnId)}
                       onEditSchedule={canEditSchedule && !isEventDriven(item) ? () => setScheduleItem(item) : null}
-                      onConfigureEvent={canEditSchedule && isEventDriven(item) ? () => setEventSetupItem(item) : null}
-                      onRecordEvent={canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured ? () => setRecordEventItem(item) : null}
-                      onOpenEventFiling={(id) => { setDetailItem(item); setDetailId(id); }}
                       onDetail={() => {
                         if (item.currentInstanceId != null) { setDetailItem(item); setDetailId(item.currentInstanceId); }
-                        else if (isEventDriven(item)) setExpandedRow(isExpanded ? null : item.returnId);
                         else if (canEditSchedule && !isEventDriven(item)) setScheduleItem(item);
-                        else setSnackbar(item.dueDateNeeded
-                          ? 'This return needs a due date before periods can be scheduled.'
-                          : 'No filing instance for this return yet.');
+                        else setSnackbar(isEventDriven(item)
+                          ? 'Event-driven return — no scheduled filing period.'
+                          : item.dueDateNeeded
+                            ? 'This return needs a due date before periods can be scheduled.'
+                            : 'No filing instance for this return yet.');
                       }}
                     />
                   );
@@ -439,15 +400,13 @@ export default function ReturnsPage() {
       )}
 
       {scheduleDialog}
-      {eventDialogs}
       {snackbarEl}
     </Box>
   );
 }
 
 /* ───────── Return Row (with expandable upcoming instances) ───────── */
-function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail,
-  onEditSchedule, onConfigureEvent, onRecordEvent, onOpenEventFiling }) {
+function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail, onEditSchedule }) {
   return (
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
@@ -499,40 +458,13 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
                 <Chip size="small" color="warning" label={DUE_DATE_NEEDED} sx={{ height: 22, fontWeight: 600 }} />
               </Tooltip>
             ) : (
-              <Typography variant="caption" color="text.secondary">
-                {isEventDriven(item) ? (item.eventTriggerConfigured ? item.eventTriggerLabel : 'Trigger setup needed') : noPeriodLabel(item)}
-              </Typography>
-            )}
-            {isEventDriven(item) && item.eventFilingCount > 0 && (
-              <Tooltip title={`${item.eventFilingCount} trigger filing(s) · ${item.eventOverdueCount || 0} overdue`}>
-                <Chip size="small" label={`${item.eventFilingCount} filing${item.eventFilingCount === 1 ? '' : 's'}`}
-                  color={item.eventOverdueCount > 0 ? 'error' : 'default'} sx={{ height: 20 }} />
-              </Tooltip>
+              <Typography variant="caption" color="text.secondary">{noPeriodLabel(item)}</Typography>
             )}
             {onEditSchedule && (
               <Tooltip title="Edit schedule">
                 <IconButton size="small" onClick={e => { e.stopPropagation(); onEditSchedule(); }}>
                   <EditCalendar fontSize="small" />
                 </IconButton>
-              </Tooltip>
-            )}
-            {onConfigureEvent && !item.eventTriggerConfigured && (
-              <Tooltip title={item.eventTriggerConfigured ? 'Edit event trigger' : 'Configure event trigger'}>
-                <IconButton size="small" onClick={e => { e.stopPropagation(); onConfigureEvent(); }}>
-                  <SettingsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {onConfigureEvent && item.eventTriggerConfigured && (
-              <Tooltip title={`Edit trigger: ${item.eventTriggerLabel}`}>
-                <Button size="small" onClick={e => { e.stopPropagation(); onConfigureEvent(); }}>Edit trigger</Button>
-              </Tooltip>
-            )}
-            {onRecordEvent && (
-              <Tooltip title="Record trigger occurrence">
-                <Button size="small" variant="outlined" startIcon={<Event />} onClick={e => { e.stopPropagation(); onRecordEvent(); }}>
-                  Record event
-                </Button>
               </Tooltip>
             )}
           </Box>
@@ -549,7 +481,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
           )}
         </TableCell>
         <TableCell>
-          <Tooltip title={isExpanded ? 'Hide details' : isEventDriven(item) ? 'Show event filings and linked obligations' : 'Show linked obligations'}>
+          <Tooltip title={isExpanded ? 'Hide details' : 'Show linked obligations'}>
             <IconButton size="small" onClick={e => { e.stopPropagation(); onExpand(); }}>
               {isExpanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
@@ -560,16 +492,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
         <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, border: 0, bgcolor: '#FAFBFC' }}>
           <Collapse in={isExpanded} unmountOnExit>
             <Box sx={{ py: 1.5, pl: 4, pr: 2 }}>
-              {isEventDriven(item) ? (
-                <>
-                  {onConfigureEvent && !item.eventTriggerConfigured && (
-                    <Button size="small" variant="outlined" startIcon={<SettingsIcon />} sx={{ mb: 1 }} onClick={onConfigureEvent}>
-                      Configure trigger
-                    </Button>
-                  )}
-                  <EventFilings returnId={item.returnId} onOpen={onOpenEventFiling} />
-                </>
-              ) : item.upcomingInstances && item.upcomingInstances.length > 0 && (
+              {item.upcomingInstances && item.upcomingInstances.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
                     Upcoming Periods
@@ -602,67 +525,6 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
       </TableRow>
     </>
   );
-}
-
-function EventFilings({ returnId, onOpen }) {
-  const query = useQuery({
-    queryKey: ['returns', 'events', String(returnId)],
-    queryFn: ({ signal }) => api.returns.eventFilings(returnId, { signal }),
-  });
-  if (query.isPending) return <Skeleton height={40} />;
-  if (query.isError) return <Alert severity="error">{query.error.message || 'Failed to load event filings.'}</Alert>;
-  const filings = query.data || [];
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
-        Event filings ({filings.length})
-      </Typography>
-      {filings.length === 0 ? <Typography variant="body2" color="text.secondary">No trigger occurrences recorded yet.</Typography> : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead><TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Trigger date</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Reference / evidence</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Due date</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Filing</TableCell>
-            </TableRow></TableHead>
-            <TableBody>{filings.map(f => (
-              <TableRow key={f.instanceId} hover>
-                <TableCell>{formatDate(f.triggerDate)}{f.triggerLabel ? ` · ${f.triggerLabel}` : ''}</TableCell>
-                <TableCell sx={{ maxWidth: 300, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
-                  {f.reference}
-                  {f.evidenceFileId && <EvidenceFileButton fileId={f.evidenceFileId} />}
-                </TableCell>
-                <TableCell>
-                  {formatDate(f.dueDate)}
-                  {f.dueDateAdjusted && <Tooltip title={`Base deadline ${formatDate(f.unadjustedDueDate)} fell on a weekend/federal holiday; moved to next working day.`}><Chip size="small" label="Adjusted" sx={{ ml: 1, height: 20 }} /></Tooltip>}
-                </TableCell>
-                <TableCell><Chip size="small" label={f.status || 'Not Started'} color={STATUS_COLORS[f.status] || 'default'} sx={{ height: 22 }} /></TableCell>
-                <TableCell><Button size="small" onClick={() => onOpen(f.instanceId)}>Open</Button></TableCell>
-              </TableRow>
-            ))}</TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  );
-}
-
-function EvidenceFileButton({ fileId }) {
-  const query = useQuery({ queryKey: ['evidence', String(fileId)], queryFn: ({ signal }) => api.evidence.detail(fileId, { signal }) });
-  const [error, setError] = useState('');
-  async function download() {
-    setError('');
-    try {
-      const file = await api.evidence.download(fileId);
-      const url = URL.createObjectURL(file.blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = file.name; link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) { setError(e.message || 'Evidence download failed'); }
-  }
-  return <Tooltip title={error || query.data?.originalName || 'Download trigger evidence'}><Button size="small" onClick={download} disabled={query.isPending || query.isError}>{query.isPending ? 'Loading…' : 'Evidence file'}</Button></Tooltip>;
 }
 
 /* ───────── Linked Obligations (lazy — mounted only while expanded) ───────── */
@@ -765,7 +627,7 @@ function LinkedObligations({ returnId }) {
 }
 
 /* ───────── Detail View ───────── */
-function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onEditEventTrigger }) {
+function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
@@ -779,159 +641,95 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
         <Typography color="text.primary">{detail.returnName}</Typography>
       </Breadcrumbs>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="h4">{detail.returnName}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-            <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'}
-              sx={{ height: 22, borderRadius: '4px' }} />
-            <Chip size="small" variant="outlined" label={detail.frequency || detail.frequencyType || 'Ad hoc'}
-              sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
-            {detail.filingRegulator && (
-              <Chip size="small" variant="outlined" label={detail.filingRegulator}
-                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+            <Box>
+              <Typography variant="h5">{detail.returnName}{detail.period ? ` · ${detail.period}` : ''}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {detail.dueDate ? `Due ${formatDate(detail.dueDate)}` : noPeriodLabel(detail)}
+                {detail.filingChannel && ` · Channel: ${detail.filingChannel}`}
+                {detail.returnOwnerName && ` · Owner: ${detail.returnOwnerName}`}
+              </Typography>
+              <Box sx={{ mt: 0.5 }}>
+                <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'} />
+              </Box>
+            </Box>
+            {onEditSchedule && (
+              <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
+                sx={{ fontWeight: 600, textTransform: 'none' }}>
+                Edit schedule
+              </Button>
             )}
           </Box>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {onEditSchedule && (
-            <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
-              sx={{ fontWeight: 600, textTransform: 'none' }}>
-              Edit schedule
-            </Button>
-          )}
-          {onEditEventTrigger && (
-            <Button variant="outlined" size="small" startIcon={<SettingsIcon />} onClick={onEditEventTrigger}
-              sx={{ fontWeight: 600, textTransform: 'none' }}>Edit event trigger</Button>
-          )}
-        </Box>
-      </Box>
-
-      {/* Headline numbers */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<EventAvailable fontSize="small" />} label="Due Date"
-          value={detail.dueDate ? formatDate(detail.dueDate) : noPeriodLabel(detail)} />
-        <StatTile icon={<CheckCircle fontSize="small" />} label="Status" accent={statusAccent(detail.status)}
-          chip={<Chip size="small" label={detail.status || 'Not Started'}
-            color={STATUS_COLORS[detail.status] || 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 700 }} />} />
-        <StatTile icon={<AccessTime fontSize="small" />} label="Days Late"
-          value={detail.daysLate > 0 ? `${detail.daysLate}` : '—'}
-          accent={detail.daysLate > 0 ? '#E53E3E' : '#2D7D46'} />
-        <StatTile icon={<Flag fontSize="small" />} label="Escalation"
-          value={detail.escalationLevel > 0 ? `Level ${detail.escalationLevel}` : 'None'}
-          accent={detail.escalationLevel > 0 ? '#E53E3E' : '#2B6CB0'} />
-      </Box>
-
-      <Section icon={<Schedule fontSize="small" />} title="Schedule"
-        action={detail.currentStage
-          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
-          : null}>
-        <FieldGrid min={160}>
-          <Field label="Frequency" value={detail.frequency || detail.frequencyType} />
-          <Field label="Regulator" value={detail.filingRegulator} />
-          <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'Event-driven' : '—')} />
-          <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
-          <Field label="Prep Start" value={detail.prepStartDate ? formatDate(detail.prepStartDate) : '—'} />
-          <Field label="Filing Channel" value={detail.filingChannel} />
-          <Field label="Return Owner" value={detail.returnOwnerName} />
-          {detail.deadlineText && <Field label="Regulator Wording" value={detail.deadlineText} />}
-        </FieldGrid>
-      </Section>
-
-      {(detail.eventTriggerDate || detail.eventTriggerLabel) && (
-        <Section icon={<Event fontSize="small" />} title="Event Trigger">
-          <FieldGrid min={160}>
-            <Field label="Trigger" value={detail.eventTriggerLabel} />
-            <Field label="Trigger Date" value={detail.eventTriggerDate ? formatDate(detail.eventTriggerDate) : '—'} />
-            <Field label="Reference" value={detail.eventReference} />
-            <Field label="Base Deadline" value={detail.eventUnadjustedDueDate ? formatDate(detail.eventUnadjustedDueDate) : '—'} />
-            <Field label="Adjusted">
-              {detail.eventDueDateAdjusted
-                ? <Chip size="small" label="Moved to next working day" sx={{ height: 22, borderRadius: '4px' }} />
-                : <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>No</Typography>}
-            </Field>
-            {detail.eventEvidenceFileId && (
-              <Field label="Evidence"><EvidenceFileButton fileId={detail.eventEvidenceFileId} /></Field>
-            )}
-          </FieldGrid>
-        </Section>
-      )}
+        </CardContent>
+      </Card>
 
       {detail.escalationLevel > 0 && (
-        <Section icon={<WarningAmber fontSize="small" />} title="Escalation">
-          <Alert severity="error">
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
-            </Typography>
-            {detail.escalatedAt && (
-              <Typography variant="caption">Escalated since {formatDate(detail.escalatedAt)}</Typography>
-            )}
-          </Alert>
-        </Section>
-      )}
-
-      <Section icon={<Timeline fontSize="small" />} title="Stages"
-        action={detail.currentStage
-          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
-          : null}>
-        <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
-          {detail.stages && detail.stages.map((stage, i) => (
-            <Step key={i} completed={stage.completed} active={stage.current}>
-              <StepLabel optional={
-                <Box sx={{ mt: 0.5 }}>
-                  {stage.completedAt && (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Completed {formatDate(stage.completedAt)}
-                      {stage.completedByName && ` by ${stage.completedByName}`}
-                    </Typography>
-                  )}
-                  {stage.evidenceUrl && (
-                    <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                      <LinkIcon fontSize="inherit" /> Evidence
-                    </Link>
-                  )}
-                  {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
-                    <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
-                        Mark complete → {STAGE_NAMES[i + 1]}
-                      </Button>
-                    </Box>
-                  )}
-                  {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
-                    <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
-                        Mark as submitted
-                      </Button>
-                    </Box>
-                  )}
-                </Box>
-              }>{stage.name}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {isSubmitted && detail.submissionEvidenceUrl && (
-          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
-            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CheckCircle color="success" fontSize="small" />
-              Submitted {formatDate(detail.submittedDate)}
-              {detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
-            </Typography>
-            <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">
-              View submission receipt
-            </Link>
-          </Box>
-        )}
-      </Section>
-
-      {detail.notes && (
-        <Section icon={<StickyNote2 fontSize="small" />} title="Notes">
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.85rem' }}>
-            {detail.notes}
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
           </Typography>
-        </Section>
+          {detail.escalatedAt && (
+            <Typography variant="caption">Escalated since {formatDate(detail.escalatedAt)}</Typography>
+          )}
+        </Alert>
       )}
+
+      <Card sx={{ mb: 2 }}>
+        <CardHeader title="Stages" />
+        <CardContent>
+          <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
+            {detail.stages && detail.stages.map((stage, i) => (
+              <Step key={i} completed={stage.completed} active={stage.current}>
+                <StepLabel optional={
+                  <Box sx={{ mt: 0.5 }}>
+                    {stage.completedAt && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Completed {formatDate(stage.completedAt)}
+                        {stage.completedByName && ` by ${stage.completedByName}`}
+                      </Typography>
+                    )}
+                    {stage.evidenceUrl && (
+                      <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                        <LinkIcon fontSize="inherit" /> Evidence
+                      </Link>
+                    )}
+                    {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
+                          Mark complete → {STAGE_NAMES[i + 1]}
+                        </Button>
+                      </Box>
+                    )}
+                    {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
+                      <Box sx={{ mt: 1 }}>
+                        <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
+                          Mark as submitted
+                        </Button>
+                      </Box>
+                    )}
+                  </Box>
+                }>{stage.name}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {isSubmitted && detail.submissionEvidenceUrl && (
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <CheckCircle color="success" fontSize="small" />
+                Submitted {formatDate(detail.submittedDate)}
+                {detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
+              </Typography>
+              <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">
+                View submission receipt
+              </Link>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
 
       <AdvanceDialog open={advanceOpen} onClose={() => setAdvanceOpen(false)}
         instanceId={detail.instanceId} stageName={detail.currentStage} nextStageName={nextStage}

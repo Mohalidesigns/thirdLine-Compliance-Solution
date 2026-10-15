@@ -18,4 +18,5 @@ public interface TenantRegulatorRepository extends JpaRepository<TenantRegulator
     Optional<TenantRegulator> findByTenantIdAndPlatformRegulatorId(Long tenantId, Integer platformRegulatorId);
     boolean existsByTenantIdAndNameIgnoreCase(Long tenantId, String name);
     long countByTenantId(Long tenantId);
+    long countByTenantIdAndIsActive(Long tenantId, Boolean isActive);
 }

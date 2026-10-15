@@ -12,6 +12,7 @@ const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
 const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
+const RegulatorDetailPage = lazy(() => import('./pages/RegulatorDetailPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const UploadStatusPage = lazy(() => import('./pages/UploadStatusPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -23,10 +24,6 @@ const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
 const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPage'));
 const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
-const ActsPage = lazy(() => import('./pages/ActsPage'));
-const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 
 function Loading() {
   return (
@@ -51,21 +48,17 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
-        {/* Public, no-login owner remediation page reached via an emailed token link. */}
-        <Route path="/remediate/:token" element={<PublicRemediatePage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="dashboard/v2" element={<DashboardV2Page />} />
-          <Route path="reports" element={<ReportsPage />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />
           <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
-          <Route path="acts" element={<ActsPage />} />
-          <Route path="acts/:id" element={<ActDetailPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
+          <Route path="regulators/:id" element={<RegulatorDetailPage />} />
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />

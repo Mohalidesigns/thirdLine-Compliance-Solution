@@ -31,8 +31,10 @@ function BreakdownTable({ title, label, rows, nameKey }) {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>{label}</TableCell>
                 <TableCell sx={{ fontWeight: 700 }} align="right">Total</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">High Risk</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">Critical</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">High</TableCell>
                 <TableCell sx={{ fontWeight: 700 }} align="right">Moderate</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">Low</TableCell>
                 <TableCell sx={{ fontWeight: 700 }} align="right">Gaps</TableCell>
               </TableRow>
             </TableHead>
@@ -41,8 +43,10 @@ function BreakdownTable({ title, label, rows, nameKey }) {
                 <TableRow key={`${row[nameKey]}-${i}`} hover>
                   <TableCell>{row[nameKey] || 'Unassigned'}</TableCell>
                   <TableCell align="right">{row.total ?? 0}</TableCell>
-                  <TableCell align="right">{(row.extreme ?? 0) + (row.high ?? 0)}</TableCell>
+                  <TableCell align="right">{row.extreme ?? 0}</TableCell>
+                  <TableCell align="right">{row.high ?? 0}</TableCell>
                   <TableCell align="right">{row.medium ?? 0}</TableCell>
+                  <TableCell align="right">{row.low ?? 0}</TableCell>
                   <TableCell align="right">
                     <Chip size="small" label={row.gaps ?? 0} color={row.gaps > 0 ? 'error' : 'default'} variant="outlined" />
                   </TableCell>

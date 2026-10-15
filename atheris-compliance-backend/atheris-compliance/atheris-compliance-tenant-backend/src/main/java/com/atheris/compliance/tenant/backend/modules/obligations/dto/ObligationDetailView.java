@@ -70,6 +70,7 @@ public class ObligationDetailView {
         private String sanctionType;
         private BigDecimal sanctionAmountNaira;
         private Boolean sanctionAmountPerDay;
+        private List<String> penaltyType;
         private List<String> liableRoles;
         private Integer severityScore;
         private Boolean hasBeenEnforced;
@@ -86,19 +87,28 @@ public class ObligationDetailView {
         private Integer controlId;
         private String controlNumber;
         private String name;
+        private String controlSummary;
         private String theme;
+        private String complianceArea;
         private String controlType;
         private String inherentRisk;
         private String residualRisk;
+        private String riskLevel;
         private String controlOwnerName;
         private String status;
+        @Builder.Default
+        private List<String> controlPoints = List.of();
     }
 
     @Data @Builder
     public static class ReturnItem {
         private Long returnId;
-        private String returnName;
+        private String title;
         private String frequency;
+        private String frequencyType;
+        private String deadline;
+        private String responsibleUnit;
+        private String responsiblePerson;
         private String filingRegulator;
     }
 

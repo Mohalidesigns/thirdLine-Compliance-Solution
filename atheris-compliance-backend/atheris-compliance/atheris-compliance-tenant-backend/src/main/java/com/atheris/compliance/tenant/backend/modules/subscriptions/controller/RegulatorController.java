@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.CreateRegulatorRequest;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.RegulatorStatsDto;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.TenantRegulatorDto;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UpdateRegulatorRequest;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.RegulatorService;
@@ -25,8 +26,14 @@ public class RegulatorController {
     @GetMapping
     public ResponseEntity<Page<TenantRegulatorDto>> list(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean active,
             Pageable pageable) {
-        return ResponseEntity.ok(service.list(search, pageable));
+        return ResponseEntity.ok(service.list(search, active, pageable));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<RegulatorStatsDto> stats() {
+        return ResponseEntity.ok(service.stats());
     }
 
     @GetMapping("/{id}")

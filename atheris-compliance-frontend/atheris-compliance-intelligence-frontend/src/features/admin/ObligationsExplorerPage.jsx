@@ -7,9 +7,6 @@ import {
   Button, Stack, CircularProgress, Paper, Tooltip,
 } from '@mui/material';
 import api from '../../services/api';
-import { obligationColumns } from 'shared';
-
-const COLUMNS = obligationColumns();
 
 const RISK_COLOR = {
   Critical: 'error',
@@ -190,13 +187,14 @@ export default function ObligationsExplorerPage() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 50 }}>#</TableCell>
-                  {COLUMNS.map((c) => (
-                    <TableCell key={c.id} sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: c.minWidth }}>
-                      {c.sortable
-                        ? <TableSortLabel active={sortField === c.sortField} direction={sortField === c.sortField ? sortDir : 'asc'} onClick={() => handleSort(c.sortField)}>{c.label}</TableSortLabel>
-                        : c.label}
-                    </TableCell>
-                  ))}
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 280 }}>
+                    <TableSortLabel active={sortField === 'title'} direction={sortDir} onClick={() => handleSort('title')}>Obligation</TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Regulator</TableCell>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                    <TableSortLabel active={sortField === 'risk'} direction={sortDir} onClick={() => handleSort('risk')}>Risk</TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Points</TableCell>
                   <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -204,9 +202,18 @@ export default function ObligationsExplorerPage() {
                 {items.map((row, idx) => (
                   <TableRow key={row.obligationId} hover sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }} onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>
                     <TableCell sx={{ color: 'text.secondary' }}>{page * size + idx + 1}</TableCell>
-                    {COLUMNS.map((c) => (
-                      <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
-                    ))}
+                    <TableCell>
+                      <Tooltip title={row.title || row.plainEnglishStatement || ''}>
+                        <Typography variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: 360 }}>
+                          {row.title || row.plainEnglishStatement || 'Untitled obligation'}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{row.regulatorAbbreviation ? <Chip size="small" label={row.regulatorAbbreviation} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} /> : <Typography variant="body2" color="text.secondary">-</Typography>}</TableCell>
+                    <TableCell>{riskChip(row.riskRating)}</TableCell>
+                    <TableCell>
+                      {row.hasPoints ? <Chip size="small" label="With" color="success" sx={{ height: 22, borderRadius: '4px' }} /> : <Chip size="small" label="Without" sx={{ height: 22, borderRadius: '4px' }} />}
+                    </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Button size="small" variant="text" onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>View</Button>
                     </TableCell>

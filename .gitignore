@@ -16,9 +16,3 @@ Thumbs.db
 data/
 data/
 .vite/
-
-# Toolkit source spreadsheets (the baked result lives in the committed compliance_toolkits.json)
-returns.xlsx
-~$returns.xlsx
-sanctions.xlsx
-~$sanctions.xlsx

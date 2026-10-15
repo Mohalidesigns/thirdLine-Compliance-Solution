@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
-  Alert, CircularProgress, Radio, RadioGroup, Divider,
+  Alert, CircularProgress, Radio, RadioGroup,
   FormControl, FormLabel, FormControlLabel, LinearProgress,
 } from '@mui/material';
 import {
@@ -33,23 +33,12 @@ export default function OnboardingPage() {
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
 
   const [institution, setInstitution] = useState({
-    legalName: '', address: '', contactPhone: '', contactEmail: '',
+    legalName: '', address: '', contactPhone: '', contactEmail: '', ccoEmail: '',
   });
 
   const [authType, setAuthType] = useState('local');
   const [localAdmin, setLocalAdmin] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
-  // LDAP connection settings (Part 2). The bind password is sent only to the backend,
-  // which encrypts it at rest.
-  const [ldapConfig, setLdapConfig] = useState({
-    url: '', bindDn: '', bindPassword: '', userSearchBase: '',
-    userSearchFilterAttribute: 'mail', fullNameAttribute: 'cn',
-  });
-  const [ldapTest, setLdapTest] = useState({ testing: false, ok: null, message: '' });
-  // The CCO and Analyst identities every tenant provisions (both auth types).
-  const [ccoUser, setCcoUser] = useState({ fullName: '', email: '', password: '' });
-  const [analystUser, setAnalystUser] = useState({ fullName: '', email: '', password: '' });
-  // LDAP only: a local Tenant Admin who can sign in even if the directory is down.
-  const [breakGlass, setBreakGlass] = useState({ fullName: '', email: '', password: '' });
+  const [ldapUrl, setLdapUrl] = useState('');
 
   const [webhookUrl, setWebhookUrl] = useState('');
 
@@ -150,6 +139,7 @@ export default function OnboardingPage() {
   function handleInstitution() {
     const checks = [
       { v: validateName(institution.legalName), label: 'Legal name' },
+      { v: validateEmail(institution.ccoEmail), label: 'CCO email' },
     ];
     if (institution.address) checks.push({ v: required(institution.address, 'Address'), label: 'Address' });
     if (institution.contactEmail) checks.push({ v: validateEmail(institution.contactEmail), label: 'Contact email' });
@@ -162,61 +152,32 @@ export default function OnboardingPage() {
         address: institution.address || undefined,
         contactPhone: institution.contactPhone || undefined,
         contactEmail: institution.contactEmail || undefined,
+        ccoEmail: institution.ccoEmail || undefined,
       }),
       2
     );
   }
 
-  async function handleTestLdap() {
-    setLdapTest({ testing: true, ok: null, message: '' });
-    try {
-      const res = await api.onboarding.testLdap(ldapConfig);
-      setLdapTest({ testing: false, ok: !!res.ok, message: res.message || '' });
-    } catch (err) {
-      setLdapTest({ testing: false, ok: false, message: err.message || 'Test failed' });
-    }
-  }
-
   async function handleUserSetup() {
-    const fail = (msg) => { setError(msg); return false; };
     if (authType === 'local') {
       const checks = [
-        { v: validateName(localAdmin.fullName), label: 'Admin full name' },
-        { v: validateEmail(localAdmin.email), label: 'Admin email' },
-        { v: validatePassword(localAdmin.password), label: 'Admin password' },
+        { v: validateName(localAdmin.fullName), label: 'Full name' },
+        { v: validateEmail(localAdmin.email), label: 'Email' },
+        { v: validatePassword(localAdmin.password), label: 'Password' },
       ];
-      const bad = checks.find(c => !c.v.valid);
-      if (bad) return fail(bad.v.message);
-      if (localAdmin.password !== localAdmin.confirmPassword) return fail('Passwords do not match');
-    } else {
-      if (!ldapConfig.url || !ldapConfig.bindDn || !ldapConfig.bindPassword || !ldapConfig.userSearchBase)
-        return fail('LDAP URL, bind DN, bind password and user search base are all required');
-      if (!validateName(breakGlass.fullName).valid) return fail('Break-glass admin full name is required');
-      if (!validateEmail(breakGlass.email).valid) return fail('Break-glass admin email is invalid');
-      if (!validatePassword(breakGlass.password).valid) return fail(validatePassword(breakGlass.password).message);
+      const fail = checks.find(c => !c.v.valid);
+      if (fail) { setError(fail.v.message); return; }
+      if (localAdmin.password !== localAdmin.confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
     }
-    // CCO + Analyst identities (required for both auth types).
-    if (!validateName(ccoUser.fullName).valid || !validateEmail(ccoUser.email).valid)
-      return fail('A valid CCO name and email are required');
-    if (!validateName(analystUser.fullName).valid || !validateEmail(analystUser.email).valid)
-      return fail('A valid Analyst name and email are required');
-    if (authType === 'local') {
-      if (!validatePassword(ccoUser.password).valid) return fail('CCO password is too weak');
-      if (!validatePassword(analystUser.password).valid) return fail('Analyst password is too weak');
-    }
-
     setSubmitting(true);
     setError('');
     try {
-      const seedUsers = [
-        { role: 'CCO', fullName: ccoUser.fullName, email: ccoUser.email,
-          password: authType === 'local' ? ccoUser.password : undefined },
-        { role: 'ANALYST', fullName: analystUser.fullName, email: analystUser.email,
-          password: authType === 'local' ? analystUser.password : undefined },
-      ];
       const authData = authType === 'local'
-        ? { authType: 'local', localAdmin, seedUsers }
-        : { authType: 'ldap', ldapConfig, breakGlassAdmin: breakGlass, seedUsers };
+        ? { authType: 'local', localAdmin }
+        : { authType: 'ldap', ldapConfig: { url: ldapUrl } };
       await api.onboarding.userSetup(authData);
       await api.onboarding.regulators({ subscribedRegulators: [] });
       await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
@@ -331,6 +292,10 @@ export default function OnboardingPage() {
                   value={institution.contactEmail}
                   onChange={e => setInstitution(p => ({ ...p, contactEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
+                <TextField fullWidth size="small" label="CCO Email" type="email"
+                  value={institution.ccoEmail}
+                  onChange={e => setInstitution(p => ({ ...p, ccoEmail: e.target.value }))}
+                  sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleInstitution} disabled={submitting}
                   sx={{ py: 1.2, fontWeight: 600 }}>
@@ -369,86 +334,11 @@ export default function OnboardingPage() {
                       sx={{ mb: 2 }} />
                   </Box>
                 ) : (
-                  <Box>
-                    <TextField fullWidth size="small" label="LDAP URL" required
-                      placeholder="ldap://localhost:1389"
-                      value={ldapConfig.url}
-                      onChange={e => setLdapConfig(p => ({ ...p, url: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Bind DN" required
-                      placeholder="cn=admin,dc=atheris,dc=test"
-                      value={ldapConfig.bindDn}
-                      onChange={e => setLdapConfig(p => ({ ...p, bindDn: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Bind Password" type="password" required
-                      value={ldapConfig.bindPassword}
-                      onChange={e => setLdapConfig(p => ({ ...p, bindPassword: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="User Search Base" required
-                      placeholder="ou=people,dc=atheris,dc=test"
-                      value={ldapConfig.userSearchBase}
-                      onChange={e => setLdapConfig(p => ({ ...p, userSearchBase: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                      <TextField fullWidth size="small" label="Search attribute"
-                        value={ldapConfig.userSearchFilterAttribute}
-                        onChange={e => setLdapConfig(p => ({ ...p, userSearchFilterAttribute: e.target.value }))} />
-                      <TextField fullWidth size="small" label="Full-name attribute"
-                        value={ldapConfig.fullNameAttribute}
-                        onChange={e => setLdapConfig(p => ({ ...p, fullNameAttribute: e.target.value }))} />
-                    </Box>
-                    <Button variant="outlined" size="small" onClick={handleTestLdap}
-                      disabled={ldapTest.testing} sx={{ mb: 1 }}>
-                      {ldapTest.testing ? 'Testing…' : 'Test connection'}
-                    </Button>
-                    {ldapTest.ok != null && (
-                      <Alert severity={ldapTest.ok ? 'success' : 'error'} sx={{ mb: 2 }}>
-                        {ldapTest.message || (ldapTest.ok ? 'Connection succeeded' : 'Connection failed')}
-                      </Alert>
-                    )}
-
-                    <Divider sx={{ my: 1 }}>Break-glass local admin</Divider>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      A local Tenant Admin who can sign in if the directory is unavailable.
-                    </Typography>
-                    <TextField fullWidth size="small" label="Full Name" required
-                      value={breakGlass.fullName}
-                      onChange={e => setBreakGlass(p => ({ ...p, fullName: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Email" type="email" required
-                      value={breakGlass.email}
-                      onChange={e => setBreakGlass(p => ({ ...p, email: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Password" type="password" required
-                      value={breakGlass.password}
-                      onChange={e => setBreakGlass(p => ({ ...p, password: e.target.value }))}
-                      sx={{ mb: 2 }} />
-                  </Box>
-                )}
-
-                <Divider sx={{ my: 2 }}>Compliance roles</Divider>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  The {authType === 'ldap' ? 'directory must contain these emails; the directory owns the passwords' : 'CCO and Analyst sign in with these credentials'}. You can invite more users later.
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="CCO Full Name" required value={ccoUser.fullName}
-                    onChange={e => setCcoUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="CCO Email" type="email" required value={ccoUser.email}
-                    onChange={e => setCcoUser(p => ({ ...p, email: e.target.value }))} />
-                </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="CCO Password" type="password" required value={ccoUser.password}
-                    onChange={e => setCcoUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
-                )}
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="Analyst Full Name" required value={analystUser.fullName}
-                    onChange={e => setAnalystUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="Analyst Email" type="email" required value={analystUser.email}
-                    onChange={e => setAnalystUser(p => ({ ...p, email: e.target.value }))} />
-                </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="Analyst Password" type="password" required value={analystUser.password}
-                    onChange={e => setAnalystUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
+                  <TextField fullWidth size="small" label="LDAP URL"
+                    placeholder="ldap://dc01.example.com"
+                    value={ldapUrl}
+                    onChange={e => setLdapUrl(e.target.value)}
+                    sx={{ mb: 2 }} />
                 )}
 
                 <Button fullWidth variant="contained" size="large"

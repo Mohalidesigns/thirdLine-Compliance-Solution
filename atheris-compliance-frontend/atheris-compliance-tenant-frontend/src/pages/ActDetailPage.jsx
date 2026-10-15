@@ -40,8 +40,7 @@ const COLUMNS = {
   controls: [
     { id: 'controlNumber', label: 'Control', minWidth: 300, truncate: true, render: (r) => (
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, ...ellipsis(320) }}>{r.name || r.controlNumber || '—'}</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono, monospace' }}>{r.controlNumber}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600, ...ellipsis(320) }}>{r.name || r.controlSummary || '—'}</Typography>
       </Box>) },
     { id: 'theme', label: 'Theme / Area', minWidth: 180, truncate: true,
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>{r.theme || r.complianceArea || '—'}</Typography> },

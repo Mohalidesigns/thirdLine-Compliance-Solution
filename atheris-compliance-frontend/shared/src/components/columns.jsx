@@ -93,8 +93,9 @@ export function controlColumns({ withAct = true } = {}) {
     { id: 'controlNumber', label: 'Control', minWidth: 320, maxWidth: 340, truncate: true, sortable: true, sortField: 'controlNumber',
       render: (r) => {
         // A control may decompose into several cleaned points: show the first, hover reveals all.
+        // Never fall back to the raw control number (an internal code) — show '—' instead.
         const pts = Array.isArray(r.controlPoints) ? r.controlPoints : [];
-        const text = pts[0] || r.controlSummary || r.controlNumber || '—';
+        const text = pts[0] || r.controlSummary || '—';
         const cell = <Typography variant="body2" sx={ellipsis(340)}>{text}</Typography>;
         if (pts.length <= 1) return cell;
         return (

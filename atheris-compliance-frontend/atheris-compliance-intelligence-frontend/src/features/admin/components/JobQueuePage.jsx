@@ -1,400 +1,426 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TableSortLabel, TextField, MenuItem, Chip, Button,
-  IconButton, Tooltip, CircularProgress, Alert, Menu,
+  Box, Typography, Card, CardContent, Chip, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, TablePagination,
+  IconButton, Tooltip, CircularProgress, Alert, Button, TextField,
+  InputAdornment, Tabs, Tab,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, CloudUpload, CheckCircle, ErrorOutline, HourglassEmpty,
-  ArrowDropDown, Description,
+  Refresh, CloudUpload, CheckCircle, ErrorOutline, HourglassEmpty,
+  PlayArrow, Close, Search, BugReport, Group, AccountTree,
+  PictureAsPdf,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 import UploadDialog from './UploadDialog';
 
-/* One row = one DOCUMENT. Stage is derived from the instrument status; failed
-   downloads (no instrument yet) are their own row. */
-const STAGES = [
-  { key: 'failed', label: 'Download Failed', color: '#C53030' },
-  { key: 'extracted', label: 'Extracted', color: '#805AD5' },
-  { key: 'classified', label: 'Classified', color: '#DD6B20' },
-  { key: 'published', label: 'Published', color: '#2D7D46' },
+const TABS = [
+  { key: 'all', label: 'All', icon: <AccountTree sx={{ fontSize: 16 }} /> },
+  { key: 'system', label: 'System Errors', icon: <BugReport sx={{ fontSize: 16 }} /> },
+  { key: 'ai', label: 'Awaiting AI', icon: <HourglassEmpty sx={{ fontSize: 16 }} /> },
+  { key: 'tenant', label: 'Awaiting Tenant', icon: <Group sx={{ fontSize: 16 }} /> },
 ];
-const STAGE_BY_KEY = Object.fromEntries(STAGES.map((s) => [s.key, s]));
 
-const STATUS_CHIP = {
-  Published: { label: 'Published', color: '#2D7D46' },
-  Triage: { label: 'In Progress', color: '#DD6B20' },
-  Superseded: { label: 'Superseded', color: '#718096' },
-  Withdrawn: { label: 'Withdrawn', color: '#C53030' },
-  failed: { label: 'Failed', color: '#C53030' },
+const STAGE_LABELS = [
+  { key: 'download', label: 'Download', color: '#3182CE' },
+  { key: 'ocr', label: 'Extract Text', color: '#805AD5' },
+  { key: 'classify', label: 'Analyze & Tag', color: '#DD6B20' },
+  { key: 'publish', label: 'Send Alerts', color: '#2D7D46' },
+];
+
+const stageStatusIcon = {
+  idle: null,
+  pending: <HourglassEmpty sx={{ fontSize: 14 }} />,
+  processing: <PlayArrow sx={{ fontSize: 14 }} />,
+  completed: <CheckCircle sx={{ fontSize: 14 }} />,
+  failed: <ErrorOutline sx={{ fontSize: 14 }} />,
 };
 
-const COLUMNS = [
-  { id: 'title', label: 'Document', minWidth: 320, sortField: 'title' },
-  { id: 'regulator', label: 'Regulator', minWidth: 160, sortField: 'regulator' },
-  { id: 'stage', label: 'Stage', minWidth: 150, sortField: 'stage' },
-  { id: 'status', label: 'Status', minWidth: 120, sortField: 'status' },
-  { id: 'updatedAt', label: 'Discovered', minWidth: 150, sortField: 'updatedAt' },
-];
+const stageStatusColor = {
+  idle: '#E2E8F0',
+  pending: '#A0AEC0',
+  processing: '#3182CE',
+  completed: '#2D7D46',
+  failed: '#C53030',
+};
 
 function formatDt(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-/* Instrument status -> pipeline stage. */
-function stageOfStatus(status) {
-  if (status === 'Published') return 'published';
-  if (status === 'Triage') return 'extracted';
-  return 'classified';
-}
-
-function stageChip(stage) {
-  const s = STAGE_BY_KEY[stage] || { label: stage, color: '#718096' };
+function PipelineStages({ stages }) {
   return (
-    <Chip size="small" label={s.label}
-      sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: `${s.color}18`, color: s.color }} />
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+      {STAGE_LABELS.map((st, i) => {
+        const status = stages?.[st.key] || 'idle';
+        const color = stageStatusColor[status];
+        const icon = stageStatusIcon[status];
+        return (
+          <Box key={st.key} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title={`${st.label}: ${status}`}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, px: 0.6, py: 0.3, borderRadius: 1, bgcolor: `${color}14` }}>
+                {icon && <Box sx={{ color }}>{icon}</Box>}
+                <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
+                  {st.label}
+                </Typography>
+              </Box>
+            </Tooltip>
+            {i < STAGE_LABELS.length - 1 && (
+              <Typography sx={{ color: '#CBD5E0', mx: 0.3, fontSize: '0.6rem' }}>▸</Typography>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
-function statusChip(status) {
-  const s = STATUS_CHIP[status] || { label: status || '—', color: '#718096' };
-  return (
-    <Chip size="small" label={s.label}
-      sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: `${s.color}18`, color: s.color }} />
-  );
-}
-
-/* KPI card with a breakdown dropdown (regulator -> count). */
-function KpiCard({ label, value, color, icon, breakdown, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(breakdown || {}).sort((a, b) => b[1] - a[1]);
-  return (
-    <Paper elevation={0} variant="outlined"
-      onClick={onSelect}
-      sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box sx={{ color, opacity: 0.55, display: 'flex' }}>{icon}</Box>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
-        </Box>
-        {entries.length > 0 && (
-          <IconButton size="small" aria-label={`${label} breakdown`}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-            <ArrowDropDown fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color }}>{value}</Typography>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()}>
-        {entries.map(([name, count]) => (
-          <MenuItem key={name} dense onClick={() => { setAnchor(null); onDrill(name); }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-              <span>{name}</span>
-              <span style={{ color: '#718096' }}>{count}</span>
-            </Box>
-          </MenuItem>
-        ))}
-      </Menu>
-    </Paper>
-  );
+function getJobStages(job) {
+  const status = job.status;
+  switch (job.jobType) {
+    case 'ocr_document':
+      return { download: 'completed', ocr: status, classify: 'idle', publish: 'idle' };
+    case 'classify_instrument':
+      return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
+    case 'evaluate_applicability':
+      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
+    default:
+      return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
+  }
 }
 
 export default function JobQueuePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
-  const [q, setQ] = useState(searchParams.get('q') || '');
-  const [stage, setStage] = useState(searchParams.get('stage') || 'All');
-  const [regulator, setRegulator] = useState(searchParams.get('regulator') || 'All');
-  const [reference, setReference] = useState(searchParams.get('reference') || '');
-  const [page, setPage] = useState(Number(searchParams.get('page') || 0));
-  const [rowsPerPage, setRowsPerPage] = useState(Number(searchParams.get('size') || 20));
-  const [sortField, setSortField] = useState(searchParams.get('sortField') || 'updatedAt');
-  const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'desc');
+  const tabParam = searchParams.get('tab') || 'all';
+  const [tab, setTab] = useState(['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all');
 
   const [rows, setRows] = useState([]);
-  const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [search, setSearch] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const alive = useRef(true);
-  const reqId = useRef(0);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-
   useEffect(() => {
-    const t = setTimeout(() => setQ(searchInput), 300);
-    return () => clearTimeout(t);
-  }, [searchInput]);
+    const t = ['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all';
+    setTab(t);
+  }, [tabParam]);
 
-  useEffect(() => {
-    const p = {};
-    if (q) p.q = q;
-    if (stage !== 'All') p.stage = stage;
-    if (regulator !== 'All') p.regulator = regulator;
-    if (reference) p.reference = reference;
-    if (page) p.page = String(page);
-    if (rowsPerPage !== 20) p.size = String(rowsPerPage);
-    if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
-    setSearchParams(p, { replace: true });
-  }, [q, stage, regulator, reference, page, rowsPerPage, sortField, sortDir, setSearchParams]);
-
-  const load = useCallback(async () => {
-    const id = ++reqId.current;
+  function fetchAll() {
     setLoading(true);
     setError(null);
-    try {
-      const [regsData, pendingData, pubData, triData] = await Promise.all([
-        api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' }),
-        api.platform.pendingDownloads.list('pending'),
-        api.platform.instruments.list('status=Published&size=1000'),
-        api.platform.instruments.list('status=Triage&size=1000'),
-      ]);
-      if (!alive.current || id !== reqId.current) return;
-      const regs = Array.isArray(regsData) ? regsData : (regsData.content || []);
-      setRegulators(regs);
-      const regName = {};
-      for (const r of regs) regName[r.regulatorId] = r.abbreviation || r.name || `Regulator #${r.regulatorId}`;
 
-      const items = [];
-      for (const inst of [...(pubData.content || []), ...(triData.content || [])]) {
-        if (inst.uploadSource === 'toolkit_seed') continue;
-        items.push({
-          id: `inst-${inst.instrumentId}`,
-          instrumentId: inst.instrumentId,
-          source: 'instrument',
-          title: inst.sourceTitle || 'Untitled document',
-          reference: inst.sourceReferenceNumber || '',
-          regulatorId: inst.regulatorId,
-          regulator: regName[inst.regulatorId] || (inst.regulatorId != null ? `Regulator #${inst.regulatorId}` : '—'),
-          stage: stageOfStatus(inst.status),
-          status: inst.status,
-          updatedAt: inst.discoveredAt,
-        });
+    const calls = [api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' })];
+
+    if (tab === 'tenant') {
+      calls.push(api.platform.instruments.list('status=published&size=50'));
+    } else {
+      const params = new URLSearchParams({ page, size: rowsPerPage });
+      if (search) params.set('search', search);
+      if (tab === 'system') {
+        params.set('status', 'failed');
+      } else if (tab === 'ai') {
+        params.set('status', 'pending,processing');
+        params.set('jobType', 'classify_instrument');
       }
-      for (const pd of (pendingData || [])) {
-        items.push({
-          id: `pd-${pd.id}`,
-          pendingId: pd.id,
-          source: 'pending',
-          title: pd.title || 'Untitled document',
-          reference: '',
-          regulatorId: pd.regulatorId,
-          regulator: regName[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
-          stage: 'failed',
-          status: 'failed',
-          sourceUrl: pd.sourceUrl,
-          errorMessage: pd.errorMessage,
-          updatedAt: pd.discoveredAt || pd.createdAt,
-        });
+      calls.push(api.platform.jobs.list(params.toString()));
+      if (tab === 'system') {
+        calls.push(api.platform.pendingDownloads.list('pending'));
+      } else {
+        calls.push(Promise.resolve([]));
       }
-      setRows(items);
-    } catch (err) {
-      if (alive.current && id === reqId.current) setError(err.message);
-    } finally {
-      if (alive.current && id === reqId.current) setLoading(false);
     }
-  }, []);
 
-  useEffect(() => { load(); }, [load]);
+    Promise.all(calls)
+      .then(([regsData, ...rest]) => {
+        const regMap = {};
+        for (const r of (regsData.content || regsData || [])) {
+          regMap[r.regulatorId || r.id] = r.name || r.abbreviation || `Regulator #${r.id}`;
+        }
+        const items = [];
 
-  const filtered = useMemo(() => {
-    let out = rows;
-    if (regulator !== 'All') out = out.filter((r) => r.regulator === regulator);
-    if (stage !== 'All') out = out.filter((r) => r.stage === stage);
-    if (reference) {
-      const ref = reference.toLowerCase();
-      out = out.filter((r) => (r.reference || '').toLowerCase().includes(ref));
-    }
-    if (q) {
-      const needle = q.toLowerCase();
-      out = out.filter((r) =>
-        (r.title || '').toLowerCase().includes(needle) ||
-        (r.reference || '').toLowerCase().includes(needle) ||
-        (r.regulator || '').toLowerCase().includes(needle));
-    }
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...out].sort((a, b) => {
-      let av = a[sortField], bv = b[sortField];
-      if (sortField === 'updatedAt') { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
-      else { av = (av ?? '').toString().toLowerCase(); bv = (bv ?? '').toString().toLowerCase(); }
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
-    });
-  }, [rows, regulator, stage, reference, q, sortField, sortDir]);
+        if (tab === 'tenant') {
+          const instrData = rest[0];
+          for (const inst of (instrData.content || instrData || [])) {
+            items.push({
+              id: `inst-${inst.instrumentId}`,
+              instrumentId: inst.instrumentId,
+              title: inst.sourceTitle || 'Untitled',
+              regulator: regMap[inst.regulatorId] || '—',
+              stages: { download: 'completed', ocr: 'completed', classify: 'completed', publish: 'completed' },
+              status: 'published',
+              updatedAt: inst.firstPublishedAt || inst.discoveredAt,
+              _source: 'instrument',
+              _data: inst,
+            });
+          }
+        } else {
+          const jobsData = rest[0];
+          const pendings = rest[1] || [];
 
-  const kpis = useMemo(() => {
-    const byReg = (pred) => {
-      const m = {};
-      for (const r of rows) if (pred(r)) m[r.regulator] = (m[r.regulator] || 0) + 1;
-      return m;
-    };
-    return {
-      total: { value: rows.length, breakdown: byReg(() => true) },
-      failed: { value: rows.filter((r) => r.stage === 'failed').length, breakdown: byReg((r) => r.stage === 'failed') },
-      inProgress: { value: rows.filter((r) => r.stage === 'extracted' || r.stage === 'classified').length,
-        breakdown: byReg((r) => r.stage === 'extracted' || r.stage === 'classified') },
-      completed: { value: rows.filter((r) => r.stage === 'published').length, breakdown: byReg((r) => r.stage === 'published') },
-    };
-  }, [rows]);
+          for (const job of (jobsData.content || [])) {
+            const p = job.payload || {};
+            const rid = p.regulator_id;
+            const jobTitle = [p.title, p.instrument_title, p.source_url].find(v => v && v.trim());
+            const fallback = job.lastError
+              ? `${job.jobType?.replace(/_/g, ' ')?.replace(/\b\w/g, c => c.toUpperCase())}: ${job.lastError.substring(0, 60)}`
+              : `Job #${job.jobId}`;
+            items.push({
+              id: job.jobId,
+              instrumentId: job.subjectId,
+              title: jobTitle || fallback,
+              regulator: regMap[rid] || '—',
+              stages: getJobStages(job),
+              status: job.status,
+              updatedAt: job.updatedAt || job.createdAt,
+              _source: 'job',
+              _data: job,
+            });
+          }
 
-  const externalRegulators = useMemo(
-    () => regulators.map((r) => r.abbreviation || r.name).sort(), [regulators]);
+          for (const pd of (pendings || [])) {
+            items.push({
+              id: `pd-${pd.id}`,
+              title: pd.title || 'Untitled Document',
+              sourceUrl: pd.sourceUrl || '',
+              regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
+              stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
+              status: 'download_failed',
+              updatedAt: pd.createdAt,
+              _source: 'pending',
+              _data: pd,
+            });
+          }
+        }
 
-  const hasFilters = !!searchInput || stage !== 'All' || regulator !== 'All' || !!reference;
-
-  function clearFilters() {
-    setSearchInput(''); setQ(''); setStage('All'); setRegulator('All'); setReference(''); setPage(0);
+        if (search) {
+          const q = search.toLowerCase();
+          setRows(items.filter(i => i.title.toLowerCase().includes(q) || i.regulator.toLowerCase().includes(q)));
+        } else {
+          setRows(items);
+        }
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }
 
-  function handleSort(field) {
-    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortField(field); setSortDir('asc'); }
+  useEffect(() => { fetchAll(); }, [tab, page, rowsPerPage, search]);
+
+  const handleTabChange = (_, newTab) => {
+    setTab(newTab);
     setPage(0);
+    setSearchParams(newTab === 'all' ? {} : { tab: newTab });
+  };
+
+  const handleRowClick = (item) => {
+    if (item._source === 'instrument') {
+      navigate(`/admin/instruments/${item.instrumentId}/tenants`);
+    } else if (item._source === 'job') {
+      navigate(`${ROUTES.ADMIN_PIPELINE}/${item._data.jobId}`);
+    }
+  };
+
+  async function handlePendUpload(id) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,application/pdf';
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        await api.platform.pendingDownloads.upload(id, file);
+        fetchAll();
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      }
+    };
+    input.click();
   }
 
+  async function handlePendSkip(id) {
+    try {
+      await api.platform.pendingDownloads.skip(id);
+      fetchAll();
+    } catch (err) {
+      alert('Skip failed: ' + err.message);
+    }
+  }
+
+  const filtered = rows;
   const paged = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+
+  const stageDescriptions = {
+    download: 'Fetch PDF from regulator source',
+    ocr: 'Read PDF content into searchable text',
+    classify: 'AI identifies obligations, risks & topics',
+    publish: 'Match to tenants and send notifications',
+  };
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Document Pipeline</Typography>
           <Typography variant="body2" color="text.secondary">
-            {filtered.length} document{filtered.length !== 1 ? 's' : ''} — tracked through every pipeline stage
+            Track documents through every stage of the pipeline.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button variant="contained" startIcon={<CloudUpload />} size="medium"
-            onClick={() => setUploadOpen(true)} sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="contained" startIcon={<CloudUpload />} onClick={() => setUploadOpen(true)}>
             Upload Document
           </Button>
-          <Tooltip title="Refresh">
-            <IconButton onClick={load}><Refresh /></IconButton>
-          </Tooltip>
+          <IconButton onClick={fetchAll}><Refresh /></IconButton>
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2, '& .MuiTab-root': { minHeight: 36, py: 0.5, fontSize: '0.8rem' } }}>
+        {TABS.map(t => (
+          <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
+        ))}
+      </Tabs>
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
-        <KpiCard label="Total Documents" value={kpis.total.value} color="#2B6CB0"
-          icon={<Description sx={{ fontSize: 18 }} />} breakdown={kpis.total.breakdown}
-          onSelect={() => { setStage('All'); setPage(0); }}
-          onDrill={(name) => { setRegulator(name); setStage('All'); setPage(0); }} />
-        <KpiCard label="Failed Downloads" value={kpis.failed.value} color="#C53030"
-          icon={<ErrorOutline sx={{ fontSize: 18 }} />} breakdown={kpis.failed.breakdown}
-          onSelect={() => { setStage('failed'); setPage(0); }}
-          onDrill={(name) => { setRegulator(name); setStage('failed'); setPage(0); }} />
-        <KpiCard label="In Progress" value={kpis.inProgress.value} color="#DD6B20"
-          icon={<HourglassEmpty sx={{ fontSize: 18 }} />} breakdown={kpis.inProgress.breakdown}
-          onSelect={() => { setStage('extracted'); setPage(0); }}
-          onDrill={(name) => { setRegulator(name); setStage('extracted'); setPage(0); }} />
-        <KpiCard label="Completed" value={kpis.completed.value} color="#2D7D46"
-          icon={<CheckCircle sx={{ fontSize: 18 }} />} breakdown={kpis.completed.breakdown}
-          onSelect={() => { setStage('published'); setPage(0); }}
-          onDrill={(name) => { setRegulator(name); setStage('published'); setPage(0); }} />
+      {tab === 'all' && (
+        <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {STAGE_LABELS.map((st) => (
+                <Box key={st.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: st.color }} />
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: st.color }}>
+                      {st.label}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: '#718096' }}>
+                      {stageDescriptions[st.key]}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <TextField
+          size="small" placeholder="Search by document title or regulator..." value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }} sx={{ flex: 1 }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><Search sx={{ color: '#718096', fontSize: 20 }} /></InputAdornment>,
+          }}
+        />
       </Box>
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search document title or regulator..." value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <TextField select size="small" value={stage} onChange={(e) => { setStage(e.target.value); setPage(0); }}
-          label="Stage" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All stages</MenuItem>
-          {STAGES.map((s) => <MenuItem key={s.key} value={s.key}>{s.label}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={regulator} onChange={(e) => { setRegulator(e.target.value); setPage(0); }}
-          label="Regulator" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All regulators</MenuItem>
-          {externalRegulators.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField size="small" label="Reference" value={reference}
-          onChange={(e) => { setReference(e.target.value); setPage(0); }} sx={{ minWidth: 160 }} />
-        {hasFilters && <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>}
-      </Paper>
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
+      )}
 
-      {/* Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : filtered.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <HourglassEmpty sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No documents found.</Typography>
-        </Paper>
-      ) : (
-        <Paper>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {!loading && !error && (
+        <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <TableContainer>
-            <Table stickyHeader size="small">
+            <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 50 }}>#</TableCell>
-                  {COLUMNS.map((c) => {
-                    const active = sortField === c.sortField;
-                    return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
-                        cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort(c.sortField)}>
-                        <TableSortLabel active={active} direction={active ? sortDir : 'asc'}
-                          sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
-                          {c.label}
-                        </TableSortLabel>
-                      </TableCell>
-                    );
-                  })}
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Document</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Regulator</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Progress</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 120 }}>Updated</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1, width: 100 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paged.map((row, idx) => (
-                  <TableRow key={row.id} hover
-                    onClick={() => row.source === 'instrument'
-                      ? navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${row.instrumentId}`)
-                      : navigate(`${ROUTES.ADMIN_PIPELINE}/pending-${row.pendingId}`)}
-                    sx={{ cursor: 'pointer', '& td': { py: 1.25, verticalAlign: 'middle' }, '&:hover': { bgcolor: '#F7FAFC' } }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
+                {paged.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#A0AEC0' }}>
+                    {search ? 'No documents match your search' : 'No documents in this view'}
+                  </TableCell></TableRow>
+                ) : paged.map((item, i) => (
+                  <TableRow
+                    key={item.id}
+                    hover
+                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC' }}
+                    onClick={() => handleRowClick(item)}
+                  >
                     <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.title}
-                      </Typography>
-                      {row.errorMessage && (
-                        <Typography variant="caption" color="error" sx={{ display: 'block', maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row.errorMessage}
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{item.title}</Typography>
+                      {item.sourceUrl && (
+                        <Typography
+                          component="a"
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          sx={{ fontSize: '0.6rem', color: '#3182CE', textDecoration: 'underline', display: 'block', mt: 0.3, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: '#1A365D' } }}
+                        >
+                          {item.sourceUrl}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      {row.regulator && row.regulator !== '—'
-                        ? <Chip size="small" label={row.regulator} sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
+                      <Chip label={item.regulator} size="small"
+                        sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff', borderRadius: 1 }} />
                     </TableCell>
-                    <TableCell>{stageChip(row.stage)}</TableCell>
-                    <TableCell>{statusChip(row.status)}</TableCell>
-                    <TableCell sx={{ fontSize: '0.76rem', color: '#718096', whiteSpace: 'nowrap' }}>{formatDt(row.updatedAt)}</TableCell>
+                    <TableCell>
+                      <PipelineStages stages={item.stages} />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>
+                      {formatDt(item.updatedAt)}
+                    </TableCell>
+                    <TableCell>
+                      {item._source === 'pending' ? (
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title="Upload PDF">
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendUpload(item._data.id); }}>
+                              <CloudUpload sx={{ fontSize: 16, color: '#3182CE' }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Skip">
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendSkip(item._data.id); }}>
+                              <Close sx={{ fontSize: 16, color: '#A0AEC0' }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ) : item._source === 'instrument' ? (
+                        <Tooltip title="View tenant classifications">
+                          <IconButton size="small">
+                            <Group sx={{ fontSize: 16, color: '#3182CE' }} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="View job details">
+                          <IconButton size="small">
+                            <PictureAsPdf sx={{ fontSize: 16, color: '#718096' }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination component="div" count={filtered.length} page={page}
+          <TablePagination
+            component="div"
+            count={filtered.length}
+            page={page}
             onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
+            rowsPerPageOptions={[10, 20, 50]}
+          />
+        </Card>
       )}
 
-      <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} onSuccess={load} />
+      <UploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSuccess={fetchAll}
+      />
     </Box>
   );
 }

@@ -13,6 +13,7 @@ public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     java.util.Optional<Obligation> findFirstByObligationNumberNotNullOrderByObligationNumberDesc();
     List<Obligation> findByInstrumentId(Long instrumentId);
     long countByInstrumentId(Long instrumentId);
+    long countByTenantRegulatorId(Long tenantRegulatorId);
 
     @Query(value = "SELECT instrument_id, COUNT(*) AS cnt FROM obligations WHERE instrument_id IN (:ids) GROUP BY instrument_id", nativeQuery = true)
     java.util.List<Object[]> countByInstrumentIdIn(@Param("ids") Collection<Long> ids);

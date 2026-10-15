@@ -2,51 +2,69 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Box, Typography, Chip, Button, Alert, IconButton, Paper,
   TextField, MenuItem, FormControlLabel, Checkbox, Tooltip,
-  TablePagination, TableSortLabel, Snackbar, Alert as MuiAlert,
+  Snackbar, Alert as MuiAlert,
 } from '@mui/material';
 import {
   Search, Refresh, Close, Add, Edit as EditIcon, Delete as DeleteIcon,
-  Warning as WarningIcon, Article, InfoOutlined, UploadFile,
+  InfoOutlined, UploadFile,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import { SectionTable } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 
-// harmonized with ReviewEditPage / ReviewInboxPage
-const INHERENT_RISK_CONFIG = {
-  Critical: { color: 'error' },
-  Extreme: { color: 'error' },
-  High: { color: 'error' },
-  Moderate: { color: 'warning' },
-  Medium: { color: 'warning' },
-  Low: { color: 'success' },
-};
-
-function inherentRiskChip(rating, likelihood, impact) {
-  const cfg = INHERENT_RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
-  const tip = likelihood || impact ? `${likelihood || '-'} × ${impact || '-'}` : rating;
-  return (
-    <Tooltip title={tip}>
-      <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
-    </Tooltip>
-  );
-}
-
-function prettify(v) {
-  return v ? String(v).replace(/_/g, ' ') : '';
-}
+const ellipsis = (maxWidth) => ({
+  maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+});
 
 const COLUMNS = [
-  { id: 'obligation', label: 'Obligation (Title + Interpreted)', minWidth: 340, sortField: 'name' },
-  { id: 'source', label: 'Regulator / Act', minWidth: 160 },
-  { id: 'risk', label: 'Risk', minWidth: 100, sortField: 'tenantRiskRating' },
-  { id: 'owner', label: 'Owner', minWidth: 120 },
-  { id: 'controls', label: 'Controls', minWidth: 140 },
-  { id: 'actions', label: 'Actions', minWidth: 80 },
+  { id: 'title', label: 'Obligation', minWidth: 360, sortable: true, sortField: 'name',
+    render: (item) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Tooltip title={item.title || item.name || ''}>
+          <Typography variant="body2" sx={ellipsis(420)}>
+            {item.title || item.name || 'Untitled obligation'}
+          </Typography>
+        </Tooltip>
+        {item.description && (
+          <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{item.description}</Box>}>
+            <InfoOutlined sx={{ fontSize: 14, color: '#A0AEC0', flexShrink: 0 }} />
+          </Tooltip>
+        )}
+      </Box>
+    ) },
+  { id: 'regulatorAbbreviation', label: 'Regulator', minWidth: 130, sortable: true,
+    render: (item) => (item.regulatorAbbreviation
+      ? <Chip size="small" label={item.regulatorAbbreviation}
+          sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+      : <Typography variant="body2" color="text.secondary">—</Typography>) },
+  { id: 'returnCount', label: 'Returns', minWidth: 100,
+    render: (item) => {
+      const count = item.linkedReturnIds?.length ?? 0;
+      const names = item.returnNames || [];
+      const label = <Typography variant="body2"
+        sx={count === 0 ? { color: 'text.secondary' } : { color: '#DD6B20' }}>{count}</Typography>;
+      return count > 0 && names.length > 0
+        ? <Tooltip title={names.join(', ')}>{label}</Tooltip>
+        : label;
+    } },
+  { id: 'controlCount', label: 'Controls', minWidth: 110,
+    render: (item) => {
+      const count = item.controlCount ?? 0;
+      return <Typography variant="body2"
+        sx={count === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>{count}</Typography>;
+    } },
+  { id: 'sanctionCount', label: 'Sanctions', minWidth: 110,
+    render: (item) => {
+      const sanctions = item.sanctions || [];
+      const label = <Typography variant="body2"
+        sx={sanctions.length === 0 ? { color: 'text.secondary' } : { color: '#805AD5' }}>{sanctions.length}</Typography>;
+      return sanctions.length > 0
+        ? <Tooltip title={sanctions.map(s => s.sanctionType || s.description).filter(Boolean).join('; ')}>{label}</Tooltip>
+        : label;
+    } },
 ];
 
 export default function ObligationsRegisterPage() {
@@ -240,152 +258,43 @@ export default function ObligationsRegisterPage() {
         )}
       </Paper>
 
-      {/* Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : items.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No obligations found.</Typography>
-        </Paper>
-      ) : (
-        <Paper>
-          <TableContainer>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
-                  {COLUMNS.map(c => {
-                    const active = sortField === c.sortField;
-                    return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
-                        cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
-                        onClick={c.sortField ? () => {
-                          if (sortField === c.sortField) {
-                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortField(c.sortField);
-                            setSortDir('asc');
-                          }
-                          setPage(0);
-                        } : undefined}>
-                        {c.sortField
-                          ? <TableSortLabel active={active} direction={sortDir}
-                              sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
-                              {c.label}
-                            </TableSortLabel>
-                          : c.label}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((item, idx) => {
-                  const rating = item.tenantRiskRating || item.inherentRiskRating;
-                  const controlCount = item.controlCount ?? 0;
-                  const rowHasGap = item.hasGap;
-                  const heading = item.title || item.name;
-                  return (
-                    <TableRow key={item.obligationId} hover
-                      onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', '& > td': { py: 1 }, '&:hover': { bgcolor: '#F7FAFC' } }}>
-                      <TableCell sx={{ color: 'text.secondary' }}>{total - (page * rowsPerPage) - idx}</TableCell>
-                      <TableCell sx={{ minWidth: 340, maxWidth: 420 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2, maxWidth: 360,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {heading || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
-                          </Typography>
-                          {item.description && (
-                            <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{item.description}</Box>}>
-                              <InfoOutlined sx={{ fontSize: 14, color: '#A0AEC0', flexShrink: 0 }} />
-                            </Tooltip>
-                          )}
-                        </Box>
-                        {item.plainEnglishStatement ? (
-                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 400,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.plainEnglishStatement}
-                          </Typography>
-                        ) : (
-                          <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
-                        )}
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                          {item.sectionReference && (
-                            <Chip size="small" variant="outlined" label={item.sectionReference.slice(0, 24)}
-                              sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
-                          )}
-                          {item.areaOfFocus && (
-                            <Chip size="small" variant="outlined" label={item.areaOfFocus}
-                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 150 }} />
-                          )}
-                          {item.obligationType && (
-                            <Chip size="small" variant="outlined" label={prettify(item.obligationType)}
-                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
-                          )}
-                          {item.recurringDeadlineType && (
-                            <Chip size="small" variant="outlined" label={prettify(item.recurringDeadlineType)}
-                              sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ maxWidth: 200 }}>
-                        {item.regulatorAbbreviation
-                          ? <Chip size="small" label={item.regulatorAbbreviation}
-                              sx={{ height: 22, fontWeight: 600, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff' }} />
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
-                        {(item.actName || item.regulationId) && (
-                          <Tooltip title={item.actName || `Reg #${item.regulationId}`}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.25, maxWidth: 180,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.actName || `Reg #${item.regulationId}`}
-                            </Typography>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                      <TableCell>{inherentRiskChip(rating, item.inherentLikelihood, item.inherentImpact)}</TableCell>
-                      <TableCell>
-                        {item.assignedOwnerName
-                          ? <Typography variant="body2">{item.assignedOwnerName}</Typography>
-                          : <Typography variant="body2" color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        {controlCount === 0 ? (
-                          <Chip size="small" label="No controls" color="error"
-                            icon={<WarningIcon sx={{ fontSize: 14 }} />}
-                            sx={{ height: 22, borderRadius: '4px', border: 'none' }} />
-                        ) : rowHasGap ? (
-                          <Chip size="small" label={`${controlCount} controls`} color="warning"
-                            icon={<WarningIcon sx={{ fontSize: 14 }} />}
-                            sx={{ height: 22, borderRadius: '4px', border: 'none' }} />
-                        ) : (
-                          <Typography variant="body2" color="black">{controlCount} controls</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Tooltip title="Edit obligation">
-                            <IconButton size="small" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete obligation">
-                            <IconButton size="small" color="error" onClick={() => handleDelete(item)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
-      )}
+      <SectionTable
+        columns={COLUMNS}
+        rows={items}
+        total={total}
+        page={page}
+        size={rowsPerPage}
+        loading={loading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={(field) => {
+          if (sortField === field) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDir('asc');
+          }
+          setPage(0);
+        }}
+        onPage={setPage}
+        onSize={(s) => { setRowsPerPage(s); setPage(0); }}
+        onRowClick={openDetail}
+        rowKey={(item) => item.obligationId}
+        emptyMessage="No obligations found."
+        actions={(item) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title="Edit obligation">
+              <IconButton size="small" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+            </Tooltip>
+            <Tooltip title="Delete obligation">
+              <IconButton size="small" color="error" onClick={() => handleDelete(item)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+      />
 
     <CreateObligationDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={handleSaved} onSnackbar={setSnackbar}

@@ -329,6 +329,7 @@ public class ObligationService {
                 .sanctionType(s.getSanctionType())
                 .sanctionAmountNaira(s.getSanctionAmountNaira())
                 .sanctionAmountPerDay(s.getSanctionAmountPerDay())
+                .penaltyType(s.getPenaltyType())
                 .liableRoles(s.getLiableRoles())
                 .severityScore(s.getSeverityScore())
                 .hasBeenEnforced(s.getHasBeenEnforced())
@@ -521,8 +522,11 @@ public class ObligationService {
                 .map(byId::get).filter(Objects::nonNull)
                 .map(ct -> ObligationDetailView.ControlItem.builder()
                     .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
-                    .name(ct.getName()).theme(ct.getTheme()).controlType(ct.getControlType())
+                    .name(ct.getName()).controlSummary(ct.getName())
+                    .theme(ct.getTheme()).complianceArea(ct.getComplianceArea())
+                    .controlType(ct.getControlType())
                     .inherentRisk(ct.getInherentRisk()).residualRisk(ct.getResidualRisk())
+                    .riskLevel(ct.getResidualRiskRating() != null ? ct.getResidualRiskRating() : ct.getResidualRisk())
                     .controlOwnerName(ct.getControlOwnerName()).status(ct.getStatus()).build())
                 .toList();
         }
@@ -530,8 +534,11 @@ public class ObligationService {
         List<Long> returnIds = obligationRepo.findLinkedReturnIds(obligationId);
         List<ObligationDetailView.ReturnItem> returns = returnRepo.findAllById(returnIds).stream()
             .map(r -> ObligationDetailView.ReturnItem.builder()
-                .returnId(r.getReturnId()).returnName(r.getReturnName())
-                .frequency(r.getFrequency()).filingRegulator(r.getFilingRegulator()).build())
+                .returnId(r.getReturnId()).title(r.getReturnName())
+                .frequency(r.getFrequency()).frequencyType(r.getFrequencyType())
+                .deadline(r.getDeadlineText())
+                .responsibleUnit(r.getResponsibleUnit()).responsiblePerson(r.getResponsiblePerson())
+                .filingRegulator(r.getFilingRegulator()).build())
             .toList();
 
         List<EvidenceFile> evidenceFiles = evidenceRepo.findBySourceTypeAndSourceId("obligation", obligationId);
@@ -655,6 +662,33 @@ public class ObligationService {
         }
         audit.log(userId, "link_returns", "obligation", obligationId,
             java.util.Collections.singletonMap("returnIds", returnIds));
+    }
+
+    @Transactional
+    public void linkSanctions(Long obligationId, List<Long> sanctionIds, Integer userId) {
+        if (!obligationRepo.existsById(obligationId)) {
+            throw ApiException.notFound("Obligation not found: " + obligationId);
+        }
+        Set<Long> wanted = sanctionIds == null ? Set.of()
+            : sanctionIds.stream().filter(Objects::nonNull).collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!wanted.isEmpty()) {
+            // One query for the whole set; a bad id would otherwise fail on the FK as a 500.
+            Set<Long> found = sanctionRepo.findAllById(wanted).stream()
+                .map(RegulatorySanction::getSanctionId).collect(Collectors.toSet());
+            for (Long sid : wanted) {
+                if (!found.contains(sid)) {
+                    throw ApiException.badRequest("Sanction not found: " + sid);
+                }
+            }
+        }
+        obligationSanctionRepo.deleteByObligationId(obligationId);
+        if (!wanted.isEmpty()) {
+            for (Long sid : wanted) {
+                obligationSanctionRepo.insertSanctionLink(obligationId, sid);
+            }
+        }
+        audit.log(userId, "link_sanctions", "obligation", obligationId,
+            java.util.Collections.singletonMap("sanctionIds", sanctionIds));
     }
 
     // ------------------------------------------------------------------ per-concern updates (owner / risk / gap / controls)

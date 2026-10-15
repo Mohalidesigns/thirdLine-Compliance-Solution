@@ -1,146 +1,185 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { Box, Typography, Alert, IconButton, Tooltip, Chip, Button } from '@mui/material';
 import {
-  Box, Typography, Card, CardContent, Button, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Paper, Chip, IconButton, Dialog, DialogTitle,
-  DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel,
-  CircularProgress, Alert, Switch, Tooltip,
-} from '@mui/material';
-import { Add, Edit, Block, Refresh } from '@mui/icons-material';
+  Refresh, AccountBalance, Gavel, Assignment, EventAvailable, Add,
+} from '@mui/icons-material';
 import { api } from '../services/api';
+import { KpiCards, FilterBar, SectionTable } from 'shared';
+import RegulatorFormDialog from '../components/modals/RegulatorFormDialog';
+import { useAuth } from '../contexts/AuthContext';
 
-const FREQUENCIES = ['immediate', 'daily', 'weekly'];
+const KPI_ICONS = {
+  total: <AccountBalance sx={{ fontSize: 20 }} />,
+  sanctions: <Gavel sx={{ fontSize: 20 }} />,
+  obligations: <Assignment sx={{ fontSize: 20 }} />,
+  returns: <EventAvailable sx={{ fontSize: 20 }} />,
+};
+
+const COLUMNS = [
+  { id: 'name', label: 'Regulator', minWidth: 300, sortable: true, render: (r) => (
+    <Tooltip title={r.name || ''}>
+      <Typography variant="body2" sx={{ maxWidth: 360, overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {r.name || 'Untitled'}
+      </Typography>
+    </Tooltip>
+  ) },
+  { id: 'abbreviation', label: 'Abbrev', minWidth: 110, sortable: true, render: (r) => (
+    r.abbreviation
+      ? <Chip label={r.abbreviation} size="small"
+          sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />
+      : <Typography variant="body2" color="text.secondary">—</Typography>
+  ) },
+  { id: 'obligationCount', label: 'Obligations', minWidth: 120, render: (r) => (
+    <Typography variant="body2" sx={{ color: '#2D7D46' }}>{r.obligationCount ?? 0}</Typography>
+  ) },
+  { id: 'returnCount', label: 'Returns', minWidth: 100, render: (r) => (
+    <Typography variant="body2" sx={{ color: '#DD6B20' }}>{r.returnCount ?? 0}</Typography>
+  ) },
+  { id: 'sanctionCount', label: 'Sanctions', minWidth: 110, render: (r) => (
+    <Typography variant="body2" sx={{ color: '#805AD5' }}>{r.sanctionCount ?? 0}</Typography>
+  ) },
+];
 
 export default function RegulatorsPage() {
-  const [regulators, setRegulators] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ platformRegulatorId: null, name: '', abbreviation: '', notificationFrequency: 'immediate', isActive: true });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManage = ['TENANT_ADMIN', 'CCO'].includes(user?.role);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await api.regulators.list();
-      setRegulators(Array.isArray(data) ? data : (data.content || data));
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [q, setQ] = useState(searchParams.get('q') || '');
+  const [page, setPage] = useState(Number(searchParams.get('page') || 0));
+  const [size, setSize] = useState(Number(searchParams.get('size') || 20));
+  const [sortField, setSortField] = useState(searchParams.get('sortField') || 'name');
+  const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'asc');
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setQ(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const p = {};
+    if (q) p.q = q;
+    if (page) p.page = String(page);
+    if (size !== 20) p.size = String(size);
+    if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
+    setSearchParams(p, { replace: true });
+  }, [q, page, size, sortField, sortDir, setSearchParams]);
+
+  const statsQuery = useQuery({
+    queryKey: ['regulators', 'stats'],
+    queryFn: ({ signal }) => api.regulators.stats({ signal }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const stats = statsQuery.data;
+
+  const params = {
+    search: q || undefined,
+    page,
+    size,
+    sort: sortField ? `${sortField},${sortDir}` : undefined,
+  };
+
+  const listQuery = useQuery({
+    queryKey: ['regulators', 'list', params],
+    queryFn: ({ signal }) => api.regulators.list(params, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+  const rows = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements ?? 0;
+
+  const hasFilters = !!searchInput;
+
+  function clearFilters() {
+    setSearchInput(''); setQ(''); setPage(0);
   }
 
-  useEffect(() => { load(); }, []);
-
-  function openCreate() {
-    setEditing(null);
-    setForm({ platformRegulatorId: null, name: '', abbreviation: '', notificationFrequency: 'immediate', isActive: true });
-    setDialogOpen(true);
+  function handleSort(field) {
+    if (!field) return;
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
+    setPage(0);
   }
 
-  function openEdit(r) {
-    setEditing(r);
-    setForm({ platformRegulatorId: r.platformRegulatorId, name: r.name, abbreviation: r.abbreviation, notificationFrequency: r.notificationFrequency || 'immediate', isActive: r.isActive });
-    setDialogOpen(true);
+  function onKpiSelect() {
+    setPage(0);
+    setSearchInput(''); setQ('');
   }
 
-  async function handleSave() {
-    if (!form.name) { setError('Name is required'); return; }
-    setSaving(true);
-    setError('');
-    try {
-      if (editing) {
-        await api.regulators.update(editing.id, form);
-      } else {
-        await api.regulators.create(form);
-      }
-      setDialogOpen(false);
-      await load();
-    } catch (err) { setError(err.message); }
-    finally { setSaving(false); }
+  function onKpiDrill(_key, label) {
+    setPage(0);
+    setSearchInput(label); setQ(label);
   }
 
-  async function handleDisable(id) {
-    if (!confirm('Disable this regulator?')) return;
-    try {
-      await api.regulators.disable(id);
-      await load();
-    } catch (err) { setError(err.message); }
-  }
-
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
+  const kpiItems = [
+    { key: 'total', label: 'Total Regulators', color: '#2B6CB0', icon: KPI_ICONS.total,
+      value: stats?.total ?? 0, breakdown: stats?.totalBreakdown },
+    { key: 'sanctions', label: 'Sanctions', color: '#805AD5', icon: KPI_ICONS.sanctions,
+      value: stats?.sanctions ?? 0, breakdown: stats?.sanctionsBreakdown },
+    { key: 'obligations', label: 'Obligations', color: '#2D7D46', icon: KPI_ICONS.obligations,
+      value: stats?.obligations ?? 0, breakdown: stats?.obligationsBreakdown },
+    { key: 'returns', label: 'Returns', color: '#DD6B20', icon: KPI_ICONS.returns,
+      value: stats?.returns ?? 0, breakdown: stats?.returnsBreakdown },
+  ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
         <Box>
           <Typography variant="h4">Regulators</Typography>
-          <Typography variant="body2" color="text.secondary">Manage your regulatory subscriptions</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {total} regulator{total !== 1 ? 's' : ''} — your regulatory subscriptions
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Refresh"><IconButton onClick={load}><Refresh /></IconButton></Tooltip>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Add Regulator</Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Refresh">
+            <IconButton onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}><Refresh /></IconButton>
+          </Tooltip>
+          {canManage && (
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}
+              sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
+              Add Regulator
+            </Button>
+          )}
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {listQuery.error && <Alert severity="error" sx={{ mb: 2 }}>{listQuery.error.message}</Alert>}
 
-      <Card>
-        <TableContainer component={Paper} elevation={0}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Abbreviation</TableCell>
-                <TableCell>Frequency</TableCell>
-                <TableCell>Active</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {regulators.length === 0 ? (
-                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>No regulators subscribed. Click "Add Regulator" to begin.</TableCell></TableRow>
-              ) : regulators.map(r => (
-                <TableRow key={r.id}>
-                  <TableCell sx={{ fontWeight: 500 }}>{r.name}</TableCell>
-                  <TableCell>{r.abbreviation}</TableCell>
-                  <TableCell><Chip size="small" label={r.notificationFrequency || 'immediate'} /></TableCell>
-                  <TableCell><Switch checked={r.isActive} size="small" onChange={async () => { await api.regulators.update(r.id, { ...r, isActive: !r.isActive }); await load(); }} /></TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => openEdit(r)}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={() => handleDisable(r.id)}><Block fontSize="small" /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+      <KpiCards items={kpiItems} onSelect={onKpiSelect} onDrill={onKpiDrill} />
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing ? 'Edit Regulator' : 'Add Regulator'}</DialogTitle>
-        <DialogContent>
-          <TextField fullWidth size="small" label="Name" required value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} sx={{ mt: 1, mb: 2 }} />
-          <TextField fullWidth size="small" label="Abbreviation" value={form.abbreviation}
-            onChange={e => setForm(f => ({ ...f, abbreviation: e.target.value }))} sx={{ mb: 2 }} />
-          <TextField fullWidth size="small" label="Platform Regulator ID" type="number"
-            value={form.platformRegulatorId || ''}
-            onChange={e => setForm(f => ({ ...f, platformRegulatorId: e.target.value ? Number(e.target.value) : null }))}
-            helperText="Optional — links to a central platform regulator" sx={{ mb: 2 }} />
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Notification Frequency</InputLabel>
-            <Select value={form.notificationFrequency} label="Notification Frequency"
-              onChange={e => setForm(f => ({ ...f, notificationFrequency: e.target.value }))}>
-              {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? <CircularProgress size={18} /> : editing ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search name or abbreviation...', minWidth: 240 }}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
+
+      <SectionTable
+        columns={COLUMNS}
+        rows={rows}
+        total={total}
+        page={page}
+        size={size}
+        loading={listQuery.isLoading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        onPage={setPage}
+        onSize={(s) => { setSize(s); setPage(0); }}
+        onRowClick={(r) => navigate(`/regulators/${r.id}`)}
+        rowKey={(r) => r.id}
+        emptyMessage="No regulators subscribed."
+      />
+
+      <RegulatorFormDialog open={createOpen} onClose={() => setCreateOpen(false)}
+        onSaved={() => { setCreateOpen(false); listQuery.refetch(); statsQuery.refetch(); }} />
     </Box>
   );
 }

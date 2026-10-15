@@ -6,14 +6,15 @@ import {
 } from '@mui/material';
 import {
   ArrowBack, ErrorOutline, CheckCircle, HourglassEmpty, PlayArrow,
-  Warning, OpenInNew, CloudUpload, Close, Link as LinkIcon,
+  Warning, OpenInNew,
 } from '@mui/icons-material';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
 const jobTypeLabels = {
-  ocr_document: { label: 'Extract Text', color: '#3182CE' },
-  classify_instrument: { label: 'Analyze & Tag', color: '#805AD5' },
+  ocr_document: { label: 'OCR', color: '#3182CE' },
+  classify_instrument: { label: 'Classify', color: '#805AD5' },
+  evaluate_applicability: { label: 'Applicability', color: '#DD6B20' },
 };
 
 const statusConfig = {
@@ -40,18 +41,14 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const isPending = typeof id === 'string' && id.startsWith('pending-');
-  const pendingId = isPending ? id.slice('pending-'.length) : null;
-
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const call = isPending ? api.platform.pendingDownloads.get(pendingId) : api.platform.jobs.get(id);
-    call
+    api.platform.jobs.get(id)
       .then(setDetail)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id, isPending, pendingId]);
+  }, [id]);
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
@@ -70,13 +67,9 @@ export default function JobDetailPage() {
     return (
       <Box>
         <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
-        <Alert severity="warning">Not found</Alert>
+        <Alert severity="warning">Job not found</Alert>
       </Box>
     );
-  }
-
-  if (isPending) {
-    return <PendingDetail pd={detail} navigate={navigate} />;
   }
 
   return (
@@ -85,10 +78,8 @@ export default function JobDetailPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {detail.instrument?.sourceTitle || detail.payload?.instrument_title || detail.payload?.title || `Job #${detail.jobId}`}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Job #{detail.jobId}</Typography>
             <Chip size="small"
               icon={statusConfig[detail.status]?.icon}
               label={statusConfig[detail.status]?.label || detail.status}
@@ -96,10 +87,13 @@ export default function JobDetailPage() {
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            Job #{detail.jobId} &middot; {jobTypeLabels[detail.jobType]?.label || detail.jobType} &middot;
+            {jobTypeLabels[detail.jobType]?.label || detail.jobType} &middot;
             Priority: {detail.priority === 1 ? 'HIGH' : 'LOW'}
           </Typography>
         </Box>
+        {detail.status === 'failed' && (
+          <Button variant="outlined" size="small" color="warning" startIcon={<PlayArrow />}>Retry Job</Button>
+        )}
       </Box>
 
       <Divider sx={{ mb: 2 }} />
@@ -219,110 +213,8 @@ export default function JobDetailPage() {
                 </Grid>
               )}
             </Grid>
-            <Box sx={{ mt: 1.5 }}>
-              <Button size="small" variant="outlined" startIcon={<OpenInNew />}
-                onClick={() => navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${detail.instrument.instrumentId}`)}>
-                View instrument
-              </Button>
-            </Box>
           </Card>
         </>
-      )}
-    </Box>
-  );
-}
-
-/* Detail view for a download that failed (pending_downloads row). */
-function PendingDetail({ pd, navigate }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-
-  async function handleUpload() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,application/pdf';
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (!file) return;
-      setBusy(true);
-      try {
-        await api.platform.pendingDownloads.upload(pd.id, file);
-        setMessage('PDF uploaded and OCR queued.');
-      } catch (err) {
-        setMessage('Upload failed: ' + err.message);
-      } finally {
-        setBusy(false);
-      }
-    };
-    input.click();
-  }
-
-  async function handleSkip() {
-    setBusy(true);
-    try {
-      await api.platform.pendingDownloads.skip(pd.id);
-      setMessage('Marked as skipped.');
-    } catch (err) {
-      setMessage('Skip failed: ' + err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>{pd.title || 'Untitled document'}</Typography>
-            <Chip size="small" label="Download Failed"
-              sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: '#C5303018', color: '#C53030' }} />
-            <Chip size="small" label={pd.status}
-              sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: '#EDF2F7', color: '#718096' }} />
-          </Box>
-          <Typography variant="body2" color="text.secondary">Regulator #{pd.regulatorId}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" startIcon={<CloudUpload />} onClick={handleUpload} disabled={busy}>Upload PDF</Button>
-          <Button variant="outlined" startIcon={<Close />} onClick={handleSkip} disabled={busy}>Skip</Button>
-        </Box>
-      </Box>
-
-      {message && <Alert severity={message.startsWith('Upload failed') || message.startsWith('Skip failed') ? 'error' : 'success'} sx={{ mb: 2 }}>{message}</Alert>}
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>DOWNLOAD DETAILS</Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Source URL</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.78rem', wordBreak: 'break-all' }}>
-                {pd.sourceUrl ? (
-                  <a href={pd.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#3182CE' }}>
-                    {pd.sourceUrl} <LinkIcon sx={{ fontSize: 12, verticalAlign: 'middle' }} />
-                  </a>
-                ) : '—'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Discovered</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.78rem' }}>{formatDt(pd.discoveredAt || pd.createdAt)}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {pd.errorMessage && (
-        <Box sx={{ bgcolor: '#FEE2E2', p: 2, borderRadius: 2 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#C53030', display: 'block', mb: 0.5 }}>ERROR</Typography>
-          <Typography variant="body2" sx={{ fontSize: '0.8rem', color: '#C53030', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pd.errorMessage}</Typography>
-        </Box>
       )}
     </Box>
   );

@@ -166,6 +166,16 @@ public class ObligationController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{id}/sanctions")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<Void> linkSanctions(
+            @PathVariable Long id,
+            @RequestBody LinkSanctionsRequest req,
+            @AuthenticationPrincipal User u) {
+        service.linkSanctions(id, req.getLinkedSanctionIds(), u.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/{id}/history")
     public ResponseEntity<List<?>> history(@PathVariable Long id) {
         return ResponseEntity.ok(service.getHistory(id));
