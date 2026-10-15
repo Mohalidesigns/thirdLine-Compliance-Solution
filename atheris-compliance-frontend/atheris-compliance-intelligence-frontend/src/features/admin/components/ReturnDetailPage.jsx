@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, Alert } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { Box, CircularProgress, Alert } from '@mui/material';
+import { DetailHeader } from 'shared';
 import api from '../../../services/api';
 import ReturnDetailContent from './detail/ReturnDetailContent';
 
@@ -30,7 +30,7 @@ export default function ReturnDetailPage() {
   if (error || !ret) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/returns')} sx={{ mb: 2 }}>Back to Returns</Button>
+        <DetailHeader band title="Return" onBack={() => navigate('/admin/returns')} backLabel="Back to Returns" />
         <Alert severity="error">{error || 'Return not found'}</Alert>
       </Box>
     );
@@ -38,7 +38,7 @@ export default function ReturnDetailPage() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/returns')} sx={{ mb: 2 }}>Back to Returns</Button>
+      <DetailHeader band title="Return details" onBack={() => navigate('/admin/returns')} backLabel="Back to Returns" />
       <ReturnDetailContent ret={ret} />
     </Box>
   );

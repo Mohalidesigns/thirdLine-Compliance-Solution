@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material';
 import {
-  Box, Typography, Card, CardContent, Grid, Button, Chip, CircularProgress, Alert,
-  Divider, IconButton, Tooltip,
-} from '@mui/material';
-import {
-  ArrowBack, ErrorOutline, CheckCircle, HourglassEmpty, PlayArrow,
-  Warning, OpenInNew, CloudUpload, Close, Link as LinkIcon,
-} from '@mui/icons-material';
+  DetailHeader, KpiCards, DataCard, StatusBadge, RiskBadge, StateBadge, TL,
+  ArrowPathIcon, CpuChipIcon, CalendarIcon, Cog6ToothIcon, ClockIcon, CheckCircleIcon,
+  ExclamationCircleIcon, EyeIcon, CloudArrowUpIcon, XMarkIcon, LinkIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
+import { Field, FieldGrid } from './detail/detailKit';
 
 const jobTypeLabels = {
   ocr_document: { label: 'Extract Text', color: '#3182CE' },
@@ -17,10 +16,10 @@ const jobTypeLabels = {
 };
 
 const statusConfig = {
-  pending: { label: 'Pending', color: '#718096', bg: '#EDF2F7', icon: <HourglassEmpty sx={{ fontSize: 14 }} /> },
-  processing: { label: 'Processing', color: '#3182CE', bg: '#EBF8FF', icon: <PlayArrow sx={{ fontSize: 14 }} /> },
-  completed: { label: 'Completed', color: '#2D7D46', bg: '#E6F4EA', icon: <CheckCircle sx={{ fontSize: 14 }} /> },
-  failed: { label: 'Failed', color: '#C53030', bg: '#FEE2E2', icon: <ErrorOutline sx={{ fontSize: 14 }} /> },
+  pending: { label: 'Pending', tone: 'gray' },
+  processing: { label: 'Processing', tone: 'blue' },
+  completed: { label: 'Completed', tone: 'green' },
+  failed: { label: 'Failed', tone: 'red' },
 };
 
 function formatDt(ts) {
@@ -60,7 +59,7 @@ export default function JobDetailPage() {
   if (error) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
+        <DetailHeader band title="Job" onBack={() => navigate(ROUTES.ADMIN_PIPELINE)} backLabel="Back to Pipeline" />
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -69,7 +68,7 @@ export default function JobDetailPage() {
   if (!detail) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
+        <DetailHeader band title="Job" onBack={() => navigate(ROUTES.ADMIN_PIPELINE)} backLabel="Back to Pipeline" />
         <Alert severity="warning">Not found</Alert>
       </Box>
     );
@@ -79,154 +78,79 @@ export default function JobDetailPage() {
     return <PendingDetail pd={detail} navigate={navigate} />;
   }
 
+  const typeLabel = jobTypeLabels[detail.jobType]?.label || detail.jobType;
+  const monoValue = (v) => <Box component="span" sx={{ fontFamily: TL.mono, fontSize: '0.875rem' }}>{v}</Box>;
+  const tiles = [
+    { key: 'type', label: 'Type', value: typeLabel, tone: 'blue', icon: <CpuChipIcon /> },
+    { key: 'attempts', label: 'Attempts', value: `${detail.attemptCount}/${detail.maxAttempts}`, tone: 'orange', icon: <ArrowPathIcon /> },
+    { key: 'created', label: 'Created', value: monoValue(formatDt(detail.createdAt)), tone: 'gray', icon: <CalendarIcon /> },
+    { key: 'service', label: 'Service', value: detail.createdByService || '—', tone: 'teal', icon: <Cog6ToothIcon /> },
+    ...(detail.startedAt ? [{ key: 'started', label: 'Started', value: monoValue(formatDt(detail.startedAt)), tone: 'blue', icon: <ClockIcon /> }] : []),
+    ...(detail.completedAt ? [{ key: 'completed', label: 'Completed', value: monoValue(formatDt(detail.completedAt)), tone: 'green', icon: <CheckCircleIcon /> }] : []),
+  ];
+
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
+      <DetailHeader
+        band
+        onBack={() => navigate(ROUTES.ADMIN_PIPELINE)}
+        backLabel="Back to Pipeline"
+        title={detail.instrument?.sourceTitle || detail.payload?.instrument_title || detail.payload?.title || `Job #${detail.jobId}`}
+        status={statusConfig[detail.status]?.label || detail.status}
+        statusTone={statusConfig[detail.status]?.tone || 'gray'}
+        description={`Job #${detail.jobId} · ${typeLabel} · Priority: ${detail.priority === 1 ? 'HIGH' : 'LOW'}`}
+      />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              {detail.instrument?.sourceTitle || detail.payload?.instrument_title || detail.payload?.title || `Job #${detail.jobId}`}
-            </Typography>
-            <Chip size="small"
-              icon={statusConfig[detail.status]?.icon}
-              label={statusConfig[detail.status]?.label || detail.status}
-              sx={{ bgcolor: statusConfig[detail.status]?.bg || '#EDF2F7', color: statusConfig[detail.status]?.color || '#718096', fontWeight: 600, fontSize: '0.65rem' }}
-            />
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            Job #{detail.jobId} &middot; {jobTypeLabels[detail.jobType]?.label || detail.jobType} &middot;
-            Priority: {detail.priority === 1 ? 'HIGH' : 'LOW'}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Divider sx={{ mb: 2 }} />
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>JOB DETAILS</Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Type</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{jobTypeLabels[detail.jobType]?.label || detail.jobType}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Attempts</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.attemptCount}/{detail.maxAttempts}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Created</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.75rem' }}>{formatDt(detail.createdAt)}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Service</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.createdByService || '—'}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        {detail.startedAt && (
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Card>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="caption" color="text.secondary">Started</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.75rem' }}>{formatDt(detail.startedAt)}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
-        {detail.completedAt && (
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Card>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="caption" color="text.secondary">Completed</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.75rem' }}>{formatDt(detail.completedAt)}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
-      </Grid>
+      <KpiCards items={tiles} columns={4} />
 
       {detail.lastError && (
-        <Box sx={{ bgcolor: '#FEE2E2', p: 2, borderRadius: 2, mb: 3 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#C53030', display: 'block', mb: 0.5 }}>ERROR</Typography>
-          <Typography variant="body2" sx={{ fontSize: '0.8rem', color: '#C53030', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{detail.lastError}</Typography>
-        </Box>
+        <Alert severity="error" icon={<ExclamationCircleIcon size={20} />} sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5 }}>Error</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{detail.lastError}</Typography>
+        </Alert>
       )}
 
       {detail.payload && Object.keys(detail.payload).length > 0 && (
-        <>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>PAYLOAD</Typography>
-          <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#F7FAFC' }}>
-            {Object.entries(detail.payload).map(([key, value]) => (
-              <Box key={key} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#718096' }}>{key}</Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.8rem', wordBreak: 'break-word' }}>
-                  {typeof value === 'string' && value.length > 200
-                    ? value.substring(0, 200) + '...'
-                    : String(value ?? 'null')}
-                </Typography>
-              </Box>
-            ))}
-          </Card>
-        </>
+        <DataCard title="Payload" sx={{ mb: 3 }}>
+          {Object.entries(detail.payload).map(([key, value]) => (
+            <Box key={key} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: TL.gray500, fontFamily: TL.mono }}>{key}</Typography>
+              <Typography sx={{ fontSize: '0.875rem', color: TL.gray700, wordBreak: 'break-word' }}>
+                {typeof value === 'string' && value.length > 200
+                  ? value.substring(0, 200) + '...'
+                  : String(value ?? 'null')}
+              </Typography>
+            </Box>
+          ))}
+        </DataCard>
       )}
 
       {detail.instrument && (
-        <>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>RELATED INSTRUMENT</Typography>
-          <Card variant="outlined" sx={{ p: 2, mb: 2 }}>
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="caption" color="text.secondary">Title</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.sourceTitle}</Typography>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <Typography variant="caption" color="text.secondary">Status</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.status}</Typography>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <Typography variant="caption" color="text.secondary">Risk</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.riskRating || '—'}</Typography>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <Typography variant="caption" color="text.secondary">Nature</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>{detail.instrument.nature || '—'}</Typography>
-              </Grid>
-              {detail.instrument.dateIssued && (
-                <Grid size={{ xs: 4 }}>
-                  <Typography variant="caption" color="text.secondary">Date Issued</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatLocalDate(detail.instrument.dateIssued)}</Typography>
-                </Grid>
-              )}
-              {detail.instrument.aiSummary && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary">AI Summary</Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.8rem', mt: 0.3 }}>{detail.instrument.aiSummary}</Typography>
-                </Grid>
-              )}
-            </Grid>
-            <Box sx={{ mt: 1.5 }}>
-              <Button size="small" variant="outlined" startIcon={<OpenInNew />}
-                onClick={() => navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${detail.instrument.instrumentId}`)}>
-                View instrument
-              </Button>
+        <DataCard
+          title="Related Instrument"
+          sx={{ mb: 3 }}
+          actions={(
+            <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
+              onClick={() => navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${detail.instrument.instrumentId}`)}>
+              View instrument
+            </Button>
+          )}
+        >
+          <Box sx={{ mb: 2.5 }}>
+            <Field label="Title" value={detail.instrument.sourceTitle} />
+          </Box>
+          <FieldGrid min={160}>
+            <Field label="Status">{detail.instrument.status ? <StateBadge value={detail.instrument.status} /> : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}</Field>
+            <Field label="Risk">{detail.instrument.riskRating ? <RiskBadge value={detail.instrument.riskRating} /> : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}</Field>
+            <Field label="Nature" value={detail.instrument.nature || '—'} />
+            {detail.instrument.dateIssued && <Field label="Date Issued" value={formatLocalDate(detail.instrument.dateIssued)} />}
+          </FieldGrid>
+          {detail.instrument.aiSummary && (
+            <Box sx={{ mt: 2.5 }}>
+              <Field label="AI Summary" value={detail.instrument.aiSummary} />
             </Box>
-          </Card>
-        </>
+          )}
+        </DataCard>
       )}
     </Box>
   );
@@ -271,58 +195,44 @@ function PendingDetail({ pd, navigate }) {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(ROUTES.ADMIN_PIPELINE)} sx={{ mb: 2 }}>Back to Pipeline</Button>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>{pd.title || 'Untitled document'}</Typography>
-            <Chip size="small" label="Download Failed"
-              sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: '#C5303018', color: '#C53030' }} />
-            <Chip size="small" label={pd.status}
-              sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.68rem', bgcolor: '#EDF2F7', color: '#718096' }} />
+      <DetailHeader
+        band
+        onBack={() => navigate(ROUTES.ADMIN_PIPELINE)}
+        backLabel="Back to Pipeline"
+        title={pd.title || 'Untitled document'}
+        status="Download Failed"
+        statusTone="red"
+        meta={pd.status ? <StatusBadge label={pd.status} tone="gray" /> : null}
+        description={`Regulator #${pd.regulatorId}`}
+        right={(
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" startIcon={<CloudArrowUpIcon size={16} />} onClick={handleUpload} disabled={busy}>Upload PDF</Button>
+            <Button variant="outlined" startIcon={<XMarkIcon size={16} />} onClick={handleSkip} disabled={busy}>Skip</Button>
           </Box>
-          <Typography variant="body2" color="text.secondary">Regulator #{pd.regulatorId}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" startIcon={<CloudUpload />} onClick={handleUpload} disabled={busy}>Upload PDF</Button>
-          <Button variant="outlined" startIcon={<Close />} onClick={handleSkip} disabled={busy}>Skip</Button>
-        </Box>
-      </Box>
+        )}
+      />
 
-      {message && <Alert severity={message.startsWith('Upload failed') || message.startsWith('Skip failed') ? 'error' : 'success'} sx={{ mb: 2 }}>{message}</Alert>}
+      {message && <Alert severity={message.startsWith('Upload failed') || message.startsWith('Skip failed') ? 'error' : 'success'} sx={{ mb: 3 }}>{message}</Alert>}
 
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#1A365D' }}>DOWNLOAD DETAILS</Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Source URL</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.78rem', wordBreak: 'break-all' }}>
-                {pd.sourceUrl ? (
-                  <a href={pd.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#3182CE' }}>
-                    {pd.sourceUrl} <LinkIcon sx={{ fontSize: 12, verticalAlign: 'middle' }} />
-                  </a>
-                ) : '—'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="caption" color="text.secondary">Discovered</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.78rem' }}>{formatDt(pd.discoveredAt || pd.createdAt)}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <DataCard title="Download Details" sx={{ mb: 3 }}>
+        <FieldGrid min={220}>
+          <Field label="Source URL">
+            {pd.sourceUrl ? (
+              <Box component="a" href={pd.sourceUrl} target="_blank" rel="noopener noreferrer"
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: TL.primary, fontSize: '0.875rem', wordBreak: 'break-all', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                {pd.sourceUrl} <LinkIcon size={12} />
+              </Box>
+            ) : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}
+          </Field>
+          <Field label="Discovered" value={formatDt(pd.discoveredAt || pd.createdAt)} mono />
+        </FieldGrid>
+      </DataCard>
 
       {pd.errorMessage && (
-        <Box sx={{ bgcolor: '#FEE2E2', p: 2, borderRadius: 2 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#C53030', display: 'block', mb: 0.5 }}>ERROR</Typography>
-          <Typography variant="body2" sx={{ fontSize: '0.8rem', color: '#C53030', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pd.errorMessage}</Typography>
-        </Box>
+        <Alert severity="error" icon={<ExclamationCircleIcon size={20} />} sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5 }}>Error</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pd.errorMessage}</Typography>
+        </Alert>
       )}
     </Box>
   );

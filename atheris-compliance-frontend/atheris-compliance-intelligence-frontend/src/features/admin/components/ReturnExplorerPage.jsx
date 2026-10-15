@@ -2,55 +2,16 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
-  Button, CircularProgress, Paper, Tooltip, IconButton, Menu, Alert,
+  Box, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
+  TablePagination, TableSortLabel, Button, CircularProgress, Alert,
 } from '@mui/material';
 import {
-  Search, Close, RequestQuote, EventRepeat, Groups, HelpOutline, ArrowDropDown,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, returnColumns, TL,
+  ArrowPathIcon, DocumentTextIcon, CalendarDaysIcon, UserGroupIcon, ExclamationCircleIcon,
+} from 'shared';
 import api from '../../../services/api';
-import { returnColumns } from 'shared';
 
 const COLUMNS = returnColumns();
-
-/* KPI card with a breakdown dropdown (mirrors the Instruments page pattern). */
-function KpiCard({ kpi, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]);
-  return (
-    <Card variant="outlined" onClick={() => onSelect(kpi.key)}
-      sx={{ cursor: 'pointer', borderLeft: `4px solid ${kpi.color}`, '&:hover': { boxShadow: 1 } }}>
-      <CardContent sx={{ py: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-          </Box>
-          {entries.length > 0 && (
-            <IconButton size="small" aria-label={`${kpi.label} breakdown`}
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-              <ArrowDropDown fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}
-          onClick={e => e.stopPropagation()}>
-          {entries.map(([label, count]) => (
-            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-                <span>{label}</span>
-                <span style={{ color: '#718096' }}>{count}</span>
-              </Box>
-            </MenuItem>
-          ))}
-        </Menu>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function ReturnExplorerPage() {
   const navigate = useNavigate();
@@ -85,7 +46,7 @@ export default function ReturnExplorerPage() {
 
   const returnsApi = api.platform?.returns ?? api.returns;
 
-  const { data: stats } = useQuery({
+  const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['returns-stats'],
     queryFn: ({ signal }) => returnsApi.stats(signal),
   });
@@ -100,7 +61,7 @@ export default function ReturnExplorerPage() {
     sort: sortField ? `${sortField},${sortDir}` : undefined,
   };
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['returns', q, frequencyFilter, unitFilter, actFilter, page, size, sortField, sortDir],
     queryFn: ({ signal }) => returnsApi.list(queryParams, signal),
   });
@@ -135,82 +96,73 @@ export default function ReturnExplorerPage() {
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Returns', value: stats?.totalReturns ?? 0, color: '#DD6B20',
-      icon: <RequestQuote sx={{ fontSize: 20 }} />, breakdown: stats?.byFrequencyType },
-    { key: 'frequencies', label: 'Frequency Types', value: stats?.frequencyTypeCount ?? 0, color: '#2B6CB0',
-      icon: <EventRepeat sx={{ fontSize: 20 }} />, breakdown: stats?.byFrequencyType },
-    { key: 'units', label: 'Responsible Units', value: stats?.responsibleUnitCount ?? 0, color: '#2C7A7B',
-      icon: <Groups sx={{ fontSize: 20 }} />, breakdown: stats?.byResponsibleUnit },
-    { key: 'unassigned', label: 'Unassigned', value: stats?.unassignedCount ?? 0, color: '#805AD5',
-      icon: <HelpOutline sx={{ fontSize: 20 }} />, breakdown: stats?.byFrequencyType },
+    { key: 'total', label: 'Total Returns', value: stats?.totalReturns ?? 0, tone: 'blue',
+      icon: <DocumentTextIcon />, breakdown: stats?.byFrequencyType },
+    { key: 'frequencies', label: 'Frequency Types', value: stats?.frequencyTypeCount ?? 0, tone: 'teal',
+      icon: <CalendarDaysIcon />, breakdown: stats?.byFrequencyType },
+    { key: 'units', label: 'Responsible Units', value: stats?.responsibleUnitCount ?? 0, tone: 'purple',
+      icon: <UserGroupIcon />, breakdown: stats?.byResponsibleUnit },
+    { key: 'unassigned', label: 'Unassigned', value: stats?.unassignedCount ?? 0, tone: 'orange',
+      icon: <ExclamationCircleIcon />, breakdown: stats?.byFrequencyType },
   ];
 
   const hasFilters = searchInput || frequencyFilter !== 'All' || unitFilter !== 'All' || actFilter !== 'All';
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Return Explorer</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {total} regulatory return{total !== 1 ? 's' : ''} — filing obligations across the compliance universe
-      </Typography>
+      <PageHeader
+        title="Return Explorer"
+        subtitle={`${total} regulatory return${total !== 1 ? 's' : ''} — filing obligations across the compliance universe`}
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { refetch(); refetchStats(); }}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map(k => (
-          <Grid key={k.key} size={{ xs: 6, md: 3 }}>
-            <KpiCard kpi={k} onSelect={applyKpi} onDrill={drillKpi} />
-          </Grid>
-        ))}
-      </Grid>
+      <KpiCards items={kpis} columns={4} onSelect={applyKpi} onDrill={drillKpi} />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search returns..." value={searchInput}
-          onChange={e => { setSearchInput(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Frequency type</InputLabel>
-          <Select value={frequencyFilter} label="Frequency type" onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All frequencies</MenuItem>
-            {frequencyTypes.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Responsible unit</InputLabel>
-          <Select value={unitFilter} label="Responsible unit" onChange={e => { setUnitFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All units</MenuItem>
-            {responsibleUnits.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Act</InputLabel>
-          <Select value={actFilter} label="Act" onChange={e => { setActFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All acts</MenuItem>
-            {actOptions.map(a => <MenuItem key={a.actId} value={String(a.actId)}>{a.name}</MenuItem>)}
-          </Select>
-        </FormControl>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearAll}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search returns...' }}
+        filters={[
+          {
+            key: 'frequency', label: 'Frequency type', value: frequencyFilter, allLabel: 'All frequencies',
+            onChange: (v) => { setFrequencyFilter(v); setPage(0); },
+            options: frequencyTypes.map(f => ({ value: f, label: f })),
+          },
+          {
+            key: 'unit', label: 'Responsible unit', value: unitFilter, allLabel: 'All units', minWidth: 220,
+            onChange: (v) => { setUnitFilter(v); setPage(0); },
+            options: responsibleUnits.map(u => ({ value: u, label: u })),
+          },
+          {
+            key: 'act', label: 'Act', value: actFilter, allLabel: 'All acts', minWidth: 220,
+            onChange: (v) => { setActFilter(v); setPage(0); },
+            options: actOptions.map(a => ({ value: String(a.actId), label: a.name })),
+          },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearAll}
+      />
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : rows.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <RequestQuote sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <DocumentTextIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No returns found.</Typography>
         </Paper>
       ) : (
-        <Paper>
-          <Box sx={{ overflowX: 'auto' }}>
+        <Paper sx={{ overflow: 'hidden' }}>
+          <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 50 }}>#</TableCell>
+                  <TableCell sx={{ width: 50 }}>#</TableCell>
                   {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth,
                       cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                       onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
                       {c.sortField
@@ -227,8 +179,8 @@ export default function ReturnExplorerPage() {
                 {rows.map((row, idx) => (
                   <TableRow key={row.returnId} hover
                     onClick={() => navigate(`/admin/returns/${row.returnId}`)}
-                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{(page * size) + idx + 1}</TableCell>
+                    sx={{ cursor: 'pointer' }}>
+                    <TableCell sx={{ color: 'text.secondary', fontFamily: TL.mono, fontSize: '0.75rem' }}>{(page * size) + idx + 1}</TableCell>
                     {COLUMNS.map(c => (
                       <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
                     ))}
@@ -236,7 +188,7 @@ export default function ReturnExplorerPage() {
                 ))}
               </TableBody>
             </Table>
-          </Box>
+          </TableContainer>
           <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
             rowsPerPage={size} onRowsPerPageChange={e => { setSize(parseInt(e.target.value, 10)); setPage(0); }}
             rowsPerPageOptions={[10, 20, 50]} />

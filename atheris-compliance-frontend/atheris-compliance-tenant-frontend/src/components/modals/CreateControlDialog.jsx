@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Chip,
 } from '@mui/material';
-import { Link as LinkIcon } from '@mui/icons-material';
+import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
@@ -22,7 +22,7 @@ const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 function Field({ label, children, sx }) {
   return (
     <Box sx={{ mb: 2, ...sx }}>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+      <Typography variant="caption" sx={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
       {children}
@@ -61,11 +61,10 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle>New Control</DialogTitle>
-        <Divider />
-        <DialogContent>
+        <DialogContent sx={{ '&&': { pt: 2.5 } }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Basic details</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Basic details</Typography>
           <Field label="Control name *">
             <TextField fullWidth size="small" placeholder="e.g. Segregation of duties" required value={form.name}
               onChange={e => set('name', e.target.value)} />
@@ -76,7 +75,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
           </Field>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Classification</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Classification</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
             <Field label="Theme" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.theme} onChange={e => set('theme', e.target.value)}>
@@ -99,7 +98,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
           </Box>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Execution</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Execution</Typography>
           <Field label="What it does">
             <TextField fullWidth size="small" multiline minRows={2} placeholder="How this control is executed"
               value={form.whatItDoes} onChange={e => set('whatItDoes', e.target.value)} />
@@ -110,7 +109,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
           </Field>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Ownership & schedule</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Ownership & schedule</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '5fr 3fr', gap: 2 }}>
             <Field label="Owner" sx={{ mb: 0 }}>
               <OwnerPicker value={form.controlOwnerId} onChange={id => set('controlOwnerId', id)} label="Compliance owner" />
@@ -128,8 +127,8 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                 value={form.testFrequencyDays} onChange={e => set('testFrequencyDays', e.target.value)} />
             </Field>
             <Field label="Linked obligations" sx={{ mb: 0 }}>
-              <Button variant="outlined" fullWidth sx={{ height: 40, justifyContent: 'flex-start', textTransform: 'none' }}
-                startIcon={<LinkIcon />} onClick={() => setPickerOpen(true)}>
+              <Button variant="outlined" fullWidth sx={{ justifyContent: 'flex-start' }}
+                startIcon={<LinkIcon size={16} />} onClick={() => setPickerOpen(true)}>
                 {form.linkedObligationIds.length > 0
                   ? `Linked obligations (${form.linkedObligationIds.length})`
                   : 'Link obligations'}
@@ -142,8 +141,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
             </Field>
           </Box>
         </DialogContent>
-        <Divider />
-        <DialogActions sx={{ justifyContent: 'center' }}>
+        <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.name}>
             {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create'}

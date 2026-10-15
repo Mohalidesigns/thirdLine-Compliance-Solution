@@ -4,7 +4,7 @@ import {
   TableBody, TableRow, TableCell, TableContainer, Paper, TextField, Box,
   Typography, CircularProgress, InputAdornment, Checkbox,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { MagnifyingGlassIcon } from 'shared';
 import { api } from '../../services/api';
 
 export default function LinkSanctionsModal({ open, onClose, obligationId, initialIds = [], onSaved, onError }) {
@@ -62,7 +62,7 @@ export default function LinkSanctionsModal({ open, onClose, obligationId, initia
         <Box sx={{ mb: 1.5 }}>
           <TextField size="small" fullWidth placeholder="Search sanction or act..."
             value={search} onChange={(e) => setSearch(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon size={18} /></InputAdornment> } }} />
         </Box>
 
         {loading && sanctions.length === 0 ? (
@@ -74,8 +74,8 @@ export default function LinkSanctionsModal({ open, onClose, obligationId, initia
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Sanction</TableCell>
-                  <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                  <TableCell>Sanction</TableCell>
+                  <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>Select</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -102,7 +102,7 @@ export default function LinkSanctionsModal({ open, onClose, obligationId, initia
           </TableContainer>
         )}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading}>
           {loading ? <CircularProgress size={18} /> : `Save (${selected.length})`}

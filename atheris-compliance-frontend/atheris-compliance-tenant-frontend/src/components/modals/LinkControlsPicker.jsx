@@ -4,7 +4,7 @@ import {
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   Paper, TextField, Box, Typography, CircularProgress, InputAdornment,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { MagnifyingGlassIcon } from 'shared';
 import { api } from '../../services/api';
 
 export default function LinkControlsPicker({ open, onClose, initialIds = [], onSave }) {
@@ -41,7 +41,7 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
       <DialogContent dividers>
         <TextField size="small" fullWidth placeholder="Search control number, name or theme..."
           value={search} onChange={e => setSearch(e.target.value)} sx={{ mb: 1.5 }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon size={18} /></InputAdornment> } }} />
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
         ) : rows.length === 0 ? (
@@ -51,9 +51,9 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Control</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Theme / Type</TableCell>
-                  <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                  <TableCell>Control</TableCell>
+                  <TableCell>Theme / Type</TableCell>
+                  <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>Select</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -74,7 +74,7 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
           </TableContainer>
         )}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={() => { onSave?.(selected); onClose(); }}>
           Save ({selected.length})

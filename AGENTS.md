@@ -140,6 +140,17 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Thirdline UI adoption (both frontends) — `feature/thirdline-ui-adoption`
+- **One design system for both apps, modelled on Thirdline Internal Audit** (thirdline.atherislimited.com). Tokens lifted from Thirdline's CSS vars: navy `#1A365D`, gold accent `#D4AF37`, bg `#F7FAFC`, Figtree font, Tailwind gray scale, `.badge-*` tones.
+- **`shared/src/theme/`** — `thirdlineTheme.js` (each app's `theme/lightTheme.js` now just re-exports it) + `tokens.js` (`TL`, `TONES`, `tone()`, `riskTone()`, `statusTone()`). Component overrides do most of the work: 12px cards with gray-100 hairline + shadow-sm, uppercase gray-500 table heads, pill chips (filled chips render as soft badges), 8px inputs/buttons, Dialog title/actions rules (no `dividers` needed). `palette.warning` is now orange `#DD6B20`; gold lives in `palette.accent`.
+- **`shared/src/icons/heroicons.jsx`** — Heroicons v2 outline (stroke 1.5) as `XxxIcon` components (`size`, `sx`). Icons Thirdline uses are copied from its app verbatim. Prefer these over `@mui/icons-material` (MUI kept only where no heroicon exists: ContentCopy, VisibilityOff, Block).
+- **App shell** (`shared/src/components/shell/`): `AppShell` (collapsible 260/72px sidebar persisted in localStorage, temporary drawer below `lg`, 64px top bar, 32px content padding), `AppSidebar` (navy, 40px items, gold 3px active border, sections split by white/10 rules, Collapse at the foot), `AppTopBar` (gray-50 search, bell with red pill, avatar dropdown with Logout). Each app's `components/layout/{MainLayout,Sidebar,TopBar}.jsx` are thin wrappers. Top-bar search routes to `/obligations?q=` (tenant) / `/admin/instruments?q=` (intel) — both pages now read `q`.
+- **Page kit** (all exported from `shared`): `PageHeader` (white full-bleed title band — FIRST child of a routed page only), `KpiCards`/`KpiCard` (Thirdline stat card: uppercase label, tinted icon tile, `tone`, `caption`, `active`, breakdown dropdown kept), `FilterBar`/`FilterField`/`SearchInput` (labels ABOVE controls), `DataCard`/`CardLink` (panel + "View All"), `StatusBadge`/`RiskBadge`/`StateBadge`, restyled `DetailHeader` (`band` prop for routed pages; in-flow inside drawers), `SectionTable`, `SectionTabs`, `CoverageStrip` (now KpiCards), `EntityDrawer`; `riskChip`/`statusChip` now return badges.
+- **Every routed page in both apps swept onto the kit** (presentation only — no query/field/route changes). Tables over 5 columns folded secondary fields into captions (intel Acts lost `status`/`instrumentCount` sort; Universe, Licenses, Regulators, Inbox, Watchlist, tenant Findings/Uploads/Evidence trimmed). Unrouted intel feature folders (carbon, ESG, dataHub…) were left untouched.
+- **Bugs fixed on the way:** StrictMode alive-ref regression was back in intel `ControlExplorerPage`/`SanctionExplorerPage`/`RegulatoryCoverage` (pages empty in dev) — re-armed on setup again; tenant `ControlsPage` used `navigate` without `useNavigate()` (Open Findings KPI crashed); intel `RegulatorAdminPage` called an undefined `setError` and rendered an `Error` object as a child; tenant Settings "Â·" mojibake.
+- **Verify (done):** intel + tenant `vite build` green; every routed page in both apps loaded live (headers, KPIs, rows, no crashes); collapsed + mobile shell checked. **No backend change.**
+
+
 ### Backend Verification & Cleanup (latest)
 - **DB-driven tenant identity** — tenant backend no longer reads `atheris.tenant-id`/`TENANT_ID`; `TenantIdentityService` resolves the single `tenant_profile` row. `LicenseService.activate()` calls intel `POST /api/v1/internal/tenants/provision` (idempotent) to learn the real tenant id, stored on `tenant_profile` (`UNIQUE(tenant_id)`, tenant V26). All 13 `@Value tenant-id` sites converted; `InternalTenantController.onboard` idempotent. One tenant per instance — the `TENANT_ID=2` sacrificial-tenant pattern is obsolete.
 
@@ -208,12 +219,16 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
 - FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
-- Settings → Organization shows mojibake ("Â·") in the team/owner counts.
 - "New Control" form still writes only the control side of obligation links (import writes both).
 - `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+
+## Done — Restored work reverted by 28ca694
+
+Commit `28ca694` was made from a stale working copy and overwrote 30 frontend files with old versions (tenant Acts/Reports/public `/remediate/:token` routes, LDAP onboarding, Settings holidays/manager, event-triggered returns, sanctions parity, CCO metrics, control test review; intel Act-detail tabs + drawers, `ObligationExplorerDetailPage` → `ObligationDetailView`, explorers, Document Pipeline, nav groups, api abort signals, RegulationExplorer `regulatorId`). Restored by per-file 3-way merge (base = the stale version copied), then the Thirdline restyle (`49e31cb`) merged on top. Intel nav keeps COMPLIANCE / OPERATIONS / TENANTS. Tenant sidebar: Acts under registers, Reports under assurance.
+- **Lesson:** before committing a large multi-file change, diff against the branch tip (`git diff HEAD --stat`) — a file whose diff deletes recently merged features is a stale copy.
 
 ## Done — Return Due Dates (no more overdue-on-day-one)
 
@@ -274,31 +289,7 @@ Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). 
 
 ## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
 
-**Flow (tenant `:5174`, Obligations Register → Import):** download the `.xlsx` template → upload → row-by-row preview (valid / invalid with reasons / duplicate) → "Import N obligations". Imported rows go **straight to the register** (`source='imported'`, `applicability='applicable'`) — the preview confirm is the human check, by user decision; they do NOT pass through the Review Inbox. Invalid rows download as an errors `.xlsx` with an "Error" column to fix and re-upload.
-
-### Backend (`modules/imports/`)
-- `ImportHandler` interface + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (all POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`.
-- Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed` on repeat; batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`.
-- New table `import_batches` (**V31**) keeps each upload's parsed rows (JSONB), counts and status.
-- Validation: title + regulator required (tenant regulator by name/abbrev); Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical → Minor/Moderate/Major/Severe); Likelihood `Rare..Almost Certain`; Owner must match an active owner; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act, against the register and earlier rows in the file.
-- Commit: one transaction; obligation numbers allocated once per batch; inherent risk computed by `@PrePersist`; **one** `obligations_imported` audit event per batch (with all ids), not one per row; register cache evicted.
-- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place, index only — `tenant_regulators` is created later in V14). Register/detail fall back to the tenant regulator when there is no platform instrument, so standalone obligations no longer show "–". Dev DB got `ALTER TABLE` + Flyway repair.
-- Dependency: Apache POI `poi-ooxml` 5.3.0 (`poi.version` in the parent pom).
-
-### Frontend
-- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview table, clickable result chips); "Import" button beside "New Obligation".
-- `api.js` `rawRequest` (multipart + blob download, keeps the 401 refresh) and `api.imports.*`.
-
-### Auth status codes (tenant)
-- `SecurityConfig` had no entry point, so Spring answered an expired/missing token with **403** — which is why `api.js` treated 403 as session expiry. Now: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401; a 403 shows the server message and keeps the user logged in. License-blocked 402/403 from `LicenseFilter` unchanged.
-- Client disconnects (`ClientAbortException`, broken pipe) log at DEBUG instead of "Unhandled exception".
-
-### Dev user seeder (tenant)
-- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD` in `.env`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` (one per role) on start. Idempotent, never resets existing users, rejects weak passwords. Off by default — dev only.
-
-### Verified (live, browser pane, `admin@mamcorp.test`)
-6-row test file → preview 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown, Under Review unchanged); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
-
+Tenant Obligations Register → Import: template `.xlsx` → preview (valid/invalid/duplicate) → commit straight to the register (`source='imported'`); invalid rows download as an errors `.xlsx`. Backend `modules/imports/` (`ImportHandler`, `ImportService`, `ImportWorkbooks` with zip-bomb/size guards, `import_batches` V31, POI 5.3.0); duplicate key = title + section + act; one audit per batch. Tenant `SecurityConfig` entry point: bad token → 401, role denial → 403 (api.js refreshes/logs out on 401 only). `DevUserSeeder` seeds admin@/cco@/analyst@/auditor@ when `SEED_USERS_ENABLED=true`. Verified live (2 valid / 2 invalid / 2 duplicate; re-upload all duplicate).
 
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
 
@@ -472,11 +463,7 @@ Standalone tenant service copied in as Maven submodule `atheris-compliance-tenan
 
 ## Done — Tenant Frontend Portal Built
 
-Tenant portal at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (`:5174`). No webhooks: tenant polls via `ObligationSyncService` (`tenant_polling_config`); uploads go through `POST /subscriptions/upload-document` → platform `/internal/instruments/ingest` (SHA-256 dedup). Onboarding/license calls must target `TENANT_API_BASE` (`:9091`) — they previously hit `:9090` and bounced to `/login`. E2E script: `ATERHIS_ONBOARDING_E2E_TESTING.md`.
-
-## Done — Backend Verification & Cleanup (backlog completed)
-
-Clean startup, onboarding E2E, Tenant Overview widget, `@Builder.Default` cleanup (`5310dc3`), license limit fields removed (`48ba65d`); webhook delivery CANCELLED in favour of polling. See "Recent Changes" above.
+Tenant portal `:5174`; polls via `ObligationSyncService` (no webhooks); uploads → platform `/internal/instruments/ingest` (SHA-256 dedup); onboarding/license calls target `:9091`. E2E: `ATERHIS_ONBOARDING_E2E_TESTING.md`.
 
 ## Done — Tenant Obligations Register Rebuilt (Per-Obligation)
 

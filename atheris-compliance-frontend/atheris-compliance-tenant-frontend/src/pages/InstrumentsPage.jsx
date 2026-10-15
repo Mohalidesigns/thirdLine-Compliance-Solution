@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem, Menu,
+  Chip, Button, CircularProgress, Alert, IconButton,
   Collapse, TableContainer, Paper, TablePagination, TableSortLabel, Tooltip,
 } from '@mui/material';
 import {
-  Visibility, Search, Close, ExpandMore, ExpandLess,
-  Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
-  InfoOutlined, Gavel, KeyboardArrowDown, KeyboardArrowUp, ArrowDropDown,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, DataCard, RiskBadge, StatusBadge, StateBadge,
+  EyeIcon, ArrowDownTrayIcon, CloudArrowUpIcon, DocumentTextIcon, InformationCircleIcon,
+  ScaleIcon, ChevronDownIcon, ExclamationTriangleIcon, ExclamationCircleIcon, CheckCircleIcon,
+} from 'shared';
 import { api, getToken, API_BASE, pdfErrorMessage } from '../services/api';
 
 // Max 5 columns (UI rule). The reference number is shown under the title.
@@ -35,9 +35,11 @@ const RISK_CONFIG = {
 };
 
 const MONO_CHIP_SX = {
-  height: 22, borderRadius: '4px',
   fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem',
 };
+
+// Thirdline sub-chip (small outlined pill riding under an obligation).
+const SUB_CHIP_SX = { fontSize: '0.6875rem' };
 
 function formatDate(d) {
   if (!d) return '-';
@@ -57,55 +59,26 @@ function regulatorOf(i) {
   return i.regulatorAbbreviation || i.regulatorName;
 }
 
+// Extreme has no Thirdline risk tone of its own — render it as a red (critical) dot badge.
+function riskBadgeFor(rating, title) {
+  if (rating === 'Extreme') return <StatusBadge label="Extreme" tone="red" dot title={title} />;
+  return <RiskBadge value={rating} title={title} />;
+}
+
 function riskChip(rating) {
   const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+  if (!cfg) return <RiskBadge value={null} />;
+  return riskBadgeFor(rating);
 }
 
 function inherentRiskChip(rating, likelihood, impact) {
   const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
+  if (!cfg) return <StatusBadge label={rating || 'Unrated'} tone="gray" />;
   const tip = likelihood || impact ? `${likelihood || '-'} × ${impact || '-'}` : rating;
   return (
     <Tooltip title={tip}>
-      <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+      <span>{riskBadgeFor(rating)}</span>
     </Tooltip>
-  );
-}
-
-// KPI card with a dropdown that breaks the card's subset down by regulator.
-function KpiCard({ kpi, onSelect }) {
-  const [anchor, setAnchor] = useState(null);
-  const breakdown = Object.entries(kpi.byRegulator || {}).sort((a, b) => b[1] - a[1]);
-  return (
-    <Paper elevation={0} variant="outlined"
-      onClick={() => onSelect(kpi.key)}
-      sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${kpi.color}`,
-        transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-        <IconButton size="small" aria-label={`${kpi.label} breakdown`}
-          onClick={e => { e.stopPropagation(); setAnchor(e.currentTarget); }} sx={{ p: 0.25 }}>
-          <ArrowDropDown fontSize="small" />
-        </IconButton>
-      </Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}
-        onClick={e => e.stopPropagation()}>
-        <MenuItem disabled dense>
-          <Typography variant="caption">By regulator (this page)</Typography>
-        </MenuItem>
-        {breakdown.length === 0 ? (
-          <MenuItem disabled dense>No instruments</MenuItem>
-        ) : breakdown.map(([reg, count]) => (
-          <MenuItem key={reg} dense onClick={() => { setAnchor(null); onSelect(kpi.key, reg); }}
-            sx={{ display: 'flex', justifyContent: 'space-between', gap: 3 }}>
-            <span>{reg}</span><strong>{count}</strong>
-          </MenuItem>
-        ))}
-      </Menu>
-    </Paper>
   );
 }
 
@@ -123,28 +96,28 @@ function ObligationSummary({ obligations }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 36 }}>#</TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', minWidth: 300 }}>Obligation (Title + Interpreted)</TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 110 }}>Section</TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Risk</TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Act</TableCell>
+            <TableCell sx={{ width: 36 }}>#</TableCell>
+            <TableCell sx={{ minWidth: 300 }}>Obligation (Title + Interpreted)</TableCell>
+            <TableCell sx={{ width: 110 }}>Section</TableCell>
+            <TableCell sx={{ width: 120 }}>Risk</TableCell>
+            <TableCell sx={{ width: 120 }}>Act</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {obligations.map((o, i) => (
             <TableRow key={o.obligationId ?? o.obligationNumber ?? i} hover sx={{ '& > td': { py: 1 } }}>
-              <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
+              <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>
                 {o.obligationNumber ?? i + 1}
               </TableCell>
               <TableCell sx={{ minWidth: 300, maxWidth: 460 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2,
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', lineHeight: 1.3,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>
                     {o.title || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
                   </Typography>
                   {o.description && (
                     <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{o.description}</Box>}>
-                      <InfoOutlined sx={{ fontSize: 14, color: '#A0AEC0', flexShrink: 0 }} />
+                      <Box component="span" sx={{ display: 'inline-flex', color: '#A0AEC0', flexShrink: 0 }}><InformationCircleIcon size={14} /></Box>
                     </Tooltip>
                   )}
                 </Box>
@@ -159,27 +132,25 @@ function ObligationSummary({ obligations }) {
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                   {o.areaOfFocus && (
                     <Chip size="small" variant="outlined" label={o.areaOfFocus}
-                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', maxWidth: 180 }} />
+                      sx={{ ...SUB_CHIP_SX, maxWidth: 180 }} />
                   )}
                   {o.obligationType && (
                     <Chip size="small" variant="outlined" label={o.obligationType}
-                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', textTransform: 'capitalize' }} />
+                      sx={{ ...SUB_CHIP_SX, textTransform: 'capitalize' }} />
                   )}
                   {o.recurringDeadlineType && (
                     <Chip size="small" variant="outlined" label={o.recurringDeadlineType}
-                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', textTransform: 'capitalize' }} />
+                      sx={{ ...SUB_CHIP_SX, textTransform: 'capitalize' }} />
                   )}
                   {o.effectiveDate && (
                     <Chip size="small" variant="outlined" label={`Eff. ${formatDate(o.effectiveDate)}`}
-                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem' }} />
+                      sx={SUB_CHIP_SX} />
                   )}
                   {o.controlOwner && (
                     <Chip size="small" variant="outlined" label={`Owner: ${o.controlOwner}`}
-                      sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', maxWidth: 200 }} />
+                      sx={{ ...SUB_CHIP_SX, maxWidth: 200 }} />
                   )}
-                  <Chip size="small" variant="outlined" label={o.status || 'active'}
-                    sx={{ height: 18, borderRadius: '4px', fontSize: '0.65rem', fontWeight: 600,
-                      color: 'success.main', borderColor: 'success.main' }} />
+                  <StatusBadge label={o.status || 'active'} tone="green" />
                 </Box>
               </TableCell>
               <TableCell>
@@ -198,10 +169,10 @@ function ObligationSummary({ obligations }) {
                 {o.actName ? (
                   <Tooltip title={o.actName}>
                     <Chip size="small" variant="outlined" label={o.actName.slice(0, 22)}
-                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
+                      sx={{ maxWidth: 110 }} />
                   </Tooltip>
                 ) : o.regulationId ? (
-                  <Chip size="small" variant="outlined" label={`Reg #${o.regulationId}`} sx={{ height: 22, borderRadius: '4px' }} />
+                  <Chip size="small" variant="outlined" label={`Reg #${o.regulationId}`} />
                 ) : (
                   <Typography variant="caption" color="text.secondary">-</Typography>
                 )}
@@ -221,14 +192,13 @@ function SanctionCard({ sanction: s }) {
   const roles = Array.isArray(s.liableRoles) ? s.liableRoles : [];
 
   return (
-    <Paper variant="outlined" sx={{ mb: 1.5, borderColor: '#FED7D7' }}>
+    <Paper sx={{ mb: 1.5, overflow: 'hidden' }}>
       <Box onClick={() => hasDetail && setOpen(!open)}
         sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
           cursor: hasDetail ? 'pointer' : 'default', userSelect: 'none',
-          '&:hover': { bgcolor: hasDetail ? '#FFF5F5' : 'inherit' } }}>
-        <Chip size="small" label={s.sanctionType || 'sanction'} color="error" variant="outlined"
-          sx={{ height: 22, borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize' }} />
-        <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.82rem', color: 'error.main' }}>
+          '&:hover': { bgcolor: hasDetail ? '#F9FAFB' : 'inherit' } }}>
+        <StatusBadge label={s.sanctionType || 'sanction'} tone="red" sx={{ textTransform: 'capitalize' }} />
+        <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono, monospace', fontSize: '0.8125rem', color: 'error.main' }}>
           {s.amountNaira != null
             ? `${formatNaira(s.amountNaira)}${s.sanctionAmountPerDay ? ' /day' : ''}`
             : 'Amount not stated'}
@@ -237,48 +207,44 @@ function SanctionCard({ sanction: s }) {
           <Chip size="small" variant="outlined" label={s.sourceSectionReference.slice(0, 24)} sx={MONO_CHIP_SX} />
         )}
         {s.severityScore != null && (
-          <Chip size="small" label={`Sev ${s.severityScore}`}
-            color={s.severityScore > 7 ? 'error' : s.severityScore > 4 ? 'warning' : 'default'}
-            sx={{ height: 22, borderRadius: '4px' }} />
+          <StatusBadge label={`Sev ${s.severityScore}`} dot
+            tone={s.severityScore > 7 ? 'red' : s.severityScore > 4 ? 'orange' : 'gray'} />
         )}
-        <Chip size="small" variant="outlined" label={s.hasBeenEnforced ? 'Enforced' : 'Not enforced'}
-          sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem',
-            color: s.hasBeenEnforced ? 'error.main' : 'text.secondary',
-            borderColor: s.hasBeenEnforced ? 'error.main' : 'divider' }} />
+        <StatusBadge label={s.hasBeenEnforced ? 'Enforced' : 'Not enforced'} tone={s.hasBeenEnforced ? 'red' : 'gray'} />
         {(s.actName || s.regulationId != null) && (
           <Chip size="small" variant="outlined" label={s.actName ? s.actName.slice(0, 22) : `Reg #${s.regulationId}`}
-            sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
+          />
         )}
         <Box sx={{ flex: 1 }} />
-        {hasDetail && (open ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />)}
+        {hasDetail && <ChevronDownIcon size={16} sx={{ color: 'text.secondary', transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }} />}
       </Box>
 
       {roles.length > 0 && (
         <Box sx={{ px: 1.5, pb: 1.5, display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <Typography variant="caption" color="text.secondary">Liable:</Typography>
           {roles.map(r => (
-            <Chip key={r} size="small" label={r} sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
+            <Chip key={r} size="small" label={r} />
           ))}
         </Box>
       )}
 
       <Collapse in={open} unmountOnExit>
-        <Box sx={{ px: 1.5, py: 1.5, bgcolor: '#FFFAFA', borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ px: 1.5, py: 1.5, bgcolor: '#F9FAFB', borderTop: '1px solid', borderColor: 'divider' }}>
           {s.description && (
             <Box sx={{ mb: 1.5 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Violation</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>Violation</Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{s.description}</Typography>
             </Box>
           )}
           {s.penaltyDetails && (
             <Box sx={{ mb: 1.5 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Penalty</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>Penalty</Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{s.penaltyDetails}</Typography>
             </Box>
           )}
           {s.riskExplanation && (
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Impact</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>Impact</Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{s.riskExplanation}</Typography>
             </Box>
           )}
@@ -371,10 +337,10 @@ export default function InstrumentsPage() {
     const high = items.filter(i => i.riskRating === 'High');
     const withObligations = items.filter(i => (i.obligationCount ?? 0) > 0);
     return [
-      { key: 'total', label: 'Total Instruments', value: total, color: '#2B6CB0', byRegulator: countByRegulator(items) },
-      { key: 'critical', label: 'Critical Risk', value: critical.length, color: '#E53E3E', byRegulator: countByRegulator(critical) },
-      { key: 'high', label: 'High Risk', value: high.length, color: '#DD6B20', byRegulator: countByRegulator(high) },
-      { key: 'withObligations', label: 'With Obligations', value: withObligations.length, color: '#38A169', byRegulator: countByRegulator(withObligations) },
+      { key: 'total', label: 'Total Instruments', value: total, tone: 'blue', icon: <DocumentTextIcon />, byRegulator: countByRegulator(items) },
+      { key: 'critical', label: 'Critical Risk', value: critical.length, tone: 'red', icon: <ExclamationCircleIcon />, byRegulator: countByRegulator(critical) },
+      { key: 'high', label: 'High Risk', value: high.length, tone: 'orange', icon: <ExclamationTriangleIcon />, byRegulator: countByRegulator(high) },
+      { key: 'withObligations', label: 'With Obligations', value: withObligations.length, tone: 'green', icon: <CheckCircleIcon />, byRegulator: countByRegulator(withObligations) },
     ];
   }, [items, total]);
 
@@ -454,16 +420,30 @@ export default function InstrumentsPage() {
     const status = detailData?.status || d.status;
     return (
       <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <IconButton onClick={closeDetail}><ArrowBack /></IconButton>
-          <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<Visibility />}>
-            View Instrument
-          </Button>
-          <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<Download />}>
-            Download
-          </Button>
-        </Box>
+        <PageHeader
+          title={detailData?.sourceTitle || d.sourceTitle || 'Instrument'}
+          onBack={closeDetail}
+          backLabel="Back to Instruments"
+          actions={(
+            <>
+              <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<EyeIcon size={16} />}>
+                View Instrument
+              </Button>
+              <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<ArrowDownTrayIcon size={16} />}>
+                Download
+              </Button>
+            </>
+          )}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+              {regulator}
+            </Typography>
+            <Chip size="small" label={detailData?.documentType || d.documentType || 'Document'} variant="outlined" />
+            {riskChip(riskRating)}
+            {status && <StateBadge value={status} sx={{ textTransform: 'capitalize' }} />}
+          </Box>
+        </PageHeader>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -478,19 +458,7 @@ export default function InstrumentsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
         ) : (
           <>
-            <Paper sx={{ p: 3, mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  {regulator}
-                </Typography>
-                <Chip size="small" label={detailData?.documentType || d.documentType || 'Document'} variant="outlined" />
-                {riskChip(riskRating)}
-                {status && (
-                  <Chip size="small" variant="outlined" label={status}
-                    sx={{ height: 22, borderRadius: '4px', textTransform: 'capitalize' }} />
-                )}
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{detailData?.sourceTitle || d.sourceTitle}</Typography>
+            <DataCard title="Instrument Details" sx={{ mb: 2 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Regulator</Typography>
@@ -529,27 +497,26 @@ export default function InstrumentsPage() {
                   <Typography variant="body2">{formatDate(detailData?.publishedAt || d.publishedAt || d.createdAt)}</Typography>
                 </Box>
               </Box>
-            </Paper>
+            </DataCard>
 
             {detailData?.aiSummary && (
-              <Paper sx={{ p: 3, mb: 2, borderLeft: '4px solid', borderColor: 'primary.main', bgcolor: '#F8FAFF' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>AI Summary</Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{detailData.aiSummary}</Typography>
-              </Paper>
+              <DataCard title="AI Summary" sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{detailData.aiSummary}</Typography>
+              </DataCard>
             )}
 
             {detailData?.pdfOcrText && (
-              <Paper sx={{ mb: 2 }}>
+              <Paper sx={{ mb: 2, overflow: 'hidden' }}>
                 <Box onClick={() => setShowOcr(!showOcr)}
                   sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    px: 2, py: 1.25, bgcolor: '#F7FAFC', cursor: 'pointer', userSelect: 'none',
-                    '&:hover': { bgcolor: '#EDF2F7' } }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Extracted Text</Typography>
-                  {showOcr ? <ExpandLess /> : <ExpandMore />}
+                    px: 3, py: 2, cursor: 'pointer', userSelect: 'none',
+                    '&:hover': { bgcolor: '#F9FAFB' } }}>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Extracted Text</Typography>
+                  <ChevronDownIcon size={18} sx={{ color: 'text.secondary', transition: 'transform .15s', transform: showOcr ? 'rotate(180deg)' : 'none' }} />
                 </Box>
                 <Collapse in={showOcr}>
                   <Box sx={{
-                    p: 2.5, bgcolor: '#FAFBFD', borderTop: '1px solid', borderColor: 'divider',
+                    p: 2.5, bgcolor: '#F9FAFB', borderTop: '1px solid', borderColor: 'divider',
                     maxHeight: 400, overflow: 'auto', fontFamily: "'Roboto Mono', 'SFMono-Regular', Consolas, monospace",
                     fontSize: '0.8rem', lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                   }}>
@@ -559,19 +526,19 @@ export default function InstrumentsPage() {
               </Paper>
             )}
 
-            <Paper sx={{ mb: 2 }}>
+            <Paper sx={{ mb: 2, overflow: 'hidden' }}>
               <Box onClick={() => setSanctionsOpen(!sanctionsOpen)}
                 sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  px: 2, py: 1.25, bgcolor: sanctions.length > 0 ? '#FFF5F5' : '#F7FAFC', cursor: 'pointer', userSelect: 'none',
+                  px: 3, py: 2, cursor: 'pointer', userSelect: 'none',
                   borderBottom: sanctionsOpen ? '1px solid' : 'none', borderColor: 'divider',
-                  '&:hover': { bgcolor: sanctions.length > 0 ? '#FFF0F0' : '#EDF2F7' } }}>
+                  '&:hover': { bgcolor: '#F9FAFB' } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Gavel sx={{ fontSize: 18, color: sanctions.length > 0 ? '#E53E3E' : '#A0AEC0' }} />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  <ScaleIcon size={18} sx={{ color: sanctions.length > 0 ? '#E53E3E' : '#A0AEC0' }} />
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
                     Sanctions {sanctions.length > 0 ? `(${sanctions.length})` : ''}
                   </Typography>
                 </Box>
-                {sanctionsOpen ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+                <ChevronDownIcon size={18} sx={{ color: 'text.secondary', transition: 'transform .15s', transform: sanctionsOpen ? 'rotate(180deg)' : 'none' }} />
               </Box>
               <Collapse in={sanctionsOpen}>
                 {sanctions.length === 0 ? (
@@ -591,14 +558,9 @@ export default function InstrumentsPage() {
               </Collapse>
             </Paper>
 
-            <Paper>
-              <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  Obligations ({obligations.length})
-                </Typography>
-              </Box>
+            <DataCard title={`Obligations (${obligations.length})`} noPadding>
               <ObligationSummary obligations={obligations} />
-            </Paper>
+            </DataCard>
           </>
         )}
       </Box>
@@ -608,18 +570,16 @@ export default function InstrumentsPage() {
   // ── List View ──
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Instruments</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Instruments confirmed into your obligations register
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<CloudUploadIcon />}
-          onClick={() => navigate('/uploads')}>
-          Upload Instrument
-        </Button>
-      </Box>
+      <PageHeader
+        title="Instruments"
+        subtitle="Instruments confirmed into your obligations register"
+        actions={(
+          <Button variant="contained" startIcon={<CloudArrowUpIcon size={16} />}
+            onClick={() => navigate('/uploads')}>
+            Upload Instrument
+          </Button>
+        )}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -630,36 +590,34 @@ export default function InstrumentsPage() {
         </Alert>
       )}
 
-      {/* KPI cards — each has a regulator breakdown dropdown */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2, mt: 1.5 }}>
-        {kpis.map(k => <KpiCard key={k.key} kpi={k} onSelect={applyKpiFilter} />)}
-      </Box>
+      {/* KPI cards — each has a regulator breakdown dropdown (this page) */}
+      <KpiCards
+        items={kpis.map((k) => ({
+          key: k.key, label: k.label, value: k.value, tone: k.tone, icon: k.icon, breakdown: k.byRegulator,
+          active: (k.key === 'critical' && riskFilter === 'Critical') || (k.key === 'high' && riskFilter === 'High'),
+        }))}
+        onSelect={(key) => applyKpiFilter(key)}
+        onDrill={(key, reg) => applyKpiFilter(key, reg)}
+        columns={4}
+      />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search title or regulator..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
-        <TextField select size="small" value={riskFilter}
-          onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk" sx={{ minWidth: 110 }}>
-          {['All', ...RISK_LEVELS].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={regulatorFilter}
-          onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
-          label="Regulator" sx={{ minWidth: 130 }}>
-          {regulatorsList.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search title or regulator...' }}
+        filters={[
+          { key: 'risk', label: 'Risk', value: riskFilter, onChange: (v) => { setRiskFilter(v); setPage(0); },
+            options: RISK_LEVELS.map((r) => ({ value: r, label: r })), allLabel: 'All', minWidth: 130 },
+          { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: regulatorsList.filter((r) => r !== 'All').map((r) => ({ value: r, label: r })), allLabel: 'All', minWidth: 140 },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearFilters}
+      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <DocumentTextIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">
             {hasFilters
               ? 'No instruments match the current filters.'
@@ -667,7 +625,7 @@ export default function InstrumentsPage() {
           </Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
@@ -676,7 +634,8 @@ export default function InstrumentsPage() {
                     const active = sortField === c.sortField;
                     return (
                       <TableCell key={c.id}
-                        sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                        align={c.id === 'actions' ? 'right' : undefined}
+                        sx={{ minWidth: c.minWidth,
                           cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                         onClick={c.sortField ? () => toggleSort(c.sortField) : undefined}>
                         {c.sortField ? (
@@ -694,16 +653,16 @@ export default function InstrumentsPage() {
                 {filtered.map(item => (
                   <TableRow key={item.id} hover
                     onClick={() => openDetail(item)}
-                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                    sx={{ cursor: 'pointer' }}>
                     <TableCell>
                       <Tooltip title={item.sourceTitle || ''}>
-                        <Typography variant="body2" sx={{ maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Typography variant="body2" sx={{ maxWidth: 340, color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.sourceTitle || '-'}
                         </Typography>
                       </Tooltip>
                       {item.sourceReferenceNumber && (
                         <Typography variant="caption" color="text.secondary"
-                          sx={{ display: 'block', fontFamily: 'monospace', fontSize: '0.7rem', maxWidth: 340,
+                          sx={{ display: 'block', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem', maxWidth: 340,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {item.sourceReferenceNumber}
                         </Typography>
@@ -712,8 +671,7 @@ export default function InstrumentsPage() {
                     <TableCell>
                       {item.regulatorAbbreviation ? (
                         <Tooltip title={item.regulatorName || item.regulatorAbbreviation}>
-                          <Chip size="small" label={item.regulatorAbbreviation}
-                            sx={{ height: 22, fontWeight: 600, borderRadius: '4px', bgcolor: '#1A365D', color: '#fff' }} />
+                          <Chip size="small" label={item.regulatorAbbreviation} />
                         </Tooltip>
                       ) : (
                         <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -723,13 +681,14 @@ export default function InstrumentsPage() {
                     </TableCell>
                     <TableCell>{riskChip(item.riskRating)}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={item.obligationCount ?? 0} sx={{ height: 22, fontWeight: 600, borderRadius: '4px' }} />
+                      <Typography variant="body2">{item.obligationCount ?? 0}</Typography>
                     </TableCell>
-                    <TableCell>
-                      <Button size="small" variant="text" startIcon={<Visibility />}
-                        onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>
-                        View
-                      </Button>
+                    <TableCell align="right">
+                      <Tooltip title="View">
+                        <IconButton size="small" onClick={e => { e.stopPropagation(); openDetail(item); }}>
+                          <EyeIcon size={16} />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}

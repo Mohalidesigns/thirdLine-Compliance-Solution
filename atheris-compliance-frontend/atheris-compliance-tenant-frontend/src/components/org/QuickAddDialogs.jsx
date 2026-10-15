@@ -33,7 +33,7 @@ export function QuickAddDepartmentDialog({ open, onClose, onCreated }) {
         <TextField label="Name" fullWidth size="small" required autoFocus value={name}
           onChange={e => setName(e.target.value)} />
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Add Department'}
@@ -72,7 +72,7 @@ export function QuickAddTeamDialog({ open, onClose, departmentId, onCreated }) {
         <TextField label="Team name" fullWidth size="small" required autoFocus value={name}
           onChange={e => setName(e.target.value)} />
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Add Team'}

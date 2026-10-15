@@ -3,7 +3,7 @@ import {
   TextField, MenuItem, Box, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, CircularProgress, Alert,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from './QuickAddDialogs';
 
@@ -44,7 +44,7 @@ export default function OwnerPicker({
         {owners.length === 0 && <MenuItem value="" disabled>No owners yet</MenuItem>}
       </TextField>
       {allowQuickAdd && (
-        <Button size="small" startIcon={<Add />} sx={{ mt: 0.5 }}
+        <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ mt: 0.5 }}
           onClick={() => { setError(''); setQuickOpen(true); }}>
           Add new owner
         </Button>
@@ -123,7 +123,7 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
                 {departments.length === 0 && <MenuItem value="" disabled>No departments yet</MenuItem>}
               </TextField>
             </Box>
-            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}
+            <Button size="small" variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ width: 170, whiteSpace: 'nowrap' }}
               onClick={() => { setError(''); setDeptOpen(true); }}>
               {departments.length === 0 ? 'Add department' : 'Add new department'}
             </Button>
@@ -144,14 +144,14 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
                 )}
               </TextField>
             </Box>
-            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }} disabled={!form.departmentId}
+            <Button size="small" variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ width: 170, whiteSpace: 'nowrap' }} disabled={!form.departmentId}
               onClick={() => { setError(''); setTeamOpen(true); }}>
               {departmentTeams.length === 0 ? 'Add team' : 'Add new team'}
             </Button>
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Add Owner'}

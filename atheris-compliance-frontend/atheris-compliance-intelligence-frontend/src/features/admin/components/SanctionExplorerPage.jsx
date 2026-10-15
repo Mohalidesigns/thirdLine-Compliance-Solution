@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Typography, TextField, Alert, IconButton, Tooltip } from '@mui/material';
-import { Refresh, Gavel, Payments, Warning, Verified } from '@mui/icons-material';
+import { Box, TextField, Alert, Button } from '@mui/material';
 import api from '../../../services/api';
 import {
-  SectionTable, KpiCards, FilterBar, sanctionColumns, sanctionRegister, PENALTY_TYPE_LABEL,
+  PageHeader, SectionTable, KpiCards, FilterBar, FilterField, sanctionColumns, sanctionRegister, PENALTY_TYPE_LABEL,
+  ArrowPathIcon, ScaleIcon, BanknotesIcon, ExclamationTriangleIcon, CheckCircleIcon,
 } from 'shared';
 
 const COLUMNS = sanctionColumns();
 const KPI_ICONS = {
-  total: <Gavel sx={{ fontSize: 20 }} />,
-  exposure: <Payments sx={{ fontSize: 20 }} />,
-  highSeverity: <Warning sx={{ fontSize: 20 }} />,
-  enforced: <Verified sx={{ fontSize: 20 }} />,
+  total: <ScaleIcon />,
+  exposure: <BanknotesIcon />,
+  highSeverity: <ExclamationTriangleIcon />,
+  enforced: <CheckCircleIcon />,
 };
 
 export default function SanctionExplorerPage() {
@@ -144,17 +144,15 @@ export default function SanctionExplorerPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Sanction Explorer</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} sanction{total !== 1 ? 's' : ''} — obligations, penalties and responsible parties
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { refetch(); refetchStats(); }}><Refresh /></IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Sanction Explorer"
+        subtitle={`${total} sanction${total !== 1 ? 's' : ''} — obligations, penalties and responsible parties`}
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { refetch(); refetchStats(); }}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
 
@@ -166,10 +164,16 @@ export default function SanctionExplorerPage() {
         showClear={hasFilters}
         onClear={clearFilters}
       >
-        <TextField size="small" type="number" label="Min amount" value={minAmount}
-          onChange={(e) => { setMinAmount(e.target.value); setPage(0); }} sx={{ width: 130 }} />
-        <TextField size="small" type="number" label="Max amount" value={maxAmount}
-          onChange={(e) => { setMaxAmount(e.target.value); setPage(0); }} sx={{ width: 130 }} />
+        <FilterField label="Min amount" minWidth={130}>
+          <TextField size="small" type="number" value={minAmount}
+            onChange={(e) => { setMinAmount(e.target.value); setPage(0); }}
+            sx={{ width: 130, '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+        <FilterField label="Max amount" minWidth={130}>
+          <TextField size="small" type="number" value={maxAmount}
+            onChange={(e) => { setMaxAmount(e.target.value); setPage(0); }}
+            sx={{ width: 130, '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
       </FilterBar>
 
       <SectionTable

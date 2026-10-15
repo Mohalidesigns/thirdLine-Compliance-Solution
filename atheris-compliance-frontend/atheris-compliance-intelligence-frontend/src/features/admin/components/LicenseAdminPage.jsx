@@ -1,34 +1,40 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Card, CardContent, Grid, Button, Chip, Table, TableBody,
+  Box, Typography, Paper, Grid, Button, Chip, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   TablePagination, Drawer, Divider, InputAdornment, Snackbar, Alert,
   Checkbox, FormControlLabel,
 } from '@mui/material';
+import { ContentCopy } from '@mui/icons-material';
 import {
-  Add, VpnKey, CheckCircle, Cancel, Warning, Refresh,
-  Delete, Visibility, Close, DeviceHub, Autorenew, Description, ContentCopy,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, StatusBadge, TL,
+  PlusIcon, KeyIcon, XMarkIcon, ArrowPathIcon, TrashIcon, EyeIcon, CpuChipIcon, DocumentTextIcon, PencilSquareIcon, Cog6ToothIcon,
+} from 'shared';
 import api from '../../../services/api';
 
 const statusConfig = {
-  active: { color: '#2D7D46', bg: '#E6F4EA' },
-  inactive: { color: '#718096', bg: '#EDF2F7' },
-  expired: { color: '#C53030', bg: '#FEE2E2' },
-  revoked: { color: '#9B2C2C', bg: '#FED7D7' },
-  grace_period: { color: '#D4AF37', bg: '#FEF9E7' },
-  suspended: { color: '#DD6B20', bg: '#FFFAF0' },
+  active: { tone: 'green' },
+  inactive: { tone: 'gray' },
+  expired: { tone: 'red' },
+  revoked: { tone: 'red' },
+  grace_period: { tone: 'amber' },
+  suspended: { tone: 'orange' },
 };
 
 const KPI_CARDS = [
-  { label: 'Active', value: 'active', color: '#2D7D46' },
-  { label: 'Inactive', value: 'inactive', color: '#718096' },
-  { label: 'Grace Period', value: 'grace_period', color: '#D4AF37' },
-  { label: 'Expired', value: 'expired', color: '#C53030' },
-  { label: 'Revoked', value: 'revoked', color: '#9B2C2C' },
-  { label: 'Total', value: null, color: '#1A365D' },
+  { label: 'Active', value: 'active', tone: 'green' },
+  { label: 'Inactive', value: 'inactive', tone: 'gray' },
+  { label: 'Grace Period', value: 'grace_period', tone: 'amber' },
+  { label: 'Expired', value: 'expired', tone: 'red' },
+  { label: 'Revoked', value: 'revoked', tone: 'red' },
+  { label: 'Total', value: null, tone: 'blue' },
 ];
+
+function LicenseStatus({ status }) {
+  const sc = statusConfig[status] || statusConfig.inactive;
+  return <StatusBadge label={String(status || '').replace('_', ' ')} tone={sc.tone} sx={{ textTransform: 'capitalize' }} />;
+}
 
 export default function LicenseAdminPage() {
   const [licenses, setLicenses] = useState([]);
@@ -133,109 +139,88 @@ export default function LicenseAdminPage() {
 
   return (
     <Box>
+      <PageHeader
+        title="License Management"
+        subtitle="Create and manage tenant license keys, device limits, and renewals"
+        actions={(
+          <>
+            {filterStatus && (
+              <Chip label={`Filter: ${filterStatus.replace('_', ' ')}`} size="small" onDelete={() => handleFilterClick(filterStatus)} sx={{ textTransform: 'capitalize' }} />
+            )}
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => load()}>Refresh</Button>
+            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={openCreateDialog}>Create License</Button>
+          </>
+        )}
+      />
+
       <Snackbar open={snackbar.open} autoHideDuration={2000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity="success" variant="filled" sx={{ fontSize: '0.85rem' }}>{snackbar.message}</Alert>
+        <Alert severity="success" variant="filled">{snackbar.message}</Alert>
       </Snackbar>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>License Management</Typography>
-          <Typography variant="body2" color="text.secondary">Create and manage tenant license keys, device limits, and renewals</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {filterStatus && (
-            <Chip label={`Filter: ${filterStatus.replace('_', ' ')}`} size="small" onDelete={() => handleFilterClick(filterStatus)} color="primary" variant="outlined" sx={{ fontWeight: 600, textTransform: 'capitalize' }} />
-          )}
-          <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => load()}>Refresh</Button>
-          <Button variant="contained" size="small" startIcon={<Add />} onClick={openCreateDialog}>Create License</Button>
-        </Box>
-      </Box>
-
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        {KPI_CARDS.map((s) => {
-          const isActive = filterStatus === s.value;
-          const statKey = s.value ? s.value.replace(/_(.)/g, (_, c) => c.toUpperCase()) : 'total';
-          return (
-            <Grid size={{ xs: 6, sm: 4, md: 2 }} key={s.label}>
-              <Card
-                onClick={() => handleFilterClick(s.value)}
-                sx={{
-                  borderTop: `3px solid ${s.color}`,
-                  cursor: 'pointer',
-                  ...(isActive && { boxShadow: `0 0 0 2px ${s.color}`, bgcolor: '#F7FAFC' }),
-                  transition: 'box-shadow 0.15s, background-color 0.15s',
-                  '&:hover': { bgcolor: '#F7FAFC' },
-                }}
-              >
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>{s.label}</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: s.color }}>{stats?.[statKey] ?? '…'}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          );
+      <KpiCards
+        columns={6}
+        items={KPI_CARDS.map((k) => {
+          const statKey = k.value ? k.value.replace(/_(.)/g, (_, c) => c.toUpperCase()) : 'total';
+          return { key: k.value || 'total', label: k.label, value: stats?.[statKey] ?? '…', tone: k.tone, active: filterStatus === k.value };
         })}
-      </Grid>
+        onSelect={(key) => handleFilterClick(key === 'total' ? null : key)}
+      />
 
-      <Card>
+      <Paper sx={{ overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>License Key</TableCell>
-                <TableCell>Tenant</TableCell>
+                <TableCell>License</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Devices</TableCell>
                 <TableCell>Expires</TableCell>
                 <TableCell>Intelligence</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center"><Typography variant="caption" color="text.secondary">Loading...</Typography></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: TL.gray500 }}>Loading...</TableCell></TableRow>
               ) : paginated.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center"><Typography variant="caption" color="text.secondary">No licenses yet</Typography></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4, color: TL.gray500 }}>No licenses yet</TableCell></TableRow>
               ) : paginated.map((lic) => {
-                const sc = statusConfig[lic.status] || statusConfig.inactive;
                 return (
                   <TableRow key={lic.id} hover sx={{ cursor: 'pointer' }} onClick={() => viewLicense(lic)}>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'Roboto Mono', fontSize: '0.72rem' }}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
                           {lic.licenseKey}
                         </Typography>
                         <Tooltip title="Copy license key">
-                          <IconButton size="small" onClick={() => copyKey(lic.licenseKey)} sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
-                            <ContentCopy sx={{ fontSize: 14 }} />
+                          <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => { e.stopPropagation(); copyKey(lic.licenseKey); }}>
+                            <ContentCopy sx={{ fontSize: 13 }} />
                           </IconButton>
                         </Tooltip>
                       </Box>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{lic.legalName || lic.tenantId}</TableCell>
-                    <TableCell>
-                      <Chip label={lic.status.replace('_', ' ')} size="small" sx={{ bgcolor: sc.bg, color: sc.color, fontWeight: 600, fontSize: '0.65rem', textTransform: 'capitalize' }} />
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{lic.legalName || lic.tenantId}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="caption">{lic.deviceCount}/{lic.maxDevices}</Typography>
+                      <LicenseStatus status={lic.status} />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.75rem', color: '#718096' }}>
+                    <TableCell>{lic.deviceCount}/{lic.maxDevices}</TableCell>
+                    <TableCell sx={{ color: TL.gray500 }}>
                       {lic.expiresAt ? new Date(lic.expiresAt).toLocaleDateString() : '—'}
                     </TableCell>
                     <TableCell>
                       {lic.intelligenceEnabled
-                        ? <Chip label="ON" size="small" sx={{ bgcolor: '#E6F4EA', color: '#2D7D46', fontWeight: 600, fontSize: '0.6rem' }} />
-                        : <Chip label="OFF" size="small" sx={{ bgcolor: '#FEE2E2', color: '#C53030', fontWeight: 600, fontSize: '0.6rem' }} />
+                        ? <StatusBadge label="ON" tone="green" />
+                        : <StatusBadge label="OFF" tone="red" />
                       }
                     </TableCell>
-                    <TableCell align="center" onClick={e => e.stopPropagation()}>
-                      <Tooltip title="View Details"><IconButton size="small" onClick={() => viewLicense(lic)}><Visibility sx={{ fontSize: 18 }} /></IconButton></Tooltip>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={() => openEditDialog(lic)}><VpnKey sx={{ fontSize: 18 }} /></IconButton></Tooltip>
+                    <TableCell align="right" onClick={e => e.stopPropagation()} sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="View Details"><IconButton size="small" onClick={() => viewLicense(lic)}><EyeIcon size={16} /></IconButton></Tooltip>
+                      <Tooltip title="Edit"><IconButton size="small" onClick={() => openEditDialog(lic)}><PencilSquareIcon size={16} /></IconButton></Tooltip>
                       {lic.status === 'expired' || lic.status === 'grace_period' ? (
-                        <Tooltip title="Renew"><IconButton size="small" onClick={() => setOpenRenew({ id: lic.id, expiresAt: '', gracePeriodDays: lic.gracePeriodDays || 7 })}><Autorenew sx={{ fontSize: 18, color: '#2D7D46' }} /></IconButton></Tooltip>
+                        <Tooltip title="Renew"><IconButton size="small" onClick={() => setOpenRenew({ id: lic.id, expiresAt: '', gracePeriodDays: lic.gracePeriodDays || 7 })}><ArrowPathIcon size={16} /></IconButton></Tooltip>
                       ) : null}
                       {lic.status === 'active' || lic.status === 'grace_period' ? (
-                        <Tooltip title="Revoke"><IconButton size="small" onClick={() => handleRevoke(lic.id)}><Cancel sx={{ fontSize: 18, color: '#C53030' }} /></IconButton></Tooltip>
+                        <Tooltip title="Revoke"><IconButton size="small" onClick={() => handleRevoke(lic.id)}><XMarkIcon size={16} /></IconButton></Tooltip>
                       ) : null}
                     </TableCell>
                   </TableRow>
@@ -245,43 +230,43 @@ export default function LicenseAdminPage() {
           </Table>
         </TableContainer>
         <TablePagination component="div" count={licenses.length} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[5, 10, 25]} />
-      </Card>
+      </Paper>
 
       {/* Create Dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Create License</DialogTitle>
+        <DialogTitle>Create License</DialogTitle>
         <DialogContent>
           <LicenseForm form={form} onChange={setForm} />
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setOpenCreate(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreate}>Create</Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!openEdit} onClose={() => setOpenEdit(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Edit License</DialogTitle>
+        <DialogTitle>Edit License</DialogTitle>
         <DialogContent>
           <LicenseForm form={form} onChange={setForm} />
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={() => setOpenEdit(null)}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setOpenEdit(null)}>Cancel</Button>
           <Button variant="contained" onClick={handleUpdate}>Save</Button>
         </DialogActions>
       </Dialog>
 
       {/* Renew Dialog */}
       <Dialog open={!!openRenew} onClose={() => setOpenRenew(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Renew License</DialogTitle>
+        <DialogTitle>Renew License</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
             <TextField fullWidth size="small" label="New Expiry" type="datetime-local" value={openRenew?.expiresAt || ''} onChange={e => setOpenRenew(prev => ({ ...prev, expiresAt: e.target.value }))} InputLabelProps={{ shrink: true }} sx={{ mb: 2 }} />
             <TextField fullWidth size="small" label="Grace Period (days)" type="number" value={openRenew?.gracePeriodDays || 7} onChange={e => setOpenRenew(prev => ({ ...prev, gracePeriodDays: parseInt(e.target.value) || 7 }))} />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={() => setOpenRenew(null)}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setOpenRenew(null)}>Cancel</Button>
           <Button variant="contained" onClick={handleRenew}>Renew</Button>
         </DialogActions>
       </Dialog>
@@ -291,22 +276,22 @@ export default function LicenseAdminPage() {
         {selectedLicense && (
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>License Details</Typography>
-              <IconButton onClick={() => setSelectedLicense(null)}><Close /></IconButton>
+              <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: TL.gray800 }}>License Details</Typography>
+              <IconButton onClick={() => setSelectedLicense(null)}><XMarkIcon size={20} /></IconButton>
             </Box>
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#F7FAFC', borderRadius: 2 }}>
+            <Box sx={{ mb: 3, p: 2, bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`, borderRadius: '8px' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.7rem' }}>{selectedLicense.licenseKey}</Typography>
+                <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>{selectedLicense.licenseKey}</Typography>
                 <Tooltip title="Copy license key">
-                  <IconButton size="small" onClick={() => copyKey(selectedLicense.licenseKey)} sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
-                    <ContentCopy sx={{ fontSize: 14 }} />
+                  <IconButton size="small" sx={{ p: 0.25 }} onClick={() => copyKey(selectedLicense.licenseKey)}>
+                    <ContentCopy sx={{ fontSize: 13 }} />
                   </IconButton>
                 </Tooltip>
               </Box>
-              <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>{selectedLicense.legalName}</Typography>
+              <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: 'primary.main', mt: 0.5 }}>{selectedLicense.legalName}</Typography>
               <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                <Chip label={selectedLicense.status.replace('_', ' ')} size="small" sx={{ bgcolor: (statusConfig[selectedLicense.status] || statusConfig.inactive).bg, color: (statusConfig[selectedLicense.status] || statusConfig.inactive).color, fontWeight: 600, fontSize: '0.65rem' }} />
-                <Chip label={selectedLicense.intelligenceEnabled ? 'Intelligence ON' : 'Intelligence OFF'} size="small" color={selectedLicense.intelligenceEnabled ? 'success' : 'error'} variant="outlined" sx={{ fontSize: '0.6rem' }} />
+                <LicenseStatus status={selectedLicense.status} />
+                <StatusBadge label={selectedLicense.intelligenceEnabled ? 'Intelligence ON' : 'Intelligence OFF'} tone={selectedLicense.intelligenceEnabled ? 'green' : 'red'} />
               </Box>
             </Box>
             <Grid container spacing={1.5} sx={{ mb: 3 }}>
@@ -318,31 +303,31 @@ export default function LicenseAdminPage() {
                 { label: 'Expires', value: selectedLicense.expiresAt ? new Date(selectedLicense.expiresAt).toLocaleDateString() : '—' },
               ].map(s => (
                 <Grid size={{ xs: 6 }} key={s.label}>
-                  <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.value}</Typography>
+                  <Typography sx={{ fontSize: '0.6875rem', fontWeight: 500, color: TL.gray500, textTransform: 'uppercase', letterSpacing: '0.025em' }}>{s.label}</Typography>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>{s.value}</Typography>
                 </Grid>
               ))}
             </Grid>
             {(selectedLicense.status === 'expired' || selectedLicense.status === 'grace_period') && (
-              <Button variant="outlined" size="small" fullWidth startIcon={<Autorenew />} onClick={() => { setOpenRenew({ id: selectedLicense.id, expiresAt: '', gracePeriodDays: selectedLicense.gracePeriodDays || 7 }); setSelectedLicense(null); }} sx={{ mb: 2 }}>
+              <Button variant="outlined" fullWidth startIcon={<ArrowPathIcon size={16} />} onClick={() => { setOpenRenew({ id: selectedLicense.id, expiresAt: '', gracePeriodDays: selectedLicense.gracePeriodDays || 7 }); setSelectedLicense(null); }} sx={{ mb: 2 }}>
                 Renew License
               </Button>
             )}
             {selectedLicense.devices?.length > 0 && (
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <DeviceHub sx={{ fontSize: 16 }} /> Registered Devices
+                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800, mb: 1, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <CpuChipIcon size={16} sx={{ color: TL.gray400 }} /> Registered Devices
                 </Typography>
                 {selectedLicense.devices.map(dev => (
-                  <Box key={dev.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, mb: 1, bgcolor: '#F7FAFC', borderRadius: 1 }}>
+                  <Box key={dev.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, mb: 1, border: `1px solid ${TL.gray100}`, borderRadius: '8px' }}>
                     <Box>
-                      <Typography variant="caption" sx={{ fontFamily: 'Roboto Mono', fontSize: '0.65rem', display: 'block' }}>{dev.deviceFingerprint?.substring(0, 20)}...</Typography>
+                      <Typography variant="caption" sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500, display: 'block' }}>{dev.deviceFingerprint?.substring(0, 20)}...</Typography>
                       {dev.deviceLabel && <Typography variant="caption" color="text.secondary">{dev.deviceLabel}</Typography>}
                       <Typography variant="caption" color="text.secondary">Last seen: {dev.lastSeenAt ? new Date(dev.lastSeenAt).toLocaleDateString() : '—'}</Typography>
                     </Box>
                     <Tooltip title="Remove Device">
                       <IconButton size="small" onClick={() => handleRemoveDevice(selectedLicense.id, dev.id)}>
-                        <Delete sx={{ fontSize: 16, color: '#C53030' }} />
+                        <TrashIcon size={16} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -364,8 +349,8 @@ function LicenseForm({ form, onChange }) {
   return (
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <VpnKey sx={{ fontSize: 20, color: '#D4AF37' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Plan Limits</Typography>
+        <KeyIcon size={18} sx={{ color: TL.gray400 }} />
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>Plan Limits</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 4 }}>
@@ -390,8 +375,8 @@ function LicenseForm({ form, onChange }) {
 
       <Divider sx={{ mb: 2 }} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Autorenew sx={{ fontSize: 20, color: '#2D7D46' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Validity</Typography>
+        <ArrowPathIcon size={18} sx={{ color: TL.gray400 }} />
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>Validity</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 6 }}>
@@ -410,8 +395,8 @@ function LicenseForm({ form, onChange }) {
 
       <Divider sx={{ mb: 2 }} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Autorenew sx={{ fontSize: 20, color: '#D4AF37' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Onboarding Features</Typography>
+        <Cog6ToothIcon size={18} sx={{ color: TL.gray400 }} />
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>Onboarding Features</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 6 }}>
@@ -428,8 +413,8 @@ function LicenseForm({ form, onChange }) {
 
       <Divider sx={{ mb: 2 }} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Description sx={{ fontSize: 20, color: '#718096' }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Notes</Typography>
+        <DocumentTextIcon size={18} sx={{ color: TL.gray400 }} />
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray800 }}>Notes</Typography>
       </Box>
       <TextField fullWidth size="small" label="Notes" multiline rows={2} value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Optional internal notes about this license" />
     </Box>

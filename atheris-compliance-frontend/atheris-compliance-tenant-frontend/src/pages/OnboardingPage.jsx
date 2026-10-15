@@ -1,21 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
-  Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
+  required, validateName, validateEmail, validatePhone, validatePassword,
+  TL, KeyIcon, ShieldCheckIcon, CheckCircleIcon,
+} from 'shared';
+import {
+  Box, Typography, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup, Divider,
   FormControl, FormLabel, FormControlLabel, LinearProgress,
 } from '@mui/material';
-import {
-  VpnKey, ElectricBolt, CheckCircle,
-} from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 
 const STEPS = ['License', 'Institution', 'User Setup', 'Confirm'];
 
 export default function OnboardingPage() {
-  const theme = useTheme();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -242,26 +240,34 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#F7FAFC' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: TL.bg }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F7FAFC', p: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 640, mx: 'auto' }}>
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Box sx={{ width: 52, height: 52, borderRadius: 1.5, bgcolor: theme.palette.warning.main, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5 }}>
-                <ElectricBolt sx={{ fontSize: 30, color: theme.palette.primary.main }} />
-              </Box>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>Welcome to Atheris</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Set up your compliance intelligence workspace
-              </Typography>
-            </Box>
+    <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, p: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: 640, mx: 'auto', pt: { xs: 2, md: 4 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 3 }}>
+          <Box sx={{
+            width: 36, height: 36, borderRadius: '8px', bgcolor: TL.primary, color: TL.accent,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <ShieldCheckIcon size={20} />
+          </Box>
+          <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: TL.primary }}>Atheris</Typography>
+        </Box>
+        <Box sx={{ bgcolor: '#FFFFFF', border: `1px solid ${TL.gray100}`, borderRadius: '12px', boxShadow: TL.cardShadow, overflow: 'hidden' }}>
+          <Box sx={{ px: { xs: 3, md: 4 }, py: 3, borderBottom: `1px solid ${TL.gray100}` }}>
+            <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: TL.textPrimary }}>
+              Welcome to Atheris
+            </Typography>
+            <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mt: 0.5 }}>
+              Set up your compliance intelligence workspace
+            </Typography>
+          </Box>
+          <Box sx={{ p: { xs: 3, md: 4 } }}>
 
             <Stepper activeStep={getActiveStep()} alternativeLabel sx={{ mb: 4 }}>
               {STEPS.map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
@@ -271,21 +277,21 @@ export default function OnboardingPage() {
             {seeding && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <CircularProgress size={48} sx={{ mb: 2 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: TL.gray800, mb: 1 }}>
                   Setting up your workspace
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
                   Seeding obligations from the compliance toolkit...
                 </Typography>
-                <LinearProgress variant="determinate" value={seedCount > 0 ? 80 : 20} sx={{ mb: 1, borderRadius: 1 }} />
-                <Typography variant="caption" color="text.secondary">
+                <LinearProgress variant="determinate" value={seedCount > 0 ? 80 : 20} sx={{ mb: 1, height: 8, borderRadius: 9999, bgcolor: TL.gray200, '& .MuiLinearProgress-bar': { borderRadius: 9999, bgcolor: '#22C55E' } }} />
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                   {seedCount > 0 ? `${seedCount} obligations loaded` : 'Preparing...'}
                 </Typography>
               </Box>
             )}
             {completed && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
-                <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                <CheckCircleIcon size={48} sx={{ color: '#22C55E', mb: 1 }} />
                 <Alert severity="success" sx={{ mb: 2 }}>
                   Onboarding complete! Redirecting to login...
                 </Alert>
@@ -294,7 +300,7 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 0 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
                   Enter the license key provided by your Atheris administrator
                 </Typography>
                 <TextField fullWidth size="small" label="License Key"
@@ -302,11 +308,10 @@ export default function OnboardingPage() {
                   value={licenseKey}
                   onChange={e => setLicenseKey(e.target.value.toUpperCase())}
                   disabled={submitting}
-                  InputProps={{ startAdornment: <VpnKey sx={{ mr: 1, fontSize: 18, color: '#CBD5E0' }} /> }}
+                  InputProps={{ startAdornment: <KeyIcon size={18} sx={{ mr: 1, color: TL.gray400 }} /> }}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleActivateLicense} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleActivateLicense} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Activate License'}
                 </Button>
               </Box>
@@ -332,8 +337,7 @@ export default function OnboardingPage() {
                   onChange={e => setInstitution(p => ({ ...p, contactEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleInstitution} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleInstitution} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
                 </Button>
               </Box>
@@ -342,7 +346,9 @@ export default function OnboardingPage() {
             {!seeding && !completed && getActiveStep() === 2 && (
               <Box>
                 <FormControl sx={{ mb: 2 }}>
-                  <FormLabel>Authentication Type</FormLabel>
+                  <FormLabel sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: TL.gray500, '&.Mui-focused': { color: TL.gray500 } }}>
+                    Authentication Type
+                  </FormLabel>
                   <RadioGroup row value={authType} onChange={e => setAuthType(e.target.value)}>
                     <FormControlLabel value="local" control={<Radio />} label="Local Admin" />
                     <FormControlLabel value="ldap" control={<Radio />} label="LDAP" />
@@ -408,7 +414,7 @@ export default function OnboardingPage() {
                     )}
 
                     <Divider sx={{ my: 1 }}>Break-glass local admin</Divider>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
                       A local Tenant Admin who can sign in if the directory is unavailable.
                     </Typography>
                     <TextField fullWidth size="small" label="Full Name" required
@@ -427,7 +433,7 @@ export default function OnboardingPage() {
                 )}
 
                 <Divider sx={{ my: 2 }}>Compliance roles</Divider>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
                   The {authType === 'ldap' ? 'directory must contain these emails; the directory owns the passwords' : 'CCO and Analyst sign in with these credentials'}. You can invite more users later.
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -452,8 +458,7 @@ export default function OnboardingPage() {
                 )}
 
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleUserSetup} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleUserSetup} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
                 </Button>
               </Box>
@@ -461,18 +466,17 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 3 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 3 }}>
                   You're all set! Review your selections and complete setup.
                 </Typography>
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleConfirm} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleConfirm} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Complete Setup'}
                 </Button>
               </Box>
             )}
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

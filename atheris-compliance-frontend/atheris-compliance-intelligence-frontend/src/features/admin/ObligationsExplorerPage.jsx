@@ -2,28 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  Chip, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
-  Button, Stack, CircularProgress, Paper, Tooltip,
+  Box, Typography, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
+  CircularProgress, Paper, Tooltip, IconButton,
 } from '@mui/material';
+import {
+  PageHeader, KpiCards, FilterBar, obligationColumns,
+  ScaleIcon, ExclamationTriangleIcon, CheckCircleIcon, ClockIcon, EyeIcon,
+} from 'shared';
 import api from '../../services/api';
-import { obligationColumns } from 'shared';
 
 const COLUMNS = obligationColumns();
-
-const RISK_COLOR = {
-  Critical: 'error',
-  High: 'error',
-  Moderate: 'warning',
-  Medium: 'warning',
-  Low: 'success',
-};
-
-function riskChip(risk) {
-  if (!risk) return <Chip size="small" label="Unrated" sx={{ height: 22, borderRadius: '4px' }} />;
-  const c = RISK_COLOR[risk] || 'default';
-  return <Chip size="small" label={risk} color={c} sx={{ height: 22, borderRadius: '4px' }} />;
-}
 
 export default function ObligationsExplorerPage() {
   const navigate = useNavigate();
@@ -108,107 +96,74 @@ export default function ObligationsExplorerPage() {
     setPage(0);
   }
 
+  const activeKpi = risk === 'High' ? 'highRisk'
+    : hasPoints === 'With' ? 'withPoints' : hasPoints === 'Without' ? 'withoutPoints' : null;
   const kpis = [
-    { key: 'total', label: 'Total', value: stats?.total ?? 0, color: '#1976d2' },
-    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, color: '#d32f2f' },
-    { key: 'withPoints', label: 'With Points', value: stats?.withPoints ?? 0, color: '#2e7d32' },
-    { key: 'withoutPoints', label: 'Without Points', value: stats?.withoutPoints ?? 0, color: '#ed6c02' },
-  ];
+    { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
+    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'withPoints', label: 'With Points', value: stats?.withPoints ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
+    { key: 'withoutPoints', label: 'Without Points', value: stats?.withoutPoints ?? 0, tone: 'orange', icon: <ClockIcon /> },
+  ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskOptions = stats?.risks?.length ? stats.risks : ['Critical', 'High', 'Moderate', 'Low'];
   const regulatorOptions = stats?.regulators || [];
   const areaOptions = stats?.areas || [];
   const actOptions = stats?.acts || [];
 
+  const opts = (list) => list.map((v) => ({ value: v, label: v }));
+  const dirty = !!(searchInput || risk !== 'All' || regulator !== 'All' || area !== 'All' || act !== 'All' || hasPoints !== 'All');
+
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Obligations Explorer</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{total} obligations — read-only catalogue</Typography>
+      <PageHeader title="Obligations Explorer" subtitle={`${total.toLocaleString()} obligations — read-only catalogue`} />
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map((k) => (
-          <Grid key={k.key} size={{ xs: 6, md: 3 }}>
-            <Card variant="outlined" onClick={() => applyKpi(k.key)} sx={{ cursor: 'pointer', borderLeft: `4px solid ${k.color}`, '&:hover': { boxShadow: 1 } }}>
-              <CardContent sx={{ py: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <KpiCards items={kpis} onSelect={applyKpi} columns={4} />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search obligation, title or regulator..." value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setPage(0); }} sx={{ minWidth: 220 }} />
-        <FormControl size="small" sx={{ minWidth: 110 }}>
-          <InputLabel>Risk</InputLabel>
-          <Select value={risk} label="Risk" onChange={(e) => { setRisk(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {riskOptions.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Regulator</InputLabel>
-          <Select value={regulator} label="Regulator" onChange={(e) => { setRegulator(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {regulatorOptions.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Area of Focus</InputLabel>
-          <Select value={area} label="Area of Focus" onChange={(e) => { setArea(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {areaOptions.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Act</InputLabel>
-          <Select value={act} label="Act" onChange={(e) => { setAct(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {actOptions.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Points</InputLabel>
-          <Select value={hasPoints} label="Points" onChange={(e) => { setHasPoints(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            <MenuItem value="With">With</MenuItem>
-            <MenuItem value="Without">Without</MenuItem>
-          </Select>
-        </FormControl>
-        <Button size="small" onClick={clearAll}>Clear</Button>
-      </Paper>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}
+        filters={[
+          { key: 'risk', label: 'Risk', value: risk, onChange: (v) => { setRisk(v); setPage(0); }, options: opts(riskOptions), allLabel: 'All Ratings', minWidth: 150 },
+          { key: 'regulator', label: 'Regulator', value: regulator, onChange: (v) => { setRegulator(v); setPage(0); }, options: opts(regulatorOptions), allLabel: 'All Regulators', minWidth: 160 },
+          { key: 'area', label: 'Area of Focus', value: area, onChange: (v) => { setArea(v); setPage(0); }, options: opts(areaOptions), allLabel: 'All Areas' },
+          { key: 'act', label: 'Act', value: act, onChange: (v) => { setAct(v); setPage(0); }, options: opts(actOptions), allLabel: 'All Acts' },
+          { key: 'points', label: 'Points', value: hasPoints, onChange: (v) => { setHasPoints(v); setPage(0); }, options: opts(['With', 'Without']), allLabel: 'All', minWidth: 130 },
+        ]}
+        showClear={dirty}
+        onClear={clearAll}
+      />
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : items.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}><Typography>No obligations found</Typography></Paper>
+        <Paper sx={{ textAlign: 'center', py: 8 }}><Typography color="text.secondary">No obligations found</Typography></Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <Box sx={{ overflowX: 'auto' }}>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 50 }}>#</TableCell>
+                  <TableCell sx={{ width: 50 }}>#</TableCell>
                   {COLUMNS.map((c) => (
-                    <TableCell key={c.id} sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: c.minWidth }}>
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
                       {c.sortable
                         ? <TableSortLabel active={sortField === c.sortField} direction={sortField === c.sortField ? sortDir : 'asc'} onClick={() => handleSort(c.sortField)}>{c.label}</TableSortLabel>
                         : c.label}
                     </TableCell>
                   ))}
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Actions</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {items.map((row, idx) => (
-                  <TableRow key={row.obligationId} hover sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }} onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{page * size + idx + 1}</TableCell>
+                  <TableRow key={row.obligationId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>
+                    <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{page * size + idx + 1}</TableCell>
                     {COLUMNS.map((c) => (
                       <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
                     ))}
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button size="small" variant="text" onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>View</Button>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip title="View">
+                        <IconButton size="small" onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}><EyeIcon size={16} /></IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, CircularProgress, Typography, Fade, Divider, Button, Card, CardContent,
-  IconButton, Menu, MenuItem, Tooltip,
-} from '@mui/material';
-import { ArrowDropDown, Add, Shield, Warning, CheckCircle, Assessment } from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
+  PageHeader, KpiCards, ArrowPathIcon, ScaleIcon, PlusIcon,
+  ChartBarIcon, CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon,
+} from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import AttentionSection from '../components/dashboard/AttentionSection';
@@ -17,59 +16,13 @@ import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../componen
 
 const POLL_INTERVAL = 30000;
 
-function SectionHeader({ title, subtitle, color }) {
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ width: 4, height: 24, borderRadius: 2, bgcolor: color }} />
-        <Typography variant="h6" fontWeight={700}>{title}</Typography>
-      </Box>
-      {subtitle && (
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 1.75 }}>
-          {subtitle}
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
-function KpiCard({ kpi, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  return (
-    <Card variant="outlined" sx={{ borderLeft: `4px solid ${kpi.color}` }}>
-      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-          </Box>
-          {entries.length > 0 && kpi.onDrill && (
-            <IconButton size="small" aria-label={`${kpi.label} breakdown`} onClick={(e) => setAnchor(e.currentTarget)}>
-              <ArrowDropDown fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-        {kpi.delta != null && (
-          <Typography variant="caption" sx={{ color: kpi.delta >= 0 ? '#2e7d32' : '#c62828' }}>
-            {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta)} pts vs prior
-          </Typography>
-        )}
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
-          {entries.map(([label, count]) => (
-            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-                <span>{label}</span>
-                <span style={{ color: '#718096' }}>{count}</span>
-              </Box>
-            </MenuItem>
-          ))}
-        </Menu>
-      </CardContent>
-    </Card>
-  );
-}
+const row = (cols) => ({
+  display: 'grid',
+  gap: 3,
+  mb: 3,
+  alignItems: 'stretch',
+  gridTemplateColumns: { xs: '1fr', lg: cols },
+});
 
 export default function CcoDashboardPage() {
   const navigate = useNavigate();
@@ -127,6 +80,7 @@ export default function CcoDashboardPage() {
     sanctionsQuery, summaryQuery, riskProfileQuery, coverageQuery,
   ];
   const loading = queries.some(q => q.isPending);
+  const refreshing = queries.some(q => q.isFetching);
 
   const attention = attentionQuery.data || {};
   const trend = Array.isArray(trendQuery.data) ? trendQuery.data : [];
@@ -139,13 +93,13 @@ export default function CcoDashboardPage() {
   const metrics = metricsQuery.data || {};
 
   const kpis = [
-    { key: 'score', label: 'Compliance Score', color: '#1976d2', icon: <Assessment sx={{ fontSize: 20 }} />,
+    { key: 'score', label: 'Compliance Score', tone: 'blue', icon: <ChartBarIcon size={16} />,
       value: metrics.complianceScore != null ? `${metrics.complianceScore}%` : '—' },
-    { key: 'coverage', label: 'Control Coverage', color: '#2e7d32', icon: <CheckCircle sx={{ fontSize: 20 }} />,
+    { key: 'coverage', label: 'Control Coverage', tone: 'green', icon: <CheckCircleIcon size={16} />,
       value: `${metrics.controlCoverage ?? 0}%` },
-    { key: 'highRisk', label: 'High-Risk Items', color: '#d32f2f', icon: <Warning sx={{ fontSize: 20 }} />,
+    { key: 'highRisk', label: 'High-Risk Items', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
       value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {} },
-    { key: 'gaps', label: 'No Control', color: '#ed6c02', icon: <Shield sx={{ fontSize: 20 }} />,
+    { key: 'gaps', label: 'No Control', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
       value: metrics.obligationsWithGaps ?? 0 },
   ];
 
@@ -164,104 +118,58 @@ export default function CcoDashboardPage() {
   }
 
   return (
-    <Fade in timeout={400}>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h5" fontWeight={700} gutterBottom>
-            Compliance Dashboard
-          </Typography>
-          {canGenerate && (
-            <Tooltip title="Generate a board-ready PDF report">
-              <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/reports')}>
-                Generate Board Pack
-              </Button>
-            </Tooltip>
-          )}
-        </Box>
+    <Box>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Compliance posture across returns, controls, obligations and sanctions"
+        actions={(
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowPathIcon size={16} />}
+              disabled={refreshing}
+              onClick={() => [...queries, metricsQuery].forEach(q => q.refetch())}
+            >
+              Refresh
+            </Button>
+            <Button variant="contained" startIcon={<ScaleIcon size={16} />} onClick={() => navigate('/obligations')}>
+              Obligations Register
+            </Button>
+            {canGenerate && (
+              <Tooltip title="Generate a board-ready PDF report">
+                <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => navigate('/reports')}>
+                  Generate Board Pack
+                </Button>
+              </Tooltip>
+            )}
+          </>
+        )}
+      />
 
-        {/* KPI row — every card has a breakdown dropdown */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-          {kpis.map((k) => <KpiCard key={k.key} kpi={k} onDrill={onKpiDrill} />)}
-        </Box>
+      {/* KPI row — every card has a breakdown dropdown */}
+      <KpiCards items={kpis} columns={4} onDrill={onKpiDrill} />
 
-        {/* Section 1: Attention */}
-        <SectionHeader
-          title="Needs Attention"
-          subtitle="Items requiring immediate action"
-          color="#d32f2f"
-        />
-        <AttentionSection items={attention} />
+      {/* Needs attention — stat cards */}
+      <AttentionSection items={attention} />
 
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 2: Returns Status */}
-        <SectionHeader
-          title="Regulatory Returns Status"
-          subtitle="Filing progress and upcoming deadlines"
-          color="#2e7d32"
-        />
+      {/* Returns · Controls · Sanctions */}
+      <Box sx={row('repeat(3, 1fr)')}>
         <ReturnsStatusSection stats={returnsStats} calendar={calendar} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 3: Compliance Trend */}
-        <SectionHeader
-          title="Compliance Trend"
-          subtitle="Score and control performance over time"
-          color="#1976d2"
-        />
-        <ComplianceTrendChart trend={trend} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 4: Controls Effectiveness */}
-        <SectionHeader
-          title="Controls Effectiveness"
-          subtitle="Control performance and remediation status"
-          color="#1976d2"
-        />
         <ControlsRow snapshot={summary} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 5: Inherent Risk Profile */}
-        <SectionHeader
-          title="Inherent Risk Profile"
-          subtitle="Applicable obligations by inherent risk, with control gaps"
-          color="#d32f2f"
-        />
-        <RiskProfileRow profile={riskProfile} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 6: Area of Focus */}
-        <SectionHeader
-          title="Risk by Area of Focus"
-          subtitle="Where inherent risk and control gaps concentrate"
-          color="#1976d2"
-        />
-        <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 7: Act */}
-        <SectionHeader
-          title="Risk by Act"
-          subtitle="Obligation risk and gaps per originating act"
-          color="#9c27b0"
-        />
-        <ActBreakdownTable profile={riskProfile} />
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Section 8: Sanctions & Penalty Exposure */}
-        <SectionHeader
-          title="Sanctions & Penalty Exposure"
-          subtitle="Regulatory penalties and enforcement status"
-          color="#d32f2f"
-        />
         <SanctionsExposureRow stats={sanctionsStats} />
       </Box>
-    </Fade>
+
+      {/* Compliance trend · inherent risk donut */}
+      <Box sx={row('2fr 1fr')}>
+        <ComplianceTrendChart trend={trend} />
+        <RiskProfileRow profile={riskProfile} />
+      </Box>
+
+      {/* Area of focus · act tables */}
+      <Box sx={row('1fr 1fr')}>
+        <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
+        <ActBreakdownTable profile={riskProfile} />
+      </Box>
+    </Box>
   );
 }

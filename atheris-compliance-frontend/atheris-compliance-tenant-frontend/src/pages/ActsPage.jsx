@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Box, Button, Alert } from '@mui/material';
 import {
-  Box, Typography, Grid, TextField, MenuItem, Button, Alert, Paper, IconButton,
-  Tooltip, Menu, Card, CardContent,
-} from '@mui/material';
-import {
-  Search, Close, Refresh, Balance, Rule, Assignment, Gavel, RequestQuote, ArrowDropDown,
-} from '@mui/icons-material';
-import { SectionTable } from 'shared';
+  SectionTable, PageHeader, KpiCards, FilterBar,
+  ArrowPathIcon, BuildingLibraryIcon, ScaleIcon, ClipboardDocumentCheckIcon, DocumentTextIcon, BanknotesIcon,
+} from 'shared';
 import { api } from '../services/api';
 
 const COLUMNS = [
@@ -19,41 +16,9 @@ const COLUMNS = [
   { id: 'returnCount', label: 'Returns', minWidth: 100 },
 ];
 
-/* KPI card with a breakdown dropdown. */
-function KpiCard({ kpi, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  return (
-    <Card variant="outlined" onClick={() => onSelect(kpi.key)}
-      sx={{ cursor: 'pointer', borderLeft: `4px solid ${kpi.color}`, '&:hover': { boxShadow: 1 } }}>
-      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-          </Box>
-          {entries.length > 0 && (
-            <IconButton size="small" aria-label={`${kpi.label} breakdown`}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-              <ArrowDropDown fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()}>
-          {entries.map(([label, count]) => (
-            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-                <span>{label}</span>
-                <span style={{ color: '#718096' }}>{count}</span>
-              </Box>
-            </MenuItem>
-          ))}
-        </Menu>
-      </CardContent>
-    </Card>
-  );
+/** Top-10 slice of a breakdown map (the KPI dropdown lists at most ten entries). */
+function topTen(breakdown) {
+  return Object.fromEntries(Object.entries(breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10));
 }
 
 export default function ActsPage() {
@@ -138,54 +103,48 @@ export default function ActsPage() {
   }), { obligations: 0, controls: 0, returns: 0, sanctions: 0 });
 
   const kpis = [
-    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, color: '#2B6CB0',
-      icon: <Balance sx={{ fontSize: 20 }} />, breakdown: stats?.byRegulator || {} },
-    { key: 'obligations', label: 'Obligations (page)', value: pageTotals.obligations, color: '#805AD5',
-      icon: <Rule sx={{ fontSize: 20 }} /> },
-    { key: 'controls', label: 'Controls (page)', value: pageTotals.controls, color: '#2C7A7B',
-      icon: <Assignment sx={{ fontSize: 20 }} /> },
-    { key: 'returns', label: 'Returns (page)', value: pageTotals.returns, color: '#DD6B20',
-      icon: <RequestQuote sx={{ fontSize: 20 }} /> },
-    { key: 'sanctions', label: 'Sanctions (page)', value: pageTotals.sanctions, color: '#E53E3E',
-      icon: <Gavel sx={{ fontSize: 20 }} /> },
+    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, tone: 'blue',
+      icon: <BuildingLibraryIcon />, breakdown: topTen(stats?.byRegulator),
+      active: regulatorFilter !== 'All' },
+    { key: 'obligations', label: 'Obligations (page)', value: pageTotals.obligations, tone: 'purple',
+      icon: <ScaleIcon /> },
+    { key: 'controls', label: 'Controls (page)', value: pageTotals.controls, tone: 'teal',
+      icon: <ClipboardDocumentCheckIcon /> },
+    { key: 'returns', label: 'Returns (page)', value: pageTotals.returns, tone: 'orange',
+      icon: <DocumentTextIcon /> },
+    { key: 'sanctions', label: 'Sanctions (page)', value: pageTotals.sanctions, tone: 'red',
+      icon: <BanknotesIcon /> },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Acts</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} act{total !== 1 ? 's' : ''} — browse the acts linked to your compliance obligations
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={refresh}><Refresh /></IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Acts"
+        subtitle={`${total} act${total !== 1 ? 's' : ''} — browse the acts linked to your compliance obligations`}
+        actions={(
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={refresh}>
+            Refresh
+          </Button>
+        )}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map((k) => (
-          <Grid key={k.key} size={{ xs: 6, md: 4, lg: 2.4 }}>
-            <KpiCard kpi={k} onSelect={onKpiSelect} onDrill={onKpiDrill} />
-          </Grid>
-        ))}
-      </Grid>
+      <KpiCards items={kpis} onSelect={onKpiSelect} onDrill={onKpiDrill} columns={5} />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search acts..." value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <TextField select size="small" value={regulatorFilter} label="Regulator"
-          onChange={(e) => { setRegulatorFilter(e.target.value); setPage(0); }} sx={{ minWidth: 220 }}>
-          <MenuItem value="All">All regulators</MenuItem>
-          {regulatorOptions.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        {hasFilters && <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>}
-      </Paper>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search acts...' }}
+        filters={[
+          {
+            key: 'regulator', label: 'Regulator', value: regulatorFilter,
+            onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: regulatorOptions.map((r) => ({ value: r, label: r })),
+            allLabel: 'All regulators', minWidth: 220,
+          },
+        ]}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
 
       <SectionTable
         columns={COLUMNS}

@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Card, CardContent, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Chip, CircularProgress, Alert,
-  Button, IconButton, Tooltip,
+  Box, Typography, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, CircularProgress, Alert,
 } from '@mui/material';
-import { ArrowBack, CheckCircle, Cancel, HourglassEmpty, PictureAsPdf } from '@mui/icons-material';
+import { PageHeader, DataCard, RiskBadge, StatusBadge, TL } from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
-const CLASSIFICATION_COLORS = {
-  applicable: { bg: '#C6F6D5', text: '#22543D' },
-  not_applicable: { bg: '#FED7D7', text: '#822727' },
-  under_review: { bg: '#FEFCBF', text: '#744210' },
+const CLASSIFICATION_TONE = {
+  applicable: 'green',
+  not_applicable: 'red',
+  under_review: 'amber',
 };
 
 const CLASSIFICATION_LABELS = {
@@ -57,85 +56,71 @@ export default function InstrumentTenantDetailPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate(ROUTES.ADMIN_PIPELINE)}><ArrowBack /></IconButton>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Tenant Classification Status</Typography>
-      </Box>
+      <PageHeader
+        title="Tenant Classification Status"
+        subtitle={(
+          <>
+            <strong>{classified.length}</strong> classified · <strong>{unclassified.length}</strong> not yet reviewed
+          </>
+        )}
+        onBack={() => navigate(ROUTES.ADMIN_PIPELINE)}
+        backLabel="Back to Pipeline"
+      />
 
-      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>{data.sourceTitle}</Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <Chip label={data.regulatorName} size="small" sx={{ fontWeight: 700, fontSize: '0.65rem', bgcolor: '#1A365D', color: '#fff', borderRadius: 1 }} />
-            {data.riskRating && <Chip label={data.riskRating} size="small" color={data.riskRating === 'High' ? 'error' : data.riskRating === 'Medium' ? 'warning' : 'default'} />}
-            {data.areaOfFocus && <Typography variant="caption" color="text.secondary">{data.areaOfFocus}</Typography>}
-          </Box>
-          {data.aiSummary && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.5 }}>
-              {data.aiSummary}
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
+      <DataCard sx={{ mb: 3 }}>
+        <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, color: TL.textPrimary, mb: 1 }}>{data.sourceTitle}</Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <StatusBadge label={data.regulatorName} tone="blue" />
+          {data.riskRating && <RiskBadge value={data.riskRating} />}
+          {data.areaOfFocus && <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{data.areaOfFocus}</Typography>}
+        </Box>
+        {data.aiSummary && (
+          <Typography sx={{ mt: 1.5, fontSize: '0.875rem', color: TL.gray600, lineHeight: 1.5 }}>
+            {data.aiSummary}
+          </Typography>
+        )}
+      </DataCard>
 
-      <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          <strong>{classified.length}</strong> classified · <strong>{unclassified.length}</strong> not yet reviewed
-        </Typography>
-      </Box>
-
-      <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+      <DataCard noPadding>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Tenant</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Licence Type</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Classification</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#4A5568', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 1 }}>Reviewed At</TableCell>
+                <TableCell>Tenant</TableCell>
+                <TableCell>Licence Type</TableCell>
+                <TableCell>Classification</TableCell>
+                <TableCell>Reviewed At</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {data.tenantClassifications.length === 0 ? (
-                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: '#A0AEC0' }}>No tenants found for this instrument</TableCell></TableRow>
-              ) : data.tenantClassifications.map((tc) => {
-                const color = CLASSIFICATION_COLORS[tc.classification];
-                return (
-                  <TableRow key={tc.tenantId} hover sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.82rem' }}>{tc.legalName}</Typography>
-                      {tc.shortName && <Typography variant="caption" color="text.secondary">{tc.shortName}</Typography>}
-                    </TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontSize: '0.8rem' }}>{tc.licenceType}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {tc.classification ? (
-                        <Chip
-                          icon={tc.classification === 'applicable' ? <CheckCircle sx={{ fontSize: 14 }} /> : tc.classification === 'not_applicable' ? <Cancel sx={{ fontSize: 14 }} /> : <HourglassEmpty sx={{ fontSize: 14 }} />}
-                          label={CLASSIFICATION_LABELS[tc.classification] || tc.classification}
-                          size="small"
-                          sx={{ fontWeight: 600, fontSize: '0.65rem', bgcolor: color?.bg || '#EDF2F7', color: color?.text || '#4A5568', borderRadius: 1 }}
-                        />
-                      ) : (
-                        <Chip
-                          icon={<HourglassEmpty sx={{ fontSize: 14 }} />}
-                          label="Not Reviewed"
-                          size="small"
-                          sx={{ fontWeight: 600, fontSize: '0.65rem', bgcolor: '#EDF2F7', color: '#A0AEC0', borderRadius: 1 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap' }}>
-                      {formatDt(tc.classifiedAt)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: TL.gray400 }}>No tenants found for this instrument</TableCell></TableRow>
+              ) : data.tenantClassifications.map((tc) => (
+                <TableRow key={tc.tenantId} hover sx={{ '&:last-child td': { border: 0 } }}>
+                  <TableCell>
+                    <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main' }}>{tc.legalName}</Typography>
+                    {tc.shortName && <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{tc.shortName}</Typography>}
+                  </TableCell>
+                  <TableCell>{tc.licenceType}</TableCell>
+                  <TableCell>
+                    {tc.classification ? (
+                      <StatusBadge
+                        label={CLASSIFICATION_LABELS[tc.classification] || tc.classification}
+                        tone={CLASSIFICATION_TONE[tc.classification] || 'gray'}
+                      />
+                    ) : (
+                      <StatusBadge label="Not Reviewed" tone="gray" />
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.75rem', color: TL.gray500, whiteSpace: 'nowrap' }}>
+                    {formatDt(tc.classifiedAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
-      </Card>
+      </DataCard>
     </Box>
   );
 }

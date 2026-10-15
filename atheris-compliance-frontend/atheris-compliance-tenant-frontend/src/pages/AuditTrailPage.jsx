@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  TablePagination, Chip, TextField, MenuItem, Button,
-  Card, CardContent, CardHeader, TableContainer, Paper,
-  CircularProgress, Alert, Divider, Link, Tooltip, Grid
+  TablePagination, Chip, TextField, MenuItem, Button, Paper,
+  CircularProgress, Alert, Link,
 } from '@mui/material';
 import {
-  Verified, Warning as WarningIcon, Download, Schedule
-} from '@mui/icons-material';
+  PageHeader, FilterBar, FilterField, StatusBadge, TL,
+  ShieldCheckIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClockIcon, LinkIcon,
+} from 'shared';
 import { api } from '../services/api';
-import { useTheme } from '@mui/material/styles';
 
 export default function AuditTrailPage() {
   const [data, setData] = useState({ content: [], totalElements: 0 });
@@ -21,7 +20,6 @@ export default function AuditTrailPage() {
   const [filters, setFilters] = useState({
     subjectType: '', subjectId: '', actorUserId: '', dateFrom: '', dateTo: ''
   });
-  const theme = useTheme();
 
   const loadList = useCallback(() => {
     setLoading(true);
@@ -44,34 +42,40 @@ export default function AuditTrailPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Audit Trail</Typography>
-          <Typography variant="body2" color="text.secondary">Tamper-evident event log with hash chain verification</Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<Download />} disabled>
-          Export Pack
-        </Button>
-      </Box>
+      <PageHeader
+        title="Audit Trail"
+        subtitle="Tamper-evident event log with hash chain verification"
+        actions={(
+          <Button variant="outlined" startIcon={<ArrowDownTrayIcon size={16} />} disabled>
+            Export Pack
+          </Button>
+        )}
+      />
 
       {/* Hash chain banner */}
       {chainStatus && (
-        <Card sx={{ mb: 2, bgcolor: chainStatus.chainValid ? 'success.50' : 'error.50' }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5, '&:last-child': { pb: 1.5 } }}>
-            {chainStatus.chainValid
-              ? <Verified color="success" />
-              : <WarningIcon color="error" />}
-            <Typography variant="body2" fontWeight={600} color={chainStatus.chainValid ? 'success.dark' : 'error.dark'}>
-              🔗 Hash chain: {chainStatus.chainValid ? 'VERIFIED ✓' : 'BROKEN — contact your system administrator'}
-            </Typography>
-          </CardContent>
-        </Card>
+        <Paper sx={{ mb: 3, px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{
+            width: 32, height: 32, borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            bgcolor: chainStatus.chainValid ? '#F0FDF4' : '#FEF2F2', color: chainStatus.chainValid ? TL.success : TL.error,
+          }}>
+            {chainStatus.chainValid ? <ShieldCheckIcon size={16} /> : <ExclamationTriangleIcon size={16} />}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: TL.gray700 }}>
+            <LinkIcon size={16} sx={{ color: TL.gray400 }} />
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Hash chain</Typography>
+          </Box>
+          <StatusBadge
+            label={chainStatus.chainValid ? 'Verified' : 'Broken — contact your system administrator'}
+            tone={chainStatus.chainValid ? 'green' : 'red'}
+          />
+        </Paper>
       )}
 
       {/* Filters */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pb: '12px !important' }}>
-          <TextField select label="Subject" size="small" sx={{ minWidth: 140 }}
+      <FilterBar>
+        <FilterField label="Subject" minWidth={150}>
+          <TextField select size="small"
             value={filters.subjectType} onChange={e => { setFilters(f => ({ ...f, subjectType: e.target.value })); setPage(0); }}>
             <MenuItem value="">All</MenuItem>
             <MenuItem value="control">Control</MenuItem>
@@ -79,43 +83,51 @@ export default function AuditTrailPage() {
             <MenuItem value="return_instance">Return</MenuItem>
             <MenuItem value="control_test">Test</MenuItem>
           </TextField>
-          <TextField label="Subject ID" size="small" type="number" sx={{ minWidth: 110 }}
+        </FilterField>
+        <FilterField label="Subject ID" minWidth={120}>
+          <TextField size="small" type="number"
             value={filters.subjectId} onChange={e => { setFilters(f => ({ ...f, subjectId: e.target.value })); setPage(0); }} />
-          <TextField label="Actor User ID" size="small" type="number" sx={{ minWidth: 120 }}
+        </FilterField>
+        <FilterField label="Actor User ID" minWidth={130}>
+          <TextField size="small" type="number"
             value={filters.actorUserId} onChange={e => { setFilters(f => ({ ...f, actorUserId: e.target.value })); setPage(0); }} />
-          <TextField label="From" type="date" size="small" InputLabelProps={{ shrink: true }} sx={{ minWidth: 140 }}
+        </FilterField>
+        <FilterField label="From" minWidth={150}>
+          <TextField type="date" size="small"
             value={filters.dateFrom} onChange={e => { setFilters(f => ({ ...f, dateFrom: e.target.value })); setPage(0); }} />
-          <TextField label="To" type="date" size="small" InputLabelProps={{ shrink: true }} sx={{ minWidth: 140 }}
+        </FilterField>
+        <FilterField label="To" minWidth={150}>
+          <TextField type="date" size="small"
             value={filters.dateTo} onChange={e => { setFilters(f => ({ ...f, dateTo: e.target.value })); setPage(0); }} />
-        </CardContent>
-      </Card>
+        </FilterField>
+      </FilterBar>
 
       {/* Table */}
-      <Card>
+      <Paper sx={{ overflow: 'hidden' }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
         ) : data.content.length === 0 ? (
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Schedule sx={{ fontSize: 48, color: theme.palette.action.disabled, mb: 1 }} />
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <ClockIcon size={40} sx={{ color: TL.gray300, mb: 1 }} />
             <Typography color="text.secondary">No audit events found</Typography>
-          </CardContent>
+          </Box>
         ) : (
           <>
-            <TableContainer component={Paper} elevation={0}>
+            <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Time</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Actor</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Subject</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Evidence</TableCell>
+                    <TableCell>Time</TableCell>
+                    <TableCell>Actor</TableCell>
+                    <TableCell>Action</TableCell>
+                    <TableCell>Subject</TableCell>
+                    <TableCell>Evidence</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {data.content.map((row) => (
                     <TableRow key={row.eventId} hover>
-                      <TableCell sx={{ whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      <TableCell sx={{ whiteSpace: 'nowrap', fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
                         {new Date(row.occurredAt).toLocaleString('en-GB', {
                           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                         })}
@@ -129,21 +141,22 @@ export default function AuditTrailPage() {
                       </TableCell>
                       <TableCell>
                         {row.evidenceUrl ? (
-                          <Link href={row.evidenceUrl} target="_blank" rel="noopener" variant="body2">View</Link>
+                          <Link href={row.evidenceUrl} target="_blank" rel="noopener" underline="hover"
+                            sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>View</Link>
                         ) : '-'}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </Box>
             <TablePagination component="div" count={data.totalElements} page={page}
               onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
               onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
               rowsPerPageOptions={[10, 25, 50]} />
           </>
         )}
-      </Card>
+      </Paper>
 
       {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)}
         sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999 }}>{snackbar}</Alert>}

@@ -2,14 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Tooltip,
-  TableSortLabel, IconButton, Button, MenuItem,
+  TableRow, TablePagination, CircularProgress, Alert, TableSortLabel, Button,
 } from '@mui/material';
-import { Search, Refresh, Close, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
+import {
+  PageHeader, KpiCards, FilterBar, RiskBadge, StateBadge, controlColumns,
+  ArrowPathIcon, ClipboardDocumentCheckIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, Squares2x2Icon,
+} from 'shared';
 import api from '../../../services/api';
-import { controlColumns } from 'shared';
 
-const COLUMNS = controlColumns({ withAct: true });
+// Shared control columns (control points with hover list); risk/status rendered as Thirdline badges.
+const COLUMNS = controlColumns({ withAct: true }).map((c) => {
+  if (c.id === 'riskLevel') {
+    return { ...c, render: (r) => (r.riskLevel ? <RiskBadge value={r.riskLevel} /> : <Typography variant="body2" color="text.secondary">—</Typography>) };
+  }
+  if (c.id === 'status') return { ...c, render: (r) => <StateBadge value={r.status || 'Open'} /> };
+  return c;
+});
 
 function countOf(map, key) {
   if (!map) return 0;
@@ -91,90 +99,69 @@ export default function ControlExplorerPage() {
   const byRisk = stats?.byRiskLevel;
   const byStatus = stats?.byStatus;
   const kpis = [
-    { key: 'total', label: 'Total Controls', value: stats?.totalControls ?? 0, color: '#2B6CB0', bg: '#EBF8FF', icon: <FactCheck sx={{ fontSize: 20 }} /> },
-    { key: 'high', label: 'High / Critical Risk', value: countOf(byRisk, 'High') + countOf(byRisk, 'Critical'), color: '#E53E3E', bg: '#FFF5F5', icon: <Warning sx={{ fontSize: 20 }} /> },
-    { key: 'open', label: 'Open', value: countOf(byStatus, 'Open'), color: '#DD6B20', bg: '#FFFAF0', icon: <Warning sx={{ fontSize: 20 }} /> },
-    { key: 'closed', label: 'Closed', value: countOf(byStatus, 'Closed'), color: '#2C7A7B', bg: '#E6FFFA', icon: <TaskAlt sx={{ fontSize: 20 }} /> },
-    { key: 'themes', label: 'Themes', value: (stats?.themes || []).length, color: '#805AD5', bg: '#FAF5FF', icon: <Category sx={{ fontSize: 20 }} /> },
+    { key: 'total', label: 'Total Controls', value: stats?.totalControls ?? 0, tone: 'blue', icon: <ClipboardDocumentCheckIcon /> },
+    { key: 'high', label: 'High / Critical Risk', value: countOf(byRisk, 'High') + countOf(byRisk, 'Critical'), tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'open', label: 'Open', value: countOf(byStatus, 'Open'), tone: 'orange', icon: <ClockIcon /> },
+    { key: 'closed', label: 'Closed', value: countOf(byStatus, 'Closed'), tone: 'green', icon: <CheckCircleIcon /> },
+    { key: 'themes', label: 'Themes', value: (stats?.themes || []).length, tone: 'purple', icon: <Squares2x2Icon /> },
   ];
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Control Explorer</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} compliance control{total !== 1 ? 's' : ''} — monitoring activities across the regulatory universe
-          </Typography>
-        </Box>
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
-        </Tooltip>
-      </Box>
+      <PageHeader
+        title="Control Explorer"
+        subtitle={`${total} compliance control${total !== 1 ? 's' : ''} — monitoring activities across the regulatory universe`}
+        actions={
+          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { loadRows(); loadStats(); }}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            sx={{ p: 2, borderLeft: `3px solid ${k.color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-              <Box sx={{ color: k.color, opacity: 0.5 }}>{k.icon}</Box>
-            </Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpis} columns={5} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search controls..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
-        <TextField select size="small" value={themeFilter}
-          onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
-          label="Theme" sx={{ minWidth: 200 }}>
-          <MenuItem value="All">All themes</MenuItem>
-          {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={riskFilter}
-          onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk level" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All risk levels</MenuItem>
-          {(stats?.riskLevels || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All statuses</MenuItem>
-          {(stats?.statuses || []).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search controls...' }}
+        filters={[
+          {
+            key: 'theme', label: 'Theme', value: themeFilter, allLabel: 'All themes', minWidth: 200,
+            onChange: (v) => { setThemeFilter(v); setPage(0); },
+            options: (stats?.themes || []).map(t => ({ value: t, label: t })),
+          },
+          {
+            key: 'risk', label: 'Risk level', value: riskFilter, allLabel: 'All risk levels', minWidth: 160,
+            onChange: (v) => { setRiskFilter(v); setPage(0); },
+            options: (stats?.riskLevels || []).map(r => ({ value: r, label: r })),
+          },
+          {
+            key: 'status', label: 'Status', value: statusFilter, allLabel: 'All statuses', minWidth: 160,
+            onChange: (v) => { setStatusFilter(v); setPage(0); },
+            options: (stats?.statuses || []).map(st => ({ value: st, label: st })),
+          },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearFilters}
+      />
 
       {/* Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : rows.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <FactCheck sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <ClipboardDocumentCheckIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No controls found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  <TableCell sx={{ minWidth: 50 }}>#</TableCell>
                   {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth,
                       cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                       onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
                       {c.sortField
@@ -192,7 +179,7 @@ export default function ControlExplorerPage() {
                   <TableRow key={row.complianceControlId} hover
                     onClick={() => navigate(`/admin/controls/${row.complianceControlId}`)}
                     sx={{ cursor: 'pointer' }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
                     {COLUMNS.map(c => (
                       <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
                     ))}

@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   CircularProgress, Typography, Box, List, ListItem, ListItemText, IconButton, Tooltip,
 } from '@mui/material';
-import { UploadFile, Download } from '@mui/icons-material';
+import { ArrowUpTrayIcon, ArrowDownTrayIcon, DocumentTextIcon, TL } from 'shared';
 import { api } from '../../services/api';
 
 export default function EvidenceUploadModal({ open, onClose, obligationId, evidence = [], onSaved, onError }) {
@@ -42,37 +42,38 @@ export default function EvidenceUploadModal({ open, onClose, obligationId, evide
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Evidence</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent sx={{ '&&&': { pt: 2.5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Button component="label" variant="outlined" startIcon={<UploadFile />} size="small">
+          <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />}>
             {file ? file.name : 'Choose file'}
             <input type="file" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
           </Button>
           {file && (
-            <Button size="small" variant="contained" onClick={handleUpload} disabled={loading}
+            <Button variant="contained" onClick={handleUpload} disabled={loading}
               startIcon={loading ? <CircularProgress size={14} /> : null}>
               Upload
             </Button>
           )}
-          {file && <Button size="small" color="error" onClick={() => setFile(null)}>Remove</Button>}
+          {file && <Button variant="text" color="error" onClick={() => setFile(null)}>Remove</Button>}
         </Box>
 
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>Uploaded ({evidence?.length || 0})</Typography>
+        <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1 }}>Uploaded ({evidence?.length || 0})</Typography>
         {evidence?.length > 0 ? (
           <List dense disablePadding>
             {evidence.map(ev => (
-              <ListItem key={ev.fileId} disableGutters
+              <ListItem key={ev.fileId} disableGutters sx={{ borderBottom: `1px solid ${TL.gray100}`, '&:last-of-type': { borderBottom: 0 } }}
                 secondaryAction={
-                  <Tooltip title="Download"><IconButton size="small" onClick={() => handleDownload(ev)}><Download fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Download"><IconButton size="small" onClick={() => handleDownload(ev)}><ArrowDownTrayIcon size={16} /></IconButton></Tooltip>
                 }>
-                <ListItemText primary={<Typography variant="body2" sx={{ fontWeight: 500 }}>{ev.originalName}</Typography>} />
+                <DocumentTextIcon size={16} sx={{ color: TL.gray400, mr: 1 }} />
+                <ListItemText primary={<Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: TL.gray700 }}>{ev.originalName}</Typography>} />
               </ListItem>
             ))}
           </List>
         ) : <Typography variant="body2" color="text.secondary">No evidence uploaded.</Typography>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button variant="outlined" onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
   );

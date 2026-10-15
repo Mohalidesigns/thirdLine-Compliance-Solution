@@ -1,6 +1,6 @@
-import { Paper, Typography, Box, List, ListItem, ListItemAvatar, Avatar, ListItemText, Link } from '@mui/material';
+import { Typography, Box, List, ListItem, ListItemAvatar, Avatar, ListItemText } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { ArrowForward as ArrowIcon } from '@mui/icons-material';
+import { DataCard, CardLink, TL } from 'shared';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -32,23 +32,15 @@ export default function ActivityFeed({ events = [] }) {
   const navigate = useNavigate();
 
   return (
-    <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" fontWeight={600}>
-          Recent Activity
-        </Typography>
-        <Link
-          component="button"
-          variant="body2"
-          onClick={() => navigate('/audit')}
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-        >
-          View Full Trail <ArrowIcon sx={{ fontSize: 14 }} />
-        </Link>
-      </Box>
+    <DataCard
+      title="Recent Activity"
+      actions={<CardLink onClick={() => navigate('/audit')}>View Full Trail</CardLink>}
+      sx={{ height: '100%' }}
+      contentSx={{ py: 1.5 }}
+    >
       <List dense sx={{ flex: 1, overflow: 'auto', maxHeight: 340 }}>
         {events.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+          <Typography sx={{ p: 2, textAlign: 'center', fontSize: '0.875rem', color: TL.gray500 }}>
             No recent activity
           </Typography>
         )}
@@ -61,16 +53,16 @@ export default function ActivityFeed({ events = [] }) {
             }}
             sx={{
               cursor: SUBJECT_ROUTES[ev.subjectType] ? 'pointer' : 'default',
-              borderRadius: 1,
+              borderRadius: '8px',
               mb: 0.5,
-              '&:hover': SUBJECT_ROUTES[ev.subjectType] ? { bgcolor: 'action.hover' } : {},
+              '&:hover': SUBJECT_ROUTES[ev.subjectType] ? { bgcolor: TL.gray50 } : {},
             }}
           >
             <ListItemAvatar sx={{ minWidth: 44 }}>
               <Avatar
                 sx={{
-                  width: 34, height: 34, fontSize: 13, fontWeight: 700,
-                  bgcolor: i % 3 === 0 ? '#1976d2' : i % 3 === 1 ? '#7b1fa2' : '#388e3c',
+                  width: 32, height: 32, fontSize: 12, fontWeight: 600,
+                  bgcolor: i % 3 === 0 ? TL.primary : i % 3 === 1 ? TL.primaryLight : TL.success,
                 }}
               >
                 {initials(ev.actorName)}
@@ -78,8 +70,8 @@ export default function ActivityFeed({ events = [] }) {
             </ListItemAvatar>
             <ListItemText
               primary={
-                <Typography variant="body2">
-                  <Box component="span" fontWeight={600}>{ev.actorName || 'System'}</Box>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>
+                  <Box component="span" sx={{ fontWeight: 600, color: TL.gray800 }}>{ev.actorName || 'System'}</Box>
                   {' '}{ev.actionDescription?.toLowerCase() || ev.action?.replace(/_/g, ' ')}
                 </Typography>
               }
@@ -89,6 +81,6 @@ export default function ActivityFeed({ events = [] }) {
           </ListItem>
         ))}
       </List>
-    </Paper>
+    </DataCard>
   );
 }

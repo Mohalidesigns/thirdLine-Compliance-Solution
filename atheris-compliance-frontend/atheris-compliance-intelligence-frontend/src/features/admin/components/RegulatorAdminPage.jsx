@@ -3,54 +3,22 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Checkbox, Chip, Button, CircularProgress, Alert, TextField, MenuItem,
-  Tooltip, TableContainer, Paper, TablePagination, IconButton, Menu,
+  Checkbox, Button, CircularProgress, Alert,
+  Tooltip, TableContainer, Paper, TablePagination,
 } from '@mui/material';
-import { Search, Close, Block, ArrowDropDown, AccountBalance, LibraryBooks, Gavel, RequestQuote } from '@mui/icons-material';
+import {
+  PageHeader, KpiCards, FilterBar, StatusBadge, TL, XMarkIcon,
+  BuildingLibraryIcon, BookOpenIcon, ScaleIcon, CalendarDaysIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
 const COLUMNS = [
   { id: 'name', label: 'Regulator', minWidth: 300 },
-  { id: 'abbreviation', label: 'Abbrev', minWidth: 100 },
   { id: 'instruments', label: 'Instruments', minWidth: 110 },
   { id: 'obligations', label: 'Obligations', minWidth: 110 },
   { id: 'returns', label: 'Returns', minWidth: 100 },
 ];
-
-function KpiCard({ label, value, color, icon, breakdown, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(breakdown || {}).sort((a, b) => b[1] - a[1]);
-  return (
-    <Paper elevation={0} variant="outlined" onClick={onSelect}
-      sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box sx={{ color, opacity: 0.55, display: 'flex' }}>{icon}</Box>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
-        </Box>
-        {entries.length > 0 && (
-          <IconButton size="small" aria-label={`${label} breakdown`}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-            <ArrowDropDown fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color }}>{value}</Typography>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()}>
-        {entries.map(([name, count]) => (
-          <MenuItem key={name} dense onClick={() => { setAnchor(null); onDrill(name); }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-              <span>{name}</span>
-              <span style={{ color: '#718096' }}>{count}</span>
-            </Box>
-          </MenuItem>
-        ))}
-      </Menu>
-    </Paper>
-  );
-}
 
 async function fetchRegulators(search) {
   const params = { activeOnly: false, sortBy: 'name', sortDir: 'asc' };
@@ -69,6 +37,7 @@ export default function RegulatorAdminPage() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [selected, setSelected] = useState(new Set());
   const [bulking, setBulking] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const { data: regulators, isLoading, error, refetch } = useQuery({
     queryKey: ['regulators', search],
@@ -120,12 +89,13 @@ export default function RegulatorAdminPage() {
 
   async function handleBulkDisable() {
     setBulking(true);
+    setActionError('');
     try {
       await api.platform.regulators.bulkDisable([...selected]);
       setSelected(new Set());
       refetch();
     } catch (err) {
-      // surface via refetch error state
+      setActionError(err.message || 'Failed to disable regulators');
     } finally {
       setBulking(false);
     }
@@ -136,74 +106,59 @@ export default function RegulatorAdminPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Regulators</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {filtered.length} regulator{filtered.length !== 1 ? 's' : ''} — scraper health and document coverage
-          </Typography>
-        </Box>
-        {selected.size > 0 && (
-          <Button variant="contained" color="warning" startIcon={<Block />} onClick={handleBulkDisable} disabled={bulking}>
+      <PageHeader
+        title="Regulators"
+        subtitle={`${filtered.length} regulator${filtered.length !== 1 ? 's' : ''} — scraper health and document coverage`}
+        actions={selected.size > 0 && (
+          <Button variant="contained" color="error" startIcon={<XMarkIcon size={16} />}
+            onClick={handleBulkDisable} disabled={bulking}>
             {bulking ? 'Disabling...' : `Disable ${selected.size}`}
           </Button>
         )}
-      </Box>
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Failed to load regulators'}</Alert>}
+      {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>}
 
-      {/* KPI cards (compliance-focused) */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
-        <KpiCard label="Total Regulators" value={kpis.total.value} color="#2B6CB0"
-          icon={<AccountBalance sx={{ fontSize: 18 }} />} breakdown={kpis.total.breakdown}
-          onSelect={() => { setSearchInput(''); setSearch(''); setStatusFilter('All'); setScraperFilter('All'); }}
-          onDrill={(name) => { setSearchInput(name); setSearch(name); }} />
-        <KpiCard label="Instruments" value={kpis.instruments.value} color="#805AD5"
-          icon={<LibraryBooks sx={{ fontSize: 18 }} />} breakdown={kpis.instruments.breakdown}
-          onSelect={() => { setStatusFilter('All'); setScraperFilter('All'); }}
-          onDrill={(name) => { setSearchInput(name); setSearch(name); }} />
-        <KpiCard label="Obligations" value={kpis.obligations.value} color="#2D7D46"
-          icon={<Gavel sx={{ fontSize: 18 }} />} breakdown={kpis.obligations.breakdown}
-          onSelect={() => { setStatusFilter('All'); setScraperFilter('All'); }}
-          onDrill={(name) => { setSearchInput(name); setSearch(name); }} />
-        <KpiCard label="Returns" value={kpis.returns.value} color="#DD6B20"
-          icon={<RequestQuote sx={{ fontSize: 18 }} />} breakdown={kpis.returns.breakdown}
-          onSelect={() => { setStatusFilter('All'); setScraperFilter('All'); }}
-          onDrill={(name) => { setSearchInput(name); setSearch(name); }} />
-      </Box>
+      {/* KPI cards (compliance-focused) with per-regulator breakdown dropdowns */}
+      <KpiCards
+        columns={4}
+        items={[
+          { key: 'total', label: 'Total Regulators', value: kpis.total.value, tone: 'blue', icon: <BuildingLibraryIcon />, breakdown: kpis.total.breakdown },
+          { key: 'instruments', label: 'Instruments', value: kpis.instruments.value, tone: 'purple', icon: <BookOpenIcon />, breakdown: kpis.instruments.breakdown },
+          { key: 'obligations', label: 'Obligations', value: kpis.obligations.value, tone: 'green', icon: <ScaleIcon />, breakdown: kpis.obligations.breakdown },
+          { key: 'returns', label: 'Returns', value: kpis.returns.value, tone: 'orange', icon: <CalendarDaysIcon />, breakdown: kpis.returns.breakdown },
+        ]}
+        onSelect={(key) => {
+          if (key === 'total') { setSearchInput(''); setSearch(''); }
+          setStatusFilter('All'); setScraperFilter('All');
+        }}
+        onDrill={(_key, name) => { setSearchInput(name); setSearch(name); }}
+      />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search name or abbreviation..." value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
-        <TextField select size="small" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 120 }}>
-          {['All', 'Active', 'Disabled'].map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={scraperFilter} onChange={(e) => { setScraperFilter(e.target.value); setPage(0); }}
-          label="Scraper" sx={{ minWidth: 130 }}>
-          {['All', 'Enabled', 'Disabled'].map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={() => { setSearchInput(''); setSearch(''); setStatusFilter('All'); setScraperFilter('All'); }}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setSearch(v); setPage(0); }, placeholder: 'Search name or abbreviation...' }}
+        filters={[
+          { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); }, options: [{ value: 'Active', label: 'Active' }, { value: 'Disabled', label: 'Disabled' }], allLabel: 'All', minWidth: 150 },
+          { key: 'scraper', label: 'Scraper', value: scraperFilter, onChange: (v) => { setScraperFilter(v); setPage(0); }, options: [{ value: 'Enabled', label: 'Enabled' }, { value: 'Disabled', label: 'Disabled' }], allLabel: 'All', minWidth: 150 },
+        ]}
+        showClear={hasFilters}
+        onClear={() => { setSearchInput(''); setSearch(''); setStatusFilter('All'); setScraperFilter('All'); }}
+      />
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Typography variant="body1">No regulators found.</Typography>
+        <Paper sx={{ textAlign: 'center', py: 8 }}>
+          <Typography color="text.secondary">No regulators found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ width: 40, padding: 0, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                  <TableCell padding="checkbox">
                     <Checkbox size="small"
                       checked={filtered.length > 0 && selected.size === filtered.length}
                       indeterminate={selected.size > 0 && selected.size < filtered.length}
@@ -213,26 +168,31 @@ export default function RegulatorAdminPage() {
                       }} />
                   </TableCell>
                   {COLUMNS.map((c) => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>{c.label}</TableCell>
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
+                      {c.label}
+                    </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paged.map((reg, i) => (
+                {paged.map((reg) => (
                   <TableRow key={reg.regulatorId} hover
                     onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
-                    sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? 'transparent' : '#F7FAFC',
-                      borderLeft: !reg.isActive ? '3px solid #C53030' : '3px solid transparent' }}>
-                    <TableCell sx={{ padding: 0 }} onClick={(e) => e.stopPropagation()}>
+                    sx={{ cursor: 'pointer' }}>
+                    <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                       <Checkbox size="small" checked={selected.has(reg.regulatorId)}
                         onChange={() => handleToggleSelect(reg.regulatorId)} />
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={reg.name}>
-                        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {reg.name}
-                        </Typography>
-                      </Tooltip>
+                      <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>{reg.abbreviation}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <Tooltip title={reg.name}>
+                          <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 420 }}>
+                            {reg.name}
+                          </Typography>
+                        </Tooltip>
+                        {!reg.isActive && <StatusBadge label="Disabled" tone="red" />}
+                      </Box>
                       {reg.scraperDisabledReason && (
                         <Typography variant="caption" color="error" sx={{ display: 'block', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {reg.scraperDisabledReason}
@@ -240,17 +200,13 @@ export default function RegulatorAdminPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={reg.abbreviation} size="small"
-                        sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray700 }}>{reg.instrumentCount ?? 0}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{reg.instrumentCount ?? 0}</Typography>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.success }}>{reg.obligationCount ?? 0}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ color: '#2D7D46' }}>{reg.obligationCount ?? 0}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ color: '#DD6B20' }}>{reg.returnCount ?? 0}</Typography>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.warning }}>{reg.returnCount ?? 0}</Typography>
                     </TableCell>
                   </TableRow>
                 ))}

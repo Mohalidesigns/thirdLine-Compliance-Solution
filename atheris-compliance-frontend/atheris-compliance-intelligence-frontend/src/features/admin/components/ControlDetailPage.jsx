@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, Alert } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { Box, CircularProgress, Alert } from '@mui/material';
+import { DetailHeader } from 'shared';
 import api from '../../../services/api';
 import ControlDetailContent from './detail/ControlDetailContent';
 
@@ -30,7 +30,7 @@ export default function ControlDetailPage() {
   if (error || !ctl) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/controls')} sx={{ mb: 2 }}>Back to Controls</Button>
+        <DetailHeader band title="Control" onBack={() => navigate('/admin/controls')} backLabel="Back to Controls" />
         <Alert severity="error">{error || 'Control not found'}</Alert>
       </Box>
     );
@@ -38,7 +38,7 @@ export default function ControlDetailPage() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/controls')} sx={{ mb: 2 }}>Back to Controls</Button>
+      <DetailHeader band title="Control" onBack={() => navigate('/admin/controls')} backLabel="Back to Controls" />
       <ControlDetailContent control={ctl} onActClick={(actId) => navigate(`/admin/acts/${actId}`)} />
     </Box>
   );

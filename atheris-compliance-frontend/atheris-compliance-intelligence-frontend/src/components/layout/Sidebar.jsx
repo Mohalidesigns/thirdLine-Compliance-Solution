@@ -1,147 +1,50 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
-  Typography, Divider, Avatar,
-} from '@mui/material';
-import {
-  Dashboard, LibraryBooks, Inbox, Visibility, Settings,
-  AdminPanelSettings, Shield, Logout, Security, AccountBalance,
-  AccountTree, VpnKey, Public, Gavel, Warning, RequestQuote, FactCheck, Assignment,
-} from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
+  AppSidebar, Squares2x2Icon, InboxArrowDownIcon, EyeIcon, BuildingLibraryIcon, BuildingOffice2Icon,
+  KeyIcon, QueueListIcon, DocumentTextIcon, BookOpenIcon, ScaleIcon, BanknotesIcon, CalendarIcon,
+  ShieldCheckIcon, GlobeAltIcon, Cog6ToothIcon,
+} from 'shared';
 import { useAuth } from '../../features/auth/hooks/useAuth';
-import { BRAND, APP, ROUTES, NAV_SECTIONS } from '../../utils/constants';
+import { ROUTES, NAV_SECTIONS } from '../../utils/constants';
 
-const iconMap = {
-  Dashboard: <Dashboard />,
-  LibraryBooks: <LibraryBooks />,
-  Inbox: <Inbox />,
-  Visibility: <Visibility />,
-  Security: <Security />,
-  Settings: <Settings />,
-  AccountBalance: <AccountBalance />,
-  AdminPanelSettings: <AdminPanelSettings />,
-  AccountTree: <AccountTree />,
-  VpnKey: <VpnKey />,
-  Public: <Public />,
-  Gavel: <Gavel />,
-  Warning: <Warning />,
-  RequestQuote: <RequestQuote />,
-  FactCheck: <FactCheck />,
-  Assignment: <Assignment />,
+const ICONS = {
+  Squares2x2: Squares2x2Icon, InboxArrowDown: InboxArrowDownIcon, Eye: EyeIcon,
+  BuildingLibrary: BuildingLibraryIcon, BuildingOffice2: BuildingOffice2Icon, Key: KeyIcon,
+  QueueList: QueueListIcon, DocumentText: DocumentTextIcon, BookOpen: BookOpenIcon, Scale: ScaleIcon,
+  Banknotes: BanknotesIcon, Calendar: CalendarIcon, ShieldCheck: ShieldCheckIcon, GlobeAlt: GlobeAltIcon,
 };
 
-export default function Sidebar() {
-  const theme = useTheme();
+const BRAND = { name: 'atheris', tagline: 'Compliance Intelligence' };
+
+export default function Sidebar(props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
 
-  const visibleSections = isAdmin
-    ? NAV_SECTIONS.filter(s => s.label !== 'INTELLIGENCE')
-    : NAV_SECTIONS.filter(s => s.label !== 'OPERATIONS' && s.label !== 'TENANTS');
+  // Platform admins manage compliance + operations + tenants; intelligence users get the inbox views.
+  const sections = NAV_SECTIONS
+    .filter((s) => (isAdmin ? s.label !== 'INTELLIGENCE' : !['OPERATIONS', 'TENANTS'].includes(s.label)))
+    .map((s) => ({
+      key: s.label,
+      items: s.items.map((item) => {
+        const Icon = ICONS[item.icon] || DocumentTextIcon;
+        return { text: item.text, path: item.path, icon: <Icon /> };
+      }),
+    }));
+
+  const footerItems = isAdmin
+    ? []
+    : [{ text: 'Settings', path: ROUTES.SETTINGS_API, icon: <Cog6ToothIcon /> }];
 
   return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: APP.DRAWER_WIDTH,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: APP.DRAWER_WIDTH,
-          bgcolor: theme.palette.primary.main,
-          color: '#FFFFFF',
-          borderRight: 'none',
-          overflowX: 'hidden',
-        },
-      }}
-    >
-      <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Shield sx={{ fontSize: 32, color: theme.palette.warning.main }} />
-        <Box>
-          <Typography variant="h6" sx={{ color: '#FFFFFF', fontWeight: 700, lineHeight: 1.2, fontSize: '1rem' }}>
-            {BRAND.NAME} Hub
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6rem' }}>
-            {BRAND.TAGLINE}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
-        {visibleSections.map((section) => (
-          <Box key={section.label}>
-            <Typography
-              variant="caption"
-              sx={{ px: 2.5, py: 1, display: 'block', color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: '0.65rem', letterSpacing: '0.08em' }}
-            >
-              {section.label}
-            </Typography>
-            <List disablePadding>
-              {section.items.map((item) => {
-                const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
-                return (
-                  <ListItem key={item.text} disablePadding>
-                    <ListItemButton
-                      onClick={() => navigate(item.path)}
-                      sx={{
-                        mx: 1,
-                        borderRadius: 1.5,
-                        mb: 0.3,
-                        px: 2,
-                        py: 0.8,
-                        bgcolor: isActive ? 'rgba(212,175,55,0.15)' : 'transparent',
-                        borderLeft: isActive ? `3px solid ${theme.palette.warning.main}` : '3px solid transparent',
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                        '& .MuiListItemIcon-root': {
-                          color: isActive ? theme.palette.warning.main : 'rgba(255,255,255,0.6)',
-                          minWidth: 36,
-                        },
-                        '& .MuiListItemText-primary': {
-                          color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.75)',
-                          fontSize: '0.8125rem',
-                          fontWeight: isActive ? 600 : 400,
-                        },
-                      }}
-                    >
-                      <ListItemIcon>{iconMap[item.icon]}</ListItemIcon>
-                      <ListItemText primary={item.text} />
-                    </ListItemButton>
-                  </ListItem>
-                );
-              })}
-            </List>
-          </Box>
-        ))}
-      </Box>
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Avatar sx={{ width: 36, height: 36, bgcolor: theme.palette.warning.main, fontSize: '0.8rem', fontWeight: 700 }}>
-          {user?.firstName?.[0]}{user?.lastName?.[0]}
-        </Avatar>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="body2" sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '0.78rem', lineHeight: 1.3 }} noWrap>
-            {user?.firstName} {user?.lastName}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.65rem' }} noWrap>
-            {user?.role?.replace('_', ' ')}
-          </Typography>
-        </Box>
-      </Box>
-      <Box sx={{ px: 2, pb: 2 }}>
-        <Box
-          onClick={logout}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', py: 1, px: 1.5, borderRadius: 1, color: 'rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', color: theme.palette.error.main } }}
-        >
-          <Logout sx={{ fontSize: 18 }} />
-          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>Logout</Typography>
-        </Box>
-      </Box>
-    </Drawer>
+    <AppSidebar
+      brand={BRAND}
+      sections={sections}
+      footerItems={footerItems}
+      activePath={location.pathname}
+      onNavigate={(path) => { navigate(path); props.onClose?.(); }}
+      {...props}
+    />
   );
 }

@@ -33,14 +33,14 @@ export default function OwnerModal({ open, onClose, obligationId, initial = {}, 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>Compliance Owner</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent sx={{ '&&&': { pt: 2.5 } }}>
         <TextField size="small" fullWidth label="Owner ID"
           value={ownerId ?? ''} onChange={e => setOwnerId(e.target.value ? Number(e.target.value) : null)} sx={{ mt: 1 }} />
         <TextField size="small" fullWidth multiline rows={2} label="Reason for update (optional)"
           value={changeReason || ''} onChange={e => setChangeReason(e.target.value)} sx={{ mt: 2 }} />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={loading}>
           {loading ? <CircularProgress size={18} /> : 'Save'}
         </Button>

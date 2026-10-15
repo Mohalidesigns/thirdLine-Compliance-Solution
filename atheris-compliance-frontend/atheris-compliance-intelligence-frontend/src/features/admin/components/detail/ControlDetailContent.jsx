@@ -1,32 +1,29 @@
-import { Box, Card, CardContent, Chip, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import {
-  FactCheck, Link as LinkIcon, Shield, EventRepeat, Person, Category,
-  Gavel, Visibility, CheckCircle, Schedule, AccountTree, Notes, Rule,
-} from '@mui/icons-material';
+  TL, StateBadge, ClipboardDocumentCheckIcon, LinkIcon, ShieldCheckIcon, CalendarDaysIcon, UserCircleIcon,
+  Squares2x2Icon, ScaleIcon, EyeIcon, CheckCircleIcon, ClockIcon, QueueListIcon, ClipboardDocumentListIcon,
+} from 'shared';
 import {
   Section, Field, FieldGrid, StatTile, RiskChip, MonoChip,
   LongTextBlock, LinkedObligationChips, CARD_SX,
 } from './detailKit';
 
-const STATUS_COLOR = { Open: '#DD6B20', 'In Progress': '#2B6CB0', Closed: '#2D7D46' };
-
 function statusChip(status) {
-  const s = status || 'Open';
-  const color = STATUS_COLOR[s] || '#718096';
-  return (
-    <Chip size="small" label={s}
-      sx={{ height: 22, borderRadius: '4px', fontWeight: 700, fontSize: '0.7rem', bgcolor: `${color}18`, color }} />
-  );
+  return <StateBadge value={status || 'Open'} />;
 }
 
 function ActLink({ ctl, onActClick }) {
-  if (!ctl.actName) return <Typography variant="body2" color="text.secondary">—</Typography>;
+  if (!ctl.actName) return <Typography sx={{ fontSize: '0.875rem', color: TL.gray400 }}>—</Typography>;
   const clickable = onActClick && ctl.actId;
   return (
-    <Typography variant="body2"
+    <Typography
       onClick={() => clickable && onActClick(ctl.actId)}
-      sx={{ color: clickable ? '#3182CE' : 'text.primary', fontWeight: 600, fontSize: '0.85rem', cursor: clickable ? 'pointer' : 'default' }}>
-      <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />{ctl.actName}
+      sx={{
+        display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem', fontWeight: 500,
+        color: clickable ? 'primary.main' : TL.gray700, cursor: clickable ? 'pointer' : 'default',
+        '&:hover': clickable ? { textDecoration: 'underline' } : undefined,
+      }}>
+      <LinkIcon size={14} />{ctl.actName}
     </Typography>
   );
 }
@@ -47,11 +44,10 @@ export default function ControlDetailContent({ control, onActClick }) {
 
   return (
     <Box>
-      <Card sx={{ ...CARD_SX, mb: 2.5 }}>
-        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1.25 }}>
-            <FactCheck sx={{ color: '#2B6CB0' }} />
-            <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace' }}>
+      <Box sx={{ ...CARD_SX, p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap', mb: 1.25 }}>
+            <ClipboardDocumentCheckIcon size={20} sx={{ color: TL.primary }} />
+            <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, lineHeight: '1.75rem', color: TL.textPrimary, fontFamily: TL.mono }}>
               {ctl.controlNumber}
             </Typography>
             <RiskChip rating={ctl.riskLevel} />
@@ -59,19 +55,18 @@ export default function ControlDetailContent({ control, onActClick }) {
             {ctl.controlType && <MonoChip label={ctl.controlType} />}
           </Box>
           <ActLink ctl={ctl} onActClick={onActClick} />
-        </CardContent>
-      </Card>
-
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 2.5 }}>
-        <StatTile icon={<Shield fontSize="small" />} label="Inherent Risk" accent="#C53030"
-          chip={<RiskChip rating={ctl.riskLevel} />} />
-        <StatTile icon={<Shield fontSize="small" />} label="Residual Risk" accent="#2D7D46"
-          chip={<RiskChip rating={ctl.residualRiskRating} />} />
-        <StatTile icon={<EventRepeat fontSize="small" />} label="Frequency" accent="#2C7A7B" value={ctl.frequency} />
-        <StatTile icon={<Person fontSize="small" />} label="Owner" accent="#6B46C1" value={ctl.ownerName || ctl.responsibleOfficer} />
       </Box>
 
-      <Section icon={<Category fontSize="small" />} title="Classification">
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 3 }}>
+        <StatTile icon={<ShieldCheckIcon />} label="Inherent Risk" accent="red"
+          chip={<RiskChip rating={ctl.riskLevel} />} />
+        <StatTile icon={<ShieldCheckIcon />} label="Residual Risk" accent="green"
+          chip={<RiskChip rating={ctl.residualRiskRating} />} />
+        <StatTile icon={<CalendarDaysIcon />} label="Frequency" accent="teal" value={ctl.frequency} />
+        <StatTile icon={<UserCircleIcon />} label="Owner" accent="purple" value={ctl.ownerName || ctl.responsibleOfficer} />
+      </Box>
+
+      <Section icon={<Squares2x2Icon />} title="Classification">
         <FieldGrid>
           <Field label="Theme" value={ctl.theme} />
           <Field label="Compliance Area" value={ctl.complianceArea} />
@@ -84,10 +79,10 @@ export default function ControlDetailContent({ control, onActClick }) {
         </FieldGrid>
       </Section>
 
-      <Section icon={<Shield fontSize="small" />} title="Risk Assessment" subtitle="Before and after controls (likelihood × impact)">
+      <Section icon={<ShieldCheckIcon />} title="Risk Assessment" subtitle="Before and after controls (likelihood × impact)">
         <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.62rem', color: 'text.secondary' }}>
+            <Typography sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem', color: TL.gray500 }}>
               Inherent
             </Typography>
             <Box sx={{ mt: 1 }}><FieldGrid min={120} gap={1.5}>
@@ -95,7 +90,7 @@ export default function ControlDetailContent({ control, onActClick }) {
             </FieldGrid></Box>
           </Box>
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.62rem', color: 'text.secondary' }}>
+            <Typography sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem', color: TL.gray500 }}>
               Residual
             </Typography>
             <Box sx={{ mt: 1 }}><FieldGrid min={120} gap={1.5}>
@@ -107,19 +102,19 @@ export default function ControlDetailContent({ control, onActClick }) {
         </Box>
       </Section>
 
-      <LongTextBlock icon={<Rule fontSize="small" />} title="Control Statement" text={ctl.complianceControl} points={ctl.points} pointType="control" />
-      <LongTextBlock icon={<Gavel fontSize="small" />} title="Regulatory Requirement" text={ctl.regulatoryRequirement} />
-      <LongTextBlock icon={<Visibility fontSize="small" />} title="Monitoring Activity" text={ctl.monitoringActivity} />
-      <LongTextBlock icon={<CheckCircle fontSize="small" />} title="Control Effectiveness Measure" text={ctl.controlEffectivenessMeasure} />
+      <LongTextBlock icon={<ClipboardDocumentListIcon />} title="Control Statement" text={ctl.complianceControl} points={ctl.points} pointType="control" />
+      <LongTextBlock icon={<ScaleIcon />} title="Regulatory Requirement" text={ctl.regulatoryRequirement} />
+      <LongTextBlock icon={<EyeIcon />} title="Monitoring Activity" text={ctl.monitoringActivity} />
+      <LongTextBlock icon={<CheckCircleIcon />} title="Control Effectiveness Measure" text={ctl.controlEffectivenessMeasure} />
 
-      <Section icon={<AccountTree fontSize="small" />} title="Linked Obligations"
+      <Section icon={<QueueListIcon />} title="Linked Obligations"
         subtitle="Obligations this control addresses">
         <LinkedObligationChips ids={linkedIds} />
       </Section>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-        <Schedule sx={{ fontSize: 16 }} />
-        <Typography variant="caption">
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: TL.gray400 }}>
+        <ClockIcon size={16} />
+        <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
           Recorded {ctl.createdAt ? new Date(ctl.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
         </Typography>
       </Box>

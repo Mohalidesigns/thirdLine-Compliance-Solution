@@ -2,16 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  ToggleButton, ToggleButtonGroup, Chip, CircularProgress, Alert,
+  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  ToggleButton, ToggleButtonGroup, CircularProgress, Alert,
 } from '@mui/material';
+import { DataCard, StatusBadge, TL } from 'shared';
 import { api } from '../../services/api';
 
-const COLOR_MAP = {
-  green: { bg: '#F0FFF4', border: '#38A169', text: '#276749', chip: '#38A169' },
-  amber: { bg: '#FFFAF0', border: '#DD6B20', text: '#C05621', chip: '#DD6B20' },
-  red: { bg: '#FFF5F5', border: '#E53E3E', text: '#C53030', chip: '#E53E3E' },
-};
+// backend colour band → Thirdline badge tone
+const TONE_MAP = { green: 'green', amber: 'orange', red: 'red' };
 
 const DIMENSIONS = [
   { value: 'areaOfFocus', label: 'Area of Focus' },
@@ -20,14 +18,13 @@ const DIMENSIONS = [
 ];
 
 function PctChip({ pct, color }) {
-  const cfg = COLOR_MAP[color] || COLOR_MAP.red;
-  return <Chip size="small" label={`${pct ?? 0}%`} sx={{ bgcolor: cfg.chip, color: '#fff', fontWeight: 700, height: 24 }} />;
+  return <StatusBadge label={`${pct ?? 0}%`} tone={TONE_MAP[color] || 'red'} />;
 }
 
 function CoverageTable({ data, dimension }) {
   const navigate = useNavigate();
   if (!data?.rows?.length) {
-    return <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No obligations found.</Typography>;
+    return <Typography sx={{ p: 3, fontSize: '0.875rem', color: TL.gray500 }}>No obligations found.</Typography>;
   }
   // only the area filter is supported by the obligations register today
   const drilldown = dimension === 'areaOfFocus'
@@ -38,11 +35,11 @@ function CoverageTable({ data, dimension }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ fontWeight: 700 }}>{data.dimension || 'Dimension'}</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Obligations</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Covered</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Gaps</TableCell>
-            <TableCell sx={{ fontWeight: 700 }} align="right">Coverage %</TableCell>
+            <TableCell>{data.dimension || 'Dimension'}</TableCell>
+            <TableCell align="right">Obligations</TableCell>
+            <TableCell align="right">Covered</TableCell>
+            <TableCell align="right">Gaps</TableCell>
+            <TableCell align="right">Coverage %</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -50,11 +47,13 @@ function CoverageTable({ data, dimension }) {
             <TableRow key={`${row.name}-${i}`} hover
               sx={drilldown ? { cursor: 'pointer' } : undefined}
               onClick={drilldown ? () => drilldown(row) : undefined}>
-              <TableCell>{row.name}</TableCell>
+              <TableCell>
+                <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: drilldown ? 'primary.main' : TL.gray800 }}>{row.name}</Typography>
+              </TableCell>
               <TableCell align="right">{row.totalObligations ?? 0}</TableCell>
-              <TableCell align="right"><Chip size="small" label={row.covered ?? 0} color="success" variant="outlined" /></TableCell>
+              <TableCell align="right"><StatusBadge label={row.covered ?? 0} tone="green" /></TableCell>
               <TableCell align="right">
-                <Chip size="small" label={row.gaps ?? 0} color={row.gaps > 0 ? 'error' : 'default'} variant="outlined" />
+                <StatusBadge label={row.gaps ?? 0} tone={row.gaps > 0 ? 'red' : 'gray'} />
               </TableCell>
               <TableCell align="right"><PctChip pct={row.coveragePercentage} color={row.color} /></TableCell>
             </TableRow>
@@ -82,16 +81,12 @@ export default function ControlCoverageTab() {
         <Alert severity="error">{coverageQuery.error?.message || 'Failed to load control coverage'}</Alert>
       )}
 
-      <Paper variant="outlined">
-        <Box sx={{ p: 2, borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Box>
-            <Typography variant="h6">Control Coverage</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {summary?.totalCovered ?? 0}/{summary?.totalObligations ?? 0} applicable obligations covered
-              {summary?.totalGaps > 0 ? ` — ${summary.totalGaps} gaps` : ''}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DataCard
+        noPadding
+        title="Control Coverage"
+        subtitle={`${summary?.totalCovered ?? 0}/${summary?.totalObligations ?? 0} applicable obligations covered${summary?.totalGaps > 0 ? ` — ${summary.totalGaps} gaps` : ''}`}
+        actions={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <ToggleButtonGroup size="small" value={coverageBy} exclusive
               onChange={(_, v) => { if (v) setCoverageBy(v); }}>
               {DIMENSIONS.map(d => (
@@ -100,11 +95,12 @@ export default function ControlCoverageTab() {
             </ToggleButtonGroup>
             <PctChip pct={summary?.overallCoveragePercentage ?? 0} color={summary?.overallColor} />
           </Box>
-        </Box>
+        )}
+      >
         {coverageQuery.isPending
           ? <CircularProgress size={24} sx={{ m: 2 }} />
           : <CoverageTable data={coverageQuery.data} dimension={coverageBy} />}
-      </Paper>
+      </DataCard>
     </Box>
   );
 }
