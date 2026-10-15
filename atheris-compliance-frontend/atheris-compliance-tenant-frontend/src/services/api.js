@@ -8,6 +8,35 @@ export const getToken = () => authToken;
 export const setRefreshToken = (t) => { authRefreshToken = t; };
 export const getRefreshToken = () => authRefreshToken;
 
+// Public remediation endpoints — reached by an owner via a link, with no login/token.
+// Kept separate from `api` so it never attaches the Authorization header or triggers
+// the 401-refresh/logout path.
+export const publicApi = {
+  async remediationView(token) {
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This remediation link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async remediationSubmit(token, { notes, files }) {
+    const form = new FormData();
+    if (notes) form.append('notes', notes);
+    (files || []).forEach((f) => form.append('files', f));
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+};
+
 // A PDF endpoint answers 404 with {error, message} when the record has no stored
 // document (common: toolkit-imported instruments never carry one). Turn that into
 // a message worth showing, and fall back to the generic one for real failures.
@@ -208,6 +237,7 @@ export const api = {
     activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
     institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
+    testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
@@ -309,6 +339,16 @@ export const api = {
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
   },
+  acts: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/acts${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    stats: (opts = {}) => request('/acts/stats', { signal: opts.signal }),
+    detail: (id, opts = {}) => request(`/acts/${id}`, { signal: opts.signal }),
+  },
   findings: {
     register: (params = {}) => {
       const qs = new URLSearchParams();
@@ -317,6 +357,7 @@ export const api = {
       return request(`/findings/register${s ? '?' + s : ''}`);
     },
     detail: (id) => request(`/findings/${id}/detail`),
+    stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -346,6 +387,16 @@ export const api = {
     create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/controls/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
+    tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
+    reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {
+      method: 'PUT', body: JSON.stringify({ decision, notes }),
+    }),
+    tasks: (id, opts = {}) => request(`/controls/${id}/tasks`, { signal: opts.signal }),
+    pendingReviewTests: (opts = {}) => request('/tests/pending-review', { signal: opts.signal }),
+  },
+  tasks: {
+    mine: (opts = {}) => request('/tasks', { signal: opts.signal }),
+    overdue: (opts = {}) => request('/tasks/overdue', { signal: opts.signal }),
   },
   returns: {
     list: () => request('/returns/list'),
@@ -362,7 +413,7 @@ export const api = {
       return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
-    detail: (id) => request(`/returns/instances/${id}/detail`),
+    detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
@@ -374,6 +425,18 @@ export const api = {
     updateSchedule: (returnId, body) => request(`/returns/${returnId}/schedule`, {
       method: 'PUT', body: JSON.stringify(body),
     }),
+    configureEventTrigger: (returnId, body, opts = {}) => request(`/returns/${returnId}/event-trigger`, {
+      signal: opts.signal,
+      method: 'PUT', body: JSON.stringify(body),
+    }),
+    recordEvent: (returnId, body, opts = {}) => request(`/returns/${returnId}/events`, {
+      signal: opts.signal,
+      method: 'POST', body: JSON.stringify(body),
+    }),
+    recordEventWithEvidence: (returnId, formData, opts = {}) => rawRequest(`/returns/${returnId}/events/upload`, {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
+    eventFilings: (returnId, opts = {}) => request(`/returns/${returnId}/events`, { signal: opts.signal }),
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
@@ -389,16 +452,10 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
-    upload: (formData) => {
-      const headers = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      return fetch(`${API_BASE}/evidence/upload`, {
-        method: 'POST', headers, body: formData,
-      }).then(async (res) => {
-        if (!res.ok) { const err = await res.json().catch(() => ({ message: res.statusText })); throw new Error(err.message); }
-        return res.json();
-      });
-    },
+    detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),
+    upload: (formData, opts = {}) => rawRequest('/evidence/upload', {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
     download: (id) => {
       const headers = {};
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -451,10 +508,43 @@ export const api = {
     acknowledge: (id) => request(`/notifications/${id}/acknowledge`, { method: 'PUT' }),
     markAllRead: () => request('/notifications/mark-all-read', { method: 'PUT' }),
   },
+  reports: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/reports/board-packs${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    get: (id, opts = {}) => request(`/reports/board-packs/${id}`, { signal: opts.signal }),
+    preview: (from, to, sections, opts = {}) => {
+      const qs = new URLSearchParams({ from, to });
+      (sections || []).forEach(s => qs.append('sections', s));
+      return request(`/reports/board-packs/preview?${qs.toString()}`, { signal: opts.signal });
+    },
+    generate: (data) => request('/reports/board-packs', { method: 'POST', body: JSON.stringify(data) }),
+    signOff: (id, note) => request(`/reports/board-packs/${id}/sign-off`, {
+      method: 'POST', body: JSON.stringify({ note }),
+    }),
+    download: (id, opts = {}) => rawRequest(`/reports/board-packs/${id}/download`, {
+      responseType: 'blob', fallbackName: 'board-pack.pdf', signal: opts.signal,
+    }).then((file) => { saveBlob(file); return file; }),
+  },
   dashboard: {
     summary: () => request('/dashboard/summary'),
     trends: () => request('/dashboard/trends'),
     attentionItems: () => request('/dashboard/attention-items'),
+    metrics: (from, to, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (from) qs.set('from', from);
+      if (to) qs.set('to', to);
+      const s = qs.toString();
+      return request(`/dashboard/metrics${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    refresh: () => request('/dashboard/refresh', { method: 'POST' }),
+    scoreWeights: (opts = {}) => request('/dashboard/score-weights', { signal: opts.signal }),
+    saveScoreWeights: (data) => request('/dashboard/score-weights', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
     v2: {
       returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
       renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
@@ -477,6 +567,17 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+  },
+  federalPublicHolidays: {
+    list: (year, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (year && year !== 'All') qs.set('year', year);
+      const s = qs.toString();
+      return request(`/federal-public-holidays${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    create: (data) => request('/federal-public-holidays', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/federal-public-holidays/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/federal-public-holidays/${id}`, { method: 'DELETE' }),
   },
   org: {
     tree: () => request('/org'),
@@ -521,5 +622,8 @@ export const api = {
     }),
     deactivate: (id) => request(`/users/${id}/deactivate`, { method: 'PUT' }),
     reactivate: (id) => request(`/users/${id}/reactivate`, { method: 'PUT' }),
+    updateManager: (id, managerUserId) => request(`/users/${id}/manager`, {
+      method: 'PUT', body: JSON.stringify({ managerUserId }),
+    }),
   },
 };

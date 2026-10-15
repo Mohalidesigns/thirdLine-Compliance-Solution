@@ -2,25 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
+  TableRow, TablePagination, TextField, CircularProgress, Alert, Tooltip,
   TableSortLabel, IconButton, Button, MenuItem,
 } from '@mui/material';
 import { Search, Refresh, Close, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
 import api from '../../../services/api';
+import { controlColumns } from 'shared';
 
-const RISK_COLOR = {
-  Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success',
-};
-
-const STATUS_COLOR = { Open: 'warning', Closed: 'success', 'In Progress': 'info' };
-
-const COLUMNS = [
-  { id: 'controlNumber', label: 'Control', minWidth: 320, sortField: 'controlNumber' },
-  { id: 'theme', label: 'Theme / Area', minWidth: 220, sortField: 'theme' },
-  { id: 'riskLevel', label: 'Risk', minWidth: 110, sortField: 'riskLevel' },
-  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
-  { id: 'actName', label: 'Act', minWidth: 220, sortField: 'actName' },
-];
+const COLUMNS = controlColumns({ withAct: true });
 
 function countOf(map, key) {
   if (!map) return 0;
@@ -47,7 +36,9 @@ export default function ControlExplorerPage() {
 
   const reqId = useRef(0);
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  // Reset on setup (not just false on cleanup): StrictMode's mount→unmount→mount would
+  // otherwise leave alive=false for the real mount and every fetch would bail early.
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All' || statusFilter !== 'All';
 
@@ -202,47 +193,9 @@ export default function ControlExplorerPage() {
                     onClick={() => navigate(`/admin/controls/${row.complianceControlId}`)}
                     sx={{ cursor: 'pointer' }}>
                     <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.75rem' }}>
-                        {row.controlNumber || '—'}
-                      </Typography>
-                      {row.controlSummary && (
-                        <Tooltip title={row.controlSummary}>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 380,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.controlSummary}
-                          </Typography>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {row.theme && <Chip size="small" label={row.theme} sx={{ height: 20, fontSize: '0.65rem' }} />}
-                        {row.complianceArea && (
-                          <Chip size="small" variant="outlined" label={row.complianceArea} sx={{ height: 20, fontSize: '0.65rem' }} />
-                        )}
-                        {!row.theme && !row.complianceArea && (
-                          <Typography variant="body2" color="text.secondary">—</Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {row.riskLevel
-                        ? <Chip size="small" label={row.riskLevel} color={RISK_COLOR[row.riskLevel] || 'default'} sx={{ height: 22 }} />
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="small" label={row.status || 'Open'}
-                        color={STATUS_COLOR[row.status] || 'default'} sx={{ height: 22 }} />
-                    </TableCell>
-                    <TableCell>
-                      {row.actName
-                        ? <Tooltip title={row.actName}>
-                            <Chip size="small" variant="outlined" label={row.actName}
-                              sx={{ height: 22, maxWidth: 240, fontSize: '0.65rem' }} />
-                          </Tooltip>
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
-                    </TableCell>
+                    {COLUMNS.map(c => (
+                      <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

@@ -101,7 +101,9 @@ export default function RegulatoryCoverage() {
 
   const alive = useRef(true);
   const reqId = useRef(0);
-  useEffect(() => () => { alive.current = false; }, []);
+  // Reset on setup (not just false on cleanup): StrictMode's mount→unmount→mount would
+  // otherwise leave alive=false for the real mount and the stats load would be dropped.
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const load = async () => {
     const id = ++reqId.current;
