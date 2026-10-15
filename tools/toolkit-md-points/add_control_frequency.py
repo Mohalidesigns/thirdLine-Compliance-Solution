@@ -97,12 +97,18 @@ def call_gateway(batch, api_key, base_url, model, retries=3):
             {"role": "user", "content": json.dumps(payload_items)},
         ],
         "temperature": 0.1,
+        # Free/limited OpenRouter accounts reject an uncapped request (default 65535 > balance).
+        "max_tokens": 2000,
     }
     data = json.dumps(body).encode("utf-8")
-    url = base_url.rstrip("/") + "/v1/chat/completions"
+    base = base_url.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+    url = base + "/v1/chat/completions"
     req = urllib.request.Request(url, data=data, headers={
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        "User-Agent": "atheris-toolkit-frequency/1.0",
     })
     last_err = None
     for attempt in range(retries):
@@ -145,11 +151,11 @@ def main():
     ap.add_argument("--batch", type=int, default=25, help="items per gateway request")
     args = ap.parse_args()
 
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = os.environ.get("AI_GATEWAY_API_KEY") or os.environ.get("OPENROUTER_API_KEY", "")
     base_url = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api")
     model = os.environ.get("AI_MODEL", "google/gemini-2.5-flash-lite")
     if not api_key or api_key.startswith("sk-local-placeholder"):
-        print("ERROR: set a real OPENROUTER_API_KEY (currently placeholder/unset).", file=sys.stderr)
+        print("ERROR: set AI_GATEWAY_API_KEY (or a real OPENROUTER_API_KEY).", file=sys.stderr)
         sys.exit(2)
 
     doc = json.loads(TOOLKIT_JSON.read_text(encoding="utf-8"))
