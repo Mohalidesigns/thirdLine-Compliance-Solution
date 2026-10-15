@@ -320,7 +320,12 @@ export const api = {
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
-    close: (id) => request(`/findings/${id}/close`, { method: 'PUT' }),
+    review: (id, decision, notes) => {
+      const qs = new URLSearchParams({ decision });
+      if (notes) qs.set('notes', notes);
+      return request(`/findings/${id}/review?${qs.toString()}`, { method: 'PUT' });
+    },
+    remediationLink: (id) => request(`/findings/${id}/remediation-link`, { method: 'POST' }),
   },
   controls: {
     list: (params = {}) => {

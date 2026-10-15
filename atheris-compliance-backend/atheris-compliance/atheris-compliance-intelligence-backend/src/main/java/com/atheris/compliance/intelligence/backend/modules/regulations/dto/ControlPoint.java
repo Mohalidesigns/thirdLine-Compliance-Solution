@@ -23,6 +23,8 @@ public class ControlPoint {
     private String content;
     private String pointType;
     private Integer level;
+    /** AI-assigned control-test cadence (Monthly/Quarterly/Semi-Annual/Annual), carried from the JSON. */
+    private String frequency;
 
     @Builder.Default
     private List<ControlPoint> children = List.of();

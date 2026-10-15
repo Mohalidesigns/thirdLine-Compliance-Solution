@@ -28,7 +28,7 @@ import static com.atheris.compliance.tenant.backend.modules.imports.handler.Impo
 
 /**
  * Bulk import of findings into the Findings register, in any status with their historical dates.
- * Rows are persisted the way {@code FindingService.manualRaise} does, plus the remediation / CCO sign-off
+ * Rows are persisted the way {@code FindingService.manualRaise} does, plus the remediation / sign-off
  * fields a Remediated or Closed finding carries. The dashboard snapshot is recomputed after commit.
  */
 @Slf4j
@@ -88,7 +88,7 @@ public class FindingImportHandler implements ImportHandler {
 
     @Override public List<ImportColumn> columns() { return COLUMNS; }
 
-    /** Closed rows carry a CCO sign-off, and closing a finding is CCO / TENANT_ADMIN only. */
+    /** Closed rows carry a sign-off (Analyst, CCO or Tenant Admin may sign off). */
     @Override public Set<String> requiredRoles() { return Set.of(AppRole.CCO, AppRole.TENANT_ADMIN); }
 
     @Override
@@ -344,8 +344,8 @@ public class FindingImportHandler implements ImportHandler {
                 .slaDays(FindingService.slaDays(p.severity()))
                 .remediationNotes(row.value(REMEDIATION_NOTES))
                 .remediationSubmittedAt(startOfDay(p.remediated()))
-                .ccoSignOffUserId(closedAt != null ? userId : null)
-                .ccoSignOffAt(closedAt)
+                .signedOffByUserId(closedAt != null ? userId : null)
+                .signedOffAt(closedAt)
                 .closedAt(closedAt)
                 .createdByUserId(userId)
                 .createdAt(raisedAt)

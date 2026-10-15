@@ -8,6 +8,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
+import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
+import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -30,6 +32,7 @@ public class ControlService {
     private final ControlTaskRepository taskRepo;
     private final ObligationRepository obligationRepo;
     private final OwnerRepository ownerRepo;
+    private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
 
@@ -37,10 +40,13 @@ public class ControlService {
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
         var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
         Page<Control> page = repo.findAll(spec, p);
-        Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(
-            page.getContent().stream().map(Control::getControlId).toList());
+        List<Integer> ids = page.getContent().stream().map(Control::getControlId).toList();
+        Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(ids);
+        Map<Integer, ControlTestResult> lastTests = getLastTests(ids);
+        Map<Integer, Long> openFindings = getOpenFindingCounts(ids);
         List<ControlRegisterItem> items = page.getContent().stream()
-            .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId())))
+            .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId()),
+                lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L)))
             .toList();
         return new PageImpl<>(items, p, page.getTotalElements());
     }
@@ -56,6 +62,15 @@ public class ControlService {
         List<String> acts = repo.findDistinctActNames();
 
         List<Control> all = repo.findAll();
+        long failingControls = getLastTests(all.stream().map(Control::getControlId).toList())
+            .values().stream()
+            .filter(t -> WorkflowStatus.TEST_FAILED.equals(t.getResult()) || WorkflowStatus.TEST_PARTIAL.equals(t.getResult()))
+            .count();
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        long openFindings = findingRepo.findAll().stream()
+            .filter(f -> openStatuses.contains(f.getStatus()))
+            .count();
+
         Map<String, Long> byRiskLevel = all.stream()
             .map(c -> c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
             .filter(v -> v != null && !v.isBlank())
@@ -66,14 +81,26 @@ public class ControlService {
         List<String> riskLevels = new ArrayList<>(byRiskLevel.keySet());
         List<String> statuses = new ArrayList<>(byStatus.keySet());
 
+        Map<String, Long> byTheme = all.stream()
+            .map(Control::getTheme).filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+        Map<String, Long> findingsBySeverity = findingRepo.findAll().stream()
+            .filter(f -> openStatuses.contains(f.getStatus()))
+            .map(Finding::getSeverity).filter(v -> v != null && !v.isBlank())
+            .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
+
         return ControlStatsDto.builder()
             .total(total)
             .active(active)
             .highRisk(highRisk)
             .testsDue(testsDue)
+            .failingControls(failingControls)
+            .openFindings(openFindings)
             .themes(themes)
             .owners(owners)
             .acts(acts)
+            .byTheme(byTheme)
+            .findingsBySeverity(findingsBySeverity)
             .totalControls(total)
             .byRiskLevel(byRiskLevel)
             .byStatus(byStatus)
@@ -88,7 +115,51 @@ public class ControlService {
             ControlTask::getControlId, t -> t, (a, b) -> a.getDueDate().isBefore(b.getDueDate()) ? a : b));
     }
 
-    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask) {
+    /** One query per page: keep only the latest test result per control. */
+    private Map<Integer, ControlTestResult> getLastTests(List<Integer> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, ControlTestResult> latest = new HashMap<>();
+        for (ControlTestResult t : testRepo.findByControlIdInOrderByTestDateDesc(ids)) {
+            ControlTestResult current = latest.get(t.getControlId());
+            if (current == null || compareTest(t, current) > 0) {
+                latest.put(t.getControlId(), t);
+            }
+        }
+        return latest;
+    }
+
+    private static int compareTest(ControlTestResult a, ControlTestResult b) {
+        LocalDate da = a.getTestDate();
+        LocalDate db = b.getTestDate();
+        if (da != null && db != null && !da.equals(db)) {
+            return da.compareTo(db);
+        }
+        if (da != null && db == null) {
+            return 1;
+        }
+        if (da == null && db != null) {
+            return -1;
+        }
+        Long ia = a.getTestId() != null ? a.getTestId() : 0L;
+        Long ib = b.getTestId() != null ? b.getTestId() : 0L;
+        return ia.compareTo(ib);
+    }
+
+    /** Open findings (Open or In Remediation) linked to each control, batched for the page. */
+    private Map<Integer, Long> getOpenFindingCounts(List<Integer> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        return findingRepo.findByLinkedControlIdIn(ids).stream()
+            .filter(f -> f.getLinkedControlId() != null && openStatuses.contains(f.getStatus()))
+            .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
+    }
+
+    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
+            ControlTestResult lastTest, long openFindings) {
         return ControlRegisterItem.builder()
             .controlId(c.getControlId())
             .controlNumber(c.getControlNumber())
@@ -105,6 +176,10 @@ public class ControlService {
             .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
             .status(c.getStatus())
             .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
+            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
+            .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
+            .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
+            .openFindings(openFindings)
             .complianceArea(c.getComplianceArea())
             .regulatoryRequirement(c.getRegulatoryRequirement())
             .frequency(c.getTestFrequency())

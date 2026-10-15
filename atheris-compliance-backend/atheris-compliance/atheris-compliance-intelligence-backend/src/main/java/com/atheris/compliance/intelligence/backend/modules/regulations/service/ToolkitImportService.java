@@ -777,6 +777,17 @@ public class ToolkitImportService {
         return null;
     }
 
+    /** The control's test cadence = the first frequency carried by any of its control points. */
+    private static String controlFrequency(List<ControlPoint> points) {
+        if (points == null) return null;
+        for (ControlPoint p : points) {
+            if (p.getFrequency() != null && !p.getFrequency().isBlank()) {
+                return p.getFrequency();
+            }
+        }
+        return null;
+    }
+
     private static final DateTimeFormatter[] FORMATS = {
         DateTimeFormatter.ISO_LOCAL_DATE,
         new DateTimeFormatterBuilder().appendPattern("dd/MM/yyyy").toFormatter(),
@@ -1024,6 +1035,7 @@ public class ToolkitImportService {
                         .complianceArea(sectionName)
                         .riskLevel(inherentRisk)
                         .complianceControl(text)
+                        .frequency(controlFrequency(controlPoints))
                         .points(controlPoints)
                         .controlType(controlType)
                         .residualLikelihood(likelihoodResidual)

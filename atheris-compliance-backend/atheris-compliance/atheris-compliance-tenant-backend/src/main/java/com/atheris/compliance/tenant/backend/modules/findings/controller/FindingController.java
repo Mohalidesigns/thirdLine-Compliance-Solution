@@ -78,27 +78,17 @@ public class FindingController {
     }
 
     /**
-     * Approve or reject a submitted remediation. An Analyst (or Tenant Admin) reviews;
-     * the reviewer must not be the person who submitted it. No CCO is involved.
+     * Approve or reject a submitted remediation. An Analyst, CCO or Tenant Admin may sign off;
+     * the signer must not be the person who submitted it. No CCO-only step.
      */
     @PutMapping("/{id}/review")
-    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> review(
             @PathVariable Long id,
             @RequestParam String decision,
             @RequestParam(required = false) String notes,
             @AuthenticationPrincipal User u) {
         service.reviewRemediation(id, decision, notes, u);
-        return ResponseEntity.ok(service.getDetail(id));
-    }
-
-    /** Legacy CCO close; kept as a Tenant-Admin fallback. Prefer /review. */
-    @PutMapping("/{id}/close")
-    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
-    public ResponseEntity<FindingDetailResponse> close(
-            @PathVariable Long id,
-            @AuthenticationPrincipal User u) {
-        service.close(id, u.getUserId());
         return ResponseEntity.ok(service.getDetail(id));
     }
 }

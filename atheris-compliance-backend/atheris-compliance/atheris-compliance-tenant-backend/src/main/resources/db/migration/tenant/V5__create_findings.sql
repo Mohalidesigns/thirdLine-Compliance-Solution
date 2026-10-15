@@ -15,12 +15,13 @@ CREATE TABLE IF NOT EXISTS findings (
     remediation_notes         TEXT,
     remediation_evidence_url  TEXT,
     remediation_submitted_at  TIMESTAMP WITH TIME ZONE,
-    -- Who submitted the remediation (analyst approval must be a different person), and
+    -- Who submitted the remediation (the signer must be a different person), and
     -- the reviewer's note when a remediation is rejected.
     remediation_submitted_by_user_id INT,
     review_notes              TEXT,
-    cco_sign_off_user_id      INT,
-    cco_sign_off_at           TIMESTAMP WITH TIME ZONE,
+    -- Generic sign-off (Analyst, CCO or Tenant Admin may sign off) — not CCO-specific.
+    signed_off_by_user_id     INT,
+    signed_off_at             TIMESTAMP WITH TIME ZONE,
     closed_at                 TIMESTAMP WITH TIME ZONE,
     created_by_user_id        INT,
     linked_obligation_id      BIGINT,

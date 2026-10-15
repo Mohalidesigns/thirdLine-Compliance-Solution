@@ -30,8 +30,8 @@ public class FindingDetailResponse {
     private Integer remediationSubmittedByUserId;
     /** Reviewer's reason when a remediation is rejected. */
     private String reviewNotes;
-    private Integer ccoSignOffUserId;
-    private Instant ccoSignOffAt;
+    private Integer signedOffByUserId;
+    private Instant signedOffAt;
     private Instant closedAt;
     private Long linkedObligationId;
     private Integer linkedControlId;

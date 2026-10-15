@@ -11,9 +11,13 @@ public class ControlStatsDto {
     private long active;
     private long highRisk;
     private long testsDue;
+    private long failingControls;
+    private long openFindings;
     private List<String> themes;
     private List<String> owners;
     private List<String> acts;
+    private Map<String, Long> byTheme;
+    private Map<String, Long> findingsBySeverity;
     /** Aliases consumed by the shared intel register config. */
     private long totalControls;
     private Map<String, Long> byRiskLevel;

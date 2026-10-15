@@ -4,7 +4,7 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
+  TextField, MenuItem, Tooltip, TablePagination,
   Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid,
   Card, CardContent, CardHeader, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
@@ -13,6 +13,7 @@ import {
   PlaylistAddCheck, Science, ChevronRight, AccountBalance, UploadFile,
 } from '@mui/icons-material';
 import { api } from '../services/api';
+import { KpiCards, FilterBar, SectionTable } from 'shared';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -42,13 +43,50 @@ function residualRiskChip(rating, likelihood, impact) {
   return <Tooltip title={`${likelihood || '-'} × ${impact || '-'}`}>{chip}</Tooltip>;
 }
 
+function nextTestDueCell(value) {
+  if (!value) {
+    return <Typography variant="body2" color="text.secondary">—</Typography>;
+  }
+  const due = new Date(value);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((due - today) / 86400000);
+  if (days < 0) {
+    return <Chip size="small" label={`Overdue ${Math.abs(days)}d`} color="error"
+      sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />;
+  }
+  if (days <= 7) {
+    return <Chip size="small" label={`Due in ${days}d`} color="warning" variant="outlined"
+      sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />;
+  }
+  return <Typography variant="body2">{formatDate(value)}</Typography>;
+}
+
 const COLUMNS = [
-  { id: 'name', label: 'Control', minWidth: 300, sortField: 'name' },
-  { id: 'classification', label: 'Classification', minWidth: 200, sortField: 'complianceArea' },
-  { id: 'owner', label: 'Owner', minWidth: 140, sortField: 'ownerName' },
-  { id: 'risk', label: 'Risk & Status', minWidth: 150, sortField: 'residualRiskRating' },
-  { id: 'testing', label: 'Testing', minWidth: 140, sortField: 'dueDate' },
-  { id: 'actions', label: '', minWidth: 60 },
+  { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name', render: (c) => (
+    <Tooltip title={c.name || ''}>
+      <Typography variant="body2" sx={{ maxWidth: 420, overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {c.name || 'Untitled control'}
+      </Typography>
+    </Tooltip>
+  ) },
+  { id: 'ownerName', label: 'Owner', minWidth: 140, sortable: true, sortField: 'ownerName', render: (c) => (
+    (c.ownerName || c.controlOwnerName)
+      ? <Tooltip title={c.ownerName || c.controlOwnerName}>
+          <Typography variant="body2" sx={{ maxWidth: 150, overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ownerName || c.controlOwnerName}</Typography>
+        </Tooltip>
+      : <Typography variant="body2" color="text.secondary">Unassigned</Typography>
+  ) },
+  { id: 'risk', label: 'Risk', minWidth: 110, sortable: true, sortField: 'residualRiskRating', render: (c) => (
+    residualRiskChip(c.residualRiskRating || c.residualRisk, c.residualLikelihood, c.residualImpact)
+  ) },
+  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
+    c.frequency
+      ? <Typography variant="body2">{c.frequency}</Typography>
+      : <Typography variant="body2" color="text.secondary">Not set</Typography>
+  ) },
+  { id: 'nextTestDueDate', label: 'Next Test Due', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
 ];
 
 export default function ControlsPage() {
@@ -120,18 +158,48 @@ export default function ControlsPage() {
     setPage(0);
   }
 
-  function applyKpiFilter(type) {
-    setPage(0);
-    if (type === 'highRisk') { setRiskFilter('High'); }
-    else if (type === 'testsDue') { setStatusFilter('Active'); /* TODO: filter by overdue tests */ }
-    else { setRiskFilter('All'); setStatusFilter('All'); }
-  }
-
   const kpis = [
-    { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, color: '#2B6CB0', bg: '#EBF8FF' },
-    { key: 'active', label: 'Active', value: stats?.active ?? 0, color: '#38A169', bg: '#F0FFF4' },
-    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, color: '#E53E3E', bg: '#FFF5F5' },
-    { key: 'testsDue', label: 'Tests Due', value: stats?.testsDue ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
+    { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, color: '#2B6CB0',
+      breakdown: stats?.byStatus, drill: (label) => setStatusFilter(label) },
+    { key: 'testsDue', label: 'Tests Due', value: stats?.testsDue ?? 0, color: '#DD6B20',
+      breakdown: stats?.byTheme, drill: (label) => setThemeFilter(label) },
+    { key: 'failing', label: 'Failing Controls', value: stats?.failingControls ?? 0, color: '#E53E3E',
+      breakdown: stats?.byRiskLevel, drill: (label) => setRiskFilter(label) },
+    { key: 'openFindings', label: 'Open Findings', value: stats?.openFindings ?? 0, color: '#805AD5',
+      breakdown: stats?.findingsBySeverity, drill: (label) => navigate(`/findings?severity=${label}`) },
+  ];
+
+  const kpiItems = kpis.map((k) => ({
+    key: k.key, label: k.label, color: k.color, value: k.value, breakdown: k.breakdown,
+  }));
+
+  const onKpiSelect = (key) => {
+    setPage(0);
+    if (key === 'testsDue') { setSortField(''); return; }
+    if (key === 'openFindings') { navigate('/findings'); return; }
+    if (key === 'failing') { setRiskFilter('High'); return; }
+    clearFilters();
+  };
+
+  const onKpiDrill = (key, label) => {
+    setPage(0);
+    const hit = kpis.find((k) => k.key === key);
+    if (hit?.drill) hit.drill(label);
+  };
+
+  const filters = [
+    { key: 'theme', label: 'Theme', minWidth: 140, value: themeFilter,
+      onChange: (v) => { setThemeFilter(v); setPage(0); }, allLabel: 'All themes',
+      options: (stats?.themes || []).map((t) => ({ value: t, label: t })) },
+    { key: 'risk', label: 'Residual Risk', minWidth: 150, value: riskFilter,
+      onChange: (v) => { setRiskFilter(v); setPage(0); }, allLabel: 'All risks',
+      options: ['Critical', 'High', 'Moderate', 'Low'].map((r) => ({ value: r, label: r })) },
+    { key: 'status', label: 'Status', minWidth: 130, value: statusFilter,
+      onChange: (v) => { setStatusFilter(v); setPage(0); }, allLabel: 'All statuses',
+      options: ['Active', 'Inactive'].map((s) => ({ value: s, label: s })) },
+    { key: 'act', label: 'Act', minWidth: 180, value: actFilter,
+      onChange: (v) => { setActFilter(v); setPage(0); }, allLabel: 'All acts',
+      options: (stats?.acts || []).map((a) => ({ value: a, label: a })) },
   ];
 
   if (detailId != null) {
@@ -187,178 +255,47 @@ export default function ControlsPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            onClick={() => applyKpiFilter(k.key)}
-            sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${k.color}`,
-              transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpiItems} onSelect={onKpiSelect} onDrill={onKpiDrill} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search control, number or owner..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <TextField select size="small" value={themeFilter} onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
-          label="Theme" sx={{ minWidth: 130 }}>
-          <MenuItem value="All">All</MenuItem>
-          {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Residual Risk" sx={{ minWidth: 130 }}>
-          {['All', 'Critical', 'High', 'Moderate', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 120 }}>
-          {['All', 'Active', 'Inactive'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={actFilter} onChange={e => { setActFilter(e.target.value); setPage(0); }}
-          label="Act" sx={{ minWidth: 150 }}>
-          <MenuItem value="All">All</MenuItem>
-          {(stats?.acts || []).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search control, number or owner...', minWidth: 260 }}
+        filters={filters}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
+
+      <SectionTable
+        columns={COLUMNS}
+        rows={items}
+        total={total}
+        page={page}
+        size={rowsPerPage}
+        loading={loading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={(field) => {
+          if (sortField === field) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDir('asc');
+          }
+          setPage(0);
+        }}
+        onPage={setPage}
+        onSize={(s) => { setRowsPerPage(s); setPage(0); }}
+        onRowClick={(c) => setDetailId(c.controlId)}
+        rowKey={(c) => c.controlId}
+        emptyMessage="No controls found."
+        actions={(c) => (
+          <Tooltip title="View detail">
+            <IconButton size="small" onClick={() => setDetailId(c.controlId)}>
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
-      </Paper>
-
-      {/* Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : items.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Gavel sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No controls found.</Typography>
-        </Paper>
-      ) : (
-        <Paper>
-          <TableContainer>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50, cursor: 'pointer', userSelect: 'none' }}
-                    onClick={() => {
-                      if (sortField === 'controlNumber') setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-                      else { setSortField('controlNumber'); setSortDir('asc'); }
-                      setPage(0);
-                    }}>
-                    <TableSortLabel active={sortField === 'controlNumber'} direction={sortDir}
-                      sx={{ '& .MuiTableSortLabel-icon': { opacity: sortField === 'controlNumber' ? 1 : 0.4 } }}>
-                      #
-                    </TableSortLabel>
-                  </TableCell>
-                  {COLUMNS.map(c => {
-                    const active = sortField === c.sortField;
-                    return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
-                        cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
-                        onClick={c.sortField ? () => {
-                          if (sortField === c.sortField) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-                          else { setSortField(c.sortField); setSortDir('asc'); }
-                          setPage(0);
-                        } : undefined}>
-                        {c.sortField
-                          ? <TableSortLabel active={active} direction={sortDir}
-                              sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
-                              {c.label}
-                            </TableSortLabel>
-                          : c.label}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((item, idx) => (
-                  <TableRow key={item.controlId} hover
-                    onClick={() => setDetailId(item.controlId)}
-                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
-                    <TableCell>
-                      <Tooltip title={item.name || 'Untitled'}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 340,
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.name || 'Untitled'}
-                        </Typography>
-                      </Tooltip>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
-                        <Tooltip title={item.actName || (item.actId ? `Act #${item.actId}` : 'No act linked')}>
-                          <Typography variant="caption" color="text.secondary"
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, maxWidth: 240,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <AccountBalance sx={{ fontSize: 13, opacity: 0.6 }} />
-                            {actLabel(item)}
-                          </Typography>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        <Chip size="small" label={item.controlType || 'CMP'}
-                          color={item.controlType === 'ADDITIONAL' ? 'info' : 'default'}
-                          sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
-                        {item.theme && (
-                          <Chip size="small" label={item.theme} variant="outlined"
-                            sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 130 }} />
-                        )}
-                      </Box>
-                      <Tooltip title={item.complianceArea || 'No compliance area'}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25,
-                          maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.complianceArea || '-'}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      {(item.ownerName || item.controlOwnerName)
-                        ? <Tooltip title={item.ownerName || item.controlOwnerName}>
-                            <Typography variant="body2" sx={{ maxWidth: 130, overflow: 'hidden',
-                              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.ownerName || item.controlOwnerName}
-                            </Typography>
-                          </Tooltip>
-                        : <Typography variant="body2" color="text.secondary">Unassigned</Typography>}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                        {residualRiskChip(item.residualRiskRating || item.residualRisk,
-                          item.residualLikelihood, item.residualImpact)}
-                        <Chip size="small" label={item.status || '-'}
-                          color={item.status === 'Active' ? 'success' : 'default'}
-                          variant={item.status === 'Active' ? 'outlined' : 'filled'}
-                          sx={{ height: 20, borderRadius: '4px', fontSize: '0.7rem' }} />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{item.frequency || '-'}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Due {item.dueDate || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Tooltip title="View detail">
-                        <IconButton size="small" onClick={() => setDetailId(item.controlId)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
-      )}
+      />
 
       <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
         onSaved={() => { setCreateOpen(false); refreshAll(); }} onSnackbar={setSnackbar} />

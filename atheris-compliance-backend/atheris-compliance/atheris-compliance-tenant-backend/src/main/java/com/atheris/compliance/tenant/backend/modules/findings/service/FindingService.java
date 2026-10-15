@@ -71,10 +71,10 @@ public class FindingService {
                 .description("Remediation submitted" + (f.getRemediationNotes() != null ? " — " + f.getRemediationNotes() : ""))
                 .build());
         }
-        if (f.getCcoSignOffAt() != null) {
+        if (f.getSignedOffAt() != null) {
             timeline.add(FindingDetailResponse.TimelineEvent.builder()
-                .timestamp(f.getCcoSignOffAt()).eventType("closed")
-                .description("Finding closed by CCO sign-off")
+                .timestamp(f.getSignedOffAt()).eventType("closed")
+                .description("Finding signed off and closed")
                 .build());
         }
         timeline.sort((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()));
@@ -99,7 +99,7 @@ public class FindingService {
             .remediationSubmittedAt(f.getRemediationSubmittedAt())
             .remediationSubmittedByUserId(f.getRemediationSubmittedByUserId())
             .reviewNotes(f.getReviewNotes())
-            .ccoSignOffUserId(f.getCcoSignOffUserId()).ccoSignOffAt(f.getCcoSignOffAt())
+            .signedOffByUserId(f.getSignedOffByUserId()).signedOffAt(f.getSignedOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
             .linkedControlId(f.getLinkedControlId())
             .linkedControlNumber(f.getLinkedControlId() == null ? null
@@ -236,9 +236,9 @@ public class FindingService {
         if (WorkflowStatus.REVIEW_ACCEPTED.equals(decision)) {
             f.setStatus(WorkflowStatus.FINDING_CLOSED);
             f.setClosedAt(Instant.now());
-            f.setCcoSignOffUserId(reviewer.getUserId());
-            f.setCcoSignOffAt(Instant.now());
-            audit.log(reviewer.getUserId(), "finding_approved", "finding", id, Map.of());
+            f.setSignedOffByUserId(reviewer.getUserId());
+            f.setSignedOffAt(Instant.now());
+            audit.log(reviewer.getUserId(), "finding_signed_off", "finding", id, Map.of());
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
             if (notes == null || notes.isBlank()) {
                 throw ApiException.badRequest("A reason is required when rejecting remediation");
@@ -260,20 +260,6 @@ public class FindingService {
             throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
         }
-        return repo.save(f);
-    }
-
-    @Transactional
-    public Finding close(Long id, Integer ccoUserId) {
-        Finding f = findById(id);
-        if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus())) {
-            throw ApiException.conflict("invalid_transition", "Finding must be Remediated before closing");
-        }
-        f.setStatus(WorkflowStatus.FINDING_CLOSED);
-        f.setCcoSignOffUserId(ccoUserId);
-        f.setCcoSignOffAt(Instant.now());
-        f.setClosedAt(Instant.now());
-        audit.log(ccoUserId, "finding_closed", "finding", id, Map.of());
         return repo.save(f);
     }
 
