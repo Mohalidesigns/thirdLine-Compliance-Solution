@@ -45,8 +45,10 @@ public class Finding {
     private Integer remediationSubmittedByUserId;
     @Column(columnDefinition = "text")
     private String reviewNotes;
-    private Integer ccoSignOffUserId;
-    private Instant ccoSignOffAt;
+    @Column(name = "signed_off_by_user_id")
+    private Integer signedOffByUserId;
+    @Column(name = "signed_off_at")
+    private Instant signedOffAt;
     private Instant closedAt;
     private Integer createdByUserId;
     private Instant createdAt;
