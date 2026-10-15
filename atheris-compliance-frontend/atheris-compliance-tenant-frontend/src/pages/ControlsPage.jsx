@@ -43,16 +43,6 @@ function residualRiskChip(rating, likelihood, impact) {
   return <Tooltip title={`${likelihood || '-'} × ${impact || '-'}`}>{chip}</Tooltip>;
 }
 
-const TEST_RESULT_COLOR = { Passed: 'success', Partial: 'warning', Failed: 'error' };
-
-function testResultChip(result) {
-  if (!result) {
-    return <Typography variant="body2" color="text.secondary">Not tested</Typography>;
-  }
-  return <Chip size="small" label={result} color={TEST_RESULT_COLOR[result] || 'default'}
-    sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />;
-}
-
 function nextTestDueCell(value) {
   if (!value) {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
@@ -72,55 +62,31 @@ function nextTestDueCell(value) {
 }
 
 const COLUMNS = [
-  { id: 'name', label: 'Control', minWidth: 300, sortable: true, sortField: 'name', render: (c) => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-      <Tooltip title={c.name || ''}>
-        <Typography variant="body2" sx={{ fontWeight: 600, maxWidth: 340,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {c.name || 'Untitled'}
-        </Typography>
-      </Tooltip>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {c.theme && (
-          <Chip size="small" label={c.theme} variant="outlined"
-            sx={{ height: 20, borderRadius: '4px', fontSize: '0.68rem', maxWidth: 160 }} />
-        )}
-        <Tooltip title={c.actName || (c.actId ? `Act #${c.actId}` : 'No act linked')}>
-          <Typography variant="caption" color="text.secondary"
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.25, maxWidth: 200,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <AccountBalance sx={{ fontSize: 13, opacity: 0.6 }} />
-            {actLabel(c)}
-          </Typography>
-        </Tooltip>
-      </Box>
-    </Box>
+  { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name', render: (c) => (
+    <Tooltip title={c.name || ''}>
+      <Typography variant="body2" sx={{ maxWidth: 420, overflow: 'hidden',
+        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {c.name || 'Untitled control'}
+      </Typography>
+    </Tooltip>
   ) },
-  { id: 'owner', label: 'Owner', minWidth: 140, sortable: true, sortField: 'ownerName', render: (c) => (
+  { id: 'ownerName', label: 'Owner', minWidth: 140, sortable: true, sortField: 'ownerName', render: (c) => (
     (c.ownerName || c.controlOwnerName)
       ? <Tooltip title={c.ownerName || c.controlOwnerName}>
-          <Typography variant="body2" sx={{ maxWidth: 140, overflow: 'hidden',
+          <Typography variant="body2" sx={{ maxWidth: 150, overflow: 'hidden',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ownerName || c.controlOwnerName}</Typography>
         </Tooltip>
       : <Typography variant="body2" color="text.secondary">Unassigned</Typography>
   ) },
-  { id: 'lastTestResult', label: 'Last Test', minWidth: 130, render: (c) => (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-      {testResultChip(c.lastTestResult)}
-      {c.lastTestDate && (
-        <Typography variant="caption" color="text.secondary">{formatDate(c.lastTestDate)}</Typography>
-      )}
-    </Box>
+  { id: 'risk', label: 'Risk', minWidth: 110, sortable: true, sortField: 'residualRiskRating', render: (c) => (
+    residualRiskChip(c.residualRiskRating || c.residualRisk, c.residualLikelihood, c.residualImpact)
+  ) },
+  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
+    c.frequency
+      ? <Typography variant="body2">{c.frequency}</Typography>
+      : <Typography variant="body2" color="text.secondary">Not set</Typography>
   ) },
   { id: 'nextTestDueDate', label: 'Next Test Due', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
-  { id: 'openFindings', label: 'Findings', minWidth: 110, render: (c) => (
-    (c.openFindings ?? 0) > 0
-      ? <Tooltip title={`${c.openFindings} open finding${c.openFindings !== 1 ? 's' : ''}`}>
-          <Chip size="small" label={c.openFindings} color="error"
-            sx={{ height: 22, borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }} />
-        </Tooltip>
-      : <Typography variant="body2" color="text.secondary">0</Typography>
-  ) },
 ];
 
 export default function ControlsPage() {
