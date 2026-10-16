@@ -294,6 +294,12 @@ export const api = {
   instruments: {
     list: (page = 0, size = 20, q = '', opts = {}) => request(`/subscriptions/instruments?page=${page}&size=${size}&q=${encodeURIComponent(q)}`, { signal: opts.signal }),
     get: (id, opts = {}) => request(`/subscriptions/instruments/${id}`, { signal: opts.signal }),
+    universeStats: (opts = {}) => request('/subscriptions/instruments/universe-stats', { signal: opts.signal }),
+    universe: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      return request(`/subscriptions/instruments/universe?${qs.toString()}`, { signal: opts.signal });
+    },
   },
   inbox: {
     list: (page = 0, size = 20) => request(`/obligations/inbox?page=${page}&size=${size}`),
