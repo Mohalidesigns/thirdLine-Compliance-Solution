@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
+  Box, Typography, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
   CircularProgress, Paper, Tooltip, IconButton,
 } from '@mui/material';
 import {
-  PageHeader, KpiCards, FilterBar, RiskBadge, StatusBadge,
+  PageHeader, KpiCards, FilterBar, obligationColumns,
   ScaleIcon, ExclamationTriangleIcon, CheckCircleIcon, ClockIcon, EyeIcon,
 } from 'shared';
 import api from '../../services/api';
+
+const COLUMNS = obligationColumns();
 
 export default function ObligationsExplorerPage() {
   const navigate = useNavigate();
@@ -141,14 +143,13 @@ export default function ObligationsExplorerPage() {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ width: 50 }}>#</TableCell>
-                  <TableCell sx={{ minWidth: 280 }}>
-                    <TableSortLabel active={sortField === 'title'} direction={sortDir} onClick={() => handleSort('title')}>Obligation</TableSortLabel>
-                  </TableCell>
-                  <TableCell>Regulator</TableCell>
-                  <TableCell>
-                    <TableSortLabel active={sortField === 'risk'} direction={sortDir} onClick={() => handleSort('risk')}>Risk</TableSortLabel>
-                  </TableCell>
-                  <TableCell>Points</TableCell>
+                  {COLUMNS.map((c) => (
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
+                      {c.sortable
+                        ? <TableSortLabel active={sortField === c.sortField} direction={sortField === c.sortField ? sortDir : 'asc'} onClick={() => handleSort(c.sortField)}>{c.label}</TableSortLabel>
+                        : c.label}
+                    </TableCell>
+                  ))}
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -156,18 +157,9 @@ export default function ObligationsExplorerPage() {
                 {items.map((row, idx) => (
                   <TableRow key={row.obligationId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>
                     <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{page * size + idx + 1}</TableCell>
-                    <TableCell>
-                      <Tooltip title={row.title || row.plainEnglishStatement || ''}>
-                        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: 360 }}>
-                          {row.title || row.plainEnglishStatement || 'Untitled obligation'}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{row.regulatorAbbreviation ? <Chip size="small" label={row.regulatorAbbreviation} /> : <Typography variant="body2" color="text.secondary">-</Typography>}</TableCell>
-                    <TableCell><RiskBadge value={row.riskRating} /></TableCell>
-                    <TableCell>
-                      {row.hasPoints ? <StatusBadge label="With" tone="green" /> : <StatusBadge label="Without" tone="gray" />}
-                    </TableCell>
+                    {COLUMNS.map((c) => (
+                      <TableCell key={c.id}>{c.render ? c.render(row) : (row[c.id] ?? '—')}</TableCell>
+                    ))}
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="View">
                         <IconButton size="small" onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}><EyeIcon size={16} /></IconButton>

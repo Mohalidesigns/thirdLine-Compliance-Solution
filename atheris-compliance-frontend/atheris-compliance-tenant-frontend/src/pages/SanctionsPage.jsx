@@ -1,173 +1,82 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Tooltip, TablePagination, TableSortLabel, Collapse,
-  Snackbar, Alert as MuiAlert,
-} from '@mui/material';
-import {
-  PageHeader, KpiCards, FilterBar, StatusBadge,
-  ArrowPathIcon, ScaleIcon, CheckCircleIcon, ChevronDownIcon, ExclamationTriangleIcon, BanknotesIcon,
-} from 'shared';
+import { Box, TextField, Alert, IconButton, Tooltip } from '@mui/material';
 import { api } from '../services/api';
+import {
+  PageHeader, SectionTable, KpiCards, FilterBar, FilterField, EntityDrawer, sanctionColumns, sanctionRegister,
+  PENALTY_TYPE_LABEL, ArrowPathIcon, ScaleIcon, BanknotesIcon, ExclamationTriangleIcon, CheckCircleIcon,
+} from 'shared';
+import SanctionDetailContent from '../components/detail/SanctionDetailContent';
 
-const MONO_CHIP_SX = {
-  fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem',
+const COLUMNS = sanctionColumns();
+const KPI_ICONS = {
+  total: <ScaleIcon size={16} />,
+  exposure: <BanknotesIcon size={16} />,
+  highSeverity: <ExclamationTriangleIcon size={16} />,
+  enforced: <CheckCircleIcon size={16} />,
 };
 
-function formatNaira(amount) {
-  if (amount == null) return '-';
-  try {
-    const n = Number(amount);
-    if (Number.isNaN(n)) return String(amount);
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
-  } catch { return String(amount); }
-}
-
-const COLUMNS = [
-  { id: 'actName', label: 'Act & Section', minWidth: 280, sortField: 'actName' },
-  { id: 'sanctionType', label: 'Type', minWidth: 150, sortField: 'sanctionType' },
-  { id: 'amount', label: 'Amount', minWidth: 150, sortField: 'sanctionAmountNaira' },
-  { id: 'severity', label: 'Severity & Enforcement', minWidth: 200, sortField: 'severityScore' },
-  { id: 'liableRoles', label: 'Liable Roles', minWidth: 200 },
-];
-
-function SanctionDetail({ item }) {
-  const blocks = [
-    { key: 'violation', label: 'Violation', text: item.description },
-    { key: 'penalty', label: 'Penalty', text: item.penaltyDetails },
-    { key: 'impact', label: 'Impact', text: item.riskExplanation },
-  ].filter(b => b.text);
-
-  if (blocks.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No violation, penalty or impact detail recorded for this sanction.
-      </Typography>
-    );
-  }
-
-  return (
-    <>
-      {blocks.map((b, i) => (
-        <Box key={b.key} sx={{ mb: i === blocks.length - 1 ? 0 : 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>{b.label}</Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{b.text}</Typography>
-        </Box>
-      ))}
-    </>
-  );
-}
-
-function SanctionRow({ item, index, open, onToggle }) {
-  const hasDetail = !!(item.description || item.penaltyDetails || item.riskExplanation);
-  const roles = Array.isArray(item.liableRoles) ? item.liableRoles : [];
-
-  return (
-    <>
-      <TableRow hover
-        onClick={hasDetail ? onToggle : undefined}
-        sx={{ cursor: hasDetail ? 'pointer' : 'default' }}>
-        <TableCell sx={{ width: 72, p: 0.5, whiteSpace: 'nowrap' }}>
-          {hasDetail ? (
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggle(); }}
-              title={open ? 'Hide detail' : 'Show violation, penalty and impact'}>
-              <ChevronDownIcon size={16} sx={{ transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'none' }} />
-            </IconButton>
-          ) : (
-            <Box sx={{ display: 'inline-block', width: 30 }} />
-          )}
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"Roboto Mono", monospace' }}>{index}</Typography>
-        </TableCell>
-        <TableCell>
-          <Tooltip title={item.actName || '-'}>
-            <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', maxWidth: 280,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {item.actName || '-'}
-            </Typography>
-          </Tooltip>
-          {item.sourceSectionReference && (
-            <Box sx={{ mt: 0.5 }}>
-              <Chip size="small" variant="outlined" label={item.sourceSectionReference.slice(0, 24)}
-                sx={MONO_CHIP_SX} />
-            </Box>
-          )}
-        </TableCell>
-        <TableCell>
-          {item.sanctionType
-            ? <StatusBadge label={item.sanctionType} tone="red" sx={{ textTransform: 'capitalize' }} />
-            : <Typography variant="body2" color="text.secondary">-</Typography>}
-        </TableCell>
-        <TableCell>
-          <Typography variant="body2" sx={{ fontWeight: 500, fontFamily: 'Roboto Mono, monospace', fontSize: '0.8125rem' }}>
-            {formatNaira(item.sanctionAmountNaira)}{item.sanctionAmountPerDay ? ' /day' : ''}
-          </Typography>
-        </TableCell>
-        <TableCell>
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-            {item.severityScore != null ? (
-              <StatusBadge label={`Sev ${item.severityScore}`} dot
-                tone={item.severityScore > 7 ? 'red' : item.severityScore > 4 ? 'orange' : 'gray'} />
-            ) : (
-              <Typography variant="body2" color="text.secondary">-</Typography>
-            )}
-            {item.hasBeenEnforced
-              ? <StatusBadge label="Enforced" tone="green" />
-              : <StatusBadge label="Not enforced" tone="gray" />}
-          </Box>
-        </TableCell>
-        <TableCell>
-          {roles.length > 0 ? (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {roles.map(r => (
-                <Chip key={r} size="small" label={r} />
-              ))}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">-</Typography>
-          )}
-        </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell colSpan={COLUMNS.length + 1} sx={{ p: 0, border: 0 }}>
-          <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box onClick={(e) => e.stopPropagation()} sx={{ p: 2, bgcolor: '#F9FAFB' }}>
-              <Paper sx={{ p: 2 }}>
-                <SanctionDetail item={item} />
-              </Paper>
-            </Box>
-          </Collapse>
-        </TableCell>
-      </TableRow>
-    </>
-  );
-}
-
 export default function SanctionsPage() {
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('All');
-  const [actFilter, setActFilter] = useState('All');
-  const [enforcedFilter, setEnforcedFilter] = useState('All');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [sortField, setSortField] = useState('');
-  const [sortDir, setSortDir] = useState('asc');
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [snackbar, setSnackbar] = useState('');
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [q, setQ] = useState(searchParams.get('q') || '');
+  const [actFilter, setActFilter] = useState(searchParams.get('actId') || 'All');
+  const [penaltyTypeFilter, setPenaltyTypeFilter] = useState(searchParams.get('penaltyType') || 'All');
+  const [roleFilter, setRoleFilter] = useState(searchParams.get('liableRole') || 'All');
+  const [minAmount, setMinAmount] = useState(searchParams.get('minAmount') || '');
+  const [maxAmount, setMaxAmount] = useState(searchParams.get('maxAmount') || '');
+  const [enforcedFilter, setEnforcedFilter] = useState(searchParams.get('enforced') || 'All');
+  const [minSeverity, setMinSeverity] = useState(searchParams.get('minSeverity') || '');
+  const [page, setPage] = useState(Number(searchParams.get('page') || 0));
+  const [size, setSize] = useState(Number(searchParams.get('size') || 20));
+  const [sortField, setSortField] = useState(searchParams.get('sortField') || 'severityScore');
+  const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'desc');
+  const [detail, setDetail] = useState(null);
 
-  const hasFilters = search || typeFilter !== 'All' || actFilter !== 'All' || enforcedFilter !== 'All';
+  useEffect(() => {
+    const t = setTimeout(() => setQ(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const params = useMemo(() => {
-    const p = { page, size: rowsPerPage };
-    if (search) p.q = search;
-    if (typeFilter !== 'All') p.sanctionType = typeFilter;
-    if (actFilter !== 'All') p.actName = actFilter;
-    if (enforcedFilter !== 'All') p.enforced = enforcedFilter === 'Yes';
-    if (sortField) p.sort = `${sortField},${sortDir}`;
-    return p;
-  }, [page, rowsPerPage, search, typeFilter, actFilter, enforcedFilter, sortField, sortDir]);
+  useEffect(() => {
+    const p = {};
+    if (q) p.q = q;
+    if (actFilter !== 'All') p.actId = actFilter;
+    if (penaltyTypeFilter !== 'All') p.penaltyType = penaltyTypeFilter;
+    if (roleFilter !== 'All') p.liableRole = roleFilter;
+    if (minAmount) p.minAmount = minAmount;
+    if (maxAmount) p.maxAmount = maxAmount;
+    if (enforcedFilter !== 'All') p.enforced = enforcedFilter;
+    if (minSeverity) p.minSeverity = String(minSeverity);
+    if (page) p.page = String(page);
+    if (size !== 20) p.size = String(size);
+    if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
+    setSearchParams(p, { replace: true });
+  }, [q, actFilter, penaltyTypeFilter, roleFilter, minAmount, maxAmount, enforcedFilter,
+      minSeverity, page, size, sortField, sortDir, setSearchParams]);
+
+  const statsQuery = useQuery({
+    queryKey: ['sanctions', 'stats'],
+    queryFn: ({ signal }) => api.sanctions.stats({ signal }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const stats = statsQuery.data;
+
+  const params = {
+    q: q || undefined,
+    regulationId: actFilter !== 'All' ? actFilter : undefined,
+    penaltyType: penaltyTypeFilter !== 'All' ? penaltyTypeFilter : undefined,
+    liableRole: roleFilter !== 'All' ? roleFilter : undefined,
+    minAmount: minAmount || undefined,
+    maxAmount: maxAmount || undefined,
+    hasBeenEnforced: enforcedFilter === 'Yes' ? true : undefined,
+    minSeverity: minSeverity || undefined,
+    page,
+    size,
+    sort: sortField ? `${sortField},${sortDir}` : undefined,
+  };
 
   const listQuery = useQuery({
     queryKey: ['sanctions', 'list', params],
@@ -175,41 +84,71 @@ export default function SanctionsPage() {
     placeholderData: keepPreviousData,
   });
 
-  const statsQuery = useQuery({
-    queryKey: ['sanctions', 'stats'],
-    queryFn: ({ signal }) => api.sanctions.stats({ signal }),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const stats = statsQuery.data;
-  const items = useMemo(() => listQuery.data?.content || [], [listQuery.data]);
+  const rows = listQuery.data?.content || [];
   const total = listQuery.data?.totalElements ?? 0;
 
+  const hasFilters = !!searchInput || actFilter !== 'All' || penaltyTypeFilter !== 'All'
+    || roleFilter !== 'All' || !!minAmount || !!maxAmount || enforcedFilter !== 'All' || !!minSeverity;
+
   function clearFilters() {
-    setSearch(''); setTypeFilter('All'); setActFilter('All'); setEnforcedFilter('All');
+    setSearchInput(''); setQ(''); setActFilter('All'); setPenaltyTypeFilter('All');
+    setRoleFilter('All'); setMinAmount(''); setMaxAmount(''); setEnforcedFilter('All');
+    setMinSeverity(''); setPage(0);
+  }
+
+  function handleSort(field) {
+    if (!field) return;
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
     setPage(0);
   }
 
-  function applyKpiFilter(type) {
+  function onKpiSelect(key) {
     setPage(0);
-    if (type === 'highSeverity') { /* filter by severity >= 4 — client side */ }
-    else if (type === 'enforced') setEnforcedFilter('Yes');
-    else setEnforcedFilter('All');
+    if (key === 'highSeverity') { setMinSeverity('8'); return; }
+    if (key === 'enforced') { setEnforcedFilter('Yes'); return; }
+    if (key === 'exposure') { setSortField('sanctionAmountNaira'); setSortDir('desc'); return; }
+    setMinSeverity(''); setEnforcedFilter('All');
   }
 
-  const kpis = [
-    { key: 'total', label: 'Total Sanctions', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
-    { key: 'highSeverity', label: 'High Severity', value: stats?.highSeverity ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
-    { key: 'enforced', label: 'Enforced', value: stats?.enforced ?? 0, tone: 'green', icon: <CheckCircleIcon />, active: enforcedFilter === 'Yes' },
-    { key: 'exposure', label: 'Total Exposure', value: formatNaira(stats?.totalExposure), tone: 'orange', icon: <BanknotesIcon /> },
+  function onKpiDrill(key, label) {
+    setPage(0);
+    if (key === 'exposure') {
+      const hit = (stats?.byActExposure || []).find((a) => (a.name || `Act ${a.actId}`) === label);
+      if (hit) setActFilter(String(hit.actId));
+      return;
+    }
+    setPenaltyTypeFilter(label);
+    if (key === 'enforced') setEnforcedFilter('Yes');
+  }
+
+  const kpiItems = sanctionRegister.kpis.map((k) => ({
+    key: k.key,
+    label: k.label,
+    color: k.color,
+    icon: KPI_ICONS[k.key],
+    value: k.value(stats),
+    breakdown: k.breakdown ? k.breakdown(stats) : undefined,
+  }));
+
+  const filters = [
+    { key: 'actId', label: 'Act', minWidth: 220, value: actFilter,
+      onChange: (v) => { setActFilter(v); setPage(0); }, allLabel: 'All acts',
+      options: (stats?.acts || []).map((a) => ({ value: String(a.actId),
+        label: a.name?.length > 60 ? a.name.slice(0, 60) + '…' : a.name })) },
+    { key: 'penaltyType', label: 'Penalty Type', minWidth: 160, value: penaltyTypeFilter,
+      onChange: (v) => { setPenaltyTypeFilter(v); setPage(0); }, allLabel: 'All penalty types',
+      options: (stats?.penaltyTypes || []).map((t) => ({ value: t, label: PENALTY_TYPE_LABEL[t] || t })) },
+    { key: 'liableRole', label: 'Responsible Party', minWidth: 180, value: roleFilter,
+      onChange: (v) => { setRoleFilter(v); setPage(0); }, allLabel: 'All parties',
+      options: (stats?.liableRoles || []).map((r) => ({ value: r, label: r })) },
   ];
-  const opts = (list) => (list || []).map((v) => ({ value: v, label: v }));
 
   return (
     <Box>
       <PageHeader
-        title="Sanctions Register"
-        subtitle={`${total} sanction${total !== 1 ? 's' : ''} — penalties, enforcement and exposure tracking`}
+        title="Sanction Explorer"
+        subtitle={`${total} sanction${total !== 1 ? 's' : ''} — obligations, penalties and responsible parties`}
         actions={(
           <Tooltip title="Refresh">
             <IconButton onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}><ArrowPathIcon size={18} /></IconButton>
@@ -217,88 +156,49 @@ export default function SanctionsPage() {
         )}
       />
 
-      {listQuery.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}
-          action={<Button size="small" onClick={() => listQuery.refetch()}>Retry</Button>}>
-          {listQuery.error?.message || 'Failed to load sanctions.'}
-        </Alert>
-      )}
+      {listQuery.error && <Alert severity="error" sx={{ mb: 2 }}>{listQuery.error.message}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={4} />
+      <KpiCards items={kpiItems} onSelect={onKpiSelect} onDrill={onKpiDrill} />
 
       <FilterBar
-        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search act, type or description...' }}
-        filters={[
-          { key: 'type', label: 'Sanction Type', value: typeFilter, onChange: (v) => { setTypeFilter(v); setPage(0); },
-            options: opts(stats?.sanctionTypes), allLabel: 'All', minWidth: 160 },
-          { key: 'act', label: 'Act', value: actFilter, onChange: (v) => { setActFilter(v); setPage(0); },
-            options: opts(stats?.actNames), allLabel: 'All', minWidth: 200 },
-          { key: 'enforced', label: 'Enforced', value: enforcedFilter, onChange: (v) => { setEnforcedFilter(v); setPage(0); },
-            options: opts(['Yes', 'No']), allLabel: 'All', minWidth: 130 },
-        ]}
-        showClear={!!hasFilters}
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search obligation...' }}
+        filters={filters}
+        showClear={hasFilters}
         onClear={clearFilters}
+      >
+        <FilterField label="Min amount" minWidth={130}>
+          <TextField size="small" type="number" value={minAmount}
+            onChange={(e) => { setMinAmount(e.target.value); setPage(0); }}
+            sx={{ width: 130, '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+        <FilterField label="Max amount" minWidth={130}>
+          <TextField size="small" type="number" value={maxAmount}
+            onChange={(e) => { setMaxAmount(e.target.value); setPage(0); }}
+            sx={{ width: 130, '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+      </FilterBar>
+
+      <SectionTable
+        columns={COLUMNS}
+        rows={rows}
+        total={total}
+        page={page}
+        size={size}
+        loading={listQuery.isLoading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        onPage={setPage}
+        onSize={(s) => { setSize(s); setPage(0); }}
+        onRowClick={(s) => setDetail(s)}
+        rowKey={(s) => s.sanctionId}
+        emptyMessage="No sanctions found."
       />
 
-      {/* Table */}
-      {listQuery.isPending ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : items.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <ScaleIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No sanctions found.</Typography>
-        </Paper>
-      ) : (
-        <Paper sx={{ overflow: 'hidden' }}>
-          <TableContainer>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 72 }}>#</TableCell>
-                  {COLUMNS.map(c => {
-                    const active = sortField === c.sortField;
-                    return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth,
-                        cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
-                        onClick={c.sortField ? () => {
-                          if (sortField === c.sortField) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-                          else { setSortField(c.sortField); setSortDir('asc'); }
-                          setPage(0);
-                          setExpandedRow(null);
-                        } : undefined}>
-                        {c.sortField
-                          ? <TableSortLabel active={active} direction={sortDir}
-                              sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
-                              {c.label}
-                            </TableSortLabel>
-                          : c.label}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((item, idx) => (
-                  <SanctionRow key={item.sanctionId} item={item}
-                    index={page * rowsPerPage + idx + 1}
-                    open={expandedRow === item.sanctionId}
-                    onToggle={() => setExpandedRow(expandedRow === item.sanctionId ? null : item.sanctionId)} />
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination component="div" count={total} page={page}
-            onPageChange={(_, p) => { setPage(p); setExpandedRow(null); }}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); setExpandedRow(null); }}
-            rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
-      )}
-
-      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
-      </Snackbar>
+      <EntityDrawer open={!!detail} onClose={() => setDetail(null)} title="Sanction" width={680}>
+        {detail && <SanctionDetailContent sanction={detail} />}
+      </EntityDrawer>
     </Box>
   );
 }

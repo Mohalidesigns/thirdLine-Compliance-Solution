@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, CardHeader, TextField, Button, Alert,
   CircularProgress, Table, TableHead, TableBody, TableRow,
@@ -13,12 +14,13 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
 
-const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST'];
+const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);
   const { user } = useAuth();
   const isAdmin = user?.role === 'TENANT_ADMIN';
+  const canManageWorkspace = isAdmin || user?.role === 'CCO';
 
   return (
     <Box>
@@ -31,13 +33,17 @@ export default function SettingsPage() {
         tabs={[
           { key: 0, label: 'General' },
           { key: 1, label: 'Organization' },
-          ...((isAdmin || user?.role === 'CCO') ? [{ key: 2, label: 'System Users' }] : []),
+          ...(canManageWorkspace ? [
+            { key: 2, label: 'Federal Public Holidays' },
+            { key: 3, label: 'System Users' },
+          ] : []),
         ]}
       />
 
       {tab === 0 && <GeneralTab />}
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
-      {tab === 2 && <SystemUsersTab isAdmin={isAdmin} />}
+      {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
+      {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
     </Box>
   );
 }
@@ -101,6 +107,146 @@ function GeneralTab() {
           Contact your platform administrator for account changes, user management, and billing.
         </Typography>
       </DataCard>
+    </Box>
+  );
+}
+
+function FederalHolidaysTab() {
+  const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState('All');
+  const [dialog, setDialog] = useState(null);
+  const [form, setForm] = useState({ holidayDate: '', observedDate: '', name: '' });
+  const [error, setError] = useState('');
+  const query = useQuery({
+    queryKey: ['federal-public-holidays', year],
+    queryFn: ({ signal }) => api.federalPublicHolidays.list(year, { signal }),
+  });
+  const saveMutation = useMutation({
+    mutationFn: () => dialog?.holidayId
+      ? api.federalPublicHolidays.update(dialog.holidayId, form)
+      : api.federalPublicHolidays.create(form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['federal-public-holidays'] });
+      setDialog(null);
+    },
+    onError: (e) => setError(e.message),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.federalPublicHolidays.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['federal-public-holidays'] }),
+    onError: (e) => setError(e.message),
+  });
+
+  function openHoliday(holiday = null) {
+    setError('');
+    setForm({
+      holidayDate: holiday?.holidayDate || '',
+      observedDate: holiday?.observedDate || '',
+      name: holiday?.name || '',
+    });
+    setDialog(holiday || {});
+  }
+
+  function save() {
+    setError('');
+    if (!form.holidayDate || !form.name.trim()) {
+      setError('Holiday date and name are required.');
+      return;
+    }
+    if (form.observedDate && form.observedDate < form.holidayDate) {
+      setError('Observed date must be on or after the official holiday date.');
+      return;
+    }
+    if (form.observedDate && form.observedDate === form.holidayDate) {
+      setError('Leave the observed date blank when the holiday is observed on its official date.');
+      return;
+    }
+    saveMutation.mutate();
+  }
+
+  const holidays = query.data || [];
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: TL.gray800 }}>Federal Public Holidays</Typography>
+          <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
+            Maintain officially announced Nigerian federal holidays. Dates are used for working-day deadline calculations.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <TextField select size="small" label="Year" value={year} onChange={e => setYear(e.target.value)} sx={{ width: 130 }}>
+          <MenuItem value="All">All years</MenuItem>
+          {Array.from({ length: 9 }, (_, i) => currentYear - 2 + i).map(y => <MenuItem key={y} value={String(y)}>{y}</MenuItem>)}
+          </TextField>
+          <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => openHoliday()}>Add Holiday</Button>
+        </Box>
+      </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {query.isError && <Alert severity="error" sx={{ mb: 2 }}>{query.error.message || 'Failed to load holidays.'}</Alert>}
+      <Card>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Holiday</TableCell>
+                <TableCell>Official date</TableCell>
+                <TableCell>Observed date</TableCell>
+                <TableCell>Jurisdiction</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {query.isPending ? (
+                <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} sx={{ my: 2 }} /></TableCell></TableRow>
+              ) : holidays.length === 0 ? (
+              <TableRow><TableCell colSpan={5} align="center">No holidays recorded {year === 'All' ? '' : `for ${year}`}.</TableCell></TableRow>
+              ) : holidays.map(h => (
+                <TableRow key={h.holidayId} hover>
+                  <TableCell>
+                    <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{h.name}</Typography>
+                  </TableCell>
+                  <TableCell>{h.holidayDate}</TableCell>
+                  <TableCell>{h.observedDate || '—'}</TableCell>
+                  <TableCell><StateBadge value="Federal" label="Federal" /></TableCell>
+                  <TableCell align="right">
+                    <IconButton aria-label={`Edit ${h.name}`} size="small" onClick={() => openHoliday(h)}><PencilSquareIcon size={16} /></IconButton>
+                    <IconButton aria-label={`Delete ${h.name}`} size="small" color="error"
+                      onClick={() => { if (window.confirm(`Delete ${h.name} (${h.holidayDate})?`)) deleteMutation.mutate(h.holidayId); }}>
+                      <TrashIcon size={16} />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Card>
+
+      <Dialog open={dialog != null} onClose={() => !saveMutation.isPending && setDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{dialog?.holidayId ? 'Edit Federal Public Holiday' : 'Add Federal Public Holiday'}</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {error && <Alert severity="error">{error}</Alert>}
+            <TextField label="Holiday name" required size="small" fullWidth value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} inputProps={{ maxLength: 200 }} />
+            <TextField label="Official holiday date" required type="date" size="small" fullWidth
+              value={form.holidayDate} onChange={e => setForm(f => ({ ...f, holidayDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }} />
+            <TextField label="Observed date (if officially announced)" type="date" size="small" fullWidth
+              value={form.observedDate} onChange={e => setForm(f => ({ ...f, observedDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }} helperText="Leave blank if the holiday is observed on its official date." />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialog(null)} disabled={saveMutation.isPending}>Cancel</Button>
+          <Button variant="contained" onClick={save} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <CircularProgress size={18} /> : 'Save holiday'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -506,6 +652,11 @@ function SystemUsersTab({ isAdmin }) {
     catch (e) { setError(e.message); }
   };
 
+  const handleManager = async (u, managerUserId) => {
+    try { await api.users.updateManager(u.userId, managerUserId || null); load(); }
+    catch (e) { setError(e.message); }
+  };
+
   const handleToggleActive = async (u) => {
     try {
       if (u.isActive) await api.users.deactivate(u.userId);
@@ -539,8 +690,8 @@ function SystemUsersTab({ isAdmin }) {
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
+                <TableCell>Manager</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -550,9 +701,10 @@ function SystemUsersTab({ isAdmin }) {
                 <TableRow key={u.userId} hover>
                   <TableCell>
                     <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{u.fullName}</Typography>
-                    {u.jobTitle && <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500 }}>{u.jobTitle}</Typography>}
+                    <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500 }}>
+                      {[u.email, u.jobTitle].filter(Boolean).join(' · ')}
+                    </Typography>
                   </TableCell>
-                  <TableCell>{u.email}</TableCell>
                   <TableCell>
                     {isAdmin ? (
                       <TextField select size="small" value={u.role}
@@ -561,6 +713,18 @@ function SystemUsersTab({ isAdmin }) {
                         {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                       </TextField>
                     ) : <Chip size="small" label={u.role} />}
+                  </TableCell>
+                  <TableCell>
+                    {isAdmin ? (
+                      <TextField select size="small" value={u.managerUserId ?? ''}
+                        onChange={e => handleManager(u, e.target.value)}
+                        sx={{ minWidth: 160 }}>
+                        <MenuItem value="">— None —</MenuItem>
+                        {users.filter(m => m.userId !== u.userId).map(m => (
+                          <MenuItem key={m.userId} value={m.userId}>{m.fullName}</MenuItem>
+                        ))}
+                      </TextField>
+                    ) : (u.managerName || '—')}
                   </TableCell>
                   <TableCell>
                     <StateBadge value={u.isActive ? (u.inviteStatus === 'pending' ? 'Pending' : 'Active') : 'Inactive'} />

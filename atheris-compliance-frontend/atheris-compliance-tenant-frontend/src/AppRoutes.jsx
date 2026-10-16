@@ -25,6 +25,19 @@ const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
 const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPage'));
 const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
+const ActsPage = lazy(() => import('./pages/ActsPage'));
+const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const RunbooksLibraryPage = lazy(() => import('./pages/runbooks/RunbooksLibraryPage'));
+const RunbookDetailPage = lazy(() => import('./pages/runbooks/RunbookDetailPage'));
+const RunbookBuilderPage = lazy(() => import('./pages/runbooks/RunbookBuilderPage'));
+const ExecutionsPage = lazy(() => import('./pages/runbooks/ExecutionsPage'));
+const ExecutionConsolePage = lazy(() => import('./pages/runbooks/ExecutionConsolePage'));
+const ExecutionSummaryPage = lazy(() => import('./pages/runbooks/ExecutionSummaryPage'));
+const ApprovalsPage = lazy(() => import('./pages/runbooks/ApprovalsPage'));
+const CoverageMatrixPage = lazy(() => import('./pages/runbooks/CoverageMatrixPage'));
+const TemplateLibraryPage = lazy(() => import('./pages/runbooks/TemplateLibraryPage'));
+const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 
 function Loading() {
   return (
@@ -49,21 +62,36 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        {/* Public, no-login owner remediation page reached via an emailed token link. */}
+        <Route path="/remediate/:token" element={<PublicRemediatePage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="dashboard/v2" element={<DashboardV2Page />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />
           <Route path="universe" element={<UniversePage />} />
           <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
+          <Route path="acts" element={<ActsPage />} />
+          <Route path="acts/:id" element={<ActDetailPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
           <Route path="regulators/:id" element={<RegulatorDetailPage />} />
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
+          <Route path="runbooks" element={<RunbooksLibraryPage />} />
+          <Route path="runbooks/new" element={<RunbookBuilderPage />} />
+          <Route path="runbooks/executions" element={<ExecutionsPage />} />
+          <Route path="runbooks/executions/:execId" element={<ExecutionConsolePage />} />
+          <Route path="runbooks/executions/:execId/summary" element={<ExecutionSummaryPage />} />
+          <Route path="runbooks/approvals" element={<ApprovalsPage />} />
+          <Route path="runbooks/coverage" element={<CoverageMatrixPage />} />
+          <Route path="runbooks/templates" element={<TemplateLibraryPage />} />
+          <Route path="runbooks/:id" element={<RunbookDetailPage />} />
+          <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />
           <Route path="returns" element={<ReturnsPage />} />
           <Route path="sanctions" element={<SanctionsPage />} />

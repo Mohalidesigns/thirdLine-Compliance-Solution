@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 import NotificationsPanel from '../notifications/NotificationsPanel';
 
 const ROLE_LABEL = {
-  TENANT_ADMIN: 'Tenant Admin', CCO: 'Chief Compliance Officer', ANALYST: 'Compliance Analyst', AUDITOR: 'Auditor',
+  TENANT_ADMIN: 'Tenant Admin', CCO: 'Chief Compliance Officer', ANALYST: 'Compliance Analyst', AUDITOR: 'Auditor', IT_OPS: 'IT Operations',
 };
 
 export default function TopBar({ offset, onMenuClick }) {

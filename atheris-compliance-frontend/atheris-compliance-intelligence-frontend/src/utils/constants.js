@@ -45,6 +45,8 @@ export const ROUTES = {
   ADMIN_RETURN_DETAIL: '/admin/returns/:id',
   ADMIN_CONTROLS: '/admin/controls',
   ADMIN_CONTROL_DETAIL: '/admin/controls/:id',
+  ADMIN_RUNBOOK_TEMPLATES: '/admin/runbook-templates',
+  ADMIN_RUNBOOK_TEMPLATE_DETAIL: '/admin/runbook-templates/:code',
 };
 
 export const STRINGS = {
@@ -87,20 +89,23 @@ export const NAV_SECTIONS = [
     { text: 'Review Inbox', icon: 'InboxArrowDown', path: ROUTES.INBOX },
     { text: 'Watchlist', icon: 'Eye', path: ROUTES.WATCHLIST },
   ]},
-  { label: 'PLATFORM', items: [
-    { text: 'Regulators', icon: 'BuildingLibrary', path: ROUTES.ADMIN_REGULATORS },
-    { text: 'Tenant Management', icon: 'BuildingOffice2', path: ROUTES.ADMIN_TENANTS },
-    { text: 'License Management', icon: 'Key', path: ROUTES.ADMIN_LICENSES },
-    { text: 'Pipeline Jobs', icon: 'QueueList', path: ROUTES.ADMIN_PIPELINE },
-  ]},
-  { label: 'LIBRARY', admin: true, items: [
-    { text: 'Instruments', icon: 'DocumentText', path: ROUTES.ADMIN_INSTRUMENTS },
+  { label: 'COMPLIANCE', items: [
     { text: 'Act Explorer', icon: 'BookOpen', path: ROUTES.ADMIN_ACTS },
     { text: 'Obligations', icon: 'Scale', path: ROUTES.ADMIN_OBLIGATIONS },
     { text: 'Sanctions', icon: 'Banknotes', path: ROUTES.ADMIN_SANCTIONS },
     { text: 'Returns', icon: 'Calendar', path: ROUTES.ADMIN_RETURNS },
     { text: 'Controls', icon: 'ShieldCheck', path: ROUTES.ADMIN_CONTROLS },
+    { text: 'Runbook Templates', icon: 'ClipboardDocumentCheck', path: ROUTES.ADMIN_RUNBOOK_TEMPLATES },
     { text: 'Compliance Universe', icon: 'GlobeAlt', path: ROUTES.ADMIN_UNIVERSE },
+  ]},
+  { label: 'OPERATIONS', items: [
+    { text: 'Document Pipeline', icon: 'QueueList', path: ROUTES.ADMIN_PIPELINE },
+    { text: 'Regulators', icon: 'BuildingLibrary', path: ROUTES.ADMIN_REGULATORS },
+    { text: 'Instruments', icon: 'DocumentText', path: ROUTES.ADMIN_INSTRUMENTS },
+  ]},
+  { label: 'TENANTS', items: [
+    { text: 'Tenant Management', icon: 'BuildingOffice2', path: ROUTES.ADMIN_TENANTS },
+    { text: 'License Management', icon: 'Key', path: ROUTES.ADMIN_LICENSES },
   ]},
 ];
 

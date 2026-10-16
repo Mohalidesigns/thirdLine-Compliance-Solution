@@ -1,8 +1,12 @@
-import { Box, Button, CircularProgress } from '@mui/material';
+import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader, ArrowPathIcon, ScaleIcon } from 'shared';
+import {
+  PageHeader, KpiCards, ArrowPathIcon, ScaleIcon, PlusIcon,
+  ChartBarIcon, CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon,
+} from 'shared';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import AttentionSection from '../components/dashboard/AttentionSection';
 import ComplianceUniverseSection from '../components/dashboard/ComplianceUniverseSection';
 import ComplianceTrendChart from '../components/dashboard/ComplianceTrendChart';
@@ -10,6 +14,7 @@ import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
 import ControlsRow from '../components/dashboard/ControlsRow';
 import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../components/dashboard/RiskAreaActRow';
+import RunbooksWidget from '../components/dashboard/RunbooksWidget';
 
 const POLL_INTERVAL = 30000;
 
@@ -23,6 +28,8 @@ const row = (cols) => ({
 
 export default function CcoDashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canGenerate = ['CCO', 'TENANT_ADMIN'].includes(user?.role);
   // each section fetches independently — one failing endpoint must never blank the page
   const attentionQuery = useQuery({
     queryKey: ['dashboard', 'attention-items'],
@@ -69,6 +76,11 @@ export default function CcoDashboardPage() {
     queryFn: () => api.dashboard.v2.controlCoverage('areaOfFocus'),
     refetchInterval: POLL_INTERVAL,
   });
+  const metricsQuery = useQuery({
+    queryKey: ['dashboard', 'metrics'],
+    queryFn: ({ signal }) => api.dashboard.metrics(undefined, undefined, { signal }),
+    refetchInterval: POLL_INTERVAL,
+  });
 
   const queries = [
     attentionQuery, trendQuery, returnsStatsQuery, calendarQuery,
@@ -85,6 +97,24 @@ export default function CcoDashboardPage() {
   const summary = summaryQuery.data || {};
   const riskProfile = riskProfileQuery.data || {};
   const coverage = coverageQuery.data || {};
+  const metrics = metricsQuery.data || {};
+
+  const kpis = [
+    { key: 'score', label: 'Compliance Score', tone: 'blue', icon: <ChartBarIcon size={16} />,
+      value: metrics.complianceScore != null ? `${metrics.complianceScore}%` : '—' },
+    { key: 'coverage', label: 'Control Coverage', tone: 'green', icon: <CheckCircleIcon size={16} />,
+      value: `${metrics.controlCoverage ?? 0}%` },
+    { key: 'highRisk', label: 'High-Risk Items', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
+      value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {} },
+    { key: 'gaps', label: 'No Control', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
+      value: metrics.obligationsWithGaps ?? 0 },
+  ];
+
+  function onKpiDrill(key, label) {
+    if (key === 'highRisk') navigate(`/obligations?risk=${encodeURIComponent(label)}`);
+    else if (key === 'gaps') navigate('/obligations?hasGap=true');
+    else if (key === 'coverage') navigate('/controls');
+  }
 
   if (loading) {
     return (
@@ -105,13 +135,20 @@ export default function CcoDashboardPage() {
               variant="outlined"
               startIcon={<ArrowPathIcon size={16} />}
               disabled={refreshing}
-              onClick={() => queries.forEach(q => q.refetch())}
+              onClick={() => [...queries, metricsQuery].forEach(q => q.refetch())}
             >
               Refresh
             </Button>
             <Button variant="contained" startIcon={<ScaleIcon size={16} />} onClick={() => navigate('/obligations')}>
               Obligations Register
             </Button>
+            {canGenerate && (
+              <Tooltip title="Generate a board-ready PDF report">
+                <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => navigate('/reports')}>
+                  Generate Board Pack
+                </Button>
+              </Tooltip>
+            )}
           </>
         )}
       />
@@ -119,8 +156,14 @@ export default function CcoDashboardPage() {
       {/* Compliance universe — first thing users see */}
       <ComplianceUniverseSection stats={universeQuery.data} />
 
+      {/* KPI row — every card has a breakdown dropdown */}
+      <KpiCards items={kpis} columns={4} onDrill={onKpiDrill} />
+
       {/* Needs attention — stat cards */}
       <AttentionSection items={attention} />
+
+      {/* Compliance runbooks — hidden when the runbooks API is unavailable */}
+      <RunbooksWidget />
 
       {/* Returns · Controls · Sanctions */}
       <Box sx={row('repeat(3, 1fr)')}>

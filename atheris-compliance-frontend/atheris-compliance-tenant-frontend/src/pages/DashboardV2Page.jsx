@@ -32,10 +32,8 @@ function BreakdownTable({ title, label, rows, nameKey }) {
               <TableRow>
                 <TableCell>{label}</TableCell>
                 <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Critical</TableCell>
-                <TableCell align="right">High</TableCell>
+                <TableCell align="right">High Risk</TableCell>
                 <TableCell align="right">Moderate</TableCell>
-                <TableCell align="right">Low</TableCell>
                 <TableCell align="right">Gaps</TableCell>
               </TableRow>
             </TableHead>
@@ -48,10 +46,8 @@ function BreakdownTable({ title, label, rows, nameKey }) {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">{row.total ?? 0}</TableCell>
-                  <TableCell align="right">{row.extreme ?? 0}</TableCell>
-                  <TableCell align="right">{row.high ?? 0}</TableCell>
+                  <TableCell align="right">{(row.extreme ?? 0) + (row.high ?? 0)}</TableCell>
                   <TableCell align="right">{row.medium ?? 0}</TableCell>
-                  <TableCell align="right">{row.low ?? 0}</TableCell>
                   <TableCell align="right">
                     <StatusBadge label={row.gaps ?? 0} tone={row.gaps > 0 ? 'red' : 'gray'} />
                   </TableCell>

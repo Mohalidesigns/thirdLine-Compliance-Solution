@@ -146,6 +146,7 @@ Config: `opencode.json`
 - **Backend:** `GET /api/v1/subscriptions/instruments/universe-stats` → `UniverseStatsResponse` (`total`, `byRiskRating`, `byRegulator`, `byNature`, `byAreaOfFocus`, `byStatus`, `regulatorsByRisk`; count-ordered) and `GET /subscriptions/instruments/universe` → `Page<UniverseInstrumentItem>` (filters `q`/`regulator`/`areaOfFocus`/`riskRating`/`nature`/`status`, whitelisted sorts, in-memory because rows come from the platform API). Universe = platform instruments of the tenant's active regulators confirmed into the register (`InstrumentsService.confirmedUniverse`).
 - **Bug fixed:** `InstrumentsService.search` read only the first 200 platform results (register showed 50 of 112); it now shares `confirmedUniverse`, which pages the whole platform search.
 - **Verify (done, live):** 112/54/37/1 = `count(distinct instrument_id)`; area chip 112→23; area+High 22; +CBN drill 19; regulator row 7; Clear → 112; drawer + `/instruments?id=` open; dashboard area/drill links land filtered (19, 14); no console errors. **Gotcha:** restarting the tenant backend signs tenant users out.
+- **Carried onto `feature/tenant-compliance-universe`** (on top of the heatmap/runbook branches) by a 3-way apply of the uncommitted draft; on the dashboard the Universe section sits above the restored KPI row. Re-verified live: 112/54/37/1, AML/CFT/CPF → 23, drawer opens.
 
 ### Thirdline UI adoption (both frontends) — `feature/thirdline-ui-adoption`
 - **One design system for both apps, modelled on Thirdline Internal Audit** (thirdline.atherislimited.com). Tokens lifted from Thirdline's CSS vars: navy `#1A365D`, gold accent `#D4AF37`, bg `#F7FAFC`, Figtree font, Tailwind gray scale, `.badge-*` tones.
@@ -232,6 +233,42 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
 
+## Done — Compliance Runbooks (core slice of `Atheris_Compliance_Runbook_v1_0.md`)
+
+Executable, evidence-producing procedures linked to obligations/controls/framework clauses. Branch `feature/compliance-runbooks` (built on `bugfix/restore-28ca694-regressions`). API contract: DTO/endpoint names in the runbook spec §9 plus the shapes below.
+
+### Tenant backend (`modules/runbooks/`)
+- **Migrations V38–V41** (spec said V10–V14; tenant was already at V37): frameworks/clauses, runbooks + immutable versions tree (sections → steps → evidence reqs, prerequisites, escalation paths, rollback steps, clause maps, approvals), executions (step executions, evidence items, escalations, sign-offs; `runbook_execution_ref_seq`; unique `(schedule_id, scheduled_for)`), schedules + review schedules/events. Extra columns vs spec: `runbooks.source_template_code/status_reason/review_cadence`, `runbook_versions.submitted_at`, rollback `reverses_step_code`, step-exec `rollback_id/failure_category`, execution `outcome/status_before_pause/preflight_*/schedule_id/scheduled_for/pack_generated_at`. Hashes are `VARCHAR(64)` (Hibernate `validate`).
+- **Framework library** seeded idempotently at startup by `RunbookFrameworkSeeder` from `resources/runbooks/runbook_frameworks.json` (34 frameworks / 243 clauses: CBN RBCSF DMB+OFI, NDPA, ISO 27001:2022, PCI 4.0.1, NIST CSF/800-53, CIS v8, GDPR…; clause SLAs e.g. NDPA s.40 = 4320 min, CBN incident = 1440). Insert-only. Tenants may add internal-policy frameworks/clauses via the API.
+- **Services:** `RunbookService` (CRUD, Criteria filters, versions DRAFT→IN_REVIEW→PUBLISHED, previous → SUPERSEDED, SHA-256 canonical content hash at publish, diff, approvals — approver ≠ author, HIGH/CRITICAL must be approved, JSON export/import in the portable `atheris-runbook/1` format); `RunbookTreeService` (batch load/replace/copy of a version tree, portable format, diff); `RunbookLintService` (L1–L10; ERROR rules L3/L5/L6/L7/L9 block submit/publish; L9 secrets also rejected on save as 400 `secret_in_command`); `RunbookExecutionService` (state machine §8.2: only PUBLISHED executes, pre-flight acks, blocking-step order, PASS blocked until mandatory evidence, dual control = second user + password re-auth (400 `verification_failed`, never 401), FAIL → finding/escalation/pause/rollback, blocking failure → ESCALATED, rollback steps become tracked step rows, PENDING_SIGNOFF when all terminal, CCO acceptance closes → `control_test_results` row per linked control; evidence stored via `FileStorageService` + `evidence_files` (`RUNBOOK_STEP`), SHA-256 server-side, extension allow-list, 25 MB, no update/delete endpoints); `RunbookEvidencePackService` (ZIP: evidence files + `manifest.json` + `manifest.sha256` + openhtmltopdf report; re-verifies every file hash; `pack_hash` = SHA-256 of the ZIP); `RunbookScheduleService` (frequency from anchor, weekend/public-holiday shift to the previous business day, review cadence); `RunbookJobs` (`@Scheduled` SLA monitor every 60 s: 50 % in-app, 80 % SLA_80 levels, 100 % SLA_BREACH + audit; hourly schedule runner creates NOT_STARTED executions `leadDays` ahead, idempotent; opens due periodic reviews); `RunbookTemplateService` (pulls templates from intel, adopt with provenance, `POST /runbooks/{id}/template-revision`).
+- Every state change writes an audit event (`runbook_*`, `execution_*`, `step_*`, `evidence_captured`, `escalation_sent`, `rollback_triggered`, `signoff`, `pack_generated`).
+- **New role `IT_OPS`** (`AppRole`): execute + capture evidence only. Invite and role change now validate against `AppRole.ALL`; onboarding normalisation and the Settings role picker know it. There is no LDAP group→role mapping in the codebase (roles live on user rows).
+- `GET /runbooks/assignees` — active users for owner/operator pickers (GET `/users` is admin-only).
+
+### Intel (`modules/runbooktemplates/`, V17)
+`runbook_templates` (content JSONB, content hash, `step_count`/`section_count`), seeded by `RunbookTemplateStartupSeeder` (`@Order(2)`) from `resources/runbooks/runbook_templates.json` — 12 templates: RB-ACC/VUL/INC/CFG-001 in full, 8 outlines; a changed content hash bumps `template_version`. `GET /api/v1/internal/runbook-templates[/{code}]` (X-Api-Key) and `GET /api/v1/admin/runbook-templates[/stats|/{code}]` (PLATFORM_ADMIN). Read-only explorer + detail pages under COMPLIANCE → "Runbook Templates". **Note:** intel now has TanStack Query (provider in `main.jsx`); the explorer uses it like `RegulationExplorerPage`.
+
+### Tenant frontend (`src/pages/runbooks/`, `src/components/runbooks/`)
+Sidebar "Runbooks" (between Controls and Findings) + `RunbooksNav` tabs. Pages: Library (P1), Builder 5-step wizard with 2 s autosave + live lint (P2), Detail with 8 tabs (P3), Executions (P4), Execution Console 3-pane with SLA timer/milestones, evidence capture, dual-control verify, rollback (P5), Summary with sign-off + evidence pack (P6), Approvals with diff (P9), Coverage Matrix (P10), Template Library + Adopt (P11); `RunbooksWidget` on `CcoDashboardPage`. `api.runbooks.*` in `services/api.js`; `request()` errors now carry `err.status` / `err.code`.
+
+### Verified (live, browser pane :5184 against backends from this branch, 2026-10-16)
+Startup: tenant V38–V41 + `RunbookFrameworkSeeder` (34 frameworks / 243 clauses), intel V17 + 12 templates seeded. Template Library lists all 12 from intel; adopt RB-ACC-001 (HIGH) → DRAFT v1 with provenance, lint clean, submit → Approvals shows it with "You (cannot approve)" (single-user tenant, so approval + dual control were not exercised end to end). Adopt RB-LOG-001 (MEDIUM, linked control) → publish v1; weekly schedule from Sat 17 Oct shifted to Fri 16 Oct; hourly runner created scheduled RBX-2026-000003 and advanced to 23 Oct. Manual run RBX-2026-000001: pre-flight, PASS blocked server-side (409 `evidence_required`), out-of-order start blocked (409 `blocked_by_previous_step`), evidence hashed, 7/7 passed → PENDING_SIGNOFF → operator + CCO sign-off → COMPLETED_PASS → control test result "Passed" recorded on the linked control; evidence pack ZIP (7 files + manifest + PDF) re-hashed in the browser = `pack_hash`. Run RBX-2026-000002: blocking step failed with "raise finding" → ESCALATED, finding #1 (Medium) raised, L1 escalation sent; aborted. Coverage 6 covered / 9 partial / 228 uncovered; dashboard widget live. Intel explorer (12 templates, KPIs) and RB-INC-001 detail (8 sections / 27 steps / 5 escalation levels / 2 rollback steps) checked live on :5183.
+
+### Not in this slice (follow-ups)
+Calendar (P7), Review Queue UI + instrument-change review triggers (P8; review events are created but not yet actionable), Analytics (P12), Settings → Runbooks tab (P14), MD/PDF runbook export, public attestation page, returns hook for RB-RET-*, coverage "control only" (amber = mapped to unpublished runbooks instead), dual-control re-auth for LDAP users, the spec's unit/integration/E2E tests.
+
+## Done — Risk Heatmap Drill-down
+
+Tenant Dashboard → Risk Profile → Risk Heatmap is clickable: a populated cell, a band in the legend (now shows per-band counts, e.g. "Critical 1373"), or a row in the table view opens `/obligations?cells=<impact|likelihood;…>&riskView=inherent|residual&drill=<label>`. The register shows a removable "Risk heatmap (…)" chip.
+- **Backend:** `GET /obligations/register` gained `cells` + `riskView`; `ObligationRegisterItem` gained `impactRating`/`likelihoodRating` (from the classification). The filter uses the heatmap's own population and axes (applicable only; impact = classification impact, or residual rating in residual view) so the register total equals the clicked count. Bands are sent as their populated cells, so band membership is never recomputed on the server.
+- Verified live: Critical band 1373 → register 1373; Very High × Medium 3 → 3 rows; clearing the chip → 1535.
+- **Data oddity (pre-existing):** the likelihood axis shows Medium/High/Low columns after Almost Certain — some classifications store likelihood on a 3-level scale, which `resolveAxis` appends.
+
+## Done — Restored work reverted by 28ca694
+
+Commit `28ca694` was made from a stale working copy and overwrote 30 frontend files with old versions (tenant Acts/Reports/public `/remediate/:token` routes, LDAP onboarding, Settings holidays/manager, event-triggered returns, sanctions parity, CCO metrics, control test review; intel Act-detail tabs + drawers, `ObligationExplorerDetailPage` → `ObligationDetailView`, explorers, Document Pipeline, nav groups, api abort signals, RegulationExplorer `regulatorId`). Restored by per-file 3-way merge (base = the stale version copied), then the Thirdline restyle (`49e31cb`) merged on top. Intel nav keeps COMPLIANCE / OPERATIONS / TENANTS. Tenant sidebar: Acts under registers, Reports under assurance.
+- **Lesson:** before committing a large multi-file change, diff against the branch tip (`git diff HEAD --stat`) — a file whose diff deletes recently merged features is a stale copy.
+
 ## Done — Return Due Dates (no more overdue-on-day-one)
 
 Seeded returns had no due date (the platform has none: intel `deadline` is a copy of `frequency`, `remarks` is empty, and intel `filing_date` is an artifact stamped onto Sep 2026), so they fell back to "due the 1st of this month" → 92 periods overdue on day one.
@@ -295,76 +332,15 @@ Tenant Obligations Register → Import: template `.xlsx` → preview (valid/inva
 
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
 
-Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Commit `0ad5e72`.
-
-### Backend (`ReviewDetail.java` + `ReviewService.java`)
-- `ReviewDetail` DTO gains `dateCommencement`, `nature` (from `PlatformInstrumentDetail`)
-- `ReviewObligationDto` gains `linkedReturnIds`, `linkedReturnNames` — populated from `obligationRepo.findLinkedReturnIds()` for re-reviews (saved obligations exist)
-
-### Frontend (`ReviewEditPage.jsx` — 763 lines)
-- **Removed**: AI Summary card, OCR/Extracted Text collapsible section, `ocrOpen` state
-- **Obligations table (5 cols)**: `#` | `Obligation` (title conditional + verbatim inline) | `Interpreted` (inline) | `Risk` (editable dropdown) | `Actions` (apply + delete)
-- **Title**: conditional — shows bold text when present, hidden when empty; clicks into TextField for editing
-- **Risk**: editable `TextField select` in table row (Critical/High/Moderate/Low) — analyst overrides AI assessment directly
-- **Expanded section**: Area of Focus / Obligation Type / Deadline dropdowns, AI Risk Assessment (likelihood/impact/risk + description + control owner + act name), Classification tenant overrides (applicability, risk, impact, likelihood, owner, gap), Linked Regulatory Returns (Autocomplete multi-select via `api.returns.list()`)
-- **Header**: `dateCommencement` + `nature` in metadata grid; re-review chip when `status !== 'pending'`
+`ReviewEditPage.jsx` rewritten (`0ad5e72`): 5-col obligations table with inline title/verbatim/interpreted/risk editing, expandable classification overrides + linked returns; `ReviewDetail` gains `dateCommencement`/`nature`, `ReviewObligationDto` gains linked return ids/names.
 
 ## Done — Instruments Page Overhaul (KPIs, risk filter, enriched detail)
 
-Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-page` skill pattern. Commit `71d9097`.
-
-### List View
-- 4 KPI stats cards (Total, Critical, High, Published) — client-side computed from list, clickable → set risk filter
-- Filters: search + risk dropdown + regulator dropdown + clear button
-- Table (5 cols): Title | Regulator (chip) | Risk (colored chip) | Obligations (count) | Actions (View)
-- Sortable by Title and Risk via `TableSortLabel`
-
-### Detail View
-- Header: regulator, document type chip, risk chip, source title, metadata grid (regulator, type, issued, commencement, nature)
-- AI Summary kept (blue border-left)
-- Obligations table (5 cols): # | Obligation (title+description) | Risk (chip) | Act | Owner — all correct DTO field names
-- Sanctions table (5 cols): Type (chip) | Penalty (naira formatted) | Section | Liable Roles (chips) | Risk (severity score)
-- OCR/Extracted Text section removed
-
-### Field Name Fixes
-- `obl.section` → `obl.sectionReference`
-- `obl.type` → `obl.obligationType`
-- `s.type` → `s.sanctionType`
+`InstrumentsPage.jsx` rewritten (`71d9097`): KPI cards, search/risk/regulator filters, 5-col sortable table; detail with obligations + sanctions tables. Field fixes: `sectionReference`, `obligationType`, `sanctionType`.
 
 ## Done — Intel Obligation Explorer Detail Page (Replicated from Tenant)
 
-Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `ObligationDetailPage.jsx` layout, sections, styling, drawer, and modals. Commit `db252c8`.
-
-### Backend (`ObligationExplorerDetail` DTO + service + controller)
-- `ObligationExplorerDetail.java` extended with: `hasGap`, `gapDescription`, `applicability`, `applicabilityReasoning`, `classifiedByName`, `classifiedAt`, `assignedOwnerName`, `assignedDepartment`, `linkedControls`, `evidence`, `history`
-- Inner classes added: `ControlInfo`, `EvidenceInfo`, `HistoryEntry`
-- `ComplianceControlRepository.java` — new repository with `findByObligationId()`
-- `ObligationExplorerService.java` — `resolveControls()` populates `linkedControls` via `ComplianceControlRepository`; derives `hasGap`/`gapDescription`/`applicability` from entity fields
-- `AdminObligationExplorerController.java` — added `GET /{id}/controls` and `GET /{id}/pdf` endpoints
-
-### Frontend (`ObligationExplorerDetailPage.jsx` + `api.js` + modals)
-- **Complete rewrite** to match tenant layout:
-  - Header with back + PDF button (right-aligned)
-  - Chips row (risk, regulator, area, deadline, status, hasPoints)
-  - Metadata grid (160px 1fr, gap 4px 16px)
-  - Source Text (verbatim) + Plain English (interpreted) via `FormattedText`
-  - **Linked Controls** — preview list (max 5) + "Link controls" button + "View all" drawer
-  - **Returns** — chip preview + "View all"/"Map return" buttons
-  - **Sanctions** — compact preview with Gavel icon + red color
-  - **Control Gap** — alert + edit button
-  - **Evidence** — upload button + "View all"
-  - **Version History** — "View history" button
-  - **Right drawer** (480px, anchor right) with all sections + search
-  - **Snackbar** notifications, `useQueryClient` cache invalidation
-- **New helpers/components**: `ChipList`, `SectionHeader`, `formatNaira`, `formatDate`, `RISK_CONFIG`, `STATUS_COLOR`, `actionEdit`
-- **`api.js`**: Added `platform.obligations.{controls,evidence,history,pdf}`, `platform.{controls,evidence,returns}.{list,detail}`, `platform.obligations.get` with signal support
-- **6 modal stubs** created in `src/components/modals/`: `RiskAssessmentModal`, `OwnerModal`, `LinkControlsModal`, `MapReturnModal`, `GapModal`, `EvidenceUploadModal`
-- All styling matched: `Paper variant="outlined" p={3} mb={2}`, chip height 22, button `width:180 height:40 textTransform:none fontWeight:600 fontSize:14`, `Paper variant="outlined" p={2} mb={1.5}` for drawer items
-
-### Verification
-- `mvn clean compile` ✅ (intel backend)
-- `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
-- `git push` ✅
+Intel `ObligationExplorerDetailPage.jsx` mirrors the tenant detail page (`db252c8`); `ObligationExplorerDetail` DTO extended (gap, applicability, controls, evidence, history), `GET /admin/obligation-explorer/{id}/controls|pdf`, 6 modal stubs.
 
 ## Done — PDF Routes Return 404 Instead of 500
 
@@ -373,7 +349,7 @@ Null `Instrument.pdfUrl` (toolkit instruments) now yields 404 `DOCUMENT_UNAVAILA
 ## Done — Dashboards Harmonized (risk / area / act)
 
 Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, all-zero heatmap, total/submitted unit mismatch, ignored thresholds, per-row query in escalation-matrix). `/dashboard/v2/thresholds` no longer takes `tenantId` as a request param (cross-tenant read/write) — resolved via `TenantIdentityService`. Added `control-coverage?by=act` and `RiskProfileDto.byAct`. Tenant `CcoDashboardPage` gained risk profile / area / act sections (TanStack Query, 30s poll); intel `DashboardPage` gained a `RegulatoryCoverage` section.
-- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops (adding them is an open follow-up).
+- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops; heatmap drill-downs use `cells`/`riskView` instead.
 
 ## Done — `atheris-register-page` Skill
 

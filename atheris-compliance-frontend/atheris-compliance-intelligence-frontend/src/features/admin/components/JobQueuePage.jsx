@@ -1,424 +1,351 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Typography, Paper, Chip, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  IconButton, Tooltip, CircularProgress, Alert, Button,
-  Tabs, Tab,
+  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, TablePagination, TableSortLabel, TextField, Chip, Button,
+  CircularProgress, Alert,
 } from '@mui/material';
 import {
-  PageHeader, FilterBar, TL, tone,
-  ArrowPathIcon, CloudArrowUpIcon, ArrowUpTrayIcon, CheckCircleIcon, ExclamationCircleIcon, ClockIcon,
-  XMarkIcon, UserGroupIcon, QueueListIcon, CpuChipIcon, EyeIcon, ChevronRightIcon,
+  PageHeader, KpiCards, FilterBar, FilterField, StatusBadge, TL,
+  ArrowPathIcon, CloudArrowUpIcon, CheckCircleIcon, ExclamationCircleIcon, ClockIcon, DocumentTextIcon,
 } from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 import UploadDialog from './UploadDialog';
 
-const TABS = [
-  { key: 'all', label: 'All', icon: <QueueListIcon size={16} /> },
-  { key: 'system', label: 'System Errors', icon: <ExclamationCircleIcon size={16} /> },
-  { key: 'ai', label: 'Awaiting AI', icon: <CpuChipIcon size={16} /> },
-  { key: 'tenant', label: 'Awaiting Tenant', icon: <UserGroupIcon size={16} /> },
+/* One row = one DOCUMENT. Stage is derived from the instrument status; failed
+   downloads (no instrument yet) are their own row. */
+const STAGES = [
+  { key: 'failed', label: 'Download Failed', tone: 'red' },
+  { key: 'extracted', label: 'Extracted', tone: 'purple' },
+  { key: 'classified', label: 'Classified', tone: 'orange' },
+  { key: 'published', label: 'Published', tone: 'green' },
 ];
+const STAGE_BY_KEY = Object.fromEntries(STAGES.map((s) => [s.key, s]));
 
-const STAGE_LABELS = [
-  { key: 'download', label: 'Download', color: tone('blue').dot },
-  { key: 'ocr', label: 'Extract Text', color: tone('purple').dot },
-  { key: 'classify', label: 'Analyze & Tag', color: tone('orange').dot },
-  { key: 'publish', label: 'Send Alerts', color: tone('green').dot },
-];
-
-const stageStatusIcon = {
-  idle: null,
-  pending: <ClockIcon size={14} />,
-  processing: <ArrowPathIcon size={14} />,
-  completed: <CheckCircleIcon size={14} />,
-  failed: <ExclamationCircleIcon size={14} />,
+const STATUS_CHIP = {
+  Published: { label: 'Published', tone: 'green' },
+  Triage: { label: 'In Progress', tone: 'orange' },
+  Superseded: { label: 'Superseded', tone: 'gray' },
+  Withdrawn: { label: 'Withdrawn', tone: 'red' },
+  failed: { label: 'Failed', tone: 'red' },
 };
 
-const stageStatusTone = {
-  idle: { bg: TL.gray50, fg: TL.gray400 },
-  pending: { bg: tone('amber').bg, fg: tone('amber').fg },
-  processing: { bg: tone('blue').bg, fg: tone('blue').fg },
-  completed: { bg: tone('green').bg, fg: tone('green').fg },
-  failed: { bg: tone('red').bg, fg: tone('red').fg },
-};
+const COLUMNS = [
+  { id: 'title', label: 'Document', minWidth: 320, sortField: 'title' },
+  { id: 'regulator', label: 'Regulator', minWidth: 160, sortField: 'regulator' },
+  { id: 'stage', label: 'Stage', minWidth: 150, sortField: 'stage' },
+  { id: 'status', label: 'Status', minWidth: 120, sortField: 'status' },
+  { id: 'updatedAt', label: 'Discovered', minWidth: 150, sortField: 'updatedAt' },
+];
 
 function formatDt(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 }
 
-function PipelineStages({ stages }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-      {STAGE_LABELS.map((st, i) => {
-        const status = stages?.[st.key] || 'idle';
-        const st2 = stageStatusTone[status] || stageStatusTone.idle;
-        const icon = stageStatusIcon[status];
-        return (
-          <Box key={st.key} sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title={`${st.label}: ${status}`}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25, borderRadius: 9999, bgcolor: st2.bg, color: st2.fg }}>
-                {icon && <Box sx={{ display: 'flex' }}>{icon}</Box>}
-                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: 'inherit', whiteSpace: 'nowrap' }}>
-                  {st.label}
-                </Typography>
-              </Box>
-            </Tooltip>
-            {i < STAGE_LABELS.length - 1 && (
-              <ChevronRightIcon size={12} sx={{ color: TL.gray300, mx: 0.25 }} />
-            )}
-          </Box>
-        );
-      })}
-    </Box>
-  );
+/* Instrument status -> pipeline stage. */
+function stageOfStatus(status) {
+  if (status === 'Published') return 'published';
+  if (status === 'Triage') return 'extracted';
+  return 'classified';
 }
 
-function getJobStages(job) {
-  const status = job.status;
-  switch (job.jobType) {
-    case 'ocr_document':
-      return { download: 'completed', ocr: status, classify: 'idle', publish: 'idle' };
-    case 'classify_instrument':
-      return { download: 'completed', ocr: 'completed', classify: status, publish: 'idle' };
-    case 'evaluate_applicability':
-      return { download: 'completed', ocr: 'completed', classify: 'completed', publish: status };
-    default:
-      return { download: 'idle', ocr: 'idle', classify: 'idle', publish: 'idle' };
-  }
+function stageChip(stage) {
+  const s = STAGE_BY_KEY[stage] || { label: stage, tone: 'gray' };
+  return <StatusBadge label={s.label} tone={s.tone} />;
 }
+
+function statusChip(status) {
+  const s = STATUS_CHIP[status] || { label: status || '—', tone: 'gray' };
+  return <StatusBadge label={s.label} tone={s.tone} />;
+}
+
+/* KPI card key -> stage it filters to. */
+const KPI_STAGE = { total: 'All', failed: 'failed', inProgress: 'extracted', completed: 'published' };
 
 export default function JobQueuePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab') || 'all';
-  const [tab, setTab] = useState(['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all');
+
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [q, setQ] = useState(searchParams.get('q') || '');
+  const [stage, setStage] = useState(searchParams.get('stage') || 'All');
+  const [regulator, setRegulator] = useState(searchParams.get('regulator') || 'All');
+  const [reference, setReference] = useState(searchParams.get('reference') || '');
+  const [page, setPage] = useState(Number(searchParams.get('page') || 0));
+  const [rowsPerPage, setRowsPerPage] = useState(Number(searchParams.get('size') || 20));
+  const [sortField, setSortField] = useState(searchParams.get('sortField') || 'updatedAt');
+  const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'desc');
 
   const [rows, setRows] = useState([]);
+  const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [search, setSearch] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  useEffect(() => {
-    const t = ['all', 'system', 'ai', 'tenant'].includes(tabParam) ? tabParam : 'all';
-    setTab(t);
-  }, [tabParam]);
+  const alive = useRef(true);
+  const reqId = useRef(0);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
-  function fetchAll() {
+  useEffect(() => {
+    const t = setTimeout(() => setQ(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const p = {};
+    if (q) p.q = q;
+    if (stage !== 'All') p.stage = stage;
+    if (regulator !== 'All') p.regulator = regulator;
+    if (reference) p.reference = reference;
+    if (page) p.page = String(page);
+    if (rowsPerPage !== 20) p.size = String(rowsPerPage);
+    if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
+    setSearchParams(p, { replace: true });
+  }, [q, stage, regulator, reference, page, rowsPerPage, sortField, sortDir, setSearchParams]);
+
+  const load = useCallback(async () => {
+    const id = ++reqId.current;
     setLoading(true);
     setError(null);
-
-    const calls = [api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' })];
-
-    if (tab === 'tenant') {
-      calls.push(api.platform.instruments.list('status=published&size=50'));
-    } else {
-      const params = new URLSearchParams({ page, size: rowsPerPage });
-      if (search) params.set('search', search);
-      if (tab === 'system') {
-        params.set('status', 'failed');
-      } else if (tab === 'ai') {
-        params.set('status', 'pending,processing');
-        params.set('jobType', 'classify_instrument');
-      }
-      calls.push(api.platform.jobs.list(params.toString()));
-      if (tab === 'system') {
-        calls.push(api.platform.pendingDownloads.list('pending'));
-      } else {
-        calls.push(Promise.resolve([]));
-      }
-    }
-
-    Promise.all(calls)
-      .then(([regsData, ...rest]) => {
-        const regMap = {};
-        for (const r of (regsData.content || regsData || [])) {
-          regMap[r.regulatorId || r.id] = r.name || r.abbreviation || `Regulator #${r.id}`;
-        }
-        const items = [];
-
-        if (tab === 'tenant') {
-          const instrData = rest[0];
-          for (const inst of (instrData.content || instrData || [])) {
-            items.push({
-              id: `inst-${inst.instrumentId}`,
-              instrumentId: inst.instrumentId,
-              title: inst.sourceTitle || 'Untitled',
-              regulator: regMap[inst.regulatorId] || '—',
-              stages: { download: 'completed', ocr: 'completed', classify: 'completed', publish: 'completed' },
-              status: 'published',
-              updatedAt: inst.firstPublishedAt || inst.discoveredAt,
-              _source: 'instrument',
-              _data: inst,
-            });
-          }
-        } else {
-          const jobsData = rest[0];
-          const pendings = rest[1] || [];
-
-          for (const job of (jobsData.content || [])) {
-            const p = job.payload || {};
-            const rid = p.regulator_id;
-            const jobTitle = [p.title, p.instrument_title, p.source_url].find(v => v && v.trim());
-            const fallback = job.lastError
-              ? `${job.jobType?.replace(/_/g, ' ')?.replace(/\b\w/g, c => c.toUpperCase())}: ${job.lastError.substring(0, 60)}`
-              : `Job #${job.jobId}`;
-            items.push({
-              id: job.jobId,
-              instrumentId: job.subjectId,
-              title: jobTitle || fallback,
-              regulator: regMap[rid] || '—',
-              stages: getJobStages(job),
-              status: job.status,
-              updatedAt: job.updatedAt || job.createdAt,
-              _source: 'job',
-              _data: job,
-            });
-          }
-
-          for (const pd of (pendings || [])) {
-            items.push({
-              id: `pd-${pd.id}`,
-              title: pd.title || 'Untitled Document',
-              sourceUrl: pd.sourceUrl || '',
-              regulator: pd.regulatorName || regMap[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
-              stages: { download: 'failed', ocr: 'idle', classify: 'idle', publish: 'idle' },
-              status: 'download_failed',
-              updatedAt: pd.createdAt,
-              _source: 'pending',
-              _data: pd,
-            });
-          }
-        }
-
-        if (search) {
-          const q = search.toLowerCase();
-          setRows(items.filter(i => i.title.toLowerCase().includes(q) || i.regulator.toLowerCase().includes(q)));
-        } else {
-          setRows(items);
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { fetchAll(); }, [tab, page, rowsPerPage, search]);
-
-  const handleTabChange = (_, newTab) => {
-    setTab(newTab);
-    setPage(0);
-    setSearchParams(newTab === 'all' ? {} : { tab: newTab });
-  };
-
-  const handleRowClick = (item) => {
-    if (item._source === 'instrument') {
-      navigate(`/admin/instruments/${item.instrumentId}/tenants`);
-    } else if (item._source === 'job') {
-      navigate(`${ROUTES.ADMIN_PIPELINE}/${item._data.jobId}`);
-    }
-  };
-
-  async function handlePendUpload(id) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,application/pdf';
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (!file) return;
-      try {
-        await api.platform.pendingDownloads.upload(id, file);
-        fetchAll();
-      } catch (err) {
-        alert('Upload failed: ' + err.message);
-      }
-    };
-    input.click();
-  }
-
-  async function handlePendSkip(id) {
     try {
-      await api.platform.pendingDownloads.skip(id);
-      fetchAll();
+      const [regsData, pendingData, pubData, triData] = await Promise.all([
+        api.platform.regulators.list({ sortBy: 'name', sortDir: 'asc' }),
+        api.platform.pendingDownloads.list('pending'),
+        api.platform.instruments.list('status=Published&size=1000'),
+        api.platform.instruments.list('status=Triage&size=1000'),
+      ]);
+      if (!alive.current || id !== reqId.current) return;
+      const regs = Array.isArray(regsData) ? regsData : (regsData.content || []);
+      setRegulators(regs);
+      const regName = {};
+      for (const r of regs) regName[r.regulatorId] = r.abbreviation || r.name || `Regulator #${r.regulatorId}`;
+
+      const items = [];
+      for (const inst of [...(pubData.content || []), ...(triData.content || [])]) {
+        if (inst.uploadSource === 'toolkit_seed') continue;
+        items.push({
+          id: `inst-${inst.instrumentId}`,
+          instrumentId: inst.instrumentId,
+          source: 'instrument',
+          title: inst.sourceTitle || 'Untitled document',
+          reference: inst.sourceReferenceNumber || '',
+          regulatorId: inst.regulatorId,
+          regulator: regName[inst.regulatorId] || (inst.regulatorId != null ? `Regulator #${inst.regulatorId}` : '—'),
+          stage: stageOfStatus(inst.status),
+          status: inst.status,
+          updatedAt: inst.discoveredAt,
+        });
+      }
+      for (const pd of (pendingData || [])) {
+        items.push({
+          id: `pd-${pd.id}`,
+          pendingId: pd.id,
+          source: 'pending',
+          title: pd.title || 'Untitled document',
+          reference: '',
+          regulatorId: pd.regulatorId,
+          regulator: regName[pd.regulatorId] || `Regulator #${pd.regulatorId}`,
+          stage: 'failed',
+          status: 'failed',
+          sourceUrl: pd.sourceUrl,
+          errorMessage: pd.errorMessage,
+          updatedAt: pd.discoveredAt || pd.createdAt,
+        });
+      }
+      setRows(items);
     } catch (err) {
-      alert('Skip failed: ' + err.message);
+      if (alive.current && id === reqId.current) setError(err.message);
+    } finally {
+      if (alive.current && id === reqId.current) setLoading(false);
     }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    let out = rows;
+    if (regulator !== 'All') out = out.filter((r) => r.regulator === regulator);
+    if (stage !== 'All') out = out.filter((r) => r.stage === stage);
+    if (reference) {
+      const ref = reference.toLowerCase();
+      out = out.filter((r) => (r.reference || '').toLowerCase().includes(ref));
+    }
+    if (q) {
+      const needle = q.toLowerCase();
+      out = out.filter((r) =>
+        (r.title || '').toLowerCase().includes(needle) ||
+        (r.reference || '').toLowerCase().includes(needle) ||
+        (r.regulator || '').toLowerCase().includes(needle));
+    }
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...out].sort((a, b) => {
+      let av = a[sortField], bv = b[sortField];
+      if (sortField === 'updatedAt') { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
+      else { av = (av ?? '').toString().toLowerCase(); bv = (bv ?? '').toString().toLowerCase(); }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }, [rows, regulator, stage, reference, q, sortField, sortDir]);
+
+  const kpis = useMemo(() => {
+    const byReg = (pred) => {
+      const m = {};
+      for (const r of rows) if (pred(r)) m[r.regulator] = (m[r.regulator] || 0) + 1;
+      return m;
+    };
+    return {
+      total: { value: rows.length, breakdown: byReg(() => true) },
+      failed: { value: rows.filter((r) => r.stage === 'failed').length, breakdown: byReg((r) => r.stage === 'failed') },
+      inProgress: { value: rows.filter((r) => r.stage === 'extracted' || r.stage === 'classified').length,
+        breakdown: byReg((r) => r.stage === 'extracted' || r.stage === 'classified') },
+      completed: { value: rows.filter((r) => r.stage === 'published').length, breakdown: byReg((r) => r.stage === 'published') },
+    };
+  }, [rows]);
+
+  const externalRegulators = useMemo(
+    () => regulators.map((r) => r.abbreviation || r.name).sort(), [regulators]);
+
+  const hasFilters = !!searchInput || stage !== 'All' || regulator !== 'All' || !!reference;
+
+  function clearFilters() {
+    setSearchInput(''); setQ(''); setStage('All'); setRegulator('All'); setReference(''); setPage(0);
   }
 
-  const filtered = rows;
+  function handleSort(field) {
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
+    setPage(0);
+  }
+
   const paged = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
-  const stageDescriptions = {
-    download: 'Fetch PDF from regulator source',
-    ocr: 'Read PDF content into searchable text',
-    classify: 'AI identifies obligations, risks & topics',
-    publish: 'Match to tenants and send notifications',
-  };
+  const kpiItems = [
+    { key: 'total', label: 'Total Documents', value: kpis.total.value, tone: 'blue',
+      icon: <DocumentTextIcon />, breakdown: kpis.total.breakdown },
+    { key: 'failed', label: 'Failed Downloads', value: kpis.failed.value, tone: 'red',
+      icon: <ExclamationCircleIcon />, breakdown: kpis.failed.breakdown },
+    { key: 'inProgress', label: 'In Progress', value: kpis.inProgress.value, tone: 'orange',
+      icon: <ClockIcon />, breakdown: kpis.inProgress.breakdown },
+    { key: 'completed', label: 'Completed', value: kpis.completed.value, tone: 'green',
+      icon: <CheckCircleIcon />, breakdown: kpis.completed.breakdown },
+  ];
 
   return (
     <Box>
       <PageHeader
         title="Document Pipeline"
-        subtitle="Track documents through every stage of the pipeline."
+        subtitle={`${filtered.length} document${filtered.length !== 1 ? 's' : ''} — tracked through every pipeline stage`}
         actions={(
           <>
-            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={fetchAll}>Refresh</Button>
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={load}>Refresh</Button>
             <Button variant="contained" startIcon={<CloudArrowUpIcon size={16} />} onClick={() => setUploadOpen(true)}>
               Upload Document
             </Button>
           </>
         )}
-        sx={{ pb: 0 }}
-      >
-        <Tabs value={tab} onChange={handleTabChange} sx={{ mb: '-1px' }}>
-          {TABS.map(t => (
-            <Tab key={t.key} value={t.key} icon={t.icon} iconPosition="start" label={t.label} />
-          ))}
-        </Tabs>
-      </PageHeader>
-
-      {tab === 'all' && (
-        <Paper sx={{ mb: 3, p: 3 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 3 }}>
-            {STAGE_LABELS.map((st, i) => (
-              <Box key={st.key} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                <Box sx={{
-                  width: 32, height: 32, borderRadius: '8px', bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  fontSize: '0.8125rem', fontWeight: 700, color: st.color,
-                }}>
-                  {i + 1}
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600, fontSize: '0.875rem', color: TL.gray800 }}>
-                    {st.label}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
-                    {stageDescriptions[st.key]}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
-
-      <FilterBar
-        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search by document title or regulator...' }}
-        showClear={!!search}
-        onClear={() => { setSearch(''); setPage(0); }}
       />
 
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <KpiCards
+        items={kpiItems}
+        columns={4}
+        onSelect={(key) => { setStage(KPI_STAGE[key] || 'All'); setPage(0); }}
+        onDrill={(key, name) => { setRegulator(name); setStage(KPI_STAGE[key] || 'All'); setPage(0); }}
+      />
 
-      {!loading && !error && (
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search document title or regulator...' }}
+        filters={[
+          { key: 'stage', label: 'Stage', value: stage, allLabel: 'All stages', minWidth: 160,
+            onChange: (v) => { setStage(v); setPage(0); },
+            options: STAGES.map((st) => ({ value: st.key, label: st.label })) },
+          { key: 'regulator', label: 'Regulator', value: regulator, allLabel: 'All regulators', minWidth: 160,
+            onChange: (v) => { setRegulator(v); setPage(0); },
+            options: externalRegulators.map((r) => ({ value: r, label: r })) },
+        ]}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      >
+        <FilterField label="Reference" minWidth={160}>
+          <TextField size="small" value={reference}
+            onChange={(e) => { setReference(e.target.value); setPage(0); }}
+            sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+      </FilterBar>
+
+      {/* Table */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
+      ) : filtered.length === 0 ? (
+        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <ClockIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
+          <Typography variant="body1">No documents found.</Typography>
+        </Paper>
+      ) : (
         <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
-            <Table>
+            <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Document</TableCell>
-                  <TableCell sx={{ width: 100 }}>Regulator</TableCell>
-                  <TableCell>Progress</TableCell>
-                  <TableCell sx={{ width: 120 }}>Updated</TableCell>
-                  <TableCell align="right" sx={{ width: 100 }}>Actions</TableCell>
+                  {COLUMNS.map((c) => {
+                    const active = sortField === c.sortField;
+                    return (
+                      <TableCell key={c.id} sx={{ minWidth: c.minWidth,
+                        cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort(c.sortField)}>
+                        <TableSortLabel active={active} direction={active ? sortDir : 'asc'}
+                          sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}>
+                          {c.label}
+                        </TableSortLabel>
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paged.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: TL.gray500 }}>
-                    {search ? 'No documents match your search' : 'No documents in this view'}
-                  </TableCell></TableRow>
-                ) : paged.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleRowClick(item)}
-                  >
+                {paged.map((row) => (
+                  <TableRow key={row.id} hover
+                    onClick={() => row.source === 'instrument'
+                      ? navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${row.instrumentId}`)
+                      : navigate(`${ROUTES.ADMIN_PIPELINE}/pending-${row.pendingId}`)}
+                    sx={{ cursor: 'pointer', '& td': { verticalAlign: 'middle' } }}>
                     <TableCell>
-                      <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main' }}>{item.title}</Typography>
-                      {item.sourceUrl && (
-                        <Typography
-                          component="a"
-                          href={item.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500, textDecoration: 'none', display: 'block', mt: 0.25, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', '&:hover': { color: TL.primary, textDecoration: 'underline' } }}
-                        >
-                          {item.sourceUrl}
+                      <Typography sx={{ fontWeight: 500, fontSize: '0.875rem', color: 'primary.main', maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.title}
+                      </Typography>
+                      {row.errorMessage && (
+                        <Typography variant="caption" color="error" sx={{ display: 'block', maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row.errorMessage}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={item.regulator} size="small" />
+                      {row.regulator && row.regulator !== '—'
+                        ? <Chip size="small" label={row.regulator} />
+                        : <Typography variant="body2" color="text.secondary">—</Typography>}
                     </TableCell>
-                    <TableCell>
-                      <PipelineStages stages={item.stages} />
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8125rem', color: TL.gray500, whiteSpace: 'nowrap' }}>
-                      {formatDt(item.updatedAt)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {item._source === 'pending' ? (
-                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                          <Tooltip title="Upload PDF">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendUpload(item._data.id); }}>
-                              <ArrowUpTrayIcon size={16} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Skip">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handlePendSkip(item._data.id); }}>
-                              <XMarkIcon size={16} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      ) : item._source === 'instrument' ? (
-                        <Tooltip title="View tenant classifications">
-                          <IconButton size="small">
-                            <UserGroupIcon size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip title="View job details">
-                          <IconButton size="small">
-                            <EyeIcon size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
+                    <TableCell>{stageChip(row.stage)}</TableCell>
+                    <TableCell>{statusChip(row.status)}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8125rem', color: TL.gray500, whiteSpace: 'nowrap' }}>{formatDt(row.updatedAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination
-            component="div"
-            count={filtered.length}
-            page={page}
+          <TablePagination component="div" count={filtered.length} page={page}
             onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 20, 50]}
-          />
+            rowsPerPageOptions={[10, 20, 50]} />
         </Paper>
       )}
 
-      <UploadDialog
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onSuccess={fetchAll}
-      />
+      <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} onSuccess={load} />
     </Box>
   );
 }

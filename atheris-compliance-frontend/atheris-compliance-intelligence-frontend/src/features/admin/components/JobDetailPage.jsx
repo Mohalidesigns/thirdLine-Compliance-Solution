@@ -2,18 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material';
 import {
-  DetailHeader, KpiCards, DataCard, RiskBadge, StateBadge, TL,
+  DetailHeader, KpiCards, DataCard, StatusBadge, RiskBadge, StateBadge, TL,
   ArrowPathIcon, CpuChipIcon, CalendarIcon, Cog6ToothIcon, ClockIcon, CheckCircleIcon,
-  ExclamationCircleIcon,
+  ExclamationCircleIcon, EyeIcon, CloudArrowUpIcon, XMarkIcon, LinkIcon,
 } from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 import { Field, FieldGrid } from './detail/detailKit';
 
 const jobTypeLabels = {
-  ocr_document: { label: 'OCR', color: '#3182CE' },
-  classify_instrument: { label: 'Classify', color: '#805AD5' },
-  evaluate_applicability: { label: 'Applicability', color: '#DD6B20' },
+  ocr_document: { label: 'Extract Text', color: '#3182CE' },
+  classify_instrument: { label: 'Analyze & Tag', color: '#805AD5' },
 };
 
 const statusConfig = {
@@ -40,14 +39,18 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const isPending = typeof id === 'string' && id.startsWith('pending-');
+  const pendingId = isPending ? id.slice('pending-'.length) : null;
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.platform.jobs.get(id)
+    const call = isPending ? api.platform.pendingDownloads.get(pendingId) : api.platform.jobs.get(id);
+    call
       .then(setDetail)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isPending, pendingId]);
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
@@ -66,9 +69,13 @@ export default function JobDetailPage() {
     return (
       <Box>
         <DetailHeader band title="Job" onBack={() => navigate(ROUTES.ADMIN_PIPELINE)} backLabel="Back to Pipeline" />
-        <Alert severity="warning">Job not found</Alert>
+        <Alert severity="warning">Not found</Alert>
       </Box>
     );
+  }
+
+  if (isPending) {
+    return <PendingDetail pd={detail} navigate={navigate} />;
   }
 
   const typeLabel = jobTypeLabels[detail.jobType]?.label || detail.jobType;
@@ -88,13 +95,10 @@ export default function JobDetailPage() {
         band
         onBack={() => navigate(ROUTES.ADMIN_PIPELINE)}
         backLabel="Back to Pipeline"
-        title={`Job #${detail.jobId}`}
+        title={detail.instrument?.sourceTitle || detail.payload?.instrument_title || detail.payload?.title || `Job #${detail.jobId}`}
         status={statusConfig[detail.status]?.label || detail.status}
         statusTone={statusConfig[detail.status]?.tone || 'gray'}
-        description={`${typeLabel} · Priority: ${detail.priority === 1 ? 'HIGH' : 'LOW'}`}
-        right={detail.status === 'failed' ? (
-          <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />}>Retry Job</Button>
-        ) : null}
+        description={`Job #${detail.jobId} · ${typeLabel} · Priority: ${detail.priority === 1 ? 'HIGH' : 'LOW'}`}
       />
 
       <KpiCards items={tiles} columns={4} />
@@ -122,12 +126,21 @@ export default function JobDetailPage() {
       )}
 
       {detail.instrument && (
-        <DataCard title="Related Instrument" sx={{ mb: 3 }}>
+        <DataCard
+          title="Related Instrument"
+          sx={{ mb: 3 }}
+          actions={(
+            <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
+              onClick={() => navigate(`${ROUTES.ADMIN_INSTRUMENTS}/${detail.instrument.instrumentId}`)}>
+              View instrument
+            </Button>
+          )}
+        >
           <Box sx={{ mb: 2.5 }}>
             <Field label="Title" value={detail.instrument.sourceTitle} />
           </Box>
           <FieldGrid min={160}>
-            <Field label="Status">{detail.instrument.status ? <StateBadge value={detail.instrument.status} /> : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{detail.instrument.status}</Typography>}</Field>
+            <Field label="Status">{detail.instrument.status ? <StateBadge value={detail.instrument.status} /> : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}</Field>
             <Field label="Risk">{detail.instrument.riskRating ? <RiskBadge value={detail.instrument.riskRating} /> : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}</Field>
             <Field label="Nature" value={detail.instrument.nature || '—'} />
             {detail.instrument.dateIssued && <Field label="Date Issued" value={formatLocalDate(detail.instrument.dateIssued)} />}
@@ -138,6 +151,88 @@ export default function JobDetailPage() {
             </Box>
           )}
         </DataCard>
+      )}
+    </Box>
+  );
+}
+
+/* Detail view for a download that failed (pending_downloads row). */
+function PendingDetail({ pd, navigate }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function handleUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,application/pdf';
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      setBusy(true);
+      try {
+        await api.platform.pendingDownloads.upload(pd.id, file);
+        setMessage('PDF uploaded and OCR queued.');
+      } catch (err) {
+        setMessage('Upload failed: ' + err.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    input.click();
+  }
+
+  async function handleSkip() {
+    setBusy(true);
+    try {
+      await api.platform.pendingDownloads.skip(pd.id);
+      setMessage('Marked as skipped.');
+    } catch (err) {
+      setMessage('Skip failed: ' + err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Box>
+      <DetailHeader
+        band
+        onBack={() => navigate(ROUTES.ADMIN_PIPELINE)}
+        backLabel="Back to Pipeline"
+        title={pd.title || 'Untitled document'}
+        status="Download Failed"
+        statusTone="red"
+        meta={pd.status ? <StatusBadge label={pd.status} tone="gray" /> : null}
+        description={`Regulator #${pd.regulatorId}`}
+        right={(
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" startIcon={<CloudArrowUpIcon size={16} />} onClick={handleUpload} disabled={busy}>Upload PDF</Button>
+            <Button variant="outlined" startIcon={<XMarkIcon size={16} />} onClick={handleSkip} disabled={busy}>Skip</Button>
+          </Box>
+        )}
+      />
+
+      {message && <Alert severity={message.startsWith('Upload failed') || message.startsWith('Skip failed') ? 'error' : 'success'} sx={{ mb: 3 }}>{message}</Alert>}
+
+      <DataCard title="Download Details" sx={{ mb: 3 }}>
+        <FieldGrid min={220}>
+          <Field label="Source URL">
+            {pd.sourceUrl ? (
+              <Box component="a" href={pd.sourceUrl} target="_blank" rel="noopener noreferrer"
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: TL.primary, fontSize: '0.875rem', wordBreak: 'break-all', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                {pd.sourceUrl} <LinkIcon size={12} />
+              </Box>
+            ) : <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>—</Typography>}
+          </Field>
+          <Field label="Discovered" value={formatDt(pd.discoveredAt || pd.createdAt)} mono />
+        </FieldGrid>
+      </DataCard>
+
+      {pd.errorMessage && (
+        <Alert severity="error" icon={<ExclamationCircleIcon size={20} />} sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5 }}>Error</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pd.errorMessage}</Typography>
+        </Alert>
       )}
     </Box>
   );

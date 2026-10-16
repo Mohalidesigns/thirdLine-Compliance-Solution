@@ -6,25 +6,22 @@ import {
   Checkbox, Button, CircularProgress, Alert,
   Tooltip, TableContainer, Paper, TablePagination,
 } from '@mui/material';
-import { PageHeader, FilterBar, StatusBadge, TL, XMarkIcon } from 'shared';
+import {
+  PageHeader, KpiCards, FilterBar, StatusBadge, TL, XMarkIcon,
+  BuildingLibraryIcon, BookOpenIcon, ScaleIcon, CalendarDaysIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
 
 const COLUMNS = [
-  { id: 'name', label: 'Regulator', minWidth: 280 },
-  { id: 'instrumentCount', label: 'Discovered', minWidth: 90 },
-  { id: 'downloaded', label: 'Downloaded', minWidth: 90 },
-  { id: 'failed', label: 'Failed', minWidth: 70 },
-  { id: 'lastInstrumentDiscoveredAt', label: 'Last Document', minWidth: 140 },
+  { id: 'name', label: 'Regulator', minWidth: 300 },
+  { id: 'instruments', label: 'Instruments', minWidth: 110 },
+  { id: 'obligations', label: 'Obligations', minWidth: 110 },
+  { id: 'returns', label: 'Returns', minWidth: 100 },
 ];
 
-function formatDt(ts) {
-  if (!ts) return '-';
-  return new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-async function fetchRegulators(search, statusFilter) {
-  const params = { activeOnly: false };
+async function fetchRegulators(search) {
+  const params = { activeOnly: false, sortBy: 'name', sortDir: 'asc' };
   if (search) params.search = search;
   const data = await api.platform.regulators.list(params);
   return Array.isArray(data) ? data : (data.content || []);
@@ -32,37 +29,58 @@ async function fetchRegulators(search, statusFilter) {
 
 export default function RegulatorAdminPage() {
   const navigate = useNavigate();
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [scraperFilter, setScraperFilter] = useState('All');
   const [page, setPage] = useState(0);
-  const [rowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [selected, setSelected] = useState(new Set());
   const [bulking, setBulking] = useState(false);
   const [actionError, setActionError] = useState('');
 
   const { data: regulators, isLoading, error, refetch } = useQuery({
-    queryKey: ['regulators', search, statusFilter],
-    queryFn: () => fetchRegulators(search, statusFilter),
+    queryKey: ['regulators', search],
+    queryFn: () => fetchRegulators(search),
     staleTime: 30000,
   });
 
+  const all = regulators || [];
+
   const filtered = useMemo(() => {
-    if (!regulators) return [];
-    return regulators.filter(r => {
+    return all.filter((r) => {
       if (statusFilter !== 'All') {
         const active = statusFilter === 'Active';
         if (r.isActive !== active) return false;
       }
-      if (search) {
-        const q = search.toLowerCase();
-        if (!(r.name || '').toLowerCase().includes(q) && !(r.abbreviation || '').toLowerCase().includes(q)) return false;
+      if (scraperFilter !== 'All') {
+        const enabled = scraperFilter === 'Enabled';
+        if (Boolean(r.scraperEnabled) !== enabled) return false;
       }
       return true;
     });
-  }, [regulators, statusFilter, search]);
+  }, [all, statusFilter, scraperFilter]);
+
+  const kpis = useMemo(() => {
+    const byReg = (field) => {
+      const m = {};
+      for (const r of all) {
+        const v = r[field] || 0;
+        if (v) m[r.abbreviation || r.name] = v;
+      }
+      return m;
+    };
+    const sum = (field) => all.reduce((acc, r) => acc + (r[field] || 0), 0);
+    return {
+      total: { value: all.length, breakdown: Object.fromEntries(all.map((r) => [r.abbreviation || r.name, 1])) },
+      instruments: { value: sum('instrumentCount'), breakdown: byReg('instrumentCount') },
+      obligations: { value: sum('obligationCount'), breakdown: byReg('obligationCount') },
+      returns: { value: sum('returnCount'), breakdown: byReg('returnCount') },
+    };
+  }, [all]);
 
   function handleToggleSelect(id) {
-    setSelected(prev => {
+    setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -83,11 +101,14 @@ export default function RegulatorAdminPage() {
     }
   }
 
+  const hasFilters = !!searchInput || statusFilter !== 'All' || scraperFilter !== 'All';
+  const paged = filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+
   return (
     <Box>
       <PageHeader
         title="Regulators"
-        subtitle={regulators ? `${filtered.length} of ${regulators.length} platform regulators` : 'Browse all platform regulators'}
+        subtitle={`${filtered.length} regulator${filtered.length !== 1 ? 's' : ''} — scraper health and document coverage`}
         actions={selected.size > 0 && (
           <Button variant="contained" color="error" startIcon={<XMarkIcon size={16} />}
             onClick={handleBulkDisable} disabled={bulking}>
@@ -99,13 +120,30 @@ export default function RegulatorAdminPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Failed to load regulators'}</Alert>}
       {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>}
 
+      {/* KPI cards (compliance-focused) with per-regulator breakdown dropdowns */}
+      <KpiCards
+        columns={4}
+        items={[
+          { key: 'total', label: 'Total Regulators', value: kpis.total.value, tone: 'blue', icon: <BuildingLibraryIcon />, breakdown: kpis.total.breakdown },
+          { key: 'instruments', label: 'Instruments', value: kpis.instruments.value, tone: 'purple', icon: <BookOpenIcon />, breakdown: kpis.instruments.breakdown },
+          { key: 'obligations', label: 'Obligations', value: kpis.obligations.value, tone: 'green', icon: <ScaleIcon />, breakdown: kpis.obligations.breakdown },
+          { key: 'returns', label: 'Returns', value: kpis.returns.value, tone: 'orange', icon: <CalendarDaysIcon />, breakdown: kpis.returns.breakdown },
+        ]}
+        onSelect={(key) => {
+          if (key === 'total') { setSearchInput(''); setSearch(''); }
+          setStatusFilter('All'); setScraperFilter('All');
+        }}
+        onDrill={(_key, name) => { setSearchInput(name); setSearch(name); }}
+      />
+
       <FilterBar
-        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search name or abbreviation...' }}
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setSearch(v); setPage(0); }, placeholder: 'Search name or abbreviation...' }}
         filters={[
           { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); }, options: [{ value: 'Active', label: 'Active' }, { value: 'Disabled', label: 'Disabled' }], allLabel: 'All', minWidth: 150 },
+          { key: 'scraper', label: 'Scraper', value: scraperFilter, onChange: (v) => { setScraperFilter(v); setPage(0); }, options: [{ value: 'Enabled', label: 'Enabled' }, { value: 'Disabled', label: 'Disabled' }], allLabel: 'All', minWidth: 150 },
         ]}
-        showClear={!!(search || statusFilter !== 'All')}
-        onClear={() => { setSearch(''); setStatusFilter('All'); }}
+        showClear={hasFilters}
+        onClear={() => { setSearchInput(''); setSearch(''); setStatusFilter('All'); setScraperFilter('All'); }}
       />
 
       {isLoading ? (
@@ -125,14 +163,11 @@ export default function RegulatorAdminPage() {
                       checked={filtered.length > 0 && selected.size === filtered.length}
                       indeterminate={selected.size > 0 && selected.size < filtered.length}
                       onChange={() => {
-                        if (selected.size === filtered.length) {
-                          setSelected(new Set());
-                        } else {
-                          setSelected(new Set(filtered.map(r => r.regulatorId)));
-                        }
+                        if (selected.size === filtered.length) setSelected(new Set());
+                        else setSelected(new Set(filtered.map((r) => r.regulatorId)));
                       }} />
                   </TableCell>
-                  {COLUMNS.map(c => (
+                  {COLUMNS.map((c) => (
                     <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
                       {c.label}
                     </TableCell>
@@ -140,11 +175,11 @@ export default function RegulatorAdminPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((reg) => (
+                {paged.map((reg) => (
                   <TableRow key={reg.regulatorId} hover
                     onClick={() => navigate(`${ROUTES.ADMIN_REGULATORS}/${reg.regulatorId}`)}
                     sx={{ cursor: 'pointer' }}>
-                    <TableCell padding="checkbox" onClick={e => e.stopPropagation()}>
+                    <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                       <Checkbox size="small" checked={selected.has(reg.regulatorId)}
                         onChange={() => handleToggleSelect(reg.regulatorId)} />
                     </TableCell>
@@ -158,20 +193,20 @@ export default function RegulatorAdminPage() {
                         </Tooltip>
                         {!reg.isActive && <StatusBadge label="Disabled" tone="red" />}
                       </Box>
-                    </TableCell>
-                    <TableCell>{(reg.instrumentCount ?? 0) + (reg.pendingDownloadCount ?? 0)}</TableCell>
-                    <TableCell>
-                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.success }}>{reg.instrumentCount ?? 0}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {(reg.pendingDownloadCount ?? 0) > 0 ? (
-                        <StatusBadge label={reg.pendingDownloadCount} tone="red" />
-                      ) : (
-                        <Typography component="span" sx={{ fontSize: '0.875rem', color: TL.gray400 }}>0</Typography>
+                      {reg.scraperDisabledReason && (
+                        <Typography variant="caption" color="error" sx={{ display: 'block', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {reg.scraperDisabledReason}
+                        </Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ color: TL.gray500, whiteSpace: 'nowrap' }}>
-                      {formatDt(reg.lastInstrumentDiscoveredAt)}
+                    <TableCell>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.gray700 }}>{reg.instrumentCount ?? 0}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.success }}>{reg.obligationCount ?? 0}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography component="span" sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.warning }}>{reg.returnCount ?? 0}</Typography>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -179,7 +214,8 @@ export default function RegulatorAdminPage() {
             </Table>
           </TableContainer>
           <TablePagination component="div" count={filtered.length} page={page} onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]} />
+            rowsPerPage={rowsPerPage} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[10, 20, 50]} />
         </Paper>
       )}
     </Box>

@@ -68,7 +68,7 @@ const COLUMNS = [
 
 export default function ObligationsRegisterPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   // filters — initialize from URL params when navigated from dashboard
@@ -83,6 +83,10 @@ export default function ObligationsRegisterPage() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [hasGapFilter, setHasGapFilter] = useState(searchParams.get('hasGap') === 'true');
   const [noControl, setNoControl] = useState(false);
+  // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
+  const [heatmapDrill, setHeatmapDrill] = useState(() => (searchParams.get('cells')
+    ? { cells: searchParams.get('cells'), riskView: searchParams.get('riskView') || 'inherent', label: searchParams.get('drill') || 'Selected cells' }
+    : null));
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
@@ -95,7 +99,7 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl;
+    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -106,6 +110,7 @@ export default function ObligationsRegisterPage() {
   if (statusFilter !== 'All') params.status = statusFilter;
   if (hasGapFilter) params.hasGap = 'true';
   if (noControl) params.noControl = 'true';
+  if (heatmapDrill) { params.cells = heatmapDrill.cells; params.riskView = heatmapDrill.riskView; }
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
   const listQuery = useQuery({
@@ -141,7 +146,18 @@ export default function ObligationsRegisterPage() {
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
     setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGapFilter(false); setNoControl(false);
+    clearHeatmapDrill();
     setPage(0);
+  }
+
+  function clearHeatmapDrill() {
+    setHeatmapDrill(null);
+    setPage(0);
+    if (searchParams.has('cells')) {
+      const next = new URLSearchParams(searchParams);
+      ['cells', 'riskView', 'drill'].forEach((k) => next.delete(k));
+      setSearchParams(next, { replace: true });
+    }
   }
 
   function openDetail(row) {
@@ -229,6 +245,20 @@ export default function ObligationsRegisterPage() {
           } label={<Typography variant="body2">Has gap</Typography>} />
         </FilterField>
       </FilterBar>
+
+      {heatmapDrill && (
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            color="primary"
+            variant="outlined"
+            label={`Risk heatmap (${heatmapDrill.riskView}): ${heatmapDrill.label}`}
+            onDelete={clearHeatmapDrill}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Applicable obligations in the selected heatmap cell{heatmapDrill.cells.includes(';') ? 's' : ''}
+          </Typography>
+        </Box>
+      )}
 
       <SectionTable
         columns={COLUMNS}

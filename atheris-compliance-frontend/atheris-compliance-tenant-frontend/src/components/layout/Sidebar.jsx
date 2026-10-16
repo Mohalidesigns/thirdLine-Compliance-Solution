@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppSidebar, Squares2x2Icon, GlobeAltIcon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
-  BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon,
+  BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
 } from 'shared';
 import { api } from '../../services/api';
 
@@ -33,14 +33,17 @@ export default function Sidebar(props) {
     { key: 'registers', items: [
       { text: 'Compliance Universe', path: '/universe', icon: <GlobeAltIcon /> },
       { text: 'Instruments', path: '/instruments', icon: <DocumentTextIcon /> },
+      { text: 'Acts', path: '/acts', icon: <BookOpenIcon /> },
       { text: 'Obligations', path: '/obligations', icon: <ScaleIcon /> },
       { text: 'Regulators', path: '/regulators', icon: <BuildingLibraryIcon /> },
       { text: 'Controls', path: '/controls', icon: <ShieldCheckIcon /> },
+      { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
       { text: 'Findings', path: '/findings', icon: <ExclamationTriangleIcon /> },
       { text: 'Returns', path: '/returns', icon: <CalendarIcon /> },
       { text: 'Sanctions', path: '/sanctions', icon: <BanknotesIcon /> },
     ] },
     { key: 'assurance', items: [
+      { text: 'Reports', path: '/reports', icon: <ChartBarIcon /> },
       { text: 'Audit Trail', path: '/audit', icon: <FingerPrintIcon /> },
       { text: 'Evidence Vault', path: '/evidence', icon: <FolderOpenIcon /> },
     ] },

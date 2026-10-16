@@ -36,6 +36,8 @@ const ReturnExplorerPage = lazy(() => import('../features/admin/components/Retur
 const ReturnDetailPage = lazy(() => import('../features/admin/components/ReturnDetailPage'));
 const ControlExplorerPage = lazy(() => import('../features/admin/components/ControlExplorerPage'));
 const ControlDetailPage = lazy(() => import('../features/admin/components/ControlDetailPage'));
+const RunbookTemplateExplorerPage = lazy(() => import('../features/admin/components/RunbookTemplateExplorerPage'));
+const RunbookTemplateDetailPage = lazy(() => import('../features/admin/components/RunbookTemplateDetailPage'));
 
 function Loading() {
   const theme = useTheme();
@@ -91,6 +93,8 @@ export default function AppRoutes() {
           <Route path="admin/returns/:id" element={<ReturnDetailPage />} />
           <Route path="admin/controls" element={<ControlExplorerPage />} />
           <Route path="admin/controls/:id" element={<ControlDetailPage />} />
+          <Route path="admin/runbook-templates" element={<RunbookTemplateExplorerPage />} />
+          <Route path="admin/runbook-templates/:code" element={<RunbookTemplateDetailPage />} />
         </Route>
         <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} />} />
       </Routes>

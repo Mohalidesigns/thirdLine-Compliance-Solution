@@ -6,19 +6,21 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, MenuItem, Tooltip,
   Snackbar, Alert as MuiAlert, Link, Grid,
-  Divider, Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  KpiCards, FilterBar, SectionTable, PageHeader, DataCard, RiskBadge, StatusBadge,
+  KpiCards, FilterBar, SectionTable, PageHeader, RiskBadge, StatusBadge, StateBadge, RISK_COLOR, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
-  ChevronRightIcon, BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon,
-  ExclamationTriangleIcon, ExclamationCircleIcon,
+  BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
+  ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
+  ChartBarIcon, UserCircleIcon,
 } from 'shared';
+import { useAuth } from '../contexts/AuthContext';
 import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
-
+import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '-';
@@ -27,9 +29,7 @@ function formatDate(d) {
 
 function actLabel(row) {
   if (!row) return '-';
-  if (row.actName) return row.actName;
-  if (row.actId) return `Act #${row.actId}`;
-  return '-';
+  return row.actName || '-';
 }
 
 function residualRiskChip(rating, likelihood, impact) {
@@ -312,7 +312,11 @@ export default function ControlsPage() {
 /* ───────── Detail View ───────── */
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canReview = ['ANALYST', 'CCO', 'TENANT_ADMIN'].includes(user?.role);
+  const [reviewTarget, setReviewTarget] = useState(null);
   const obligations = detail.linkedObligations || [];
+  const testHistory = detail.testHistory || [];
   return (
     <Box>
       <PageHeader
@@ -329,186 +333,246 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip size="small" variant="outlined" icon={<BuildingLibraryIcon size={14} />}
             label={actLabel(detail)} />
+          {detail.status && <StateBadge value={detail.status} />}
         </Box>
       </PageHeader>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <DataCard title="About this Control">
-              {detail.whatItDoes && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">What it does</Typography>
-                  <Typography variant="body2">{detail.whatItDoes}</Typography>
-                </Box>
-              )}
-              {detail.howTested && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">How it's tested</Typography>
-                  <Typography variant="body2">{detail.howTested}</Typography>
-                </Box>
-              )}
-              {detail.description && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Description</Typography>
-                  <Typography variant="body2">{detail.description}</Typography>
-                </Box>
-              )}
-          </DataCard>
+      {/* Headline numbers */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile icon={<ExclamationTriangleIcon />} label="Inherent Risk"
+          accent={RISK_COLOR[detail.inherentRisk] || TL.primary} chip={<RiskChip rating={detail.inherentRisk} />} />
+        <StatTile icon={<ShieldCheckIcon />} label="Residual Risk"
+          accent={RISK_COLOR[detail.residualRiskRating] || TL.primary}
+          chip={<RiskChip rating={detail.residualRiskRating || detail.residualRisk}
+            likelihood={detail.residualLikelihood} impact={detail.residualImpact} />} />
+        <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
+        <StatTile icon={<CalendarDaysIcon />} label="Next Test Due"
+          value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
+      </Box>
 
-          <DataCard
-            sx={{ mt: 2 }}
-            title="Linked Obligations"
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
+        <Box>
+          <Section icon={<DocumentTextIcon />} title="About this Control">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {detail.whatItDoes && <Field label="What it does" value={detail.whatItDoes} />}
+              {detail.howTested && <Field label="How it's tested" value={detail.howTested} />}
+              {detail.description && <Field label="Description" value={detail.description} />}
+              {!detail.whatItDoes && !detail.howTested && !detail.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>Not recorded.</Typography>
+              )}
+            </Box>
+          </Section>
+
+          <Section icon={<LinkIcon />} title="Linked Obligations"
             subtitle={obligations.length
               ? `${obligations.length} obligation${obligations.length !== 1 ? 's' : ''} traced to this control`
               : 'Traceability from this control back to the register'}
-            actions={obligations.length > 0
+            action={obligations.length > 0
               ? <StatusBadge label={obligations.length} tone="blue" />
-              : null}
-            noPadding={obligations.length > 0}
-          >
-              {obligations.length > 0 ? (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>ID</TableCell>
-                        <TableCell>Obligation</TableCell>
-                        <TableCell>Instrument</TableCell>
-                        <TableCell sx={{ width: 48 }} />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {obligations.map((o) => (
-                        <TableRow key={o.obligationId} hover
-                          onClick={() => navigate(`/obligations/${o.obligationId}`)}
-                          sx={{ cursor: 'pointer' }}>
-                          <TableCell sx={{ fontFamily: 'Roboto Mono, monospace', fontSize: '0.75rem', color: 'text.secondary', width: 80 }}>
-                            #{o.obligationId}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>{o.description || 'Untitled obligation'}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">{o.instrumentTitle || '-'}</Typography>
-                          </TableCell>
-                          <TableCell sx={{ textAlign: 'right' }}>
-                            <Tooltip title="Open obligation">
-                              <IconButton size="small"
-                                onClick={e => { e.stopPropagation(); navigate(`/obligations/${o.obligationId}`); }}>
-                                <ChevronRightIcon size={16} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <ScaleIcon size={40} sx={{ opacity: 0.3, mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    No obligations are linked to this control yet.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Use Edit to attach obligation IDs and establish traceability.
-                  </Typography>
-                </Box>
-              )}
-          </DataCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
-          <DataCard title="Control Details">
-              <DetailRow label="Theme" value={detail.theme} />
-              <DetailRow label="Type" value={detail.controlType} />
-              <DetailRow label="Owner" value={detail.controlOwnerName || 'Unassigned'} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Act / Regulation</Typography>
-              <DetailRow label="Act" value={actLabel(detail)} />
-              <DetailRow label="Regulatory Requirement" value={detail.regulatoryRequirement} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>CMP Information</Typography>
-              <DetailRow label="Compliance Area" value={detail.complianceArea} />
-              <DetailRow label="Monitoring Activity" value={detail.monitoringActivity} />
-              <DetailRow label="Due Date" value={detail.dueDate} />
-              <DetailRow label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Risk Assessment</Typography>
-              <DetailRow label="Inherent Risk" value={detail.inherentRisk} chip />
-              <DetailRow label="Residual Risk" value={detail.residualRisk} chip />
-              <DetailRow label="Residual Likelihood" value={detail.residualLikelihood} />
-              <DetailRow label="Residual Impact" value={detail.residualImpact} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">Residual Risk Rating</Typography>
-                {residualRiskChip(detail.residualRiskRating, detail.residualLikelihood, detail.residualImpact)}
+              : null}>
+            {obligations.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {obligations.map((o) => (
+                  <Tooltip key={o.obligationId} arrow
+                    title={o.instrumentTitle ? `Instrument: ${o.instrumentTitle}` : (o.description || '')}>
+                    <Chip clickable size="small"
+                      label={o.title || o.name || o.description || 'Untitled obligation'}
+                      onClick={() => navigate(`/obligations/${o.obligationId}`)}
+                      sx={{ height: 'auto', py: 0.4, borderRadius: '6px', bgcolor: TL.gray100, color: TL.gray700,
+                        '& .MuiChip-label': { display: 'block', whiteSpace: 'normal', maxWidth: 460, fontSize: '0.75rem', lineHeight: 1.35, py: 0.25 } }} />
+                  </Tooltip>
+                ))}
               </Box>
-              <DetailRow label="Owner" value={detail.ownerName || detail.controlOwnerName} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Testing</Typography>
-              <DetailRow label="Frequency" value={detail.testFrequency || 'Not set'} />
-              <DetailRow label="Next test due" value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
-          </DataCard>
-        </Grid>
-      </Grid>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <ScaleIcon size={40} sx={{ opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  No obligations are linked to this control yet.
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Use Edit to attach obligation IDs and establish traceability.
+                </Typography>
+              </Box>
+            )}
+          </Section>
 
-      <DataCard sx={{ mt: 2 }} title="Test History" noPadding={!!(detail.testHistory && detail.testHistory.length > 0)}>
-          {detail.testHistory && detail.testHistory.length > 0 ? (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Tester</TableCell>
-                    <TableCell>Result</TableCell>
-                    <TableCell>Severity</TableCell>
-                    <TableCell>Review</TableCell>
-                    <TableCell>Evidence</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {detail.testHistory.map((t) => (
-                    <TableRow key={t.testId}>
-                      <TableCell>{formatDate(t.testDate)}</TableCell>
-                      <TableCell>{t.testedByName || '-'}</TableCell>
-                      <TableCell>
-                        <StatusBadge label={t.result} tone={TEST_RESULT_TONE[t.result] || 'gray'} />
-                      </TableCell>
-                      <TableCell>{t.failureSeverity || '-'}</TableCell>
-                      <TableCell>
-                        <StatusBadge label={t.reviewStatus || 'Pending'} tone={REVIEW_TONE[t.reviewStatus] || 'gray'} />
-                      </TableCell>
-                      <TableCell>
-                        {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>View</Link> : '-'}
-                      </TableCell>
+          <Section icon={<ClipboardDocumentCheckIcon />} title="Test History"
+            action={testHistory.length > 0
+              ? <StatusBadge label={testHistory.length} tone="blue" />
+              : null}
+            contentSx={testHistory.length > 0 ? { p: 0 } : undefined}>
+            {testHistory.length > 0 ? (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Tester</TableCell>
+                      <TableCell>Result</TableCell>
+                      <TableCell>Review</TableCell>
+                      <TableCell>Evidence</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <ClipboardDocumentCheckIcon size={40} sx={{ opacity: 0.3, mb: 1 }} />
-              <Typography variant="body2" color="text.secondary">No tests recorded yet</Typography>
-            </Box>
-          )}
-      </DataCard>
+                  </TableHead>
+                  <TableBody>
+                    {testHistory.map((t) => (
+                      <TableRow key={t.testId}>
+                        <TableCell>{formatDate(t.testDate)}</TableCell>
+                        <TableCell>{t.testedByName || '-'}</TableCell>
+                        <TableCell>
+                          <StatusBadge label={t.result} tone={TEST_RESULT_TONE[t.result] || 'gray'} />
+                          {t.failureSeverity && (
+                            <Typography sx={{ display: 'block', mt: 0.25, fontSize: '0.75rem', color: TL.gray500 }}>
+                              Severity: {t.failureSeverity}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <StatusBadge label={t.reviewStatus || 'Pending'} tone={REVIEW_TONE[t.reviewStatus] || 'gray'} />
+                            {t.reviewStatus === 'Pending' && canReview && t.testedByUserId !== user?.userId && (
+                              <Tooltip title="Review this test result">
+                                <IconButton size="small" color="warning" onClick={() => setReviewTarget(t)}>
+                                  <ScaleIcon size={16} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {t.reviewStatus === 'Pending' && t.testedByUserId === user?.userId && (
+                              <Tooltip title="You recorded this test — a different analyst must review it">
+                                <span><IconButton size="small" disabled><ScaleIcon size={16} /></IconButton></span>
+                              </Tooltip>
+                            )}
+                          </Box>
+                          {t.reviewNotes && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                              {t.reviewNotes}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>View</Link> : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <ClipboardDocumentCheckIcon size={40} sx={{ opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">No tests recorded yet</Typography>
+              </Box>
+            )}
+          </Section>
+        </Box>
+
+        <Box>
+          <Section icon={<QueueListIcon />} title="Classification">
+            <FieldGrid min={130}>
+              <Field label="Theme" value={detail.theme} />
+              <Field label="Type" value={detail.controlType} />
+              <Field label="Status" value={detail.status} />
+              <Field label="Compliance Area" value={detail.complianceArea} />
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<ChartBarIcon />} title="Risk Assessment">
+            <FieldGrid min={130}>
+              <Field label="Inherent Risk"><RiskChip rating={detail.inherentRisk} /></Field>
+              <Field label="Residual Risk">
+                <RiskChip rating={detail.residualRiskRating || detail.residualRisk}
+                  likelihood={detail.residualLikelihood} impact={detail.residualImpact} />
+              </Field>
+              <Field label="Residual Likelihood" value={detail.residualLikelihood} />
+              <Field label="Residual Impact" value={detail.residualImpact} />
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<UserCircleIcon />} title="Ownership">
+            <FieldGrid min={130}>
+              <Field label="Control Owner" value={detail.controlOwnerName || detail.ownerName || 'Unassigned'} />
+              {detail.ownerName && detail.controlOwnerName && detail.ownerName !== detail.controlOwnerName && (
+                <Field label="Owner" value={detail.ownerName} />
+              )}
+            </FieldGrid>
+          </Section>
+
+          <Section icon={<BuildingLibraryIcon />} title="Act / Regulation">
+            <FieldGrid min={130}>
+              <Field label="Act" value={actLabel(detail)} />
+              <Field label="Regulatory Requirement" value={detail.regulatoryRequirement} />
+              <Field label="Monitoring Activity" value={detail.monitoringActivity} />
+              <Field label="Due Date" value={detail.dueDate} />
+              <Field label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
+            </FieldGrid>
+          </Section>
+        </Box>
+      </Box>
 
       <EditDialog open={editOpen} onClose={() => setEditOpen(false)} control={detail}
         onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
+
+      <TestReviewDialog open={!!reviewTarget} test={reviewTarget} controlId={detail.controlId}
+        onClose={() => setReviewTarget(null)}
+        onSaved={() => { setReviewTarget(null); onRefresh(); }}
+        onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
     </Box>
   );
 }
 
-function DetailRow({ label, value, chip }) {
+/* ───────── Test Review Dialog ───────── */
+function TestReviewDialog({ open, test, controlId, onClose, onSaved, onSnackbar, saving, setSaving }) {
+  const [decision, setDecision] = useState('Accepted');
+  const [notes, setNotes] = useState('');
+  useEffect(() => { if (open) { setDecision('Accepted'); setNotes(''); } }, [open]);
+  if (!test) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.controls.reviewTest(controlId, test.testId, decision, notes.trim() || undefined);
+      onSaved();
+    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  };
+
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
-      {chip ? (value ? <RiskBadge value={value} /> : <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>)
-        : <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '-'}</Typography>}
-    </Box>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Review Test Result</DialogTitle>
+      <DialogContent>
+        <Alert severity={decision === 'Accepted' ? 'success' : 'warning'} sx={{ mb: 2 }}>
+          {decision === 'Accepted'
+            ? 'Accepting records this result as reviewed.'
+            : 'Rejecting reopens the control and lines up a fresh test task.'}
+        </Alert>
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: TL.gray50, borderRadius: '8px' }}>
+          <Typography variant="body2"><strong>{test.result}</strong> · recorded by {test.testedByName || 'unknown'} on {formatDate(test.testDate)}</Typography>
+          {test.resultDescription && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{test.resultDescription}</Typography>
+          )}
+        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12 }}>
+            <TextField select label="Decision" fullWidth size="small" value={decision}
+              onChange={e => setDecision(e.target.value)}>
+              <MenuItem value="Accepted">Accept</MenuItem>
+              <MenuItem value="Rejected">Reject</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField label="Review notes" fullWidth size="small" multiline minRows={3} value={notes}
+              onChange={e => setNotes(e.target.value)} />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" color={decision === 'Accepted' ? 'success' : 'warning'}
+          onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : decision === 'Accepted' ? 'Accept' : 'Reject'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

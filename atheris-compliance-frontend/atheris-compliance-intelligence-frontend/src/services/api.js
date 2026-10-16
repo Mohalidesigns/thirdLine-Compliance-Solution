@@ -352,7 +352,7 @@ export const api = {
       getPdfUrl: (id) => request(`/admin/jobs/${id}/pdf`),
     },
     instruments: {
-      list: (params = '') => request(`/platform/instruments${params ? '?' + params : ''}`),
+      list: (params = '', signal) => request(`/platform/instruments${toQuery(params)}`, { signal }),
       get: (id) => request(`/platform/instruments/${id}`),
       getPdfUrl: (id) => request(`/intelligence/obligations/${id}/pdf`),
       upload: (regulatorId, file, title) => {
@@ -411,16 +411,16 @@ export const api = {
       delete: (id) => request(`/recommendations/${id}`, { method: 'DELETE' }),
     },
     acts: {
-      list: (params = '') => request(`/admin/acts${params ? '?' + params : ''}`),
-      stats: () => request('/admin/acts/stats'),
-      get: (id) => request(`/admin/acts/${id}`),
+      list: (params = '', signal) => request(`/admin/acts${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/acts/stats', { signal }),
+      get: (id, signal) => request(`/admin/acts/${id}`, { signal }),
       update: (id, data) => request(`/admin/acts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
       importToolkit: () => request('/admin/acts/toolkit/import', { method: 'POST' }),
     },
     sanctions: {
-      list: (params = '') => request(`/admin/sanctions${params ? '?' + params : ''}`),
-      stats: () => request('/admin/sanctions/stats'),
-      get: (id) => request(`/admin/sanctions/${id}`),
+      list: (params = '', signal) => request(`/admin/sanctions${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/sanctions/stats', { signal }),
+      get: (id, signal) => request(`/admin/sanctions/${id}`, { signal }),
     },
     universe: {
       instruments: (params = '') => request(`/admin/universe/instruments${params ? '?' + params : ''}`),
@@ -473,6 +473,12 @@ export const api = {
       list: (params = '', signal) => request(`/admin/returns${toQuery(params)}`, { signal }),
       stats: (signal) => request('/admin/returns/stats', { signal }),
       get: (id, signal) => request(`/admin/returns/${id}`, { signal }),
+    },
+    // Read-only runbook template library (AdminRunbookTemplateController). Keyed by templateCode.
+    runbookTemplates: {
+      list: (params = '', signal) => request(`/admin/runbook-templates${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/runbook-templates/stats', { signal }),
+      get: (code, signal) => request(`/admin/runbook-templates/${encodeURIComponent(code)}`, { signal }),
     },
     evidence: {
       list: () => request('/admin/evidence'),

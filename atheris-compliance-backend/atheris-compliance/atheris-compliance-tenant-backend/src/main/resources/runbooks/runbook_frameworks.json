@@ -1,0 +1,2288 @@
+{
+  "frameworks": [
+    {
+      "code": "CBN-RBCSF-DMB",
+      "name": "Risk-Based Cybersecurity Framework and Guidelines for Deposit Money Banks and Payment Service Providers",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "2018 (as revised)",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "GOV-1",
+          "title": "Board and senior management oversight",
+          "requirementText": "The board approves the cybersecurity strategy and policy, and senior management reports cyber risk to it periodically.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GOV-2",
+          "title": "Chief Information Security Officer function",
+          "requirementText": "Appoint a CISO with adequate authority and independence from IT operations, reporting to senior management.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GOV-3",
+          "title": "Cybersecurity risk assessment",
+          "requirementText": "Identify, assess and treat cyber risks to information assets at least annually and on material change.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-1",
+          "title": "Access control",
+          "requirementText": "Grant access on least privilege and need-to-know; review user access periodically and remove dormant or orphaned accounts promptly.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-2",
+          "title": "Privileged access management",
+          "requirementText": "Restrict, approve, monitor and periodically recertify privileged and administrative accounts.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "VM-1",
+          "title": "Vulnerability management",
+          "requirementText": "Scan systems for vulnerabilities regularly, prioritise by risk and remediate within defined timelines; track exceptions.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CFG-1",
+          "title": "Secure configuration baselines",
+          "requirementText": "Define hardening baselines for servers, network devices and databases and audit deviations periodically.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "IR-1",
+          "title": "Cyber incident reporting to CBN",
+          "requirementText": "Report significant cyber incidents to the CBN within 24 hours of detection, followed by a full incident report.",
+          "domain": "IR",
+          "deadlineRule": "Initial report within 24 hours from detection — verify against the current circular",
+          "slaMinutes": 1440
+        },
+        {
+          "clauseRef": "IR-2",
+          "title": "Incident response plan",
+          "requirementText": "Maintain and test a documented cyber incident response plan with defined roles, escalation and communication.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "LOG-1",
+          "title": "Security logging and monitoring",
+          "requirementText": "Log security-relevant events, retain logs for an adequate period, and review them for anomalous or privileged activity.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "TPR-1",
+          "title": "Third-party and outsourcing risk",
+          "requirementText": "Assess the security posture of service providers before onboarding and periodically; include security obligations in contracts.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCP-1",
+          "title": "Cyber resilience and recovery",
+          "requirementText": "Maintain backups and recovery capability for critical systems and test restoration periodically.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CRY-1",
+          "title": "Cryptography and key management",
+          "requirementText": "Protect sensitive data in transit and at rest with approved encryption and manage cryptographic keys securely through their lifecycle.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CHG-1",
+          "title": "Change management",
+          "requirementText": "Assess, approve, test and document changes to production systems, including emergency changes.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SA-1",
+          "title": "Annual self-assessment",
+          "requirementText": "Perform a periodic self-assessment of compliance with the framework and report results to the board and CBN.",
+          "domain": "Governance",
+          "deadlineRule": "Annual self-assessment submission — verify against the current circular",
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-RBCSF-OFI",
+      "name": "Risk-Based Cybersecurity Framework and Guidelines for Other Financial Institutions",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "2022",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "GOV-1",
+          "title": "Board and senior management oversight",
+          "requirementText": "The board approves the cybersecurity strategy and policy, and senior management reports cyber risk to it periodically.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GOV-2",
+          "title": "Chief Information Security Officer function",
+          "requirementText": "Appoint a CISO (or equivalent, proportionate to institution size) independent of IT operations, with a clear mandate and reporting line.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GOV-3",
+          "title": "Cybersecurity risk assessment",
+          "requirementText": "Identify, assess and treat cyber risks to information assets at least annually and on material change.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-1",
+          "title": "Access control",
+          "requirementText": "Grant access on least privilege and need-to-know; review user access periodically and remove dormant or orphaned accounts promptly.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-2",
+          "title": "Privileged access management",
+          "requirementText": "Restrict, approve, monitor and periodically recertify privileged and administrative accounts.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "VM-1",
+          "title": "Vulnerability management",
+          "requirementText": "Scan systems for vulnerabilities regularly, prioritise by risk and remediate within defined timelines; track exceptions.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CFG-1",
+          "title": "Secure configuration baselines",
+          "requirementText": "Define hardening baselines for servers, network devices and databases and audit deviations periodically.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "IR-1",
+          "title": "Cyber incident reporting to CBN",
+          "requirementText": "Report significant cyber incidents to the CBN within 24 hours of detection, followed by a full incident report.",
+          "domain": "IR",
+          "deadlineRule": "Initial report within 24 hours from detection — verify against the current circular",
+          "slaMinutes": 1440
+        },
+        {
+          "clauseRef": "IR-2",
+          "title": "Incident response plan",
+          "requirementText": "Maintain and test a documented cyber incident response plan with defined roles, escalation and communication.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "LOG-1",
+          "title": "Security logging and monitoring",
+          "requirementText": "Log security-relevant events, retain logs for an adequate period, and review them for anomalous or privileged activity.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "TPR-1",
+          "title": "Third-party and outsourcing risk",
+          "requirementText": "Assess the security posture of service providers before onboarding and periodically; include security obligations in contracts.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCP-1",
+          "title": "Cyber resilience and recovery",
+          "requirementText": "Maintain backups and recovery capability for critical systems and test restoration periodically.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CRY-1",
+          "title": "Cryptography and key management",
+          "requirementText": "Protect sensitive data in transit and at rest with approved encryption and manage cryptographic keys securely through their lifecycle.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CHG-1",
+          "title": "Change management",
+          "requirementText": "Assess, approve, test and document changes to production systems, including emergency changes.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SA-1",
+          "title": "Annual self-assessment",
+          "requirementText": "Perform an annual cybersecurity self-assessment against the framework and submit it to the CBN.",
+          "domain": "Governance",
+          "deadlineRule": "Annual self-assessment submission — verify against the current circular",
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-ITSB",
+      "name": "IT Standards Blueprint",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "ITSB-GOV",
+          "title": "IT governance",
+          "requirementText": "Align IT strategy, standards and investment with business objectives under board oversight.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ITSB-CFG",
+          "title": "Configuration management",
+          "requirementText": "Maintain approved configuration standards for infrastructure and audit compliance periodically.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ITSB-CHG",
+          "title": "Change management",
+          "requirementText": "Control changes through request, impact assessment, approval, testing, implementation and post-implementation review; govern emergency changes.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ITSB-DR",
+          "title": "Disaster recovery",
+          "requirementText": "Maintain a tested disaster recovery capability for critical IT services.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ITSB-OPS",
+          "title": "IT operations and service management",
+          "requirementText": "Operate IT services with documented procedures, capacity planning and service-level monitoring.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-BCP",
+      "name": "Guidelines on Business Continuity Planning for Banks",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "BCP-1",
+          "title": "Business continuity plan",
+          "requirementText": "Maintain a board-approved BCP covering critical business functions and their dependencies.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCP-2",
+          "title": "Business impact analysis",
+          "requirementText": "Perform a business impact analysis to set recovery time and recovery point objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCP-3",
+          "title": "Backup and restoration testing",
+          "requirementText": "Back up critical data off-site and test restoration regularly against recovery objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCP-4",
+          "title": "DR drills",
+          "requirementText": "Conduct disaster recovery drills at least annually and remediate gaps found.",
+          "domain": "BCP",
+          "deadlineRule": "At least annually — verify against the current circular",
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-ORM",
+      "name": "Guidelines for Operational Risk Management",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "ORM-1",
+          "title": "Operational risk event classification",
+          "requirementText": "Classify operational risk events, including cyber incidents, using a consistent taxonomy.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ORM-2",
+          "title": "Loss event data capture",
+          "requirementText": "Record operational loss events and near misses in a loss database for analysis and reporting.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ORM-3",
+          "title": "Key risk indicators",
+          "requirementText": "Define and monitor key risk indicators with escalation thresholds.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-AML",
+      "name": "AML/CFT/CPF Regulations",
+      "issuer": "Central Bank of Nigeria / NFIU",
+      "jurisdiction": "NG",
+      "versionLabel": "2022",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "AML-STR",
+          "title": "Suspicious transaction reporting",
+          "requirementText": "File a suspicious transaction report with the NFIU promptly once suspicion is formed, irrespective of amount.",
+          "domain": "AML",
+          "deadlineRule": "STR to NFIU within 24 hours of forming suspicion — verify against the current circular",
+          "slaMinutes": 1440
+        },
+        {
+          "clauseRef": "AML-CTR",
+          "title": "Currency transaction reporting",
+          "requirementText": "Report cash transactions above the prescribed threshold to the NFIU.",
+          "domain": "AML",
+          "deadlineRule": "CTR within 7 days of the transaction — verify against the current circular",
+          "slaMinutes": 10080
+        },
+        {
+          "clauseRef": "AML-GOAML",
+          "title": "Reporting through goAML",
+          "requirementText": "Submit regulatory reports to the NFIU through the goAML platform and retain submission references.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AML-CDD",
+          "title": "Customer due diligence",
+          "requirementText": "Identify and verify customers and beneficial owners and apply enhanced due diligence to higher-risk relationships.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AML-SCR",
+          "title": "Sanctions screening",
+          "requirementText": "Screen customers and transactions against applicable sanctions lists and act on matches without delay.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AML-REC",
+          "title": "Record keeping",
+          "requirementText": "Retain customer and transaction records for at least five years after the relationship or transaction ends.",
+          "domain": "AML",
+          "deadlineRule": "Retain records for 5 years — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AML-CO",
+          "title": "Compliance officer (MLRO)",
+          "requirementText": "Designate a senior compliance officer responsible for AML/CFT reporting and decisions.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-CPF",
+      "name": "Consumer Protection Framework and Regulations",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "CPF-CH",
+          "title": "Complaint handling",
+          "requirementText": "Acknowledge, investigate and resolve customer complaints within prescribed timelines and escalate unresolved complaints.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CPF-DP",
+          "title": "Customer data protection",
+          "requirementText": "Protect customer information and use it only for disclosed purposes.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CPF-DIS",
+          "title": "Disclosure and transparency",
+          "requirementText": "Disclose terms, fees and risks to customers clearly before contracting.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CBN-RETURNS",
+      "name": "Prudential, e-FASS and FinA Returns Schedule",
+      "issuer": "Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "RET-1",
+          "title": "Timely submission of prudential returns",
+          "requirementText": "Prepare and submit periodic prudential returns by the dates in the CBN returns calendar.",
+          "domain": "Returns",
+          "deadlineRule": "Per the CBN returns calendar for each return — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RET-2",
+          "title": "Accuracy and validation of returns",
+          "requirementText": "Ensure returns are complete, accurate and reconciled to source records before submission.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RET-3",
+          "title": "Maker-checker and approval",
+          "requirementText": "Apply segregated preparation, review and senior approval before submission.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RET-4",
+          "title": "Retention of submission evidence",
+          "requirementText": "Retain submitted returns, supporting workings and acknowledgements for supervisory review.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NDPA-2023",
+      "name": "Nigeria Data Protection Act 2023",
+      "issuer": "Nigeria Data Protection Commission",
+      "jurisdiction": "NG",
+      "versionLabel": "2023",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "s.24",
+          "title": "Principles of personal data processing",
+          "requirementText": "Process personal data lawfully, fairly, for specified purposes, minimally, accurately, for limited time and securely.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.25",
+          "title": "Lawful basis of processing",
+          "requirementText": "Process personal data only where a lawful basis such as consent, contract or legal obligation applies.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.28",
+          "title": "Data privacy impact assessment",
+          "requirementText": "Carry out a DPIA before processing likely to result in high risk to data subjects.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.29",
+          "title": "Data processors and sub-processors",
+          "requirementText": "Engage processors only under written terms that ensure they protect personal data and assist the controller.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.32",
+          "title": "Data protection officer",
+          "requirementText": "Designate a data protection officer with expert knowledge to advise on and monitor compliance.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.34",
+          "title": "Rights of a data subject — access and information",
+          "requirementText": "On request, provide confirmation of processing, a copy of the personal data and related information, and rectify or erase it where applicable.",
+          "domain": "Privacy",
+          "deadlineRule": "Respond within the statutory period (commonly applied as 30 days) — verify against the current circular",
+          "slaMinutes": 43200
+        },
+        {
+          "clauseRef": "s.35",
+          "title": "Withdrawal of consent",
+          "requirementText": "Allow data subjects to withdraw consent at any time as easily as it was given.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.36",
+          "title": "Right to object",
+          "requirementText": "Honour objections to processing, including for direct marketing.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.37",
+          "title": "Automated decision-making",
+          "requirementText": "Allow data subjects not to be subject to solely automated decisions with significant effect, subject to exceptions.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.38",
+          "title": "Data portability",
+          "requirementText": "Provide personal data in a structured, machine-readable format and transmit it on request where applicable.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.39",
+          "title": "Security, integrity and confidentiality",
+          "requirementText": "Implement appropriate technical and organisational measures, including encryption and access control, to secure personal data.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.40",
+          "title": "Personal data breach notification",
+          "requirementText": "Notify the Commission within 72 hours of becoming aware of a breach likely to risk data subjects' rights, and inform data subjects without undue delay where risk is high.",
+          "domain": "Privacy",
+          "deadlineRule": "Notify NDPC within 72 hours from awareness — verify against the current circular",
+          "slaMinutes": 4320
+        }
+      ]
+    },
+    {
+      "code": "NDPR-2019",
+      "name": "Nigeria Data Protection Regulation 2019",
+      "issuer": "NITDA (now NDPC)",
+      "jurisdiction": "NG",
+      "versionLabel": "2019",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "Art.2.1",
+          "title": "Governing principles of processing",
+          "requirementText": "Process personal data for specific legitimate purposes, adequately, accurately and with appropriate security.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.2.6",
+          "title": "Data security",
+          "requirementText": "Develop security measures to protect personal data, including firewalls, access control and encryption.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.3.1",
+          "title": "Rights of data subjects",
+          "requirementText": "Provide data subjects with information and respond to requests regarding their personal data.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.4.1",
+          "title": "Data protection audit filing",
+          "requirementText": "Conduct a data protection audit and file the summary with the regulator annually through a licensed DPCO.",
+          "domain": "Privacy",
+          "deadlineRule": "Annual audit filing by the regulator's deadline — verify against the current circular",
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NDPA-GAID-2025",
+      "name": "NDPA General Application and Implementation Directive",
+      "issuer": "Nigeria Data Protection Commission",
+      "jurisdiction": "NG",
+      "versionLabel": "2025",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "GAID-CAF",
+          "title": "Compliance audit returns",
+          "requirementText": "File periodic compliance audit returns according to the controller's data-processing tier.",
+          "domain": "Privacy",
+          "deadlineRule": "Annual compliance audit returns per tier — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GAID-BREACH",
+          "title": "Breach management procedure",
+          "requirementText": "Maintain a breach management procedure with timelines, notification templates and a breach register.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GAID-DSR",
+          "title": "Data subject request handling",
+          "requirementText": "Operate a documented process to receive, verify, log and respond to data subject requests.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GAID-DPIA",
+          "title": "DPIA methodology",
+          "requirementText": "Use a documented methodology to conduct and record DPIAs for high-risk processing.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GAID-INV",
+          "title": "Data inventory and records of processing",
+          "requirementText": "Maintain an inventory of personal data and records of processing activities.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NG-CYBERCRIMES",
+      "name": "Cybercrimes (Prohibition, Prevention, etc.) Act 2015, as amended 2024",
+      "issuer": "Office of the National Security Adviser / ngCERT",
+      "jurisdiction": "NG",
+      "versionLabel": "2015 (amended 2024)",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "s.21",
+          "title": "Duty to report cyber threats and incidents",
+          "requirementText": "Report cyber attacks, intrusions and disruptions affecting the institution's systems to the national CERT promptly.",
+          "domain": "IR",
+          "deadlineRule": "General reporting within 7 days; shorter for critical infrastructure — verify against the current circular",
+          "slaMinutes": 10080
+        },
+        {
+          "clauseRef": "s.38",
+          "title": "Records retention and protection",
+          "requirementText": "Retain traffic data and subscriber information for the prescribed period and protect its confidentiality.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "s.3",
+          "title": "Critical national information infrastructure",
+          "requirementText": "Apply additional protection and reporting duties to systems designated as critical national information infrastructure.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NITDA-NCPS",
+      "name": "Nigeria Cloud Computing Policy and NITDA Guidelines",
+      "issuer": "NITDA",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "NCPS-1",
+          "title": "Cloud adoption risk assessment",
+          "requirementText": "Assess security, privacy and continuity risks before adopting cloud services.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "NCPS-2",
+          "title": "Data residency",
+          "requirementText": "Host and process data in line with applicable data classification and residency requirements.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "NCPS-3",
+          "title": "Cloud exit and portability",
+          "requirementText": "Plan for data portability and exit from cloud providers.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "SEC-NG",
+      "name": "SEC Nigeria Rules and Regulations (Capital Market Operators)",
+      "issuer": "Securities and Exchange Commission Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "SEC-1",
+          "title": "Periodic regulatory returns",
+          "requirementText": "Submit periodic returns and reports to the Commission by prescribed dates.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SEC-2",
+          "title": "Information security and cyber resilience",
+          "requirementText": "Maintain cyber resilience controls proportionate to the operator's activities.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SEC-3",
+          "title": "AML/CFT obligations",
+          "requirementText": "Apply AML/CFT controls and reporting for capital market activities.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NAICOM",
+      "name": "NAICOM Guidelines for Insurers",
+      "issuer": "National Insurance Commission",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "NAICOM-1",
+          "title": "Corporate governance",
+          "requirementText": "Maintain board-level oversight of risk and compliance.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "NAICOM-2",
+          "title": "Regulatory returns",
+          "requirementText": "Submit periodic returns to the Commission accurately and on time.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "NAICOM-3",
+          "title": "Information technology risk",
+          "requirementText": "Manage IT and cyber risk with documented controls and incident reporting.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "PENCOM",
+      "name": "PenCom ICT Guidelines",
+      "issuer": "National Pension Commission",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "PENCOM-1",
+          "title": "ICT governance",
+          "requirementText": "Establish ICT governance and security policies approved by the board.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PENCOM-2",
+          "title": "Data protection and backup",
+          "requirementText": "Protect contributor data and maintain tested backups.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PENCOM-3",
+          "title": "Incident reporting",
+          "requirementText": "Report material ICT incidents to the Commission.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NIBSS-BVN",
+      "name": "BVN Operational Guidelines",
+      "issuer": "NIBSS / Central Bank of Nigeria",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "BVN-1",
+          "title": "BVN data confidentiality",
+          "requirementText": "Restrict access to BVN data to authorised staff and approved purposes.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BVN-2",
+          "title": "BVN access logging",
+          "requirementText": "Log and review access to BVN records.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BVN-3",
+          "title": "Watch-list obligations",
+          "requirementText": "Apply BVN watch-list procedures for fraud-linked identities.",
+          "domain": "AML",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NG-FIRS",
+      "name": "FIRS e-Filing Obligations",
+      "issuer": "Federal Inland Revenue Service",
+      "jurisdiction": "NG",
+      "versionLabel": "Current",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "FIRS-1",
+          "title": "Tax returns e-filing",
+          "requirementText": "File applicable tax returns through the FIRS e-filing platform by statutory due dates.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "FIRS-2",
+          "title": "Withholding tax and VAT remittance",
+          "requirementText": "Deduct and remit withholding tax and VAT by the due dates with supporting schedules.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "ISO-27001-2022",
+      "name": "ISO/IEC 27001:2022 Information Security Management Systems — Annex A",
+      "issuer": "ISO/IEC",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2022",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "A.5.1",
+          "title": "Policies for information security",
+          "requirementText": "Define, approve, publish and periodically review information security policies.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.2",
+          "title": "Information security roles and responsibilities",
+          "requirementText": "Define and allocate information security roles and responsibilities.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.15",
+          "title": "Access control",
+          "requirementText": "Establish and implement rules to control physical and logical access based on business and security requirements.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.16",
+          "title": "Identity management",
+          "requirementText": "Manage the full lifecycle of identities, including joiners, movers and leavers.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.17",
+          "title": "Authentication information",
+          "requirementText": "Control the allocation and management of authentication information.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.18",
+          "title": "Access rights",
+          "requirementText": "Provision, review, modify and remove access rights in line with access control policy; review rights periodically.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.19",
+          "title": "Information security in supplier relationships",
+          "requirementText": "Define processes to manage security risks arising from the use of supplier products and services.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.20",
+          "title": "Addressing information security within supplier agreements",
+          "requirementText": "Agree relevant security requirements with each supplier in contract.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.21",
+          "title": "Managing information security in the ICT supply chain",
+          "requirementText": "Manage security risks associated with the ICT product and service supply chain.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.22",
+          "title": "Monitoring, review and change management of supplier services",
+          "requirementText": "Regularly monitor, review, evaluate and manage change in supplier security practices and service delivery.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.23",
+          "title": "Information security for use of cloud services",
+          "requirementText": "Define processes for acquiring, using, managing and exiting cloud services.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.24",
+          "title": "Incident management planning and preparation",
+          "requirementText": "Plan and prepare for incident management by defining processes, roles and responsibilities.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.25",
+          "title": "Assessment and decision on information security events",
+          "requirementText": "Assess security events and decide whether to categorise them as incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.26",
+          "title": "Response to information security incidents",
+          "requirementText": "Respond to incidents in accordance with documented procedures.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.27",
+          "title": "Learning from information security incidents",
+          "requirementText": "Use knowledge from incidents to strengthen and improve controls.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.28",
+          "title": "Collection of evidence",
+          "requirementText": "Establish procedures for identifying, collecting, acquiring and preserving evidence related to security events.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.29",
+          "title": "Information security during disruption",
+          "requirementText": "Plan how to maintain security at an appropriate level during disruption.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.30",
+          "title": "ICT readiness for business continuity",
+          "requirementText": "Plan, implement, maintain and test ICT readiness based on continuity objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.31",
+          "title": "Legal, statutory, regulatory and contractual requirements",
+          "requirementText": "Identify, document and keep up to date applicable legal, regulatory and contractual requirements.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.34",
+          "title": "Privacy and protection of PII",
+          "requirementText": "Identify and meet requirements for preserving privacy and protecting personal data.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.35",
+          "title": "Independent review of information security",
+          "requirementText": "Review the approach to managing information security independently at planned intervals.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.5.37",
+          "title": "Documented operating procedures",
+          "requirementText": "Document operating procedures for information processing facilities and make them available to personnel who need them.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.6.3",
+          "title": "Information security awareness, education and training",
+          "requirementText": "Provide personnel with appropriate security awareness, education and training.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.2",
+          "title": "Privileged access rights",
+          "requirementText": "Restrict and manage the allocation and use of privileged access rights.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.5",
+          "title": "Secure authentication",
+          "requirementText": "Implement secure authentication technologies and procedures based on access restrictions.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.7",
+          "title": "Protection against malware",
+          "requirementText": "Implement protection against malware supported by user awareness.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.8",
+          "title": "Management of technical vulnerabilities",
+          "requirementText": "Obtain information on technical vulnerabilities, evaluate exposure and take appropriate measures.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.9",
+          "title": "Configuration management",
+          "requirementText": "Establish, document, implement, monitor and review configurations, including security configurations.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.13",
+          "title": "Information backup",
+          "requirementText": "Maintain backup copies of information, software and systems and test them regularly.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.14",
+          "title": "Redundancy of information processing facilities",
+          "requirementText": "Implement sufficient redundancy to meet availability requirements.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.15",
+          "title": "Logging",
+          "requirementText": "Produce, store, protect and analyse logs that record activities, exceptions, faults and other relevant events.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.16",
+          "title": "Monitoring activities",
+          "requirementText": "Monitor networks, systems and applications for anomalous behaviour and take action on potential incidents.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.24",
+          "title": "Use of cryptography",
+          "requirementText": "Define and implement rules for effective use of cryptography, including cryptographic key management.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "A.8.32",
+          "title": "Change management",
+          "requirementText": "Subject changes to information processing facilities and systems to change management procedures.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "ISO-27002-2022",
+      "name": "ISO/IEC 27002:2022 Information Security Controls — Implementation Guidance",
+      "issuer": "ISO/IEC",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2022",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "5.18",
+          "title": "Access rights — guidance",
+          "requirementText": "Guidance on provisioning, periodic review and timely revocation of access rights.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.8",
+          "title": "Technical vulnerabilities — guidance",
+          "requirementText": "Guidance on vulnerability identification, risk evaluation, patching and verification.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.9",
+          "title": "Configuration management — guidance",
+          "requirementText": "Guidance on templates, hardening, recording and monitoring configurations.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "5.26",
+          "title": "Incident response — guidance",
+          "requirementText": "Guidance on containment, escalation, communication and evidence handling during incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "ISO-22301-2019",
+      "name": "ISO 22301:2019 Business Continuity Management Systems",
+      "issuer": "ISO",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2019",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "8.2",
+          "title": "Business impact analysis and risk assessment",
+          "requirementText": "Analyse business impacts and risks to set continuity priorities and recovery objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.4",
+          "title": "Business continuity plans and procedures",
+          "requirementText": "Establish documented plans and procedures to respond to and recover from disruption.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.5",
+          "title": "Exercise programme",
+          "requirementText": "Exercise and test continuity procedures at planned intervals and after significant change.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "9.1",
+          "title": "Monitoring, measurement, analysis and evaluation",
+          "requirementText": "Evaluate continuity performance, including recovery achieved against objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "ISO-27701",
+      "name": "ISO/IEC 27701 Privacy Information Management",
+      "issuer": "ISO/IEC",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2019",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "7.3",
+          "title": "Obligations to PII principals",
+          "requirementText": "Determine and meet obligations to data subjects, including handling access and correction requests.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "7.2.5",
+          "title": "Privacy impact assessment",
+          "requirementText": "Assess privacy impact where new or changed processing of PII is planned.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "6.13",
+          "title": "Privacy incident management",
+          "requirementText": "Include PII breaches in incident management, including notification obligations.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NIST-CSF-2.0",
+      "name": "NIST Cybersecurity Framework 2.0",
+      "issuer": "NIST",
+      "jurisdiction": "US",
+      "versionLabel": "2.0 (2024)",
+      "sourceUrl": "https://www.nist.gov/cyberframework",
+      "clauses": [
+        {
+          "clauseRef": "GV.OC",
+          "title": "Govern — Organizational Context",
+          "requirementText": "Understand the mission, stakeholder expectations and legal and regulatory requirements surrounding cyber risk.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GV.RM",
+          "title": "Govern — Risk Management Strategy",
+          "requirementText": "Establish and communicate risk priorities, appetite and assumptions to support operational risk decisions.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GV.SC",
+          "title": "Govern — Cybersecurity Supply Chain Risk Management",
+          "requirementText": "Identify, assess and manage cyber supply chain risks across the supplier lifecycle.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "GV.SC-07",
+          "title": "Supplier risks are assessed and monitored",
+          "requirementText": "Understand, record, prioritise, assess, respond to and monitor risks posed by suppliers over the relationship.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ID.AM",
+          "title": "Identify — Asset Management",
+          "requirementText": "Identify and manage assets consistent with their relative importance to objectives and risk strategy.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "ID.RA-01",
+          "title": "Vulnerabilities in assets are identified",
+          "requirementText": "Identify, validate and record vulnerabilities in assets.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.AA",
+          "title": "Protect — Identity Management, Authentication and Access Control",
+          "requirementText": "Limit access to assets to authorised users, services and hardware commensurate with assessed risk.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.AA-05",
+          "title": "Access permissions are managed and reviewed",
+          "requirementText": "Define, manage, enforce and review access permissions incorporating least privilege and separation of duties.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.DS",
+          "title": "Protect — Data Security",
+          "requirementText": "Manage data consistent with risk strategy to protect confidentiality, integrity and availability.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.DS-11",
+          "title": "Backups of data are created, protected, maintained and tested",
+          "requirementText": "Create, protect, maintain and test backups of data.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.PS-01",
+          "title": "Configuration management practices are established and applied",
+          "requirementText": "Establish and apply configuration management practices.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "PR.PS-02",
+          "title": "Software is maintained, replaced and removed commensurate with risk",
+          "requirementText": "Maintain, patch, replace and remove software commensurate with risk.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DE.CM",
+          "title": "Detect — Continuous Monitoring",
+          "requirementText": "Monitor assets to find anomalies, indicators of compromise and other potentially adverse events.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DE.AE",
+          "title": "Detect — Adverse Event Analysis",
+          "requirementText": "Analyse anomalies, indicators of compromise and adverse events to characterise them and detect incidents.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RS.MA",
+          "title": "Respond — Incident Management",
+          "requirementText": "Manage responses to detected cybersecurity incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RS.CO-02",
+          "title": "Internal and external stakeholders are notified of incidents",
+          "requirementText": "Notify internal and external stakeholders, including regulators, of incidents as required.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RC.RP",
+          "title": "Recover — Incident Recovery Plan Execution",
+          "requirementText": "Perform restoration activities to ensure availability of affected systems and services.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RC.CO",
+          "title": "Recover — Incident Recovery Communication",
+          "requirementText": "Coordinate restoration activities with internal and external parties.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NIST-800-53r5",
+      "name": "NIST SP 800-53 Rev. 5 Security and Privacy Controls",
+      "issuer": "NIST",
+      "jurisdiction": "US",
+      "versionLabel": "Rev. 5",
+      "sourceUrl": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+      "clauses": [
+        {
+          "clauseRef": "AC-2",
+          "title": "Account Management",
+          "requirementText": "Define, create, enable, modify, review, disable and remove system accounts per organisational policy.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-2(3)",
+          "title": "Account Management | Disable Accounts",
+          "requirementText": "Disable accounts within a defined period when expired, no longer associated with a user, in violation of policy, or inactive.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AC-6",
+          "title": "Least Privilege",
+          "requirementText": "Allow only the authorised access needed for users and processes to accomplish assigned tasks.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "RA-5",
+          "title": "Vulnerability Monitoring and Scanning",
+          "requirementText": "Scan for vulnerabilities at a defined frequency and when new vulnerabilities are identified; analyse and remediate based on risk.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SI-2",
+          "title": "Flaw Remediation",
+          "requirementText": "Identify, report and correct system flaws; test and install security-relevant updates within defined timeframes.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CM-3",
+          "title": "Configuration Change Control",
+          "requirementText": "Determine, review, approve, document and audit changes to the system.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CM-6",
+          "title": "Configuration Settings",
+          "requirementText": "Establish, implement, monitor and document configuration settings; manage approved deviations.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "IR-4",
+          "title": "Incident Handling",
+          "requirementText": "Implement incident handling covering preparation, detection and analysis, containment, eradication and recovery.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "IR-6",
+          "title": "Incident Reporting",
+          "requirementText": "Require personnel to report suspected incidents internally within a defined time and report incident information to designated authorities.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "IR-8",
+          "title": "Incident Response Plan",
+          "requirementText": "Develop, distribute, review and update an incident response plan.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AU-6",
+          "title": "Audit Record Review, Analysis, and Reporting",
+          "requirementText": "Review and analyse audit records at a defined frequency for indications of inappropriate or unusual activity and report findings.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "AU-12",
+          "title": "Audit Record Generation",
+          "requirementText": "Provide audit record generation for defined event types on system components.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SC-12",
+          "title": "Cryptographic Key Establishment and Management",
+          "requirementText": "Establish and manage cryptographic keys in accordance with defined key management requirements.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SC-13",
+          "title": "Cryptographic Protection",
+          "requirementText": "Implement the types of cryptography required for each specified cryptographic use.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CP-9",
+          "title": "System Backup",
+          "requirementText": "Conduct backups of user and system information and protect their confidentiality, integrity and availability.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CP-10",
+          "title": "System Recovery and Reconstitution",
+          "requirementText": "Provide for recovery and reconstitution of the system to a known state within defined time and data-loss objectives.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "SA-9",
+          "title": "External System Services",
+          "requirementText": "Require external service providers to comply with security requirements and monitor their compliance.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "NIST-800-61r3",
+      "name": "NIST SP 800-61 Rev. 3 Incident Response Recommendations",
+      "issuer": "NIST",
+      "jurisdiction": "US",
+      "versionLabel": "Rev. 3",
+      "sourceUrl": "https://csrc.nist.gov/pubs/sp/800/61/r3/final",
+      "clauses": [
+        {
+          "clauseRef": "PREP",
+          "title": "Preparation",
+          "requirementText": "Prepare people, process and technology to handle incidents before they occur.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DET",
+          "title": "Detection and analysis",
+          "requirementText": "Detect, validate, prioritise and document potential incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CER",
+          "title": "Containment, eradication and recovery",
+          "requirementText": "Contain the incident, remove its cause and restore affected systems safely.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "POST",
+          "title": "Post-incident activity",
+          "requirementText": "Conduct lessons-learned reviews and feed improvements back into controls.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "PCI-DSS-4.0.1",
+      "name": "Payment Card Industry Data Security Standard",
+      "issuer": "PCI Security Standards Council",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "4.0.1",
+      "sourceUrl": "https://www.pcisecuritystandards.org",
+      "clauses": [
+        {
+          "clauseRef": "2.2",
+          "title": "System components are configured and managed securely",
+          "requirementText": "Develop, apply and maintain configuration standards for all system components, addressing known vulnerabilities and industry hardening guidance.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "3.6",
+          "title": "Cryptographic keys used to protect stored account data are secured",
+          "requirementText": "Protect keys used to secure stored account data against disclosure and misuse; restrict access to the fewest custodians.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "3.7",
+          "title": "Key management processes are defined and implemented",
+          "requirementText": "Document and implement key-management procedures covering generation, distribution, storage, cryptoperiod rotation, retirement and split knowledge/dual control.",
+          "domain": "Crypto",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "6.3",
+          "title": "Security vulnerabilities are identified and addressed",
+          "requirementText": "Identify new vulnerabilities, rank them by risk and install applicable security patches; critical patches within about one month of release.",
+          "domain": "VulnMgmt",
+          "deadlineRule": "Critical/high patches within one month of release — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "7.2",
+          "title": "Access to system components and data is appropriately defined and assigned",
+          "requirementText": "Define an access control model and assign access based on job classification and least privilege.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "7.2.4",
+          "title": "User accounts and access privileges are reviewed",
+          "requirementText": "Review all user accounts and related access privileges at least once every six months and address inappropriate access.",
+          "domain": "Access",
+          "deadlineRule": "At least every six months — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.2.6",
+          "title": "Inactive user accounts are removed or disabled",
+          "requirementText": "Remove or disable user accounts that have been inactive for 90 days.",
+          "domain": "Access",
+          "deadlineRule": "Within 90 days of inactivity — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "10.2",
+          "title": "Audit logs are implemented",
+          "requirementText": "Enable audit logs that capture user activity and events needed for detection and forensic analysis.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "10.4",
+          "title": "Audit logs are reviewed",
+          "requirementText": "Review security event and critical system logs at least daily to identify anomalies or suspicious activity.",
+          "domain": "Logging",
+          "deadlineRule": "Daily review of security logs — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "10.7",
+          "title": "Failures of critical security controls are detected and responded to",
+          "requirementText": "Detect, alert on and promptly respond to failures of critical security control systems.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "11.3",
+          "title": "Vulnerabilities are regularly identified and addressed",
+          "requirementText": "Perform internal and external vulnerability scans at least quarterly and after significant change; rescan to confirm remediation.",
+          "domain": "VulnMgmt",
+          "deadlineRule": "At least quarterly — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "12.8",
+          "title": "Third-party service provider risk is managed",
+          "requirementText": "Maintain a list of service providers, written agreements and a programme to monitor their compliance status at least annually.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "12.10",
+          "title": "Suspected and confirmed security incidents are responded to immediately",
+          "requirementText": "Maintain, test annually and execute an incident response plan for suspected or confirmed security incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "SOC2-TSC",
+      "name": "AICPA Trust Services Criteria (SOC 2)",
+      "issuer": "AICPA",
+      "jurisdiction": "US",
+      "versionLabel": "2017 (revised points of focus 2022)",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "CC6.1",
+          "title": "Logical access security",
+          "requirementText": "Implement logical access security over protected information assets.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC6.2",
+          "title": "User registration and authorisation",
+          "requirementText": "Register and authorise users before issuing credentials; remove access when no longer required.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC6.3",
+          "title": "Role-based access and least privilege",
+          "requirementText": "Authorise, modify and remove access based on roles and least privilege.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC7.1",
+          "title": "Configuration and vulnerability monitoring",
+          "requirementText": "Detect configuration changes that introduce vulnerabilities and susceptibilities to newly discovered vulnerabilities.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC7.2",
+          "title": "Security event monitoring",
+          "requirementText": "Monitor system components for anomalies indicative of malicious acts or errors.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC7.4",
+          "title": "Incident response",
+          "requirementText": "Respond to identified security incidents through a defined response programme.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "CC8.1",
+          "title": "Change management",
+          "requirementText": "Authorise, design, test, approve and implement changes to infrastructure and software.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "COBIT-2019",
+      "name": "COBIT 2019 Framework",
+      "issuer": "ISACA",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2019",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "DSS05.04",
+          "title": "Manage user identity and logical access",
+          "requirementText": "Ensure users have access rights according to business need and that rights are reviewed and revoked appropriately.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DSS05.07",
+          "title": "Manage vulnerabilities and monitor infrastructure for security events",
+          "requirementText": "Monitor infrastructure and remediate vulnerabilities to detect and respond to security events.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DSS04",
+          "title": "Managed continuity",
+          "requirementText": "Establish and maintain a plan to continue critical business and IT operations through disruption.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "DSS06",
+          "title": "Managed business process controls",
+          "requirementText": "Define and operate business process controls to ensure information integrity and security.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BAI06",
+          "title": "Managed IT changes",
+          "requirementText": "Manage all changes in a controlled manner, including standard and emergency changes.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BAI06.02",
+          "title": "Manage emergency changes",
+          "requirementText": "Carefully manage emergency changes to minimise further incidents and ensure they are controlled and documented after the fact.",
+          "domain": "Change",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BAI10",
+          "title": "Managed configuration",
+          "requirementText": "Define and maintain descriptions and relationships of key resources and capabilities and audit configuration repositories.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "APO10",
+          "title": "Managed vendors",
+          "requirementText": "Manage IT-related services from all types of vendors, including risk and performance.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "MEA03",
+          "title": "Managed compliance with external requirements",
+          "requirementText": "Evaluate that IT processes comply with laws, regulations and contractual requirements.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "CIS-v8",
+      "name": "CIS Critical Security Controls v8 / CIS Benchmarks",
+      "issuer": "Center for Internet Security",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "8.1",
+      "sourceUrl": "https://www.cisecurity.org/controls",
+      "clauses": [
+        {
+          "clauseRef": "1",
+          "title": "Inventory and Control of Enterprise Assets",
+          "requirementText": "Actively manage all enterprise assets connected to the infrastructure so only authorised assets have access.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "3",
+          "title": "Data Protection",
+          "requirementText": "Develop processes and technical controls to identify, classify, securely handle, retain and dispose of data.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "4",
+          "title": "Secure Configuration of Enterprise Assets and Software",
+          "requirementText": "Establish and maintain secure configuration of enterprise assets and software.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "5",
+          "title": "Account Management",
+          "requirementText": "Use processes and tools to assign and manage credentials for user, administrator and service accounts.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "5.3",
+          "title": "Disable Dormant Accounts",
+          "requirementText": "Delete or disable dormant accounts after a defined period of inactivity (45 days is the suggested benchmark).",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "6",
+          "title": "Access Control Management",
+          "requirementText": "Create, assign, manage and revoke access credentials and privileges for accounts.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "7",
+          "title": "Continuous Vulnerability Management",
+          "requirementText": "Continuously assess and track vulnerabilities and remediate them to minimise the window of opportunity for attackers.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8",
+          "title": "Audit Log Management",
+          "requirementText": "Collect, alert on, review and retain audit logs of events that could help detect, understand or recover from an attack.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "8.11",
+          "title": "Conduct Audit Log Reviews",
+          "requirementText": "Review audit logs at least weekly to detect anomalies or abnormal events.",
+          "domain": "Logging",
+          "deadlineRule": "At least weekly — verify against the current circular",
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "11",
+          "title": "Data Recovery",
+          "requirementText": "Establish and maintain data recovery practices sufficient to restore in-scope assets to a trusted state.",
+          "domain": "BCP",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "15",
+          "title": "Service Provider Management",
+          "requirementText": "Evaluate service providers holding sensitive data or responsible for critical platforms.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "17",
+          "title": "Incident Response Management",
+          "requirementText": "Establish a programme to prepare, detect and quickly respond to an attack.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "GDPR",
+      "name": "EU General Data Protection Regulation",
+      "issuer": "European Union",
+      "jurisdiction": "EU",
+      "versionLabel": "2016/679",
+      "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "clauses": [
+        {
+          "clauseRef": "Art.5",
+          "title": "Principles relating to processing",
+          "requirementText": "Process personal data lawfully, fairly, transparently, for limited purposes, minimally, accurately and securely.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.15",
+          "title": "Right of access by the data subject",
+          "requirementText": "Give data subjects confirmation of processing, a copy of their data and related information.",
+          "domain": "Privacy",
+          "deadlineRule": "Respond within one month, extendable in limited cases — verify against the current circular",
+          "slaMinutes": 43200
+        },
+        {
+          "clauseRef": "Art.28",
+          "title": "Processor",
+          "requirementText": "Use only processors providing sufficient guarantees, under a binding contract.",
+          "domain": "ThirdParty",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.30",
+          "title": "Records of processing activities",
+          "requirementText": "Maintain records of processing activities.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.32",
+          "title": "Security of processing",
+          "requirementText": "Implement appropriate technical and organisational measures to secure processing.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.33",
+          "title": "Notification of a personal data breach to the supervisory authority",
+          "requirementText": "Notify the supervisory authority without undue delay and where feasible within 72 hours of becoming aware of a breach.",
+          "domain": "Privacy",
+          "deadlineRule": "Within 72 hours from awareness — verify against the current circular",
+          "slaMinutes": 4320
+        },
+        {
+          "clauseRef": "Art.34",
+          "title": "Communication of a personal data breach to the data subject",
+          "requirementText": "Inform data subjects without undue delay when a breach is likely to result in high risk to them.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "Art.35",
+          "title": "Data protection impact assessment",
+          "requirementText": "Assess the impact of high-risk processing before it starts.",
+          "domain": "Privacy",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "SWIFT-CSP",
+      "name": "SWIFT Customer Security Programme — Customer Security Controls Framework",
+      "issuer": "SWIFT",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "CSCF (current year)",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "1.1",
+          "title": "SWIFT environment protection",
+          "requirementText": "Segregate the local SWIFT infrastructure from the wider IT environment.",
+          "domain": "Config",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "2.2",
+          "title": "Security updates",
+          "requirementText": "Apply vendor security updates to SWIFT-related components promptly.",
+          "domain": "VulnMgmt",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "5.1",
+          "title": "Logical access control",
+          "requirementText": "Enforce least privilege, need-to-know and separation of duties for SWIFT operator accounts.",
+          "domain": "Access",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "6.4",
+          "title": "Logging and monitoring",
+          "requirementText": "Record and monitor security events on the local SWIFT infrastructure.",
+          "domain": "Logging",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "7.1",
+          "title": "Cyber incident response planning",
+          "requirementText": "Maintain a cyber incident response plan that covers SWIFT-related incidents.",
+          "domain": "IR",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "BASEL-OPRISK",
+      "name": "Basel III Operational Risk and BCBS 239",
+      "issuer": "Basel Committee on Banking Supervision",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "Basel III / BCBS 239",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "OPR-LOSS",
+          "title": "Operational loss data collection",
+          "requirementText": "Collect and maintain comprehensive internal loss event data.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCBS239-P3",
+          "title": "Accuracy and integrity of risk data",
+          "requirementText": "Generate accurate and reliable risk data, largely automated, to minimise error.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "BCBS239-P5",
+          "title": "Timeliness of risk reporting",
+          "requirementText": "Produce aggregate risk data in a timely manner, including under stress.",
+          "domain": "Returns",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "COSO-2013",
+      "name": "COSO Internal Control — Integrated Framework",
+      "issuer": "COSO",
+      "jurisdiction": "US",
+      "versionLabel": "2013",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "P10",
+          "title": "Selects and develops control activities",
+          "requirementText": "Select and develop control activities that mitigate risks to acceptable levels.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "P12",
+          "title": "Deploys through policies and procedures",
+          "requirementText": "Deploy control activities through policies and documented procedures.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "P16",
+          "title": "Conducts ongoing and separate evaluations",
+          "requirementText": "Evaluate whether components of internal control are present and functioning.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    },
+    {
+      "code": "IIA-GIAS-2024",
+      "name": "Global Internal Audit Standards",
+      "issuer": "The Institute of Internal Auditors",
+      "jurisdiction": "GLOBAL",
+      "versionLabel": "2024",
+      "sourceUrl": null,
+      "clauses": [
+        {
+          "clauseRef": "14.1",
+          "title": "Gathering information for analysis and evaluation",
+          "requirementText": "Gather relevant, reliable and sufficient information to support engagement conclusions.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        },
+        {
+          "clauseRef": "14.6",
+          "title": "Engagement documentation",
+          "requirementText": "Document information and evidence to support engagement results and allow review.",
+          "domain": "Governance",
+          "deadlineRule": null,
+          "slaMinutes": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+package com.atheris.compliance.tenant.backend.modules.runbooks.repository;
+
+import com.atheris.compliance.tenant.backend.modules.runbooks.entity.RunbookStepClauseMap;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Collection;
+import java.util.List;
+
+public interface RunbookStepClauseMapRepository extends JpaRepository<RunbookStepClauseMap, RunbookStepClauseMap.Key> {
+    List<RunbookStepClauseMap> findByStepIdIn(Collection<Long> stepIds);
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, ToggleButton, ToggleButtonGroup, CircularProgress, Alert,
@@ -31,7 +32,14 @@ function CellBadge({ count, band }) {
   );
 }
 
-function GridView({ data, onCellClick }) {
+const cellKey = (c) => `${c.impact}|${c.likelihood}`;
+
+/** Populated cells of one band — what a band drill-down sends to the register. */
+function bandCells(data, band) {
+  return (data?.cells || []).filter(c => c.band === band && c.count > 0).map(cellKey);
+}
+
+function GridView({ data, summary, onDrill }) {
   const impactLevels = data?.impactLevels || [];
   const likelihoodLevels = data?.likelihoodLevels || [];
   const cells = data?.cells || [];
@@ -44,12 +52,25 @@ function GridView({ data, onCellClick }) {
   return (
     <Box sx={{ overflowX: 'auto' }}>
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        {Object.entries(BAND_COLORS).map(([band, cfg]) => (
-          <Box key={band} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cfg.border }} />
-            <Typography sx={{ fontSize: '0.75rem', color: TL.gray600 }}>{band}</Typography>
-          </Box>
-        ))}
+        {Object.entries(BAND_COLORS).map(([band, cfg]) => {
+          const count = summary?.[band.toLowerCase()] ?? 0;
+          const clickable = count > 0;
+          return (
+            <Box key={band} role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined}
+              title={clickable ? `View ${count} ${band.toLowerCase()} obligation${count !== 1 ? 's' : ''}` : undefined}
+              onClick={clickable ? () => onDrill(bandCells(data, band), band) : undefined}
+              onKeyDown={clickable ? (e) => { if (e.key === 'Enter') onDrill(bandCells(data, band), band); } : undefined}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.5, borderRadius: '9999px',
+                border: `1px solid ${TL.gray100}`, cursor: clickable ? 'pointer' : 'default',
+                '&:hover': clickable ? { borderColor: cfg.border, bgcolor: cfg.bg } : undefined,
+              }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cfg.border }} />
+              <Typography sx={{ fontSize: '0.75rem', color: TL.gray600 }}>{band}</Typography>
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: cfg.text }}>{count}</Typography>
+            </Box>
+          );
+        })}
       </Box>
       <Table sx={{ minWidth: 600 }}>
         <TableHead>
@@ -68,12 +89,16 @@ function GridView({ data, onCellClick }) {
                 const cell = cellMap[`${impact}|${likelihood}`] || {};
                 const band = cell.band || 'Low';
                 const cfg = BAND_COLORS[band] || BAND_COLORS.Low;
+                const clickable = (cell.count || 0) > 0;
                 return (
-                  <TableCell key={likelihood} sx={{
-                    bgcolor: cfg.bg, border: `1px solid ${TL.gray100}`,
-                    textAlign: 'center', cursor: onCellClick ? 'pointer' : 'default', p: 1,
-                    '&:hover': { outline: `2px solid ${cfg.border}`, outlineOffset: -2 },
-                  }} onClick={() => onCellClick?.(impact, likelihood)}>
+                  <TableCell key={likelihood}
+                    title={clickable ? `View ${cell.count} obligation${cell.count !== 1 ? 's' : ''} — ${impact} × ${likelihood}` : undefined}
+                    sx={{
+                      bgcolor: cfg.bg, border: `1px solid ${TL.gray100}`,
+                      textAlign: 'center', cursor: clickable ? 'pointer' : 'default', p: 1,
+                      '&:hover': clickable ? { outline: `2px solid ${cfg.border}`, outlineOffset: -2 } : undefined,
+                    }}
+                    onClick={clickable ? () => onDrill([`${impact}|${likelihood}`], `${band}: ${impact} × ${likelihood}`) : undefined}>
                     <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.025em', color: cfg.text, display: 'block' }}>
                       {band.toUpperCase()}
                     </Typography>
@@ -91,7 +116,7 @@ function GridView({ data, onCellClick }) {
   );
 }
 
-function TableView({ data }) {
+function TableView({ data, onDrill }) {
   const populated = (data?.cells || []).filter(c => c.count > 0);
   if (!populated.length) {
     return <Typography sx={{ p: 2, fontSize: '0.875rem', color: TL.gray500 }}>No rated obligations yet.</Typography>;
@@ -112,7 +137,8 @@ function TableView({ data }) {
           {populated.map((c, i) => {
             const cfg = BAND_COLORS[c.band] || BAND_COLORS.Low;
             return (
-              <TableRow key={`${c.impact}-${c.likelihood}-${i}`} hover>
+              <TableRow key={`${c.impact}-${c.likelihood}-${i}`} hover sx={{ cursor: 'pointer' }}
+                onClick={() => onDrill([cellKey(c)], `${c.band}: ${c.impact} × ${c.likelihood}`)}>
                 <TableCell>{c.impact}</TableCell>
                 <TableCell>{c.likelihood}</TableCell>
                 <TableCell align="right">{c.score}</TableCell>
@@ -131,7 +157,12 @@ function TableView({ data }) {
   );
 }
 
-export default function RiskHeatmap({ onCellClick }) {
+/**
+ * Clicking a populated cell, a band in the legend, or a table row opens the Obligations Register
+ * filtered to exactly those heatmap cells (same population as the counts shown here).
+ */
+export default function RiskHeatmap({ onDrill: onDrillProp }) {
+  const navigate = useNavigate();
   const [view, setView] = useState('grid');
   const [riskView, setRiskView] = useState('inherent');
 
@@ -143,6 +174,12 @@ export default function RiskHeatmap({ onCellClick }) {
 
   const data = heatmapQuery.data;
   const summary = data?.summary;
+
+  const onDrill = onDrillProp || ((cells, label) => {
+    if (!cells.length) return;
+    const qs = new URLSearchParams({ cells: cells.join(';'), riskView, drill: label });
+    navigate(`/obligations?${qs.toString()}`);
+  });
 
   return (
     <DataCard
@@ -170,8 +207,8 @@ export default function RiskHeatmap({ onCellClick }) {
 
       {heatmapQuery.isPending ? <CircularProgress size={24} sx={{ m: 2 }} /> : (
         view === 'grid'
-          ? <GridView data={data} onCellClick={onCellClick} />
-          : <TableView data={data} />
+          ? <GridView data={data} summary={summary} onDrill={onDrill} />
+          : <TableView data={data} onDrill={onDrill} />
       )}
     </DataCard>
   );

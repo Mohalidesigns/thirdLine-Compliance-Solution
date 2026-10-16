@@ -2,41 +2,15 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Chip, Button, CircularProgress, Alert, IconButton,
-  Collapse, TableContainer, Paper, TablePagination, Tooltip,
+  Button, CircularProgress, Alert, IconButton,
+  TableContainer, Paper, TablePagination, Tooltip,
 } from '@mui/material';
 import {
-  PageHeader, FilterBar, DataCard, RiskBadge, StateBadge,
-  EyeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ChevronDownIcon, DocumentTextIcon,
+  PageHeader, FilterBar, instrumentColumns,
+  EyeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentTextIcon,
 } from 'shared';
 import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
-
-const COLUMNS = [
-  { id: 'title', label: 'Title', minWidth: 280 },
-  { id: 'reference', label: 'Reference No', minWidth: 140 },
-  { id: 'regulator', label: 'Regulator', minWidth: 100 },
-  { id: 'risk', label: 'Risk', minWidth: 80 },
-  { id: 'status', label: 'Status', minWidth: 90 },
-  { id: 'actions', label: 'Actions', minWidth: 80, align: 'right' },
-];
-
-function formatDate(d) {
-  if (!d) return '-';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function riskChip(rating) {
-  return <RiskBadge value={rating} emptyLabel="Unrated" />;
-}
-
-function statusChip(status) {
-  return <StateBadge value={status} emptyLabel="Unknown" />;
-}
-
-const FIELD_LABEL_SX = {
-  fontSize: '0.625rem', fontWeight: 600, color: 'text.secondary',
-  textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block',
-};
+import InstrumentDetailContent from './detail/InstrumentDetailContent';
 
 export default function InstrumentsPage() {
   const navigate = useNavigate();
@@ -57,7 +31,6 @@ export default function InstrumentsPage() {
   const [detailItem, setDetailItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [showOcr, setShowOcr] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -77,6 +50,7 @@ export default function InstrumentsPage() {
   }, [regulators]);
 
   const regulatorsList = useMemo(() => ['All', ...regulators.map(r => r.abbreviation || r.name).filter(Boolean)], [regulators]);
+  const columns = useMemo(() => instrumentColumns({ regMap }), [regMap]);
 
   const statuses = useMemo(() => {
     const s = new Set(items.map(i => i.status).filter(Boolean));
@@ -102,7 +76,6 @@ export default function InstrumentsPage() {
     setDetailItem(item);
     setDetailLoading(true);
     setDetailData(null);
-    setShowOcr(false);
     setError('');
     try {
       const data = await api.platform.instruments.get(item.instrumentId);
@@ -115,7 +88,6 @@ export default function InstrumentsPage() {
   function closeDetail() {
     setDetailItem(null);
     setDetailData(null);
-    setShowOcr(false);
     setError('');
   }
 
@@ -181,142 +153,11 @@ export default function InstrumentsPage() {
         {detailLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
         ) : (
-          <>
-            <DataCard title="Overview" sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-                {riskChip(d.riskRating)}
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  {detailData?.regulator || regMap[d.regulatorId] || '-'}
-                </Typography>
-                {statusChip(d.status)}
-                <Chip size="small" label={d.areaOfFocus || 'General'} variant="outlined" />
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Risk Rating</Typography>
-                  <Box sx={{ mt: 0.5 }}>{riskChip(d.riskRating)}</Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Regulator</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{detailData?.regulator || regMap[d.regulatorId] || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Area of Focus</Typography>
-                  <Typography variant="body2">{d.areaOfFocus || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Nature</Typography>
-                  <Typography variant="body2">{d.nature || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Obligations</Typography>
-                  <Typography variant="body2">{detailData?.obligations?.length || 0}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Confidence</Typography>
-                  <Typography variant="body2">{d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'}</Typography>
-                </Box>
-                {d.dateCommencement && (
-                  <Box>
-                    <Typography variant="caption" sx={FIELD_LABEL_SX}>Effective Date</Typography>
-                    <Typography variant="body2">{formatDate(d.dateCommencement)}</Typography>
-                  </Box>
-                )}
-                <Box>
-                  <Typography variant="caption" sx={FIELD_LABEL_SX}>Published</Typography>
-                  <Typography variant="body2">{formatDate(d.firstPublishedAt || d.discoveredAt)}</Typography>
-                </Box>
-              </Box>
-            </DataCard>
-
-            {detailData?.aiSummary && (
-              <DataCard title="AI Summary" sx={{ mb: 3 }}>
-                <Typography variant="body2" fontStyle="italic" color="text.secondary">{detailData.aiSummary}</Typography>
-              </DataCard>
-            )}
-
-            {detailData?.pdfOcrText && (
-              <DataCard
-                title="Raw OCR Text"
-                noPadding
-                sx={{ mb: 3 }}
-                actions={
-                  <Button size="small" variant="text" onClick={() => setShowOcr(!showOcr)}
-                    endIcon={<ChevronDownIcon size={16} sx={{ transition: 'transform .15s', transform: showOcr ? 'rotate(180deg)' : 'none' }} />}>
-                    {showOcr ? 'Hide' : 'Show'} Raw OCR Text
-                  </Button>
-                }
-              >
-                <Collapse in={showOcr}>
-                  <Box sx={{
-                    p: 2, bgcolor: '#1A1A2E', color: '#E2E8F0',
-                    maxHeight: 400, overflow: 'auto', fontFamily: 'Roboto Mono, monospace',
-                    fontSize: '0.75rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                  }}>
-                    {detailData.pdfOcrText}
-                  </Box>
-                </Collapse>
-              </DataCard>
-            )}
-
-            {detailData?.sanctions?.length > 0 && (
-              <DataCard title="Penalties" sx={{ mb: 3 }}>
-                {detailData.sanctions.map((s, i) => (
-                  <Box key={i} sx={{ mb: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                      {s.sanctionType}{s.amountNaira ? ` — ₦${s.amountNaira.toLocaleString()}` : ''}
-                    </Typography>
-                    {s.liableRoles?.length > 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        Liable: {s.liableRoles.join(', ')}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </DataCard>
-            )}
-
-            <DataCard title={`Obligations (${detailData?.obligations?.length || 0})`} noPadding>
-              {detailData?.obligations?.length > 0 ? (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>#</TableCell>
-                        <TableCell>Description</TableCell>
-                        <TableCell>Section</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Deadline</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {detailData.obligations.map(obl => (
-                        <TableRow key={obl.number} hover>
-                          <TableCell>{obl.number}</TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.statement}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: '"Roboto Mono", monospace', fontSize: '0.7rem' }} />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{obl.type || '-'}</Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">{obl.recurringDeadline || '-'}</Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-                  <Typography variant="body2">No specific obligations extracted for this instrument.</Typography>
-                </Box>
-              )}
-            </DataCard>
-          </>
+          <InstrumentDetailContent
+            row={d}
+            detail={detailData}
+            regulatorLabel={regMap[d.regulatorId]}
+          />
         )}
       </Box>
     );
@@ -376,11 +217,12 @@ export default function InstrumentsPage() {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  {COLUMNS.map(c => (
-                    <TableCell key={c.id} align={c.align} sx={{ minWidth: c.minWidth }}>
+                  {columns.map(c => (
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
                       {c.label}
                     </TableCell>
                   ))}
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -389,29 +231,9 @@ export default function InstrumentsPage() {
                     <TableRow key={item.instrumentId} hover
                       onClick={() => openDetail(item)}
                       sx={{ cursor: 'pointer' }}>
-                      <TableCell>
-                        <Tooltip title={item.sourceTitle}>
-                          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceTitle}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={item.sourceReferenceNumber || '-'}>
-                          <Typography variant="body2" sx={{ fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem', color: 'text.secondary', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.sourceReferenceNumber || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={regMap[item.regulatorId] || '-'}>
-                          <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {regMap[item.regulatorId] || '-'}
-                          </Typography>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>{riskChip(item.riskRating)}</TableCell>
-                      <TableCell>{statusChip(item.status)}</TableCell>
+                      {columns.map(c => (
+                        <TableCell key={c.id}>{c.render ? c.render(item) : (item[c.id] ?? '—')}</TableCell>
+                      ))}
                       <TableCell align="right">
                         <Tooltip title="View">
                           <IconButton size="small" onClick={e => { e.stopPropagation(); openDetail(item); }}>

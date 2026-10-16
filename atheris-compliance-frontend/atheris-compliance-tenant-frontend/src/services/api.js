@@ -8,6 +8,35 @@ export const getToken = () => authToken;
 export const setRefreshToken = (t) => { authRefreshToken = t; };
 export const getRefreshToken = () => authRefreshToken;
 
+// Public remediation endpoints — reached by an owner via a link, with no login/token.
+// Kept separate from `api` so it never attaches the Authorization header or triggers
+// the 401-refresh/logout path.
+export const publicApi = {
+  async remediationView(token) {
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This remediation link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async remediationSubmit(token, { notes, files }) {
+    const form = new FormData();
+    if (notes) form.append('notes', notes);
+    (files || []).forEach((f) => form.append('files', f));
+    const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+};
+
 // A PDF endpoint answers 404 with {error, message} when the record has no stored
 // document (common: toolkit-imported instruments never carry one). Turn that into
 // a message worth showing, and fall back to the generic one for real failures.
@@ -123,7 +152,11 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const fallback = res.status === 403 ? FORBIDDEN_MESSAGE : `Request failed (${res.status})`;
-    throw new Error(data.message || data.error || fallback);
+    // Keep the server's stable error code (e.g. secret_in_command, lint_errors) for callers that branch on it.
+    const err = new Error(data.message || data.error || fallback);
+    err.status = res.status;
+    err.code = data.error;
+    throw err;
   }
   return data;
 }
@@ -185,6 +218,14 @@ async function rawRequest(path, { responseType = 'json', fallbackName = 'downloa
   return text ? JSON.parse(text) : null;
 }
 
+// Builds "?a=1&b=2" from an object, dropping empty values ("" when nothing is left).
+function toQuery(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
+
 // Hands a Blob to the browser as a file download.
 export function saveBlob({ blob, name }) {
   const url = URL.createObjectURL(blob);
@@ -208,6 +249,7 @@ export const api = {
     activateLicense: (data) => request('/onboarding/activate-license', { method: 'POST', body: JSON.stringify(data) }),
     institution: (data) => request('/onboarding/institution', { method: 'POST', body: JSON.stringify(data) }),
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
+    testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
@@ -315,6 +357,16 @@ export const api = {
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
   },
+  acts: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/acts${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    stats: (opts = {}) => request('/acts/stats', { signal: opts.signal }),
+    detail: (id, opts = {}) => request(`/acts/${id}`, { signal: opts.signal }),
+  },
   findings: {
     register: (params = {}) => {
       const qs = new URLSearchParams();
@@ -323,6 +375,7 @@ export const api = {
       return request(`/findings/register${s ? '?' + s : ''}`);
     },
     detail: (id) => request(`/findings/${id}/detail`),
+    stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
     remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -352,6 +405,16 @@ export const api = {
     create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/controls/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
+    tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
+    reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {
+      method: 'PUT', body: JSON.stringify({ decision, notes }),
+    }),
+    tasks: (id, opts = {}) => request(`/controls/${id}/tasks`, { signal: opts.signal }),
+    pendingReviewTests: (opts = {}) => request('/tests/pending-review', { signal: opts.signal }),
+  },
+  tasks: {
+    mine: (opts = {}) => request('/tasks', { signal: opts.signal }),
+    overdue: (opts = {}) => request('/tasks/overdue', { signal: opts.signal }),
   },
   returns: {
     list: () => request('/returns/list'),
@@ -368,7 +431,7 @@ export const api = {
       return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
-    detail: (id) => request(`/returns/instances/${id}/detail`),
+    detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
@@ -380,6 +443,18 @@ export const api = {
     updateSchedule: (returnId, body) => request(`/returns/${returnId}/schedule`, {
       method: 'PUT', body: JSON.stringify(body),
     }),
+    configureEventTrigger: (returnId, body, opts = {}) => request(`/returns/${returnId}/event-trigger`, {
+      signal: opts.signal,
+      method: 'PUT', body: JSON.stringify(body),
+    }),
+    recordEvent: (returnId, body, opts = {}) => request(`/returns/${returnId}/events`, {
+      signal: opts.signal,
+      method: 'POST', body: JSON.stringify(body),
+    }),
+    recordEventWithEvidence: (returnId, formData, opts = {}) => rawRequest(`/returns/${returnId}/events/upload`, {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
+    eventFilings: (returnId, opts = {}) => request(`/returns/${returnId}/events`, { signal: opts.signal }),
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
@@ -395,16 +470,10 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
-    upload: (formData) => {
-      const headers = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-      return fetch(`${API_BASE}/evidence/upload`, {
-        method: 'POST', headers, body: formData,
-      }).then(async (res) => {
-        if (!res.ok) { const err = await res.json().catch(() => ({ message: res.statusText })); throw new Error(err.message); }
-        return res.json();
-      });
-    },
+    detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),
+    upload: (formData, opts = {}) => rawRequest('/evidence/upload', {
+      method: 'POST', body: formData, signal: opts.signal,
+    }),
     download: (id) => {
       const headers = {};
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -457,10 +526,43 @@ export const api = {
     acknowledge: (id) => request(`/notifications/${id}/acknowledge`, { method: 'PUT' }),
     markAllRead: () => request('/notifications/mark-all-read', { method: 'PUT' }),
   },
+  reports: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/reports/board-packs${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    get: (id, opts = {}) => request(`/reports/board-packs/${id}`, { signal: opts.signal }),
+    preview: (from, to, sections, opts = {}) => {
+      const qs = new URLSearchParams({ from, to });
+      (sections || []).forEach(s => qs.append('sections', s));
+      return request(`/reports/board-packs/preview?${qs.toString()}`, { signal: opts.signal });
+    },
+    generate: (data) => request('/reports/board-packs', { method: 'POST', body: JSON.stringify(data) }),
+    signOff: (id, note) => request(`/reports/board-packs/${id}/sign-off`, {
+      method: 'POST', body: JSON.stringify({ note }),
+    }),
+    download: (id, opts = {}) => rawRequest(`/reports/board-packs/${id}/download`, {
+      responseType: 'blob', fallbackName: 'board-pack.pdf', signal: opts.signal,
+    }).then((file) => { saveBlob(file); return file; }),
+  },
   dashboard: {
     summary: () => request('/dashboard/summary'),
     trends: () => request('/dashboard/trends'),
     attentionItems: () => request('/dashboard/attention-items'),
+    metrics: (from, to, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (from) qs.set('from', from);
+      if (to) qs.set('to', to);
+      const s = qs.toString();
+      return request(`/dashboard/metrics${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    refresh: () => request('/dashboard/refresh', { method: 'POST' }),
+    scoreWeights: (opts = {}) => request('/dashboard/score-weights', { signal: opts.signal }),
+    saveScoreWeights: (data) => request('/dashboard/score-weights', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
     v2: {
       returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
       renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
@@ -483,6 +585,17 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+  },
+  federalPublicHolidays: {
+    list: (year, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (year && year !== 'All') qs.set('year', year);
+      const s = qs.toString();
+      return request(`/federal-public-holidays${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    create: (data) => request('/federal-public-holidays', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/federal-public-holidays/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/federal-public-holidays/${id}`, { method: 'DELETE' }),
   },
   org: {
     tree: () => request('/org'),
@@ -516,6 +629,115 @@ export const api = {
     }),
     deleteOwner: (id) => request(`/org/owners/${id}`, { method: 'DELETE' }),
   },
+  // Compliance Runbooks — contract: runbook library, versions, executions, templates, coverage.
+  // Every read takes { signal } so TanStack Query can cancel it.
+  runbooks: {
+    list: (params = {}, opts = {}) => request(`/runbooks${toQuery(params)}`, { signal: opts.signal }),
+    stats: (opts = {}) => request('/runbooks/stats', { signal: opts.signal }),
+    dashboard: (opts = {}) => request('/runbooks/dashboard', { signal: opts.signal }),
+    // Active users any runbook role may pick as owner / operator / assignee (GET /users is admin-only).
+    assignees: (opts = {}) => request('/runbooks/assignees', { signal: opts.signal }),
+    templateRevision: (id) => request(`/runbooks/${id}/template-revision`, { method: 'POST' }),
+    get: (id, opts = {}) => request(`/runbooks/${id}`, { signal: opts.signal }),
+    create: (data) => request('/runbooks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/runbooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/runbooks/${id}`, { method: 'DELETE' }),
+    clone: (id, data) => request(`/runbooks/${id}/clone`, { method: 'POST', body: JSON.stringify(data) }),
+    deprecate: (id, reason) => request(`/runbooks/${id}/deprecate`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    archive: (id, reason) => request(`/runbooks/${id}/archive`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    setClauses: (id, clauseIds) => request(`/runbooks/${id}/clauses`, { method: 'PUT', body: JSON.stringify({ clauseIds }) }),
+    setLinks: (id, data) => request(`/runbooks/${id}/links`, { method: 'PUT', body: JSON.stringify(data) }),
+    exportJson: (id) => rawRequest(`/runbooks/${id}/export?format=json`, {
+      responseType: 'blob', fallbackName: `runbook-${id}.json`,
+    }).then((file) => { saveBlob(file); return file; }),
+    importJson: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return rawRequest('/runbooks/import', { method: 'POST', body: fd });
+    },
+    versions: {
+      list: (id, opts = {}) => request(`/runbooks/${id}/versions`, { signal: opts.signal }),
+      createDraft: (id) => request(`/runbooks/${id}/versions`, { method: 'POST' }),
+      get: (id, vid, opts = {}) => request(`/runbooks/${id}/versions/${vid}`, { signal: opts.signal }),
+      save: (id, vid, tree) => request(`/runbooks/${id}/versions/${vid}`, { method: 'PUT', body: JSON.stringify(tree) }),
+      lint: (id, vid) => request(`/runbooks/${id}/versions/${vid}/lint`, { method: 'POST' }),
+      diff: (id, vid, otherVid, opts = {}) => request(`/runbooks/${id}/versions/${vid}/diff/${otherVid}`, { signal: opts.signal }),
+      submit: (id, vid) => request(`/runbooks/${id}/versions/${vid}/submit`, { method: 'POST' }),
+      approve: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/approve`, { method: 'POST', body: JSON.stringify(data) }),
+      reject: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/reject`, { method: 'POST', body: JSON.stringify(data) }),
+      publish: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/publish`, { method: 'POST', body: JSON.stringify(data) }),
+    },
+    approvalsPending: (opts = {}) => request('/runbooks/approvals/pending', { signal: opts.signal }),
+    schedules: {
+      list: (id, opts = {}) => request(`/runbooks/${id}/schedules`, { signal: opts.signal }),
+      create: (id, data) => request(`/runbooks/${id}/schedules`, { method: 'POST', body: JSON.stringify(data) }),
+      update: (id, sid, data) => request(`/runbooks/${id}/schedules/${sid}`, { method: 'PUT', body: JSON.stringify(data) }),
+      remove: (id, sid) => request(`/runbooks/${id}/schedules/${sid}`, { method: 'DELETE' }),
+    },
+    frameworks: {
+      list: (opts = {}) => request('/runbooks/frameworks', { signal: opts.signal }),
+      clauses: (frameworkId, params = {}, opts = {}) =>
+        request(`/runbooks/frameworks/${frameworkId}/clauses${toQuery(params)}`, { signal: opts.signal }),
+      searchClauses: (params = {}, opts = {}) => request(`/runbooks/clauses${toQuery(params)}`, { signal: opts.signal }),
+      create: (data) => request('/runbooks/frameworks', { method: 'POST', body: JSON.stringify(data) }),
+      addClause: (frameworkId, data) => request(`/runbooks/frameworks/${frameworkId}/clauses`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+    },
+    executions: {
+      list: (params = {}, opts = {}) => request(`/runbooks/executions${toQuery(params)}`, { signal: opts.signal }),
+      stats: (opts = {}) => request('/runbooks/executions/stats', { signal: opts.signal }),
+      start: (runbookId, data) => request(`/runbooks/${runbookId}/executions`, { method: 'POST', body: JSON.stringify(data) }),
+      get: (execId, opts = {}) => request(`/runbooks/executions/${execId}`, { signal: opts.signal }),
+      preflight: (execId, prereqAcks) => request(`/runbooks/executions/${execId}/preflight`, {
+        method: 'POST', body: JSON.stringify({ prereqAcks }),
+      }),
+      startStep: (execId, stepExecId) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/start`, { method: 'POST' }),
+      passStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/pass`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      failStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/fail`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      skipStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/skip`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      verifyStep: (execId, stepExecId, password) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/verify`, {
+        method: 'POST', body: JSON.stringify({ password }),
+      }),
+      // fields: { file?, reqId?, evidenceType?, externalRef?, attestationText?, pastedOutput? } — exactly one payload.
+      captureEvidence: (execId, stepExecId, fields) => {
+        const fd = new FormData();
+        Object.entries(fields || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') fd.append(k, v); });
+        return rawRequest(`/runbooks/executions/${execId}/steps/${stepExecId}/evidence`, { method: 'POST', body: fd });
+      },
+      stepEvidence: (execId, stepExecId, opts = {}) =>
+        request(`/runbooks/executions/${execId}/steps/${stepExecId}/evidence`, { signal: opts.signal }),
+      downloadEvidence: (execId, evidenceId) => rawRequest(`/runbooks/executions/${execId}/evidence/${evidenceId}/download`, {
+        responseType: 'blob', fallbackName: `evidence-${evidenceId}.bin`,
+      }).then((file) => { saveBlob(file); return file; }),
+      pause: (execId, reason) => request(`/runbooks/executions/${execId}/pause`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      resume: (execId) => request(`/runbooks/executions/${execId}/resume`, { method: 'POST' }),
+      abort: (execId, reason) => request(`/runbooks/executions/${execId}/abort`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      escalate: (execId, data) => request(`/runbooks/executions/${execId}/escalate`, { method: 'POST', body: JSON.stringify(data) }),
+      ackEscalation: (execId, escId) => request(`/runbooks/executions/${execId}/escalations/${escId}/ack`, { method: 'POST' }),
+      rollback: (execId, reason) => request(`/runbooks/executions/${execId}/rollback`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      signoff: (execId, data) => request(`/runbooks/executions/${execId}/signoff`, { method: 'POST', body: JSON.stringify(data) }),
+      generatePack: (execId, data) => request(`/runbooks/executions/${execId}/pack`, { method: 'POST', body: JSON.stringify(data || {}) }),
+      downloadPack: (execId) => rawRequest(`/runbooks/executions/${execId}/pack`, {
+        responseType: 'blob', fallbackName: `evidence-pack-${execId}.zip`,
+      }).then((file) => { saveBlob(file); return file; }),
+      timeline: (execId, opts = {}) => request(`/runbooks/executions/${execId}/timeline`, { signal: opts.signal }),
+    },
+    templates: {
+      list: (opts = {}) => request('/runbooks/templates', { signal: opts.signal }),
+      get: (code, opts = {}) => request(`/runbooks/templates/${encodeURIComponent(code)}`, { signal: opts.signal }),
+      adopt: (code, data) => request(`/runbooks/templates/${encodeURIComponent(code)}/adopt`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+    },
+    coverage: (params = {}, opts = {}) => request(`/runbooks/coverage${toQuery(params)}`, { signal: opts.signal }),
+  },
   users: {
     me: () => request('/users/me'),
     list: () => request('/users'),
@@ -527,5 +749,8 @@ export const api = {
     }),
     deactivate: (id) => request(`/users/${id}/deactivate`, { method: 'PUT' }),
     reactivate: (id) => request(`/users/${id}/reactivate`, { method: 'PUT' }),
+    updateManager: (id, managerUserId) => request(`/users/${id}/manager`, {
+      method: 'PUT', body: JSON.stringify({ managerUserId }),
+    }),
   },
 };
