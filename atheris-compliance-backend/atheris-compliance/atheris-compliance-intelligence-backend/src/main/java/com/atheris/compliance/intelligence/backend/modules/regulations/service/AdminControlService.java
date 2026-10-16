@@ -5,6 +5,10 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.dto.Admin
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.ControlPoint;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.instruments.entity.Instrument;
+import com.atheris.compliance.intelligence.backend.modules.instruments.repository.InstrumentRepository;
+import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
+import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,9 +17,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 
 @Service @RequiredArgsConstructor
@@ -24,6 +30,8 @@ public class AdminControlService {
     private static final int SUMMARY_LENGTH = 220;
 
     private final ComplianceControlRepository controls;
+    private final ObligationMappingRepository obligations;
+    private final InstrumentRepository instruments;
 
     public Page<AdminControlDto> list(String q, Long actId, String theme, String complianceArea,
                                       String riskLevel, String status, Pageable pageable) {
@@ -74,8 +82,52 @@ public class AdminControlService {
             .ownerName(c.getOwnerName())
             .obligationId(c.getObligationId())
             .linkedObligationIds(c.getLinkedObligationIds())
+            .linkedObligations(resolveLinkedObligations(c))
             .createdAt(c.getCreatedAt())
             .build();
+    }
+
+    /**
+     * The obligations a control traces to, resolved from both link styles (the {@code obligation_id}
+     * FK and the CSV {@code linked_obligation_ids}). Obligation + instrument titles are batch-loaded
+     * so this is a fixed number of queries regardless of how many obligations are linked.
+     */
+    private List<AdminControlDetailDto.LinkedObligation> resolveLinkedObligations(ComplianceControl c) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (c.getObligationId() != null) ids.add(c.getObligationId());
+        if (c.getLinkedObligationIds() != null) {
+            for (String part : c.getLinkedObligationIds().split(",")) {
+                String t = part.trim();
+                if (t.isEmpty()) continue;
+                try { ids.add(Long.parseLong(t)); } catch (NumberFormatException ignored) { /* skip junk */ }
+            }
+        }
+        if (ids.isEmpty()) return List.of();
+
+        List<ObligationMapping> found = obligations.findAllById(ids);
+        Map<Long, ObligationMapping> byId = new LinkedHashMap<>();
+        found.forEach(o -> byId.put(o.getObligationId(), o));
+
+        Set<Long> instrumentIds = new LinkedHashSet<>();
+        found.stream().map(ObligationMapping::getInstrumentId).filter(Objects::nonNull).forEach(instrumentIds::add);
+        Map<Long, Instrument> instById = new LinkedHashMap<>();
+        if (!instrumentIds.isEmpty()) {
+            for (Instrument i : instruments.findAllById(instrumentIds)) instById.put(i.getInstrumentId(), i);
+        }
+
+        List<AdminControlDetailDto.LinkedObligation> out = new ArrayList<>();
+        for (Long id : ids) {
+            ObligationMapping o = byId.get(id);
+            if (o == null) continue;
+            Instrument inst = o.getInstrumentId() != null ? instById.get(o.getInstrumentId()) : null;
+            out.add(AdminControlDetailDto.LinkedObligation.builder()
+                .obligationId(o.getObligationId())
+                .title(o.getTitle())
+                .description(o.getDescription())
+                .instrumentTitle(inst != null ? inst.getSourceTitle() : null)
+                .build());
+        }
+        return out;
     }
 
     public Map<String, Object> stats() {

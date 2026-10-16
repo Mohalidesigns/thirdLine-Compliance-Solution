@@ -101,7 +101,10 @@ export default function RegulatoryCoverage() {
 
   const alive = useRef(true);
   const reqId = useRef(0);
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   const load = async () => {
     const id = ++reqId.current;

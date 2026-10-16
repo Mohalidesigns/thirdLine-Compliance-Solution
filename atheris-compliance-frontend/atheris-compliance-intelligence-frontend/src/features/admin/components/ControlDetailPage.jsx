@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Grid, Button, Chip, CircularProgress, Alert, Divider,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip,
 } from '@mui/material';
-import { ArrowBack, FactCheck, Link as LinkIcon } from '@mui/icons-material';
+import { ArrowBack, FactCheck, Link as LinkIcon, Gavel, ChevronRight } from '@mui/icons-material';
 import api from '../../../services/api';
 
 const RISK_COLOR = {
@@ -41,22 +43,14 @@ function LongText({ title, text }) {
 export default function ControlDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [ctl, setCtl] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError(null);
-    api.platform.controls.get(id)
-      .then(data => { if (alive) setCtl(data); })
-      .catch(err => { if (alive) setError(err.message); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [id]);
+  const { data: ctl, isLoading, error } = useQuery({
+    queryKey: ['control', String(id)],
+    queryFn: ({ signal }) => api.platform.controls.get(id, signal),
+    enabled: !!id,
+  });
 
-  if (loading) {
+  if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
   }
 
@@ -64,10 +58,15 @@ export default function ControlDetailPage() {
     return (
       <Box>
         <Button startIcon={<ArrowBack />} onClick={() => navigate('/admin/controls')} sx={{ mb: 2 }}>Back to Controls</Button>
-        <Alert severity="error">{error || 'Control not found'}</Alert>
+        <Alert severity="error">{error?.message || 'Control not found'}</Alert>
       </Box>
     );
   }
+
+  // The control statement is the display title — the internal control code is never shown.
+  const title = (ctl.points && ctl.points[0] && (ctl.points[0].content || ctl.points[0].text))
+    || ctl.complianceControl;
+  const linkedObligations = ctl.linkedObligations || [];
 
   return (
     <Box>
@@ -77,9 +76,7 @@ export default function ControlDetailPage() {
         <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
             <FactCheck sx={{ color: '#2B6CB0' }} />
-            <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace' }}>
-              {ctl.controlNumber}
-            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>{title || 'Untitled control'}</Typography>
             {ctl.riskLevel && (
               <Chip size="small" label={ctl.riskLevel} color={RISK_COLOR[ctl.riskLevel] || 'default'} />
             )}
@@ -102,8 +99,6 @@ export default function ControlDetailPage() {
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Frequency" value={ctl.frequency} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Due Date" value={ctl.dueDate} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Responsible Officer" value={ctl.responsibleOfficer} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Act ID" value={ctl.actId} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Meta label="Control ID" value={ctl.complianceControlId} /></Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -112,6 +107,61 @@ export default function ControlDetailPage() {
       <LongText title="Regulatory Requirement" text={ctl.regulatoryRequirement} />
       <LongText title="Monitoring Activity" text={ctl.monitoringActivity} />
       <LongText title="Control Effectiveness Measure" text={ctl.controlEffectivenessMeasure} />
+
+      <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <Box sx={{ p: 2, borderBottom: '1px solid #EDF2F7', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Linked Obligations</Typography>
+          {linkedObligations.length > 0 && (
+            <Chip size="small" label={linkedObligations.length} color="primary" sx={{ height: 22, borderRadius: '4px' }} />
+          )}
+        </Box>
+        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+          {linkedObligations.length > 0 ? (
+            <TableContainer component={Paper} elevation={0}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Obligation</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Instrument</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: 48 }} />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {linkedObligations.map((o) => (
+                    <TableRow key={o.obligationId} hover
+                      onClick={() => navigate(`/admin/obligations/${o.obligationId}`)}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }}>
+                      <TableCell sx={{ fontFamily: 'Roboto Mono, monospace', color: '#718096', width: 80 }}>
+                        #{o.obligationId}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{o.title || o.description || 'Untitled obligation'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">{o.instrumentTitle || '-'}</Typography>
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'right' }}>
+                        <Tooltip title="Open obligation">
+                          <IconButton size="small"
+                            onClick={e => { e.stopPropagation(); navigate(`/admin/obligations/${o.obligationId}`); }}>
+                            <ChevronRight fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Gavel sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">No obligations are linked to this control yet.</Typography>
+            </Box>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 }

@@ -1,26 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import {
-  Box, Card, CardContent, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  Chip, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, TableSortLabel,
-  Button, Stack, CircularProgress, Paper, Tooltip,
-} from '@mui/material';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { Box, Typography, Chip, Tooltip, IconButton, Alert } from '@mui/material';
+import { Refresh, InfoOutlined } from '@mui/icons-material';
+import { KpiCards, FilterBar, SectionTable } from 'shared';
 import api from '../../services/api';
 
-const RISK_COLOR = {
-  Critical: 'error',
-  High: 'error',
-  Moderate: 'warning',
-  Medium: 'warning',
-  Low: 'success',
-};
+const ellipsis = (maxWidth) => ({
+  maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+});
 
-function riskChip(risk) {
-  if (!risk) return <Chip size="small" label="Unrated" sx={{ height: 22, borderRadius: '4px' }} />;
-  const c = RISK_COLOR[risk] || 'default';
-  return <Chip size="small" label={risk} color={c} sx={{ height: 22, borderRadius: '4px' }} />;
-}
+const COLUMNS = [
+  { id: 'title', label: 'Obligation', minWidth: 360, sortable: true, sortField: 'title',
+    render: (item) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Tooltip title={item.title || item.plainEnglishStatement || ''}>
+          <Typography variant="body2" sx={ellipsis(420)}>
+            {item.title || item.plainEnglishStatement || 'Untitled obligation'}
+          </Typography>
+        </Tooltip>
+        {item.description && (
+          <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{item.description}</Box>}>
+            <InfoOutlined sx={{ fontSize: 14, color: '#A0AEC0', flexShrink: 0 }} />
+          </Tooltip>
+        )}
+      </Box>
+    ) },
+  { id: 'regulatorAbbreviation', label: 'Regulator', minWidth: 130,
+    render: (item) => (item.regulatorAbbreviation
+      ? <Chip size="small" label={item.regulatorAbbreviation}
+          sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+      : <Typography variant="body2" color="text.secondary">—</Typography>) },
+  { id: 'returnCount', label: 'Returns', minWidth: 100,
+    render: (item) => (
+      <Typography variant="body2"
+        sx={(item.returnCount ?? 0) === 0 ? { color: 'text.secondary' } : { color: '#DD6B20' }}>
+        {item.returnCount ?? 0}
+      </Typography>
+    ) },
+  { id: 'controlCount', label: 'Controls', minWidth: 110,
+    render: (item) => (
+      <Typography variant="body2"
+        sx={(item.controlCount ?? 0) === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>
+        {item.controlCount ?? 0}
+      </Typography>
+    ) },
+  { id: 'sanctionCount', label: 'Sanctions', minWidth: 110,
+    render: (item) => (
+      <Typography variant="body2"
+        sx={(item.sanctionCount ?? 0) === 0 ? { color: 'text.secondary' } : { color: '#805AD5' }}>
+        {item.sanctionCount ?? 0}
+      </Typography>
+    ) },
+];
 
 export default function ObligationsExplorerPage() {
   const navigate = useNavigate();
@@ -34,7 +66,7 @@ export default function ObligationsExplorerPage() {
   const [act, setAct] = useState(searchParams.get('act') || 'All');
   const [hasPoints, setHasPoints] = useState(searchParams.get('hasPoints') || 'All');
   const [page, setPage] = useState(Number(searchParams.get('page') || 0));
-  const [size, setSize] = useState(Number(searchParams.get('size') || 10));
+  const [size, setSize] = useState(Number(searchParams.get('size') || 20));
   const [sortField, setSortField] = useState(searchParams.get('sortField') || '');
   const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'asc');
 
@@ -52,22 +84,20 @@ export default function ObligationsExplorerPage() {
     if (act !== 'All') p.act = act;
     if (hasPoints !== 'All') p.hasPoints = hasPoints;
     if (page) p.page = String(page);
-    if (size !== 10) p.size = String(size);
+    if (size !== 20) p.size = String(size);
     if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
     setSearchParams(p, { replace: true });
   }, [q, risk, regulator, area, act, hasPoints, page, size, sortField, sortDir, setSearchParams]);
 
-  const obligationsApi = api.platform?.obligations ?? api.obligations;
-
-  const { data: stats } = useQuery({
-    queryKey: ['obligations-stats'],
-    queryFn: ({ signal }) => obligationsApi.stats(signal),
+  const statsQuery = useQuery({
+    queryKey: ['obligations', 'stats'],
+    queryFn: ({ signal }) => api.platform.obligations.stats(signal),
   });
+  const stats = statsQuery.data;
 
   const queryParams = {
     q: q || undefined,
     risk: risk !== 'All' ? risk : undefined,
-    // option lists hold the regulator abbreviation / act name, so filter by those
     regulator: regulator !== 'All' ? regulator : undefined,
     areaOfFocus: area !== 'All' ? area : undefined,
     act: act !== 'All' ? act : undefined,
@@ -77,18 +107,28 @@ export default function ObligationsExplorerPage() {
     sort: sortField ? `${sortField},${sortDir}` : undefined,
   };
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['obligations', q, risk, regulator, area, act, hasPoints, page, size, sortField, sortDir],
-    queryFn: ({ signal }) => obligationsApi.list(queryParams, signal),
+  const listQuery = useQuery({
+    queryKey: ['obligations', 'list', queryParams],
+    queryFn: ({ signal }) => api.platform.obligations.list(queryParams, signal),
+    placeholderData: keepPreviousData,
   });
 
-  const items = data?.content || [];
-  const total = data?.totalElements ?? 0;
+  const rows = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements ?? 0;
 
-  function clearAll() {
+  const hasFilters = !!searchInput || risk !== 'All' || regulator !== 'All'
+    || area !== 'All' || act !== 'All' || hasPoints !== 'All';
+
+  function clearFilters() {
     setSearchInput(''); setQ(''); setRisk('All'); setRegulator('All');
-    setArea('All'); setAct('All'); setHasPoints('All'); setPage(0); setSize(10);
-    setSortField(''); setSortDir('asc');
+    setArea('All'); setAct('All'); setHasPoints('All'); setPage(0);
+  }
+
+  function handleSort(field) {
+    if (!field) return;
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
+    setPage(0);
   }
 
   function applyKpi(key) {
@@ -99,132 +139,75 @@ export default function ObligationsExplorerPage() {
     else { setRisk('All'); setHasPoints('All'); }
   }
 
-  function handleSort(field) {
-    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortField(field); setSortDir('asc'); }
+  function drillKpi(_key, label) {
     setPage(0);
+    setRisk(label);
   }
 
-  const kpis = [
-    { key: 'total', label: 'Total', value: stats?.total ?? 0, color: '#1976d2' },
-    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, color: '#d32f2f' },
-    { key: 'withPoints', label: 'With Points', value: stats?.withPoints ?? 0, color: '#2e7d32' },
-    { key: 'withoutPoints', label: 'Without Points', value: stats?.withoutPoints ?? 0, color: '#ed6c02' },
+  const kpiItems = [
+    { key: 'total', label: 'Total', color: '#1976d2', value: stats?.total ?? 0, breakdown: stats?.byRiskRating },
+    { key: 'highRisk', label: 'High Risk', color: '#d32f2f', value: stats?.highRisk ?? 0 },
+    { key: 'withPoints', label: 'With Points', color: '#2e7d32', value: stats?.withPoints ?? 0 },
+    { key: 'withoutPoints', label: 'Without Points', color: '#ed6c02', value: stats?.withoutPoints ?? 0 },
   ];
 
-  const riskOptions = stats?.risks?.length ? stats.risks : ['Critical', 'High', 'Moderate', 'Low'];
-  const regulatorOptions = stats?.regulators || [];
-  const areaOptions = stats?.areas || [];
-  const actOptions = stats?.acts || [];
+  const toOptions = (values) => (values || []).map((v) => ({ value: v, label: v }));
+  const riskOptions = toOptions(stats?.risks?.length ? stats.risks : ['Critical', 'High', 'Moderate', 'Low']);
+  const regulatorOptions = toOptions(stats?.regulators);
+  const areaOptions = toOptions(stats?.areas);
+  const actOptions = toOptions(stats?.acts);
+  const pointOptions = [{ value: 'With', label: 'With' }, { value: 'Without', label: 'Without' }];
+
+  const filterDefs = [
+    { key: 'risk', label: 'Risk', value: risk, onChange: (v) => { setRisk(v); setPage(0); }, options: riskOptions, minWidth: 110 },
+    { key: 'regulator', label: 'Regulator', value: regulator, onChange: (v) => { setRegulator(v); setPage(0); }, options: regulatorOptions, minWidth: 130 },
+    { key: 'areaOfFocus', label: 'Area of Focus', value: area, onChange: (v) => { setArea(v); setPage(0); }, options: areaOptions, minWidth: 160 },
+    { key: 'act', label: 'Act', value: act, onChange: (v) => { setAct(v); setPage(0); }, options: actOptions, minWidth: 140 },
+    { key: 'hasPoints', label: 'Points', value: hasPoints, onChange: (v) => { setHasPoints(v); setPage(0); }, options: pointOptions, minWidth: 120 },
+  ];
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>Obligations Explorer</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{total} obligations — read-only catalogue</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+        <Box>
+          <Typography variant="h4">Obligations Explorer</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {total} obligation{total !== 1 ? 's' : ''} — the platform's curated obligation catalogue
+          </Typography>
+        </Box>
+        <Tooltip title="Refresh">
+          <IconButton onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}><Refresh /></IconButton>
+        </Tooltip>
+      </Box>
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map((k) => (
-          <Grid key={k.key} size={{ xs: 6, md: 3 }}>
-            <Card variant="outlined" onClick={() => applyKpi(k.key)} sx={{ cursor: 'pointer', borderLeft: `4px solid ${k.color}`, '&:hover': { boxShadow: 1 } }}>
-              <CardContent sx={{ py: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {listQuery.error && <Alert severity="error" sx={{ mb: 2 }}>{listQuery.error.message}</Alert>}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search obligation, title or regulator..." value={searchInput} onChange={(e) => { setSearchInput(e.target.value); setPage(0); }} sx={{ minWidth: 220 }} />
-        <FormControl size="small" sx={{ minWidth: 110 }}>
-          <InputLabel>Risk</InputLabel>
-          <Select value={risk} label="Risk" onChange={(e) => { setRisk(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {riskOptions.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Regulator</InputLabel>
-          <Select value={regulator} label="Regulator" onChange={(e) => { setRegulator(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {regulatorOptions.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Area of Focus</InputLabel>
-          <Select value={area} label="Area of Focus" onChange={(e) => { setArea(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {areaOptions.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Act</InputLabel>
-          <Select value={act} label="Act" onChange={(e) => { setAct(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            {actOptions.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Points</InputLabel>
-          <Select value={hasPoints} label="Points" onChange={(e) => { setHasPoints(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All</MenuItem>
-            <MenuItem value="With">With</MenuItem>
-            <MenuItem value="Without">Without</MenuItem>
-          </Select>
-        </FormControl>
-        <Button size="small" onClick={clearAll}>Clear</Button>
-      </Paper>
+      <KpiCards items={kpiItems} onSelect={applyKpi} onDrill={drillKpi} />
 
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : items.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}><Typography>No obligations found</Typography></Paper>
-      ) : (
-        <Paper>
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', width: 50 }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 280 }}>
-                    <TableSortLabel active={sortField === 'title'} direction={sortDir} onClick={() => handleSort('title')}>Obligation</TableSortLabel>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Regulator</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>
-                    <TableSortLabel active={sortField === 'risk'} direction={sortDir} onClick={() => handleSort('risk')}>Risk</TableSortLabel>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Points</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.map((row, idx) => (
-                  <TableRow key={row.obligationId} hover sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#F7FAFC' } }} onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{page * size + idx + 1}</TableCell>
-                    <TableCell>
-                      <Tooltip title={row.title || row.plainEnglishStatement || ''}>
-                        <Typography variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: 360 }}>
-                          {row.title || row.plainEnglishStatement || 'Untitled obligation'}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{row.regulatorAbbreviation ? <Chip size="small" label={row.regulatorAbbreviation} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} /> : <Typography variant="body2" color="text.secondary">-</Typography>}</TableCell>
-                    <TableCell>{riskChip(row.riskRating)}</TableCell>
-                    <TableCell>
-                      {row.hasPoints ? <Chip size="small" label="With" color="success" sx={{ height: 22, borderRadius: '4px' }} /> : <Chip size="small" label="Without" sx={{ height: 22, borderRadius: '4px' }} />}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button size="small" variant="text" onClick={() => navigate(`/admin/obligations/${row.obligationId}`)}>View</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={size} onRowsPerPageChange={(e) => { setSize(parseInt(e.target.value, 10)); setPage(0); }} rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
-      )}
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...', minWidth: 240 }}
+        filters={filterDefs}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
+
+      <SectionTable
+        columns={COLUMNS}
+        rows={rows}
+        total={total}
+        page={page}
+        size={size}
+        loading={listQuery.isLoading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        onPage={setPage}
+        onSize={(s) => { setSize(s); setPage(0); }}
+        onRowClick={(r) => navigate(`/admin/obligations/${r.obligationId}`)}
+        rowKey={(r) => r.obligationId}
+        emptyMessage="No obligations found."
+      />
     </Box>
   );
 }

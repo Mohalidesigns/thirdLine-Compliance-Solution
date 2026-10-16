@@ -1,26 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TablePagination, TextField, CircularProgress, Alert, Chip, Tooltip,
-  TableSortLabel, IconButton, Button, MenuItem,
-} from '@mui/material';
-import { Search, Refresh, Close, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { Box, Typography, Tooltip, IconButton, Alert } from '@mui/material';
+import { Refresh, FactCheck, Warning, TaskAlt, Category } from '@mui/icons-material';
+import { KpiCards, FilterBar, SectionTable } from 'shared';
 import api from '../../../services/api';
 
-const RISK_COLOR = {
-  Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success',
-};
-
-const STATUS_COLOR = { Open: 'warning', Closed: 'success', 'In Progress': 'info' };
-
-const COLUMNS = [
-  { id: 'controlNumber', label: 'Control', minWidth: 320, sortField: 'controlNumber' },
-  { id: 'theme', label: 'Theme / Area', minWidth: 220, sortField: 'theme' },
-  { id: 'riskLevel', label: 'Risk', minWidth: 110, sortField: 'riskLevel' },
-  { id: 'status', label: 'Status', minWidth: 110, sortField: 'status' },
-  { id: 'actName', label: 'Act', minWidth: 220, sortField: 'actName' },
-];
+const ellipsis = (maxWidth) => ({
+  maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+});
 
 function countOf(map, key) {
   if (!map) return 0;
@@ -29,87 +17,138 @@ function countOf(map, key) {
     .reduce((sum, [, v]) => sum + (v || 0), 0);
 }
 
+// Control shows the statement (first cleaned point) only — never the internal control code.
+const COLUMNS = [
+  { id: 'controlSummary', label: 'Control', minWidth: 340,
+    render: (r) => {
+      const points = Array.isArray(r.controlPoints) ? r.controlPoints : [];
+      const text = points[0] || r.controlSummary || '—';
+      const cell = <Typography variant="body2" sx={ellipsis(400)}>{text}</Typography>;
+      if (points.length <= 1) return cell;
+      return (
+        <Tooltip
+          arrow
+          placement="top-start"
+          slotProps={{ tooltip: { sx: { maxWidth: 520, p: 1.25 } } }}
+          title={
+            <Box component="ol" sx={{ m: 0, pl: 2.25 }}>
+              {points.map((p, i) => (
+                <Box component="li" key={i} sx={{ mb: 0.25, fontSize: '0.78rem', lineHeight: 1.5 }}>{p}</Box>
+              ))}
+            </Box>
+          }
+        >
+          {cell}
+        </Tooltip>
+      );
+    } },
+  { id: 'responsibleOfficer', label: 'Owner', minWidth: 150, sortable: true, sortField: 'responsibleOfficer',
+    render: (r) => (r.responsibleOfficer
+      ? <Tooltip title={r.responsibleOfficer}><Typography variant="body2" sx={ellipsis(150)}>{r.responsibleOfficer}</Typography></Tooltip>
+      : <Typography variant="body2" color="text.secondary">Unassigned</Typography>) },
+  { id: 'responsibleOfficer', label: 'Owner', minWidth: 150, sortable: true, sortField: 'responsibleOfficer',
+    render: (r) => (r.responsibleOfficer
+      ? <Tooltip title={r.responsibleOfficer}><Typography variant="body2" sx={ellipsis(150)}>{r.responsibleOfficer}</Typography></Tooltip>
+      : <Typography variant="body2" color="text.secondary">Unassigned</Typography>) },
+  // Full theme name only (never the compliance-area abbreviation).
+  { id: 'theme', label: 'Theme / Area', minWidth: 200, sortable: true, sortField: 'theme',
+    render: (r) => <Typography variant="body2" sx={ellipsis(220)}>{r.theme || '—'}</Typography> },
+  { id: 'frequency', label: 'Test Frequency', minWidth: 150, sortable: true, sortField: 'frequency',
+    render: (r) => (r.frequency
+      ? <Typography variant="body2">{r.frequency}</Typography>
+      : <Typography variant="body2" color="text.secondary">Not set</Typography>) },
+  // Plain text — no chip / border.
+  { id: 'actName', label: 'Act', minWidth: 220, sortable: true, sortField: 'actName',
+    render: (r) => <Typography variant="body2" sx={ellipsis(240)}>{r.actName || '—'}</Typography> },
+];
+
 export default function ControlExplorerPage() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [total, setTotal] = useState(0);
+
   const [search, setSearch] = useState('');
   const [themeFilter, setThemeFilter] = useState('All');
   const [riskFilter, setRiskFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [sortField, setSortField] = useState('controlNumber');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
-  const reqId = useRef(0);
-  const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  const hasFilters = !!search || themeFilter !== 'All' || riskFilter !== 'All' || statusFilter !== 'All';
 
-  const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All' || statusFilter !== 'All';
+  const statsQuery = useQuery({
+    queryKey: ['controls', 'stats'],
+    queryFn: () => api.platform.controls.stats(),
+  });
+  const stats = statsQuery.data;
 
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await api.platform.controls.stats();
-      if (alive.current) setStats(data);
-    } catch { /* optional */ }
-  }, []);
+  const params = { page, size: rowsPerPage };
+  if (search) params.q = search;
+  if (themeFilter !== 'All') params.theme = themeFilter;
+  if (riskFilter !== 'All') params.riskLevel = riskFilter;
+  if (statusFilter !== 'All') params.status = statusFilter;
+  if (sortField) params.sort = `${sortField},${sortDir}`;
 
-  const loadRows = useCallback(async () => {
-    const id = ++reqId.current;
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams({ page, size: rowsPerPage, sort: `${sortField},${sortDir}` });
-      if (search) params.set('q', search);
-      if (themeFilter !== 'All') params.set('theme', themeFilter);
-      if (riskFilter !== 'All') params.set('riskLevel', riskFilter);
-      if (statusFilter !== 'All') params.set('status', statusFilter);
-      const data = await api.platform.controls.list(params.toString());
-      if (!alive.current || id !== reqId.current) return;
-      setRows(data.content || []);
-      setTotal(data.totalElements || 0);
-    } catch (err) {
-      if (!alive.current || id !== reqId.current) return;
-      setError(err.message);
-    } finally {
-      if (alive.current && id === reqId.current) setLoading(false);
-    }
-  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, sortField, sortDir]);
+  const listQuery = useQuery({
+    queryKey: ['controls', 'list', params],
+    queryFn: ({ signal }) => api.platform.controls.list(params, signal),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadRows(); }, [loadRows]);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const rows = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements ?? 0;
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All'); setRiskFilter('All'); setStatusFilter('All'); setPage(0);
   }
 
   function handleSort(field) {
-    if (sortField === field) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDir('asc');
-    }
+    if (!field) return;
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDir('asc'); }
     setPage(0);
   }
 
-  const byRisk = stats?.byRiskLevel;
-  const byStatus = stats?.byStatus;
-  const kpis = [
-    { key: 'total', label: 'Total Controls', value: stats?.totalControls ?? 0, color: '#2B6CB0', bg: '#EBF8FF', icon: <FactCheck sx={{ fontSize: 20 }} /> },
-    { key: 'high', label: 'High / Critical Risk', value: countOf(byRisk, 'High') + countOf(byRisk, 'Critical'), color: '#E53E3E', bg: '#FFF5F5', icon: <Warning sx={{ fontSize: 20 }} /> },
-    { key: 'open', label: 'Open', value: countOf(byStatus, 'Open'), color: '#DD6B20', bg: '#FFFAF0', icon: <Warning sx={{ fontSize: 20 }} /> },
-    { key: 'closed', label: 'Closed', value: countOf(byStatus, 'Closed'), color: '#2C7A7B', bg: '#E6FFFA', icon: <TaskAlt sx={{ fontSize: 20 }} /> },
-    { key: 'themes', label: 'Themes', value: (stats?.themes || []).length, color: '#805AD5', bg: '#FAF5FF', icon: <Category sx={{ fontSize: 20 }} /> },
+  const kpiItems = [
+    { key: 'total', label: 'Total Controls', color: '#2B6CB0', icon: <FactCheck sx={{ fontSize: 20 }} />,
+      value: stats?.totalControls ?? 0, breakdown: stats?.byStatus },
+    { key: 'high', label: 'High / Critical Risk', color: '#E53E3E', icon: <Warning sx={{ fontSize: 20 }} />,
+      value: countOf(stats?.byRiskLevel, 'High') + countOf(stats?.byRiskLevel, 'Critical'), breakdown: stats?.byRiskLevel },
+    { key: 'open', label: 'Open', color: '#DD6B20', icon: <Warning sx={{ fontSize: 20 }} />,
+      value: countOf(stats?.byStatus, 'Open'), breakdown: stats?.byStatus },
+    { key: 'closed', label: 'Closed', color: '#2C7A7B', icon: <TaskAlt sx={{ fontSize: 20 }} />,
+      value: countOf(stats?.byStatus, 'Closed'), breakdown: stats?.byStatus },
+    { key: 'themes', label: 'Themes', color: '#805AD5', icon: <Category sx={{ fontSize: 20 }} />,
+      value: (stats?.themes || []).length, breakdown: stats?.byTheme },
+  ];
+
+  const onKpiSelect = (key) => {
+    setPage(0);
+    if (key === 'high') { setRiskFilter('High'); setStatusFilter('All'); }
+    else if (key === 'open') { setStatusFilter('Open'); setRiskFilter('All'); }
+    else if (key === 'closed') { setStatusFilter('Closed'); setRiskFilter('All'); }
+    else clearFilters();
+  };
+
+  const onKpiDrill = (key, label) => {
+    setPage(0);
+    if (key === 'high') setRiskFilter(label);
+    else if (key === 'total' || key === 'open' || key === 'closed') setStatusFilter(label);
+    else if (key === 'themes') setThemeFilter(label);
+  };
+
+  const toOptions = (values) => (values || []).map((v) => ({ value: v, label: v }));
+  const filters = [
+    { key: 'theme', label: 'Theme', value: themeFilter, onChange: (v) => { setThemeFilter(v); setPage(0); },
+      allLabel: 'All themes', options: toOptions(stats?.themes), minWidth: 190 },
+    { key: 'riskLevel', label: 'Risk level', value: riskFilter, onChange: (v) => { setRiskFilter(v); setPage(0); },
+      allLabel: 'All risk levels', options: toOptions(stats?.riskLevels), minWidth: 160 },
+    { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); },
+      allLabel: 'All statuses', options: toOptions(stats?.statuses), minWidth: 150 },
   ];
 
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
         <Box>
           <Typography variant="h4">Control Explorer</Typography>
@@ -118,141 +157,38 @@ export default function ControlExplorerPage() {
           </Typography>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton onClick={() => { loadRows(); loadStats(); }}><Refresh /></IconButton>
+          <IconButton onClick={() => { listQuery.refetch(); statsQuery.refetch(); }}><Refresh /></IconButton>
         </Tooltip>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {listQuery.error && <Alert severity="error" sx={{ mb: 2 }}>{listQuery.error.message}</Alert>}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            sx={{ p: 2, borderLeft: `3px solid ${k.color}`, transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-              <Box sx={{ color: k.color, opacity: 0.5 }}>{k.icon}</Box>
-            </Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpiItems} onSelect={onKpiSelect} onDrill={onKpiDrill} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search controls..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 240 }} />
-        <TextField select size="small" value={themeFilter}
-          onChange={e => { setThemeFilter(e.target.value); setPage(0); }}
-          label="Theme" sx={{ minWidth: 200 }}>
-          <MenuItem value="All">All themes</MenuItem>
-          {(stats?.themes || []).map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={riskFilter}
-          onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk level" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All risk levels</MenuItem>
-          {(stats?.riskLevels || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All statuses</MenuItem>
-          {(stats?.statuses || []).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search controls...', minWidth: 240 }}
+        filters={filters}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
 
-      {/* Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
-      ) : rows.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <FactCheck sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
-          <Typography variant="body1">No controls found.</Typography>
-        </Paper>
-      ) : (
-        <Paper>
-          <TableContainer>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
-                  {COLUMNS.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
-                      cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
-                      onClick={c.sortField ? () => handleSort(c.sortField) : undefined}>
-                      {c.sortField
-                        ? <TableSortLabel active={sortField === c.sortField} direction={sortField === c.sortField ? sortDir : 'asc'}
-                            sx={{ '& .MuiTableSortLabel-icon': { opacity: sortField === c.sortField ? 1 : 0.4 } }}>
-                            {c.label}
-                          </TableSortLabel>
-                        : c.label}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row, idx) => (
-                  <TableRow key={row.complianceControlId} hover
-                    onClick={() => navigate(`/admin/controls/${row.complianceControlId}`)}
-                    sx={{ cursor: 'pointer' }}>
-                    <TableCell sx={{ color: 'text.secondary' }}>{(page * rowsPerPage) + idx + 1}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'Roboto Mono, monospace', fontSize: '0.75rem' }}>
-                        {row.controlNumber || '—'}
-                      </Typography>
-                      {row.controlSummary && (
-                        <Tooltip title={row.controlSummary}>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 380,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.controlSummary}
-                          </Typography>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {row.theme && <Chip size="small" label={row.theme} sx={{ height: 20, fontSize: '0.65rem' }} />}
-                        {row.complianceArea && (
-                          <Chip size="small" variant="outlined" label={row.complianceArea} sx={{ height: 20, fontSize: '0.65rem' }} />
-                        )}
-                        {!row.theme && !row.complianceArea && (
-                          <Typography variant="body2" color="text.secondary">—</Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {row.riskLevel
-                        ? <Chip size="small" label={row.riskLevel} color={RISK_COLOR[row.riskLevel] || 'default'} sx={{ height: 22 }} />
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="small" label={row.status || 'Open'}
-                        color={STATUS_COLOR[row.status] || 'default'} sx={{ height: 22 }} />
-                    </TableCell>
-                    <TableCell>
-                      {row.actName
-                        ? <Tooltip title={row.actName}>
-                            <Chip size="small" variant="outlined" label={row.actName}
-                              sx={{ height: 22, maxWidth: 240, fontSize: '0.65rem' }} />
-                          </Tooltip>
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={rowsPerPage} onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[10, 20, 50]} />
-        </Paper>
-      )}
+      <SectionTable
+        columns={COLUMNS}
+        rows={rows}
+        total={total}
+        page={page}
+        size={rowsPerPage}
+        loading={listQuery.isLoading}
+        error={null}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        onPage={setPage}
+        onSize={(s) => { setRowsPerPage(s); setPage(0); }}
+        onRowClick={(r) => navigate(`/admin/controls/${r.complianceControlId}`)}
+        rowKey={(r) => r.complianceControlId}
+        emptyMessage="No controls found."
+      />
     </Box>
   );
 }

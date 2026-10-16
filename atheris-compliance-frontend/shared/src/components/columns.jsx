@@ -1,5 +1,4 @@
 import { Chip, Typography, Box, Tooltip } from '@mui/material';
-import { friendlyPenaltyTypes } from './formatters';
 
 /**
  * Per-entity register column definitions shared by the standalone registers and the
@@ -59,13 +58,17 @@ export function obligationColumns() {
 
 export function sanctionColumns() {
   return [
-    { id: 'description', label: 'Obligation', minWidth: 340, maxWidth: 380, truncate: true, sortable: true, sortField: 'description',
-      render: (r) => <Typography variant="body2" sx={ellipsis(380)}>{r.description || '—'}</Typography> },
-    { id: 'penaltyType', label: 'Penalty Type', minWidth: 170, sortable: true, sortField: 'penaltyType',
-      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(180)}>{friendlyPenaltyTypes(r.penaltyType)}</Typography> },
-    { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 300, truncate: true, sortable: true, sortField: 'penaltyDetails',
-      render: (r) => <Typography variant="body2" sx={ellipsis(300)}>{r.penaltyDetails || '—'}</Typography> },
-    { id: 'liableRoles', label: 'Responsible Party', minWidth: 190, sortable: true, sortField: 'liableRoles',
+    { id: 'sourceSectionReference', label: 'Section', minWidth: 150, maxWidth: 180, truncate: true, sortable: true, sortField: 'sourceSectionReference',
+      render: (r) => (
+        <Typography variant="body2" sx={{ ...ellipsis(180), fontFamily: 'Roboto Mono, monospace', fontSize: '0.72rem' }}>
+          {r.sourceSectionReference || '—'}
+        </Typography>
+      ) },
+    { id: 'sanctionType', label: 'Type', minWidth: 150, sortable: true, sortField: 'sanctionType',
+      render: (r) => <Typography variant="body2" sx={ellipsis(180)}>{r.sanctionType || '—'}</Typography> },
+    { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 320, truncate: true, sortable: true, sortField: 'penaltyDetails',
+      render: (r) => <Typography variant="body2" sx={ellipsis(320)}>{r.penaltyDetails || '—'}</Typography> },
+    { id: 'liableRoles', label: 'Liable Role', minWidth: 190, sortable: true, sortField: 'liableRoles',
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(220)}>{r.liableRoles?.length ? r.liableRoles.join(', ') : '—'}</Typography> },
   ];
 }

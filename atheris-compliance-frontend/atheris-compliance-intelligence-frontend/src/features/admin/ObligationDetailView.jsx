@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Paper, Snackbar,
 } from '@mui/material';
-import { Edit, UploadFile, Download, Link as LinkIcon, ArrowBack } from '@mui/icons-material';
+import { Edit, UploadFile, Download, Link as LinkIcon, ArrowBack, Gavel, Visibility } from '@mui/icons-material';
 import {
   DetailHeader, CoverageStrip, SectionTabs, SectionTable,
-  controlColumns, returnColumns, sanctionColumns,
+  controlColumns, returnColumns,
 } from 'shared';
 import api from '../../services/api';
 import RiskAssessmentModal from '../../components/modals/RiskAssessmentModal';
@@ -32,6 +32,12 @@ const TABS = [
   { key: 'sanctions', label: 'Sanctions' },
   { key: 'evidence', label: 'Evidence' },
   { key: 'history', label: 'History' },
+];
+
+const SANCTION_TAB_COLUMNS = [
+  { id: 'penaltyDetails', label: 'Penalty', minWidth: 340, truncate: true, maxWidth: 520,
+    render: (r) => <Typography variant="body2" sx={{ maxWidth: 520, overflow: 'hidden',
+      textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.penaltyDetails || r.sanctionType || '—'}</Typography> },
 ];
 
 /**
@@ -94,7 +100,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
   const columnsByTab = {
     controls: controlColumns({ withAct: false }),
     returns: returnColumns(),
-    sanctions: sanctionColumns(),
+    sanctions: SANCTION_TAB_COLUMNS,
     evidence: [
       { id: 'originalName', label: 'File', minWidth: 260, truncate: true, maxWidth: 320 },
       { id: 'uploadedByName', label: 'Uploaded By', minWidth: 160,
@@ -164,6 +170,18 @@ export default function ObligationDetailView({ obligationId, onBack }) {
           </Box>
         )}
         description={selected.plainEnglishStatement}
+        right={(
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Button size="small" variant="outlined" startIcon={<Edit sx={{ fontSize: 16 }} />}
+              onClick={() => setModal('risk')} sx={{ textTransform: 'none' }}>Assess Risk</Button>
+            <Button size="small" variant="outlined" startIcon={<Edit sx={{ fontSize: 16 }} />}
+              onClick={() => setModal('owner')} sx={{ textTransform: 'none' }}>Assign Owner</Button>
+            <Button size="small" variant="outlined" startIcon={<Gavel sx={{ fontSize: 16 }} />}
+              onClick={() => setModal('gap')} sx={{ textTransform: 'none' }}>Gap</Button>
+            <Button size="small" variant="outlined" startIcon={<Visibility sx={{ fontSize: 16 }} />}
+              onClick={handleViewPdf} sx={{ textTransform: 'none' }}>PDF</Button>
+          </Box>
+        )}
       />
 
       {(selected.description || selected.plainEnglishStatement) && (
@@ -258,5 +276,13 @@ export default function ObligationDetailView({ obligationId, onBack }) {
       a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch { notify('error', 'Failed to download evidence.'); }
+  }
+
+  async function handleViewPdf() {
+    if (!selected?.instrumentId) return;
+    try {
+      const blob = await api.platform.obligations.pdf(obligationId);
+      window.open(URL.createObjectURL(blob), '_blank');
+    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
   }
 }
