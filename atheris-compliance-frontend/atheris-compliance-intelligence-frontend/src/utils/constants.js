@@ -87,18 +87,22 @@ export const NAV_SECTIONS = [
     { text: 'Review Inbox', icon: 'Inbox', path: ROUTES.INBOX },
     { text: 'Watchlist', icon: 'Visibility', path: ROUTES.WATCHLIST },
   ]},
-  { label: 'PLATFORM', items: [
-    { text: 'Regulators', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATORS },
-    { text: 'Tenant Management', icon: 'AdminPanelSettings', path: ROUTES.ADMIN_TENANTS },
-    { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
-    { text: 'Pipeline Jobs', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
-    { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
+  { label: 'COMPLIANCE', items: [
     { text: 'Act Explorer', icon: 'AccountBalance', path: ROUTES.ADMIN_ACTS },
     { text: 'Obligations', icon: 'Gavel', path: ROUTES.ADMIN_OBLIGATIONS },
     { text: 'Sanctions', icon: 'Warning', path: ROUTES.ADMIN_SANCTIONS },
     { text: 'Returns', icon: 'RequestQuote', path: ROUTES.ADMIN_RETURNS },
     { text: 'Controls', icon: 'FactCheck', path: ROUTES.ADMIN_CONTROLS },
     { text: 'Compliance Universe', icon: 'Public', path: ROUTES.ADMIN_UNIVERSE },
+  ]},
+  { label: 'OPERATIONS', items: [
+    { text: 'Document Pipeline', icon: 'AccountTree', path: ROUTES.ADMIN_PIPELINE },
+    { text: 'Regulators', icon: 'AccountBalance', path: ROUTES.ADMIN_REGULATORS },
+    { text: 'Instruments', icon: 'LibraryBooks', path: ROUTES.ADMIN_INSTRUMENTS },
+  ]},
+  { label: 'TENANTS', items: [
+    { text: 'Tenant Management', icon: 'AdminPanelSettings', path: ROUTES.ADMIN_TENANTS },
+    { text: 'License Management', icon: 'VpnKey', path: ROUTES.ADMIN_LICENSES },
   ]},
 ];
 
