@@ -5,9 +5,11 @@ import {
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
   BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
 } from 'shared';
+import verityLogoDark from '../../Verity/verity-logo-dark.png';
+import verityMark from '../../Verity/verity-mark.png';
 import { api } from '../../services/api';
 
-const BRAND = { name: 'atheris', tagline: 'Compliance Portal' };
+const BRAND = { name: 'Verity Compliance', tagline: 'Compliance Portal', logo: verityLogoDark, mark: verityMark };
 
 export default function Sidebar(props) {
   const navigate = useNavigate();

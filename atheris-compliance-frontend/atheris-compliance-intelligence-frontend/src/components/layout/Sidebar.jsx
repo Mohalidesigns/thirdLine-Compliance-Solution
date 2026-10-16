@@ -15,7 +15,11 @@ const ICONS = {
   ClipboardDocumentCheck: ClipboardDocumentCheckIcon,
 };
 
-const BRAND = { name: 'atheris', tagline: 'Compliance Intelligence' };
+// Verity logos live in public/Verity/ (served from the site root).
+const BRAND = {
+  name: 'Verity Compliance', tagline: 'Compliance Intelligence',
+  logo: '/Verity/verity-logo-dark.png', mark: '/Verity/verity-mark.png',
+};
 
 export default function Sidebar(props) {
   const navigate = useNavigate();

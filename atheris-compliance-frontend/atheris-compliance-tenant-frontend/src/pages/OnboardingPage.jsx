@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   required, validateName, validateEmail, validatePhone, validatePassword,
-  TL, KeyIcon, ShieldCheckIcon, CheckCircleIcon,
+  TL, KeyIcon, CheckCircleIcon,
 } from 'shared';
+import verityLogoLight from '../Verity/verity-logo-light.png';
 import {
   Box, Typography, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup, Divider,
@@ -249,19 +250,13 @@ export default function OnboardingPage() {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, p: { xs: 2, md: 4 } }}>
       <Box sx={{ maxWidth: 640, mx: 'auto', pt: { xs: 2, md: 4 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 3 }}>
-          <Box sx={{
-            width: 36, height: 36, borderRadius: '8px', bgcolor: TL.primary, color: TL.accent,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <ShieldCheckIcon size={20} />
-          </Box>
-          <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: TL.primary }}>Atheris</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Box component="img" src={verityLogoLight} alt="Verity Compliance" sx={{ height: 44, width: 'auto' }} />
         </Box>
         <Box sx={{ bgcolor: '#FFFFFF', border: `1px solid ${TL.gray100}`, borderRadius: '12px', boxShadow: TL.cardShadow, overflow: 'hidden' }}>
           <Box sx={{ px: { xs: 3, md: 4 }, py: 3, borderBottom: `1px solid ${TL.gray100}` }}>
             <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: TL.textPrimary }}>
-              Welcome to Atheris
+              Welcome to Verity Compliance
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mt: 0.5 }}>
               Set up your compliance intelligence workspace
@@ -301,7 +296,7 @@ export default function OnboardingPage() {
             {!seeding && !completed && getActiveStep() === 0 && (
               <Box>
                 <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
-                  Enter the license key provided by your Atheris administrator
+                  Enter the license key provided by your Verity Compliance administrator
                 </Typography>
                 <TextField fullWidth size="small" label="License Key"
                   placeholder="ATH-XXXX-XXXX-XXXX-XXXX"

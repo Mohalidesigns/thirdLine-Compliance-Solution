@@ -9,6 +9,7 @@ import {
   StatusBadge, TL, riskTone,
   ShieldCheckIcon, ExclamationTriangleIcon, TrashIcon, ArrowUpTrayIcon, CheckCircleIcon, ClockIcon,
 } from 'shared';
+import verityLogoLight from '../Verity/verity-logo-light.png';
 import { publicApi } from '../services/api';
 
 const labelSx = { fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' };
@@ -103,14 +104,8 @@ export default function PublicRemediatePage() {
     <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, display: 'flex',
       alignItems: 'flex-start', justifyContent: 'center', py: { xs: 3, md: 8 }, px: 2 }}>
       <Box sx={{ width: '100%', maxWidth: 720 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 3 }}>
-          <Box sx={{
-            width: 36, height: 36, borderRadius: '8px', bgcolor: TL.primary, color: TL.accent,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <ShieldCheckIcon size={20} />
-          </Box>
-          <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: TL.primary }}>Atheris</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Box component="img" src={verityLogoLight} alt="Verity Compliance" sx={{ height: 44, width: 'auto' }} />
         </Box>
         {children}
       </Box>

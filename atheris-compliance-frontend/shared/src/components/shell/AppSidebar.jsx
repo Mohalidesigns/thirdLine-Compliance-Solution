@@ -11,7 +11,8 @@ export const SIDEBAR_COLLAPSED_WIDTH = 72;
  * sections separated by white/10 rules, and a Collapse control at the foot.
  *
  * Props:
- *  - brand       { name, tagline }       — wordmark beside the shield mark
+ *  - brand       { name, tagline, logo?, mark? } — wordmark beside the shield mark, or image logos:
+ *                  `logo` (full lockup for the navy bar) and `mark` (square icon for the collapsed bar)
  *  - sections    [{ key, items:[{ text, path, icon: <HeroIcon/>, badge? }] }]
  *  - footerItems same shape as items — pinned above Collapse (e.g. Settings)
  *  - activePath  current pathname; `isActive(item, path)` overrides the default match
@@ -78,13 +79,21 @@ export default function AppSidebar({
         px: collapsed ? 0 : 2, justifyContent: collapsed ? 'center' : 'flex-start',
         borderBottom: '1px solid rgba(255,255,255,0.1)',
       }}>
+        {brand.logo && !collapsed ? (
+          <Box component="img" src={brand.logo} alt={brand.name || 'Logo'}
+            sx={{ height: 40, maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+        ) : brand.mark && collapsed ? (
+          <Box component="img" src={brand.mark} alt={brand.name || 'Logo'}
+            sx={{ width: 38, height: 38, objectFit: 'contain', display: 'block' }} />
+        ) : (
         <Box sx={{
           width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.85)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', color: TL.accent, flexShrink: 0,
         }}>
           <ShieldCheckIcon size={20} />
         </Box>
-        {!collapsed && (
+        )}
+        {!collapsed && !brand.logo && (
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ color: '#FFFFFF', fontSize: '1.375rem', fontWeight: 600, lineHeight: 1, letterSpacing: '-0.01em' }}>
               {brand.name}

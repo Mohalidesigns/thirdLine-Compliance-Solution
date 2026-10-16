@@ -6,8 +6,10 @@ import {
 } from '@mui/material';
 import { VisibilityOff } from '@mui/icons-material';
 import {
-  TL, EyeIcon, EnvelopeIcon, LockClosedIcon, ShieldCheckIcon, ScaleIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
+  TL, EyeIcon, EnvelopeIcon, LockClosedIcon, ScaleIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
 } from 'shared';
+import verityLogoDark from '../Verity/verity-logo-dark.png';
+import verityLogoLight from '../Verity/verity-logo-light.png';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -48,18 +50,8 @@ export default function LoginPage() {
         display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between',
         width: '44%', maxWidth: 560, bgcolor: TL.primary, color: '#FFFFFF', p: 6,
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{
-            width: 40, height: 40, borderRadius: '10px', bgcolor: TL.accent, color: TL.primary,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <ShieldCheckIcon size={22} />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, lineHeight: 1.2 }}>Atheris</Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: TL.accentLight }}>Compliance Intelligence Hub</Typography>
-          </Box>
-        </Box>
+        <Box component="img" src={verityLogoDark} alt="Verity Compliance"
+          sx={{ height: 52, width: 'auto', alignSelf: 'flex-start' }} />
 
         <Box>
           <Typography sx={{ fontSize: '1.875rem', fontWeight: 700, lineHeight: 1.25, mb: 2 }}>
@@ -93,15 +85,8 @@ export default function LoginPage() {
       {/* sign-in form */}
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 2, sm: 4 } }}>
         <Box sx={{ width: 420, maxWidth: '100%' }}>
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1.5, mb: 3 }}>
-            <Box sx={{
-              width: 36, height: 36, borderRadius: '8px', bgcolor: TL.primary, color: TL.accent,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <ShieldCheckIcon size={20} />
-            </Box>
-            <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: TL.primary }}>Atheris</Typography>
-          </Box>
+          <Box component="img" src={verityLogoLight} alt="Verity Compliance"
+            sx={{ display: { xs: 'block', md: 'none' }, height: 40, width: 'auto', mb: 3 }} />
 
           <Box sx={{
             bgcolor: '#FFFFFF', border: `1px solid ${TL.gray100}`, borderRadius: '12px',

@@ -7,7 +7,7 @@ import {
 import { VisibilityOff } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import {
-  FilterField, TL, EyeIcon, ShieldCheckIcon, EnvelopeIcon, LockClosedIcon,
+  FilterField, TL, EyeIcon, EnvelopeIcon, LockClosedIcon,
   GlobeAltIcon, DocumentMagnifyingGlassIcon, ScaleIcon,
 } from 'shared';
 import { useAuth } from '../hooks/useAuth';
@@ -64,15 +64,8 @@ export default function LoginForm() {
         display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between',
         width: { md: '44%', lg: '40%' }, bgcolor: TL.primary, color: '#FFFFFF', p: 6,
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{
-            width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: TL.accent,
-          }}>
-            <ShieldCheckIcon size={24} />
-          </Box>
-          <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.01em' }}>{BRAND.NAME}</Typography>
-        </Box>
+        <Box component="img" src="/Verity/verity-logo-dark.png" alt={BRAND.NAME}
+          sx={{ height: 52, width: 'auto', alignSelf: 'flex-start' }} />
 
         <Box sx={{ maxWidth: 420 }}>
           <Typography sx={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.25, mb: 1.5 }}>
@@ -106,10 +99,8 @@ export default function LoginForm() {
           borderRadius: '12px', boxShadow: TL.cardShadow, p: { xs: 3, sm: 4 },
         }}>
           <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, mb: 2, color: TL.primary }}>
-              <ShieldCheckIcon size={24} />
-              <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, color: TL.primary }}>{BRAND.NAME}</Typography>
-            </Box>
+            <Box component="img" src="/Verity/verity-logo-light.png" alt={BRAND.NAME}
+              sx={{ display: { xs: 'block', md: 'none' }, height: 40, width: 'auto', mb: 2 }} />
             <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: TL.textPrimary, lineHeight: '2rem' }}>
               Sign in
             </Typography>

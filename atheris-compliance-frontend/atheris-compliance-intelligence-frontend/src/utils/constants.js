@@ -1,5 +1,5 @@
 export const BRAND = {
-  NAME: 'Atheris',
+  NAME: 'Verity',
   TAGLINE: 'Compliance Intelligence Hub',
   SUBTAGLINE: "Africa's Premier Compliance Intelligence Platform",
   SECURITY_NOTICE: 'Secured with AES-256 encryption & NDPA 2023 compliance',
