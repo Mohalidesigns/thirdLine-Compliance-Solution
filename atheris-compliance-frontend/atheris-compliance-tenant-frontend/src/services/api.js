@@ -239,6 +239,8 @@ export const api = {
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
     testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
+    saveSmtp: (data) => request('/onboarding/smtp', { method: 'POST', body: JSON.stringify(data) }),
+    testSmtp: (data) => request('/onboarding/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
     seedStatus: (opts = {}) => request('/onboarding/seed-status', opts),
@@ -567,6 +569,9 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+    smtp: () => request('/settings/smtp'),
+    saveSmtp: (data) => request('/settings/smtp', { method: 'PUT', body: JSON.stringify(data) }),
+    testSmtp: (data) => request('/settings/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
   },
   federalPublicHolidays: {
     list: (year, opts = {}) => {

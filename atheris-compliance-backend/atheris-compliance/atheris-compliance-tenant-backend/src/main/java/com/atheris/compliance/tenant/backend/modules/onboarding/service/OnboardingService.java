@@ -8,6 +8,8 @@ import com.atheris.compliance.tenant.backend.modules.ldap.dto.LdapSettings;
 import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
+import com.atheris.compliance.tenant.backend.modules.settings.service.SmtpSettingsService;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
@@ -54,6 +56,7 @@ public class OnboardingService {
     private final TenantIdentityService tenantIdentity;
     private final SeedService seedService;
     private final LdapAuthService ldapAuth;
+    private final SmtpSettingsService smtpSettings;
 
     private static final String ACTIVE = "active";
     private static final String PENDING = "pending";
@@ -300,6 +303,21 @@ public class OnboardingService {
             .onboardingCompleted(false).currentStep(5).nextStep(6)
             .licenseStatus(p.getLicenseStatus())
             .subscribedDocumentTypes(p.getSubscribedDocumentTypes()).build();
+    }
+
+    @Transactional
+    public OnboardingStatusResponse saveSmtp(SmtpConfigRequest req) {
+        smtpSettings.save(req);
+        TenantProfile p = getProfile();
+        p.setOnboardingStep(5);
+        profiles.save(p);
+        return OnboardingStatusResponse.builder()
+            .onboardingCompleted(false).currentStep(5).nextStep(6)
+            .licenseStatus(p.getLicenseStatus()).build();
+    }
+
+    public Map<String, Object> testSmtp(SmtpConfigRequest req) {
+        return smtpSettings.test(req);
     }
 
     @Transactional

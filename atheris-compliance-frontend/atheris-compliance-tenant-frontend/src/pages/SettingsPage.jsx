@@ -12,6 +12,7 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
+import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST'];
 
@@ -31,14 +32,16 @@ export default function SettingsPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
         <Tab label="General" />
         <Tab label="Organization" />
+        {canManageWorkspace && <Tab label="Email / SMTP" />}
         {canManageWorkspace && <Tab label="Federal Public Holidays" />}
         {canManageWorkspace && <Tab label="System Users" />}
       </Tabs>
 
       {tab === 0 && <GeneralTab />}
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
-      {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
-      {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
+      {tab === 2 && canManageWorkspace && <SmtpTab />}
+      {tab === 3 && canManageWorkspace && <FederalHolidaysTab />}
+      {tab === 4 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
     </Box>
   );
 }
@@ -112,6 +115,40 @@ function GeneralTab() {
         </CardContent>
       </Card>
     </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ Email / SMTP */
+
+function SmtpTab() {
+  const query = useQuery({
+    queryKey: ['settings', 'smtp'],
+    queryFn: ({ signal }) => api.settings.smtp({ signal }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => api.settings.saveSmtp(data),
+  });
+
+  if (query.isPending) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
+  if (query.isError) return <Alert severity="error">{query.error.message}</Alert>;
+
+  return (
+    <Card sx={{ maxWidth: 720 }}>
+      <CardContent sx={{ p: 3 }}>
+        <Typography variant="h6" sx={{ mb: 0.5 }}>Email / SMTP</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Outbound email for notifications and remediation links, sent from your own domain.
+        </Typography>
+        <SmtpSettingsForm
+          load={() => query.data}
+          passwordSet={!!query.data?.passwordSet}
+          onSave={saveMutation.mutateAsync}
+          onTest={api.settings.testSmtp}
+        />
+      </CardContent>
+    </Card>
   );
 }
 

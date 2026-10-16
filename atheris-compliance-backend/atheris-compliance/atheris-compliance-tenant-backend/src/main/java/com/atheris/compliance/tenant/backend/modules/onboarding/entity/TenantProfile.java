@@ -77,6 +77,16 @@ public class TenantProfile {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> ldapConfig;
 
+    private String smtpHost;
+    private Integer smtpPort;
+    private String smtpUsername;
+    private String smtpPasswordEncrypted;
+    @Builder.Default
+    private Boolean smtpAuth = false;
+    @Builder.Default
+    private Boolean smtpStarttls = false;
+    private String smtpFrom;
+
     private Instant createdAt;
     private Instant updatedAt;
 

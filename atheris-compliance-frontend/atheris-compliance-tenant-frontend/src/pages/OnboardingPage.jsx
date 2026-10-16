@@ -4,15 +4,33 @@ import { required, validateName, validateEmail, validatePhone, validatePassword 
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup, Divider, Chip,
-  FormControl, FormLabel, FormControlLabel, FormGroup, Checkbox, LinearProgress,
+  FormControl, FormLabel, FormControlLabel, Checkbox, LinearProgress,
 } from '@mui/material';
 import {
   VpnKey, ElectricBolt, CheckCircle,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import { SectionTable } from 'shared';
 import { api } from '../services/api';
+import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 
-const STEPS = ['License', 'Institution', 'User Setup', 'Confirm'];
+const STEPS = ['License', 'Institution', 'User Setup', 'Regulators', 'SMTP', 'Confirm'];
+
+const regulatorColumns = (selected, toggle) => [
+  { id: 'select', label: '', minWidth: 48,
+    render: (r) => (
+      <Checkbox size="small" checked={selected.includes(r.regulatorId)}
+        onChange={() => toggle(r.regulatorId)} />
+    ) },
+  { id: 'name', label: 'Regulator', minWidth: 260,
+    render: (r) => <Typography variant="body2">{r.name || '—'}</Typography> },
+  { id: 'abbreviation', label: 'Abbrev', minWidth: 110,
+    render: (r) => (r.abbreviation
+      ? <Chip size="small" label={r.abbreviation} sx={{ height: 22, borderRadius: '4px' }} />
+      : <Typography variant="body2" color="text.secondary">—</Typography>) },
+  { id: 'obligationCount', label: 'Obligations', minWidth: 120,
+    render: (r) => <Typography variant="body2">{r.obligationCount ?? 0}</Typography> },
+];
 
 export default function OnboardingPage() {
   const theme = useTheme();
@@ -222,6 +240,55 @@ export default function OnboardingPage() {
         ? { authType: 'local', localAdmin, seedUsers }
         : { authType: 'ldap', ldapConfig, breakGlassAdmin: breakGlass, seedUsers };
       await api.onboarding.userSetup(authData);
+      await loadRegulators();
+      setStep(3);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function loadRegulators() {
+    try {
+      const resp = await api.onboarding.status({ signal: AbortSignal.timeout(8000) });
+      setAvailableRegulators(resp.availableRegulators || []);
+      if (resp.subscribedRegulators?.length) setSelectedRegulators(resp.subscribedRegulators);
+    } catch {
+      /* regulators are only listable once the license api-key is active */
+    }
+  }
+
+  function toggleRegulator(id) {
+    setSelectedRegulators(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  async function handleSaveRegulators() {
+    if (selectedRegulators.length === 0) {
+      setError('Select at least one regulator to subscribe to.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.regulators({ subscribedRegulators: selectedRegulators });
+      setStep(4);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleSaveSmtp(config) {
+    return api.onboarding.saveSmtp(config);
+  }
+
+  async function handleContinueSmtp() {
+    setSubmitting(true);
+    setError('');
+    try {
       await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
       setStep(5);
     } catch (err) {
@@ -231,35 +298,15 @@ export default function OnboardingPage() {
     }
   }
 
-  async function handleConfirm() {
-    if (selectedRegulators.length === 0) {
-      setError('Select at least one regulator to subscribe to.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
-    try {
-      await api.onboarding.regulators({ subscribedRegulators: selectedRegulators });
-    } catch (err) {
-      setError(err.message || 'Something went wrong');
-      setSubmitting(false);
-      return;
-    }
-    setSubmitting(false);
+  function handleConfirm() {
     submit('confirm',
       api.onboarding.confirm({ webhookUrl: webhookUrl || undefined }),
       6
     );
   }
 
-  function toggleRegulator(id) {
-    setSelectedRegulators(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-
   function getActiveStep() {
-    if (step <= 2) return step;
-    return 3;
+    return Math.min(step, 5);
   }
 
   if (loading) {
@@ -489,47 +536,63 @@ export default function OnboardingPage() {
                 </Typography>
 
                 {availableRegulators.length === 0 ? (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    No regulators are available yet. Ask your platform administrator to enable regulators.
-                  </Alert>
+                  <Alert severity="info" sx={{ mb: 2 }}>Loading regulators…</Alert>
                 ) : (
-                  <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
-                    <FormLabel component="legend" sx={{ mb: 0.5 }}>
-                      Regulators ({selectedRegulators.length} selected)
-                    </FormLabel>
-                    <FormGroup sx={{ maxHeight: 260, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-                      {availableRegulators.map(reg => (
-                        <FormControlLabel
-                          key={reg.regulatorId}
-                          control={
-                            <Checkbox size="small"
-                              checked={selectedRegulators.includes(reg.regulatorId)}
-                              onChange={() => toggleRegulator(reg.regulatorId)} />
-                          }
-                          label={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body2">{reg.name}</Typography>
-                              {reg.abbreviation && (
-                                <Chip size="small" label={reg.abbreviation}
-                                  sx={{ height: 20, borderRadius: '4px', fontSize: '0.65rem' }} />
-                              )}
-                            </Box>
-                          }
-                        />
-                      ))}
-                    </FormGroup>
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                      <Button size="small" onClick={() => setSelectedRegulators(availableRegulators.map(r => r.regulatorId))}>
-                        Select all
-                      </Button>
-                      <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
-                    </Box>
-                  </FormControl>
+                  <SectionTable
+                    columns={regulatorColumns(selectedRegulators, toggleRegulator)}
+                    rows={availableRegulators}
+                    total={availableRegulators.length}
+                    page={0}
+                    size={availableRegulators.length}
+                    loading={false}
+                    rowKey={(r) => r.regulatorId}
+                    onRowClick={(r) => toggleRegulator(r.regulatorId)}
+                    rowsPerPageOptions={[availableRegulators.length]}
+                    emptyMessage="No regulators available."
+                  />
                 )}
 
-                <Button fullWidth variant="contained" size="large"
-                  onClick={handleConfirm} disabled={submitting || selectedRegulators.length === 0}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
+                  <Button size="small"
+                    onClick={() => setSelectedRegulators(availableRegulators.map(r => r.regulatorId))}>
+                    Select all
+                  </Button>
+                  <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                    {selectedRegulators.length} selected
+                  </Typography>
+                </Box>
+
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.2 }}
+                  onClick={handleSaveRegulators} disabled={submitting || selectedRegulators.length === 0}>
+                  {submitting ? <CircularProgress size={20} /> : 'Continue'}
+                </Button>
+              </Box>
+            )}
+
+            {!seeding && !completed && getActiveStep() === 4 && (
+              <Box>
+                <SmtpSettingsForm
+                  onSave={handleSaveSmtp}
+                  onTest={api.onboarding.testSmtp}
+                  intro="Optionally connect your organisation's SMTP server so notifications and remediation emails are sent from your own domain. You can change this later in Settings."
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mt: 2 }}>
+                  <Button variant="text" onClick={handleContinueSmtp} disabled={submitting}>Skip for now</Button>
+                  <Button variant="contained" onClick={handleContinueSmtp} disabled={submitting}>
+                    {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Continue'}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {!seeding && !completed && getActiveStep() === 5 && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  You're all set! Review your selections and complete setup.
+                </Typography>
+                <Button fullWidth variant="contained" size="large" sx={{ py: 1.2 }}
+                  onClick={handleConfirm} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Complete Setup'}
                 </Button>
               </Box>

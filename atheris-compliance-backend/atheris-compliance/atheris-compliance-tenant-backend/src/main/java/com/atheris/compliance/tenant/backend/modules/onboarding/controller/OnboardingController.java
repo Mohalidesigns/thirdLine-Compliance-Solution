@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.onboarding.controller;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.service.OnboardingService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.service.SeedService;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,18 @@ public class OnboardingController {
     public ResponseEntity<OnboardingStatusResponse> saveRegulators(
             @RequestBody RegulatorSubscriptionRequest req) {
         return ResponseEntity.ok(service.saveRegulators(req));
+    }
+
+    @PostMapping("/smtp")
+    public ResponseEntity<OnboardingStatusResponse> saveSmtp(
+            @RequestBody SmtpConfigRequest req) {
+        return ResponseEntity.ok(service.saveSmtp(req));
+    }
+
+    @PostMapping("/smtp/test")
+    public ResponseEntity<Map<String, Object>> testSmtp(
+            @RequestBody SmtpConfigRequest req) {
+        return ResponseEntity.ok(service.testSmtp(req));
     }
 
     @PostMapping("/document-types")
