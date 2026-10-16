@@ -254,29 +254,30 @@ public class OnboardingService {
         profiles.save(p);
 
         Long tid = tenantIdentity.currentTenantId();
-        List<Integer> selectedIds = req.getSubscribedRegulators();
+        List<Integer> selectedIds = req.getSubscribedRegulators() != null
+            ? req.getSubscribedRegulators() : List.of();
 
-        if (Boolean.TRUE.equals(p.getAutoSubscribeRegulators()) || selectedIds == null || selectedIds.isEmpty()) {
-            List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
-            List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
-            List<Integer> existingIds = existing.stream()
-                .map(TenantRegulator::getPlatformRegulatorId)
-                .filter(Objects::nonNull)
-                .toList();
+        List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
+        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
+        List<Integer> existingIds = existing.stream()
+            .map(TenantRegulator::getPlatformRegulatorId)
+            .filter(Objects::nonNull)
+            .toList();
 
-            for (RegulatorSummary summary : allRegs) {
-                if (existingIds.contains(summary.getRegulatorId())) {
-                    continue;
-                }
-                tenantRegulatorRepo.save(TenantRegulator.builder()
-                    .tenantId(tid)
-                    .name(summary.getName())
-                    .abbreviation(summary.getAbbreviation())
-                    .platformRegulatorId(summary.getRegulatorId())
-                    .isActive(true)
-                    .build());
+        for (RegulatorSummary summary : allRegs) {
+            if (!selectedIds.contains(summary.getRegulatorId())) {
+                continue;
             }
-            selectedIds = allRegs.stream().map(RegulatorSummary::getRegulatorId).toList();
+            if (existingIds.contains(summary.getRegulatorId())) {
+                continue;
+            }
+            tenantRegulatorRepo.save(TenantRegulator.builder()
+                .tenantId(tid)
+                .name(summary.getName())
+                .abbreviation(summary.getAbbreviation())
+                .platformRegulatorId(summary.getRegulatorId())
+                .isActive(true)
+                .build());
         }
 
         p.setSubscribedRegulators(selectedIds);
@@ -310,32 +311,6 @@ public class OnboardingService {
         p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(6);
-
-        if (p.getSubscribedRegulators() == null || p.getSubscribedRegulators().isEmpty()) {
-            List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
-            Long tid = tenantIdentity.currentTenantId();
-            List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
-            List<Integer> existingIds = existing.stream()
-                .map(TenantRegulator::getPlatformRegulatorId)
-                .filter(Objects::nonNull)
-                .toList();
-            for (RegulatorSummary summary : allRegs) {
-                if (existingIds.contains(summary.getRegulatorId())) {
-                    continue;
-                }
-                tenantRegulatorRepo.save(TenantRegulator.builder()
-                    .tenantId(tid)
-                    .name(summary.getName())
-                    .abbreviation(summary.getAbbreviation())
-                    .platformRegulatorId(summary.getRegulatorId())
-                    .isActive(true)
-                    .build());
-            }
-            if (!allRegs.isEmpty()) {
-                p.setSubscribedRegulators(allRegs.stream().map(RegulatorSummary::getRegulatorId).toList());
-            }
-            log.info("Salvaged {} regulators for tenant {} (existing {} -> now {})", allRegs.size(), tid, existingIds.size(), p.getSubscribedRegulators() != null ? p.getSubscribedRegulators().size() : 0);
-        }
 
         profiles.save(p);
 

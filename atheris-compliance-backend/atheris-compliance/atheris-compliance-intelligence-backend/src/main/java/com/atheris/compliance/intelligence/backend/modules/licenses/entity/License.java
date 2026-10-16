@@ -34,9 +34,6 @@ public class License {
     private Boolean deviceFingerprintEnforced = true;
     @Column(nullable = false)
     @Builder.Default
-    private Boolean autoSubscribeRegulators = false;
-    @Column(nullable = false)
-    @Builder.Default
     private Boolean autoSeedObligations = false;
     @Column(nullable = false, length = 50)
     @Builder.Default

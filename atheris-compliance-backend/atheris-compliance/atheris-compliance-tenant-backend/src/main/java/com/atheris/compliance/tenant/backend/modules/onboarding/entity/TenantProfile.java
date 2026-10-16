@@ -66,8 +66,6 @@ public class TenantProfile {
     @Builder.Default
     private Boolean intelligenceEnabled = true;
     @Builder.Default
-    private Boolean autoSubscribeRegulators = false;
-    @Builder.Default
     private Boolean autoSeedObligations = false;
     private String deviceFingerprint;
     private Instant deviceFingerprintProvisionedAt;

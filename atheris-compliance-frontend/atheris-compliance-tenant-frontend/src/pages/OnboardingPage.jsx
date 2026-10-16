@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
   Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
-  Alert, CircularProgress, Radio, RadioGroup, Divider,
-  FormControl, FormLabel, FormControlLabel, LinearProgress,
+  Alert, CircularProgress, Radio, RadioGroup, Divider, Chip,
+  FormControl, FormLabel, FormControlLabel, FormGroup, Checkbox, LinearProgress,
 } from '@mui/material';
 import {
   VpnKey, ElectricBolt, CheckCircle,
@@ -52,6 +52,8 @@ export default function OnboardingPage() {
   const [breakGlass, setBreakGlass] = useState({ fullName: '', email: '', password: '' });
 
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [availableRegulators, setAvailableRegulators] = useState([]);
+  const [selectedRegulators, setSelectedRegulators] = useState([]);
 
   useEffect(() => {
     loadStatus();
@@ -80,6 +82,8 @@ export default function OnboardingPage() {
       setStep(resp.currentStep || 0);
       if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName }));
       if (resp.authType) setAuthType(resp.authType);
+      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
+      if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
     } catch {
       setStep(0);
     } finally {
@@ -218,7 +222,6 @@ export default function OnboardingPage() {
         ? { authType: 'local', localAdmin, seedUsers }
         : { authType: 'ldap', ldapConfig, breakGlassAdmin: breakGlass, seedUsers };
       await api.onboarding.userSetup(authData);
-      await api.onboarding.regulators({ subscribedRegulators: [] });
       await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
       setStep(5);
     } catch (err) {
@@ -228,11 +231,30 @@ export default function OnboardingPage() {
     }
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
+    if (selectedRegulators.length === 0) {
+      setError('Select at least one regulator to subscribe to.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.regulators({ subscribedRegulators: selectedRegulators });
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
     submit('confirm',
       api.onboarding.confirm({ webhookUrl: webhookUrl || undefined }),
       6
     );
+  }
+
+  function toggleRegulator(id) {
+    setSelectedRegulators(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
   function getActiveStep() {
@@ -461,11 +483,52 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 3 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  You're all set! Review your selections and complete setup.
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Choose the regulators you want to subscribe to. You'll receive their instruments
+                  in your Review Inbox and, if the license enables it, their toolkit obligations.
                 </Typography>
+
+                {availableRegulators.length === 0 ? (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    No regulators are available yet. Ask your platform administrator to enable regulators.
+                  </Alert>
+                ) : (
+                  <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
+                    <FormLabel component="legend" sx={{ mb: 0.5 }}>
+                      Regulators ({selectedRegulators.length} selected)
+                    </FormLabel>
+                    <FormGroup sx={{ maxHeight: 260, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                      {availableRegulators.map(reg => (
+                        <FormControlLabel
+                          key={reg.regulatorId}
+                          control={
+                            <Checkbox size="small"
+                              checked={selectedRegulators.includes(reg.regulatorId)}
+                              onChange={() => toggleRegulator(reg.regulatorId)} />
+                          }
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2">{reg.name}</Typography>
+                              {reg.abbreviation && (
+                                <Chip size="small" label={reg.abbreviation}
+                                  sx={{ height: 20, borderRadius: '4px', fontSize: '0.65rem' }} />
+                              )}
+                            </Box>
+                          }
+                        />
+                      ))}
+                    </FormGroup>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Button size="small" onClick={() => setSelectedRegulators(availableRegulators.map(r => r.regulatorId))}>
+                        Select all
+                      </Button>
+                      <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
+                    </Box>
+                  </FormControl>
+                )}
+
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleConfirm} disabled={submitting}
+                  onClick={handleConfirm} disabled={submitting || selectedRegulators.length === 0}
                   sx={{ py: 1.2, fontWeight: 600 }}>
                   {submitting ? <CircularProgress size={20} /> : 'Complete Setup'}
                 </Button>

@@ -107,7 +107,7 @@ export default function LicenseAdminPage() {
   const openCreateDialog = () => {
     const defaultExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const expiresAt = defaultExpiry.toISOString().slice(0, 16);
-    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, autoSubscribeRegulators: true, autoSeedObligations: true, expiresAt });
+    setForm({ tier: 'custom', intelligenceEnabled: true, maxUsers: 5, maxDevices: 1, maxStorageMb: 500, gracePeriodDays: 7, deviceFingerprintEnforced: true, autoSeedObligations: false, expiresAt });
     setOpenCreate(true);
   };
 
@@ -117,7 +117,6 @@ export default function LicenseAdminPage() {
       maxDevices: lic.maxDevices,
       maxStorageMb: lic.maxStorageMb,
       deviceFingerprintEnforced: lic.deviceFingerprintEnforced,
-      autoSubscribeRegulators: lic.autoSubscribeRegulators ?? true,
       autoSeedObligations: lic.autoSeedObligations ?? true,
       expiresAt: lic.expiresAt?.slice(0, 16),
       gracePeriodDays: lic.gracePeriodDays, notes: lic.notes,
@@ -414,15 +413,10 @@ function LicenseForm({ form, onChange }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1A365D' }}>Onboarding Features</Typography>
       </Box>
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
-        <Grid size={{ xs: 6 }}>
-          <FormControlLabel control={
-            <Checkbox size="small" checked={form.autoSubscribeRegulators || false} onChange={e => set('autoSubscribeRegulators', e.target.checked)} />
-          } label={<Typography variant="body2">Auto-subscribe regulators</Typography>} />
-        </Grid>
-        <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <FormControlLabel control={
             <Checkbox size="small" checked={form.autoSeedObligations || false} onChange={e => set('autoSeedObligations', e.target.checked)} />
-          } label={<Typography variant="body2">Auto-seed obligations</Typography>} />
+          } label={<Typography variant="body2">Auto-seed obligations from the toolkit</Typography>} />
         </Grid>
       </Grid>
 
