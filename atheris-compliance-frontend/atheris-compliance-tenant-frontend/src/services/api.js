@@ -152,7 +152,11 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const fallback = res.status === 403 ? FORBIDDEN_MESSAGE : `Request failed (${res.status})`;
-    throw new Error(data.message || data.error || fallback);
+    // Keep the server's stable error code (e.g. secret_in_command, lint_errors) for callers that branch on it.
+    const err = new Error(data.message || data.error || fallback);
+    err.status = res.status;
+    err.code = data.error;
+    throw err;
   }
   return data;
 }
@@ -212,6 +216,14 @@ async function rawRequest(path, { responseType = 'json', fallbackName = 'downloa
   if (res.status === 204) return null;
   const text = await res.text();
   return text ? JSON.parse(text) : null;
+}
+
+// Builds "?a=1&b=2" from an object, dropping empty values ("" when nothing is left).
+function toQuery(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+  const s = qs.toString();
+  return s ? `?${s}` : '';
 }
 
 // Hands a Blob to the browser as a file download.
@@ -610,6 +622,115 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     deleteOwner: (id) => request(`/org/owners/${id}`, { method: 'DELETE' }),
+  },
+  // Compliance Runbooks — contract: runbook library, versions, executions, templates, coverage.
+  // Every read takes { signal } so TanStack Query can cancel it.
+  runbooks: {
+    list: (params = {}, opts = {}) => request(`/runbooks${toQuery(params)}`, { signal: opts.signal }),
+    stats: (opts = {}) => request('/runbooks/stats', { signal: opts.signal }),
+    dashboard: (opts = {}) => request('/runbooks/dashboard', { signal: opts.signal }),
+    // Active users any runbook role may pick as owner / operator / assignee (GET /users is admin-only).
+    assignees: (opts = {}) => request('/runbooks/assignees', { signal: opts.signal }),
+    templateRevision: (id) => request(`/runbooks/${id}/template-revision`, { method: 'POST' }),
+    get: (id, opts = {}) => request(`/runbooks/${id}`, { signal: opts.signal }),
+    create: (data) => request('/runbooks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/runbooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/runbooks/${id}`, { method: 'DELETE' }),
+    clone: (id, data) => request(`/runbooks/${id}/clone`, { method: 'POST', body: JSON.stringify(data) }),
+    deprecate: (id, reason) => request(`/runbooks/${id}/deprecate`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    archive: (id, reason) => request(`/runbooks/${id}/archive`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    setClauses: (id, clauseIds) => request(`/runbooks/${id}/clauses`, { method: 'PUT', body: JSON.stringify({ clauseIds }) }),
+    setLinks: (id, data) => request(`/runbooks/${id}/links`, { method: 'PUT', body: JSON.stringify(data) }),
+    exportJson: (id) => rawRequest(`/runbooks/${id}/export?format=json`, {
+      responseType: 'blob', fallbackName: `runbook-${id}.json`,
+    }).then((file) => { saveBlob(file); return file; }),
+    importJson: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return rawRequest('/runbooks/import', { method: 'POST', body: fd });
+    },
+    versions: {
+      list: (id, opts = {}) => request(`/runbooks/${id}/versions`, { signal: opts.signal }),
+      createDraft: (id) => request(`/runbooks/${id}/versions`, { method: 'POST' }),
+      get: (id, vid, opts = {}) => request(`/runbooks/${id}/versions/${vid}`, { signal: opts.signal }),
+      save: (id, vid, tree) => request(`/runbooks/${id}/versions/${vid}`, { method: 'PUT', body: JSON.stringify(tree) }),
+      lint: (id, vid) => request(`/runbooks/${id}/versions/${vid}/lint`, { method: 'POST' }),
+      diff: (id, vid, otherVid, opts = {}) => request(`/runbooks/${id}/versions/${vid}/diff/${otherVid}`, { signal: opts.signal }),
+      submit: (id, vid) => request(`/runbooks/${id}/versions/${vid}/submit`, { method: 'POST' }),
+      approve: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/approve`, { method: 'POST', body: JSON.stringify(data) }),
+      reject: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/reject`, { method: 'POST', body: JSON.stringify(data) }),
+      publish: (id, vid, data) => request(`/runbooks/${id}/versions/${vid}/publish`, { method: 'POST', body: JSON.stringify(data) }),
+    },
+    approvalsPending: (opts = {}) => request('/runbooks/approvals/pending', { signal: opts.signal }),
+    schedules: {
+      list: (id, opts = {}) => request(`/runbooks/${id}/schedules`, { signal: opts.signal }),
+      create: (id, data) => request(`/runbooks/${id}/schedules`, { method: 'POST', body: JSON.stringify(data) }),
+      update: (id, sid, data) => request(`/runbooks/${id}/schedules/${sid}`, { method: 'PUT', body: JSON.stringify(data) }),
+      remove: (id, sid) => request(`/runbooks/${id}/schedules/${sid}`, { method: 'DELETE' }),
+    },
+    frameworks: {
+      list: (opts = {}) => request('/runbooks/frameworks', { signal: opts.signal }),
+      clauses: (frameworkId, params = {}, opts = {}) =>
+        request(`/runbooks/frameworks/${frameworkId}/clauses${toQuery(params)}`, { signal: opts.signal }),
+      searchClauses: (params = {}, opts = {}) => request(`/runbooks/clauses${toQuery(params)}`, { signal: opts.signal }),
+      create: (data) => request('/runbooks/frameworks', { method: 'POST', body: JSON.stringify(data) }),
+      addClause: (frameworkId, data) => request(`/runbooks/frameworks/${frameworkId}/clauses`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+    },
+    executions: {
+      list: (params = {}, opts = {}) => request(`/runbooks/executions${toQuery(params)}`, { signal: opts.signal }),
+      stats: (opts = {}) => request('/runbooks/executions/stats', { signal: opts.signal }),
+      start: (runbookId, data) => request(`/runbooks/${runbookId}/executions`, { method: 'POST', body: JSON.stringify(data) }),
+      get: (execId, opts = {}) => request(`/runbooks/executions/${execId}`, { signal: opts.signal }),
+      preflight: (execId, prereqAcks) => request(`/runbooks/executions/${execId}/preflight`, {
+        method: 'POST', body: JSON.stringify({ prereqAcks }),
+      }),
+      startStep: (execId, stepExecId) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/start`, { method: 'POST' }),
+      passStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/pass`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      failStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/fail`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      skipStep: (execId, stepExecId, data) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/skip`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+      verifyStep: (execId, stepExecId, password) => request(`/runbooks/executions/${execId}/steps/${stepExecId}/verify`, {
+        method: 'POST', body: JSON.stringify({ password }),
+      }),
+      // fields: { file?, reqId?, evidenceType?, externalRef?, attestationText?, pastedOutput? } — exactly one payload.
+      captureEvidence: (execId, stepExecId, fields) => {
+        const fd = new FormData();
+        Object.entries(fields || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') fd.append(k, v); });
+        return rawRequest(`/runbooks/executions/${execId}/steps/${stepExecId}/evidence`, { method: 'POST', body: fd });
+      },
+      stepEvidence: (execId, stepExecId, opts = {}) =>
+        request(`/runbooks/executions/${execId}/steps/${stepExecId}/evidence`, { signal: opts.signal }),
+      downloadEvidence: (execId, evidenceId) => rawRequest(`/runbooks/executions/${execId}/evidence/${evidenceId}/download`, {
+        responseType: 'blob', fallbackName: `evidence-${evidenceId}.bin`,
+      }).then((file) => { saveBlob(file); return file; }),
+      pause: (execId, reason) => request(`/runbooks/executions/${execId}/pause`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      resume: (execId) => request(`/runbooks/executions/${execId}/resume`, { method: 'POST' }),
+      abort: (execId, reason) => request(`/runbooks/executions/${execId}/abort`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      escalate: (execId, data) => request(`/runbooks/executions/${execId}/escalate`, { method: 'POST', body: JSON.stringify(data) }),
+      ackEscalation: (execId, escId) => request(`/runbooks/executions/${execId}/escalations/${escId}/ack`, { method: 'POST' }),
+      rollback: (execId, reason) => request(`/runbooks/executions/${execId}/rollback`, { method: 'POST', body: JSON.stringify({ reason }) }),
+      signoff: (execId, data) => request(`/runbooks/executions/${execId}/signoff`, { method: 'POST', body: JSON.stringify(data) }),
+      generatePack: (execId, data) => request(`/runbooks/executions/${execId}/pack`, { method: 'POST', body: JSON.stringify(data || {}) }),
+      downloadPack: (execId) => rawRequest(`/runbooks/executions/${execId}/pack`, {
+        responseType: 'blob', fallbackName: `evidence-pack-${execId}.zip`,
+      }).then((file) => { saveBlob(file); return file; }),
+      timeline: (execId, opts = {}) => request(`/runbooks/executions/${execId}/timeline`, { signal: opts.signal }),
+    },
+    templates: {
+      list: (opts = {}) => request('/runbooks/templates', { signal: opts.signal }),
+      get: (code, opts = {}) => request(`/runbooks/templates/${encodeURIComponent(code)}`, { signal: opts.signal }),
+      adopt: (code, data) => request(`/runbooks/templates/${encodeURIComponent(code)}/adopt`, {
+        method: 'POST', body: JSON.stringify(data),
+      }),
+    },
+    coverage: (params = {}, opts = {}) => request(`/runbooks/coverage${toQuery(params)}`, { signal: opts.signal }),
   },
   users: {
     me: () => request('/users/me'),

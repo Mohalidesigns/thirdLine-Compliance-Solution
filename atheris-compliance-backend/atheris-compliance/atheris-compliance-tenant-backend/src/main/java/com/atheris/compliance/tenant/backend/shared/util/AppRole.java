@@ -17,4 +17,9 @@ public final class AppRole {
     public static final String CCO = "CCO";
     public static final String TENANT_ADMIN = "TENANT_ADMIN";
     public static final String AUDITOR = "AUDITOR";
+    /** Technical operator: runs runbook steps and captures evidence, no compliance authority (runbook spec D5). */
+    public static final String IT_OPS = "IT_OPS";
+
+    /** Every assignable role (validated on invite and role change). */
+    public static final java.util.Set<String> ALL = java.util.Set.of(ANALYST, CCO, TENANT_ADMIN, AUDITOR, IT_OPS);
 }

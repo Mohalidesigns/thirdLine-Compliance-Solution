@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.users.dto.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -40,6 +41,8 @@ public class UserService {
     public UserDto invite(InviteUserRequest req, Integer invitedBy) {
         if (users.existsByEmail(req.getEmail().toLowerCase()))
             throw ApiException.conflict("already_exists", "A user with this email already exists");
+        if (req.getRole() == null || !AppRole.ALL.contains(req.getRole()))
+            throw ApiException.badRequest("Invalid role: " + req.getRole());
         User user = User.builder()
             .email(req.getEmail().toLowerCase().trim()).fullName(req.getFullName())
             .jobTitle(req.getJobTitle()).department(req.getDepartment()).role(req.getRole())
@@ -103,6 +106,7 @@ public class UserService {
     public UserDto updateRole(Integer id, String role) {
         User u = users.findById(id)
             .orElseThrow(() -> ApiException.notFound("User not found: " + id));
+        if (role == null || !AppRole.ALL.contains(role)) throw ApiException.badRequest("Invalid role: " + role);
         u.setRole(role);
         return toDto(users.save(u));
     }

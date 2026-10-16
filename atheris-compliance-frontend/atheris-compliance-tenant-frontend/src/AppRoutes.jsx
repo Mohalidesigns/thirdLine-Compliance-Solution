@@ -27,6 +27,15 @@ const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
 const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const RunbooksLibraryPage = lazy(() => import('./pages/runbooks/RunbooksLibraryPage'));
+const RunbookDetailPage = lazy(() => import('./pages/runbooks/RunbookDetailPage'));
+const RunbookBuilderPage = lazy(() => import('./pages/runbooks/RunbookBuilderPage'));
+const ExecutionsPage = lazy(() => import('./pages/runbooks/ExecutionsPage'));
+const ExecutionConsolePage = lazy(() => import('./pages/runbooks/ExecutionConsolePage'));
+const ExecutionSummaryPage = lazy(() => import('./pages/runbooks/ExecutionSummaryPage'));
+const ApprovalsPage = lazy(() => import('./pages/runbooks/ApprovalsPage'));
+const CoverageMatrixPage = lazy(() => import('./pages/runbooks/CoverageMatrixPage'));
+const TemplateLibraryPage = lazy(() => import('./pages/runbooks/TemplateLibraryPage'));
 const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 
 function Loading() {
@@ -71,6 +80,16 @@ export default function AppRoutes() {
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
+          <Route path="runbooks" element={<RunbooksLibraryPage />} />
+          <Route path="runbooks/new" element={<RunbookBuilderPage />} />
+          <Route path="runbooks/executions" element={<ExecutionsPage />} />
+          <Route path="runbooks/executions/:execId" element={<ExecutionConsolePage />} />
+          <Route path="runbooks/executions/:execId/summary" element={<ExecutionSummaryPage />} />
+          <Route path="runbooks/approvals" element={<ApprovalsPage />} />
+          <Route path="runbooks/coverage" element={<CoverageMatrixPage />} />
+          <Route path="runbooks/templates" element={<TemplateLibraryPage />} />
+          <Route path="runbooks/:id" element={<RunbookDetailPage />} />
+          <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />
           <Route path="returns" element={<ReturnsPage />} />
           <Route path="sanctions" element={<SanctionsPage />} />

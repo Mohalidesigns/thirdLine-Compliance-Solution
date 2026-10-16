@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppSidebar, Squares2x2Icon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
-  BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon,
+  BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
 } from 'shared';
 import { api } from '../../services/api';
 
@@ -36,6 +36,7 @@ export default function Sidebar(props) {
       { text: 'Obligations', path: '/obligations', icon: <ScaleIcon /> },
       { text: 'Regulators', path: '/regulators', icon: <BuildingLibraryIcon /> },
       { text: 'Controls', path: '/controls', icon: <ShieldCheckIcon /> },
+      { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
       { text: 'Findings', path: '/findings', icon: <ExclamationTriangleIcon /> },
       { text: 'Returns', path: '/returns', icon: <CalendarIcon /> },
       { text: 'Sanctions', path: '/sanctions', icon: <BanknotesIcon /> },

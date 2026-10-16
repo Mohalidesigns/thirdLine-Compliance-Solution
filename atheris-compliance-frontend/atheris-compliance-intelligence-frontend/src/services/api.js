@@ -474,6 +474,12 @@ export const api = {
       stats: (signal) => request('/admin/returns/stats', { signal }),
       get: (id, signal) => request(`/admin/returns/${id}`, { signal }),
     },
+    // Read-only runbook template library (AdminRunbookTemplateController). Keyed by templateCode.
+    runbookTemplates: {
+      list: (params = '', signal) => request(`/admin/runbook-templates${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/runbook-templates/stats', { signal }),
+      get: (code, signal) => request(`/admin/runbook-templates/${encodeURIComponent(code)}`, { signal }),
+    },
     evidence: {
       list: () => request('/admin/evidence'),
       download: (id) => request(`/admin/evidence/${id}/download`),

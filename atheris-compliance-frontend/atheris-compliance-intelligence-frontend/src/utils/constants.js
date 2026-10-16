@@ -45,6 +45,8 @@ export const ROUTES = {
   ADMIN_RETURN_DETAIL: '/admin/returns/:id',
   ADMIN_CONTROLS: '/admin/controls',
   ADMIN_CONTROL_DETAIL: '/admin/controls/:id',
+  ADMIN_RUNBOOK_TEMPLATES: '/admin/runbook-templates',
+  ADMIN_RUNBOOK_TEMPLATE_DETAIL: '/admin/runbook-templates/:code',
 };
 
 export const STRINGS = {
@@ -93,6 +95,7 @@ export const NAV_SECTIONS = [
     { text: 'Sanctions', icon: 'Banknotes', path: ROUTES.ADMIN_SANCTIONS },
     { text: 'Returns', icon: 'Calendar', path: ROUTES.ADMIN_RETURNS },
     { text: 'Controls', icon: 'ShieldCheck', path: ROUTES.ADMIN_CONTROLS },
+    { text: 'Runbook Templates', icon: 'ClipboardDocumentCheck', path: ROUTES.ADMIN_RUNBOOK_TEMPLATES },
     { text: 'Compliance Universe', icon: 'GlobeAlt', path: ROUTES.ADMIN_UNIVERSE },
   ]},
   { label: 'OPERATIONS', items: [

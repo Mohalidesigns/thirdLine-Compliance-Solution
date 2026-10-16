@@ -14,7 +14,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
 
-const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST'];
+const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);

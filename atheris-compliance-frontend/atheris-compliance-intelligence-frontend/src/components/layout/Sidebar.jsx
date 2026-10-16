@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppSidebar, Squares2x2Icon, InboxArrowDownIcon, EyeIcon, BuildingLibraryIcon, BuildingOffice2Icon,
   KeyIcon, QueueListIcon, DocumentTextIcon, BookOpenIcon, ScaleIcon, BanknotesIcon, CalendarIcon,
-  ShieldCheckIcon, GlobeAltIcon, Cog6ToothIcon,
+  ShieldCheckIcon, GlobeAltIcon, Cog6ToothIcon, ClipboardDocumentCheckIcon,
 } from 'shared';
 import { useAuth } from '../../features/auth/hooks/useAuth';
 import { ROUTES, NAV_SECTIONS } from '../../utils/constants';
@@ -12,6 +12,7 @@ const ICONS = {
   BuildingLibrary: BuildingLibraryIcon, BuildingOffice2: BuildingOffice2Icon, Key: KeyIcon,
   QueueList: QueueListIcon, DocumentText: DocumentTextIcon, BookOpen: BookOpenIcon, Scale: ScaleIcon,
   Banknotes: BanknotesIcon, Calendar: CalendarIcon, ShieldCheck: ShieldCheckIcon, GlobeAlt: GlobeAltIcon,
+  ClipboardDocumentCheck: ClipboardDocumentCheckIcon,
 };
 
 const BRAND = { name: 'atheris', tagline: 'Compliance Intelligence' };

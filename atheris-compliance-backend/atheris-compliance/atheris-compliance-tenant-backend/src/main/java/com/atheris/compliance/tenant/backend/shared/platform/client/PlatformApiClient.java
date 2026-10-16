@@ -379,4 +379,35 @@ public class PlatformApiClient {
             return List.of();
         }
     }
+
+    /**
+     * Runbook template summaries published by the platform. Returns {@code null} when the platform
+     * cannot be reached, so callers can tell "unavailable" from "no templates".
+     */
+    public List<Map<String, Object>> fetchRunbookTemplates() {
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/runbook-templates", HttpMethod.GET, new HttpEntity<>(headers()),
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            return resp.getBody() != null ? resp.getBody() : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch runbook templates from platform: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** One runbook template including its portable {@code content}; {@code null} if missing or unreachable. */
+    public Map<String, Object> fetchRunbookTemplate(String code) {
+        try {
+            ResponseEntity<Map<String, Object>> resp = rest.exchange(
+                baseUrl + "/api/v1/internal/runbook-templates/" + java.net.URLEncoder.encode(code, "UTF-8"),
+                HttpMethod.GET, new HttpEntity<>(headers()), new ParameterizedTypeReference<Map<String, Object>>() {});
+            return resp.getBody();
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to fetch runbook template {} from platform: {}", code, e.getMessage());
+            return null;
+        }
+    }
 }

@@ -13,6 +13,7 @@ import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
 import ControlsRow from '../components/dashboard/ControlsRow';
 import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../components/dashboard/RiskAreaActRow';
+import RunbooksWidget from '../components/dashboard/RunbooksWidget';
 
 const POLL_INTERVAL = 30000;
 
@@ -151,6 +152,9 @@ export default function CcoDashboardPage() {
 
       {/* Needs attention — stat cards */}
       <AttentionSection items={attention} />
+
+      {/* Compliance runbooks — hidden when the runbooks API is unavailable */}
+      <RunbooksWidget />
 
       {/* Returns · Controls · Sanctions */}
       <Box sx={row('repeat(3, 1fr)')}>
