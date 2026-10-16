@@ -38,6 +38,9 @@ public class ObligationRegisterItem {
     private String inherentLikelihood;
     private String inherentImpact;
     private String residualRiskRating;
+    /** Classification impact/likelihood — the axes the dashboard risk heatmap plots. */
+    private String impactRating;
+    private String likelihoodRating;
     private String assignedOwnerName;
     private String controlOwner;
     private String assignedDepartment;

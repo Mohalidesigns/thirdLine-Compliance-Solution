@@ -249,6 +249,13 @@ Startup: tenant V38–V41 + `RunbookFrameworkSeeder` (34 frameworks / 243 clause
 ### Not in this slice (follow-ups)
 Calendar (P7), Review Queue UI + instrument-change review triggers (P8; review events are created but not yet actionable), Analytics (P12), Settings → Runbooks tab (P14), MD/PDF runbook export, public attestation page, returns hook for RB-RET-*, coverage "control only" (amber = mapped to unpublished runbooks instead), dual-control re-auth for LDAP users, the spec's unit/integration/E2E tests.
 
+## Done — Risk Heatmap Drill-down
+
+Tenant Dashboard → Risk Profile → Risk Heatmap is clickable: a populated cell, a band in the legend (now shows per-band counts, e.g. "Critical 1373"), or a row in the table view opens `/obligations?cells=<impact|likelihood;…>&riskView=inherent|residual&drill=<label>`. The register shows a removable "Risk heatmap (…)" chip.
+- **Backend:** `GET /obligations/register` gained `cells` + `riskView`; `ObligationRegisterItem` gained `impactRating`/`likelihoodRating` (from the classification). The filter uses the heatmap's own population and axes (applicable only; impact = classification impact, or residual rating in residual view) so the register total equals the clicked count. Bands are sent as their populated cells, so band membership is never recomputed on the server.
+- Verified live: Critical band 1373 → register 1373; Very High × Medium 3 → 3 rows; clearing the chip → 1535.
+- **Data oddity (pre-existing):** the likelihood axis shows Medium/High/Low columns after Almost Certain — some classifications store likelihood on a 3-level scale, which `resolveAxis` appends.
+
 ## Done — Restored work reverted by 28ca694
 
 Commit `28ca694` was made from a stale working copy and overwrote 30 frontend files with old versions (tenant Acts/Reports/public `/remediate/:token` routes, LDAP onboarding, Settings holidays/manager, event-triggered returns, sanctions parity, CCO metrics, control test review; intel Act-detail tabs + drawers, `ObligationExplorerDetailPage` → `ObligationDetailView`, explorers, Document Pipeline, nav groups, api abort signals, RegulationExplorer `regulatorId`). Restored by per-file 3-way merge (base = the stale version copied), then the Thirdline restyle (`49e31cb`) merged on top. Intel nav keeps COMPLIANCE / OPERATIONS / TENANTS. Tenant sidebar: Acts under registers, Reports under assurance.
@@ -337,7 +344,7 @@ Intel `ObligationExplorerDetailPage.jsx` mirrors the tenant detail page (`db252c
 ## Done — Dashboards Harmonized (risk / area / act)
 
 Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, all-zero heatmap, total/submitted unit mismatch, ignored thresholds, per-row query in escalation-matrix). `/dashboard/v2/thresholds` no longer takes `tenantId` as a request param (cross-tenant read/write) — resolved via `TenantIdentityService`. Added `control-coverage?by=act` and `RiskProfileDto.byAct`. Tenant `CcoDashboardPage` gained risk profile / area / act sections (TanStack Query, 30s poll); intel `DashboardPage` gained a `RegulatoryCoverage` section.
-- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops (adding them is an open follow-up).
+- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops; heatmap drill-downs use `cells`/`riskView` instead.
 
 ## Done — `atheris-register-page` Skill
 

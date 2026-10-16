@@ -61,10 +61,13 @@ public class ObligationService {
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean hasGap, Boolean noControl, Long instrumentId,
-            String act, Boolean hasPoints, Pageable p) {
+            String act, Boolean hasPoints, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
+        Set<String> heatmapCells = parseHeatmapCells(cells);
+        boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
             .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints))
+            .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
         int total = filtered.size();
@@ -248,6 +251,8 @@ public class ObligationService {
                 .inherentLikelihood(ob.getInherentLikelihood())
                 .inherentImpact(ob.getInherentImpact())
                 .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
+                .impactRating(c != null ? c.getImpactRating() : null)
+                .likelihoodRating(c != null ? c.getLikelihoodRating() : null)
                 .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
                 .controlOwner(ob.getControlOwner())
                 .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
@@ -295,6 +300,30 @@ public class ObligationService {
             if (!match) return false;
         }
         return true;
+    }
+
+    /**
+     * Risk-heatmap drill-down: {@code cells} is "impact|likelihood" pairs joined by ';'.
+     * Returns null when absent, so the filter is skipped.
+     */
+    private static Set<String> parseHeatmapCells(String cells) {
+        if (cells == null || cells.isBlank()) return null;
+        return Arrays.stream(cells.split(";"))
+            .map(String::trim)
+            .filter(s -> s.contains("|"))
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * Same population and axes as {@code DashboardV2Service.getRiskHeatmap}: applicable obligations,
+     * impact axis = classification impact (inherent) or residual rating (residual), likelihood axis =
+     * classification likelihood — so a heatmap cell's count equals the drilled-down register total.
+     */
+    private static boolean inHeatmapCells(ObligationRegisterItem i, Set<String> cells, boolean residual) {
+        if (!"applicable".equals(i.getApplicability())) return false;
+        String impact = residual ? i.getResidualRiskRating() : i.getImpactRating();
+        if (impact == null || i.getLikelihoodRating() == null) return false;
+        return cells.contains(impact + "|" + i.getLikelihoodRating());
     }
 
     private static boolean contains(String s, String needle) {
