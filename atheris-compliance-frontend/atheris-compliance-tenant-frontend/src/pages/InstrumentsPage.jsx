@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
@@ -265,7 +265,12 @@ export default function InstrumentsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
-  const [detailItem, setDetailItem] = useState(null);
+  // `?id=` deep-links straight into an instrument's detail view (used by the Compliance Universe drawer).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [detailItem, setDetailItem] = useState(() => {
+    const id = searchParams.get('id');
+    return id ? { id: Number(id) } : null;
+  });
   const [showOcr, setShowOcr] = useState(false);
   const [sanctionsOpen, setSanctionsOpen] = useState(true);
 
@@ -373,6 +378,7 @@ export default function InstrumentsPage() {
   function closeDetail() {
     setDetailItem(null);
     setShowOcr(false);
+    if (searchParams.has('id')) setSearchParams({}, { replace: true });
   }
 
   async function fetchPdfBlob(instrumentId) {

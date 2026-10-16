@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  AppSidebar, Squares2x2Icon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
+  AppSidebar, Squares2x2Icon, GlobeAltIcon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
   BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon,
 } from 'shared';
@@ -31,6 +31,7 @@ export default function Sidebar(props) {
       { text: 'Review Inbox', path: '/review', icon: <InboxArrowDownIcon />, badge: pendingCount },
     ] },
     { key: 'registers', items: [
+      { text: 'Compliance Universe', path: '/universe', icon: <GlobeAltIcon /> },
       { text: 'Instruments', path: '/instruments', icon: <DocumentTextIcon /> },
       { text: 'Obligations', path: '/obligations', icon: <ScaleIcon /> },
       { text: 'Regulators', path: '/regulators', icon: <BuildingLibraryIcon /> },

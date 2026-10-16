@@ -140,6 +140,13 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Tenant Compliance Universe (dashboard section + page) — `feature/tenant-dashboard-universe`
+- **Page `/universe`** (`pages/UniversePage.jsx`, sidebar "Compliance Universe", first under registers) mirrors intel `/admin/universe`: risk KPIs (click = risk filter, dropdown = by regulator → drill sets risk+regulator), Top Regulators rows and Nature Mix chips (click = filter), Areas of Focus chips (click toggles the table filter), FilterBar (search, regulator, area, risk, nature, status), sortable server-paged `SectionTable` (Instrument | Regulator | Area of Focus | Risk | Status). All filters live in the URL. Row click opens an `EntityDrawer` (details, AI summary, obligations → `/obligations/:id`, sanctions); "Open in Instruments" uses the new `/instruments?id=` deep link.
+- **Dashboard** (`CcoDashboardPage`) opens with `components/dashboard/ComplianceUniverseSection` above the attention cards; every card, regulator, nature and area deep-links into `/universe` with the filter applied.
+- **Backend:** `GET /api/v1/subscriptions/instruments/universe-stats` → `UniverseStatsResponse` (`total`, `byRiskRating`, `byRegulator`, `byNature`, `byAreaOfFocus`, `byStatus`, `regulatorsByRisk`; count-ordered) and `GET /subscriptions/instruments/universe` → `Page<UniverseInstrumentItem>` (filters `q`/`regulator`/`areaOfFocus`/`riskRating`/`nature`/`status`, whitelisted sorts, in-memory because rows come from the platform API). Universe = platform instruments of the tenant's active regulators confirmed into the register (`InstrumentsService.confirmedUniverse`).
+- **Bug fixed:** `InstrumentsService.search` read only the first 200 platform results (register showed 50 of 112); it now shares `confirmedUniverse`, which pages the whole platform search.
+- **Verify (done, live):** 112/54/37/1 = `count(distinct instrument_id)`; area chip 112→23; area+High 22; +CBN drill 19; regulator row 7; Clear → 112; drawer + `/instruments?id=` open; dashboard area/drill links land filtered (19, 14); no console errors. **Gotcha:** restarting the tenant backend signs tenant users out.
+
 ### Thirdline UI adoption (both frontends) — `feature/thirdline-ui-adoption`
 - **One design system for both apps, modelled on Thirdline Internal Audit** (thirdline.atherislimited.com). Tokens lifted from Thirdline's CSS vars: navy `#1A365D`, gold accent `#D4AF37`, bg `#F7FAFC`, Figtree font, Tailwind gray scale, `.badge-*` tones.
 - **`shared/src/theme/`** — `thirdlineTheme.js` (each app's `theme/lightTheme.js` now just re-exports it) + `tokens.js` (`TL`, `TONES`, `tone()`, `riskTone()`, `statusTone()`). Component overrides do most of the work: 12px cards with gray-100 hairline + shadow-sm, uppercase gray-500 table heads, pill chips (filled chips render as soft badges), 8px inputs/buttons, Dialog title/actions rules (no `dividers` needed). `palette.warning` is now orange `#DD6B20`; gold lives in `palette.accent`.
@@ -361,10 +368,7 @@ Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `Obliga
 
 ## Done — PDF Routes Return 404 Instead of 500
 
-`Instrument.pdfUrl` is null for toolkit-imported instruments; `LocalStorageService.resolve(null)` threw an NPE → 500. Now 404 `DOCUMENT_UNAVAILABLE` (intel `ResourceNotFoundException`/`DocumentUnavailableException`; tenant `{"error":"document_unavailable"}`), and `pdfErrorMessage(res, fallback)` in each app's `api.js` shows "No document is available for this instrument." Verified live in both apps.
-- **Two PDF call sites:** `ObligationBrowserService.openPdfStream` AND `InternalInstrumentService.openPdfStream` (the tenant proxies the latter) — fix both.
-- `NoSuchFileException` maps to 404, but under `STORAGE_PROVIDER=s3` `NoSuchKeyException` is untranslated and would still 500.
-- Remaining 500s: `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
+Null `Instrument.pdfUrl` (toolkit instruments) now yields 404 `DOCUMENT_UNAVAILABLE` instead of an NPE 500 in both PDF call sites (`ObligationBrowserService.openPdfStream`, `InternalInstrumentService.openPdfStream`); both apps' `pdfErrorMessage` shows "No document is available". Still open: S3 `NoSuchKeyException` untranslated (500); `ObligationBrowserService.findById`/`classify` throw bare `RuntimeException`.
 
 ## Done — Dashboards Harmonized (risk / area / act)
 
@@ -385,13 +389,11 @@ Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, a
 
 ## Done — Risk Matrix Defaults Repaired
 
-`RiskMatrixConfig` entity `@Builder.Default` axes/bands disagreed with V28 and `computeInherentRisk` (High band unreachable; likelihood axis matched no stored value; `>` vs `>=` at boundaries). `V30__repair_risk_matrix_defaults.sql` repairs only exact broken rows.
-- **Rule:** entity `@Builder.Default` wins over migration column defaults for JPA-created rows — when a default exists in both, they must agree.
+`RiskMatrixConfig` `@Builder.Default` axes/bands disagreed with V28 and `computeInherentRisk`; `V30__repair_risk_matrix_defaults.sql` repairs only the broken rows. Rule: entity `@Builder.Default` wins over migration defaults for JPA-created rows — keep them in agreement.
 
 ## Done — MUI 7 Grid Migration
 
-154 legacy `<Grid item xs md>` usages in 19 files converted to `size={{ xs, md }}` (MUI 7.3.11 `Grid` is v2; legacy props were silently ignored).
-- **Verify MUI against the installed `node_modules/@mui/material/Grid/Grid.d.ts`**, not memory.
+154 legacy `<Grid item xs md>` usages converted to `size={{ xs, md }}` (MUI 7.3.11 `Grid` is v2; legacy props are silently ignored). Verify MUI APIs against `node_modules/@mui/material/Grid/Grid.d.ts`, not memory.
 
 ## Done — Intel Explorers (obligations, sanctions, returns, controls)
 
@@ -420,11 +422,10 @@ Act names are resolved by collecting the page's distinct act ids into a `Set` an
 The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
 ## Done — Returns Register/Details Harmonized (incl. backend linkage)
 
-`GET /returns/{returnId}/obligations` enriched in place to `LinkedObligationItem` (native projection, no migration); rows lazily fetch linked obligations on expand; `overcomeCount` typo → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort (always `currentDueDate`).
-
+`GET /returns/{returnId}/obligations` enriched to `LinkedObligationItem` (rows lazily fetch on expand); `overcomeCount` → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort.
 ## Done — Controls Register/Details Harmonized
 
-`ControlsPage.jsx` now shows `actName`/`actId`, linked obligations navigate to `/obligations/{obligationId}`, 9 columns trimmed to 5. `api.controls.*` takes no `opts`, so no abort signal is passed.
+`ControlsPage.jsx` shows `actName`/`actId`, linked obligations navigate to `/obligations/{obligationId}`, columns trimmed 9 → 5; `api.controls.*` takes no `opts` (no abort signal).
 
 ## Done — Instruments / Obligations / Sanctions Harmonized
 

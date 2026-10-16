@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader, ArrowPathIcon, ScaleIcon } from 'shared';
 import { api } from '../services/api';
 import AttentionSection from '../components/dashboard/AttentionSection';
+import ComplianceUniverseSection from '../components/dashboard/ComplianceUniverseSection';
 import ComplianceTrendChart from '../components/dashboard/ComplianceTrendChart';
 import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
@@ -58,6 +59,11 @@ export default function CcoDashboardPage() {
     queryFn: () => api.dashboard.v2.riskProfile(),
     refetchInterval: POLL_INTERVAL,
   });
+  const universeQuery = useQuery({
+    queryKey: ['dashboard', 'universe-stats'],
+    queryFn: ({ signal }) => api.instruments.universeStats({ signal }),
+    refetchInterval: POLL_INTERVAL,
+  });
   const coverageQuery = useQuery({
     queryKey: ['dashboard', 'v2', 'control-coverage', 'areaOfFocus'],
     queryFn: () => api.dashboard.v2.controlCoverage('areaOfFocus'),
@@ -66,7 +72,7 @@ export default function CcoDashboardPage() {
 
   const queries = [
     attentionQuery, trendQuery, returnsStatsQuery, calendarQuery,
-    sanctionsQuery, summaryQuery, riskProfileQuery, coverageQuery,
+    sanctionsQuery, summaryQuery, riskProfileQuery, coverageQuery, universeQuery,
   ];
   const loading = queries.some(q => q.isPending);
   const refreshing = queries.some(q => q.isFetching);
@@ -109,6 +115,9 @@ export default function CcoDashboardPage() {
           </>
         )}
       />
+
+      {/* Compliance universe — first thing users see */}
+      <ComplianceUniverseSection stats={universeQuery.data} />
 
       {/* Needs attention — stat cards */}
       <AttentionSection items={attention} />

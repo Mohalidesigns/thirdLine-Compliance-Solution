@@ -2,6 +2,8 @@ package com.atheris.compliance.tenant.backend.modules.subscriptions.controller;
 
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentDetailResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentSummaryResponse;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UniverseInstrumentItem;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.UniverseStatsResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.service.InstrumentsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,23 @@ public class InstrumentsController {
             @RequestParam(defaultValue = "") String q,
             Pageable pageable) {
         return ResponseEntity.ok(service.search(q, pageable));
+    }
+
+    @GetMapping("/universe")
+    public ResponseEntity<Page<UniverseInstrumentItem>> universe(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String regulator,
+            @RequestParam(required = false) String areaOfFocus,
+            @RequestParam(required = false) String riskRating,
+            @RequestParam(required = false) String nature,
+            @RequestParam(required = false) String status,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.universeInstruments(q, regulator, areaOfFocus, riskRating, nature, status, pageable));
+    }
+
+    @GetMapping("/universe-stats")
+    public ResponseEntity<UniverseStatsResponse> universeStats() {
+        return ResponseEntity.ok(service.universeStats());
     }
 
     @GetMapping("/{id}")

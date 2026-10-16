@@ -11,6 +11,7 @@ const DashboardV2Page = lazy(() => import('./pages/DashboardV2Page'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
 const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
+const UniversePage = lazy(() => import('./pages/UniversePage'));
 const RegulatorsPage = lazy(() => import('./pages/RegulatorsPage'));
 const RegulatorDetailPage = lazy(() => import('./pages/RegulatorDetailPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
@@ -54,6 +55,7 @@ export default function AppRoutes() {
           <Route path="dashboard/v2" element={<DashboardV2Page />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />
+          <Route path="universe" element={<UniversePage />} />
           <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
