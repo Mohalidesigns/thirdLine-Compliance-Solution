@@ -58,14 +58,14 @@ export function obligationColumns() {
 
 export function sanctionColumns() {
   return [
+    { id: 'description', label: 'Sanction', minWidth: 300, maxWidth: 360, truncate: true, sortable: true, sortField: 'description',
+      render: (r) => <Typography variant="body2" sx={ellipsis(360)}>{r.description || '—'}</Typography> },
     { id: 'sourceSectionReference', label: 'Section', minWidth: 150, maxWidth: 180, truncate: true, sortable: true, sortField: 'sourceSectionReference',
       render: (r) => (
         <Typography variant="body2" sx={{ ...ellipsis(180), fontFamily: 'Roboto Mono, monospace', fontSize: '0.72rem' }}>
           {r.sourceSectionReference || '—'}
         </Typography>
       ) },
-    { id: 'sanctionType', label: 'Type', minWidth: 150, sortable: true, sortField: 'sanctionType',
-      render: (r) => <Typography variant="body2" sx={ellipsis(180)}>{r.sanctionType || '—'}</Typography> },
     { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 320, truncate: true, sortable: true, sortField: 'penaltyDetails',
       render: (r) => <Typography variant="body2" sx={ellipsis(320)}>{r.penaltyDetails || '—'}</Typography> },
     { id: 'liableRoles', label: 'Liable Role', minWidth: 190, sortable: true, sortField: 'liableRoles',

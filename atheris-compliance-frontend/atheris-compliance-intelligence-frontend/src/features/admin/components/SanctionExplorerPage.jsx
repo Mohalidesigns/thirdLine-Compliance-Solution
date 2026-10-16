@@ -23,8 +23,8 @@ function formatNaira(amount) {
 }
 
 const COLUMNS = [
+  { id: 'description', label: 'Sanction', minWidth: 320, sortField: 'description' },
   { id: 'section', label: 'Section', minWidth: 150, sortField: 'sourceSectionReference' },
-  { id: 'sanctionType', label: 'Type', minWidth: 150, sortField: 'sanctionType' },
   { id: 'penalty', label: 'Penalty', minWidth: 320, sortField: 'penaltyDetails' },
   { id: 'liableRoles', label: 'Liable Role', minWidth: 200 },
 ];
@@ -75,18 +75,18 @@ function SanctionRow({ item, index, open, onToggle, onOpen }) {
           <Typography variant="caption" color="text.secondary">{index}</Typography>
         </TableCell>
         <TableCell>
+          <Tooltip title={item.description || ''}>
+            <Typography variant="body2" sx={{ maxWidth: 340, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.description || '-'}
+            </Typography>
+          </Tooltip>
+        </TableCell>
+        <TableCell>
           <Typography variant="body2" sx={{ ...MONO_CHIP_SX, maxWidth: 180, overflow: 'hidden',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.sourceSectionReference || '-'}
           </Typography>
-        </TableCell>
-        <TableCell>
-          {item.sanctionType
-            ? <Typography variant="body2" sx={{ textTransform: 'capitalize', maxWidth: 180,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {item.sanctionType}
-              </Typography>
-            : <Typography variant="body2" color="text.secondary">-</Typography>}
         </TableCell>
         <TableCell>
           <Tooltip title={item.penaltyDetails || ''}>
