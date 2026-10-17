@@ -571,19 +571,26 @@ export default function OnboardingPage() {
             )}
 
             {!seeding && !completed && getActiveStep() === 4 && (
-              <Box>
-                <SmtpSettingsForm
-                  onSave={handleSaveSmtp}
-                  onTest={api.onboarding.testSmtp}
-                  intro="Optionally connect your organisation's SMTP server so notifications and remediation emails are sent from your own domain. You can change this later in Settings."
-                />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mt: 2 }}>
-                  <Button variant="text" onClick={handleContinueSmtp} disabled={submitting}>Skip for now</Button>
-                  <Button variant="contained" onClick={handleContinueSmtp} disabled={submitting}>
-                    {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Continue'}
-                  </Button>
-                </Box>
-              </Box>
+              <SmtpSettingsForm
+                onSave={handleSaveSmtp}
+                onTest={api.onboarding.testSmtp}
+                intro="Optionally connect your organisation's SMTP server so notifications and remediation emails are sent from your own domain. You can change this later in Settings."
+                renderActions={({ save, saving, testing }) => (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                    <Button variant="contained" onClick={handleContinueSmtp} disabled={submitting}>
+                      Skip for now
+                    </Button>
+                    <Button variant="contained" onClick={save} disabled={saving || testing}>
+                      {saving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Save SMTP settings'}
+                    </Button>
+                    <Button variant="contained"
+                      onClick={async () => { await save(); handleContinueSmtp(); }}
+                      disabled={submitting}>
+                      {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Continue'}
+                    </Button>
+                  </Box>
+                )}
+              />
             )}
 
             {!seeding && !completed && getActiveStep() === 5 && (

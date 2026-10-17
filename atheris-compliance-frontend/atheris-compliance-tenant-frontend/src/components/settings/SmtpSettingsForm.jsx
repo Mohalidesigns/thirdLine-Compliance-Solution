@@ -18,7 +18,7 @@ const EMPTY = {
  *  - passwordSet: whether a password is already stored (settings mode) — shows a hint.
  */
 export default function SmtpSettingsForm({
-  load, onSave, onTest, passwordSet = false, intro,
+  load, onSave, onTest, passwordSet = false, intro, renderActions,
 }) {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(!!load);
@@ -110,25 +110,29 @@ export default function SmtpSettingsForm({
         </Grid>
       </Grid>
 
-      <Box sx={{ display: 'flex', gap: 2, mt: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1.5 }}>
         <FormControlLabel control={
           <Checkbox size="small" checked={form.auth} onChange={e => set('auth', e.target.checked)} />
         } label={<Typography variant="body2">Use authentication</Typography>} />
         <FormControlLabel control={
           <Checkbox size="small" checked={form.starttls} onChange={e => set('starttls', e.target.checked)} />
         } label={<Typography variant="body2">STARTTLS</Typography>} />
+        <Button variant="contained" onClick={handleTest} disabled={testing || saving} sx={{ ml: 'auto' }}>
+          {testing ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Test connection'}
+        </Button>
       </Box>
 
       <Divider sx={{ my: 2 }} />
 
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <Button variant="outlined" onClick={handleTest} disabled={testing || saving}>
-          {testing ? <CircularProgress size={18} /> : 'Test connection'}
-        </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || testing}>
-          {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save SMTP settings'}
-        </Button>
-      </Box>
+      {renderActions
+        ? renderActions({ save: handleSave, saving, testing })
+        : (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" onClick={handleSave} disabled={saving || testing}>
+              {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save SMTP settings'}
+            </Button>
+          </Box>
+        )}
     </Box>
   );
 }
