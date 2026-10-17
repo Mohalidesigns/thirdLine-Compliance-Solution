@@ -140,6 +140,10 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Verity Compliance branding (both frontends) — `feature/verity-branding`
+- Logo set (`Verity/` — light/dark logo, mark, favicon) in intel `public/` and tenant `src/`. Shared `AppSidebar` shows the full logo, or the mark when collapsed; both apps pass them.
+- Login pages, tenant onboarding and the public remediation page use the logos; favicons and tab titles read "Verity Compliance"; intel `BRAND.NAME` is "Verity". Presentation only — no backend change.
+
 ### Tenant Compliance Universe (dashboard section + page) — `feature/tenant-dashboard-universe`
 - **Page `/universe`** (`pages/UniversePage.jsx`, sidebar "Compliance Universe", first under registers) mirrors intel `/admin/universe`: risk KPIs (click = risk filter, dropdown = by regulator → drill sets risk+regulator), Top Regulators rows and Nature Mix chips (click = filter), Areas of Focus chips (click toggles the table filter), FilterBar (search, regulator, area, risk, nature, status), sortable server-paged `SectionTable` (Instrument | Regulator | Area of Focus | Risk | Status). All filters live in the URL. Row click opens an `EntityDrawer` (details, AI summary, obligations → `/obligations/:id`, sanctions); "Open in Instruments" uses the new `/instruments?id=` deep link.
 - **Dashboard** (`CcoDashboardPage`) opens with `components/dashboard/ComplianceUniverseSection` above the attention cards; every card, regulator, nature and area deep-links into `/universe` with the filter applied.
