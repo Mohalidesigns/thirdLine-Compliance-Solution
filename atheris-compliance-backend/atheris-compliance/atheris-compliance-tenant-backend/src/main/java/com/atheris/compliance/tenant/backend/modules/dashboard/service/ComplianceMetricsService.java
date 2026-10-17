@@ -2,8 +2,10 @@ package com.atheris.compliance.tenant.backend.modules.dashboard.service;
 
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask;
+import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTaskRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.dashboard.dto.ComplianceMetricsDto;
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.ComplianceScoreWeights;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.ComplianceScoreWeightsRepository;
@@ -18,6 +20,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFiling
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
+import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,8 +41,22 @@ import java.util.stream.Collectors;
  *  - high-risk uses the canonical bands (Critical + High), not the outdated "Extreme";
  *  - a control gap has ONE definition: an applicable obligation with no linked control;
  *  - findings "open" = Open + In Remediation, "high severity" = Critical + High;
- *  - control-test completion is derived from control tasks, not controls without a High residual;
+ *  - controls pass/fail on their latest TEST RESULT, never on a risk rating (seeded residual risk is
+ *    a copy of inherent risk, so "residual High" was being shown as "failing");
+ *  - returns on time = on time ÷ (filed + overdue): a period not yet due is not a miss, an overdue one is;
+ *  - a metric with an empty denominator is null ("N/A"), never 0% or 100%;
  *  - penalty exposure is restricted to sanctions on applicable obligations.
+ *
+ * <p><b>Compliance score</b> — weighted mean of the components that have data (weights are the
+ * tenant's {@code compliance_score_weights}, default 30/25/30/15):
+ * <ol>
+ *   <li>Control coverage — applicable obligations with ≥1 linked control;</li>
+ *   <li>Control effectiveness — controls whose latest test passed ÷ all controls (untested ≠ effective);</li>
+ *   <li>Returns on time — filings submitted on time ÷ filings due;</li>
+ *   <li>Findings within SLA — closed within SLA or still inside the remediation deadline ÷ all findings.</li>
+ * </ol>
+ * A component with no data (no controls, nothing due, no findings) is left out and the remaining
+ * weights re-normalised.
  */
 @Service
 @Slf4j
@@ -50,6 +67,7 @@ public class ComplianceMetricsService {
     private final ObligationRepository obligations;
     private final ControlRepository controls;
     private final ControlTaskRepository controlTasks;
+    private final ControlTestResultRepository controlTests;
     private final FindingRepository findings;
     private final ReturnFilingInstanceRepository returns;
     private final RegulatorySanctionRepository sanctions;
@@ -58,6 +76,20 @@ public class ComplianceMetricsService {
     private static final Set<String> HIGH_RISK = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
     private static final Set<String> OPEN_FINDING_STATUS = Set.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
     private static final Set<String> HIGH_SEVERITY = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
+    private static final Set<String> OPEN_TASK_STATUS = Set.of(
+        WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS, WorkflowStatus.TASK_OVERDUE);
+    private static final int TESTS_DUE_WINDOW_DAYS = 30;
+
+    static final String C_COVERAGE = "controlCoverage";
+    static final String C_EFFECTIVENESS = "controlTests";   // weight key kept for stored tenant weights
+    static final String C_RETURNS = "returnsOnTime";
+    static final String C_FINDINGS = "findingsWithinSla";
+
+    private static final Map<String, String[]> COMPONENT_TEXT = Map.of(
+        C_COVERAGE, new String[]{"Control coverage", "Applicable obligations with at least one linked control"},
+        C_EFFECTIVENESS, new String[]{"Control effectiveness", "Controls whose latest test passed ÷ all controls (an untested control is not yet effective)"},
+        C_RETURNS, new String[]{"Returns on time", "Filings submitted on time ÷ filings due (submitted + overdue)"},
+        C_FINDINGS, new String[]{"Findings within SLA", "Findings closed within SLA or still inside their remediation deadline ÷ all findings"});
 
     @Transactional(readOnly = true)
     public ComplianceMetricsDto compute(LocalDate fromIn, LocalDate toIn) {
@@ -84,13 +116,11 @@ public class ComplianceMetricsService {
             if (HIGH_RISK.contains(risk)) highRisk++;
             if (hasNoControl(c)) gaps++;
 
+            // every applicable obligation lands in exactly one area and one act bucket
             Obligation o = c.getObligationId() != null ? obligationById.get(c.getObligationId()) : null;
-            if (o != null) {
-                if (o.getAreaOfFocus() != null && !o.getAreaOfFocus().isBlank())
-                    byArea.merge(o.getAreaOfFocus(), 1, Integer::sum);
-                String act = o.getActName() != null && !o.getActName().isBlank() ? o.getActName() : "Unmapped";
-                byAct.merge(act, 1, Integer::sum);
-            }
+            byArea.merge(AreasOfFocus.bucket(o != null ? o.getAreaOfFocus() : null), 1, Integer::sum);
+            String act = o != null && o.getActName() != null && !o.getActName().isBlank() ? o.getActName() : AreasOfFocus.UNASSIGNED;
+            byAct.merge(act, 1, Integer::sum);
         }
 
         long notApplicable = allClassifications.stream().filter(c -> "not_applicable".equals(c.getApplicability())).count();
@@ -100,17 +130,30 @@ public class ComplianceMetricsService {
         int covered = totalApplicable - gaps;
         double coverage = totalApplicable > 0 ? (double) covered / totalApplicable * 100 : 0.0;
 
-        // ── Controls ──
+        // ── Controls ── (pass/fail from the latest test result per control)
         List<Control> allControls = controls.findAll();
         int controlsTotal = allControls.size();
         int controlsHighResidual = (int) allControls.stream()
-            .filter(c -> "High".equals(c.getResidualRisk())).count();
-        int controlsPassing = controlsTotal - controlsHighResidual;
-        List<ControlTask> periodTasks = controlTasks.findAll().stream()
-            .filter(t -> t.getDueDate() != null && !t.getDueDate().isBefore(from) && !t.getDueDate().isAfter(to))
+            .filter(c -> HIGH_RISK.contains(c.getResidualRisk())).count();
+        Map<Integer, ControlTestResult> latestTest = latestTestByControl(controlTests.findAll());
+        Set<Integer> controlIds = allControls.stream().map(Control::getControlId).collect(Collectors.toSet());
+        latestTest.keySet().retainAll(controlIds);
+        int controlsTested = latestTest.size();
+        int controlsPassing = (int) latestTest.values().stream()
+            .filter(t -> WorkflowStatus.TEST_PASSED.equals(t.getResult())).count();
+        int controlsFailing = (int) latestTest.values().stream()
+            .filter(t -> WorkflowStatus.TEST_FAILED.equals(t.getResult()) || WorkflowStatus.TEST_PARTIAL.equals(t.getResult()))
+            .count();
+        Double testCoverage = pct(controlsTested, controlsTotal);
+        Double effectivenessOfTested = pct(controlsPassing, controlsTested);
+        Double effectivenessOfAll = pct(controlsPassing, controlsTotal);
+        LocalDate todayDate = LocalDate.now();
+        List<ControlTask> openTasks = controlTasks.findAll().stream()
+            .filter(t -> OPEN_TASK_STATUS.contains(t.getStatus()) && t.getDueDate() != null)
             .toList();
-        double testCompletion = controlTestCompletion(periodTasks);
-        boolean hasTaskData = !periodTasks.isEmpty();
+        int testsDue = (int) openTasks.stream()
+            .filter(t -> !t.getDueDate().isAfter(todayDate.plusDays(TESTS_DUE_WINDOW_DAYS))).count();
+        int testsOverdue = (int) openTasks.stream().filter(t -> t.getDueDate().isBefore(todayDate)).count();
 
         // ── Returns ──
         List<ReturnFilingInstance> allInstances = returns.findAll();
@@ -125,8 +168,13 @@ public class ComplianceMetricsService {
             i.getDueDate() != null && i.getDueDate().isBefore(LocalDate.now())
                 && i.getStatus() != ReturnFilingStatus.SUBMITTED
                 && i.getStatus() != ReturnFilingStatus.SUBMITTED_LATE).count();
-        int filedCount = onTime + late;
-        double onTimePct = filedCount > 0 ? (double) onTime / filedCount * 100 : 100.0;
+        // Due = filed (on time or late) + still unfiled past the due date. A period not yet due is not a miss.
+        int overdueInPeriod = (int) periodInstances.stream().filter(i ->
+            i.getDueDate().isBefore(LocalDate.now())
+                && i.getStatus() != ReturnFilingStatus.SUBMITTED
+                && i.getStatus() != ReturnFilingStatus.SUBMITTED_LATE).count();
+        int dueCount = onTime + late + overdueInPeriod;
+        Double onTimePct = pct(onTime, dueCount);
 
         // ── Findings ──
         List<Finding> allFindings = findings.findAll();
@@ -163,25 +211,29 @@ public class ComplianceMetricsService {
         // Score components are percentages (0..100); the weighted score blends only components
         // that have data, re-normalising the weights so a missing area never penalises the bank.
         Map<String, Double> components = new LinkedHashMap<>();
-        components.put("controlCoverage", coverage);
-        components.put("controlTests", testCompletion);
-        components.put("returnsOnTime", onTimePct);
-        components.put("findingsWithinSla", withinSla);
+        boolean anyFindings = !allFindings.isEmpty();
+        components.put(C_COVERAGE, totalApplicable > 0 ? coverage : null);
+        components.put(C_EFFECTIVENESS, effectivenessOfAll);
+        components.put(C_RETURNS, onTimePct);
+        components.put(C_FINDINGS, anyFindings ? withinSla : null);
 
         Map<String, Integer> weights = new LinkedHashMap<>();
-        weights.put("controlCoverage", w.getControlCoverage());
-        weights.put("controlTests", w.getControlTests());
-        weights.put("returnsOnTime", w.getReturnsOnTime());
-        weights.put("findingsWithinSla", w.getFindingsWithinSla());
+        weights.put(C_COVERAGE, w.getControlCoverage());
+        weights.put(C_EFFECTIVENESS, w.getControlTests());
+        weights.put(C_RETURNS, w.getReturnsOnTime());
+        weights.put(C_FINDINGS, w.getFindingsWithinSla());
 
-        Map<String, Boolean> hasData = Map.of(
-            "controlCoverage", totalApplicable > 0,
-            "controlTests", hasTaskData,
-            "returnsOnTime", filedCount > 0,
-            "findingsWithinSla", !openFindings.isEmpty()
-        );
+        Map<String, Boolean> hasData = new HashMap<>();
+        components.forEach((k, v) -> hasData.put(k, v != null));
+        Map<String, Double> scored = new LinkedHashMap<>();
+        components.forEach((k, v) -> scored.put(k, v != null ? v : 0.0));
 
-        Double score = computeScore(components, weights, hasData);
+        Double score = computeScore(scored, weights, hasData);
+        List<ComplianceMetricsDto.ScoreComponent> breakdown = new ArrayList<>();
+        components.forEach((k, v) -> breakdown.add(ComplianceMetricsDto.ScoreComponent.builder()
+            .key(k).label(COMPONENT_TEXT.get(k)[0]).definition(COMPONENT_TEXT.get(k)[1])
+            .weight(weights.getOrDefault(k, 0)).value(v != null ? round(v) : null)
+            .included(v != null && weights.getOrDefault(k, 0) > 0).build()));
 
         List<ComplianceMetricsDto.AttentionItem> attention = new ArrayList<>();
         long escalated = allInstances.stream().filter(i -> i.getEscalationLevel() != null && i.getEscalationLevel() > 0).count();
@@ -189,7 +241,8 @@ public class ComplianceMetricsService {
         if (overdue > 0) attention.add(item("returns", "Overdue returns", overdue, "high"));
         if (overdueRemediation > 0) attention.add(item("findings", "Findings past remediation SLA", overdueRemediation, "high"));
         if (gaps > 0) attention.add(item("obligations", "High-risk obligations with no control", countHighRiskGaps(applicable), "medium"));
-        if (controlsHighResidual > 0) attention.add(item("controls", "Controls with high residual risk", controlsHighResidual, "medium"));
+        if (controlsFailing > 0) attention.add(item("controls", "Controls failing their latest test", controlsFailing, "high"));
+        if (testsOverdue > 0) attention.add(item("controls", "Control tests overdue", testsOverdue, "medium"));
         attention.sort(Comparator.comparingLong(ComplianceMetricsDto.AttentionItem::getCount).reversed());
 
         return ComplianceMetricsDto.builder()
@@ -205,15 +258,22 @@ public class ComplianceMetricsService {
             .obligationsByAct(byAct)
             .controlsTotal(controlsTotal)
             .controlsHighResidualRisk(controlsHighResidual)
+            .controlsTested(controlsTested)
+            .controlsUntested(controlsTotal - controlsTested)
             .controlsPassing(controlsPassing)
+            .controlsFailing(controlsFailing)
+            .controlTestsDue(testsDue)
+            .controlTestsOverdue(testsOverdue)
             .controlCoverage(round(coverage))
-            .controlTestCompletion(round(testCompletion))
+            .controlTestCompletion(roundOrNull(testCoverage))
+            .controlEffectivenessPct(roundOrNull(effectivenessOfTested))
             .returnsTotal(periodInstances.size())
+            .returnsDue(dueCount)
             .returnsSubmittedOnTime(onTime)
             .returnsSubmittedLate(late)
             .returnsPending(pending)
             .returnsOverdue(overdue)
-            .returnsOnTimePct(round(onTimePct))
+            .returnsOnTimePct(roundOrNull(onTimePct))
             .findingsOpen(openFindings.size())
             .findingsHighSeverity(findingsHigh)
             .findingsOverdueRemediation(overdueRemediation)
@@ -223,6 +283,7 @@ public class ComplianceMetricsService {
             .exposureByAct(exposureByAct)
             .complianceScore(score)
             .scoreComponents(components)
+            .scoreBreakdown(breakdown)
             .attentionItems(attention)
             .build();
     }
@@ -241,10 +302,22 @@ public class ComplianceMetricsService {
         return round(weightedSum / weightTotal);
     }
 
-    private double controlTestCompletion(List<ControlTask> tasks) {
-        if (tasks.isEmpty()) return 0.0;
-        long completed = tasks.stream().filter(t -> t.getCompletedByTestId() != null || "Completed".equalsIgnoreCase(t.getStatus())).count();
-        return (double) completed / tasks.size() * 100;
+    /** Latest result per control: newest test date, then highest test id. */
+    static Map<Integer, ControlTestResult> latestTestByControl(List<ControlTestResult> results) {
+        Map<Integer, ControlTestResult> latest = new HashMap<>();
+        Comparator<ControlTestResult> newer = Comparator
+            .comparing(ControlTestResult::getTestDate, Comparator.nullsFirst(Comparator.naturalOrder()))
+            .thenComparing(ControlTestResult::getTestId, Comparator.nullsFirst(Comparator.naturalOrder()));
+        for (ControlTestResult r : results) {
+            if (r.getControlId() == null) continue;
+            latest.merge(r.getControlId(), r, (a, b) -> newer.compare(a, b) >= 0 ? a : b);
+        }
+        return latest;
+    }
+
+    /** part ÷ whole as a percentage, or null when the denominator is empty. */
+    static Double pct(int part, int whole) {
+        return whole > 0 ? (double) part / whole * 100 : null;
     }
 
     private double findingsWithinSla(List<Finding> all, List<Finding> open, LocalDate today) {
@@ -297,6 +370,10 @@ public class ComplianceMetricsService {
     private ComplianceMetricsDto.AttentionItem item(String category, String label, long count, String severity) {
         return ComplianceMetricsDto.AttentionItem.builder()
             .category(category).label(label).count(count).severity(severity).build();
+    }
+
+    private static Double roundOrNull(Double v) {
+        return v == null ? null : round(v);
     }
 
     private static double round(double v) {

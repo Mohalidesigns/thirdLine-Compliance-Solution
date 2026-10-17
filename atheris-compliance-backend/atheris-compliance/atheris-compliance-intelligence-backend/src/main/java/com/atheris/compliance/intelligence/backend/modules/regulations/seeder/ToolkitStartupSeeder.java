@@ -2,6 +2,7 @@ package com.atheris.compliance.intelligence.backend.modules.regulations.seeder;
 
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitImportResult;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.service.ToolkitDataRepairService;
 import com.atheris.compliance.intelligence.backend.modules.regulations.service.ToolkitImportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ public class ToolkitStartupSeeder implements ApplicationRunner {
 
     private final RegulationRepository regulations;
     private final ToolkitImportService toolkitImport;
+    private final ToolkitDataRepairService toolkitRepair;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -32,5 +34,7 @@ public class ToolkitStartupSeeder implements ApplicationRunner {
                 log.error("[ToolkitSeeder] Compliance toolkit auto-import failed: {}", e.getMessage(), e);
             }
         }
+        // idempotent: aligns rows imported under older rules (risk bands, area of focus)
+        toolkitRepair.repair();
     }
 }

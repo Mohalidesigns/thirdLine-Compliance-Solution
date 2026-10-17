@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.subscriptions.service;
 
+import com.atheris.compliance.common.risk.RiskBands;
+import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.dto.InstrumentDetailResponse;
@@ -69,16 +71,16 @@ public class InstrumentsService {
         List<PlatformInstrumentSummary> universe = confirmedUniverse("");
 
         Map<String, Map<String, Long>> regulatorsByRisk = universe.stream()
-            .filter(s -> s.getRiskRating() != null)
-            .collect(Collectors.groupingBy(PlatformInstrumentSummary::getRiskRating,
+            .collect(Collectors.groupingBy(InstrumentsService::riskBucket,
                 Collectors.collectingAndThen(Collectors.toList(), l -> countSorted(l, InstrumentsService::regulatorLabel))));
 
         return UniverseStatsResponse.builder()
             .total(universe.size())
-            .byRiskRating(countSorted(universe, PlatformInstrumentSummary::getRiskRating))
+            // every instrument lands in one risk and one area bucket, so both add up to the total
+            .byRiskRating(countSorted(universe, InstrumentsService::riskBucket))
             .byRegulator(countSorted(universe, InstrumentsService::regulatorLabel))
             .byNature(countSorted(universe, PlatformInstrumentSummary::getNature))
-            .byAreaOfFocus(countSorted(universe, PlatformInstrumentSummary::getAreaOfFocus))
+            .byAreaOfFocus(countSorted(universe, InstrumentsService::areaBucket))
             .byStatus(countSorted(universe, PlatformInstrumentSummary::getStatus))
             .regulatorsByRisk(regulatorsByRisk)
             .build();
@@ -125,8 +127,8 @@ public class InstrumentsService {
         String needle = q == null ? "" : q.trim().toLowerCase();
         List<PlatformInstrumentSummary> rows = confirmedUniverse("").stream()
             .filter(s -> matches(regulatorLabel(s), regulator) || matches(s.getRegulatorAbbreviation(), regulator))
-            .filter(s -> matches(s.getAreaOfFocus(), areaOfFocus))
-            .filter(s -> matches(s.getRiskRating(), riskRating))
+            .filter(s -> matches(areaBucket(s), areaOfFocus))
+            .filter(s -> matches(riskBucket(s), riskRating))
             .filter(s -> matches(s.getNature(), nature))
             .filter(s -> matches(s.getStatus(), status))
             .filter(s -> needle.isEmpty()
@@ -205,6 +207,16 @@ public class InstrumentsService {
 
     private static final int UNIVERSE_PAGE_SIZE = 500;
     private static final int UNIVERSE_MAX_PAGES = 20;
+
+    /** Risk rating, or "Unrated" — never dropped, so the risk tiles add up to the universe total. */
+    static String riskBucket(PlatformInstrumentSummary s) {
+        return s.getRiskRating() == null || s.getRiskRating().isBlank() ? RiskBands.UNRATED : s.getRiskRating();
+    }
+
+    /** Area on the shared vocabulary, or "Unassigned". */
+    static String areaBucket(PlatformInstrumentSummary s) {
+        return AreasOfFocus.bucket(s.getAreaOfFocus());
+    }
 
     private static String regulatorLabel(PlatformInstrumentSummary s) {
         return s.getRegulatorName() != null ? s.getRegulatorName() : s.getRegulatorAbbreviation();

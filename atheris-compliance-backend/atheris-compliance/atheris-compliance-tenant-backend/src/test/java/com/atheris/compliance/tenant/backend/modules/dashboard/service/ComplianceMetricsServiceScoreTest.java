@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ComplianceMetricsServiceScoreTest {
 
     private final ComplianceMetricsService service = new ComplianceMetricsService(
-        null, null, null, null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null);
 
     private Map<String, Integer> weights() {
         Map<String, Integer> w = new LinkedHashMap<>();

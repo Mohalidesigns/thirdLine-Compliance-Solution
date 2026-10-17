@@ -33,26 +33,56 @@ function MiniStat({ label, value, color, dot }) {
   );
 }
 
-export default function ComplianceTrendChart({ trend = [] }) {
+/** Days between two ISO dates. */
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+/**
+ * One point per daily snapshot; a day with no snapshot is a gap (null), never an invented value —
+ * the metrics are point-in-time and cannot be reconstructed for past days. The "current" stats
+ * come from the live metrics so they always match the KPI strip.
+ */
+export default function ComplianceTrendChart({ trend = [], metrics = {} }) {
   const data = useMemo(() => {
-    return [...trend]
+    const points = [...trend]
       .reverse()
       .map(s => ({
         date: s.snapshotDate,
-        score: s.complianceScore ?? 0,
-        returnsOnTime: s.returnsTotal > 0
-          ? (s.returnsSubmittedOnTime / s.returnsTotal) * 100
-          : 0,
-        controlsPassing: s.controlsTotal > 0
-          ? (s.controlsPassing / s.controlsTotal) * 100
-          : 0,
+        score: s.complianceScore ?? null,
+        // returns_total = filings due, so this is on time ÷ due; null when nothing was due
+        returnsOnTime: s.returnsTotal > 0 ? (s.returnsSubmittedOnTime / s.returnsTotal) * 100 : null,
+        controlsPassing: s.controlsTotal > 0 ? (s.controlsPassing / s.controlsTotal) * 100 : null,
       }));
+    const out = [];
+    points.forEach((p, i) => {
+      if (i > 0) {
+        const gap = daysBetween(points[i - 1].date, p.date);
+        for (let d = 1; d < gap; d++) {
+          const day = new Date(points[i - 1].date);
+          day.setDate(day.getDate() + d);
+          out.push({ date: day.toISOString().slice(0, 10), score: null, returnsOnTime: null, controlsPassing: null });
+        }
+      }
+      out.push(p);
+    });
+    return out;
   }, [trend]);
 
-  const latest = data.length > 0 ? data[data.length - 1] : null;
+  const missingDays = data.filter(d => d.score == null).length;
+  const latest = data.length > 0 ? {
+    score: metrics.complianceScore ?? null,
+    returnsOnTime: metrics.returnsOnTimePct ?? null,
+    controlsPassing: metrics.controlsTotal > 0 ? (metrics.controlsPassing / metrics.controlsTotal) * 100 : null,
+  } : null;
+  const fmt = v => (v == null ? 'N/A' : `${Number(v).toFixed(1)}%`);
 
   return (
-    <DataCard title="Compliance Trend" subtitle="Score and control performance over time" sx={{ height: '100%' }}>
+    <DataCard
+      title="Compliance Trend"
+      subtitle={`Daily snapshots · last ${data.length} days${missingDays ? ` · ${missingDays} day${missingDays > 1 ? 's' : ''} without a snapshot` : ''}`}
+      sx={{ height: '100%' }}
+    >
       {data.length === 0 ? (
         <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
@@ -80,7 +110,7 @@ export default function ComplianceTrendChart({ trend = [] }) {
                   tickFormatter={v => `${v}%`}
                 />
                 <Tooltip
-                  formatter={(value, name) => [`${Number(value).toFixed(2)}%`, name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing']}
+                  formatter={(value, name) => [fmt(value), name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing']}
                   labelFormatter={d => formatDate(d)}
                   contentStyle={{ borderRadius: 8, border: `1px solid ${TL.gray100}`, boxShadow: TL.cardShadow, fontSize: 12 }}
                 />
@@ -90,6 +120,7 @@ export default function ComplianceTrendChart({ trend = [] }) {
                   type="monotone" dataKey="score" name="score"
                   stroke={NAVY} strokeWidth={2.5}
                   fill={NAVY} fillOpacity={0.08}
+                  dot={{ r: 3, fill: NAVY }}
                 />
                 <Line
                   type="monotone" dataKey="returnsOnTime" name="returnsOnTime"
@@ -106,9 +137,9 @@ export default function ComplianceTrendChart({ trend = [] }) {
           </Box>
           {latest && (
             <Box sx={{ display: 'flex', gap: 3, mt: 2, pt: 2, borderTop: `1px solid ${TL.gray100}`, flexWrap: 'wrap' }}>
-              <MiniStat label="Current Score" dot={NAVY} value={`${Number(latest.score).toFixed(2)}%`} color={latest.score >= 90 ? GREEN : latest.score >= 70 ? ORANGE : RED} />
-              <MiniStat label="Returns On Time" dot={GREEN} value={`${latest.returnsOnTime.toFixed(2)}%`} />
-              <MiniStat label="Controls Passing" dot={YELLOW} value={`${latest.controlsPassing.toFixed(2)}%`} />
+              <MiniStat label="Current Score" dot={NAVY} value={fmt(latest.score)} color={latest.score == null ? TL.gray500 : latest.score >= 90 ? GREEN : latest.score >= 70 ? ORANGE : RED} />
+              <MiniStat label="Returns On Time" dot={GREEN} value={fmt(latest.returnsOnTime)} />
+              <MiniStat label="Controls Passing" dot={YELLOW} value={fmt(latest.controlsPassing)} />
             </Box>
           )}
         </>

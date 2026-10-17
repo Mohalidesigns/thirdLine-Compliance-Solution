@@ -21,5 +21,6 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Long>, J
     List<Instrument> findByRegulatorIdOrderByDiscoveredAtDesc(Integer regulatorId);
     long countByRegulationId(Long regulationId);
     List<Instrument> findBySourceReferenceNumberIsNull();
+    List<Instrument> findByUploadSource(String uploadSource);
     List<Instrument> findBySourceReferenceNumber(String sourceReferenceNumber);
 }

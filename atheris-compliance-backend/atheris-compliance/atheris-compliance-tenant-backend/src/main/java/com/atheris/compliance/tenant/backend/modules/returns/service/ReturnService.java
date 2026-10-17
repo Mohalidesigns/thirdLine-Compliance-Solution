@@ -413,6 +413,32 @@ public class ReturnService {
             .build();
     }
 
+    static final int DUE_SOON_DAYS = 30;
+
+    /**
+     * Every tracked filing period in exactly one bucket. Event-driven periods count only once
+     * triggered (until then nothing is due).
+     */
+    static ReturnStatsDto.StatusBuckets statusBuckets(List<ReturnFilingInstance> instances,
+                                                      Set<Long> eventReturnIds, LocalDate today) {
+        long onTime = 0, late = 0, overdue = 0, inProgress = 0, notYetDue = 0, dueSoon = 0;
+        for (ReturnFilingInstance i : instances) {
+            if (eventReturnIds.contains(i.getReturnId()) && i.getTriggerDate() == null) continue;
+            ReturnFilingStatus st = i.getStatus();
+            if (st == ReturnFilingStatus.SUBMITTED) { onTime++; continue; }
+            if (st == ReturnFilingStatus.SUBMITTED_LATE) { late++; continue; }
+            LocalDate due = i.getDueDate();
+            if (due != null && due.isBefore(today)) { overdue++; continue; }
+            if (st == ReturnFilingStatus.IN_PROGRESS) inProgress++; else notYetDue++;
+            if (due != null && !due.isAfter(today.plusDays(DUE_SOON_DAYS))) dueSoon++;
+        }
+        return ReturnStatsDto.StatusBuckets.builder()
+            .tracked(onTime + late + overdue + inProgress + notYetDue)
+            .filedOnTime(onTime).filedLate(late).overdue(overdue)
+            .inProgressNotDue(inProgress).notYetDue(notYetDue).dueSoon(dueSoon)
+            .build();
+    }
+
     public ReturnStatsDto getStats() {
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
         Set<Long> allReturnIds = allReturns.stream().map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
@@ -474,6 +500,7 @@ public class ReturnService {
             .values().stream().toList();
 
         return ReturnStatsDto.builder()
+            .buckets(statusBuckets(allInstances, eventReturnIds, now))
             .total(allInstances.size())
             .overdue(overdue).inProgress(inProgress).submitted(submitted)
             .dueDateNeeded(dueDateNeeded)

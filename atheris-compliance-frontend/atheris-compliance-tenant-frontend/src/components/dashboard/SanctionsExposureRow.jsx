@@ -40,10 +40,14 @@ export default function SanctionsExposureRow({ stats = {} }) {
     >
       <Box onClick={() => navigate('/sanctions')} sx={{ cursor: 'pointer', mb: 2.5 }}>
         <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: TL.gray500, textTransform: 'uppercase', letterSpacing: '0.025em' }}>
-          Exposure
+          Potential exposure
         </Typography>
         <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: '#B91C1C' }}>
           {formatNaira(exposure)}
+        </Typography>
+        {/* the sum of maximum statutory penalties on the register — not fines actually imposed */}
+        <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+          Maximum statutory penalties if breached · {enforced > 0 ? `${enforced} enforced` : 'none enforced'}
         </Typography>
       </Box>
 

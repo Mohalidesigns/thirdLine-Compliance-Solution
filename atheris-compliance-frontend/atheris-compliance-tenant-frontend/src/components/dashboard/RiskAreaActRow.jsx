@@ -11,6 +11,8 @@ const RISK_LEVELS = [
   { level: 'High', summaryKey: 'highCount', rowKey: 'high', color: '#F97316' },
   { level: 'Moderate', summaryKey: 'mediumCount', rowKey: 'medium', color: '#EAB308' },
   { level: 'Low', summaryKey: 'lowCount', rowKey: 'low', color: '#22C55E' },
+  // no likelihood/impact rating — never folded into a real band
+  { level: 'Unrated', summaryKey: 'unratedCount', rowKey: 'unrated', color: '#9CA3AF' },
 ];
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -47,7 +49,7 @@ export function RiskProfileRow({ profile = {} }) {
       ? row.percentage
       : (total > 0 ? Math.round((count / total) * 1000) / 10 : 0);
     return { ...cfg, count, pct };
-  });
+  }).filter((c) => c.level !== 'Unrated' || c.count > 0);
   const slices = cards.filter((c) => c.count > 0);
 
   return (
@@ -126,7 +128,8 @@ export function AreaOfFocusTable({ profile = {}, coverage = {} }) {
   return (
     <DataCard
       title="Risk by Area of Focus"
-      subtitle={`${rows.length} areas across the applicable obligation set`}
+      // "Unassigned" is a bucket, not an area
+      subtitle={`${rows.filter((r) => r.areaOfFocus !== 'Unassigned').length} areas across the applicable obligation set`}
       actions={typeof overallPct === 'number'
         ? <StatusBadge label={`Control coverage ${overallPct}%`} tone="blue" />
         : null}
@@ -164,7 +167,7 @@ export function AreaOfFocusTable({ profile = {}, coverage = {} }) {
                       <RiskCell
                         extreme={num(row.extreme)}
                         high={num(row.high)}
-                        breakdown={`Critical ${num(row.extreme)} · High ${num(row.high)} · Moderate ${num(row.medium)} · Low ${num(row.low)}`}
+                        breakdown={`Critical ${num(row.extreme)} · High ${num(row.high)} · Moderate ${num(row.medium)} · Low ${num(row.low)}${num(row.unrated) ? ` · Unrated ${num(row.unrated)}` : ''}`}
                       />
                     </TableCell>
                     <TableCell align="right"><GapsBadge value={num(row.gaps)} /></TableCell>
@@ -195,6 +198,7 @@ export function ActBreakdownTable({ profile = {} }) {
     high: num(row.high),
     medium: num(row.medium),
     low: num(row.low),
+    unrated: num(row.unrated),
     gaps: num(row.gaps),
   })).sort((a, b) => (b.extreme + b.high) - (a.extreme + a.high) || b.gaps - a.gaps);
 
@@ -202,7 +206,8 @@ export function ActBreakdownTable({ profile = {} }) {
     <DataCard
       title="Risk by Act"
       subtitle={normalized.length > 0
-        ? `${normalized.length} acts across the applicable obligation set`
+        // "Unassigned" is a bucket, not an act
+        ? `${profile.summary?.actCount ?? normalized.filter((r) => r.name !== 'Unassigned').length} acts across the applicable obligation set`
         : 'Per-act analytics are not yet published by the dashboard service'}
       noPadding
       sx={{ height: '100%' }}
@@ -234,7 +239,7 @@ export function ActBreakdownTable({ profile = {} }) {
                     <RiskCell
                       extreme={row.extreme}
                       high={row.high}
-                      breakdown={`Critical ${row.extreme} · High ${row.high} · Moderate ${row.medium} · Low ${row.low}`}
+                      breakdown={`Critical ${row.extreme} · High ${row.high} · Moderate ${row.medium} · Low ${row.low}${row.unrated ? ` · Unrated ${row.unrated}` : ''}`}
                     />
                   </TableCell>
                   <TableCell align="right"><GapsBadge value={row.gaps} /></TableCell>

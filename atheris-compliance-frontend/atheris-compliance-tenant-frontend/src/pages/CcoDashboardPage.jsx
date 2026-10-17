@@ -15,6 +15,7 @@ import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
 import ControlsRow from '../components/dashboard/ControlsRow';
 import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../components/dashboard/RiskAreaActRow';
 import RunbooksWidget from '../components/dashboard/RunbooksWidget';
+import ScoreBreakdown, { pctOrNa } from '../components/dashboard/ScoreBreakdown';
 
 const POLL_INTERVAL = 30000;
 
@@ -47,18 +48,14 @@ export default function CcoDashboardPage() {
     refetchInterval: POLL_INTERVAL,
   });
   const calendarQuery = useQuery({
-    queryKey: ['dashboard', 'returns-calendar', 90],
-    queryFn: () => api.returns.calendar({ days: 90 }),
+    queryKey: ['dashboard', 'returns-calendar'],
+    // a Spring page of filing periods; the card keeps the next three that are still open
+    queryFn: () => api.returns.calendar({ size: 500 }),
     refetchInterval: POLL_INTERVAL,
   });
   const sanctionsQuery = useQuery({
     queryKey: ['dashboard', 'sanctions-stats'],
     queryFn: ({ signal }) => api.sanctions.stats({ signal }),
-    refetchInterval: POLL_INTERVAL,
-  });
-  const summaryQuery = useQuery({
-    queryKey: ['dashboard', 'summary'],
-    queryFn: () => api.dashboard.summary(),
     refetchInterval: POLL_INTERVAL,
   });
   const riskProfileQuery = useQuery({
@@ -84,7 +81,7 @@ export default function CcoDashboardPage() {
 
   const queries = [
     attentionQuery, trendQuery, returnsStatsQuery, calendarQuery,
-    sanctionsQuery, summaryQuery, riskProfileQuery, coverageQuery, universeQuery,
+    sanctionsQuery, riskProfileQuery, coverageQuery, universeQuery, metricsQuery,
   ];
   const loading = queries.some(q => q.isPending);
   const refreshing = queries.some(q => q.isFetching);
@@ -92,25 +89,31 @@ export default function CcoDashboardPage() {
   const attention = attentionQuery.data || {};
   const trend = Array.isArray(trendQuery.data) ? trendQuery.data : [];
   const returnsStats = returnsStatsQuery.data || {};
-  const calendar = Array.isArray(calendarQuery.data) ? calendarQuery.data : [];
+  const calendar = Array.isArray(calendarQuery.data) ? calendarQuery.data : (calendarQuery.data?.content || []);
   const sanctionsStats = sanctionsQuery.data || {};
-  const summary = summaryQuery.data || {};
   const riskProfile = riskProfileQuery.data || {};
   const coverage = coverageQuery.data || {};
   const metrics = metricsQuery.data || {};
 
+  const scoreBreakdown = metrics.scoreBreakdown || [];
   const kpis = [
     { key: 'score', label: 'Compliance Score', tone: 'blue', icon: <ChartBarIcon size={16} />,
-      value: metrics.complianceScore != null ? `${metrics.complianceScore}%` : '—' },
+      value: metrics.complianceScore != null ? pctOrNa(metrics.complianceScore) : 'N/A',
+      caption: 'Hover for how it is calculated',
+      tooltip: <ScoreBreakdown breakdown={scoreBreakdown} score={metrics.complianceScore} />,
+      breakdown: Object.fromEntries(scoreBreakdown.map(c => [`${c.label} (×${c.weight})`, pctOrNa(c.value)])) },
     { key: 'coverage', label: 'Control Coverage', tone: 'green', icon: <CheckCircleIcon size={16} />,
-      value: `${metrics.controlCoverage ?? 0}%` },
-    { key: 'highRisk', label: 'High-Risk Items', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
-      value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {} },
+      value: pctOrNa(metrics.controlCoverage),
+      caption: 'Applicable obligations with a linked control' },
+    { key: 'highRisk', label: 'Critical/High Obligations', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
+      value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {},
+      caption: `of ${metrics.obligationsApplicable ?? 0} applicable obligations` },
     { key: 'gaps', label: 'No Control', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
       value: metrics.obligationsWithGaps ?? 0 },
   ];
 
   function onKpiDrill(key, label) {
+    if (key === 'score') return;
     if (key === 'highRisk') navigate(`/obligations?risk=${encodeURIComponent(label)}`);
     else if (key === 'gaps') navigate('/obligations?hasGap=true');
     else if (key === 'coverage') navigate('/controls');
@@ -135,7 +138,7 @@ export default function CcoDashboardPage() {
               variant="outlined"
               startIcon={<ArrowPathIcon size={16} />}
               disabled={refreshing}
-              onClick={() => [...queries, metricsQuery].forEach(q => q.refetch())}
+              onClick={() => queries.forEach(q => q.refetch())}
             >
               Refresh
             </Button>
@@ -167,14 +170,14 @@ export default function CcoDashboardPage() {
 
       {/* Returns · Controls · Sanctions */}
       <Box sx={row('repeat(3, 1fr)')}>
-        <ReturnsStatusSection stats={returnsStats} calendar={calendar} />
-        <ControlsRow snapshot={summary} />
+        <ReturnsStatusSection stats={returnsStats} calendar={calendar} onTimePct={metrics.returnsOnTimePct} />
+        <ControlsRow metrics={metrics} />
         <SanctionsExposureRow stats={sanctionsStats} />
       </Box>
 
       {/* Compliance trend · inherent risk donut */}
       <Box sx={row('2fr 1fr')}>
-        <ComplianceTrendChart trend={trend} />
+        <ComplianceTrendChart trend={trend} metrics={metrics} />
         <RiskProfileRow profile={riskProfile} />
       </Box>
 

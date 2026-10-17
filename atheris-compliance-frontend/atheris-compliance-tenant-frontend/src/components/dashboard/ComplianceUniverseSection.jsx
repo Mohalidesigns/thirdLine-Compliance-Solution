@@ -19,6 +19,8 @@ const RISK_CARDS = [
   { key: 'Medium', tone: 'amber', icon: <InformationCircleIcon /> },
   { key: 'Moderate', tone: 'amber', icon: <InformationCircleIcon /> },
   { key: 'Low', tone: 'green', icon: <CheckCircleIcon /> },
+  // instruments with no risk rating — shown so the risk cards add up to the total
+  { key: 'Unrated', tone: 'gray', icon: <InformationCircleIcon /> },
 ];
 const TOP_REGULATORS = 6;
 
@@ -36,12 +38,13 @@ export default function ComplianceUniverseSection({ stats }) {
   const byArea = stats?.byAreaOfFocus || {};
   const total = stats?.total ?? 0;
 
-  // Always show High/Medium/Low (the universe's usual scale); Critical/Moderate only when present.
+  // Always show High/Medium/Low (the universe's usual scale); Critical/Moderate/Unrated only when present.
   const riskCards = RISK_CARDS
     .filter((r) => ['High', 'Medium', 'Low'].includes(r.key) || byRisk[r.key] > 0)
     .map((r) => ({
       key: r.key,
-      label: `${r.key} Risk`,
+      label: r.key === 'Unrated' ? 'Unrated' : `${r.key} Risk`,
+      caption: r.key === 'Unrated' ? 'No risk rating on the instrument' : undefined,
       value: byRisk[r.key] ?? 0,
       tone: r.tone,
       icon: r.icon,
@@ -124,13 +127,19 @@ export default function ComplianceUniverseSection({ stats }) {
           )}
         </DataCard>
 
-        <DataCard title="Areas of Focus" subtitle="Click an area to see its instruments">
+        <DataCard title="Areas of Focus" subtitle={`${areas.filter(([a]) => a !== 'Unassigned').length} areas · click an area to see its instruments`}>
           {areas.length === 0 ? (
             <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>No areas of focus recorded yet.</Typography>
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {areas.map(([area, count]) => (
-                <Chip key={area} label={`${area} (${count})`} clickable onClick={() => openUniverse({ areaOfFocus: area })} />
+                <Chip
+                  key={area}
+                  label={`${area} (${count})`}
+                  clickable
+                  variant={area === 'Unassigned' ? 'outlined' : 'filled'}
+                  onClick={() => openUniverse({ areaOfFocus: area })}
+                />
               ))}
             </Box>
           )}

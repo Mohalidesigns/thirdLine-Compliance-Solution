@@ -24,6 +24,7 @@ const RISK_CARDS = [
   { key: 'Medium', tone: 'amber', icon: <InformationCircleIcon /> },
   { key: 'Moderate', tone: 'amber', icon: <InformationCircleIcon /> },
   { key: 'Low', tone: 'green', icon: <CheckCircleIcon /> },
+  { key: 'Unrated', tone: 'gray', icon: <InformationCircleIcon /> },
 ];
 const TOP_REGULATORS = 6;
 const ALL = 'All';
@@ -96,7 +97,7 @@ export default function UniversePage() {
     const riskCards = RISK_CARDS
       .filter((r) => ['High', 'Medium', 'Low'].includes(r.key) || byRisk[r.key] > 0)
       .map((r) => ({
-        key: r.key, label: `${r.key} Risk`, value: byRisk[r.key] ?? 0, tone: r.tone, icon: r.icon,
+        key: r.key, label: r.key === 'Unrated' ? 'Unrated' : `${r.key} Risk`, value: byRisk[r.key] ?? 0, tone: r.tone, icon: r.icon,
         breakdown: regulatorsByRisk[r.key], active: filters.riskRating === r.key,
       }));
     return [

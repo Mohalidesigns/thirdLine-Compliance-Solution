@@ -88,7 +88,7 @@ public class ObligationClassification {
     public static final java.util.List<String> LIKELIHOOD_LEVELS =
         java.util.List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
 
-    /** Inherent risk band on the canonical axes, or null when either rating is missing/unknown. */
+    /** Inherent risk band on the matrix axes (falling back to the toolkit scale), or null when either rating is missing/unknown. */
     public static String inherentBand(String impact, String likelihood) {
         return inherentBand(impact, likelihood, null, null);
     }
@@ -101,7 +101,9 @@ public class ObligationClassification {
 
         int impactIdx = impacts.indexOf(impact) + 1;
         int likelihoodIdx = likelihoods.indexOf(likelihood) + 1;
-        if (impactIdx == 0 || likelihoodIdx == 0) return null;
+        // seeded ratings use the toolkit's Very Low..Very High scale, not the matrix axes
+        if (impactIdx == 0 || likelihoodIdx == 0)
+            return com.atheris.compliance.common.risk.RiskBands.band(likelihood, impact);
 
         int score = impactIdx * likelihoodIdx;
         if (score >= 18) return "Critical";

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, IconButton, Menu, MenuItem, Typography } from '@mui/material';
+import { Box, IconButton, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { TL, TONES, tone as toneOf } from '../theme/tokens';
 import {
@@ -12,13 +12,14 @@ import {
  * rendered as Thirdline `.stat-card`s: uppercase gray label, a 32px tinted icon tile,
  * and a 24px bold value — plus the Atheris breakdown dropdown.
  *
- * `items` = [{ key, label, value, tone?, color?, icon?, caption?, breakdown?, active? }]
+ * `items` = [{ key, label, value, tone?, color?, icon?, caption?, breakdown?, active?, tooltip? }]
  *  - `tone` — 'blue'|'red'|'orange'|'amber'|'yellow'|'green'|'teal'|'purple'|'gray' (or an
  *    alias: primary/danger/warning/success/info). Preferred over `color`.
  *  - `color` — legacy hex; mapped to a matching tone when known, else tinted directly.
  *  - `icon` — a heroicon element (any node; svgs inside are sized to 16px).
  *  - `caption` — small gray line under the value (e.g. "8 critical, 12 high").
  *  - `breakdown` — { label: count }; when it has entries a chevron dropdown is shown.
+ *  - `tooltip` — node shown on hovering the value (e.g. how a score is calculated).
  *  - clicking the card fires `onSelect(key)`; picking a breakdown entry fires `onDrill(key, label)`.
  *
  * Numeric breakdowns are sorted high→low; non-numeric (e.g. formatted naira) keep insertion order.
@@ -105,12 +106,26 @@ export function KpiCard({ kpi, onSelect, onDrill }) {
           </Box>
         </Box>
       </Box>
-      <Typography
-        title={typeof kpi.value === 'string' || typeof kpi.value === 'number' ? String(kpi.value) : undefined}
-        sx={{ fontSize: String(kpi.value ?? '').length > 11 ? '1.125rem' : '1.5rem', fontWeight: 700, lineHeight: '2rem', color: t.value, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {kpi.value}
-      </Typography>
+      {kpi.tooltip ? (
+        <Tooltip title={kpi.tooltip} arrow placement="bottom-start" enterDelay={150}>
+          <Typography
+            component="span"
+            sx={{
+              display: 'inline-block', maxWidth: '100%', fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: t.value,
+              cursor: 'help', textDecoration: 'underline dotted', textDecorationColor: TL.gray300, textUnderlineOffset: '4px',
+            }}
+          >
+            {kpi.value}
+          </Typography>
+        </Tooltip>
+      ) : (
+        <Typography
+          title={typeof kpi.value === 'string' || typeof kpi.value === 'number' ? String(kpi.value) : undefined}
+          sx={{ fontSize: String(kpi.value ?? '').length > 11 ? '1.125rem' : '1.5rem', fontWeight: 700, lineHeight: '2rem', color: t.value, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {kpi.value}
+        </Typography>
+      )}
       {kpi.caption && (
         <Typography sx={{ mt: 0.5, fontSize: '0.8125rem', color: TL.gray500, lineHeight: '1.25rem' }} noWrap>
           {kpi.caption}

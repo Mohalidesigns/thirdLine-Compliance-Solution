@@ -29,6 +29,7 @@ public class RiskProfileDto {
         private int high;
         private int medium;
         private int low;
+        private int unrated;
         private int gaps;
     }
 
@@ -41,6 +42,7 @@ public class RiskProfileDto {
         private int high;
         private int medium;
         private int low;
+        private int unrated;
         private int gaps;
     }
 
@@ -52,6 +54,9 @@ public class RiskProfileDto {
         private int highCount;
         private int mediumCount;
         private int lowCount;
+        private int unratedCount;
+        /** Distinct acts, not counting "Unassigned". */
+        private int actCount;
         private int gapsCount;
     }
 }
