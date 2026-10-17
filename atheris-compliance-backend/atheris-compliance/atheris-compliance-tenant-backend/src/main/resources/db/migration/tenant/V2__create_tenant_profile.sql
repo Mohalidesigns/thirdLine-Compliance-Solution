@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS tenant_profile (
     state_of_hq                VARCHAR(100),
     employee_count             INT,
     subscribed_regulators      JSONB,
+    toolkit_regulators         JSONB,
     subscribed_document_types  JSONB,
     notification_risk_ratings  JSONB,
     product_lines              JSONB,

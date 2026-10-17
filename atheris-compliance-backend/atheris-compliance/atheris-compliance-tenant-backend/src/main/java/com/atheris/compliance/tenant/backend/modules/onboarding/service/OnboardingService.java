@@ -76,6 +76,8 @@ public class OnboardingService {
                     .licenseStatus(p.getLicenseStatus())
                     .authType(p.getAuthType())
                     .subscribedRegulators(p.getSubscribedRegulators())
+                    .toolkitRegulators(p.getToolkitRegulators())
+                    .autoSeedObligations(Boolean.TRUE.equals(p.getAutoSeedObligations()))
                     .subscribedDocumentTypes(p.getSubscribedDocumentTypes())
                     .availableRegulators(regulators)
                     .build();
@@ -86,30 +88,22 @@ public class OnboardingService {
     private OnboardingStatusResponse resultWithRegulators(List<RegulatorSummary> regulators) {
         return OnboardingStatusResponse.builder()
             .onboardingCompleted(false).currentStep(0).nextStep(1)
+            .autoSeedObligations(false)
             .availableRegulators(regulators)
             .build();
     }
 
     private Integer computeNextStep(Integer step, boolean completed) {
         if (completed) {
-            return 6;
+            return 7;
         }
         if (step == null || step == 0) {
             return 1;
         }
-        if (step == 1) {
-            return 2;
+        if (step >= 6) {
+            return 7;
         }
-        if (step == 2) {
-            return 3;
-        }
-        if (step == 3) {
-            return 4;
-        }
-        if (step == 4) {
-            return 5;
-        }
-        return 6;
+        return step + 1;
     }
 
     @Transactional
@@ -256,24 +250,61 @@ public class OnboardingService {
         p.setOnboardingStep(4);
         profiles.save(p);
 
-        Long tid = tenantIdentity.currentTenantId();
         List<Integer> selectedIds = req.getSubscribedRegulators() != null
             ? req.getSubscribedRegulators() : List.of();
+        upsertTenantRegulators(selectedIds);
 
-        List<RegulatorSummary> allRegs = platformApi.fetchRegulators();
-        List<TenantRegulator> existing = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid);
-        List<Integer> existingIds = existing.stream()
+        p.setSubscribedRegulators(selectedIds);
+        profiles.save(p);
+
+        return OnboardingStatusResponse.builder()
+            .onboardingCompleted(false).currentStep(4).nextStep(5)
+            .licenseStatus(p.getLicenseStatus())
+            .subscribedRegulators(selectedIds)
+            .toolkitRegulators(p.getToolkitRegulators())
+            .autoSeedObligations(Boolean.TRUE.equals(p.getAutoSeedObligations()))
+            .build();
+    }
+
+    /**
+     * Toolkit regulators feed the toolkit seed straight into the Register. Only offered when the
+     * license enables toolkit obligations; the selection may be empty.
+     */
+    @Transactional
+    public OnboardingStatusResponse saveToolkitRegulators(RegulatorSubscriptionRequest req) {
+        TenantProfile p = getProfile();
+        List<Integer> selectedIds = req.getSubscribedRegulators() != null
+            ? req.getSubscribedRegulators() : List.of();
+        if (Boolean.TRUE.equals(p.getAutoSeedObligations())) {
+            upsertTenantRegulators(selectedIds);
+            p.setToolkitRegulators(selectedIds);
+        } else {
+            p.setToolkitRegulators(List.of());
+        }
+        p.setOnboardingStep(5);
+        profiles.save(p);
+
+        return OnboardingStatusResponse.builder()
+            .onboardingCompleted(false).currentStep(5).nextStep(6)
+            .licenseStatus(p.getLicenseStatus())
+            .subscribedRegulators(p.getSubscribedRegulators())
+            .toolkitRegulators(p.getToolkitRegulators())
+            .autoSeedObligations(Boolean.TRUE.equals(p.getAutoSeedObligations()))
+            .build();
+    }
+
+    private void upsertTenantRegulators(List<Integer> selectedIds) {
+        if (selectedIds.isEmpty()) {
+            return;
+        }
+        Long tid = tenantIdentity.currentTenantId();
+        List<Integer> existingIds = tenantRegulatorRepo.findByTenantIdAndIsActiveTrue(tid).stream()
             .map(TenantRegulator::getPlatformRegulatorId)
             .filter(Objects::nonNull)
             .toList();
-
-        for (RegulatorSummary summary : allRegs) {
-            if (!selectedIds.contains(summary.getRegulatorId())) {
-                continue;
-            }
-            if (existingIds.contains(summary.getRegulatorId())) {
-                continue;
-            }
+        for (RegulatorSummary summary : platformApi.fetchRegulators()) {
+            if (!selectedIds.contains(summary.getRegulatorId())) continue;
+            if (existingIds.contains(summary.getRegulatorId())) continue;
             tenantRegulatorRepo.save(TenantRegulator.builder()
                 .tenantId(tid)
                 .name(summary.getName())
@@ -282,14 +313,6 @@ public class OnboardingService {
                 .isActive(true)
                 .build());
         }
-
-        p.setSubscribedRegulators(selectedIds);
-        profiles.save(p);
-
-        return OnboardingStatusResponse.builder()
-            .onboardingCompleted(false).currentStep(4).nextStep(5)
-            .licenseStatus(p.getLicenseStatus())
-            .subscribedRegulators(selectedIds).build();
     }
 
     @Transactional
@@ -297,10 +320,10 @@ public class OnboardingService {
         TenantProfile p = getProfile();
         p.setSubscribedDocumentTypes(List.of("circulars", "guidelines", "directives", "regulations", "standards", "frameworks"));
         p.setNotificationRiskRatings(List.of(NotificationConstants.SEVERITY_HIGH, NotificationConstants.SEVERITY_MEDIUM, NotificationConstants.SEVERITY_LOW));
-        p.setOnboardingStep(5);
+        p.setOnboardingStep(6);
         profiles.save(p);
         return OnboardingStatusResponse.builder()
-            .onboardingCompleted(false).currentStep(5).nextStep(6)
+            .onboardingCompleted(false).currentStep(6).nextStep(7)
             .licenseStatus(p.getLicenseStatus())
             .subscribedDocumentTypes(p.getSubscribedDocumentTypes()).build();
     }
@@ -309,10 +332,10 @@ public class OnboardingService {
     public OnboardingStatusResponse saveSmtp(SmtpConfigRequest req) {
         smtpSettings.save(req);
         TenantProfile p = getProfile();
-        p.setOnboardingStep(5);
+        p.setOnboardingStep(6);
         profiles.save(p);
         return OnboardingStatusResponse.builder()
-            .onboardingCompleted(false).currentStep(5).nextStep(6)
+            .onboardingCompleted(false).currentStep(6).nextStep(7)
             .licenseStatus(p.getLicenseStatus()).build();
     }
 
@@ -328,7 +351,7 @@ public class OnboardingService {
         }
         p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
-        p.setOnboardingStep(6);
+        p.setOnboardingStep(7);
 
         profiles.save(p);
 
@@ -368,7 +391,7 @@ public class OnboardingService {
         });
 
         return OnboardingStatusResponse.builder()
-            .onboardingCompleted(true).currentStep(6)
+            .onboardingCompleted(true).currentStep(7)
             .licenseStatus(p.getLicenseStatus())
             .authType(p.getAuthType())
             .legalName(p.getLegalName())

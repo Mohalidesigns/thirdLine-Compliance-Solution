@@ -30,6 +30,9 @@ public class TenantProfile {
     private List<Integer> subscribedRegulators;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
+    private List<Integer> toolkitRegulators;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
     private List<String> subscribedDocumentTypes;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

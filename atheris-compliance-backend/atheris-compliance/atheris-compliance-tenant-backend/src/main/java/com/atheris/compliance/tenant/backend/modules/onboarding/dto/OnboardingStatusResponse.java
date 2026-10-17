@@ -13,6 +13,8 @@ public class OnboardingStatusResponse {
     private String licenseStatus;
     private String authType;
     private List<Integer> subscribedRegulators;
+    private List<Integer> toolkitRegulators;
+    private Boolean autoSeedObligations;
     private List<String> subscribedDocumentTypes;
     private List<RegulatorSummary> availableRegulators;
 }

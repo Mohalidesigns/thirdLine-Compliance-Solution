@@ -24,12 +24,12 @@ public class SeedService {
 
     @Async
     public void seedAsync() {
-        boolean autoSeed = profiles.findByTenantId(tenantIdentity.currentTenantId())
-            .map(TenantProfile::getAutoSeedObligations)
-            .map(Boolean.TRUE::equals)
-            .orElse(false);
+        TenantProfile profile = profiles.findByTenantId(tenantIdentity.currentTenantId()).orElse(null);
+        boolean autoSeed = profile != null && Boolean.TRUE.equals(profile.getAutoSeedObligations());
+        boolean hasToolkitRegulators = profile != null && profile.getToolkitRegulators() != null
+            && !profile.getToolkitRegulators().isEmpty();
 
-        if (autoSeed) {
+        if (autoSeed && hasToolkitRegulators) {
             try {
                 int seeded = regulationSeedService.seedAll();
                 log.info("[SeedService] seedAll completed: {} seeded", seeded);

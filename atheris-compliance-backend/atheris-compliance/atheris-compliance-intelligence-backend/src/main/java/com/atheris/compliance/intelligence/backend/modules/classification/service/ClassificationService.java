@@ -50,6 +50,17 @@ public class ClassificationService {
     @PersistenceContext
     private EntityManager em;
 
+    /**
+     * Chunking: OCR text is capped, then split into fixed-size chunks and merged. Keeping each
+     * chunk small means each AI call stays fast — large single prompts exceed slower providers'
+     * (e.g. the ISW gateway) response timeout and come back as an unparseable body.
+     */
+    @org.springframework.beans.factory.annotation.Value("${atheris.ai.max-ocr-chars:80000}")
+    private int maxOcrChars;
+
+    @org.springframework.beans.factory.annotation.Value("${atheris.ai.chunk-size:15000}")
+    private int chunkSize;
+
     // Toolkit parity 12 SECTION_AREA_OF_FOCUS values
     private static final String ALLOWED_AREAS = """
         AML/CFT, Corporate Governance, Cash Management,
@@ -229,40 +240,35 @@ public class ClassificationService {
         }
     }
 
-    // ── LLM call with chunking (80k cap, split >40k into 2) ──
+    // ── LLM call with chunking ──
     private ClassificationResult callLLm(String ocrText) {
         if (ocrText == null) throw new RuntimeException("ocrText null");
-        // hard cap 80k
-        String truncated = ocrText.substring(0, Math.min(80_000, ocrText.length()));
-        if (truncated.length() <= 40_000) {
+        // maxOcrChars <= 0 means "no cap" — process the whole document.
+        String truncated = (maxOcrChars > 0 && ocrText.length() > maxOcrChars)
+            ? ocrText.substring(0, maxOcrChars) : ocrText;
+        if (truncated.length() <= chunkSize) {
             return callSingle(truncated);
         }
-        // split into 2 chunks ~40k each
-        String chunk1 = truncated.substring(0, 40_000);
-        String chunk2 = truncated.substring(40_000);
-        log.info("Chunking OCR text {} chars into 2 calls ({} + {})", truncated.length(), chunk1.length(), chunk2.length());
-        ClassificationResult r1 = callSingle(chunk1);
-        ClassificationResult r2 = callSingle(chunk2);
-        return mergeResults(r1, r2);
+        List<String> chunks = new ArrayList<>();
+        for (int i = 0; i < truncated.length(); i += chunkSize) {
+            chunks.add(truncated.substring(i, Math.min(i + chunkSize, truncated.length())));
+        }
+        log.info("Chunking OCR text {} chars into {} calls of ~{}", truncated.length(), chunks.size(), chunkSize);
+        ClassificationResult merged = null;
+        for (String chunk : chunks) {
+            ClassificationResult r = callSingle(chunk);
+            merged = merged == null ? r : mergeResults(merged, r);
+        }
+        return merged;
     }
 
     private ClassificationResult callSingle(String chunk) {
         String prompt = PROMPT.formatted(chunk);
-        String response = aiClient.complete(prompt);
-        try {
-            String clean = response.replaceAll("```json|```", "").trim();
-            // trim any leading/trailing non-JSON
-            int firstBrace = clean.indexOf('{');
-            int lastBrace = clean.lastIndexOf('}');
-            if (firstBrace >= 0 && lastBrace > firstBrace) clean = clean.substring(firstBrace, lastBrace + 1);
-            ClassificationResult result = mapper.readValue(clean, ClassificationResult.class);
-            if (result.getObligations() == null) result.setObligations(List.of());
-            if (result.getSanctions() == null) result.setSanctions(List.of());
-            return result;
-        } catch (Exception e) {
-            log.error("Failed to parse AI response ({} chars): {}", response.length(), response.substring(0, Math.min(800, response.length())));
-            throw new RuntimeException("Failed to parse AI response: " + e.getMessage(), e);
-        }
+        // Spring AI converts the model's JSON straight into ClassificationResult (structured output).
+        ClassificationResult result = aiClient.completeEntity(prompt, ClassificationResult.class);
+        if (result.getObligations() == null) result.setObligations(List.of());
+        if (result.getSanctions() == null) result.setSanctions(List.of());
+        return result;
     }
 
     private ClassificationResult mergeResults(ClassificationResult r1, ClassificationResult r2) {

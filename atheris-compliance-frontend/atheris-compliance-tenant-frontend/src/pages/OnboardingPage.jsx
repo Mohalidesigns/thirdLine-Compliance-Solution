@@ -14,22 +14,24 @@ import { SectionTable } from 'shared';
 import { api } from '../services/api';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 
-const STEPS = ['License', 'Institution', 'User Setup', 'Regulators', 'SMTP', 'Confirm'];
+const STEPS = ['License', 'Institution', 'User Setup', 'Intelligence', 'Toolkit', 'SMTP', 'Confirm'];
 
-const regulatorColumns = (selected, toggle) => [
+// `countField`/`countLabel` differ per step: the Intelligence step counts AI-pipeline documents,
+// the Toolkit step counts toolkit obligations.
+const regulatorColumns = (selected, toggle, countField, countLabel) => [
   { id: 'select', label: '', minWidth: 48,
     render: (r) => (
       <Checkbox size="small" checked={selected.includes(r.regulatorId)}
         onChange={() => toggle(r.regulatorId)} />
     ) },
-  { id: 'name', label: 'Regulator', minWidth: 260,
+  { id: 'name', label: 'Regulator', minWidth: 240,
     render: (r) => <Typography variant="body2">{r.name || '—'}</Typography> },
-  { id: 'abbreviation', label: 'Abbrev', minWidth: 110,
+  { id: 'abbreviation', label: 'Abbrev', minWidth: 100,
     render: (r) => (r.abbreviation
       ? <Chip size="small" label={r.abbreviation} sx={{ height: 22, borderRadius: '4px' }} />
       : <Typography variant="body2" color="text.secondary">—</Typography>) },
-  { id: 'obligationCount', label: 'Obligations', minWidth: 120,
-    render: (r) => <Typography variant="body2">{r.obligationCount ?? 0}</Typography> },
+  { id: countField, label: countLabel, minWidth: 120,
+    render: (r) => <Typography variant="body2">{r[countField] ?? 0}</Typography> },
 ];
 
 export default function OnboardingPage() {
@@ -71,7 +73,14 @@ export default function OnboardingPage() {
 
   const [webhookUrl, setWebhookUrl] = useState('');
   const [availableRegulators, setAvailableRegulators] = useState([]);
+  // Intelligence regulators feed the AI pipeline -> Review Inbox.
   const [selectedRegulators, setSelectedRegulators] = useState([]);
+  // Toolkit regulators feed the toolkit seed -> Obligations Register. Only offered when the
+  // license enables toolkit obligations (autoSeedObligations).
+  const [selectedToolkitRegulators, setSelectedToolkitRegulators] = useState([]);
+  const [autoSeedObligations, setAutoSeedObligations] = useState(false);
+  const [regSearch, setRegSearch] = useState('');
+  const [toolkitSearch, setToolkitSearch] = useState('');
 
   useEffect(() => {
     loadStatus();
@@ -102,6 +111,8 @@ export default function OnboardingPage() {
       if (resp.authType) setAuthType(resp.authType);
       if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
       if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
+      if (resp.toolkitRegulators) setSelectedToolkitRegulators(resp.toolkitRegulators);
+      setAutoSeedObligations(!!resp.autoSeedObligations);
     } catch {
       setStep(0);
     } finally {
@@ -147,7 +158,7 @@ export default function OnboardingPage() {
     try {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
-      if (nextStep === 6 && resp.onboardingCompleted) {
+      if (resp.onboardingCompleted) {
         setSeeding(true);
       }
     } catch (err) {
@@ -254,6 +265,8 @@ export default function OnboardingPage() {
       const resp = await api.onboarding.status({ signal: AbortSignal.timeout(8000) });
       setAvailableRegulators(resp.availableRegulators || []);
       if (resp.subscribedRegulators?.length) setSelectedRegulators(resp.subscribedRegulators);
+      if (resp.toolkitRegulators?.length) setSelectedToolkitRegulators(resp.toolkitRegulators);
+      setAutoSeedObligations(!!resp.autoSeedObligations);
     } catch {
       /* regulators are only listable once the license api-key is active */
     }
@@ -261,6 +274,11 @@ export default function OnboardingPage() {
 
   function toggleRegulator(id) {
     setSelectedRegulators(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function toggleToolkitRegulator(id) {
+    setSelectedToolkitRegulators(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
@@ -281,6 +299,19 @@ export default function OnboardingPage() {
     }
   }
 
+  async function handleSaveToolkitRegulators() {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.toolkitRegulators({ subscribedRegulators: selectedToolkitRegulators });
+      setStep(5);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function handleSaveSmtp(config) {
     return api.onboarding.saveSmtp(config);
   }
@@ -290,7 +321,7 @@ export default function OnboardingPage() {
     setError('');
     try {
       await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
-      setStep(5);
+      setStep(6);
     } catch (err) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -301,12 +332,20 @@ export default function OnboardingPage() {
   function handleConfirm() {
     submit('confirm',
       api.onboarding.confirm({ webhookUrl: webhookUrl || undefined }),
-      6
+      7
     );
   }
 
   function getActiveStep() {
-    return Math.min(step, 5);
+    return Math.min(step, 6);
+  }
+
+  function filterRegulators(list, term) {
+    const t = (term || '').trim().toLowerCase();
+    if (!t) return list;
+    return list.filter(r =>
+      (r.name || '').toLowerCase().includes(t) ||
+      (r.abbreviation || '').toLowerCase().includes(t));
   }
 
   if (loading) {
@@ -531,30 +570,34 @@ export default function OnboardingPage() {
             {!seeding && !completed && getActiveStep() === 3 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Choose the regulators you want to subscribe to. You'll receive their instruments
-                  in your Review Inbox and, if the license enables it, their toolkit obligations.
+                  Choose the regulators whose documents you want monitored. Their instruments arrive
+                  in your Review Inbox after the AI pipeline processes them.
                 </Typography>
+
+                <TextField fullWidth size="small" label="Search regulator name or abbreviation"
+                  value={regSearch} onChange={e => setRegSearch(e.target.value)} sx={{ mb: 1.5 }} />
 
                 {availableRegulators.length === 0 ? (
                   <Alert severity="info" sx={{ mb: 2 }}>Loading regulators…</Alert>
                 ) : (
                   <SectionTable
-                    columns={regulatorColumns(selectedRegulators, toggleRegulator)}
-                    rows={availableRegulators}
-                    total={availableRegulators.length}
+                    columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents')}
+                    rows={filterRegulators(availableRegulators, regSearch)}
+                    total={filterRegulators(availableRegulators, regSearch).length}
                     page={0}
-                    size={availableRegulators.length}
+                    size={filterRegulators(availableRegulators, regSearch).length || 1}
                     loading={false}
                     rowKey={(r) => r.regulatorId}
                     onRowClick={(r) => toggleRegulator(r.regulatorId)}
-                    rowsPerPageOptions={[availableRegulators.length]}
-                    emptyMessage="No regulators available."
+                    rowsPerPageOptions={[Math.max(filterRegulators(availableRegulators, regSearch).length, 1)]}
+                    emptyMessage="No regulators match your search."
                   />
                 )}
 
                 <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
                   <Button size="small"
-                    onClick={() => setSelectedRegulators(availableRegulators.map(r => r.regulatorId))}>
+                    onClick={() => setSelectedRegulators(
+                      filterRegulators(availableRegulators, regSearch).map(r => r.regulatorId))}>
                     Select all
                   </Button>
                   <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
@@ -571,6 +614,57 @@ export default function OnboardingPage() {
             )}
 
             {!seeding && !completed && getActiveStep() === 4 && (
+              <Box>
+                {autoSeedObligations ? (
+                  <>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Your license includes the compliance toolkit. Choose the regulators whose toolkit
+                      obligations should be loaded straight into your Obligations Register. You can skip this.
+                    </Typography>
+
+                    <TextField fullWidth size="small" label="Search regulator name or abbreviation"
+                      value={toolkitSearch} onChange={e => setToolkitSearch(e.target.value)} sx={{ mb: 1.5 }} />
+
+                    <SectionTable
+                      columns={regulatorColumns(selectedToolkitRegulators, toggleToolkitRegulator, 'toolkitCount', 'Obligations')}
+                      rows={filterRegulators(availableRegulators, toolkitSearch)}
+                      total={filterRegulators(availableRegulators, toolkitSearch).length}
+                      page={0}
+                      size={filterRegulators(availableRegulators, toolkitSearch).length || 1}
+                      loading={false}
+                      rowKey={(r) => r.regulatorId}
+                      onRowClick={(r) => toggleToolkitRegulator(r.regulatorId)}
+                      rowsPerPageOptions={[Math.max(filterRegulators(availableRegulators, toolkitSearch).length, 1)]}
+                      emptyMessage="No regulators match your search."
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
+                      <Button size="small"
+                        onClick={() => setSelectedToolkitRegulators(
+                          filterRegulators(availableRegulators, toolkitSearch).map(r => r.regulatorId))}>
+                        Select all
+                      </Button>
+                      <Button size="small" onClick={() => setSelectedToolkitRegulators([])}>Clear</Button>
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                        {selectedToolkitRegulators.length} selected
+                      </Typography>
+                    </Box>
+                  </>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Your license does not include compliance-toolkit obligations, so there is nothing to
+                    select here. Continue to set up your outgoing email.
+                  </Alert>
+                )}
+
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.2 }}
+                  onClick={handleSaveToolkitRegulators} disabled={submitting}>
+                  {submitting ? <CircularProgress size={20} /> : 'Continue'}
+                </Button>
+              </Box>
+            )}
+
+            {!seeding && !completed && getActiveStep() === 5 && (
               <SmtpSettingsForm
                 onSave={handleSaveSmtp}
                 onTest={api.onboarding.testSmtp}
@@ -593,7 +687,7 @@ export default function OnboardingPage() {
               />
             )}
 
-            {!seeding && !completed && getActiveStep() === 5 && (
+            {!seeding && !completed && getActiveStep() === 6 && (
               <Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                   You're all set! Review your selections and complete setup.

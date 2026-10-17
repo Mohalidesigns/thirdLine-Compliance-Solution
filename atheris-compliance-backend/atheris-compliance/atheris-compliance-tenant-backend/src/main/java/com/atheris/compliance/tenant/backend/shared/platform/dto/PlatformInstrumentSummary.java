@@ -21,6 +21,7 @@ public class PlatformInstrumentSummary {
     private String aiSummary;
     private String status;
     private String documentType;
+    private String uploadSource;
     private LocalDate publishedAt;
     private String pdfUrl;
 }

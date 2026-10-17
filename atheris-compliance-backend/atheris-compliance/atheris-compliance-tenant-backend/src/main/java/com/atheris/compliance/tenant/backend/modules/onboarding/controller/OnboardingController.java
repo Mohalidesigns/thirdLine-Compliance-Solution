@@ -54,6 +54,12 @@ public class OnboardingController {
         return ResponseEntity.ok(service.saveRegulators(req));
     }
 
+    @PostMapping("/toolkit-regulators")
+    public ResponseEntity<OnboardingStatusResponse> saveToolkitRegulators(
+            @RequestBody RegulatorSubscriptionRequest req) {
+        return ResponseEntity.ok(service.saveToolkitRegulators(req));
+    }
+
     @PostMapping("/smtp")
     public ResponseEntity<OnboardingStatusResponse> saveSmtp(
             @RequestBody SmtpConfigRequest req) {

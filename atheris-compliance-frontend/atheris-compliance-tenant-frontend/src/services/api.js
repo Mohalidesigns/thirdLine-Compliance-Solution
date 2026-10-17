@@ -239,6 +239,7 @@ export const api = {
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
     testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
+    toolkitRegulators: (data) => request('/onboarding/toolkit-regulators', { method: 'POST', body: JSON.stringify(data) }),
     saveSmtp: (data) => request('/onboarding/smtp', { method: 'POST', body: JSON.stringify(data) }),
     testSmtp: (data) => request('/onboarding/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
