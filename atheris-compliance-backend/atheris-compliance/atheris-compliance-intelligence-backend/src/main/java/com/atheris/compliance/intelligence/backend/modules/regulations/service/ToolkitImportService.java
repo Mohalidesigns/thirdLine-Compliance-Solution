@@ -56,7 +56,7 @@ public class ToolkitImportService {
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper mapper;
 
-    private static final List<String> CRMP_SECTIONS = List.of(
+    static final List<String> CRMP_SECTIONS = List.of(
             "conduct_risk", "corporate_governance", "data_protection",
             "capital_market", "crmp", "esg", "cybersecurity", "consumer_protection",
             "abac", "amlcft", "actmgt", "cash_mgt");
@@ -742,7 +742,7 @@ public class ToolkitImportService {
         return null;
     }
 
-    private String normalizeRiskLabel(String s) {
+    static String normalizeRiskLabel(String s) {
         if (s == null) return null;
         String v = s.toLowerCase(Locale.ROOT).trim();
         if (v.isEmpty()) return null;

@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.common.taxonomy.AreasOfFocus;
+import com.atheris.compliance.tenant.backend.modules.controls.service.SeedControlRepairService;
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.DashboardService;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
@@ -36,7 +37,8 @@ import java.util.stream.Collectors;
  *   <li><b>risk</b> — re-banded from likelihood × impact. Only ratings still equal to what the old
  *       toolkit band produced are changed, so a rating a user set is kept.</li>
  * </ul>
- * Seeded obligations only.
+ * Seeded obligations only. Seeded controls are re-banded in the same run by
+ * {@link SeedControlRepairService}.
  */
 @Service
 @Slf4j
@@ -53,6 +55,7 @@ public class SeedDataRepairService {
     private final PlatformTransactionManager txManager;
     private final ObligationService obligationService;
     private final DashboardService dashboardService;
+    private final SeedControlRepairService controlRepair;
 
     private final AtomicBoolean done = new AtomicBoolean(false);
     private TransactionTemplate tx;
@@ -83,11 +86,15 @@ public class SeedDataRepairService {
             if (bundles.isEmpty()) return; // platform not reachable yet — retry on the next run
             Map<Long, InstrumentContext> context = contextByInstrument(bundles);
             Result r = tx.execute(status -> repair(context));
+            SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
-            if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated() > 0)
+            if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
+                    + cr.riskRebanded() + cr.residualRatingRebanded() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
             log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}",
                 r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated());
+            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}",
+                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded());
             done.set(true);
         } catch (Throwable e) {
             log.warn("[SeedRepair] skipped this run: {}", e.getMessage());
