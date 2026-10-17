@@ -348,7 +348,78 @@ Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). 
 
 ## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
 
-Tenant Obligations Register → Import: template `.xlsx` → preview (valid/invalid/duplicate) → commit straight to the register (`source='imported'`); invalid rows download as an errors `.xlsx`. Backend `modules/imports/` (`ImportHandler`, `ImportService`, `ImportWorkbooks` with zip-bomb/size guards, `import_batches` V31, POI 5.3.0); duplicate key = title + section + act; one audit per batch. Tenant `SecurityConfig` entry point: bad token → 401, role denial → 403 (api.js refreshes/logs out on 401 only). `DevUserSeeder` seeds admin@/cco@/analyst@/auditor@ when `SEED_USERS_ENABLED=true`. Verified live (2 valid / 2 invalid / 2 duplicate; re-upload all duplicate).
+**Flow (tenant `:5174`, Obligations Register → Import):** download the `.xlsx` template → upload → row-by-row preview (valid / invalid with reasons / duplicate) → "Import N obligations". Imported rows go **straight to the register** (`source='imported'`, `applicability='applicable'`) — the preview confirm is the human check, by user decision; they do NOT pass through the Review Inbox. Invalid rows download as an errors `.xlsx` with an "Error" column to fix and re-upload.
+
+### Backend (`modules/imports/`)
+- `ImportHandler` interface + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (all POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`.
+- Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed` on repeat; batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`.
+- New table `import_batches` (**V31**) keeps each upload's parsed rows (JSONB), counts and status.
+- Validation: title + regulator required (tenant regulator by name/abbrev); Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical → Minor/Moderate/Major/Severe); Likelihood `Rare..Almost Certain`; Owner must match an active owner; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act, against the register and earlier rows in the file.
+- Commit: one transaction; obligation numbers allocated once per batch; inherent risk computed by `@PrePersist`; **one** `obligations_imported` audit event per batch (with all ids), not one per row; register cache evicted.
+- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place, index only — `tenant_regulators` is created later in V14). Register/detail fall back to the tenant regulator when there is no platform instrument, so standalone obligations no longer show "–". Dev DB got `ALTER TABLE` + Flyway repair.
+- Dependency: Apache POI `poi-ooxml` 5.3.0 (`poi.version` in the parent pom).
+
+### Frontend
+- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview table, clickable result chips); "Import" button beside "New Obligation".
+- `api.js` `rawRequest` (multipart + blob download, keeps the 401 refresh) and `api.imports.*`.
+
+### Auth status codes (tenant)
+- `SecurityConfig` had no entry point, so Spring answered an expired/missing token with **403** — which is why `api.js` treated 403 as session expiry. Now: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401; a 403 shows the server message and keeps the user logged in. License-blocked 402/403 from `LicenseFilter` unchanged.
+- Client disconnects (`ClientAbortException`, broken pipe) log at DEBUG instead of "Unhandled exception".
+
+### Dev user seeder (tenant)
+- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD` in `.env`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` (one per role) on start. Idempotent, never resets existing users, rejects weak passwords. Off by default — dev only.
+
+### Verified (live, browser pane, `admin@mamcorp.test`)
+6-row test file → preview 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown, Under Review unchanged); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
+
+## Done — Onboarding Regulator Split (intelligence vs toolkit) + Intel Document Pipeline + Gemini-primary AI
+
+Branch `feature/intel-obligations-parity` @ `1ffb0af`. **Not merged to `main`.**
+
+### Two regulator sets at onboarding
+The license flag `autoSeedObligations` already decided *whether* toolkit obligations seed; onboarding now also decides *which* regulators feed each of the two distinct paths:
+
+| Path | Stored on `tenant_profile` | Feeds | Lands in |
+|---|---|---|---|
+| **Intelligence** | `subscribed_regulators` (jsonb) | AI pipeline / `ObligationSyncService.syncNow` | **Review Inbox** → human Edit & Save → Register |
+| **Toolkit** | `toolkit_regulators` (jsonb, **new**, V2 edited in place next to `subscribed_regulators`) | `RegulationSeedService.seedAll` | **Obligations Register** directly |
+
+- **Intel:** `RegulatorDto` gains `toolkitCount`/`intelligenceCount` (built in `RegulatorService.buildInstrumentStats`); `InternalInstrumentService.findRecentForTenant` excludes `upload_source='toolkit_seed'`; `Constants.UPLOAD_SOURCE_{TOOLKIT,SCRAPER,MANUAL,BACKFILL}`.
+- **Tenant:** `TenantProfile.toolkitRegulators`; `POST /onboarding/toolkit-regulators` (`saveToolkitRegulators` — selection may be empty; ignored when the license lacks toolkit obligations); `OnboardingStatusResponse` gains `toolkitRegulators`/`autoSeedObligations`; `RegulatorSummary` gains `toolkitCount`/`intelligenceCount`; `RegulationSeedService.seedAll` reads `toolkit_regulators`; `SeedService.seedAsync` requires `autoSeedObligations` AND a non-empty `toolkit_regulators`; `ObligationSyncService.syncNow` reads only `subscribed_regulators` (+ a defensive toolkit skip); `RegulatorService.syncFromProfile` uses the union.
+- **Onboarding wizard is 7 fixed steps** (backend `currentStep` numbering is authoritative): 0 License → 1 Institution → 2 User Setup → **3 Intelligence** → **4 Toolkit** → 5 SMTP → 6 Confirm. The Toolkit step only shows its table when `autoSeedObligations`; otherwise it explains there is nothing to select. Both regulator steps render via the shared `SectionTable` with a **search box**, Select-all that respects the filter, and a per-step count column (`intelligenceCount` → "Documents", `toolkitCount` → "Obligations").
+
+### Intel Document Pipeline page (`/admin/pipeline`)
+- New `modules/pipeline`: `AdminPipelineController` (`GET /api/v1/admin/pipeline` list + `/stats`, `PLATFORM_ADMIN`), `PipelineService`, `PipelineItemDto`, `PipelineStatsDto`. One row = one **non-toolkit** document: instruments (stage from status) plus `pending_downloads` failure rows. Server-side filter (`q`, `regulatorId`, `stage`, discovered date range) + paging.
+- Stage vocabulary (`PipelineService.stageOf`): `failed` | `extracting` | `classified` | `published` | `superseded` | `withdrawn`.
+- FE `JobQueuePage.jsx` rebuilt on the shared kit: 5 columns (Document · Regulator · Stage · Status · Discovered), **server-side** paging/filters (previously it fetched up to 1000 instruments and filtered client-side), KPIs **Failed Downloads / Total Downloads / Total Completed** with breakdown dropdowns. `api.platform.pipeline.list/stats` added to the intel `api.js`.
+
+### AI provider (env-only; no secrets in the repo)
+- **Gemini is primary** via its OpenAI-compatible endpoint (`spring.ai.openai.*` → `AI_PRIMARY_BASE_URL=/v1beta`, `completions-path=/openai/chat/completions`, `GEMINI_API_KEY`); **ISW gateway** (`AI_FALLBACK_BASE_URL=https://ai-gateway.isw.la`, `AI_FALLBACK_API_KEY`) is a *separate-provider* fallback. `spring-ai-starter-model-google-genai` is **not downloadable** here (private nexus times out) — use the OpenAI-compatible path with the existing `spring-ai-openai` starter.
+- `AiConfig` registers a **JSON-tolerant** `RestClient` (a `MappingJackson2HttpMessageConverter` that also accepts `application/octet-stream`/`*/*`, plus a `JsonContentTypeInterceptor` that rewrites a missing/octet-stream response `Content-Type` to `application/json`) for BOTH providers.
+- `AiClient.completeEntity` uses **Spring AI native structured output** — `ChatClient.create(model).prompt().user(prompt).call().entity(ClassificationResult.class)` — replacing hand-rolled JSON parsing. Response class: `modules/classification/dto/ClassificationResult` (nested `ObligationItem`/`SanctionItem`).
+- **OCR cap removed:** `atheris.ai.max-ocr-chars` (default `0` = no cap) + `atheris.ai.chunk-size` (default `15000`); `ClassificationService.callLLm` splits the whole document into N chunks and merges. Cooldowns retuned (60s initial / 300s max, ×3).
+- **OPEN ISSUE:** Gemini calls still fail (`Error while extracting response for type OpenAiApi$ChatCompletion`; earlier `application/octet-stream`, now `application/json`) and silently fall back to the gateway, and the classifier yields **0 obligations** for the seeded docs. Pipeline mechanics (scrape → OCR → queue → classify → publish) are verified working; the AI *output* is not.
+
+### Verified (live)
+Fresh-DB boot: intel 16 migrations (v16), toolkit auto-import `40 regulators / 393 acts / 394 instruments / 1535 obligations / 351 sanctions / 139 returns / 2137 controls`, 0 tenants / 0 licenses; tenant 35 migrations (v38). Pipeline observed: 13 OCR completed, 6 non-toolkit instruments, 4 classify jobs completed, `gemini-3.8-flash` reachable. Both frontends build green; intel backend compiles.
+
+### Recovery note (this branch)
+A working tree clobbered to the old `28ca694` state was committed by `git add -A` (27+ files — the intel sidebar grouping, the explorer suite, tenant `Reports`/`Acts` nav, `publicApi`). Fixed by restoring from `700166d` and redoing the genuinely-lost post-`700166d` work (intel pipeline client + page, tenant toolkit onboarding), then `git commit --amend` + `push --force-with-lease` → `1ffb0af`. **Rule: never `git add -A` on this repo — stage explicitly and diff each file first.** `PipelineStatsDto.completed` was also added (it was computed but never returned, so the "Total Completed" KPI drilled to 0).
+
+## Done — Merge origin/main into the intel-parity branch (Thirdline UI + runbooks)
+
+Branch `feature/merge-main-intel-parity` (merge commit `f62e6ef`, parents `1ffb0af` + `b9ef5b1`). **Not merged to `main`.** Integration of `feature/intel-obligations-parity` with everything main had added (Verity/Thirdline UI restyle, Compliance Runbooks, tenant Compliance Universe, heatmap drill-down, dashboard consistency, seed risk-band repair).
+
+- **Resolution rules:** main deleted nothing and neither did we; 322 of main's 356 changed files are main-only (came in clean), 52 ours-only, 34 conflicted. Of the 34: **23 taken from main verbatim** (intel explorers/detail pages, `constants.js`, `Sidebar.jsx`, tenant `AppRoutes`/`Sidebar`/`CcoDashboardPage`/`ControlsPage`/`DashboardV2Page`/`ReturnsPage`/`SanctionsPage`, `shared/columns.jsx`), **5 main's + our feature re-applied**, **1 our version wins**.
+- **main already had the same things** — so taking main's lost nothing: the `COMPLIANCE`/`OPERATIONS`/`TENANTS` grouping (main landed it independently), our `ensureRegulator` toolkit fix (81 calls), `reports`/`acts`/`universe` + runbook routes, `publicApi`, the full Thirdline kit. Verified with a **no-main-loss gate**: `git diff origin/main HEAD -- <the 23 files>` is empty.
+- **The one deliberate override:** tenant `OnboardingPage.jsx` — main's 4-step simplification (no regulator picker, auto-subscribes nothing) is replaced by **our 7-step flow** (Intelligence + Toolkit), re-skinned onto main's Verity shell using main's `SectionTable` + `TL`.
+- **Re-applied on top of main's UI:** intel `api.js` `platform.pipeline`; `JobQueuePage.jsx` server-side pipeline KPIs on main's kit; tenant `api.js` `toolkitRegulators`; `SettingsPage.jsx` **Email/SMTP tab** (5th `SectionTabs` tab).
+- **TanStack kept:** main's UI is already TanStack (58 files vs our 35). Only intel `ControlExplorerPage.jsx` + `ControlDetailPage.jsx` regressed to raw hooks on main — both converted back to `useQuery`/`keepPreviousData`, and `JobQueuePage` is TanStack too.
+- **Backend conflicts auto-merged correctly** (both sides kept): `OnboardingService` = our toolkit steps + main's `IT_OPS` role; `RegulationSeedService` = main's `seedBand()`/`AreasOfFocus` **and** our `toolkitRegulatorIds()`; `ToolkitImportService` = main's version (already has `ensureRegulator`).
+- **Flyway V38 collision:** main owns tenant V38–V41 (runbooks); our SMTP migration renumbered **`V38__add_tenant_smtp_config.sql` → `V42__...`**. Intel unaffected (ours V16, main V17).
+- **`spring-boot:run` gotcha:** after a merge that adds classes to `atheris-compliance-common` (e.g. `RiskBands`), you MUST `mvn install` the reactor — `spring-boot:run` resolves sibling modules from `~/.m2`, so a stale common jar gives `ClassNotFoundException`. And a **renamed migration lingers in `target/classes`** → `Found more than one migration with version 38`; `mvn clean` the module.
+- **Verified (fresh DBs):** intel at Flyway **v17** + 12 runbook templates seeded + toolkit parity `394 instruments / 1535 obligations / 351 sanctions / 139 returns / 2137 controls`, 0 tenants; tenant at Flyway **v42** + 21 runbook tables + **34 frameworks / 243 clauses** + our 7 `smtp_*` columns + `toolkit_regulators`. Both backends start with zero errors; both frontends build green.
 
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
 
