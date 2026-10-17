@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Chip, FormControlLabel, Checkbox,
 } from '@mui/material';
-import { Link as LinkIcon } from '@mui/icons-material';
+import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
@@ -34,7 +34,7 @@ const DEADLINE_TYPES = [
 function Field({ label, children, sx }) {
   return (
     <Box sx={{ mb: 2, ...sx }}>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+      <Typography variant="caption" sx={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
       {children}
@@ -107,11 +107,10 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle>{editing && initial ? 'Edit Obligation' : 'New Obligation'}</DialogTitle>
-        <Divider />
-        <DialogContent>
+        <DialogContent sx={{ '&&': { pt: 2.5 } }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Basic details</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Basic details</Typography>
           <Field label="Name *">
             <TextField fullWidth size="small" placeholder="e.g. Quarterly regulatory return filing"
               required value={form.name} onChange={e => set('name', e.target.value)} />
@@ -122,7 +121,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           </Field>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Classification</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Classification</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <Field label="Area of focus" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.areaOfFocus}
@@ -167,10 +166,10 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           </Box>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Controls</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Controls</Typography>
           <Field label="Linked controls (optional)" sx={{ mb: 0 }}>
-            <Button variant="outlined" fullWidth sx={{ height: 40, justifyContent: 'flex-start', textTransform: 'none' }}
-              startIcon={<LinkIcon />} onClick={() => setPickerOpen(true)}>
+            <Button variant="outlined" fullWidth sx={{ justifyContent: 'flex-start' }}
+              startIcon={<LinkIcon size={16} />} onClick={() => setPickerOpen(true)}>
               {form.linkedControlIds.length > 0
                 ? `Linked controls (${form.linkedControlIds.length})`
                 : 'Link controls'}
@@ -183,10 +182,10 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           </Field>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Returns</Typography>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Returns</Typography>
           <Field label="Linked returns (optional)" sx={{ mb: 0 }}>
-            <Button variant="outlined" fullWidth sx={{ height: 40, justifyContent: 'flex-start', textTransform: 'none' }}
-              startIcon={<LinkIcon />} onClick={() => setReturnPickerOpen(true)}>
+            <Button variant="outlined" fullWidth sx={{ justifyContent: 'flex-start' }}
+              startIcon={<LinkIcon size={16} />} onClick={() => setReturnPickerOpen(true)}>
               {form.linkedReturnIds.length > 0
                 ? `Linked returns (${form.linkedReturnIds.length})`
                 : 'Link returns'}
@@ -210,8 +209,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             )}
           </Box>
         </DialogContent>
-        <Divider />
-        <DialogActions sx={{ justifyContent: 'center' }}>
+        <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.name}>
             {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : (editing && initial ? 'Save changes' : 'Create')}

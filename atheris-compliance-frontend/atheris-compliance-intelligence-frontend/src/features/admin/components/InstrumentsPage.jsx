@@ -1,39 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  Chip, Button, CircularProgress, Alert, IconButton, TextField, MenuItem,
-  Collapse, TableContainer, Paper, TablePagination, Card, CardContent, Tooltip,
+  Button, CircularProgress, Alert, IconButton,
+  TableContainer, Paper, TablePagination, Tooltip,
 } from '@mui/material';
 import {
-  Visibility, Search, Close, ExpandMore, ExpandLess,
-  Article, CloudUpload as CloudUploadIcon, ArrowBack, Download,
-} from '@mui/icons-material';
+  PageHeader, FilterBar, instrumentColumns,
+  EyeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, DocumentTextIcon,
+} from 'shared';
 import api, { getToken, API_BASE, pdfErrorMessage } from '../../../services/api';
-import { instrumentColumns } from 'shared';
 import InstrumentDetailContent from './detail/InstrumentDetailContent';
-
-const RISK_CONFIG = {
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
-};
-
-function formatDate(d) {
-  if (!d) return '-';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, fontWeight: 600 }} />;
-}
-
-function statusChip(status) {
-  const colors = { Published: 'success', Triage: 'warning', Superseded: 'default', Withdrawn: 'error' };
-  return <Chip size="small" label={status || 'Unknown'} color={colors[status] || 'default'} sx={{ height: 22, fontWeight: 600 }} />;
-}
 
 export default function InstrumentsPage() {
   const navigate = useNavigate();
@@ -41,16 +18,19 @@ export default function InstrumentsPage() {
   const [regulators, setRegulators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') || '');
   const [riskFilter, setRiskFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(0);
+  // The top-bar search routes here as /admin/instruments?q=…; follow it even when already mounted.
+  const urlQuery = searchParams.get('q');
+  useEffect(() => { if (urlQuery != null) { setSearch(urlQuery); setPage(0); } }, [urlQuery]);
   const [rowsPerPage] = useState(20);
   const [detailItem, setDetailItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [showOcr, setShowOcr] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -96,7 +76,6 @@ export default function InstrumentsPage() {
     setDetailItem(item);
     setDetailLoading(true);
     setDetailData(null);
-    setShowOcr(false);
     setError('');
     try {
       const data = await api.platform.instruments.get(item.instrumentId);
@@ -109,7 +88,6 @@ export default function InstrumentsPage() {
   function closeDetail() {
     setDetailItem(null);
     setDetailData(null);
-    setShowOcr(false);
     setError('');
   }
 
@@ -153,16 +131,22 @@ export default function InstrumentsPage() {
     const d = detailItem;
     return (
       <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <IconButton onClick={closeDetail}><ArrowBack /></IconButton>
-          <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<Visibility />}>
-            View Instrument
-          </Button>
-          <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<Download />}>
-            Download
-          </Button>
-        </Box>
+        <PageHeader
+          title={d.sourceTitle || 'Instrument'}
+          subtitle={[detailData?.regulator || regMap[d.regulatorId], d.sourceReferenceNumber].filter(Boolean).join(' · ') || undefined}
+          onBack={closeDetail}
+          backLabel="Back to Instruments"
+          actions={
+            <>
+              <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<EyeIcon size={16} />}>
+                View Instrument
+              </Button>
+              <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<ArrowDownTrayIcon size={16} />}>
+                Download
+              </Button>
+            </>
+          }
+        />
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -182,84 +166,80 @@ export default function InstrumentsPage() {
   // ── List View ──
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Instruments</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Browse all regulatory instruments in the platform
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<CloudUploadIcon />}
-          onClick={() => navigate('/admin/uploads')}>
-          Upload Instrument
-        </Button>
-      </Box>
+      <PageHeader
+        title="Instruments"
+        subtitle="Browse all regulatory instruments in the platform"
+        actions={
+          <Button variant="contained" startIcon={<ArrowUpTrayIcon size={16} />}
+            onClick={() => navigate('/admin/uploads')}>
+            Upload Instrument
+          </Button>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search title or regulator..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 220 }} />
-        <TextField select size="small" value={riskFilter} onChange={e => { setRiskFilter(e.target.value); setPage(0); }}
-          label="Risk" sx={{ minWidth: 110 }}>
-          {['All', 'High', 'Medium', 'Low'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
-          label="Regulator" sx={{ minWidth: 130 }}>
-          {regulatorsList.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 120 }}>
-          {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        {(search || riskFilter !== 'All' || regulatorFilter !== 'All' || statusFilter !== 'All') && (
-          <Button size="small" startIcon={<Close />} onClick={() => {
-            setSearch(''); setRiskFilter('All'); setRegulatorFilter('All'); setStatusFilter('All');
-          }}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search title or regulator...' }}
+        filters={[
+          {
+            key: 'risk', label: 'Risk', value: riskFilter, allLabel: 'All', minWidth: 130,
+            onChange: (v) => { setRiskFilter(v); setPage(0); },
+            options: ['High', 'Medium', 'Low'].map(r => ({ value: r, label: r })),
+          },
+          {
+            key: 'regulator', label: 'Regulator', value: regulatorFilter, allLabel: 'All', minWidth: 150,
+            onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: regulatorsList.filter(r => r !== 'All').map(r => ({ value: r, label: r })),
+          },
+          {
+            key: 'status', label: 'Status', value: statusFilter, allLabel: 'All', minWidth: 140,
+            onChange: (v) => { setStatusFilter(v); setPage(0); },
+            options: statuses.filter(st => st !== 'All').map(st => ({ value: st, label: st })),
+          },
+        ]}
+        showClear={!!(search || riskFilter !== 'All' || regulatorFilter !== 'All' || statusFilter !== 'All')}
+        onClear={() => {
+          setSearch(''); setRiskFilter('All'); setRegulatorFilter('All'); setStatusFilter('All');
+        }}
+      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Article sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <DocumentTextIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No instruments found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
                   {columns.map(c => (
-                    <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC' }}>
+                    <TableCell key={c.id} sx={{ minWidth: c.minWidth }}>
                       {c.label}
                     </TableCell>
                   ))}
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC' }}>Actions</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filtered.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map(item => {
-                  const rc = RISK_CONFIG[item.riskRating] || {};
                   return (
                     <TableRow key={item.instrumentId} hover
                       onClick={() => openDetail(item)}
-                      sx={{ cursor: 'pointer', bgcolor: rc.bg || 'inherit',
-                        '&:hover': { bgcolor: rc.bg || '#F7FAFC' },
-                        borderLeft: rc.chip ? `3px solid ${rc.chip}` : '3px solid transparent',
-                      }}>
+                      sx={{ cursor: 'pointer' }}>
                       {columns.map(c => (
                         <TableCell key={c.id}>{c.render ? c.render(item) : (item[c.id] ?? '—')}</TableCell>
                       ))}
-                      <TableCell>
-                        <Button size="small" variant="text" startIcon={<Visibility />}
-                          onClick={e => { e.stopPropagation(); openDetail(item); }} sx={{ minWidth: 0, px: 1 }}>
-                          View
-                        </Button>
+                      <TableCell align="right">
+                        <Tooltip title="View">
+                          <IconButton size="small" onClick={e => { e.stopPropagation(); openDetail(item); }}>
+                            <EyeIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   );

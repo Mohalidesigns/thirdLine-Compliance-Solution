@@ -1,23 +1,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { required, validateName, validateEmail, validatePhone, validatePassword } from 'shared';
 import {
-  Box, Typography, Card, CardContent, Stepper, Step, StepLabel, Button, TextField,
-  Alert, CircularProgress, Radio, RadioGroup, Divider, Chip,
-  FormControl, FormLabel, FormControlLabel, Checkbox, LinearProgress,
+  required, validateName, validateEmail, validatePhone, validatePassword,
+  TL, KeyIcon, CheckCircleIcon, SectionTable,
+} from 'shared';
+import verityLogoLight from '../Verity/verity-logo-light.png';
+import {
+  Box, Typography, Stepper, Step, StepLabel, Button, TextField,
+  Alert, CircularProgress, Radio, RadioGroup, Divider, Chip, Checkbox,
+  FormControl, FormLabel, FormControlLabel, LinearProgress,
 } from '@mui/material';
-import {
-  VpnKey, ElectricBolt, CheckCircle,
-} from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
-import { SectionTable } from 'shared';
 import { api } from '../services/api';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 
+// 7 fixed steps — the backend's currentStep numbering is authoritative (0..6).
+// Intelligence regulators feed the AI pipeline -> Review Inbox; Toolkit regulators
+// feed the toolkit seed -> Obligations Register (only when the license enables it).
 const STEPS = ['License', 'Institution', 'User Setup', 'Intelligence', 'Toolkit', 'SMTP', 'Confirm'];
 
-// `countField`/`countLabel` differ per step: the Intelligence step counts AI-pipeline documents,
-// the Toolkit step counts toolkit obligations.
 const regulatorColumns = (selected, toggle, countField, countLabel) => [
   { id: 'select', label: '', minWidth: 48,
     render: (r) => (
@@ -35,7 +35,6 @@ const regulatorColumns = (selected, toggle, countField, countLabel) => [
 ];
 
 export default function OnboardingPage() {
-  const theme = useTheme();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -75,8 +74,7 @@ export default function OnboardingPage() {
   const [availableRegulators, setAvailableRegulators] = useState([]);
   // Intelligence regulators feed the AI pipeline -> Review Inbox.
   const [selectedRegulators, setSelectedRegulators] = useState([]);
-  // Toolkit regulators feed the toolkit seed -> Obligations Register. Only offered when the
-  // license enables toolkit obligations (autoSeedObligations).
+  // Toolkit regulators feed the toolkit seed -> Obligations Register.
   const [selectedToolkitRegulators, setSelectedToolkitRegulators] = useState([]);
   const [autoSeedObligations, setAutoSeedObligations] = useState(false);
   const [regSearch, setRegSearch] = useState('');
@@ -282,6 +280,14 @@ export default function OnboardingPage() {
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
+  function filterRegulators(list, term) {
+    const t = (term || '').trim().toLowerCase();
+    if (!t) return list;
+    return list.filter(r =>
+      (r.name || '').toLowerCase().includes(t) ||
+      (r.abbreviation || '').toLowerCase().includes(t));
+  }
+
   async function handleSaveRegulators() {
     if (selectedRegulators.length === 0) {
       setError('Select at least one regulator to subscribe to.');
@@ -340,36 +346,33 @@ export default function OnboardingPage() {
     return Math.min(step, 6);
   }
 
-  function filterRegulators(list, term) {
-    const t = (term || '').trim().toLowerCase();
-    if (!t) return list;
-    return list.filter(r =>
-      (r.name || '').toLowerCase().includes(t) ||
-      (r.abbreviation || '').toLowerCase().includes(t));
-  }
+  const regRows = filterRegulators(availableRegulators, regSearch);
+  const toolkitRows = filterRegulators(availableRegulators, toolkitSearch);
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#F7FAFC' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: TL.bg }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F7FAFC', p: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 640, mx: 'auto' }}>
-        <Card sx={{ borderRadius: 3, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Box sx={{ width: 52, height: 52, borderRadius: 1.5, bgcolor: theme.palette.warning.main, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5 }}>
-                <ElectricBolt sx={{ fontSize: 30, color: theme.palette.primary.main }} />
-              </Box>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>Welcome to Atheris</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Set up your compliance intelligence workspace
-              </Typography>
-            </Box>
+    <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, p: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: 720, mx: 'auto', pt: { xs: 2, md: 4 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Box component="img" src={verityLogoLight} alt="Verity Compliance" sx={{ height: 44, width: 'auto' }} />
+        </Box>
+        <Box sx={{ bgcolor: '#FFFFFF', border: `1px solid ${TL.gray100}`, borderRadius: '12px', boxShadow: TL.cardShadow, overflow: 'hidden' }}>
+          <Box sx={{ px: { xs: 3, md: 4 }, py: 3, borderBottom: `1px solid ${TL.gray100}` }}>
+            <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: TL.textPrimary }}>
+              Welcome to Verity Compliance
+            </Typography>
+            <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mt: 0.5 }}>
+              Set up your compliance intelligence workspace
+            </Typography>
+          </Box>
+          <Box sx={{ p: { xs: 3, md: 4 } }}>
 
             <Stepper activeStep={getActiveStep()} alternativeLabel sx={{ mb: 4 }}>
               {STEPS.map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
@@ -379,21 +382,21 @@ export default function OnboardingPage() {
             {seeding && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <CircularProgress size={48} sx={{ mb: 2 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: TL.gray800, mb: 1 }}>
                   Setting up your workspace
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
                   Seeding obligations from the compliance toolkit...
                 </Typography>
-                <LinearProgress variant="determinate" value={seedCount > 0 ? 80 : 20} sx={{ mb: 1, borderRadius: 1 }} />
-                <Typography variant="caption" color="text.secondary">
+                <LinearProgress variant="determinate" value={seedCount > 0 ? 80 : 20} sx={{ mb: 1, height: 8, borderRadius: 9999, bgcolor: TL.gray200, '& .MuiLinearProgress-bar': { borderRadius: 9999, bgcolor: '#22C55E' } }} />
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                   {seedCount > 0 ? `${seedCount} obligations loaded` : 'Preparing...'}
                 </Typography>
               </Box>
             )}
             {completed && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
-                <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                <CheckCircleIcon size={48} sx={{ color: '#22C55E', mb: 1 }} />
                 <Alert severity="success" sx={{ mb: 2 }}>
                   Onboarding complete! Redirecting to login...
                 </Alert>
@@ -402,19 +405,18 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 0 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Enter the license key provided by your Atheris administrator
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
+                  Enter the license key provided by your Verity Compliance administrator
                 </Typography>
                 <TextField fullWidth size="small" label="License Key"
                   placeholder="ATH-XXXX-XXXX-XXXX-XXXX"
                   value={licenseKey}
                   onChange={e => setLicenseKey(e.target.value.toUpperCase())}
                   disabled={submitting}
-                  InputProps={{ startAdornment: <VpnKey sx={{ mr: 1, fontSize: 18, color: '#CBD5E0' }} /> }}
+                  InputProps={{ startAdornment: <KeyIcon size={18} sx={{ mr: 1, color: TL.gray400 }} /> }}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleActivateLicense} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleActivateLicense} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Activate License'}
                 </Button>
               </Box>
@@ -440,8 +442,7 @@ export default function OnboardingPage() {
                   onChange={e => setInstitution(p => ({ ...p, contactEmail: e.target.value }))}
                   sx={{ mb: 2 }} />
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleInstitution} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleInstitution} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
                 </Button>
               </Box>
@@ -450,7 +451,9 @@ export default function OnboardingPage() {
             {!seeding && !completed && getActiveStep() === 2 && (
               <Box>
                 <FormControl sx={{ mb: 2 }}>
-                  <FormLabel>Authentication Type</FormLabel>
+                  <FormLabel sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: TL.gray500, '&.Mui-focused': { color: TL.gray500 } }}>
+                    Authentication Type
+                  </FormLabel>
                   <RadioGroup row value={authType} onChange={e => setAuthType(e.target.value)}>
                     <FormControlLabel value="local" control={<Radio />} label="Local Admin" />
                     <FormControlLabel value="ldap" control={<Radio />} label="LDAP" />
@@ -516,7 +519,7 @@ export default function OnboardingPage() {
                     )}
 
                     <Divider sx={{ my: 1 }}>Break-glass local admin</Divider>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
                       A local Tenant Admin who can sign in if the directory is unavailable.
                     </Typography>
                     <TextField fullWidth size="small" label="Full Name" required
@@ -535,7 +538,7 @@ export default function OnboardingPage() {
                 )}
 
                 <Divider sx={{ my: 2 }}>Compliance roles</Divider>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
                   The {authType === 'ldap' ? 'directory must contain these emails; the directory owns the passwords' : 'CCO and Analyst sign in with these credentials'}. You can invite more users later.
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -560,8 +563,7 @@ export default function OnboardingPage() {
                 )}
 
                 <Button fullWidth variant="contained" size="large"
-                  onClick={handleUserSetup} disabled={submitting}
-                  sx={{ py: 1.2, fontWeight: 600 }}>
+                  onClick={handleUserSetup} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Save & Continue'}
                 </Button>
               </Box>
@@ -569,44 +571,36 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 3 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
                   Choose the regulators whose documents you want monitored. Their instruments arrive
                   in your Review Inbox after the AI pipeline processes them.
                 </Typography>
 
-                <TextField fullWidth size="small" label="Search regulator name or abbreviation"
-                  value={regSearch} onChange={e => setRegSearch(e.target.value)} sx={{ mb: 1.5 }} />
-
-                {availableRegulators.length === 0 ? (
-                  <Alert severity="info" sx={{ mb: 2 }}>Loading regulators…</Alert>
-                ) : (
-                  <SectionTable
-                    columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents')}
-                    rows={filterRegulators(availableRegulators, regSearch)}
-                    total={filterRegulators(availableRegulators, regSearch).length}
-                    page={0}
-                    size={filterRegulators(availableRegulators, regSearch).length || 1}
-                    loading={false}
-                    rowKey={(r) => r.regulatorId}
-                    onRowClick={(r) => toggleRegulator(r.regulatorId)}
-                    rowsPerPageOptions={[Math.max(filterRegulators(availableRegulators, regSearch).length, 1)]}
-                    emptyMessage="No regulators match your search."
-                  />
-                )}
+                <SectionTable
+                  columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents')}
+                  rows={regRows}
+                  total={regRows.length}
+                  page={0}
+                  size={regRows.length || 1}
+                  loading={false}
+                  rowKey={(r) => r.regulatorId}
+                  onRowClick={(r) => toggleRegulator(r.regulatorId)}
+                  search={{ value: regSearch, onChange: setRegSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                  rowsPerPageOptions={[Math.max(regRows.length, 1)]}
+                  emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
+                />
 
                 <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
-                  <Button size="small"
-                    onClick={() => setSelectedRegulators(
-                      filterRegulators(availableRegulators, regSearch).map(r => r.regulatorId))}>
+                  <Button size="small" onClick={() => setSelectedRegulators(regRows.map(r => r.regulatorId))}>
                     Select all
                   </Button>
                   <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                  <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
                     {selectedRegulators.length} selected
                   </Typography>
                 </Box>
 
-                <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.2 }}
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2 }}
                   onClick={handleSaveRegulators} disabled={submitting || selectedRegulators.length === 0}>
                   {submitting ? <CircularProgress size={20} /> : 'Continue'}
                 </Button>
@@ -617,35 +611,31 @@ export default function OnboardingPage() {
               <Box>
                 {autoSeedObligations ? (
                   <>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
                       Your license includes the compliance toolkit. Choose the regulators whose toolkit
                       obligations should be loaded straight into your Obligations Register. You can skip this.
                     </Typography>
 
-                    <TextField fullWidth size="small" label="Search regulator name or abbreviation"
-                      value={toolkitSearch} onChange={e => setToolkitSearch(e.target.value)} sx={{ mb: 1.5 }} />
-
                     <SectionTable
                       columns={regulatorColumns(selectedToolkitRegulators, toggleToolkitRegulator, 'toolkitCount', 'Obligations')}
-                      rows={filterRegulators(availableRegulators, toolkitSearch)}
-                      total={filterRegulators(availableRegulators, toolkitSearch).length}
+                      rows={toolkitRows}
+                      total={toolkitRows.length}
                       page={0}
-                      size={filterRegulators(availableRegulators, toolkitSearch).length || 1}
+                      size={toolkitRows.length || 1}
                       loading={false}
                       rowKey={(r) => r.regulatorId}
                       onRowClick={(r) => toggleToolkitRegulator(r.regulatorId)}
-                      rowsPerPageOptions={[Math.max(filterRegulators(availableRegulators, toolkitSearch).length, 1)]}
-                      emptyMessage="No regulators match your search."
+                      search={{ value: toolkitSearch, onChange: setToolkitSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                      rowsPerPageOptions={[Math.max(toolkitRows.length, 1)]}
+                      emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
                     />
 
                     <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
-                      <Button size="small"
-                        onClick={() => setSelectedToolkitRegulators(
-                          filterRegulators(availableRegulators, toolkitSearch).map(r => r.regulatorId))}>
+                      <Button size="small" onClick={() => setSelectedToolkitRegulators(toolkitRows.map(r => r.regulatorId))}>
                         Select all
                       </Button>
                       <Button size="small" onClick={() => setSelectedToolkitRegulators([])}>Clear</Button>
-                      <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                      <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
                         {selectedToolkitRegulators.length} selected
                       </Typography>
                     </Box>
@@ -657,7 +647,7 @@ export default function OnboardingPage() {
                   </Alert>
                 )}
 
-                <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.2 }}
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2 }}
                   onClick={handleSaveToolkitRegulators} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Continue'}
                 </Button>
@@ -689,17 +679,17 @@ export default function OnboardingPage() {
 
             {!seeding && !completed && getActiveStep() === 6 && (
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 3 }}>
                   You're all set! Review your selections and complete setup.
                 </Typography>
-                <Button fullWidth variant="contained" size="large" sx={{ py: 1.2 }}
+                <Button fullWidth variant="contained" size="large"
                   onClick={handleConfirm} disabled={submitting}>
                   {submitting ? <CircularProgress size={20} /> : 'Complete Setup'}
                 </Button>
               </Box>
             )}
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

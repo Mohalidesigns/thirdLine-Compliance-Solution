@@ -1,4 +1,6 @@
 import { Chip, Typography, Box, Tooltip } from '@mui/material';
+import { friendlyPenaltyTypes } from './formatters';
+import { RiskBadge, StateBadge } from './StatusBadge';
 
 /**
  * Per-entity register column definitions shared by the standalone registers and the
@@ -15,21 +17,12 @@ import { Chip, Typography, Box, Tooltip } from '@mui/material';
  *   instrument : sourceTitle, sourceReferenceNumber, riskRating, status  (+ regMap[regulatorId])
  */
 
-const RISK_CHIP_COLOR = { Critical: 'error', High: 'error', Moderate: 'warning', Medium: 'warning', Low: 'success' };
-const STATUS_CHIP_COLOR = {
-  Published: 'success', Triage: 'warning', Superseded: 'default', Withdrawn: 'error',
-  Current: 'success', Active: 'success', Outdated: 'warning',
-  Open: 'warning', 'In Progress': 'info', 'In Remediation': 'info', Closed: 'success', Remediated: 'success',
-};
-
 export function riskChip(risk) {
-  if (!risk) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
-  return <Chip size="small" label={risk} color={RISK_CHIP_COLOR[risk] || 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+  return <RiskBadge value={risk} />;
 }
 
 export function statusChip(status) {
-  if (!status) return <Chip size="small" label="Unknown" variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
-  return <Chip size="small" label={status} color={STATUS_CHIP_COLOR[status] || 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+  return <StateBadge value={status} />;
 }
 
 const ellipsis = (maxWidth) => ({
@@ -46,29 +39,25 @@ export function obligationColumns() {
       ) },
     { id: 'regulatorAbbreviation', label: 'Regulator', minWidth: 120, sortable: true, sortField: 'regulator',
       render: (r) => (r.regulatorAbbreviation
-        ? <Chip size="small" label={r.regulatorAbbreviation} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />
+        ? <Chip size="small" label={r.regulatorAbbreviation} />
         : <Typography variant="body2" color="text.secondary">—</Typography>) },
     { id: 'riskRating', label: 'Risk', minWidth: 100, sortable: true, sortField: 'risk', render: (r) => riskChip(r.riskRating) },
     { id: 'hasPoints', label: 'Points', minWidth: 100, sortable: true, sortField: 'hasPoints',
       render: (r) => (r.hasPoints
-        ? <Chip size="small" label="With" color="success" sx={{ height: 22, borderRadius: '4px' }} />
-        : <Chip size="small" label="Without" sx={{ height: 22, borderRadius: '4px' }} />) },
+        ? <Chip size="small" label="With" color="success" />
+        : <Chip size="small" label="Without" />) },
   ];
 }
 
 export function sanctionColumns() {
   return [
-    { id: 'description', label: 'Sanction', minWidth: 300, maxWidth: 360, truncate: true, sortable: true, sortField: 'description',
-      render: (r) => <Typography variant="body2" sx={ellipsis(360)}>{r.description || '—'}</Typography> },
-    { id: 'sourceSectionReference', label: 'Section', minWidth: 150, maxWidth: 180, truncate: true, sortable: true, sortField: 'sourceSectionReference',
-      render: (r) => (
-        <Typography variant="body2" sx={{ ...ellipsis(180), fontFamily: 'Roboto Mono, monospace', fontSize: '0.72rem' }}>
-          {r.sourceSectionReference || '—'}
-        </Typography>
-      ) },
-    { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 320, truncate: true, sortable: true, sortField: 'penaltyDetails',
-      render: (r) => <Typography variant="body2" sx={ellipsis(320)}>{r.penaltyDetails || '—'}</Typography> },
-    { id: 'liableRoles', label: 'Liable Role', minWidth: 190, sortable: true, sortField: 'liableRoles',
+    { id: 'description', label: 'Obligation', minWidth: 340, maxWidth: 380, truncate: true, sortable: true, sortField: 'description',
+      render: (r) => <Typography variant="body2" sx={ellipsis(380)}>{r.description || '—'}</Typography> },
+    { id: 'penaltyType', label: 'Penalty Type', minWidth: 170, sortable: true, sortField: 'penaltyType',
+      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(180)}>{friendlyPenaltyTypes(r.penaltyType)}</Typography> },
+    { id: 'penaltyDetails', label: 'Penalty', minWidth: 280, maxWidth: 300, truncate: true, sortable: true, sortField: 'penaltyDetails',
+      render: (r) => <Typography variant="body2" sx={ellipsis(300)}>{r.penaltyDetails || '—'}</Typography> },
+    { id: 'liableRoles', label: 'Responsible Party', minWidth: 190, sortable: true, sortField: 'liableRoles',
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(220)}>{r.liableRoles?.length ? r.liableRoles.join(', ') : '—'}</Typography> },
   ];
 }

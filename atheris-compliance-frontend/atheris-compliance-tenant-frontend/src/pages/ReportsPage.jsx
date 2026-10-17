@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Grid, TextField, MenuItem, Button, Alert, Paper, IconButton,
-  Tooltip, Menu, Card, CardContent, Drawer, Divider, Chip, Snackbar, CircularProgress,
+  Box, Typography, TextField, MenuItem, Button, Alert, Select,
+  Divider, Snackbar, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Checkbox,
-  Table, TableHead, TableRow, TableCell, TableBody,
 } from '@mui/material';
 import {
-  Search, Close, Refresh, ArrowDropDown, InsertDriveFile, Description,
-  CheckCircle, Schedule, Download, VerifiedUser, PictureAsPdf, Add,
-} from '@mui/icons-material';
-import { SectionTable } from 'shared';
+  SectionTable, PageHeader, KpiCards, FilterBar, FilterField, EntityDrawer, StatusBadge, TL,
+  ArrowPathIcon, PlusIcon, DocumentTextIcon, ClockIcon, CheckCircleIcon, ShieldCheckIcon, ArrowDownTrayIcon,
+} from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -36,50 +34,16 @@ const COLUMNS = [
 ];
 
 const STATUS_META = {
-  DRAFT: { color: 'warning', label: 'Draft', icon: <Schedule fontSize="small" /> },
-  SIGNED_OFF: { color: 'success', label: 'Signed off', icon: <VerifiedUser fontSize="small" /> },
+  DRAFT: { color: 'warning', tone: 'amber', label: 'Draft' },
+  SIGNED_OFF: { color: 'success', tone: 'green', label: 'Signed off' },
 };
+
+const labelSx = { fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' };
 
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function KpiCard({ kpi, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  return (
-    <Card variant="outlined" onClick={() => onSelect(kpi.key)}
-      sx={{ cursor: 'pointer', borderLeft: `4px solid ${kpi.color}`, '&:hover': { boxShadow: 1 } }}>
-      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-          </Box>
-          {entries.length > 0 && (
-            <IconButton size="small" aria-label={`${kpi.label} breakdown`}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-              <ArrowDropDown fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()}>
-          {entries.map(([label, count]) => (
-            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-                <span>{label}</span>
-                <span style={{ color: '#718096' }}>{count}</span>
-              </Box>
-            </MenuItem>
-          ))}
-        </Menu>
-      </CardContent>
-    </Card>
-  );
 }
 
 const today = new Date();
@@ -135,7 +99,7 @@ function GenerateDialog({ open, onClose, onGenerated, canGenerate }) {
           <TextField size="small" type="date" label="To" value={to} InputLabelProps={{ shrink: true }}
             onChange={(e) => { setTo(e.target.value); setPreset('custom'); }} fullWidth />
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+        <Typography sx={labelSx}>
           Sections
         </Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', mt: 0.5 }}>
@@ -148,7 +112,7 @@ function GenerateDialog({ open, onClose, onGenerated, canGenerate }) {
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography sx={{ ...labelSx, mb: 1 }}>
           Preview {preview ? `— ${preview.institutionName}` : ''}
         </Typography>
         {isLoading ? <CircularProgress size={20} /> : preview && (
@@ -166,7 +130,7 @@ function GenerateDialog({ open, onClose, onGenerated, canGenerate }) {
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" disabled={!valid || !canGenerate || generate.isPending}
           onClick={() => generate.mutate()}
-          startIcon={generate.isPending ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdf />}>
+          startIcon={generate.isPending ? <CircularProgress size={16} color="inherit" /> : <DocumentTextIcon size={16} />}>
           Generate Draft
         </Button>
       </DialogActions>
@@ -176,9 +140,9 @@ function GenerateDialog({ open, onClose, onGenerated, canGenerate }) {
 
 function Stat({ label, value }) {
   return (
-    <Box sx={{ border: '1px solid #E2E8F0', borderRadius: 1, p: 1 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
-      <Typography variant="body1" sx={{ fontWeight: 700 }}>{value}</Typography>
+    <Box sx={{ border: `1px solid ${TL.gray100}`, borderRadius: '8px', bgcolor: TL.gray50, p: 1.25 }}>
+      <Typography sx={{ fontSize: '0.6875rem', fontWeight: 500, color: TL.gray500, textTransform: 'uppercase', letterSpacing: '0.025em' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: TL.gray800 }}>{value}</Typography>
     </Box>
   );
 }
@@ -236,10 +200,10 @@ export default function ReportsPage() {
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Packs', value: total, color: '#2B6CB0', icon: <Description sx={{ fontSize: 20 }} /> },
-    { key: 'drafts', label: 'Drafts', value: drafts, color: '#DD6B20', icon: <Schedule sx={{ fontSize: 20 }} /> },
-    { key: 'signed', label: 'Signed Off', value: signed, color: '#2C7A7B', icon: <CheckCircle sx={{ fontSize: 20 }} /> },
-    { key: 'last', label: 'Last Sign-off', value: lastSigned ? fmtDate(lastSigned.signedOffAt) : '—', color: '#805AD5', icon: <VerifiedUser sx={{ fontSize: 20 }} /> },
+    { key: 'total', label: 'Total Packs', value: total, tone: 'blue', icon: <DocumentTextIcon /> },
+    { key: 'drafts', label: 'Drafts', value: drafts, tone: 'amber', icon: <ClockIcon />, active: statusFilter === 'DRAFT' },
+    { key: 'signed', label: 'Signed Off', value: signed, tone: 'green', icon: <CheckCircleIcon />, active: statusFilter === 'SIGNED_OFF' },
+    { key: 'last', label: 'Last Sign-off', value: lastSigned ? fmtDate(lastSigned.signedOffAt) : '—', tone: 'purple', icon: <ShieldCheckIcon /> },
   ];
 
   function onKpiSelect(key) {
@@ -251,10 +215,12 @@ export default function ReportsPage() {
 
   const columns = COLUMNS.map(c => ({
     ...c,
-    render: c.id === 'period' ? (r) => `${r.periodFrom} → ${r.periodTo}`
+    render: c.id === 'period' ? (r) => (
+        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>{`${r.periodFrom} → ${r.periodTo}`}</Typography>
+      )
       : c.id === 'status' ? (r) => {
-          const meta = STATUS_META[r.status] || { color: 'default', label: r.status };
-          return <Chip size="small" color={meta.color} label={meta.label} sx={{ height: 22, borderRadius: '4px' }} />;
+          const meta = STATUS_META[r.status] || { tone: 'gray', label: r.status };
+          return <StatusBadge tone={meta.tone} label={meta.label} />;
         }
       : c.id === 'score' ? (r) => (r.complianceScore != null ? `${r.complianceScore}%` : '—')
       : undefined,
@@ -262,40 +228,36 @@ export default function ReportsPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Reports</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Board packs — generate, review and sign off the compliance report for the board
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Refresh"><IconButton onClick={() => refetch()}><Refresh /></IconButton></Tooltip>
-          {canGenerate && (
-            <Button variant="contained" startIcon={<Add />} onClick={() => setGenOpen(true)}>Generate Board Pack</Button>
-          )}
-        </Box>
-      </Box>
+      <PageHeader
+        title="Reports"
+        subtitle="Board packs — generate, review and sign off the compliance report for the board"
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => refetch()}>Refresh</Button>
+            {canGenerate && (
+              <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setGenOpen(true)}>Generate Board Pack</Button>
+            )}
+          </>
+        )}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map((k) => (
-          <Grid key={k.key} size={{ xs: 6, md: 3 }}>
-            <KpiCard kpi={k} onSelect={onKpiSelect} onDrill={() => {}} />
-          </Grid>
-        ))}
-      </Grid>
+      <KpiCards items={kpis} onSelect={onKpiSelect} columns={4} />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField select size="small" value={statusFilter} label="Status"
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }} sx={{ minWidth: 160 }}>
-          <MenuItem value="All">All</MenuItem>
-          <MenuItem value="DRAFT">Draft</MenuItem>
-          <MenuItem value="SIGNED_OFF">Signed off</MenuItem>
-        </TextField>
-        {hasFilters && <Button size="small" startIcon={<Close />} onClick={() => { setStatusFilter('All'); setPage(0); }}>Clear</Button>}
-      </Paper>
+      <FilterBar
+        showClear={hasFilters}
+        onClear={() => { setStatusFilter('All'); setPage(0); }}
+      >
+        <FilterField label="Status" minWidth={180}>
+          <Select size="small" value={statusFilter} sx={{ height: 40 }}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+            <MenuItem value="All">All</MenuItem>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="SIGNED_OFF">Signed off</MenuItem>
+          </Select>
+        </FilterField>
+      </FilterBar>
 
       <SectionTable
         columns={columns}
@@ -319,16 +281,18 @@ export default function ReportsPage() {
         onGenerated={(pack) => { qc.invalidateQueries(['board-packs']); refetch(); setToast({ severity: 'success', message: 'Board pack generated.' }); if (pack) setSelected(pack); }} />
 
       {/* Detail drawer */}
-      <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)} PaperProps={{ sx: { width: 480, p: 3 } }}>
+      <EntityDrawer
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title="Board Pack"
+        subtitle={selected ? `${selected.periodFrom} → ${selected.periodTo}` : undefined}
+        width={480}
+      >
         {selected && (
           <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Board Pack</Typography>
-              <IconButton onClick={() => setSelected(null)}><Close /></IconButton>
-            </Box>
-            <Chip size="small" color={STATUS_META[selected.status]?.color} label={STATUS_META[selected.status]?.label}
-              sx={{ height: 22, borderRadius: '4px', mb: 2 }} />
-            <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '6px 16px', mb: 2 }}>
+            <StatusBadge tone={STATUS_META[selected.status]?.tone || 'gray'} label={STATUS_META[selected.status]?.label || selected.status}
+              sx={{ mb: 2 }} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '10px 16px', mb: 2, alignItems: 'baseline' }}>
               <Field label="Period" value={`${selected.periodFrom} → ${selected.periodTo}`} />
               <Field label="Compliance Score" value={selected.complianceScore != null ? `${selected.complianceScore}%` : '—'} />
               <Field label="Generated By" value={selected.generatedByName || '—'} />
@@ -340,20 +304,20 @@ export default function ReportsPage() {
               <Field label="File" value={selected.fileName || '—'} />
             </Box>
             {selected.signOffNote && (
-              <Box sx={{ bgcolor: '#F7FAFC', borderRadius: 1, p: 1.5, mb: 2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Sign-off note</Typography>
-                <Typography variant="body2">{selected.signOffNote}</Typography>
+              <Box sx={{ bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`, borderRadius: '8px', p: 1.5, mb: 2 }}>
+                <Typography sx={labelSx}>Sign-off note</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>{selected.signOffNote}</Typography>
               </Box>
             )}
             <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Button variant="outlined" startIcon={<Download />} onClick={() => download(selected.boardPackId)}>Download PDF</Button>
+              <Button variant="outlined" startIcon={<ArrowDownTrayIcon size={16} />} onClick={() => download(selected.boardPackId)}>Download PDF</Button>
               {canSignOff && selected.status === 'DRAFT' && (
-                <Button variant="contained" startIcon={<VerifiedUser />} onClick={() => setSignOffOpen(true)}>Sign Off</Button>
+                <Button variant="contained" startIcon={<ShieldCheckIcon size={16} />} onClick={() => setSignOffOpen(true)}>Sign Off</Button>
               )}
             </Box>
           </Box>
         )}
-      </Drawer>
+      </EntityDrawer>
 
       {/* Sign-off dialog */}
       <Dialog open={signOffOpen} onClose={() => setSignOffOpen(false)} maxWidth="xs" fullWidth>
@@ -383,7 +347,7 @@ export default function ReportsPage() {
 
 function Field({ label, value }) {
   return (<>
-    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
-    <Typography variant="body2">{value}</Typography>
+    <Typography sx={labelSx}>{label}</Typography>
+    <Typography variant="body2" sx={{ color: TL.gray700 }}>{value}</Typography>
   </>);
 }

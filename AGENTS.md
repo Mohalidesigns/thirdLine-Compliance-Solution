@@ -140,6 +140,29 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Verity Compliance branding (both frontends) — `feature/verity-branding`
+- Logo set (`Verity/` — light/dark logo, mark, favicon) in intel `public/` and tenant `src/`. Shared `AppSidebar` shows the full logo, or the mark when collapsed; both apps pass them.
+- Login pages, tenant onboarding and the public remediation page use the logos; favicons and tab titles read "Verity Compliance"; intel `BRAND.NAME` is "Verity". Presentation only — no backend change.
+
+### Tenant Compliance Universe (dashboard section + page) — `feature/tenant-dashboard-universe`
+- **Page `/universe`** (`pages/UniversePage.jsx`, sidebar "Compliance Universe", first under registers) mirrors intel `/admin/universe`: risk KPIs (click = risk filter, dropdown = by regulator → drill sets risk+regulator), Top Regulators rows and Nature Mix chips (click = filter), Areas of Focus chips (click toggles the table filter), FilterBar (search, regulator, area, risk, nature, status), sortable server-paged `SectionTable` (Instrument | Regulator | Area of Focus | Risk | Status). All filters live in the URL. Row click opens an `EntityDrawer` (details, AI summary, obligations → `/obligations/:id`, sanctions); "Open in Instruments" uses the new `/instruments?id=` deep link.
+- **Dashboard** (`CcoDashboardPage`) opens with `components/dashboard/ComplianceUniverseSection` above the attention cards; every card, regulator, nature and area deep-links into `/universe` with the filter applied.
+- **Backend:** `GET /api/v1/subscriptions/instruments/universe-stats` → `UniverseStatsResponse` (`total`, `byRiskRating`, `byRegulator`, `byNature`, `byAreaOfFocus`, `byStatus`, `regulatorsByRisk`; count-ordered) and `GET /subscriptions/instruments/universe` → `Page<UniverseInstrumentItem>` (filters `q`/`regulator`/`areaOfFocus`/`riskRating`/`nature`/`status`, whitelisted sorts, in-memory because rows come from the platform API). Universe = platform instruments of the tenant's active regulators confirmed into the register (`InstrumentsService.confirmedUniverse`).
+- **Bug fixed:** `InstrumentsService.search` read only the first 200 platform results (register showed 50 of 112); it now shares `confirmedUniverse`, which pages the whole platform search.
+- **Verify (done, live):** 112/54/37/1 = `count(distinct instrument_id)`; area chip 112→23; area+High 22; +CBN drill 19; regulator row 7; Clear → 112; drawer + `/instruments?id=` open; dashboard area/drill links land filtered (19, 14); no console errors. **Gotcha:** restarting the tenant backend signs tenant users out.
+- **Carried onto `feature/tenant-compliance-universe`** (on top of the heatmap/runbook branches) by a 3-way apply of the uncommitted draft; on the dashboard the Universe section sits above the restored KPI row. Re-verified live: 112/54/37/1, AML/CFT/CPF → 23, drawer opens.
+
+### Thirdline UI adoption (both frontends) — `feature/thirdline-ui-adoption`
+- **One design system for both apps, modelled on Thirdline Internal Audit** (thirdline.atherislimited.com). Tokens lifted from Thirdline's CSS vars: navy `#1A365D`, gold accent `#D4AF37`, bg `#F7FAFC`, Figtree font, Tailwind gray scale, `.badge-*` tones.
+- **`shared/src/theme/`** — `thirdlineTheme.js` (each app's `theme/lightTheme.js` now just re-exports it) + `tokens.js` (`TL`, `TONES`, `tone()`, `riskTone()`, `statusTone()`). Component overrides do most of the work: 12px cards with gray-100 hairline + shadow-sm, uppercase gray-500 table heads, pill chips (filled chips render as soft badges), 8px inputs/buttons, Dialog title/actions rules (no `dividers` needed). `palette.warning` is now orange `#DD6B20`; gold lives in `palette.accent`.
+- **`shared/src/icons/heroicons.jsx`** — Heroicons v2 outline (stroke 1.5) as `XxxIcon` components (`size`, `sx`). Icons Thirdline uses are copied from its app verbatim. Prefer these over `@mui/icons-material` (MUI kept only where no heroicon exists: ContentCopy, VisibilityOff, Block).
+- **App shell** (`shared/src/components/shell/`): `AppShell` (collapsible 260/72px sidebar persisted in localStorage, temporary drawer below `lg`, 64px top bar, 32px content padding), `AppSidebar` (navy, 40px items, gold 3px active border, sections split by white/10 rules, Collapse at the foot), `AppTopBar` (gray-50 search, bell with red pill, avatar dropdown with Logout). Each app's `components/layout/{MainLayout,Sidebar,TopBar}.jsx` are thin wrappers. Top-bar search routes to `/obligations?q=` (tenant) / `/admin/instruments?q=` (intel) — both pages now read `q`.
+- **Page kit** (all exported from `shared`): `PageHeader` (white full-bleed title band — FIRST child of a routed page only), `KpiCards`/`KpiCard` (Thirdline stat card: uppercase label, tinted icon tile, `tone`, `caption`, `active`, breakdown dropdown kept), `FilterBar`/`FilterField`/`SearchInput` (labels ABOVE controls), `DataCard`/`CardLink` (panel + "View All"), `StatusBadge`/`RiskBadge`/`StateBadge`, restyled `DetailHeader` (`band` prop for routed pages; in-flow inside drawers), `SectionTable`, `SectionTabs`, `CoverageStrip` (now KpiCards), `EntityDrawer`; `riskChip`/`statusChip` now return badges.
+- **Every routed page in both apps swept onto the kit** (presentation only — no query/field/route changes). Tables over 5 columns folded secondary fields into captions (intel Acts lost `status`/`instrumentCount` sort; Universe, Licenses, Regulators, Inbox, Watchlist, tenant Findings/Uploads/Evidence trimmed). Unrouted intel feature folders (carbon, ESG, dataHub…) were left untouched.
+- **Bugs fixed on the way:** StrictMode alive-ref regression was back in intel `ControlExplorerPage`/`SanctionExplorerPage`/`RegulatoryCoverage` (pages empty in dev) — re-armed on setup again; tenant `ControlsPage` used `navigate` without `useNavigate()` (Open Findings KPI crashed); intel `RegulatorAdminPage` called an undefined `setError` and rendered an `Error` object as a child; tenant Settings "Â·" mojibake.
+- **Verify (done):** intel + tenant `vite build` green; every routed page in both apps loaded live (headers, KPIs, rows, no crashes); collapsed + mobile shell checked. **No backend change.**
+
+
 ### Backend Verification & Cleanup (latest)
 - **DB-driven tenant identity** — tenant backend no longer reads `atheris.tenant-id`/`TENANT_ID`; `TenantIdentityService` resolves the single `tenant_profile` row. `LicenseService.activate()` calls intel `POST /api/v1/internal/tenants/provision` (idempotent) to learn the real tenant id, stored on `tenant_profile` (`UNIQUE(tenant_id)`, tenant V26). All 13 `@Value tenant-id` sites converted; `InternalTenantController.onboard` idempotent. One tenant per instance — the `TENANT_ID=2` sacrificial-tenant pattern is obsolete.
 
@@ -208,12 +231,63 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - **~50 seeded returns show "Due date needed"** — their platform wording has no deadline ("Annually", "Quarterly", "As specified by CBN"); a CCO/admin must set each via Edit schedule. A bulk "set due dates" screen would speed this up.
 - Seeded return frequency labels can be lossy copies of the platform text (e.g. LCR shows "Quarterly" but correctly runs MONTHLY from the platform's full wording).
 - FindingsPage has 7 table columns (rule: max 5) and still uses raw useState/useEffect (no TanStack Query); default status filter 'Open' hides imported Remediated/Closed findings until the filter is changed.
-- Settings → Organization shows mojibake ("Â·") in the team/owner counts.
 - "New Control" form still writes only the control side of obligation links (import writes both).
 - `ObligationService.createObligation`/`updateObligation` check `obligationRepo.existsById(instrumentId)` — the wrong repository (no local instrument table).
 - Intel frontend `api.js:244` still treats 403 as session expiry (the tenant was fixed — see below); check the intel `SecurityConfig` entry point too.
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
+- Seeded **control** risk (`compliance_controls.risk_level`, tenant `controls.inherent_risk`/`residual_risk`) still carries the old inflated toolkit band and drives test frequency (1835 tests due in 30 days) — being fixed in its own session.
+- Near-duplicate seeded act names (e.g. "Consumer Protection Framework" vs "CBN Consumer Protection Framework") split Risk by Act rows.
+
+## Done — Dashboard Consistency (tenant `/dashboard`) — `bugfix/dashboard-consistency`
+
+Every widget now adds up and agrees with the others; `DashboardConsistencyTest` cross-checks the totals.
+- **Shared rules (`atheris-compliance-common`):** `risk/RiskBands` — one band rule for both backends (likelihood × impact on 1..5, Low <6 / Moderate 6–11 / High 12–17 / Critical ≥18; accepts toolkit Very Low..Very High and the matrix axes; missing = `Unrated`, never a default band). `taxonomy/AreasOfFocus` — one area vocabulary (universe names): obligation area = instrument area, else its toolkit-section area via aliases (AML/CFT→AML/CFT/CPF, Conduct Risk→People and Conduct Risk, Capital Market→Capital Market Operations); the generic CRMP sheet "Compliance Risk Management" is never an area → `Unassigned`.
+- **Root causes fixed:** intel toolkit import used 3×3 cut-offs on a 5×5 score (High×Medium = Critical → 86% Critical); tenant seed never set `actName`/`regulationId` (every obligation "Unassigned" act); "Failing (High Risk)" counted controls with residual risk High (a seeded copy of inherent risk), not test results; test coverage read only tasks due before today; score dropped components without data so coverage alone gave 100%; returns % used all 449 periods as denominator; `/returns/calendar` is a Spring Page but the dashboard expected an array (upcoming/"Coming Soon" always 0); `getRiskProfile` defaulted a missing rating to Low; trend only had days the 2am cron ran.
+- **Data repairs (idempotent, app code, no SQL):** intel `ToolkitDataRepairService` (run by `ToolkitStartupSeeder`) re-bands toolkit obligations and reassigns areas; tenant `SeedDataRepairService` (`@Scheduled`, runs until it succeeds once per start — the platform may start later) links act, inherits area, re-bands risk only where the rating still equals `RiskBands.legacyToolkitBand` (user edits kept), then refreshes today's snapshot. Live result: platform risk High 1316 / Moderate 213 / Critical 5 / Low 1; 199 obligations Unassigned area; all 1535 tenant obligations got an act (112 acts).
+- **Metrics (`ComplianceMetricsService`):** controls pass/fail from the latest `control_test_results` row; `controlTestCompletion` = tested ÷ total; `controlEffectivenessPct` = passing ÷ tested; tests due = open tasks due ≤30 days; returns on time = on time ÷ (filed + overdue) (`returnsDue`); empty denominators are `null` (UI "N/A"). **Score** = weighted mean of coverage 30 / control effectiveness (passing ÷ all controls) 25 / returns on time 30 / findings within SLA 15 (stored tenant weights; weight key `controlTests` kept); components without data are left out; `scoreBreakdown` drives the KPI tooltip (`ScoreBreakdown.jsx`). Board pack: "Controls Tested", "Critical/High Obligations", N/A metrics.
+- **Returns stats:** `ReturnStatsDto.buckets` (`ReturnService.statusBuckets`) — exhaustive: filedOnTime + filedLate + overdue + inProgressNotDue + notYetDue = tracked, plus `dueSoon`.
+- **Universe / risk profile:** `byRiskRating` includes `Unrated`, `byAreaOfFocus` includes `Unassigned` (filters accept both); `RiskProfileDto` rows gained `unrated`, summary `unratedCount` + `actCount` (excludes Unassigned).
+- **Snapshots:** one row per day (upsert); today's refreshed on startup and hourly (`:15`); trend = last 30 days, missing days drawn as gaps (history can't be backfilled — metrics are point-in-time).
+- **Frontend:** Controls card on live metrics (passing/failing/not yet tested/tests due), Returns card with all statuses + total + on-time %, Sanctions "Potential exposure (maximum statutory penalties)", Universe "Unrated" card + outlined "Unassigned" chip (dashboard + `/universe`), KPI "Critical/High Obligations", shared `KpiCard` gained `tooltip`.
+- **Verified live (2026-10-17):** universe 54+37+1+20 = 112, areas sum 112; score 45.0%; returns 8 overdue + 441 not yet due = 449; controls 1 passing / 0 failing / 2136 untested; risk by area sums 1535; 112 acts; no console errors. Tests: common 18, intel repair 3, tenant 119 (new: `ComplianceMetricsServiceTest`, `DashboardConsistencyTest`, `ReturnStatusBucketsTest`, `SeedDataRepairServiceTest`).
+- **Gotcha:** on JDK 25 Mockito can't mock concrete classes — run tests with `-DargLine="-Dnet.bytebuddy.experimental=true"` (pre-existing `WorkingDayServiceTest` needs it too).
+
+## Done — Compliance Runbooks (core slice of `Atheris_Compliance_Runbook_v1_0.md`)
+
+Executable, evidence-producing procedures linked to obligations/controls/framework clauses. Branch `feature/compliance-runbooks` (built on `bugfix/restore-28ca694-regressions`). API contract: DTO/endpoint names in the runbook spec §9 plus the shapes below.
+
+### Tenant backend (`modules/runbooks/`)
+- **Migrations V38–V41** (spec said V10–V14; tenant was already at V37): frameworks/clauses, runbooks + immutable versions tree (sections → steps → evidence reqs, prerequisites, escalation paths, rollback steps, clause maps, approvals), executions (step executions, evidence items, escalations, sign-offs; `runbook_execution_ref_seq`; unique `(schedule_id, scheduled_for)`), schedules + review schedules/events. Extra columns vs spec: `runbooks.source_template_code/status_reason/review_cadence`, `runbook_versions.submitted_at`, rollback `reverses_step_code`, step-exec `rollback_id/failure_category`, execution `outcome/status_before_pause/preflight_*/schedule_id/scheduled_for/pack_generated_at`. Hashes are `VARCHAR(64)` (Hibernate `validate`).
+- **Framework library** seeded idempotently at startup by `RunbookFrameworkSeeder` from `resources/runbooks/runbook_frameworks.json` (34 frameworks / 243 clauses: CBN RBCSF DMB+OFI, NDPA, ISO 27001:2022, PCI 4.0.1, NIST CSF/800-53, CIS v8, GDPR…; clause SLAs e.g. NDPA s.40 = 4320 min, CBN incident = 1440). Insert-only. Tenants may add internal-policy frameworks/clauses via the API.
+- **Services:** `RunbookService` (CRUD, Criteria filters, versions DRAFT→IN_REVIEW→PUBLISHED, previous → SUPERSEDED, SHA-256 canonical content hash at publish, diff, approvals — approver ≠ author, HIGH/CRITICAL must be approved, JSON export/import in the portable `atheris-runbook/1` format); `RunbookTreeService` (batch load/replace/copy of a version tree, portable format, diff); `RunbookLintService` (L1–L10; ERROR rules L3/L5/L6/L7/L9 block submit/publish; L9 secrets also rejected on save as 400 `secret_in_command`); `RunbookExecutionService` (state machine §8.2: only PUBLISHED executes, pre-flight acks, blocking-step order, PASS blocked until mandatory evidence, dual control = second user + password re-auth (400 `verification_failed`, never 401), FAIL → finding/escalation/pause/rollback, blocking failure → ESCALATED, rollback steps become tracked step rows, PENDING_SIGNOFF when all terminal, CCO acceptance closes → `control_test_results` row per linked control; evidence stored via `FileStorageService` + `evidence_files` (`RUNBOOK_STEP`), SHA-256 server-side, extension allow-list, 25 MB, no update/delete endpoints); `RunbookEvidencePackService` (ZIP: evidence files + `manifest.json` + `manifest.sha256` + openhtmltopdf report; re-verifies every file hash; `pack_hash` = SHA-256 of the ZIP); `RunbookScheduleService` (frequency from anchor, weekend/public-holiday shift to the previous business day, review cadence); `RunbookJobs` (`@Scheduled` SLA monitor every 60 s: 50 % in-app, 80 % SLA_80 levels, 100 % SLA_BREACH + audit; hourly schedule runner creates NOT_STARTED executions `leadDays` ahead, idempotent; opens due periodic reviews); `RunbookTemplateService` (pulls templates from intel, adopt with provenance, `POST /runbooks/{id}/template-revision`).
+- Every state change writes an audit event (`runbook_*`, `execution_*`, `step_*`, `evidence_captured`, `escalation_sent`, `rollback_triggered`, `signoff`, `pack_generated`).
+- **New role `IT_OPS`** (`AppRole`): execute + capture evidence only. Invite and role change now validate against `AppRole.ALL`; onboarding normalisation and the Settings role picker know it. There is no LDAP group→role mapping in the codebase (roles live on user rows).
+- `GET /runbooks/assignees` — active users for owner/operator pickers (GET `/users` is admin-only).
+
+### Intel (`modules/runbooktemplates/`, V17)
+`runbook_templates` (content JSONB, content hash, `step_count`/`section_count`), seeded by `RunbookTemplateStartupSeeder` (`@Order(2)`) from `resources/runbooks/runbook_templates.json` — 12 templates: RB-ACC/VUL/INC/CFG-001 in full, 8 outlines; a changed content hash bumps `template_version`. `GET /api/v1/internal/runbook-templates[/{code}]` (X-Api-Key) and `GET /api/v1/admin/runbook-templates[/stats|/{code}]` (PLATFORM_ADMIN). Read-only explorer + detail pages under COMPLIANCE → "Runbook Templates". **Note:** intel now has TanStack Query (provider in `main.jsx`); the explorer uses it like `RegulationExplorerPage`.
+
+### Tenant frontend (`src/pages/runbooks/`, `src/components/runbooks/`)
+Sidebar "Runbooks" (between Controls and Findings) + `RunbooksNav` tabs. Pages: Library (P1), Builder 5-step wizard with 2 s autosave + live lint (P2), Detail with 8 tabs (P3), Executions (P4), Execution Console 3-pane with SLA timer/milestones, evidence capture, dual-control verify, rollback (P5), Summary with sign-off + evidence pack (P6), Approvals with diff (P9), Coverage Matrix (P10), Template Library + Adopt (P11); `RunbooksWidget` on `CcoDashboardPage`. `api.runbooks.*` in `services/api.js`; `request()` errors now carry `err.status` / `err.code`.
+
+### Verified (live, browser pane :5184 against backends from this branch, 2026-10-16)
+Startup: tenant V38–V41 + `RunbookFrameworkSeeder` (34 frameworks / 243 clauses), intel V17 + 12 templates seeded. Template Library lists all 12 from intel; adopt RB-ACC-001 (HIGH) → DRAFT v1 with provenance, lint clean, submit → Approvals shows it with "You (cannot approve)" (single-user tenant, so approval + dual control were not exercised end to end). Adopt RB-LOG-001 (MEDIUM, linked control) → publish v1; weekly schedule from Sat 17 Oct shifted to Fri 16 Oct; hourly runner created scheduled RBX-2026-000003 and advanced to 23 Oct. Manual run RBX-2026-000001: pre-flight, PASS blocked server-side (409 `evidence_required`), out-of-order start blocked (409 `blocked_by_previous_step`), evidence hashed, 7/7 passed → PENDING_SIGNOFF → operator + CCO sign-off → COMPLETED_PASS → control test result "Passed" recorded on the linked control; evidence pack ZIP (7 files + manifest + PDF) re-hashed in the browser = `pack_hash`. Run RBX-2026-000002: blocking step failed with "raise finding" → ESCALATED, finding #1 (Medium) raised, L1 escalation sent; aborted. Coverage 6 covered / 9 partial / 228 uncovered; dashboard widget live. Intel explorer (12 templates, KPIs) and RB-INC-001 detail (8 sections / 27 steps / 5 escalation levels / 2 rollback steps) checked live on :5183.
+
+### Not in this slice (follow-ups)
+Calendar (P7), Review Queue UI + instrument-change review triggers (P8; review events are created but not yet actionable), Analytics (P12), Settings → Runbooks tab (P14), MD/PDF runbook export, public attestation page, returns hook for RB-RET-*, coverage "control only" (amber = mapped to unpublished runbooks instead), dual-control re-auth for LDAP users, the spec's unit/integration/E2E tests.
+
+## Done — Risk Heatmap Drill-down
+
+Tenant Dashboard → Risk Profile → Risk Heatmap is clickable: a populated cell, a band in the legend (now shows per-band counts, e.g. "Critical 1373"), or a row in the table view opens `/obligations?cells=<impact|likelihood;…>&riskView=inherent|residual&drill=<label>`. The register shows a removable "Risk heatmap (…)" chip.
+- **Backend:** `GET /obligations/register` gained `cells` + `riskView`; `ObligationRegisterItem` gained `impactRating`/`likelihoodRating` (from the classification). The filter uses the heatmap's own population and axes (applicable only; impact = classification impact, or residual rating in residual view) so the register total equals the clicked count. Bands are sent as their populated cells, so band membership is never recomputed on the server.
+- Verified live: Critical band 1373 → register 1373; Very High × Medium 3 → 3 rows; clearing the chip → 1535.
+- **Data oddity (pre-existing):** the likelihood axis shows Medium/High/Low columns after Almost Certain — some classifications store likelihood on a 3-level scale, which `resolveAxis` appends.
+
+## Done — Restored work reverted by 28ca694
+
+Commit `28ca694` was made from a stale working copy and overwrote 30 frontend files with old versions (tenant Acts/Reports/public `/remediate/:token` routes, LDAP onboarding, Settings holidays/manager, event-triggered returns, sanctions parity, CCO metrics, control test review; intel Act-detail tabs + drawers, `ObligationExplorerDetailPage` → `ObligationDetailView`, explorers, Document Pipeline, nav groups, api abort signals, RegulationExplorer `regulatorId`). Restored by per-file 3-way merge (base = the stale version copied), then the Thirdline restyle (`49e31cb`) merged on top. Intel nav keeps COMPLIANCE / OPERATIONS / TENANTS. Tenant sidebar: Acts under registers, Reports under assurance.
+- **Lesson:** before committing a large multi-file change, diff against the branch tip (`git diff HEAD --stat`) — a file whose diff deletes recently merged features is a stale copy.
 
 ## Done — Return Due Dates (no more overdue-on-day-one)
 
@@ -274,116 +348,28 @@ Controls page → Import, same 3-step dialog and endpoints (`{type}=controls`). 
 
 ## Done — Bulk Import Phase 1 (Obligations) + Auth Status Codes
 
-**Flow (tenant `:5174`, Obligations Register → Import):** download the `.xlsx` template → upload → row-by-row preview (valid / invalid with reasons / duplicate) → "Import N obligations". Imported rows go **straight to the register** (`source='imported'`, `applicability='applicable'`) — the preview confirm is the human check, by user decision; they do NOT pass through the Review Inbox. Invalid rows download as an errors `.xlsx` with an "Error" column to fix and re-upload.
-
-### Backend (`modules/imports/`)
-- `ImportHandler` interface + `ObligationImportHandler`; `ImportService`; `ImportWorkbooks` (all POI read/write, zip-bomb guards, ≤5000 rows, ≤10 MB, header match case/space-insensitive); thin `ImportController`.
-- Endpoints (`ANALYST/CCO/TENANT_ADMIN`): `GET /imports/{type}/template`, `POST /imports/{type}/preview` (multipart `file`), `POST /imports/batches/{id}/commit` (409 `already_committed` on repeat; batch row-locked), `GET /imports/batches/{id}/errors`, `GET /imports/batches?type=`.
-- New table `import_batches` (**V31**) keeps each upload's parsed rows (JSONB), counts and status.
-- Validation: title + regulator required (tenant regulator by name/abbrev); Impact `Insignificant..Severe` (aliases Low/Medium/High/Critical → Minor/Moderate/Major/Severe); Likelihood `Rare..Almost Certain`; Owner must match an active owner; dates numeric or `yyyy-MM-dd`/`dd/MM/yyyy`. Duplicate key = normalised title + section + act, against the register and earlier rows in the file.
-- Commit: one transaction; obligation numbers allocated once per batch; inherent risk computed by `@PrePersist`; **one** `obligations_imported` audit event per batch (with all ids), not one per row; register cache evicted.
-- **Schema:** `obligations.tenant_regulator_id` (V3 edited in place, index only — `tenant_regulators` is created later in V14). Register/detail fall back to the tenant regulator when there is no platform instrument, so standalone obligations no longer show "–". Dev DB got `ALTER TABLE` + Flyway repair.
-- Dependency: Apache POI `poi-ooxml` 5.3.0 (`poi.version` in the parent pom).
-
-### Frontend
-- Reusable `components/modals/ImportDialog.jsx` (3 steps, 5-column preview table, clickable result chips); "Import" button beside "New Obligation".
-- `api.js` `rawRequest` (multipart + blob download, keeps the 401 refresh) and `api.imports.*`.
-
-### Auth status codes (tenant)
-- `SecurityConfig` had no entry point, so Spring answered an expired/missing token with **403** — which is why `api.js` treated 403 as session expiry. Now: bad/missing token → **401** `unauthorized`; role denial → **403** `forbidden`. `api.js` refreshes/logs out only on 401; a 403 shows the server message and keeps the user logged in. License-blocked 402/403 from `LicenseFilter` unchanged.
-- Client disconnects (`ClientAbortException`, broken pipe) log at DEBUG instead of "Unhandled exception".
-
-### Dev user seeder (tenant)
-- `config/DevUserSeeder.java`: with `SEED_USERS_ENABLED=true` + `SEED_USERS_PASSWORD` in `.env`, seeds `admin@ / cco@ / analyst@ / auditor@<SEED_USERS_DOMAIN>` (one per role) on start. Idempotent, never resets existing users, rejects weak passwords. Off by default — dev only.
-
-### Verified (live, browser pane, `admin@mamcorp.test`)
-6-row test file → preview 2 valid / 2 invalid / 2 duplicate; errors file held exactly the 2 invalid rows; commit imported 2 (register 1541 → 1543, CBN + act + High risk shown, Under Review unchanged); re-upload → 0 valid / 4 duplicate, Import disabled. No token → 401; analyst on admin endpoint → 403 without logout.
-
+Tenant Obligations Register → Import: template `.xlsx` → preview (valid/invalid/duplicate) → commit straight to the register (`source='imported'`); invalid rows download as an errors `.xlsx`. Backend `modules/imports/` (`ImportHandler`, `ImportService`, `ImportWorkbooks` with zip-bomb/size guards, `import_batches` V31, POI 5.3.0); duplicate key = title + section + act; one audit per batch. Tenant `SecurityConfig` entry point: bad token → 401, role denial → 403 (api.js refreshes/logs out on 401 only). `DevUserSeeder` seeds admin@/cco@/analyst@/auditor@ when `SEED_USERS_ENABLED=true`. Verified live (2 valid / 2 invalid / 2 duplicate; re-upload all duplicate).
 
 ## Done — Review Edit Page Overhaul (inline editing, linked returns, header enrichment)
 
-Review Edit page (`ReviewEditPage.jsx`) rewritten for CCO/analyst workflow. Commit `0ad5e72`.
-
-### Backend (`ReviewDetail.java` + `ReviewService.java`)
-- `ReviewDetail` DTO gains `dateCommencement`, `nature` (from `PlatformInstrumentDetail`)
-- `ReviewObligationDto` gains `linkedReturnIds`, `linkedReturnNames` — populated from `obligationRepo.findLinkedReturnIds()` for re-reviews (saved obligations exist)
-
-### Frontend (`ReviewEditPage.jsx` — 763 lines)
-- **Removed**: AI Summary card, OCR/Extracted Text collapsible section, `ocrOpen` state
-- **Obligations table (5 cols)**: `#` | `Obligation` (title conditional + verbatim inline) | `Interpreted` (inline) | `Risk` (editable dropdown) | `Actions` (apply + delete)
-- **Title**: conditional — shows bold text when present, hidden when empty; clicks into TextField for editing
-- **Risk**: editable `TextField select` in table row (Critical/High/Moderate/Low) — analyst overrides AI assessment directly
-- **Expanded section**: Area of Focus / Obligation Type / Deadline dropdowns, AI Risk Assessment (likelihood/impact/risk + description + control owner + act name), Classification tenant overrides (applicability, risk, impact, likelihood, owner, gap), Linked Regulatory Returns (Autocomplete multi-select via `api.returns.list()`)
-- **Header**: `dateCommencement` + `nature` in metadata grid; re-review chip when `status !== 'pending'`
+`ReviewEditPage.jsx` rewritten (`0ad5e72`): 5-col obligations table with inline title/verbatim/interpreted/risk editing, expandable classification overrides + linked returns; `ReviewDetail` gains `dateCommencement`/`nature`, `ReviewObligationDto` gains linked return ids/names.
 
 ## Done — Instruments Page Overhaul (KPIs, risk filter, enriched detail)
 
-Instruments page (`InstrumentsPage.jsx`) rewritten following `frontend-register-page` skill pattern. Commit `71d9097`.
-
-### List View
-- 4 KPI stats cards (Total, Critical, High, Published) — client-side computed from list, clickable → set risk filter
-- Filters: search + risk dropdown + regulator dropdown + clear button
-- Table (5 cols): Title | Regulator (chip) | Risk (colored chip) | Obligations (count) | Actions (View)
-- Sortable by Title and Risk via `TableSortLabel`
-
-### Detail View
-- Header: regulator, document type chip, risk chip, source title, metadata grid (regulator, type, issued, commencement, nature)
-- AI Summary kept (blue border-left)
-- Obligations table (5 cols): # | Obligation (title+description) | Risk (chip) | Act | Owner — all correct DTO field names
-- Sanctions table (5 cols): Type (chip) | Penalty (naira formatted) | Section | Liable Roles (chips) | Risk (severity score)
-- OCR/Extracted Text section removed
-
-### Field Name Fixes
-- `obl.section` → `obl.sectionReference`
-- `obl.type` → `obl.obligationType`
-- `s.type` → `s.sanctionType`
+`InstrumentsPage.jsx` rewritten (`71d9097`): KPI cards, search/risk/regulator filters, 5-col sortable table; detail with obligations + sanctions tables. Field fixes: `sectionReference`, `obligationType`, `sanctionType`.
 
 ## Done — Intel Obligation Explorer Detail Page (Replicated from Tenant)
 
-Intel `ObligationExplorerDetailPage.jsx` fully rewritten to match tenant `ObligationDetailPage.jsx` layout, sections, styling, drawer, and modals. Commit `db252c8`.
-
-### Backend (`ObligationExplorerDetail` DTO + service + controller)
-- `ObligationExplorerDetail.java` extended with: `hasGap`, `gapDescription`, `applicability`, `applicabilityReasoning`, `classifiedByName`, `classifiedAt`, `assignedOwnerName`, `assignedDepartment`, `linkedControls`, `evidence`, `history`
-- Inner classes added: `ControlInfo`, `EvidenceInfo`, `HistoryEntry`
-- `ComplianceControlRepository.java` — new repository with `findByObligationId()`
-- `ObligationExplorerService.java` — `resolveControls()` populates `linkedControls` via `ComplianceControlRepository`; derives `hasGap`/`gapDescription`/`applicability` from entity fields
-- `AdminObligationExplorerController.java` — added `GET /{id}/controls` and `GET /{id}/pdf` endpoints
-
-### Frontend (`ObligationExplorerDetailPage.jsx` + `api.js` + modals)
-- **Complete rewrite** to match tenant layout:
-  - Header with back + PDF button (right-aligned)
-  - Chips row (risk, regulator, area, deadline, status, hasPoints)
-  - Metadata grid (160px 1fr, gap 4px 16px)
-  - Source Text (verbatim) + Plain English (interpreted) via `FormattedText`
-  - **Linked Controls** — preview list (max 5) + "Link controls" button + "View all" drawer
-  - **Returns** — chip preview + "View all"/"Map return" buttons
-  - **Sanctions** — compact preview with Gavel icon + red color
-  - **Control Gap** — alert + edit button
-  - **Evidence** — upload button + "View all"
-  - **Version History** — "View history" button
-  - **Right drawer** (480px, anchor right) with all sections + search
-  - **Snackbar** notifications, `useQueryClient` cache invalidation
-- **New helpers/components**: `ChipList`, `SectionHeader`, `formatNaira`, `formatDate`, `RISK_CONFIG`, `STATUS_COLOR`, `actionEdit`
-- **`api.js`**: Added `platform.obligations.{controls,evidence,history,pdf}`, `platform.{controls,evidence,returns}.{list,detail}`, `platform.obligations.get` with signal support
-- **6 modal stubs** created in `src/components/modals/`: `RiskAssessmentModal`, `OwnerModal`, `LinkControlsModal`, `MapReturnModal`, `GapModal`, `EvidenceUploadModal`
-- All styling matched: `Paper variant="outlined" p={3} mb={2}`, chip height 22, button `width:180 height:40 textTransform:none fontWeight:600 fontSize:14`, `Paper variant="outlined" p={2} mb={1.5}` for drawer items
-
-### Verification
-- `mvn clean compile` ✅ (intel backend)
-- `npm run build` ✅ (intel frontend, `ObligationExplorerDetailPage-Ck-rx_GE.js` + `Modal-CtOv5Ntz.js` in dist)
-- `git push` ✅
+Intel `ObligationExplorerDetailPage.jsx` mirrors the tenant detail page (`db252c8`); `ObligationExplorerDetail` DTO extended (gap, applicability, controls, evidence, history), `GET /admin/obligation-explorer/{id}/controls|pdf`, 6 modal stubs.
 
 ## Done — PDF Routes Return 404 Instead of 500
 
-`Instrument.pdfUrl` is null for toolkit-imported instruments; `LocalStorageService.resolve(null)` threw an NPE → 500. Now 404 `DOCUMENT_UNAVAILABLE` (intel `ResourceNotFoundException`/`DocumentUnavailableException`; tenant `{"error":"document_unavailable"}`), and `pdfErrorMessage(res, fallback)` in each app's `api.js` shows "No document is available for this instrument." Verified live in both apps.
-- **Two PDF call sites:** `ObligationBrowserService.openPdfStream` AND `InternalInstrumentService.openPdfStream` (the tenant proxies the latter) — fix both.
-- `NoSuchFileException` maps to 404, but under `STORAGE_PROVIDER=s3` `NoSuchKeyException` is untranslated and would still 500.
-- Remaining 500s: `findById` and `classify` in `ObligationBrowserService` still throw bare `RuntimeException` for a missing obligation.
+Null `Instrument.pdfUrl` (toolkit instruments) now yields 404 `DOCUMENT_UNAVAILABLE` instead of an NPE 500 in both PDF call sites (`ObligationBrowserService.openPdfStream`, `InternalInstrumentService.openPdfStream`); both apps' `pdfErrorMessage` shows "No document is available". Still open: S3 `NoSuchKeyException` untranslated (500); `ObligationBrowserService.findById`/`classify` throw bare `RuntimeException`.
 
 ## Done — Dashboards Harmonized (risk / area / act)
 
 Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, all-zero heatmap, total/submitted unit mismatch, ignored thresholds, per-row query in escalation-matrix). `/dashboard/v2/thresholds` no longer takes `tenantId` as a request param (cross-tenant read/write) — resolved via `TenantIdentityService`. Added `control-coverage?by=act` and `RiskProfileDto.byAct`. Tenant `CcoDashboardPage` gained risk profile / area / act sections (TanStack Query, 30s poll); intel `DashboardPage` gained a `RegulatoryCoverage` section.
-- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops (adding them is an open follow-up).
+- **Only link to filters a page reads:** `ObligationsRegisterPage` reads only `risk`, `regulator`, `areaOfFocus`, `owner`, `status`, `hasGap`; `impact`/`likelihood`/`act` links are silent no-ops; heatmap drill-downs use `cells`/`riskView` instead.
 
 ## Done — `atheris-register-page` Skill
 
@@ -399,13 +385,11 @@ Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, a
 
 ## Done — Risk Matrix Defaults Repaired
 
-`RiskMatrixConfig` entity `@Builder.Default` axes/bands disagreed with V28 and `computeInherentRisk` (High band unreachable; likelihood axis matched no stored value; `>` vs `>=` at boundaries). `V30__repair_risk_matrix_defaults.sql` repairs only exact broken rows.
-- **Rule:** entity `@Builder.Default` wins over migration column defaults for JPA-created rows — when a default exists in both, they must agree.
+`RiskMatrixConfig` `@Builder.Default` axes/bands disagreed with V28 and `computeInherentRisk`; `V30__repair_risk_matrix_defaults.sql` repairs only the broken rows. Rule: entity `@Builder.Default` wins over migration defaults for JPA-created rows — keep them in agreement.
 
 ## Done — MUI 7 Grid Migration
 
-154 legacy `<Grid item xs md>` usages in 19 files converted to `size={{ xs, md }}` (MUI 7.3.11 `Grid` is v2; legacy props were silently ignored).
-- **Verify MUI against the installed `node_modules/@mui/material/Grid/Grid.d.ts`**, not memory.
+154 legacy `<Grid item xs md>` usages converted to `size={{ xs, md }}` (MUI 7.3.11 `Grid` is v2; legacy props are silently ignored). Verify MUI APIs against `node_modules/@mui/material/Grid/Grid.d.ts`, not memory.
 
 ## Done — Intel Explorers (obligations, sanctions, returns, controls)
 
@@ -434,11 +418,10 @@ Act names are resolved by collecting the page's distinct act ids into a `Set` an
 The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
 ## Done — Returns Register/Details Harmonized (incl. backend linkage)
 
-`GET /returns/{returnId}/obligations` enriched in place to `LinkedObligationItem` (native projection, no migration); rows lazily fetch linked obligations on expand; `overcomeCount` typo → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort (always `currentDueDate`).
-
+`GET /returns/{returnId}/obligations` enriched to `LinkedObligationItem` (rows lazily fetch on expand); `overcomeCount` → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort.
 ## Done — Controls Register/Details Harmonized
 
-`ControlsPage.jsx` now shows `actName`/`actId`, linked obligations navigate to `/obligations/{obligationId}`, 9 columns trimmed to 5. `api.controls.*` takes no `opts`, so no abort signal is passed.
+`ControlsPage.jsx` shows `actName`/`actId`, linked obligations navigate to `/obligations/{obligationId}`, columns trimmed 9 → 5; `api.controls.*` takes no `opts` (no abort signal).
 
 ## Done — Instruments / Obligations / Sanctions Harmonized
 
@@ -472,11 +455,7 @@ Standalone tenant service copied in as Maven submodule `atheris-compliance-tenan
 
 ## Done — Tenant Frontend Portal Built
 
-Tenant portal at `atheris-compliance-frontend/atheris-compliance-tenant-frontend/` (`:5174`). No webhooks: tenant polls via `ObligationSyncService` (`tenant_polling_config`); uploads go through `POST /subscriptions/upload-document` → platform `/internal/instruments/ingest` (SHA-256 dedup). Onboarding/license calls must target `TENANT_API_BASE` (`:9091`) — they previously hit `:9090` and bounced to `/login`. E2E script: `ATERHIS_ONBOARDING_E2E_TESTING.md`.
-
-## Done — Backend Verification & Cleanup (backlog completed)
-
-Clean startup, onboarding E2E, Tenant Overview widget, `@Builder.Default` cleanup (`5310dc3`), license limit fields removed (`48ba65d`); webhook delivery CANCELLED in favour of polling. See "Recent Changes" above.
+Tenant portal `:5174`; polls via `ObligationSyncService` (no webhooks); uploads → platform `/internal/instruments/ingest` (SHA-256 dedup); onboarding/license calls target `:9091`. E2E: `ATERHIS_ONBOARDING_E2E_TESTING.md`.
 
 ## Done — Tenant Obligations Register Rebuilt (Per-Obligation)
 

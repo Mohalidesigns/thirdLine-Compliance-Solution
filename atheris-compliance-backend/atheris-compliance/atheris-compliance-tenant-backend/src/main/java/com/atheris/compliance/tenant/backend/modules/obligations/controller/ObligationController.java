@@ -41,9 +41,12 @@ public class ObligationController {
             @RequestParam(required = false) Long instrumentId,
             @RequestParam(required = false) String act,
             @RequestParam(required = false) Boolean hasPoints,
+            @RequestParam(required = false) String cells,
+            @RequestParam(required = false) String riskView,
             Pageable p) {
         return ResponseEntity.ok(service.getRegisterList(
-            q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints, p));
+            q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints,
+            cells, riskView, p));
     }
 
     @GetMapping("/stats")

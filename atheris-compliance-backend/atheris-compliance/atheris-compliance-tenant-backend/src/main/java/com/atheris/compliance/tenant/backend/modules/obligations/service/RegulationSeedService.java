@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
+import com.atheris.compliance.common.risk.RiskBands;
+import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
 import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
@@ -111,6 +113,12 @@ public class RegulationSeedService {
         return seeded;
     }
 
+    /** Band from the obligation's own likelihood × impact; the platform's band only when those are missing. */
+    private static String seedBand(PlatformRegulationSeed.ObligationItem o) {
+        String band = RiskBands.band(o.getInherentLikelihood(), o.getInherentImpact());
+        return band != null ? band : o.getInherentRiskRating();
+    }
+
     private int seedBundle(PlatformRegulationSeed bundle, List<TenantRegulator> tenantRegs) {
         if (bundle.getCanonicalInstrument() == null
             || bundle.getCanonicalInstrument().getInstrumentId() == null) {
@@ -142,7 +150,11 @@ public class RegulationSeedService {
                     .description(o.getDescription())
                     .plainEnglishStatement(o.getPlainEnglishStatement())
                     .sectionReference(o.getSpecificSectionReference())
-                    .areaOfFocus(o.getAreaOfFocus())
+                    .actName(bundle.getRegulationName())
+                    .regulationId(bundle.getRegulationId())
+                    // one vocabulary with the universe: inherit the instrument's area
+                    .areaOfFocus(AreasOfFocus.forObligation(
+                        bundle.getCanonicalInstrument().getAreaOfFocus(), o.getAreaOfFocus()))
                     .obligationType(o.getObligationType())
                     .recurringDeadlineType(o.getRecurringDeadlineType())
                     .effectiveDate(effDate)
@@ -151,7 +163,7 @@ public class RegulationSeedService {
                     .riskDescription(o.getRiskDescription())
                     .inherentLikelihood(o.getInherentLikelihood())
                     .inherentImpact(o.getInherentImpact())
-                    .inherentRiskRating(o.getInherentRiskRating())
+                    .inherentRiskRating(seedBand(o))
                     .controlOwner(o.getControlOwner())
                     .build();
                 ob = obligationRepo.save(ob);
@@ -168,8 +180,7 @@ public class RegulationSeedService {
                     .classifiedAt(Instant.now())
                     .impactRating(o.getInherentImpact())
                     .likelihoodRating(o.getInherentLikelihood())
-                    .inherentRiskRating(o.getInherentRiskRating())
-                    .tenantRiskRating(o.getInherentRiskRating())
+                    .tenantRiskRating(seedBand(o))
                     .assignedOwnerName(o.getControlOwner())
                     .build());
                 createdObligations.add(ob);

@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   MenuItem, CircularProgress, Alert, Box, Typography,
 } from '@mui/material';
-import { CloudUpload } from '@mui/icons-material';
+import { CloudArrowUpIcon, TL } from 'shared';
 import api from '../../../services/api';
 
 export default function UploadDialog({ open, onClose, onSuccess }) {
@@ -42,8 +42,8 @@ export default function UploadDialog({ open, onClose, onSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CloudUpload sx={{ color: '#3182CE' }} />
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CloudArrowUpIcon size={20} sx={{ color: TL.primary }} />
         Upload Document
       </DialogTitle>
       <DialogContent>
@@ -65,10 +65,10 @@ export default function UploadDialog({ open, onClose, onSuccess }) {
             placeholder="Auto-detected from filename if left empty"
           />
           <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+            <Typography sx={{ mb: 0.75, display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               PDF File *
             </Typography>
-            <Button variant="outlined" component="label" sx={{ textTransform: 'none' }}>
+            <Button variant="outlined" component="label" startIcon={<CloudArrowUpIcon size={16} />}>
               {file ? file.name : 'Choose PDF file'}
               <input type="file" hidden accept=".pdf,application/pdf"
                 onChange={(e) => setFile(e.target.files[0])} />
@@ -77,7 +77,7 @@ export default function UploadDialog({ open, onClose, onSuccess }) {
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose} disabled={loading}>Cancel</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={loading || !regulatorId || !file}>
           {loading ? <CircularProgress size={18} sx={{ mr: 1 }} /> : null}
           Upload & Queue

@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.dashboard.service;
 
+import com.atheris.compliance.common.risk.RiskBands;
+import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.dashboard.dto.*;
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.DashboardThreshold;
@@ -51,7 +53,7 @@ public class DashboardV2Service {
     private Map<Long, String> buildAreaOfFocusMap() {
         return obligationRepo.findAll().stream()
             .collect(Collectors.toMap(Obligation::getObligationId,
-                o -> o.getAreaOfFocus() != null ? o.getAreaOfFocus() : "Unassigned",
+                o -> AreasOfFocus.bucket(o.getAreaOfFocus()),
                 (a, b) -> a));
     }
 
@@ -520,6 +522,13 @@ public class DashboardV2Service {
 
     // ------------------------------------------------------------------ risk profile (legacy, kept for backward compat)
 
+    /** Inherent band, else the tenant's rating, else "Unrated" — a missing rating is never shown as a real band. */
+    static String profileRisk(ObligationClassification oc) {
+        if (oc.getInherentRiskRating() != null && !oc.getInherentRiskRating().isBlank()) return oc.getInherentRiskRating();
+        if (oc.getTenantRiskRating() != null && !oc.getTenantRiskRating().isBlank()) return oc.getTenantRiskRating();
+        return RiskBands.UNRATED;
+    }
+
     public RiskProfileDto getRiskProfile() {
         List<ObligationClassification> all = obligations.findAll().stream()
             .filter(c -> "applicable".equals(c.getApplicability()))
@@ -534,10 +543,10 @@ public class DashboardV2Service {
         riskCounts.put("Low", 0);
 
         for (ObligationClassification oc : all) {
-            String risk = oc.getInherentRiskRating() != null ? oc.getInherentRiskRating()
-                : (oc.getTenantRiskRating() != null ? oc.getTenantRiskRating() : "Low");
-            riskCounts.merge(risk, 1, Integer::sum);
+            riskCounts.merge(profileRisk(oc), 1, Integer::sum);
         }
+        // an "Unrated" row only when there is something in it
+        if (riskCounts.getOrDefault(RiskBands.UNRATED, 0) == 0) riskCounts.remove(RiskBands.UNRATED);
 
         int total = all.size();
         List<RiskProfileDto.RiskRow> riskRows = riskCounts.entrySet().stream()
@@ -558,13 +567,12 @@ public class DashboardV2Service {
                 RiskProfileDto.ActRow.builder().actName(k).build());
             row.setTotal(row.getTotal() + 1);
             actRow.setTotal(actRow.getTotal() + 1);
-            String risk = oc.getInherentRiskRating() != null ? oc.getInherentRiskRating()
-                : (oc.getTenantRiskRating() != null ? oc.getTenantRiskRating() : "Low");
-            switch (risk) {
+            switch (profileRisk(oc)) {
                 case "Critical" -> { row.setExtreme(row.getExtreme() + 1); actRow.setExtreme(actRow.getExtreme() + 1); }
                 case "High" -> { row.setHigh(row.getHigh() + 1); actRow.setHigh(actRow.getHigh() + 1); }
-                case "Moderate" -> { row.setMedium(row.getMedium() + 1); actRow.setMedium(actRow.getMedium() + 1); }
-                default -> { row.setLow(row.getLow() + 1); actRow.setLow(actRow.getLow() + 1); }
+                case "Moderate", "Medium" -> { row.setMedium(row.getMedium() + 1); actRow.setMedium(actRow.getMedium() + 1); }
+                case "Low" -> { row.setLow(row.getLow() + 1); actRow.setLow(actRow.getLow() + 1); }
+                default -> { row.setUnrated(row.getUnrated() + 1); actRow.setUnrated(actRow.getUnrated() + 1); }
             }
             if (hasNoControl(oc)) {
                 row.setGaps(row.getGaps() + 1);
@@ -584,6 +592,8 @@ public class DashboardV2Service {
                 .highCount(riskCounts.getOrDefault("High", 0))
                 .mediumCount(riskCounts.getOrDefault("Moderate", 0))
                 .lowCount(riskCounts.getOrDefault("Low", 0))
+                .unratedCount(riskCounts.getOrDefault(RiskBands.UNRATED, 0))
+                .actCount((int) actRowMap.keySet().stream().filter(a -> !AreasOfFocus.UNASSIGNED.equals(a)).count())
                 .gapsCount(gapsCount)
                 .build())
             .build();

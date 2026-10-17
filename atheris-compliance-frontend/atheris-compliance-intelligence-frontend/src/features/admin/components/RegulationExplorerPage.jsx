@@ -2,60 +2,39 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Box, Typography, Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  Button, Alert, Paper, IconButton, Tooltip, Menu, Card, CardContent,
+  Box, Typography, Button, Alert, Tooltip,
 } from '@mui/material';
 import {
-  Search, Close, Refresh, Balance, Assignment, Rule, Gavel, RequestQuote, ArrowDropDown, CloudSync,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, SectionTable, StateBadge,
+  ArrowPathIcon, InboxArrowDownIcon, ScaleIcon, DocumentTextIcon, ClipboardDocumentListIcon, ExclamationTriangleIcon, CalendarDaysIcon,
+} from 'shared';
 import api from '../../../services/api';
 import { ROUTES } from '../../../utils/constants';
-import { SectionTable } from 'shared';
 
 const COLUMNS = [
-  { id: 'name', label: 'Act', minWidth: 320, truncate: true, maxWidth: 380, sortable: true },
+  { id: 'name', label: 'Act', minWidth: 320, maxWidth: 380, sortable: true,
+    // status + instrument count folded into a caption under the act name (keeps the table at 5 columns)
+    render: (row) => (
+      <Box>
+        <Tooltip title={row.name || 'Untitled act'} placement="top">
+          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, maxWidth: 380,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {row.name || 'Untitled act'}
+          </Typography>
+        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <StateBadge value={row.status || 'Active'} />
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+            {row.instrumentCount ?? 0} instrument{(row.instrumentCount ?? 0) !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
+      </Box>
+    ) },
   { id: 'regulatorName', label: 'Regulator', minWidth: 180, truncate: true, maxWidth: 200 },
   { id: 'obligationCount', label: 'Obligations', minWidth: 110, sortable: true },
   { id: 'sanctionCount', label: 'Sanctions', minWidth: 110, sortable: true },
   { id: 'returnCount', label: 'Returns', minWidth: 100, sortable: true },
 ];
-
-/* KPI card with a breakdown dropdown (mirrors the Sanctions/Returns pattern). */
-function KpiCard({ kpi, onSelect, onDrill }) {
-  const [anchor, setAnchor] = useState(null);
-  const entries = Object.entries(kpi.breakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  return (
-    <Card variant="outlined" onClick={() => onSelect(kpi.key)}
-      sx={{ cursor: 'pointer', borderLeft: `4px solid ${kpi.color}`, '&:hover': { boxShadow: 1 } }}>
-      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box sx={{ color: kpi.color, opacity: 0.5 }}>{kpi.icon}</Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{kpi.label}</Typography>
-          </Box>
-          {entries.length > 0 && (
-            <IconButton size="small" aria-label={`${kpi.label} breakdown`}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
-              <ArrowDropDown fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: kpi.color }}>{kpi.value}</Typography>
-        <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} onClick={(e) => e.stopPropagation()}>
-          {entries.map(([label, count]) => (
-            <MenuItem key={label} dense onClick={() => { setAnchor(null); onDrill(kpi.key, label); }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 3, width: '100%' }}>
-                <span>{label}</span>
-                <span style={{ color: '#718096' }}>{count}</span>
-              </Box>
-            </MenuItem>
-          ))}
-        </Menu>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function RegulationExplorerPage() {
   const navigate = useNavigate();
@@ -159,63 +138,55 @@ export default function RegulationExplorerPage() {
   ]));
 
   const kpis = [
-    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, color: '#2B6CB0',
-      icon: <Balance sx={{ fontSize: 20 }} />, breakdown: Object.fromEntries((stats?.byRegulator || []).map((r) => [r.name, r.count])) },
-    { key: 'instruments', label: 'Instruments', value: stats?.totalInstruments ?? 0, color: '#2C7A7B',
-      icon: <Assignment sx={{ fontSize: 20 }} />, breakdown: toBreakdown(stats?.topInstruments) },
-    { key: 'obligations', label: 'Obligations', value: stats?.totalObligations ?? 0, color: '#805AD5',
-      icon: <Rule sx={{ fontSize: 20 }} />, breakdown: toBreakdown(stats?.topObligations) },
-    { key: 'sanctions', label: 'Sanctions', value: stats?.totalSanctions ?? 0, color: '#E53E3E',
-      icon: <Gavel sx={{ fontSize: 20 }} />, breakdown: toBreakdown(stats?.topSanctions) },
-    { key: 'returns', label: 'Returns', value: stats?.totalReturns ?? 0, color: '#DD6B20',
-      icon: <RequestQuote sx={{ fontSize: 20 }} />, breakdown: toBreakdown(stats?.topReturns) },
+    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, tone: 'blue',
+      icon: <ScaleIcon />, breakdown: Object.fromEntries((stats?.byRegulator || []).map((r) => [r.name, r.count])) },
+    { key: 'instruments', label: 'Instruments', value: stats?.totalInstruments ?? 0, tone: 'teal',
+      icon: <DocumentTextIcon />, breakdown: toBreakdown(stats?.topInstruments) },
+    { key: 'obligations', label: 'Obligations', value: stats?.totalObligations ?? 0, tone: 'purple',
+      icon: <ClipboardDocumentListIcon />, breakdown: toBreakdown(stats?.topObligations) },
+    { key: 'sanctions', label: 'Sanctions', value: stats?.totalSanctions ?? 0, tone: 'red',
+      icon: <ExclamationTriangleIcon />, breakdown: toBreakdown(stats?.topSanctions) },
+    { key: 'returns', label: 'Returns', value: stats?.totalReturns ?? 0, tone: 'orange',
+      icon: <CalendarDaysIcon />, breakdown: toBreakdown(stats?.topReturns) },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Act Explorer</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} act{total !== 1 ? 's' : ''} — browse the curated Nigerian compliance universe
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button variant="outlined" size="small" disabled={importing}
-            startIcon={importing ? undefined : <CloudSync />}
-            onClick={handleToolkitImport} sx={{ textTransform: 'none' }}>
-            {importing ? 'Importing…' : 'Re-import toolkit'}
-          </Button>
-          <Tooltip title="Refresh"><IconButton onClick={() => { refetch(); refetchStats(); }}><Refresh /></IconButton></Tooltip>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Act Explorer"
+        subtitle={`${total} act${total !== 1 ? 's' : ''} — browse the curated Nigerian compliance universe`}
+        actions={
+          <>
+            <Button variant="outlined" disabled={importing}
+              startIcon={importing ? undefined : <InboxArrowDownIcon size={16} />}
+              onClick={handleToolkitImport}>
+              {importing ? 'Importing…' : 'Re-import toolkit'}
+            </Button>
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => { refetch(); refetchStats(); }}>
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message}</Alert>}
       {importResult && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setImportResult('')}>{importResult}</Alert>}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {kpis.map((k) => (
-          <Grid key={k.key} size={{ xs: 6, md: 4, lg: 2.4 }}>
-            <KpiCard kpi={k} onSelect={onKpiSelect} onDrill={onKpiDrill} />
-          </Grid>
-        ))}
-      </Grid>
+      <KpiCards items={kpis} columns={5} onSelect={onKpiSelect} onDrill={onKpiDrill} />
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search acts..." value={searchInput}
-          onChange={(e) => { setSearchInput(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Regulator</InputLabel>
-          <Select label="Regulator" value={regulatorFilter}
-            onChange={(e) => { setRegulatorFilter(e.target.value); setPage(0); }}>
-            <MenuItem value="All">All regulators</MenuItem>
-            {regulatorOptions.map((r) => <MenuItem key={r.regulatorId} value={String(r.regulatorId)}>{r.name}</MenuItem>)}
-          </Select>
-        </FormControl>
-        {hasFilters && <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>}
-      </Paper>
+      <FilterBar
+        search={{ value: searchInput, onChange: (v) => { setSearchInput(v); setPage(0); }, placeholder: 'Search acts...' }}
+        filters={[
+          {
+            // value is the numeric regulatorId (as a string) — the backend filters by id, not name
+            key: 'regulator', label: 'Regulator', value: regulatorFilter, allLabel: 'All regulators', minWidth: 220,
+            onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: regulatorOptions.map((r) => ({ value: String(r.regulatorId), label: r.name })),
+          },
+        ]}
+        showClear={hasFilters}
+        onClear={clearFilters}
+      />
 
       <SectionTable
         columns={COLUMNS}
@@ -232,6 +203,7 @@ export default function RegulationExplorerPage() {
         onRowClick={(row) => navigate(`${ROUTES.ADMIN_ACTS}/${row.regulationId}`)}
         rowKey={(r) => r.regulationId}
         emptyMessage="No acts found."
+        emptyIcon={<ScaleIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />}
       />
     </Box>
   );

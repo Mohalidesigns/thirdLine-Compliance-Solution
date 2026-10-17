@@ -12,6 +12,11 @@ public class ReturnStatsDto {
     private long overdue;
     private long inProgress;
     private long submitted;
+    /**
+     * Exhaustive status buckets over the tracked filing periods (event-driven ones only once
+     * triggered): filedOnTime + filedLate + overdue + inProgressNotDue + notYetDue == tracked.
+     */
+    private StatusBuckets buckets;
     /** Active Monthly-or-longer returns with no due rule. */
     private long dueDateNeeded;
     private List<String> frequencies;
@@ -27,6 +32,18 @@ public class ReturnStatsDto {
     private List<String> frequencyTypes;
     private List<String> responsibleUnits;
     private List<ActOption> acts;
+
+    @Data @Builder @AllArgsConstructor
+    public static class StatusBuckets {
+        private long tracked;
+        private long filedOnTime;
+        private long filedLate;
+        private long overdue;
+        private long inProgressNotDue;
+        private long notYetDue;
+        /** Unfiled periods due within the next 30 days (subset of inProgressNotDue + notYetDue). */
+        private long dueSoon;
+    }
 
     @Data @Builder @AllArgsConstructor
     public static class ActOption {

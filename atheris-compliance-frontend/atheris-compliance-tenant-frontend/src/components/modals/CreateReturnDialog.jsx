@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Box, CircularProgress, Alert, Divider, Typography, Grid, Autocomplete, Chip,
+  Box, CircularProgress, Alert, Divider, Typography, Autocomplete, Chip,
 } from '@mui/material';
-import { Link as LinkIcon } from '@mui/icons-material';
+import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import LinkObligationsPicker from './LinkObligationsPicker';
 
@@ -22,7 +22,7 @@ const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Bienni
 function Field({ label, children, sx }) {
   return (
     <Box sx={{ mb: 2, ...sx }}>
-      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+      <Typography variant="caption" sx={{ fontSize: '0.625rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
       {children}
@@ -77,11 +77,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Return</DialogTitle>
-      <Divider />
-      <DialogContent>
+      <DialogContent sx={{ '&&': { pt: 2.5 } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Basic details</Typography>
+        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Basic details</Typography>
         <Field label="Return Name *">
           <TextField fullWidth size="small" required value={form.returnName}
             onChange={e => set('returnName', e.target.value)} />
@@ -117,7 +116,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Filing schedule</Typography>
+        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Filing schedule</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
           <Field label="Frequency" sx={{ mb: 0 }}>
             <TextField select fullWidth size="small" value={form.frequency}
@@ -153,7 +152,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Responsible</Typography>
+        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Responsible</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           <Field label="Responsible Unit" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" value={form.responsibleUnit}
@@ -166,7 +165,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Owner</Typography>
+        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Owner</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           <Field label="Owner User ID" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" type="number" value={form.returnOwnerUserId}
@@ -179,10 +178,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>Linked Obligations</Typography>
+        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Linked Obligations</Typography>
         <Field label="Obligations this return is filed to satisfy">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Button size="small" variant="outlined" startIcon={<LinkIcon />}
+            <Button size="small" variant="outlined" startIcon={<LinkIcon size={16} />}
               onClick={() => setLinksOpen(true)}>
               {form.linkedObligationIds.length > 0
                 ? `Linked obligations (${form.linkedObligationIds.length})`
@@ -194,8 +193,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           </Box>
         </Field>
       </DialogContent>
-      <Divider />
-      <DialogActions sx={{ justifyContent: 'center' }}>
+      <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !form.returnName}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create Return'}

@@ -1,22 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
-  TablePagination, Chip, TextField, MenuItem, Button, IconButton,
-  Card, CardContent, CardHeader, TableContainer, Paper, Dialog,
+  TablePagination, TextField, MenuItem, Button, IconButton,
+  Paper, Dialog,
   DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Divider, Grid, Tooltip, Breadcrumbs, Link, Checkbox, FormControlLabel,
+  Grid, Tooltip, Link, Checkbox, FormControlLabel,
   Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
-  Add, Warning, Schedule, UploadFile
-} from '@mui/icons-material';
+  PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL,
+  PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon,
+} from 'shared';
 import { api } from '../services/api';
-import { useTheme } from '@mui/material/styles';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
 
-const SEV_COLORS = { Critical: 'error', High: 'error', Medium: 'warning', Low: 'success' };
+const SECTION_LABEL_SX = {
+  display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
+  textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1,
+};
 const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 
@@ -37,7 +40,6 @@ export default function FindingsPage() {
   const [snackbar, setSnackbar] = useState(null);
   const [success, setSuccess] = useState('');
   const [importOpen, setImportOpen] = useState(false);
-  const theme = useTheme();
   const { user } = useAuth();
   const canImport = IMPORT_ROLES.includes(user?.role);
 
@@ -74,33 +76,33 @@ export default function FindingsPage() {
         remediateOpen={remediateOpen} setRemediateOpen={setRemediateOpen}
         reviewOpen={reviewOpen} setReviewOpen={setReviewOpen}
         linkOpen={linkOpen} setLinkOpen={setLinkOpen}
-        onSnackbar={setSnackbar} theme={theme}
+        onSnackbar={setSnackbar}
       />
     );
   }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Findings</Typography>
-          <Typography variant="body2" color="text.secondary">Track and remediate control gaps</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {canImport && (
-            <Button variant="outlined" startIcon={<UploadFile />} onClick={() => setImportOpen(true)}>
-              Import
+      <PageHeader
+        title="Findings"
+        subtitle="Track and remediate control gaps"
+        actions={(
+          <>
+            {canImport && (
+              <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            )}
+            <Button variant="contained" color="error" startIcon={<PlusIcon size={16} />} onClick={() => setRaiseOpen(true)}>
+              Raise Finding
             </Button>
-          )}
-          <Button variant="contained" startIcon={<Add />} onClick={() => setRaiseOpen(true)}>
-            Raise Finding
-          </Button>
-        </Box>
-      </Box>
+          </>
+        )}
+      />
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pb: '12px !important', alignItems: 'center' }}>
-          <TextField select label="Status" size="small" sx={{ minWidth: 130 }}
+      <FilterBar>
+        <FilterField label="Status" minWidth={170}>
+          <TextField select size="small"
             value={filters.status} onChange={e => { setFilters(f => ({ ...f, status: e.target.value })); setPage(0); }}>
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Open">Open</MenuItem>
@@ -108,7 +110,9 @@ export default function FindingsPage() {
             <MenuItem value="Remediated">Remediated</MenuItem>
             <MenuItem value="Closed">Closed</MenuItem>
           </TextField>
-          <TextField select label="Severity" size="small" sx={{ minWidth: 130 }}
+        </FilterField>
+        <FilterField label="Severity" minWidth={170}>
+          <TextField select size="small"
             value={filters.severity} onChange={e => { setFilters(f => ({ ...f, severity: e.target.value })); setPage(0); }}>
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Critical">Critical</MenuItem>
@@ -116,33 +120,34 @@ export default function FindingsPage() {
             <MenuItem value="Medium">Medium</MenuItem>
             <MenuItem value="Low">Low</MenuItem>
           </TextField>
-          <FormControlLabel control={<Checkbox checked={filters.overdueOnly}
+        </FilterField>
+        <FilterField label="Deadline" minWidth={140}>
+          <FormControlLabel sx={{ height: 40, m: 0 }} control={<Checkbox size="small" checked={filters.overdueOnly}
             onChange={e => { setFilters(f => ({ ...f, overdueOnly: e.target.checked })); setPage(0); }} />}
-            label={<Typography variant="body2">Overdue only</Typography>} />
-        </CardContent>
-      </Card>
+            label={<Typography variant="body2" sx={{ color: TL.gray700 }}>Overdue only</Typography>} />
+        </FilterField>
+      </FilterBar>
 
-      <Card>
+      <DataCard title="Findings Register" subtitle={`${data.totalElements} finding${data.totalElements !== 1 ? 's' : ''}`} noPadding>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
         ) : data.content.length === 0 ? (
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Warning sx={{ fontSize: 48, color: theme.palette.action.disabled, mb: 1 }} />
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <ExclamationTriangleIcon size={40} sx={{ color: TL.gray300, mb: 1 }} />
             <Typography color="text.secondary">No findings found</Typography>
-          </CardContent>
+          </Box>
         ) : (
           <>
-            <TableContainer component={Paper} elevation={0}>
+            <Box sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Finding</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Sev.</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Owner</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Deadline</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                    <TableCell>Finding</TableCell>
+                    <TableCell>Severity</TableCell>
+                    <TableCell>Owner</TableCell>
+                    <TableCell>Deadline</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -152,35 +157,30 @@ export default function FindingsPage() {
                     return (
                       <TableRow key={row.findingId} hover sx={{ cursor: 'pointer' }}
                         onClick={() => loadDetail(row.findingId)}>
-                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          {row.displayId}
-                          {row.externalReference && (
-                            <Typography variant="caption" color="text.secondary" display="block"
-                              sx={{ fontFamily: 'monospace', fontWeight: 400 }}>
-                              {row.externalReference}
-                            </Typography>
-                          )}
+                        <TableCell sx={{ maxWidth: 420 }}>
+                          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row.description}
+                          </Typography>
+                          <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
+                            {row.displayId}{row.externalReference ? ` · ${row.externalReference}` : ''}
+                          </Typography>
                         </TableCell>
-                        <TableCell sx={{ maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row.description}
-                        </TableCell>
-                        <TableCell><Chip label={row.severity} size="small" color={SEV_COLORS[row.severity] || 'default'} /></TableCell>
+                        <TableCell><RiskBadge value={row.severity} /></TableCell>
                         <TableCell>{row.assignedToName || '-'}</TableCell>
                         <TableCell>
                           <Typography variant="body2" color={isOverdue ? 'error.main' : 'text.primary'}
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            {isOverdue && <Schedule fontSize="inherit" />}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+                            {isOverdue && <ClockIcon size={14} />}
                             {deadline ? deadline.toLocaleDateString() : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip label={row.status} size="small"
-                            color={row.status === 'Closed' ? 'success' : row.status === 'Remediated' ? 'info' : row.status === 'In Remediation' ? 'warning' : 'default'} />
+                          <StateBadge value={row.status} />
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="View detail">
                             <IconButton size="small" onClick={(e) => { e.stopPropagation(); loadDetail(row.findingId); }}>
-                              <Warning fontSize="small" />
+                              <EyeIcon size={16} />
                             </IconButton>
                           </Tooltip>
                         </TableCell>
@@ -189,14 +189,14 @@ export default function FindingsPage() {
                   })}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </Box>
             <TablePagination component="div" count={data.totalElements} page={page}
               onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
               onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
               rowsPerPageOptions={[10, 25, 50]} />
           </>
         )}
-      </Card>
+      </DataCard>
 
       <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)}
         onSaved={() => { setRaiseOpen(false); loadList(); }} onSnackbar={setSnackbar} />
@@ -222,7 +222,7 @@ export default function FindingsPage() {
 
 function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview, onLink, currentUser,
   assignOpen, setAssignOpen, remediateOpen, setRemediateOpen, reviewOpen, setReviewOpen, linkOpen, setLinkOpen,
-  onSnackbar, theme }) {
+  onSnackbar }) {
   const isOpen = detail.status === 'Open';
   const isInRemediation = detail.status === 'In Remediation';
   const isRemediated = detail.status === 'Remediated';
@@ -235,122 +235,121 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={onBack}>Findings</Link>
-        <Typography color="text.primary">{detail.displayId}</Typography>
-      </Breadcrumbs>
-
-      <Card sx={{ mb: 2, borderLeft: 4, borderColor: SEV_COLORS[detail.severity] + '.main' }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Typography variant="h5">{detail.displayId}</Typography>
-                <Chip label={detail.severity} size="small" color={SEV_COLORS[detail.severity] || 'default'} />
-                <Chip label={detail.status} size="small"
-                  color={isClosed ? 'success' : isRemediated ? 'info' : isInRemediation ? 'warning' : 'default'} />
-              </Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>{detail.description}</Typography>
-              {detail.linkedControlId && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Linked control: {detail.linkedControlIdentifier || `CTRL-${String(detail.linkedControlId).padStart(3, '0')}`}
-                </Typography>
-              )}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
-              {(isOpen || isInRemediation) && (
-                <Button variant="outlined" size="small" onClick={onLink}>Remediation link</Button>
-              )}
-              {isInRemediation && (
-                <Button variant="contained" size="small" onClick={onRemediate}>Submit Remediation</Button>
-              )}
-              {isRemediated && !isSubmitter && (
-                <Button variant="contained" color="success" size="small" onClick={onReview}>Review & Sign off</Button>
-              )}
-              {isRemediated && isSubmitter && (
-                <Tooltip title="You submitted this remediation — another Analyst, CCO or Admin must sign off">
-                  <span><Button variant="contained" color="success" size="small" disabled>Review & Sign off</Button></span>
-                </Tooltip>
-              )}
-            </Box>
-          </Box>
-
-          {/* SLA */}
-          {deadline && !isClosed && (
-            <Box sx={{ mt: 2, p: 1.5, bgcolor: isOverdue ? 'error.50' : 'grey.50', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Schedule color={isOverdue ? 'error' : 'action'} />
-              <Typography variant="body2" fontWeight={600} color={isOverdue ? 'error.main' : 'text.primary'}>
-                SLA: {detail.slaDays} days
-                {isOverdue ? ' · OVERDUE' : ` · ${detail.slaRemainingDays} days remaining`}
+      <DetailHeader
+        band
+        onBack={onBack}
+        backLabel="Back to Findings"
+        title={detail.displayId}
+        status={detail.status}
+        meta={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <RiskBadge value={detail.severity} />
+            {detail.linkedControlId && (
+              <Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>
+                Linked control:{' '}
+                <Box component="span" sx={{ fontFamily: TL.mono, fontSize: '0.75rem' }}>
+                  {detail.linkedControlIdentifier || `CTRL-${String(detail.linkedControlId).padStart(3, '0')}`}
+                </Box>
               </Typography>
-              <Typography variant="body2" color="text.secondary">Deadline: {deadline.toLocaleDateString()}</Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </Box>
+        )}
+        description={detail.description}
+        right={(
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
+            {(isOpen || isInRemediation) && (
+              <Button variant="outlined" size="small" onClick={onLink}>Remediation link</Button>
+            )}
+            {isInRemediation && (
+              <Button variant="contained" size="small" onClick={onRemediate}>Submit Remediation</Button>
+            )}
+            {isRemediated && !isSubmitter && (
+              <Button variant="contained" color="success" size="small" onClick={onReview}>Review & Sign off</Button>
+            )}
+            {isRemediated && isSubmitter && (
+              <Tooltip title="You submitted this remediation — another Analyst, CCO or Admin must sign off">
+                <span><Button variant="contained" color="success" size="small" disabled>Review & Sign off</Button></span>
+              </Tooltip>
+            )}
+          </Box>
+        )}
+      />
 
-      <Grid container spacing={2}>
+      {/* SLA */}
+      {deadline && !isClosed && (
+        <Paper sx={{ mb: 3, px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{
+            width: 32, height: 32, borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            bgcolor: isOverdue ? '#FEF2F2' : TL.gray50, color: isOverdue ? TL.error : TL.gray500,
+          }}>
+            <ClockIcon size={16} />
+          </Box>
+          <Typography variant="body2" fontWeight={600} color={isOverdue ? 'error.main' : 'text.primary'}>
+            SLA: {detail.slaDays} days
+            {isOverdue ? ' · OVERDUE' : ` · ${detail.slaRemainingDays} days remaining`}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Deadline: {deadline.toLocaleDateString()}</Typography>
+        </Paper>
+      )}
+
+      <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           {/* Timeline */}
-          <Card>
-            <CardHeader title="Timeline" />
-            <CardContent>
-              {detail.timeline && detail.timeline.length > 0 ? (
-                <Box sx={{ position: 'relative', pl: 3 }}>
-                  {detail.timeline.map((evt, i) => (
-                    <Box key={i} sx={{ position: 'relative', pb: 2.5, '&:last-child': { pb: 0 },
-                      '&::before': i < detail.timeline.length - 1 ? {
-                        content: '""', position: 'absolute', left: -5, top: 20, width: 2, height: '100%',
-                        bgcolor: 'divider'
-                      } : {}
-                    }}>
-                      <Box sx={{ position: 'absolute', left: -11, top: 2, width: 14, height: 14, borderRadius: '50%',
-                        bgcolor: i === detail.timeline.length - 1 && evt.eventType === 'closed' ? 'success.main' : 'primary.main',
-                        border: '2px solid', borderColor: 'background.paper' }} />
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(evt.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 0.25 }}>{evt.description}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No timeline events</Typography>
-              )}
-            </CardContent>
-          </Card>
+          <DataCard title="Timeline">
+            {detail.timeline && detail.timeline.length > 0 ? (
+              <Box sx={{ position: 'relative', pl: 3 }}>
+                {detail.timeline.map((evt, i) => (
+                  <Box key={i} sx={{ position: 'relative', pb: 2.5, '&:last-child': { pb: 0 },
+                    '&::before': i < detail.timeline.length - 1 ? {
+                      content: '""', position: 'absolute', left: -5, top: 20, width: 2, height: '100%',
+                      bgcolor: TL.gray100
+                    } : {}
+                  }}>
+                    <Box sx={{ position: 'absolute', left: -11, top: 2, width: 14, height: 14, borderRadius: '50%',
+                      bgcolor: i === detail.timeline.length - 1 && evt.eventType === 'closed' ? 'success.main' : 'primary.main',
+                      border: '2px solid', borderColor: 'background.paper' }} />
+                    <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+                      {new Date(evt.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                    <Typography sx={{ mt: 0.25, fontSize: '0.875rem', color: TL.gray700 }}>{evt.description}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">No timeline events</Typography>
+            )}
+          </DataCard>
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
           {/* Details sidebar */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Finding Details</Typography>
-              {detail.externalReference && <DetailRow label="Reference" value={detail.externalReference} />}
-              <DetailRow label="Type" value={detail.findingType} />
-              <DetailRow label="Trigger" value={detail.triggerReason} />
-              {detail.rootCause && <DetailRow label="Root cause" value={detail.rootCause} />}
-              <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString() : '-'} />
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Remediation</Typography>
-              <DetailRow label="Owner" value={detail.assignedToName || 'Unassigned'} />
-              <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString() : '-'} />
-              {detail.remediationSubmittedAt && (
-                <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString()} />
-              )}
-              {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
-              {detail.remediationEvidenceUrl && (
-                <Box sx={{ mt: 1 }}>
-                  <Link href={detail.remediationEvidenceUrl} target="_blank" rel="noopener" variant="body2">View evidence</Link>
-                </Box>
-              )}
-              {detail.reviewNotes && <DetailRow label="Review note" value={detail.reviewNotes} />}
-              {detail.signedOffAt && (
-                <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString()} />
-              )}
-            </CardContent>
-          </Card>
+          <DataCard title="Finding Details" sx={{ mb: 3 }}>
+            <Typography component="span" sx={SECTION_LABEL_SX}>Finding</Typography>
+            {detail.externalReference && <DetailRow label="Reference" value={detail.externalReference} />}
+            <DetailRow label="Type" value={detail.findingType} />
+            <DetailRow label="Trigger" value={detail.triggerReason} />
+            {detail.rootCause && <DetailRow label="Root cause" value={detail.rootCause} />}
+            <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString() : '-'} />
+            <Box sx={{ borderTop: `1px solid ${TL.gray100}`, my: 2 }} />
+            <Typography component="span" sx={SECTION_LABEL_SX}>Remediation</Typography>
+            <DetailRow label="Owner" value={detail.assignedToName || 'Unassigned'} />
+            <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString() : '-'} />
+            {detail.remediationSubmittedAt && (
+              <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString()} />
+            )}
+            {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
+            {detail.remediationEvidenceUrl && (
+              <Box sx={{ mt: 1 }}>
+                <Link href={detail.remediationEvidenceUrl} target="_blank" rel="noopener" underline="hover"
+                  sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>View evidence</Link>
+              </Box>
+            )}
+            {detail.reviewNotes && <DetailRow label="Review note" value={detail.reviewNotes} />}
+            {detail.signedOffAt && (
+              <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString()} />
+            )}
+          </DataCard>
         </Grid>
       </Grid>
 
@@ -374,9 +373,9 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
 
 function DetailRow({ label, value }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500, textAlign: 'right', maxWidth: '60%' }}>{value || '-'}</Typography>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+      <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: TL.gray700, textAlign: 'right', maxWidth: '60%', wordBreak: 'break-word' }}>{value || '-'}</Typography>
     </Box>
   );
 }
@@ -454,7 +453,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !form.findingType || !form.severity || !form.description || !form.remediationDeadline}>
           {saving ? 'Raising...' : 'Raise Finding'}
         </Button>
@@ -495,7 +494,7 @@ function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving || !form.assignedToOwnerId || !form.remediationDeadline}>
           {saving ? 'Assigning...' : 'Assign'}
         </Button>
@@ -532,7 +531,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
           {saving ? 'Submitting...' : 'Submit Remediation'}
         </Button>
@@ -583,7 +582,7 @@ function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" color={decision === 'Rejected' ? 'error' : 'success'}
           onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : decision === 'Rejected' ? 'Reject' : 'Accept & Close'}
@@ -633,7 +632,7 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button variant="outlined" onClick={onClose}>Close</Button>
         <Button variant="contained" onClick={copy} disabled={!link}>{copied ? 'Copied' : 'Copy link'}</Button>
       </DialogActions>
     </Dialog>

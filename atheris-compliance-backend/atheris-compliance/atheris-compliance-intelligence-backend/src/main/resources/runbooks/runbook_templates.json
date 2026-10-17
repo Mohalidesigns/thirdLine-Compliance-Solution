@@ -1,0 +1,4532 @@
+[
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-ACC-001",
+    "templateVersion": 1,
+    "title": "Quarterly User Access Review",
+    "category": "ACCESS_REVIEW",
+    "criticality": "HIGH",
+    "frequency": "QUARTERLY",
+    "slaMinutes": 20160,
+    "objective": "Verify every active account on in-scope systems maps to a current employee or contractor with a least-privilege role, and remove dormant or orphaned accounts.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Active Directory",
+      "Core banking (Finacle)",
+      "PostgreSQL / Oracle databases"
+    ],
+    "scopeTeams": [
+      "IT Operations",
+      "Compliance",
+      "Line managers"
+    ],
+    "tags": [
+      "access",
+      "iam",
+      "quarterly",
+      "least-privilege"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-RBCSF-OFI",
+        "clauseRef": "AC-1"
+      },
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "AC-1"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.15"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.16"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.18"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "7.2.4"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "8.2.6"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "AC-2(3)"
+      },
+      {
+        "framework": "COBIT-2019",
+        "clauseRef": "DSS05.04"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "Read access to AD and core banking user tables",
+        "detail": "Read-only directory and core banking user/role query rights for the review window.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Current HR headcount export",
+        "detail": "HRIS export of active staff and contractors as of the review date.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "APPROVAL",
+        "label": "Approval ticket for the review window",
+        "detail": "Change/service ticket authorising the access review and any account disables.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Privileged access register",
+        "detail": "Current register of approved privileged accounts with approval references.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Data collection",
+        "description": "Gather authoritative identity data from HR and every in-scope system.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Export HR active staff list",
+            "instructionMd": "Export the HR active staff and contractor list as of the review date. Save it as CSV with employee ID, name, department and line manager.",
+            "commandBlock": "# HRIS → Reports → Active headcount as at <review_date> → Export CSV",
+            "commandLang": "ui",
+            "expectedResult": "CSV containing every active employee and contractor with line manager.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "HR active staff export (CSV)",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Export AD accounts",
+            "instructionMd": "Export all Active Directory user accounts with last logon date, enabled flag and group membership.",
+            "commandBlock": "Get-ADUser -Filter * -Properties LastLogonDate,Enabled,MemberOf |\n  Select-Object SamAccountName,Name,Enabled,LastLogonDate,@{n='Groups';e={($_.MemberOf -join ';')}} |\n  Export-Csv -NoTypeInformation ad_users.csv\n# LDAP alternative:\n# ldapsearch -H ldaps://<dc-host> -D \"<bind_dn>\" -W -b \"<base_dn>\" \"(objectClass=person)\" sAMAccountName userAccountControl lastLogonTimestamp memberOf",
+            "commandLang": "powershell",
+            "expectedResult": "ad_users.csv lists every AD user with LastLogonDate, Enabled and MemberOf.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.16"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "ad_users.csv export",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.3",
+            "title": "Export core banking users and roles",
+            "instructionMd": "Export all core banking users with role, last login and status. Adapt the query to your core banking schema.",
+            "commandBlock": "-- Finacle (adapt table/columns to your release)\nSELECT USER_ID, USER_NAME, ROLE, LAST_LOGIN, STATUS\n  FROM UPR\n WHERE BANK_ID = '01';\n-- T24 / BankOne: export the USER application listing via the vendor report",
+            "commandLang": "sql",
+            "expectedResult": "Result set of every core banking user with role, last login and status.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Core banking user and role export",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.4",
+            "title": "Export database privileged roles",
+            "instructionMd": "Export database roles that hold superuser or role-creation privileges on each in-scope database.",
+            "commandBlock": "-- PostgreSQL\nSELECT rolname, rolsuper, rolcreaterole, rolcanlogin FROM pg_roles;\n-- Oracle\n-- SELECT grantee, granted_role FROM dba_role_privs WHERE granted_role IN ('DBA','SYSDBA');\n-- MSSQL\n-- SELECT name FROM sys.server_principals WHERE IS_SRVROLEMEMBER('sysadmin', name) = 1;",
+            "commandLang": "sql",
+            "expectedResult": "List of database roles with superuser / create-role flags.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.8.2"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Database privileged role listing",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Analysis and attestation",
+        "description": "Reconcile system accounts against HR and flag exceptions for action.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Reconcile system users against HR",
+            "instructionMd": "Reconcile every system account against the HR list and flag accounts with no matching active employee as orphaned.",
+            "commandBlock": "# Atheris reconciliation helper or spreadsheet VLOOKUP on employee ID / UPN",
+            "commandLang": "ui",
+            "expectedResult": "Every account is either matched to an HR record or flagged as orphaned.",
+            "durationEstimateMin": 60,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Reconciliation output with not-in-HR flags",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Flag dormant accounts",
+            "instructionMd": "Flag enabled accounts with no login in the last 90 days as dormant.",
+            "commandBlock": "$cutoff = (Get-Date).AddDays(-90)\nImport-Csv ad_users.csv |\n  Where-Object { $_.Enabled -eq 'True' -and ([datetime]$_.LastLogonDate -lt $cutoff) } |\n  Export-Csv -NoTypeInformation dormant_90d.csv",
+            "commandLang": "powershell",
+            "expectedResult": "List of enabled accounts whose last logon is older than 90 days.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "8.2.6"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Dormant account list (>90 days)",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Confirm privileged account approvals",
+            "instructionMd": "Flag every privileged account and confirm an approval exists for it in the privileged access register.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Each privileged account has an approval reference or is flagged as an exception.",
+            "durationEstimateMin": 45,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.8.2"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Privileged account approval check",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Request manager attestations",
+            "instructionMd": "Send a role-appropriateness attestation request to each line manager for their team's accounts.",
+            "commandBlock": "# Atheris → Notifications → Send attestation request to line managers",
+            "commandLang": "ui",
+            "expectedResult": "All line managers have attested or been chased before the deadline.",
+            "durationEstimateMin": 30,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "7.2.4"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "Line manager attestations",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Remediation",
+        "description": "Remove access that is not justified, under dual control.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Disable dormant and orphaned accounts",
+            "instructionMd": "Disable each dormant or orphaned account listed in the approved exception list. A second operator must verify each disable against the ticket.",
+            "commandBlock": "# Active Directory\nDisable-ADAccount -Identity <sam>\n# Finacle: disable the user via the user maintenance menu per SOP (adapt)",
+            "commandLang": "powershell",
+            "expectedResult": "Every approved account shows Enabled = False in AD and is locked in core banking.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": "Disabling accounts blocks user access immediately. Disable only accounts on the approved list and never service accounts without the owning team's confirmation.",
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "AC-2(3)"
+              },
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "8.2.6"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Disabled account status",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Approval ticket reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.2",
+            "title": "Verify disabled accounts cannot authenticate",
+            "instructionMd": "Verify each disabled account cannot authenticate by checking its status and attempting a test login.",
+            "commandBlock": "Get-ADUser <sam> -Properties Enabled | Select-Object SamAccountName, Enabled",
+            "commandLang": "powershell",
+            "expectedResult": "Enabled = False and the test login is refused.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Failed test login / account status",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Close-out",
+        "description": "Summarise the review and obtain sign-off.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Compile review summary",
+            "instructionMd": "Compile the review summary with account counts, exceptions and actions taken.",
+            "commandBlock": "# Auto-generated by Atheris from step results",
+            "commandLang": "ui",
+            "expectedResult": "Summary covers counts, exceptions, actions and outstanding items.",
+            "durationEstimateMin": 30,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Access review summary",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.2",
+            "title": "CCO sign-off",
+            "instructionMd": "Confirm the review is complete and sign off in Atheris.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "CCO sign-off recorded against the execution.",
+            "durationEstimateMin": 10,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "CCO sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "ANALYST",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Investigate the failed step and decide to retry, pause or roll back."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Review progress; the quarterly access review is at 80% of its SLA."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Escalate the overdue access review to the CISO and tenant administrator."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "3.1",
+        "title": "Re-enable wrongly disabled account",
+        "instructionMd": "Re-enable the account, document the reason in the ticket and re-verify that the user can log in.",
+        "commandBlock": "Enable-ADAccount -Identity <sam>",
+        "verification": "Get-ADUser <sam> -Properties Enabled shows Enabled = True and the user confirms login."
+      }
+    ]
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-VUL-001",
+    "templateVersion": 1,
+    "title": "Monthly Vulnerability Scan, Patch and Report",
+    "category": "VULN_MGMT",
+    "criticality": "HIGH",
+    "frequency": "MONTHLY",
+    "slaMinutes": 43200,
+    "objective": "Scan all in-scope assets for vulnerabilities, remediate CVSS 7.0+ findings within policy timelines, verify by rescan and report to the CISO and CCO.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Servers (Linux/Windows)",
+      "Network devices",
+      "Databases",
+      "Internet-facing services"
+    ],
+    "scopeTeams": [
+      "IT Operations",
+      "Information Security"
+    ],
+    "tags": [
+      "vulnerability",
+      "patching",
+      "monthly"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "VM-1"
+      },
+      {
+        "framework": "CBN-RBCSF-OFI",
+        "clauseRef": "VM-1"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.8"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "6.3"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "11.3"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "RA-5"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "SI-2"
+      },
+      {
+        "framework": "CIS-v8",
+        "clauseRef": "7"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "TOOL",
+        "label": "Vulnerability scanner",
+        "detail": "Nessus, Qualys or OpenVAS/Greenbone with current plugin feed.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "CREDENTIAL",
+        "label": "Scan service account",
+        "detail": "Authenticated scan credentials stored in the scanner vault; never typed into commands.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Current asset register",
+        "detail": "CMDB / asset register export for scope confirmation.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "WINDOW",
+        "label": "Approved patch window",
+        "detail": "Production change window approved by the CAB.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Scope and readiness",
+        "description": "Confirm what will be scanned and that the scanner is ready.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Confirm scan scope",
+            "instructionMd": "Confirm the scan target list matches the current asset register and record any gaps.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Every in-scope asset is a scan target; gaps are recorded.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NIST-CSF-2.0",
+                "clauseRef": "ID.AM"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Scope vs asset register comparison",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Update scanner feeds",
+            "instructionMd": "Update the scanner plugin or feed set and confirm the update succeeded.",
+            "commandBlock": "# Nessus\nnessuscli update --plugins-only\n# Greenbone / OpenVAS\ngvm-cli --gmp-username \"${GVM_USER}\" --gmp-password \"${GVM_PASSWORD}\" socket --xml \"<get_feeds/>\"",
+            "commandLang": "bash",
+            "expectedResult": "Scanner reports a plugin/feed date within the last 7 days.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Feed / plugin version",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Scan, triage and remediate",
+        "description": "Run the scan, prioritise findings and patch.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Run authenticated scan",
+            "instructionMd": "Run the authenticated internal scan against the confirmed scope and wait for it to complete.",
+            "commandBlock": "# Nessus REST (keys from env, never inline)\ncurl -s -X POST -H \"X-ApiKeys: accessKey=${NESSUS_ACCESS_KEY}; secretKey=${NESSUS_SECRET_KEY}\" https://<nessus-host>:8834/scans/<scan_id>/launch\n# Greenbone / OpenVAS\ngvm-cli --gmp-username \"${GVM_USER}\" --gmp-password \"${GVM_PASSWORD}\" socket --xml '<start_task task_id=\"<task_id>\"/>'",
+            "commandLang": "bash",
+            "expectedResult": "Scan completes with authentication succeeding on all targets.",
+            "durationEstimateMin": 240,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "RA-5"
+              },
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "11.3"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Scan job log",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Export scan results",
+            "instructionMd": "Export the full scan report and a CSV of findings for triage.",
+            "commandBlock": "gvm-cli --gmp-username \"${GVM_USER}\" --gmp-password \"${GVM_PASSWORD}\" socket --xml '<get_reports report_id=\"<report_id>\" format_id=\"<csv_format_id>\"/>' > scan_<yyyymm>.xml",
+            "commandLang": "bash",
+            "expectedResult": "Report and CSV contain all findings with CVSS scores.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Scan report (PDF/HTML)",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Findings CSV",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Triage findings by severity",
+            "instructionMd": "Triage every finding with CVSS 7.0 or higher and assign an owner and due date. Critical findings are due within 30 days.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Each high/critical finding has an owner, due date and decision.",
+            "durationEstimateMin": 90,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "6.3"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Triage register with owners and due dates",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Raise change tickets",
+            "instructionMd": "Raise a change ticket for each remediation batch and link it to the findings.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "All remediation batches have approved change tickets.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Change ticket references",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.5",
+            "title": "Back up before patching",
+            "instructionMd": "Take a snapshot or backup of each production system before patching and record its reference.",
+            "commandBlock": "# VMware\n# New-Snapshot -VM <vm_name> -Name pre-patch-<yyyymmdd>\n# Linux LVM\nlvcreate -s -n prepatch_<yyyymmdd> -L 10G /dev/<vg>/<lv>",
+            "commandLang": "bash",
+            "expectedResult": "Restorable snapshot exists for every system in the patch batch.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Snapshot / backup confirmation",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.6",
+            "title": "Patch the test environment",
+            "instructionMd": "Apply the patches in the test environment and run smoke tests before production.",
+            "commandBlock": "# RHEL / Oracle Linux\nsudo yum -y update --security\n# Windows\n# Install-WindowsUpdate -KBArticleID <kb_id> -AcceptAll (PSWindowsUpdate module)",
+            "commandLang": "bash",
+            "expectedResult": "Patches install cleanly and smoke tests pass in test.",
+            "durationEstimateMin": 60,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Test patch log and smoke-test result",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.7",
+            "title": "Patch production in the window",
+            "instructionMd": "Apply the tested patches to production inside the approved change window.",
+            "commandBlock": "# RHEL / Oracle Linux\nsudo yum -y update --security\nsudo yum history list | head -5\n# Windows: deploy approved KBs via WSUS / SCCM",
+            "commandLang": "bash",
+            "expectedResult": "Patches installed on all production targets within the window.",
+            "durationEstimateMin": 120,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": "Production patching may restart services. Patch only inside the approved window with the snapshot from step 2.5 available.",
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "SI-2"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Production patch log",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Change ticket closed",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.8",
+            "title": "Record deferred patch exceptions",
+            "instructionMd": "Record each deferred patch with compensating controls and obtain risk acceptance from the CISO.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Every deferred high/critical finding has a signed exception.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CISO",
+            "blocking": false,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Signed patch exception approvals",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Verification",
+        "description": "Prove remediation worked and services are healthy.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Rescan remediated assets",
+            "instructionMd": "Rescan the remediated assets and compare the results with the original scan.",
+            "commandBlock": "gvm-cli --gmp-username \"${GVM_USER}\" --gmp-password \"${GVM_PASSWORD}\" socket --xml '<start_task task_id=\"<rescan_task_id>\"/>'",
+            "commandLang": "bash",
+            "expectedResult": "Remediated findings no longer appear; remaining ones are under exception.",
+            "durationEstimateMin": 120,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "11.3"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Pre/post rescan comparison",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.2",
+            "title": "Verify service health",
+            "instructionMd": "Verify that patched services are running and responding normally.",
+            "commandBlock": "systemctl --failed\ncurl -s -o /dev/null -w '%{http_code}\\n' https://<service-host>/health",
+            "commandLang": "bash",
+            "expectedResult": "All patched services report healthy.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Service health check output",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Reporting",
+        "description": "Report the cycle to management.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Compile vulnerability report",
+            "instructionMd": "Compile the monthly report with scan coverage, open findings by severity, SLA status and exceptions.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Report delivered to CISO and CCO.",
+            "durationEstimateMin": 45,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Monthly vulnerability report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.2",
+            "title": "CISO and CCO sign-off",
+            "instructionMd": "Confirm the report is accurate and sign off.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Sign-off recorded.",
+            "durationEstimateMin": 10,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "Sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "IT_OPS",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Investigate the failed scan or patch step."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Critical vulnerabilities are approaching the remediation SLA; confirm the patch plan."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Critical CVE unpatched beyond SLA; escalate to the MD and board risk committee."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "2.7",
+        "title": "Revert the production patch",
+        "instructionMd": "Revert the patch transaction or uninstall the KB, or restore the pre-patch snapshot, then verify service health.",
+        "commandBlock": "# RHEL / Oracle Linux\nsudo yum history undo <transaction_id>\n# Windows\n# wusa /uninstall /kb:<kb_id> /quiet /norestart\n# VMware: revert to snapshot pre-patch-<yyyymmdd>",
+        "verification": "Service health checks pass and the system runs the pre-patch version."
+      }
+    ]
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-INC-001",
+    "templateVersion": 1,
+    "title": "Data Breach Response and Regulatory Notification (NDPA / CBN)",
+    "category": "INCIDENT",
+    "criticality": "CRITICAL",
+    "frequency": "EVENT_DRIVEN",
+    "slaMinutes": 4320,
+    "objective": "Contain a suspected personal data or cyber breach, assess its impact, notify the CBN within 24 hours and the NDPC within 72 hours, and recover safely.",
+    "reviewCadence": "SEMI_ANNUAL",
+    "scopeSystems": [
+      "All production systems",
+      "Core banking",
+      "Customer channels",
+      "Email and identity"
+    ],
+    "scopeTeams": [
+      "SOC",
+      "Information Security",
+      "Compliance",
+      "Data Protection",
+      "Legal"
+    ],
+    "tags": [
+      "incident",
+      "breach",
+      "ndpa",
+      "cbn",
+      "notification"
+    ],
+    "clauses": [
+      {
+        "framework": "NDPA-2023",
+        "clauseRef": "s.40"
+      },
+      {
+        "framework": "NDPA-GAID-2025",
+        "clauseRef": "GAID-BREACH"
+      },
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "IR-1"
+      },
+      {
+        "framework": "CBN-RBCSF-OFI",
+        "clauseRef": "IR-1"
+      },
+      {
+        "framework": "NG-CYBERCRIMES",
+        "clauseRef": "s.21"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.24"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.25"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.26"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.27"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.28"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "IR-4"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "IR-6"
+      },
+      {
+        "framework": "GDPR",
+        "clauseRef": "Art.33"
+      },
+      {
+        "framework": "GDPR",
+        "clauseRef": "Art.34"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "12.10"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "Incident response access",
+        "detail": "Emergency access to firewalls, EDR, directory and SIEM for responders.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "TOOL",
+        "label": "Forensic storage",
+        "detail": "Write-once forensic share with enough capacity for log and image capture.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Regulator contact details and templates",
+        "detail": "CBN incident report template, NDPC breach notification form, ngCERT contact.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "APPROVAL",
+        "label": "Incident commander designated",
+        "detail": "Named incident commander and deputy on the on-call roster.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Pre-check (T+0–1h)",
+        "description": "Stand up the response and preserve evidence before anything changes.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Confirm incident commander and open ticket",
+            "instructionMd": "Confirm the incident commander and open an incident ticket with detection time, reporter and initial scope.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Incident ticket open with T0 (detection time) recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Incident ticket reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Preserve logs and start evidence log",
+            "instructionMd": "Copy relevant logs to forensic storage and hash them before any containment change. Start the evidence and decision timeline.",
+            "commandBlock": "mkdir -p /forensics/<incident_id>\ncp -a /var/log /forensics/<incident_id>/\nfind /forensics/<incident_id> -type f -exec sha256sum {} + > /forensics/<incident_id>/manifest.sha256",
+            "commandLang": "bash",
+            "expectedResult": "Logs copied with a SHA-256 manifest; timeline started.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.28"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Forensic hash manifest",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Incident timeline",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.3",
+            "title": "Notify the CISO",
+            "instructionMd": "Notify the CISO with the initial facts and confirm the response team is engaged.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "CISO acknowledged within 15 minutes.",
+            "durationEstimateMin": 5,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "CISO notification",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Containment (T+1–8h)",
+        "description": "Stop the spread and cut attacker access.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Isolate affected hosts",
+            "instructionMd": "Isolate affected hosts by quarantining them on the NAC/EDR or blocking them at the firewall.",
+            "commandBlock": "# Linux host firewall\niptables -I INPUT -s <affected_ip> -j DROP\niptables -I OUTPUT -d <affected_ip> -j DROP\n# FortiGate: add <affected_ip> to the quarantine address group\n# config firewall addrgrp → edit \"QUARANTINE\" → append member <affected_host_obj>",
+            "commandLang": "bash",
+            "expectedResult": "Affected hosts have no network path except the forensic VLAN.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": "Isolation interrupts service on the affected host. Confirm the host list with the incident commander and keep forensic access open.",
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.26"
+              },
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "IR-4"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "Firewall / NAC rule export",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Host isolation status",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Revoke compromised credentials",
+            "instructionMd": "Disable compromised accounts and revoke their active sessions.",
+            "commandBlock": "# Active Directory\nDisable-ADAccount -Identity <sam>\n# Entra ID / Microsoft 365\nRevoke-MgUserSignInSession -UserId <upn>",
+            "commandLang": "powershell",
+            "expectedResult": "Compromised accounts are disabled and all sessions revoked.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": "Disabling accounts may lock out legitimate users. Confirm each account against the compromise evidence before disabling.",
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Disabled accounts and revoked sessions",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Incident ticket update",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Rotate keys and tokens",
+            "instructionMd": "Rotate API keys, service credentials and tokens exposed in the incident and update dependent services.",
+            "commandBlock": "# AWS KMS (on-demand rotation)\naws kms rotate-key-on-demand --key-id <key_id>\n# Rotate application secrets in the vault; never paste secret values here",
+            "commandLang": "bash",
+            "expectedResult": "All exposed secrets are rotated and dependent services work.",
+            "durationEstimateMin": 60,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Key rotation change reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Block indicators of compromise",
+            "instructionMd": "Block known IOCs (IPs, domains, hashes) on the firewall, proxy and EDR.",
+            "commandBlock": "# FortiGate\nconfig firewall address\n  edit \"IOC-<incident_id>-1\"\n    set subnet <ioc_ip> 255.255.255.255\n  next\nend",
+            "commandLang": "bash",
+            "expectedResult": "All known IOCs are blocked on every control point.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "IOC block list export",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Assessment (T+8–24h)",
+        "description": "Determine what data and people are affected.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Determine affected data and subject count",
+            "instructionMd": "Determine the personal data categories exposed and the approximate number of data subjects affected.",
+            "commandBlock": "-- PostgreSQL (adapt to affected tables)\nSELECT COUNT(DISTINCT customer_id) AS subjects\n  FROM <affected_table>\n WHERE accessed_at BETWEEN '<t_start>' AND '<t_end>';",
+            "commandLang": "sql",
+            "expectedResult": "Data categories and subject count documented with method.",
+            "durationEstimateMin": 120,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Affected records analysis",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.2",
+            "title": "Classify incident severity",
+            "instructionMd": "Classify the incident severity using the incident classification matrix and record the rationale.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Severity recorded and agreed by the incident commander.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.25"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Severity classification",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.3",
+            "title": "Assess likelihood of harm",
+            "instructionMd": "Decide whether the breach is likely to result in harm to data subjects and record the reasoning for NDPA purposes.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Documented decision on the NDPA notification trigger.",
+            "durationEstimateMin": 45,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NDPA-2023",
+                "clauseRef": "s.40"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "DPO harm assessment",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Regulatory notification — CBN (≤24h)",
+        "description": "Initial cyber incident report to the CBN within 24 hours of detection.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Complete the CBN initial incident report",
+            "instructionMd": "Complete the Atheris CBN initial incident report template with the facts known so far.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Report draft complete.",
+            "durationEstimateMin": 45,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Draft CBN initial incident report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.2",
+            "title": "Obtain CISO approval",
+            "instructionMd": "Obtain CISO approval of the CBN initial report.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Report approved.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "CISO approval",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.3",
+            "title": "Submit to CBN and capture acknowledgement",
+            "instructionMd": "Submit the report through the prescribed CBN channel and save the acknowledgement.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Submitted within 24 hours of detection with acknowledgement saved.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-RBCSF-DMB",
+                "clauseRef": "IR-1"
+              },
+              {
+                "framework": "CBN-RBCSF-OFI",
+                "clauseRef": "IR-1"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "Submission and CBN acknowledgement",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Regulatory notification — NDPC (≤72h)",
+        "description": "Breach notification to the NDPC within 72 hours of awareness.",
+        "steps": [
+          {
+            "stepCode": "5.1",
+            "title": "Complete the NDPC breach notification",
+            "instructionMd": "Complete the NDPC breach notification form with nature, data categories, approximate numbers, DPO contact, likely consequences and measures taken.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Notification draft complete.",
+            "durationEstimateMin": 60,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Draft NDPC notification",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "5.2",
+            "title": "Obtain DPO and CCO approval",
+            "instructionMd": "Obtain DPO and CCO approval of the NDPC notification.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Both approvals recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "DPO and CCO approvals",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "5.3",
+            "title": "Submit to NDPC and capture acknowledgement",
+            "instructionMd": "Submit the notification to the NDPC and save the acknowledgement.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Submitted within 72 hours of awareness with acknowledgement saved.",
+            "durationEstimateMin": 15,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NDPA-2023",
+                "clauseRef": "s.40"
+              },
+              {
+                "framework": "GDPR",
+                "clauseRef": "Art.33"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "Submission and NDPC acknowledgement",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "5.4",
+            "title": "Report to ngCERT",
+            "instructionMd": "Report the incident to the national or sectoral CERT and record the reference.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "CERT report submitted with reference recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CISO",
+            "blocking": false,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NG-CYBERCRIMES",
+                "clauseRef": "s.21"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "ngCERT report and reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Data subject notification (if high risk)",
+        "description": "Inform affected individuals where the risk to them is high.",
+        "steps": [
+          {
+            "stepCode": "6.1",
+            "title": "Draft the data subject notice",
+            "instructionMd": "Draft a plain-language notice describing the breach, likely consequences, measures taken and contact point.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Notice drafted.",
+            "durationEstimateMin": 60,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": true,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Draft notice",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "6.2",
+            "title": "Complete legal review",
+            "instructionMd": "Obtain legal review and approval of the notice.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Notice approved by legal.",
+            "durationEstimateMin": 60,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": true,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Legal approval",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "6.3",
+            "title": "Dispatch and log notices",
+            "instructionMd": "Dispatch the notice to affected data subjects and log the dispatch counts.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Notices sent without undue delay and logged.",
+            "durationEstimateMin": 60,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": true,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "GDPR",
+                "clauseRef": "Art.34"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Dispatch log",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Eradication and recovery",
+        "description": "Remove the root cause and restore safely.",
+        "steps": [
+          {
+            "stepCode": "7.1",
+            "title": "Patch the root cause",
+            "instructionMd": "Patch or reconfigure the root cause and confirm the attack path is closed.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Root cause remediated and verified.",
+            "durationEstimateMin": 120,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Remediation change reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "7.2",
+            "title": "Restore from clean backup",
+            "instructionMd": "Restore affected systems from a verified clean backup taken before the compromise.",
+            "commandBlock": "# PostgreSQL\npg_restore -h <host> -U \"${DB_USER}\" -d <target_db> /backups/<clean_backup>.dump",
+            "commandLang": "bash",
+            "expectedResult": "Systems restored from a pre-compromise backup.",
+            "durationEstimateMin": 180,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Restore log",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "7.3",
+            "title": "Monitor for recurrence",
+            "instructionMd": "Monitor affected systems for indicators of recurrence for 14 days.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "No recurrence observed for 14 days.",
+            "durationEstimateMin": 60,
+            "assignedRole": "IT_OPS",
+            "blocking": false,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "14-day monitoring summary",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Close-out",
+        "description": "Learn from the incident and close it.",
+        "steps": [
+          {
+            "stepCode": "8.1",
+            "title": "Hold the post-incident review",
+            "instructionMd": "Hold the post-incident review within 10 business days and record root cause and lessons learned.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Review held and report issued.",
+            "durationEstimateMin": 120,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.27"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Post-incident review report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "8.2",
+            "title": "Update controls and raise findings",
+            "instructionMd": "Raise findings for control gaps and update affected runbooks and controls.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Findings raised and owners assigned.",
+            "durationEstimateMin": 45,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Finding references",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "8.3",
+            "title": "Record the loss event",
+            "instructionMd": "Record the incident as an operational loss event for the op-risk register.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Loss event recorded.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-ORM",
+                "clauseRef": "ORM-2"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Loss event record",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "8.4",
+            "title": "CCO sign-off",
+            "instructionMd": "Confirm all notifications, actions and evidence are complete and sign off.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Incident closed with sign-off.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "CCO close-out sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "IT_OPS",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "SOC lead: investigate the failed step immediately."
+      },
+      {
+        "level": 2,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 15,
+        "instructions": "Escalate to the CISO if the failure is unresolved after 15 minutes."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 30,
+        "instructions": "Regulatory deadline at risk; the CCO must confirm the notification plan."
+      },
+      {
+        "level": 4,
+        "triggerType": "SLA_80",
+        "notifyRole": "DPO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 30,
+        "instructions": "NDPC 72-hour deadline at risk; the DPO must finalise the notification."
+      },
+      {
+        "level": 5,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "TENANT_ADMIN",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 120,
+        "instructions": "Inform the MD/CEO and Board Risk Chair; also escalate when 1,000 or more data subjects are affected."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "2.1",
+        "title": "Remove containment rules",
+        "instructionMd": "Remove the isolation rules after the incident commander validates the host is clean, then restore service.",
+        "commandBlock": "iptables -D INPUT -s <affected_ip> -j DROP\niptables -D OUTPUT -d <affected_ip> -j DROP\n# FortiGate: unselect <affected_host_obj> from the QUARANTINE group",
+        "verification": "Host is reachable, services respond and monitoring shows no malicious activity."
+      },
+      {
+        "reversesStepCode": "2.2",
+        "title": "Re-enable cleared accounts",
+        "instructionMd": "Re-enable accounts confirmed not compromised after a credential reset, and document the decision.",
+        "commandBlock": "Enable-ADAccount -Identity <sam>",
+        "verification": "User logs in successfully with new credentials and MFA."
+      }
+    ]
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-CFG-001",
+    "templateVersion": 1,
+    "title": "Server, Firewall and Database Configuration Baseline Audit",
+    "category": "CONFIG_AUDIT",
+    "criticality": "HIGH",
+    "frequency": "QUARTERLY",
+    "slaMinutes": 20160,
+    "objective": "Compare server, firewall and database configurations against the approved hardening baseline, remediate or approve deviations, and prove compliance by rescan.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Linux servers",
+      "Windows servers",
+      "FortiGate / Cisco / Palo Alto firewalls",
+      "PostgreSQL / Oracle / MSSQL"
+    ],
+    "scopeTeams": [
+      "IT Operations",
+      "Information Security"
+    ],
+    "tags": [
+      "configuration",
+      "hardening",
+      "cis",
+      "quarterly"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-ITSB",
+        "clauseRef": "ITSB-CFG"
+      },
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "CFG-1"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.9"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "2.2"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "CM-6"
+      },
+      {
+        "framework": "CIS-v8",
+        "clauseRef": "4"
+      },
+      {
+        "framework": "COBIT-2019",
+        "clauseRef": "BAI10"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "DATA",
+        "label": "Approved hardening baseline",
+        "detail": "CIS Benchmark version or internal hardening standard approved by the CISO.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "TOOL",
+        "label": "Configuration checkers",
+        "detail": "OpenSCAP or Lynis on Linux, CIS-CAT or secedit on Windows, CLI access to firewalls.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "ACCESS",
+        "label": "Read-only admin access",
+        "detail": "Read-only privileged access to in-scope hosts, devices and databases.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Baseline and scope",
+        "description": "Confirm the yardstick and the assets.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Pull the approved baseline",
+            "instructionMd": "Pull the current approved baseline and record its version.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Baseline version recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Baseline document and version",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Confirm in-scope assets",
+            "instructionMd": "Confirm the list of servers, devices and databases in scope for this quarter.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Asset list agreed.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "In-scope asset list",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Collect and compare",
+        "description": "Collect configurations and compare against the baseline.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Run Linux baseline checks",
+            "instructionMd": "Run the CIS profile scan and Lynis audit on each in-scope Linux server.",
+            "commandBlock": "oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis \\\n  --results /tmp/<host>-oscap.xml --report /tmp/<host>-oscap.html \\\n  /usr/share/xml/scap/ssg/content/ssg-<distro>-ds.xml\nsudo lynis audit system --quiet --report-file /tmp/<host>-lynis.dat",
+            "commandLang": "bash",
+            "expectedResult": "Results file and Lynis report produced for each host.",
+            "durationEstimateMin": 45,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CIS-v8",
+                "clauseRef": "4"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "OpenSCAP results and Lynis report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Run Windows baseline checks",
+            "instructionMd": "Export the local security policy and audit policy from each in-scope Windows server.",
+            "commandBlock": "secedit /export /cfg C:\\audit\\<host>-secpol.cfg\nauditpol /get /category:* > C:\\audit\\<host>-auditpol.txt\n# Or run CIS-CAT Pro Assessor against the CIS Windows Server benchmark",
+            "commandLang": "powershell",
+            "expectedResult": "Policy exports produced for each server.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "secpol and auditpol exports",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Export firewall configurations",
+            "instructionMd": "Export the full running configuration from each in-scope firewall.",
+            "commandBlock": "# FortiGate\nshow full-configuration\n# Cisco ASA / IOS\n# show running-config\n# Palo Alto\n# show config running",
+            "commandLang": "bash",
+            "expectedResult": "Full configuration exported for each device.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "Firewall configuration exports",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Export database settings",
+            "instructionMd": "Export security-relevant database settings from each in-scope database.",
+            "commandBlock": "-- PostgreSQL\nSELECT name, setting, source FROM pg_settings ORDER BY name;\n-- Oracle\n-- SELECT name, value FROM v$parameter ORDER BY name;\n-- MSSQL\n-- EXEC sp_configure;",
+            "commandLang": "sql",
+            "expectedResult": "Settings export produced per database.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "Database settings export",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.5",
+            "title": "Hash the exports",
+            "instructionMd": "Hash every configuration export so the evidence is tamper-evident.",
+            "commandBlock": "sha256sum /tmp/*-oscap.xml /tmp/*-lynis.dat /audit/*.cfg /audit/*.txt > config_manifest.sha256",
+            "commandLang": "bash",
+            "expectedResult": "Manifest lists a SHA-256 for every export.",
+            "durationEstimateMin": 10,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "SHA-256 manifest of exports",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.6",
+            "title": "Classify deviations",
+            "instructionMd": "Diff each export against the baseline and classify every deviation as remediate or exception.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Each deviation has a classification and owner.",
+            "durationEstimateMin": 90,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Deviation report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.7",
+            "title": "Remediate deviations via change",
+            "instructionMd": "Remediate approved deviations through change control and record exceptions with risk acceptance.",
+            "commandBlock": "# Apply hardening via configuration management (dry run first)\nansible-playbook -i inventory hardening.yml --limit <host> --check --diff\nansible-playbook -i inventory hardening.yml --limit <host>",
+            "commandLang": "bash",
+            "expectedResult": "Deviations remediated or covered by signed exceptions.",
+            "durationEstimateMin": 120,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": "Hardening changes can break services. Run the dry run first and apply only within an approved change window.",
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "CM-6"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Change tickets",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Exception approvals",
+                "mandatory": false,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Verification",
+        "description": "Prove the remediation stuck.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Rescan remediated assets",
+            "instructionMd": "Rescan the remediated assets with the same profile and compare with the first run.",
+            "commandBlock": "oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis --results /tmp/<host>-oscap-rescan.xml /usr/share/xml/scap/ssg/content/ssg-<distro>-ds.xml",
+            "commandLang": "bash",
+            "expectedResult": "Remediated deviations now pass.",
+            "durationEstimateMin": 45,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "CONFIG_EXPORT",
+                "label": "Rescan results",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.2",
+            "title": "Verify connectivity and services",
+            "instructionMd": "Verify that remediated hosts and devices keep connectivity and that services respond.",
+            "commandBlock": "systemctl --failed\nnc -zv <dependent_host> <port>",
+            "commandLang": "bash",
+            "expectedResult": "All services healthy.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Service and connectivity check",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Close-out",
+        "description": "Report and sign off.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Compile the baseline audit report",
+            "instructionMd": "Compile the audit report with compliance percentage per asset, deviations, exceptions and changes.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Report complete.",
+            "durationEstimateMin": 30,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Configuration audit report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.2",
+            "title": "CCO sign-off",
+            "instructionMd": "Confirm the audit is complete and sign off.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Sign-off recorded.",
+            "durationEstimateMin": 10,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "CCO sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "IT_OPS",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Investigate the failed collection or remediation step."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Configuration audit at 80% of SLA; confirm the remediation plan."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Configuration audit overdue; record a finding."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "2.7",
+        "title": "Restore last known-good configuration",
+        "instructionMd": "Restore the last known-good configuration from backup or version control, then verify connectivity and services.",
+        "commandBlock": "# FortiGate\nexecute restore config tftp <config_file> <tftp_server_ip>\n# Infrastructure as code\ngit checkout <last_good_tag> -- <path>\nansible-playbook -i inventory baseline.yml --limit <host>",
+        "verification": "Connectivity and services restored; configuration matches the known-good version."
+      }
+    ]
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-CRY-001",
+    "templateVersion": 1,
+    "title": "Encryption Key and Certificate Rotation",
+    "category": "CRYPTO",
+    "criticality": "HIGH",
+    "frequency": "ANNUAL",
+    "slaMinutes": 10080,
+    "objective": "Rotate encryption keys and certificates before expiry under dual control, without service interruption, and keep the key register current.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "HSM / KMS",
+      "TLS endpoints",
+      "Application encryption"
+    ],
+    "scopeTeams": [
+      "Information Security",
+      "IT Operations"
+    ],
+    "tags": [
+      "crypto",
+      "keys",
+      "certificates",
+      "dual-control"
+    ],
+    "clauses": [
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.24"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "3.6"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "3.7"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "SC-12"
+      },
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "CRY-1"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "Two key custodians",
+        "detail": "Two authorised key custodians available for dual control.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "TOOL",
+        "label": "HSM / KMS access",
+        "detail": "Access to the HSM or cloud KMS and the certificate authority.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "WINDOW",
+        "label": "Cutover window",
+        "detail": "Approved window for certificate binding and key cutover.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Inventory and backup",
+        "description": "Know what rotates and keep a way back.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Inventory keys and certificates",
+            "instructionMd": "Inventory the keys and certificates due for rotation with their expiry dates.",
+            "commandBlock": "openssl x509 -in <cert.pem> -noout -subject -enddate\naws kms list-keys --output table",
+            "commandLang": "bash",
+            "expectedResult": "Inventory lists every item due with expiry date.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Key and certificate inventory",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Back up current keys to escrow",
+            "instructionMd": "Back up the current key material to the HSM or escrow under dual control.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Backup confirmed by both custodians.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Dual-control backup record",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Rotate",
+        "description": "Generate new material and cut over.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Generate the new key",
+            "instructionMd": "Generate the new key or key version under dual control.",
+            "commandBlock": "# AWS KMS\naws kms rotate-key-on-demand --key-id <key_id>\n# OpenSSL (TLS key + CSR)\nopenssl req -new -newkey rsa:3072 -nodes -keyout <host>.key -out <host>.csr -subj \"/CN=<host>\"",
+            "commandLang": "bash",
+            "expectedResult": "New key version active in the HSM/KMS.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "SC-12"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Key generation log",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Re-issue and bind the certificate",
+            "instructionMd": "Install the re-issued certificate and switch the binding to the new key under dual control.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Endpoint presents the new certificate.",
+            "durationEstimateMin": 45,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": "A wrong binding causes an outage. Keep the previous certificate available for immediate rollback.",
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "New certificate binding",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Verify",
+        "description": "Prove the new material is in use.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Verify the new certificate",
+            "instructionMd": "Verify the endpoint serves the new certificate with the correct chain and expiry.",
+            "commandBlock": "openssl s_client -connect <host>:443 -servername <host> </dev/null 2>/dev/null | openssl x509 -noout -serial -enddate",
+            "commandLang": "bash",
+            "expectedResult": "New serial and expiry shown; chain verifies.",
+            "durationEstimateMin": 10,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "openssl s_client output",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Retire and record",
+        "description": "Retire old material and update the register.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Retire the old key",
+            "instructionMd": "Retire the previous key version after the grace period under dual control.",
+            "commandBlock": "aws kms disable-key --key-id <old_key_id>",
+            "commandLang": "bash",
+            "expectedResult": "Old key disabled and no service uses it.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": "Retiring a key still in use makes data unreadable. Confirm no decrypt calls used the old key during the grace period.",
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Key retirement record",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "4.2",
+            "title": "Update the key register",
+            "instructionMd": "Update the key and certificate register with new versions, custodians and next rotation dates.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Register reflects the rotation.",
+            "durationEstimateMin": 15,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "PCI-DSS-4.0.1",
+                "clauseRef": "3.7"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Updated key register",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CISO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Rotation step failed; decide whether to roll back."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Key/certificate rotation at 80% of SLA; expiry risk."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "2.2",
+        "title": "Revert certificate binding",
+        "instructionMd": "Rebind the previous certificate and re-activate the previous key version, then verify the endpoint.",
+        "commandBlock": "# Re-point the listener to the previous certificate; KMS: re-enable the previous key version if disabled",
+        "verification": "Endpoint serves the previous certificate and clients connect."
+      },
+      {
+        "reversesStepCode": "4.1",
+        "title": "Re-enable the old key",
+        "instructionMd": "Re-enable the retired key if any data or service still depends on it.",
+        "commandBlock": "aws kms enable-key --key-id <old_key_id>",
+        "verification": "Decrypt operations using the old key succeed."
+      }
+    ]
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-BCP-001",
+    "templateVersion": 1,
+    "title": "Backup Integrity and DR Restore Test",
+    "category": "BCP_DR",
+    "criticality": "HIGH",
+    "frequency": "QUARTERLY",
+    "slaMinutes": 10080,
+    "objective": "Prove that backups are complete and restorable within the approved RTO and RPO by restoring samples into an isolated environment.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Backup platform",
+      "Core banking",
+      "PostgreSQL / Oracle"
+    ],
+    "scopeTeams": [
+      "IT Operations",
+      "Business Continuity"
+    ],
+    "tags": [
+      "backup",
+      "restore",
+      "dr",
+      "rto",
+      "rpo"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-BCP",
+        "clauseRef": "BCP-3"
+      },
+      {
+        "framework": "ISO-22301-2019",
+        "clauseRef": "8.5"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.13"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.14"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "CP-9"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "CP-10"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "Isolated restore environment",
+        "detail": "Network-isolated environment for restore tests.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Approved RTO/RPO targets",
+        "detail": "Business impact analysis targets for each in-scope system.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Select and check",
+        "description": "Choose samples and check integrity.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Select sample backups",
+            "instructionMd": "Select sample backups covering each critical system and record their dates.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Samples cover every critical system.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Sample selection",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Verify backup checksums",
+            "instructionMd": "Verify the checksum of each sample backup against the backup catalogue.",
+            "commandBlock": "sha256sum -c /backups/<set>/SHA256SUMS",
+            "commandLang": "bash",
+            "expectedResult": "All checksums match.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Checksum verification output",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Restore and test",
+        "description": "Restore into isolation and test integrity.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Restore to the isolated environment",
+            "instructionMd": "Restore each sample into the isolated environment and record start and end times.",
+            "commandBlock": "# PostgreSQL\ncreatedb -h <dr_host> -U \"${DB_USER}\" restore_test_<yyyymmdd>\npg_restore -h <dr_host> -U \"${DB_USER}\" -d restore_test_<yyyymmdd> /backups/<set>/<db>.dump\n# Finacle: follow the vendor DR restore procedure",
+            "commandLang": "bash",
+            "expectedResult": "Restore completes; timings recorded.",
+            "durationEstimateMin": 180,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NIST-800-53r5",
+                "clauseRef": "CP-10"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Restore log with timings",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Run integrity queries",
+            "instructionMd": "Run integrity queries comparing row counts and control totals with production at backup time.",
+            "commandBlock": "SELECT COUNT(*) AS accounts, SUM(balance) AS total_balance FROM <accounts_table>;",
+            "commandLang": "sql",
+            "expectedResult": "Counts and totals match the source at backup time.",
+            "durationEstimateMin": 30,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Integrity query results",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Measure",
+        "description": "Compare achieved recovery with targets.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Measure RTO and RPO achieved",
+            "instructionMd": "Measure the RTO and RPO achieved and compare them with the approved targets.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Achieved values recorded; breaches flagged.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "RTO/RPO results",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Report",
+        "description": "Report and sign off.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Report the test results",
+            "instructionMd": "Compile the restore test report with results, gaps and actions, and obtain CCO sign-off.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Report signed off.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Restore test report",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "CCO sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "IT_OPS",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Restore or integrity check failed; investigate the backup chain."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Restore test at 80% of SLA."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Restore test overdue; raise a finding."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-LOG-001",
+    "templateVersion": 1,
+    "title": "Privileged Activity and Security Log Review",
+    "category": "LOGGING",
+    "criticality": "MEDIUM",
+    "frequency": "WEEKLY",
+    "slaMinutes": 2880,
+    "objective": "Review privileged sessions, failed logins, after-hours access, database admin actions and maker-checker overrides each week and act on exceptions.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "SIEM",
+      "Active Directory",
+      "PostgreSQL (pgaudit)",
+      "Core banking"
+    ],
+    "scopeTeams": [
+      "Information Security",
+      "IT Operations"
+    ],
+    "tags": [
+      "logging",
+      "siem",
+      "privileged",
+      "weekly"
+    ],
+    "clauses": [
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.15"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.16"
+      },
+      {
+        "framework": "PCI-DSS-4.0.1",
+        "clauseRef": "10.4"
+      },
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "LOG-1"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "AU-6"
+      },
+      {
+        "framework": "CIS-v8",
+        "clauseRef": "8.11"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "SIEM read access",
+        "detail": "Read access to the SIEM and database audit logs.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Readiness",
+        "description": "Confirm logs are flowing.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Confirm log sources are reporting",
+            "instructionMd": "Confirm every in-scope log source sent events in the review period.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "No silent log sources.",
+            "durationEstimateMin": 10,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Log source health",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Pull and review",
+        "description": "Pull the review datasets.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Pull privileged session logs",
+            "instructionMd": "Pull privileged logon and privileged session events for the week.",
+            "commandBlock": "# SIEM search (Splunk SPL; adapt for your SIEM)\nindex=wineventlog EventCode=4672 earliest=-7d | stats count by user, host",
+            "commandLang": "ui",
+            "expectedResult": "Result set of privileged logons for the period.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Privileged session events",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Pull failed and after-hours logins",
+            "instructionMd": "Pull failed logins and successful logins outside business hours.",
+            "commandBlock": "index=wineventlog (EventCode=4625 OR EventCode=4624) earliest=-7d\n| eval hour=strftime(_time,\"%H\") | where EventCode=4625 OR hour<7 OR hour>19\n| stats count by user, EventCode",
+            "commandLang": "ui",
+            "expectedResult": "Result set of failed and after-hours logins.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Failed and after-hours logins",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Pull database admin actions",
+            "instructionMd": "Pull database administrative actions recorded by pgaudit or the equivalent audit trail.",
+            "commandBlock": "# PostgreSQL pgaudit\ngrep -h 'AUDIT: SESSION' /var/log/postgresql/postgresql-*.log | grep -E 'ROLE|DDL'\n-- Oracle: SELECT * FROM unified_audit_trail WHERE event_timestamp > SYSDATE - 7",
+            "commandLang": "bash",
+            "expectedResult": "Extract of DDL and role changes for the week.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Database audit extract",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Pull maker-checker overrides",
+            "instructionMd": "Pull core banking maker-checker overrides and self-authorisations for the week. Adapt the query to your schema.",
+            "commandBlock": "-- Finacle (adapt)\nSELECT TRAN_ID, ENTRY_USER_ID, VFD_USER_ID, TRAN_DATE\n  FROM <tran_table>\n WHERE ENTRY_USER_ID = VFD_USER_ID AND TRAN_DATE >= SYSDATE - 7;",
+            "commandLang": "sql",
+            "expectedResult": "List of overrides with maker and checker IDs.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Maker-checker override report",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Review",
+        "description": "Assess and raise exceptions.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Review events and raise exceptions",
+            "instructionMd": "Review each dataset for unexplained activity and raise an exception or finding for each one.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Every anomaly is explained or raised.",
+            "durationEstimateMin": 60,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Review notes and exceptions raised",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Attest",
+        "description": "Attest the review.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Attest the weekly review",
+            "instructionMd": "Attest that the weekly review is complete.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Attestation recorded.",
+            "durationEstimateMin": 5,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "Weekly review attestation",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CISO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Log review step failed or log source silent."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CISO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Weekly log review at 80% of SLA."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-RET-001",
+    "templateVersion": 1,
+    "title": "Regulatory Return Preparation and Submission",
+    "category": "RETURNS",
+    "criticality": "HIGH",
+    "frequency": "MONTHLY",
+    "slaMinutes": null,
+    "objective": "Prepare, validate, approve and submit a CBN regulatory return on time with maker-checker control, and file the acknowledgement.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Core banking",
+      "Data warehouse",
+      "CBN returns portal"
+    ],
+    "scopeTeams": [
+      "Finance",
+      "Compliance"
+    ],
+    "tags": [
+      "returns",
+      "cbn",
+      "maker-checker"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-RETURNS",
+        "clauseRef": "RET-1"
+      },
+      {
+        "framework": "CBN-RETURNS",
+        "clauseRef": "RET-2"
+      },
+      {
+        "framework": "CBN-RETURNS",
+        "clauseRef": "RET-3"
+      },
+      {
+        "framework": "CBN-RETURNS",
+        "clauseRef": "RET-4"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "CBN portal access",
+        "detail": "Submitter access to the CBN returns portal.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "DATA",
+        "label": "Prior-period return",
+        "detail": "Last submitted return for variance analysis.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Data",
+        "description": "Extract the source data.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Pull the data extract",
+            "instructionMd": "Pull the return data extract for the reporting period from the source system.",
+            "commandBlock": "-- Adapt to the return's source tables\nSELECT * FROM <return_source_view> WHERE period_end = '<period_end>';",
+            "commandLang": "sql",
+            "expectedResult": "Extract covers the full period.",
+            "durationEstimateMin": 30,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Source data extract",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Prepare and approve",
+        "description": "Maker-checker preparation.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Validate against prior period",
+            "instructionMd": "Validate the extract against the prior period and explain every variance above the threshold.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "All variances above threshold explained.",
+            "durationEstimateMin": 45,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Variance analysis",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Prepare the return (maker)",
+            "instructionMd": "Prepare the return in the prescribed template.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Return prepared.",
+            "durationEstimateMin": 120,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Prepared return",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Review the return (checker)",
+            "instructionMd": "Review the prepared return against source data and the validation rules.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Return reviewed with no open errors.",
+            "durationEstimateMin": 60,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Checker review sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Submit on the CBN portal",
+            "instructionMd": "Submit the approved return on the CBN portal and save the acknowledgement.",
+            "commandBlock": "# CBN returns portal → Upload return → Submit → Download acknowledgement",
+            "commandLang": "ui",
+            "expectedResult": "Submission accepted before the deadline.",
+            "durationEstimateMin": 20,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-RETURNS",
+                "clauseRef": "RET-1"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Portal submission acknowledgement",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "File",
+        "description": "Retain the evidence.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "File the return in the Vault",
+            "instructionMd": "File the return, workings and acknowledgement in the Atheris Vault against the return period.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Return pack filed.",
+            "durationEstimateMin": 10,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-RETURNS",
+                "clauseRef": "RET-4"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Filed return pack",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CCO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Return preparation step failed; the filing deadline may be at risk."
+      },
+      {
+        "level": 2,
+        "triggerType": "MANUAL",
+        "notifyRole": "TENANT_ADMIN",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Escalate to management if the return cannot be filed on time."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-PRV-001",
+    "templateVersion": 1,
+    "title": "Data Subject Access Request (NDPA)",
+    "category": "PRIVACY",
+    "criticality": "HIGH",
+    "frequency": "EVENT_DRIVEN",
+    "slaMinutes": 43200,
+    "objective": "Verify, fulfil and record a data subject access request within the statutory period.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Core banking",
+      "CRM",
+      "Email archive",
+      "Document management"
+    ],
+    "scopeTeams": [
+      "Data Protection",
+      "Customer Service",
+      "Legal"
+    ],
+    "tags": [
+      "privacy",
+      "dsar",
+      "ndpa"
+    ],
+    "clauses": [
+      {
+        "framework": "NDPA-2023",
+        "clauseRef": "s.34"
+      },
+      {
+        "framework": "NDPA-2023",
+        "clauseRef": "s.38"
+      },
+      {
+        "framework": "NDPA-GAID-2025",
+        "clauseRef": "GAID-DSR"
+      },
+      {
+        "framework": "GDPR",
+        "clauseRef": "Art.15"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "DATA",
+        "label": "Data inventory",
+        "detail": "Current inventory of systems holding personal data.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Intake",
+        "description": "Verify and log the request.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Verify the requester's identity",
+            "instructionMd": "Verify the requester's identity against records held before disclosing anything.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Identity verified or request paused pending proof.",
+            "durationEstimateMin": 20,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Identity verification record",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Log the request",
+            "instructionMd": "Log the request with the received date and statutory due date.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Request logged with due date.",
+            "durationEstimateMin": 10,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "DSAR register reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Fulfil",
+        "description": "Find and compile the data.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Locate personal data across systems",
+            "instructionMd": "Search every system in the data inventory for the data subject's personal data.",
+            "commandBlock": "-- Adapt per system\nSELECT * FROM <customer_table> WHERE customer_id = '<customer_id>';",
+            "commandLang": "sql",
+            "expectedResult": "Every inventoried system searched.",
+            "durationEstimateMin": 120,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Search results per system",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Compile the response pack",
+            "instructionMd": "Compile the data and the processing information into a response pack, redacting third-party data.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Pack complete and redacted.",
+            "durationEstimateMin": 120,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Draft response pack",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Complete legal and DPO review",
+            "instructionMd": "Review the pack for completeness, exemptions and redactions.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Pack approved.",
+            "durationEstimateMin": 60,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "Review approval",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Respond",
+        "description": "Respond and record.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Send the response",
+            "instructionMd": "Send the response pack to the data subject through a secure channel.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Response sent within the statutory period.",
+            "durationEstimateMin": 15,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NDPA-2023",
+                "clauseRef": "s.34"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "Response dispatch record",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "3.2",
+            "title": "Record closure",
+            "instructionMd": "Record the closure date and outcome in the DSAR register.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Register updated.",
+            "durationEstimateMin": 5,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Closed DSAR register entry",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "DPO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "DSAR step failed; check the statutory deadline."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "DSAR at 80% of the statutory period."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-AML-001",
+    "templateVersion": 1,
+    "title": "Suspicious Transaction Report Filing",
+    "category": "AML",
+    "criticality": "CRITICAL",
+    "frequency": "EVENT_DRIVEN",
+    "slaMinutes": 1440,
+    "objective": "Investigate a suspicious activity alert and, where suspicion is confirmed, file an STR with the NFIU on goAML within 24 hours.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Transaction monitoring",
+      "Core banking",
+      "goAML"
+    ],
+    "scopeTeams": [
+      "Compliance (AML)"
+    ],
+    "tags": [
+      "aml",
+      "str",
+      "nfiu",
+      "goaml"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-AML",
+        "clauseRef": "AML-STR"
+      },
+      {
+        "framework": "CBN-AML",
+        "clauseRef": "AML-GOAML"
+      },
+      {
+        "framework": "CBN-AML",
+        "clauseRef": "AML-REC"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "ACCESS",
+        "label": "goAML reporting access",
+        "detail": "Active goAML reporting entity account for the MLRO.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Triage",
+        "description": "Triage the alert.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Triage the alert",
+            "instructionMd": "Triage the alert and record whether it warrants investigation. Do not alert the customer.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Alert closed as false positive or opened for investigation.",
+            "durationEstimateMin": 30,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Alert triage note",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Investigate and file",
+        "description": "Investigate, decide and file.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Investigate the activity",
+            "instructionMd": "Pull the customer's transactions and KYC profile and document the investigation.",
+            "commandBlock": "SELECT tran_date, amount, counterparty, channel FROM <transactions>\n WHERE customer_id = '<customer_id>' AND tran_date >= '<from_date>';",
+            "commandLang": "sql",
+            "expectedResult": "Investigation documented.",
+            "durationEstimateMin": 120,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "QUERY_OUTPUT",
+                "label": "Transaction history",
+                "mandatory": true,
+                "retentionYears": 7
+              },
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Investigation memo",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Record the MLRO decision",
+            "instructionMd": "Record the MLRO decision to file or not file, with reasons.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Decision recorded.",
+            "durationEstimateMin": 20,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-AML",
+                "clauseRef": "AML-CO"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "MLRO decision",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Draft the STR on goAML",
+            "instructionMd": "Draft the STR on goAML with the grounds for suspicion and the transaction details.",
+            "commandBlock": "# goAML web → New report → STR",
+            "commandLang": "ui",
+            "expectedResult": "STR draft complete.",
+            "durationEstimateMin": 60,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Draft STR",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Submit the STR and capture the reference",
+            "instructionMd": "Submit the STR and save the goAML reference number.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "STR submitted within 24 hours with reference saved.",
+            "durationEstimateMin": 10,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "CBN-AML",
+                "clauseRef": "AML-STR"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "goAML submission reference",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Retain",
+        "description": "Retain the records.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Retain the case file",
+            "instructionMd": "Retain the case file, STR and reference for at least five years.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Case file retained.",
+            "durationEstimateMin": 10,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Case file",
+                "mandatory": true,
+                "retentionYears": 5
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CCO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "STR step failed; the 24-hour deadline is at risk."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "STR at 80% of the 24-hour deadline."
+      },
+      {
+        "level": 3,
+        "triggerType": "SLA_BREACH",
+        "notifyRole": "TENANT_ADMIN",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "STR deadline breached; inform the MD and record the breach."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-VND-001",
+    "templateVersion": 1,
+    "title": "Third-Party / Vendor Security Review",
+    "category": "VENDOR",
+    "criticality": "MEDIUM",
+    "frequency": "ANNUAL",
+    "slaMinutes": 43200,
+    "objective": "Assess the security and data protection posture of each critical vendor annually and act on the risks found.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Vendor management",
+      "Contracts"
+    ],
+    "scopeTeams": [
+      "Information Security",
+      "Procurement",
+      "Data Protection"
+    ],
+    "tags": [
+      "vendor",
+      "third-party",
+      "processor"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-RBCSF-DMB",
+        "clauseRef": "TPR-1"
+      },
+      {
+        "framework": "CBN-RBCSF-OFI",
+        "clauseRef": "TPR-1"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.19"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.20"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.21"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.22"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.5.23"
+      },
+      {
+        "framework": "NDPA-2023",
+        "clauseRef": "s.29"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "DATA",
+        "label": "Vendor register",
+        "detail": "Register of critical vendors with services and data shared.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Scope",
+        "description": "Confirm the vendor's criticality.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Confirm vendor criticality",
+            "instructionMd": "Confirm the vendor's criticality and the data and systems it can access.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Criticality confirmed.",
+            "durationEstimateMin": 20,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Vendor profile",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Assess",
+        "description": "Collect and review evidence.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Send the security questionnaire",
+            "instructionMd": "Send the security questionnaire and evidence request to the vendor.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Vendor acknowledges the request.",
+            "durationEstimateMin": 15,
+            "assignedRole": "ANALYST",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "EMAIL",
+                "label": "Questionnaire request",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Review the vendor's evidence",
+            "instructionMd": "Review the questionnaire answers and evidence such as ISO 27001 certificates, SOC 2 reports and penetration test summaries.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Evidence reviewed with gaps noted.",
+            "durationEstimateMin": 120,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Evidence review notes",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.3",
+            "title": "Verify contract clauses",
+            "instructionMd": "Verify the contract includes security, breach notification, audit and NDPA processor obligations.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Missing clauses identified.",
+            "durationEstimateMin": 45,
+            "assignedRole": "DPO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [
+              {
+                "framework": "NDPA-2023",
+                "clauseRef": "s.29"
+              },
+              {
+                "framework": "ISO-27001-2022",
+                "clauseRef": "A.5.20"
+              }
+            ],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Contract clause checklist",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.4",
+            "title": "Rate the vendor and raise findings",
+            "instructionMd": "Rate the vendor's residual risk and raise findings for material gaps.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Rating recorded; findings raised.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Vendor risk rating",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Decide",
+        "description": "Approve or remediate.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Approve the review outcome",
+            "instructionMd": "Approve renewal, conditional renewal or exit, and sign off.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Decision recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "ATTESTATION",
+                "label": "Review sign-off",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CISO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Vendor review step failed or vendor unresponsive."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Vendor review at 80% of SLA."
+      }
+    ],
+    "rollback": []
+  },
+  {
+    "format": "atheris-runbook/1",
+    "templateCode": "RB-CHG-001",
+    "templateVersion": 1,
+    "title": "Emergency Change Control",
+    "category": "CHANGE",
+    "criticality": "HIGH",
+    "frequency": "EVENT_DRIVEN",
+    "slaMinutes": 480,
+    "objective": "Implement an emergency production change safely with a validated rollback plan, emergency approval and retrospective CAB review.",
+    "reviewCadence": "ANNUAL",
+    "scopeSystems": [
+      "Production systems"
+    ],
+    "scopeTeams": [
+      "IT Operations",
+      "Change Advisory Board"
+    ],
+    "tags": [
+      "change",
+      "emergency",
+      "ecab"
+    ],
+    "clauses": [
+      {
+        "framework": "CBN-ITSB",
+        "clauseRef": "ITSB-CHG"
+      },
+      {
+        "framework": "ISO-27001-2022",
+        "clauseRef": "A.8.32"
+      },
+      {
+        "framework": "COBIT-2019",
+        "clauseRef": "BAI06"
+      },
+      {
+        "framework": "COBIT-2019",
+        "clauseRef": "BAI06.02"
+      },
+      {
+        "framework": "NIST-800-53r5",
+        "clauseRef": "CM-3"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prereqType": "APPROVAL",
+        "label": "Emergency CAB quorum",
+        "detail": "At least two ECAB approvers reachable.",
+        "mandatory": true
+      },
+      {
+        "prereqType": "WINDOW",
+        "label": "Emergency window",
+        "detail": "Agreed implementation window communicated to stakeholders.",
+        "mandatory": true
+      }
+    ],
+    "sections": [
+      {
+        "sectionType": "PRECHECK",
+        "title": "Justify and approve",
+        "description": "Justify the change and validate the way back.",
+        "steps": [
+          {
+            "stepCode": "1.1",
+            "title": "Log the emergency change",
+            "instructionMd": "Log the emergency change with justification, impact and affected services.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Ticket logged.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "TICKET_REF",
+                "label": "Emergency change ticket",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.2",
+            "title": "Validate the rollback plan",
+            "instructionMd": "Validate that the rollback plan is complete and has been tested or reviewed. Do not proceed without it.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Rollback plan validated by a second engineer.",
+            "durationEstimateMin": 20,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "Validated rollback plan",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "1.3",
+            "title": "Obtain ECAB approval",
+            "instructionMd": "Obtain emergency CAB approval and record the approvers.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Approval recorded.",
+            "durationEstimateMin": 15,
+            "assignedRole": "CISO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SIGNED_FORM",
+                "label": "ECAB approval",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "EXECUTION",
+        "title": "Implement",
+        "description": "Back up and implement.",
+        "steps": [
+          {
+            "stepCode": "2.1",
+            "title": "Back up the current state",
+            "instructionMd": "Back up the current configuration or take a snapshot before changing anything.",
+            "commandBlock": "git -C <config_repo> tag pre-ecab-<change_id>\n# FortiGate\n# execute backup config tftp <backup_file> <tftp_server_ip>",
+            "commandLang": "bash",
+            "expectedResult": "Restorable backup exists.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Backup / snapshot confirmation",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          },
+          {
+            "stepCode": "2.2",
+            "title": "Implement the change",
+            "instructionMd": "Implement the change exactly as approved, with a second engineer verifying each action.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Change implemented as approved.",
+            "durationEstimateMin": 60,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": true,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "LOG_FILE",
+                "label": "Implementation log",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "VERIFICATION",
+        "title": "Verify",
+        "description": "Confirm the change worked.",
+        "steps": [
+          {
+            "stepCode": "3.1",
+            "title": "Verify service health",
+            "instructionMd": "Verify the change resolved the issue and dependent services are healthy.",
+            "commandBlock": "systemctl --failed\ncurl -s -o /dev/null -w '%{http_code}\\n' https://<service-host>/health",
+            "commandLang": "bash",
+            "expectedResult": "Issue resolved; services healthy.",
+            "durationEstimateMin": 15,
+            "assignedRole": "IT_OPS",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "SCREENSHOT",
+                "label": "Post-change health check",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "sectionType": "CLOSEOUT",
+        "title": "Retrospective",
+        "description": "Review after the fact.",
+        "steps": [
+          {
+            "stepCode": "4.1",
+            "title": "Complete the retrospective CAB review",
+            "instructionMd": "Present the change at the next CAB within 5 business days and record the outcome.",
+            "commandBlock": null,
+            "commandLang": "none",
+            "expectedResult": "Retrospective review recorded.",
+            "durationEstimateMin": 30,
+            "assignedRole": "CCO",
+            "blocking": true,
+            "dualControl": false,
+            "allowSkip": false,
+            "safetyNote": null,
+            "clauses": [],
+            "evidenceReqs": [
+              {
+                "evidenceType": "DOCUMENT",
+                "label": "CAB retrospective minutes",
+                "mandatory": true,
+                "retentionYears": 7
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "escalations": [
+      {
+        "level": 1,
+        "triggerType": "STEP_FAILED",
+        "notifyRole": "CISO",
+        "notifyChannel": "IN_APP",
+        "waitMinutes": 0,
+        "instructions": "Emergency change step failed; decide whether to roll back."
+      },
+      {
+        "level": 2,
+        "triggerType": "SLA_80",
+        "notifyRole": "CCO",
+        "notifyChannel": "EMAIL",
+        "waitMinutes": 0,
+        "instructions": "Emergency change at 80% of its window."
+      }
+    ],
+    "rollback": [
+      {
+        "reversesStepCode": "2.2",
+        "title": "Roll back the emergency change",
+        "instructionMd": "Restore the pre-change configuration or snapshot and verify services.",
+        "commandBlock": "git -C <config_repo> checkout pre-ecab-<change_id> -- .\n# FortiGate\n# execute restore config tftp <backup_file> <tftp_server_ip>",
+        "verification": "Services healthy on the pre-change configuration."
+      }
+    ]
+  }
+]

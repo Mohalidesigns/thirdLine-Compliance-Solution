@@ -32,20 +32,30 @@ public class ComplianceMetricsDto {
     @Builder.Default private Map<String, Integer> obligationsByArea = Map.of();
     @Builder.Default private Map<String, Integer> obligationsByAct = Map.of();
 
-    // ── Controls ──
+    // ── Controls ── (pass/fail come from control test results, never from a risk rating)
     @Builder.Default private int controlsTotal = 0;
-    @Builder.Default private int controlsHighResidualRisk = 0;
-    @Builder.Default private int controlsPassing = 0;
+    @Builder.Default private int controlsHighResidualRisk = 0;  // residual rating High or Critical (untested = inherent)
+    @Builder.Default private int controlsTested = 0;            // controls with at least one test result
+    @Builder.Default private int controlsUntested = 0;
+    @Builder.Default private int controlsPassing = 0;           // latest test Passed
+    @Builder.Default private int controlsFailing = 0;           // latest test Failed or Partial
+    @Builder.Default private int controlTestsDue = 0;           // open test tasks due within 30 days (incl. overdue)
+    @Builder.Default private int controlTestsOverdue = 0;       // open test tasks past their due date
     @Builder.Default private double controlCoverage = 0.0;      // % of applicable obligations with a linked control
-    @Builder.Default private double controlTestCompletion = 0.0; // % of control tasks due in period that were completed
+    /** % of controls with a test result (tested ÷ total); null when there are no controls. */
+    private Double controlTestCompletion;
+    /** % of tested controls whose latest test passed (passing ÷ tested); null when none tested. */
+    private Double controlEffectivenessPct;
 
     // ── Returns ──
-    @Builder.Default private int returnsTotal = 0;
+    @Builder.Default private int returnsTotal = 0;              // filing periods due in the period
+    @Builder.Default private int returnsDue = 0;                // filed + overdue: the on-time denominator
     @Builder.Default private int returnsSubmittedOnTime = 0;
     @Builder.Default private int returnsSubmittedLate = 0;
     @Builder.Default private int returnsPending = 0;
     @Builder.Default private int returnsOverdue = 0;
-    @Builder.Default private double returnsOnTimePct = 0.0;
+    /** % of due filings submitted on time ((on time) ÷ (filed + overdue)); null when nothing was due yet. */
+    private Double returnsOnTimePct;
 
     // ── Findings ──
     @Builder.Default private int findingsOpen = 0;              // Open + In Remediation
@@ -60,7 +70,10 @@ public class ComplianceMetricsDto {
 
     // ── Score ──
     private Double complianceScore;
+    /** Component values (0..100); null = no data, left out of the score. */
     @Builder.Default private Map<String, Double> scoreComponents = Map.of();
+    /** Components with label, weight and whether they counted — drives the score tooltip. */
+    @Builder.Default private List<ScoreComponent> scoreBreakdown = List.of();
 
     // ── Attention ──
     @Builder.Default private List<AttentionItem> attentionItems = List.of();
@@ -70,6 +83,16 @@ public class ComplianceMetricsDto {
         private String severity;
         private long count;
         private double averageAgeDays;
+    }
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ScoreComponent {
+        private String key;
+        private String label;
+        private String definition;
+        private int weight;
+        private Double value;      // null = no data
+        private boolean included;  // counted in the score
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor

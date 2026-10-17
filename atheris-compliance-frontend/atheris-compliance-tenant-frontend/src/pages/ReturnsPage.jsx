@@ -3,16 +3,17 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, MenuItem, Tooltip, TablePagination, TableSortLabel,
-  Snackbar, Alert as MuiAlert, Breadcrumbs, Link, Grid, Skeleton,
+  TextField, Tooltip, TablePagination, TableSortLabel,
+  Snackbar, Alert as MuiAlert, Link, Grid, Skeleton,
   Stepper, Step, StepLabel,
   Dialog, DialogTitle, DialogContent, DialogActions, Collapse,
 } from '@mui/material';
 import {
-  Search, Refresh, Close, Add, Schedule, CheckCircle,
-  Link as LinkIcon, ExpandMore, ExpandLess, UploadFile, EditCalendar, Event, Settings as SettingsIcon,
-  Flag, Timeline, StickyNote2, EventAvailable, AccessTime, WarningAmber,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, FilterBar, RiskBadge, StatusBadge, TL,
+  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, ClockIcon, CheckCircleIcon, LinkIcon,
+  ChevronDownIcon, CalendarIcon, CalendarDaysIcon, ClipboardDocumentListIcon, ExclamationTriangleIcon,
+  PresentationChartLineIcon, ExclamationCircleIcon, PencilSquareIcon, QueueListIcon, DocumentTextIcon,
+} from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
@@ -28,10 +29,14 @@ const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
 const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 const DUE_DATE_NEEDED = 'Due date needed';
 
-const STATUS_COLORS = {
-  'Not Started': 'default', 'In Progress': 'info', 'Submitted': 'success',
-  'Submitted Late': 'warning', 'Overdue': 'error',
+const STATUS_TONE = {
+  'Not Started': 'gray', 'In Progress': 'blue', 'Submitted': 'green',
+  'Submitted Late': 'orange', 'Overdue': 'red',
 };
+
+function statusBadge(status, label) {
+  return <StatusBadge label={label || status} tone={STATUS_TONE[status] || 'gray'} />;
+}
 
 const STATUS_ACCENT = {
   'Not Started': '#718096', 'In Progress': '#3182CE', 'Submitted': '#2D7D46',
@@ -43,19 +48,9 @@ function statusAccent(status) {
 }
 
 // harmonized with ReviewInboxPage / ObligationsRegisterPage
-const INHERENT_RISK_CONFIG = {
-  Critical: { color: 'error' },
-  Extreme: { color: 'error' },
-  High: { color: 'error' },
-  Moderate: { color: 'warning' },
-  Medium: { color: 'warning' },
-  Low: { color: 'success' },
-};
-
 function inherentRiskChip(rating) {
-  const cfg = INHERENT_RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label={rating || 'Unrated'} variant="outlined" sx={{ height: 22, borderRadius: '4px' }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, borderRadius: '4px', fontWeight: 600 }} />;
+  if (rating === 'Extreme') return <StatusBadge label="Extreme" tone="red" dot />;
+  return <RiskBadge value={rating} />;
 }
 
 const STAGE_NAMES = ['Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
@@ -180,13 +175,15 @@ export default function ReturnsPage() {
     else setStatusFilter('All');
   }
 
+  const KPI_STATUS = { overdue: 'Overdue', inProgress: 'In Progress', submitted: 'Submitted', dueDateNeeded: DUE_DATE_NEEDED };
   const kpis = [
-    { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, color: '#2B6CB0', bg: '#EBF8FF' },
-    { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, color: '#E53E3E', bg: '#FFF5F5' },
-    { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, color: '#DD6B20', bg: '#FFFAF0' },
-    { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, color: '#38A169', bg: '#F0FFF4' },
-    { key: 'dueDateNeeded', label: 'Due date needed', value: stats?.dueDateNeeded ?? 0, color: '#B7791F', bg: '#FFFFF0' },
-  ];
+    { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
+    { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, tone: 'orange', icon: <PresentationChartLineIcon /> },
+    { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
+    { key: 'dueDateNeeded', label: 'Due date needed', value: stats?.dueDateNeeded ?? 0, tone: 'amber', icon: <ExclamationCircleIcon /> },
+  ].map((k) => ({ ...k, active: KPI_STATUS[k.key] != null && KPI_STATUS[k.key] === statusFilter }));
+  const opts = (list) => (list || []).map((v) => ({ value: v, label: v }));
 
   const scheduleDialog = canEditSchedule && (
     <EditScheduleDialog open={scheduleItem != null} item={scheduleItem}
@@ -258,30 +255,25 @@ export default function ReturnsPage() {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-        <Box>
-          <Typography variant="h4">Returns Register</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} return{total !== 1 ? 's' : ''} — track calendar schedules and triggered filing events
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={refresh}><Refresh /></IconButton>
-          </Tooltip>
-          {canImport && (
-            <Button variant="outlined" startIcon={<UploadFile />} size="medium" onClick={() => setImportOpen(true)}
-              sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
-              Import
+      <PageHeader
+        title="Returns Register"
+        subtitle={`${total} return${total !== 1 ? 's' : ''} — track calendar schedules and triggered filing events`}
+        actions={(
+          <>
+            <Tooltip title="Refresh">
+              <IconButton onClick={refresh}><ArrowPathIcon size={18} /></IconButton>
+            </Tooltip>
+            {canImport && (
+              <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            )}
+            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
+              Add Return
             </Button>
-          )}
-          <Button variant="contained" startIcon={<Add />} size="medium" onClick={() => setCreateOpen(true)}
-            sx={{ height: 40, fontWeight: 600, textTransform: 'none' }}>
-            Add Return
-          </Button>
-        </Box>
-      </Box>
+          </>
+        )}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}
@@ -292,76 +284,49 @@ export default function ReturnsPage() {
 
       {isTenantAdmin && repairCount > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}
-          action={<Button color="inherit" size="small" onClick={() => setRepairOpen(true)}
-            sx={{ fontWeight: 600, textTransform: 'none' }}>Review &amp; repair</Button>}>
+          action={<Button color="inherit" size="small" onClick={() => setRepairOpen(true)}>Review &amp; repair</Button>}>
           {repairCount} return{repairCount === 1 ? ' needs' : 's need'} schedule fixes (wrong frequency or due date),
           so some periods show as overdue in error.
         </Alert>
       )}
 
-      {/* KPI cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2 }}>
-        {kpis.map(k => (
-          <Paper key={k.key} elevation={0} variant="outlined"
-            onClick={() => applyKpiFilter(k.key)}
-            sx={{ p: 2, cursor: 'pointer', borderLeft: `3px solid ${k.color}`,
-              transition: 'box-shadow .2s', '&:hover': { boxShadow: 1 } }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{k.label}</Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
-          </Paper>
-        ))}
-      </Box>
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={5} />
 
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" placeholder="Search return, act, or regulator..." value={search}
-          onChange={e => { setSearch(e.target.value); setPage(0); }}
-          slotProps={{ input: { startAdornment: <Search sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} /> } }}
-          sx={{ minWidth: 260 }} />
-        <TextField select size="small" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-          label="Status" sx={{ minWidth: 130 }}>
-          {['All', 'Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue', DUE_DATE_NEEDED].map(s =>
-            <MenuItem key={s} value={s}>{s}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={frequencyFilter} onChange={e => { setFrequencyFilter(e.target.value); setPage(0); }}
-          label="Frequency" sx={{ minWidth: 130 }}>
-          {['All', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'].map(f =>
-            <MenuItem key={f} value={f}>{f}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={regulatorFilter} onChange={e => { setRegulatorFilter(e.target.value); setPage(0); }}
-          label="Regulator" sx={{ minWidth: 150 }}>
-          <MenuItem value="All">All</MenuItem>
-          {(stats?.regulators || []).map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" value={actFilter} onChange={e => { setActFilter(e.target.value); setPage(0); }}
-          label="Act" sx={{ minWidth: 200 }}>
-          <MenuItem value="All">All</MenuItem>
-          {(stats?.actNames || []).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-        </TextField>
-        {hasFilters && (
-          <Button size="small" startIcon={<Close />} onClick={clearFilters}>Clear</Button>
-        )}
-      </Paper>
+      <FilterBar
+        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search return, act, or regulator...' }}
+        filters={[
+          { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); },
+            options: opts(['Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue', DUE_DATE_NEEDED]), allLabel: 'All', minWidth: 150 },
+          { key: 'frequency', label: 'Frequency', value: frequencyFilter, onChange: (v) => { setFrequencyFilter(v); setPage(0); },
+            options: opts(['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven']), allLabel: 'All', minWidth: 140 },
+          { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); },
+            options: opts(stats?.regulators), allLabel: 'All', minWidth: 150 },
+          { key: 'act', label: 'Act', value: actFilter, onChange: (v) => { setActFilter(v); setPage(0); },
+            options: opts(stats?.actNames), allLabel: 'All', minWidth: 200 },
+        ]}
+        showClear={!!hasFilters}
+        onClear={clearFilters}
+      />
 
       {/* Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
       ) : items.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Schedule sx={{ fontSize: 48, mb: 1, opacity: 0.3 }} />
+          <ClockIcon size={48} sx={{ mb: 1, opacity: 0.3 }} />
           <Typography variant="body1">No returns found.</Typography>
         </Paper>
       ) : (
-        <Paper>
+        <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: '#F7FAFC', minWidth: 50 }}>#</TableCell>
+                  <TableCell sx={{ minWidth: 50 }}>#</TableCell>
                   {COLUMNS.map(c => {
                     const active = sortField === c.sortField;
                     return (
-                      <TableCell key={c.id} sx={{ minWidth: c.minWidth, fontWeight: 700, bgcolor: '#F7FAFC',
+                      <TableCell key={c.id} sx={{ minWidth: c.minWidth,
                         cursor: c.sortField ? 'pointer' : 'default', userSelect: 'none' }}
                         onClick={c.sortField ? () => {
                           if (sortField === c.sortField) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -377,7 +342,7 @@ export default function ReturnsPage() {
                       </TableCell>
                     );
                   })}
-                  <TableCell sx={{ minWidth: 40, bgcolor: '#F7FAFC' }} />
+                  <TableCell sx={{ minWidth: 40 }} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -451,26 +416,24 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
   return (
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
-        '&:hover': { bgcolor: isOverdue ? '#FEE2E2' : '#F7FAFC' },
-        borderLeft: isOverdue ? '3px solid #E53E3E' : '3px solid transparent' }}
+        ...(isOverdue ? { '&:hover': { bgcolor: '#FEE2E2' } } : {}) }}
         onClick={onDetail}>
-        <TableCell sx={{ color: 'text.secondary' }}>{page * rowsPerPage + idx + 1}</TableCell>
+        <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{page * rowsPerPage + idx + 1}</TableCell>
         <TableCell sx={{ minWidth: 300, maxWidth: 380 }}>
           <Tooltip title={item.returnName || 'Untitled'}>
-            <Typography variant="body2" sx={{ maxWidth: 340, fontWeight: 700, lineHeight: 1.2,
+            <Typography variant="body2" sx={{ maxWidth: 340, fontWeight: 500, color: 'primary.main', lineHeight: 1.3,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.returnName || 'Untitled'}
             </Typography>
           </Tooltip>
           <Tooltip title={item.actName || ''}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 340,
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 340, fontSize: '0.75rem',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.actName || 'No act recorded'}
             </Typography>
           </Tooltip>
           <Box sx={{ mt: 0.5 }}>
-            <Chip size="small" label={item.frequency || item.frequencyType || 'Ad hoc'}
-              variant="outlined" sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem' }} />
+            <Chip size="small" label={item.frequency || item.frequencyType || 'Ad hoc'} variant="outlined" />
           </Box>
         </TableCell>
         <TableCell>
@@ -489,14 +452,14 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
               </Typography>
             </>
           ) : (
-            <Typography variant="caption" sx={{ color: '#CBD5E0' }}>Unassigned</Typography>
+            <Typography variant="caption" sx={{ color: TL.gray300 }}>Unassigned</Typography>
           )}
         </TableCell>
         <TableCell>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {item.currentDueDate ? formatDate(item.currentDueDate) : item.dueDateNeeded && !isEventDriven(item) ? (
               <Tooltip title={item.deadlineText ? `Regulator wording: ${item.deadlineText}` : 'No due rule recorded'}>
-                <Chip size="small" color="warning" label={DUE_DATE_NEEDED} sx={{ height: 22, fontWeight: 600 }} />
+                <span><StatusBadge label={DUE_DATE_NEEDED} tone="amber" /></span>
               </Tooltip>
             ) : (
               <Typography variant="caption" color="text.secondary">
@@ -505,21 +468,21 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
             )}
             {isEventDriven(item) && item.eventFilingCount > 0 && (
               <Tooltip title={`${item.eventFilingCount} trigger filing(s) · ${item.eventOverdueCount || 0} overdue`}>
-                <Chip size="small" label={`${item.eventFilingCount} filing${item.eventFilingCount === 1 ? '' : 's'}`}
-                  color={item.eventOverdueCount > 0 ? 'error' : 'default'} sx={{ height: 20 }} />
+                <span><StatusBadge label={`${item.eventFilingCount} filing${item.eventFilingCount === 1 ? '' : 's'}`}
+                  tone={item.eventOverdueCount > 0 ? 'red' : 'gray'} /></span>
               </Tooltip>
             )}
             {onEditSchedule && (
               <Tooltip title="Edit schedule">
                 <IconButton size="small" onClick={e => { e.stopPropagation(); onEditSchedule(); }}>
-                  <EditCalendar fontSize="small" />
+                  <CalendarDaysIcon size={16} />
                 </IconButton>
               </Tooltip>
             )}
             {onConfigureEvent && !item.eventTriggerConfigured && (
               <Tooltip title={item.eventTriggerConfigured ? 'Edit event trigger' : 'Configure event trigger'}>
                 <IconButton size="small" onClick={e => { e.stopPropagation(); onConfigureEvent(); }}>
-                  <SettingsIcon fontSize="small" />
+                  <PencilSquareIcon size={16} />
                 </IconButton>
               </Tooltip>
             )}
@@ -530,7 +493,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
             )}
             {onRecordEvent && (
               <Tooltip title="Record trigger occurrence">
-                <Button size="small" variant="outlined" startIcon={<Event />} onClick={e => { e.stopPropagation(); onRecordEvent(); }}>
+                <Button size="small" variant="outlined" startIcon={<CalendarIcon size={16} />} onClick={e => { e.stopPropagation(); onRecordEvent(); }}>
                   Record event
                 </Button>
               </Tooltip>
@@ -539,31 +502,29 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
         </TableCell>
         <TableCell>
           {!status ? (
-            <Chip size="small" variant="outlined" label={isEventDriven(item) ? 'Event-driven' : 'No period'}
-              sx={{ height: 22 }} />
+            <StatusBadge label={isEventDriven(item) ? 'Event-driven' : 'No period'} tone="gray" />
           ) : (
-          <Chip size="small"
-            label={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'OVERDUE' : status}
-            color={isOverdue && status !== 'Submitted' && status !== 'Submitted Late' ? 'error' : STATUS_COLORS[status] || 'default'}
-            sx={{ height: 22 }} />
+            isOverdue && status !== 'Submitted' && status !== 'Submitted Late'
+              ? statusBadge('Overdue', 'OVERDUE')
+              : statusBadge(status)
           )}
         </TableCell>
         <TableCell>
           <Tooltip title={isExpanded ? 'Hide details' : isEventDriven(item) ? 'Show event filings and linked obligations' : 'Show linked obligations'}>
             <IconButton size="small" onClick={e => { e.stopPropagation(); onExpand(); }}>
-              {isExpanded ? <ExpandLess /> : <ExpandMore />}
+              <ChevronDownIcon size={18} sx={{ transition: 'transform .15s', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
             </IconButton>
           </Tooltip>
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, border: 0, bgcolor: '#FAFBFC' }}>
+        <TableCell colSpan={COLUMNS.length + 2} sx={{ py: 0, border: 0, bgcolor: TL.gray50 }}>
           <Collapse in={isExpanded} unmountOnExit>
             <Box sx={{ py: 1.5, pl: 4, pr: 2 }}>
               {isEventDriven(item) ? (
                 <>
                   {onConfigureEvent && !item.eventTriggerConfigured && (
-                    <Button size="small" variant="outlined" startIcon={<SettingsIcon />} sx={{ mb: 1 }} onClick={onConfigureEvent}>
+                    <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />} sx={{ mb: 1 }} onClick={onConfigureEvent}>
                       Configure trigger
                     </Button>
                   )}
@@ -571,17 +532,15 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
                 </>
               ) : item.upcomingInstances && item.upcomingInstances.length > 0 && (
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>
                     Upcoming Periods
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                     {item.upcomingInstances.map(inst => (
-                      <Paper key={inst.instanceId} variant="outlined" sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Paper key={inst.instanceId} sx={{ px: 1.5, py: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="caption" sx={{ fontWeight: 600 }}>{inst.period || '-'}</Typography>
                         <Typography variant="caption" color="text.secondary">{formatDate(inst.dueDate)}</Typography>
-                        <Chip size="small" label={inst.status || 'Not Started'}
-                          color={STATUS_COLORS[inst.status] || 'default'}
-                          sx={{ height: 18, fontSize: '0.65rem' }} />
+                        {statusBadge(inst.status || 'Not Started')}
                       </Paper>
                     ))}
                   </Box>
@@ -592,7 +551,7 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
                   )}
                 </Box>
               )}
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>
                 Linked Obligations
               </Typography>
               <LinkedObligations returnId={item.returnId} />
@@ -614,18 +573,18 @@ function EventFilings({ returnId, onOpen }) {
   const filings = query.data || [];
   return (
     <Box sx={{ mb: 2 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.6875rem' }}>
         Event filings ({filings.length})
       </Typography>
       {filings.length === 0 ? <Typography variant="body2" color="text.secondary">No trigger occurrences recorded yet.</Typography> : (
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer component={Paper} sx={{ overflow: 'hidden' }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Trigger date</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Reference / evidence</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Due date</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Filing</TableCell>
+              <TableCell>Trigger date</TableCell>
+              <TableCell>Reference / evidence</TableCell>
+              <TableCell>Due date</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Filing</TableCell>
             </TableRow></TableHead>
             <TableBody>{filings.map(f => (
               <TableRow key={f.instanceId} hover>
@@ -636,9 +595,9 @@ function EventFilings({ returnId, onOpen }) {
                 </TableCell>
                 <TableCell>
                   {formatDate(f.dueDate)}
-                  {f.dueDateAdjusted && <Tooltip title={`Base deadline ${formatDate(f.unadjustedDueDate)} fell on a weekend/federal holiday; moved to next working day.`}><Chip size="small" label="Adjusted" sx={{ ml: 1, height: 20 }} /></Tooltip>}
+                  {f.dueDateAdjusted && <Tooltip title={`Base deadline ${formatDate(f.unadjustedDueDate)} fell on a weekend/federal holiday; moved to next working day.`}><span><StatusBadge label="Adjusted" tone="gray" sx={{ ml: 1 }} /></span></Tooltip>}
                 </TableCell>
-                <TableCell><Chip size="small" label={f.status || 'Not Started'} color={STATUS_COLORS[f.status] || 'default'} sx={{ height: 22 }} /></TableCell>
+                <TableCell>{statusBadge(f.status || 'Not Started')}</TableCell>
                 <TableCell><Button size="small" onClick={() => onOpen(f.instanceId)}>Open</Button></TableCell>
               </TableRow>
             ))}</TableBody>
@@ -692,32 +651,32 @@ function LinkedObligations({ returnId }) {
   const obligations = query.data || [];
   if (obligations.length === 0) {
     return (
-      <Typography variant="body2" sx={{ color: '#A0AEC0', py: 2 }}>
+      <Typography variant="body2" sx={{ color: TL.gray400, py: 2 }}>
         No obligations linked to this return.
       </Typography>
     );
   }
 
   return (
-    <Paper variant="outlined">
+    <Paper sx={{ overflow: 'hidden' }}>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 36 }}>#</TableCell>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', minWidth: 260 }}>Obligation</TableCell>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 110 }}>Section</TableCell>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 140 }}>Area</TableCell>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Risk</TableCell>
-              <TableCell sx={{ fontWeight: 700, bgcolor: '#EDF2F7', width: 120 }}>Act</TableCell>
+              <TableCell sx={{ width: 36 }}>#</TableCell>
+              <TableCell sx={{ minWidth: 260 }}>Obligation</TableCell>
+              <TableCell sx={{ width: 110 }}>Section</TableCell>
+              <TableCell sx={{ width: 140 }}>Area</TableCell>
+              <TableCell sx={{ width: 120 }}>Risk</TableCell>
+              <TableCell sx={{ width: 120 }}>Act</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {obligations.map((o, i) => (
               <TableRow key={o.obligationId ?? i} hover sx={{ '& > td': { py: 1 } }}>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>{i + 1}</TableCell>
+                <TableCell sx={{ color: 'text.secondary', fontFamily: '"Roboto Mono", monospace', fontSize: '0.75rem' }}>{i + 1}</TableCell>
                 <TableCell sx={{ minWidth: 260, maxWidth: 380 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2, maxWidth: 330,
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', lineHeight: 1.3, maxWidth: 330,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {o.title || o.name || <span style={{ color: '#A0AEC0', fontWeight: 400 }}>Untitled obligation</span>}
                   </Typography>
@@ -727,13 +686,13 @@ function LinkedObligations({ returnId }) {
                       {o.plainEnglishStatement}
                     </Typography>
                   ) : (
-                    <Typography variant="caption" sx={{ color: '#CBD5E0' }}>No interpreted text</Typography>
+                    <Typography variant="caption" sx={{ color: TL.gray300 }}>No interpreted text</Typography>
                   )}
                 </TableCell>
                 <TableCell>
                   {o.sectionReference ? (
                     <Chip size="small" label={o.sectionReference.slice(0, 24)} variant="outlined"
-                      sx={{ height: 22, borderRadius: '4px', fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
+                      sx={{ fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} />
                   ) : (
                     <Typography variant="caption" color="text.secondary">-</Typography>
                   )}
@@ -741,7 +700,7 @@ function LinkedObligations({ returnId }) {
                 <TableCell>
                   {o.areaOfFocus ? (
                     <Chip size="small" variant="outlined" label={o.areaOfFocus}
-                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 130 }} />
+                      sx={{ maxWidth: 130 }} />
                   ) : (
                     <Typography variant="caption" color="text.secondary">-</Typography>
                   )}
@@ -750,7 +709,7 @@ function LinkedObligations({ returnId }) {
                 <TableCell>
                   {o.actName ? (
                     <Chip size="small" variant="outlined" label={o.actName.slice(0, 22)}
-                      sx={{ height: 22, borderRadius: '4px', fontSize: '0.7rem', maxWidth: 110 }} />
+                      sx={{ maxWidth: 110 }} />
                   ) : (
                     <Typography variant="caption" color="text.secondary">-</Typography>
                   )}
@@ -774,57 +733,56 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link underline="hover" color="inherit" sx={{ cursor: 'pointer' }} onClick={onBack}>Returns Register</Link>
-        <Typography color="text.primary">{detail.returnName}</Typography>
-      </Breadcrumbs>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="h4">{detail.returnName}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-            <Chip label={detail.status || 'Not Started'} size="small" color={STATUS_COLORS[detail.status] || 'default'}
-              sx={{ height: 22, borderRadius: '4px' }} />
-            <Chip size="small" variant="outlined" label={detail.frequency || detail.frequencyType || 'Ad hoc'}
-              sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
-            {detail.filingRegulator && (
-              <Chip size="small" variant="outlined" label={detail.filingRegulator}
-                sx={{ height: 22, borderRadius: '4px', fontSize: '0.72rem' }} />
+      <PageHeader
+        title={`${detail.returnName || ''}${detail.period ? ` · ${detail.period}` : ''}`}
+        subtitle={(
+          <>
+            {detail.dueDate ? `Due ${formatDate(detail.dueDate)}` : noPeriodLabel(detail)}
+            {detail.filingChannel && ` · Channel: ${detail.filingChannel}`}
+            {detail.returnOwnerName && ` · Owner: ${detail.returnOwnerName}`}
+          </>
+        )}
+        onBack={onBack}
+        backLabel="Back to Returns Register"
+        actions={(onEditSchedule || onEditEventTrigger) ? (
+          <>
+            {onEditSchedule && (
+              <Button variant="outlined" startIcon={<CalendarDaysIcon size={16} />} onClick={onEditSchedule}>
+                Edit schedule
+              </Button>
             )}
-          </Box>
+            {onEditEventTrigger && (
+              <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={onEditEventTrigger}>
+                Edit event trigger
+              </Button>
+            )}
+          </>
+        ) : null}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          {statusBadge(detail.status || 'Not Started')}
+          <Chip size="small" variant="outlined" label={detail.frequency || detail.frequencyType || 'Ad hoc'} />
+          {detail.filingRegulator && <Chip size="small" variant="outlined" label={detail.filingRegulator} />}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {onEditSchedule && (
-            <Button variant="outlined" size="small" startIcon={<EditCalendar />} onClick={onEditSchedule}
-              sx={{ fontWeight: 600, textTransform: 'none' }}>
-              Edit schedule
-            </Button>
-          )}
-          {onEditEventTrigger && (
-            <Button variant="outlined" size="small" startIcon={<SettingsIcon />} onClick={onEditEventTrigger}
-              sx={{ fontWeight: 600, textTransform: 'none' }}>Edit event trigger</Button>
-          )}
-        </Box>
-      </Box>
+      </PageHeader>
 
       {/* Headline numbers */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<EventAvailable fontSize="small" />} label="Due Date"
+        <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.dueDate ? formatDate(detail.dueDate) : noPeriodLabel(detail)} />
-        <StatTile icon={<CheckCircle fontSize="small" />} label="Status" accent={statusAccent(detail.status)}
-          chip={<Chip size="small" label={detail.status || 'Not Started'}
-            color={STATUS_COLORS[detail.status] || 'default'} sx={{ height: 22, borderRadius: '4px', fontWeight: 700 }} />} />
-        <StatTile icon={<AccessTime fontSize="small" />} label="Days Late"
+        <StatTile icon={<CheckCircleIcon />} label="Status" accent={statusAccent(detail.status)}
+          chip={statusBadge(detail.status || 'Not Started')} />
+        <StatTile icon={<ClockIcon />} label="Days Late"
           value={detail.daysLate > 0 ? `${detail.daysLate}` : '—'}
           accent={detail.daysLate > 0 ? '#E53E3E' : '#2D7D46'} />
-        <StatTile icon={<Flag fontSize="small" />} label="Escalation"
+        <StatTile icon={<ExclamationCircleIcon />} label="Escalation"
           value={detail.escalationLevel > 0 ? `Level ${detail.escalationLevel}` : 'None'}
           accent={detail.escalationLevel > 0 ? '#E53E3E' : '#2B6CB0'} />
       </Box>
 
-      <Section icon={<Schedule fontSize="small" />} title="Schedule"
+      <Section icon={<CalendarIcon />} title="Schedule"
         action={detail.currentStage
-          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
+          ? <Chip size="small" variant="outlined" label={detail.currentStage} />
           : null}>
         <FieldGrid min={160}>
           <Field label="Frequency" value={detail.frequency || detail.frequencyType} />
@@ -839,7 +797,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
       </Section>
 
       {(detail.eventTriggerDate || detail.eventTriggerLabel) && (
-        <Section icon={<Event fontSize="small" />} title="Event Trigger">
+        <Section icon={<CalendarIcon />} title="Event Trigger">
           <FieldGrid min={160}>
             <Field label="Trigger" value={detail.eventTriggerLabel} />
             <Field label="Trigger Date" value={detail.eventTriggerDate ? formatDate(detail.eventTriggerDate) : '—'} />
@@ -847,7 +805,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
             <Field label="Base Deadline" value={detail.eventUnadjustedDueDate ? formatDate(detail.eventUnadjustedDueDate) : '—'} />
             <Field label="Adjusted">
               {detail.eventDueDateAdjusted
-                ? <Chip size="small" label="Moved to next working day" sx={{ height: 22, borderRadius: '4px' }} />
+                ? <StatusBadge label="Moved to next working day" tone="gray" />
                 : <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>No</Typography>}
             </Field>
             {detail.eventEvidenceFileId && (
@@ -858,7 +816,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
       )}
 
       {detail.escalationLevel > 0 && (
-        <Section icon={<WarningAmber fontSize="small" />} title="Escalation">
+        <Section icon={<ExclamationTriangleIcon />} title="Escalation">
           <Alert severity="error">
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
@@ -870,9 +828,9 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
         </Section>
       )}
 
-      <Section icon={<Timeline fontSize="small" />} title="Stages"
+      <Section icon={<QueueListIcon />} title="Stages"
         action={detail.currentStage
-          ? <Chip size="small" variant="outlined" label={detail.currentStage} sx={{ height: 22, borderRadius: '4px' }} />
+          ? <Chip size="small" variant="outlined" label={detail.currentStage} />
           : null}>
         <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
           {detail.stages && detail.stages.map((stage, i) => (
@@ -888,7 +846,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
                   {stage.evidenceUrl && (
                     <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
                       sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                      <LinkIcon fontSize="inherit" /> Evidence
+                      <LinkIcon size={14} /> Evidence
                     </Link>
                   )}
                   {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
@@ -914,7 +872,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
         {isSubmitted && detail.submissionEvidenceUrl && (
           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CheckCircle color="success" fontSize="small" />
+              <CheckCircleIcon size={18} sx={{ color: 'success.main' }} />
               Submitted {formatDate(detail.submittedDate)}
               {detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
             </Typography>
@@ -926,7 +884,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
       </Section>
 
       {detail.notes && (
-        <Section icon={<StickyNote2 fontSize="small" />} title="Notes">
+        <Section icon={<DocumentTextIcon />} title="Notes">
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.85rem' }}>
             {detail.notes}
           </Typography>

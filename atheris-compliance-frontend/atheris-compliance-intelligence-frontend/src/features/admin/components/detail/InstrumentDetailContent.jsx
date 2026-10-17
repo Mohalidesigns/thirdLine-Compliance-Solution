@@ -1,15 +1,10 @@
 import { useState } from 'react';
 import {
   Box, Typography, Chip, Button, Collapse, Table, TableHead, TableBody,
-  TableRow, TableCell, TableContainer, Paper, Tooltip,
+  TableRow, TableCell, TableContainer,
 } from '@mui/material';
-import { ExpandMore, ExpandLess } from '@mui/icons-material';
-
-const RISK_CONFIG = {
-  High: { color: 'error', bg: '#FFF5F5', chip: '#E53E3E' },
-  Medium: { color: 'warning', bg: '#FFFAF0', chip: '#DD6B20' },
-  Low: { color: 'success', bg: '#F0FFF4', chip: '#38A169' },
-};
+import { DataCard, RiskBadge, StateBadge, TL, ChevronDownIcon } from 'shared';
+import { Field, FieldGrid } from './detailKit';
 
 function formatDate(d) {
   if (!d) return '-';
@@ -17,14 +12,11 @@ function formatDate(d) {
 }
 
 function riskChip(rating) {
-  const cfg = RISK_CONFIG[rating];
-  if (!cfg) return <Chip size="small" label="Unrated" variant="outlined" sx={{ height: 22 }} />;
-  return <Chip size="small" label={rating} color={cfg.color} sx={{ height: 22, fontWeight: 600 }} />;
+  return <RiskBadge value={rating} />;
 }
 
 function statusChip(status) {
-  const colors = { Published: 'success', Triage: 'warning', Superseded: 'default', Withdrawn: 'error' };
-  return <Chip size="small" label={status || 'Unknown'} color={colors[status] || 'default'} sx={{ height: 22, fontWeight: 600 }} />;
+  return <StateBadge value={status} />;
 }
 
 /**
@@ -39,111 +31,80 @@ export default function InstrumentDetailContent({ row, detail, regulatorLabel })
 
   return (
     <Box>
-      <Paper sx={{ p: 3, mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+      <DataCard sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5, flexWrap: 'wrap' }}>
           {riskChip(d.riskRating)}
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>{regulator}</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: TL.gray500, fontWeight: 500 }}>{regulator}</Typography>
           {statusChip(d.status)}
           <Chip size="small" label={d.areaOfFocus || 'General'} variant="outlined" />
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>{d.sourceTitle}</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Risk Rating</Typography>
-            <Box sx={{ mt: 0.5 }}>{riskChip(d.riskRating)}</Box>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Regulator</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>{regulator}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Area of Focus</Typography>
-            <Typography variant="body2">{d.areaOfFocus || '-'}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Nature</Typography>
-            <Typography variant="body2">{d.nature || '-'}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Obligations</Typography>
-            <Typography variant="body2">{detail?.obligations?.length || 0}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Confidence</Typography>
-            <Typography variant="body2">{d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'}</Typography>
-          </Box>
-          {d.dateCommencement && (
-            <Box>
-              <Typography variant="caption" color="text.secondary">Effective Date</Typography>
-              <Typography variant="body2">{formatDate(d.dateCommencement)}</Typography>
-            </Box>
-          )}
-          <Box>
-            <Typography variant="caption" color="text.secondary">Published</Typography>
-            <Typography variant="body2">{formatDate(d.firstPublishedAt || d.discoveredAt)}</Typography>
-          </Box>
-        </Box>
-      </Paper>
+        <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, lineHeight: '1.75rem', color: TL.textPrimary, mb: 3 }}>{d.sourceTitle}</Typography>
+        <FieldGrid min={180}>
+          <Field label="Risk Rating">{riskChip(d.riskRating)}</Field>
+          <Field label="Regulator" value={regulator} />
+          <Field label="Area of Focus" value={d.areaOfFocus || '-'} />
+          <Field label="Nature" value={d.nature || '-'} />
+          <Field label="Obligations" value={String(detail?.obligations?.length || 0)} />
+          <Field label="Confidence" value={d.applicabilityConfidence != null ? `${(d.applicabilityConfidence * 100).toFixed(0)}%` : '-'} />
+          {d.dateCommencement && <Field label="Effective Date" value={formatDate(d.dateCommencement)} />}
+          <Field label="Published" value={formatDate(d.firstPublishedAt || d.discoveredAt)} />
+        </FieldGrid>
+      </DataCard>
 
       {detail?.aiSummary && (
-        <Paper sx={{ p: 3, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>AI Summary</Typography>
-          <Typography variant="body2" fontStyle="italic" color="text.secondary">{detail.aiSummary}</Typography>
-        </Paper>
+        <DataCard title="AI Summary" sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: '0.875rem', fontStyle: 'italic', color: TL.gray600 }}>{detail.aiSummary}</Typography>
+        </DataCard>
       )}
 
       {detail?.pdfOcrText && (
-        <Paper sx={{ mb: 2 }}>
-          <Button size="small" onClick={() => setShowOcr(!showOcr)}
-            endIcon={showOcr ? <ExpandLess /> : <ExpandMore />} sx={{ px: 2, py: 1 }}>
-            {showOcr ? 'Hide' : 'Show'} Raw OCR Text
-          </Button>
+        <DataCard noPadding sx={{ mb: 3 }}>
+          <Box sx={{ px: 2, py: 1 }}>
+            <Button size="small" variant="text" onClick={() => setShowOcr(!showOcr)}
+              endIcon={<ChevronDownIcon size={16} sx={{ transform: showOcr ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />}>
+              {showOcr ? 'Hide' : 'Show'} Raw OCR Text
+            </Button>
+          </Box>
           <Collapse in={showOcr}>
             <Box sx={{
-              p: 2, bgcolor: '#1A1A2E', color: '#E2E8F0',
-              maxHeight: 400, overflow: 'auto', fontFamily: 'Roboto Mono, monospace',
+              p: 2, bgcolor: TL.gray50, color: TL.gray700, borderTop: `1px solid ${TL.gray100}`,
+              maxHeight: 400, overflow: 'auto', fontFamily: TL.mono,
               fontSize: '0.75rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             }}>
               {detail.pdfOcrText}
             </Box>
           </Collapse>
-        </Paper>
+        </DataCard>
       )}
 
       {detail?.sanctions?.length > 0 && (
-        <Paper sx={{ p: 3, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Penalties</Typography>
+        <DataCard title="Penalties" sx={{ mb: 3 }}>
           {detail.sanctions.map((s, i) => (
-            <Box key={i} sx={{ mb: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
+            <Box key={i} sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}>
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: TL.error }}>
                 {s.sanctionType}{s.amountNaira ? ` — ₦${s.amountNaira.toLocaleString()}` : ''}
               </Typography>
               {s.liableRoles?.length > 0 && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                   Liable: {s.liableRoles.join(', ')}
                 </Typography>
               )}
             </Box>
           ))}
-        </Paper>
+        </DataCard>
       )}
 
-      <Paper>
-        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Obligations ({detail?.obligations?.length || 0})
-          </Typography>
-        </Box>
+      <DataCard title={`Obligations (${detail?.obligations?.length || 0})`} noPadding>
         {detail?.obligations?.length > 0 ? (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Section</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Deadline</TableCell>
+                  <TableCell>#</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell>Section</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Deadline</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -154,7 +115,7 @@ export default function InstrumentDetailContent({ row, detail, regulatorLabel })
                       <Typography variant="body2" sx={{ maxWidth: 400 }}>{obl.statement}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }} />
+                      <Chip size="small" label={obl.sectionReference || '-'} variant="outlined" sx={{ fontFamily: TL.mono, fontSize: '0.7rem' }} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{obl.type || '-'}</Typography>
@@ -168,11 +129,11 @@ export default function InstrumentDetailContent({ row, detail, regulatorLabel })
             </Table>
           </TableContainer>
         ) : (
-          <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-            <Typography variant="body2">No specific obligations extracted for this instrument.</Typography>
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>No specific obligations extracted for this instrument.</Typography>
           </Box>
         )}
-      </Paper>
+      </DataCard>
     </Box>
   );
 }

@@ -72,10 +72,10 @@ public class BoardPackRenderer {
             kpi(b, "Compliance Score", m.getComplianceScore() != null ? fmt(m.getComplianceScore()) + "%" : "&#8211;",
                 change(m.getComplianceScore(), previousScore));
             kpi(b, "Obligations Tracked", String.valueOf(m.getObligationsApplicable()), null);
-            kpi(b, "High-Risk Items", m.getObligationsHighRisk() + " (" + m.getObligationsWithGaps() + " with open gaps)", null);
+            kpi(b, "Critical/High Obligations", m.getObligationsHighRisk() + " (" + m.getObligationsWithGaps() + " with open gaps)", null);
             kpi(b, "Control Coverage", fmt(m.getControlCoverage()) + "%", null);
-            kpi(b, "Control Tests Completed", allDone(m), null);
-            kpi(b, "Returns On Time", m.getReturnsOnTimePct() + "%", null);
+            kpi(b, "Controls Tested", pctOrNa(m.getControlTestCompletion()), null);
+            kpi(b, "Returns On Time", pctOrNa(m.getReturnsOnTimePct()), null);
             kpi(b, "Open Findings", m.getFindingsOpen() + " (" + m.getFindingsHighSeverity() + " high)", null);
             kpi(b, "Penalty Exposure", "&#8358;" + MONEY.format(m.getPenaltyExposureNaira() == null ? BigDecimal.ZERO : m.getPenaltyExposureNaira()), null);
             b.append("</div>");
@@ -151,8 +151,9 @@ public class BoardPackRenderer {
         b.append("</div></div>");
     }
 
-    private String allDone(ComplianceMetricsDto m) {
-        return fmt(m.getControlTestCompletion()) + "%";
+    /** A metric with an empty denominator renders as N/A, never 0%. */
+    private String pctOrNa(Double v) {
+        return v == null ? "N/A" : fmt(v) + "%";
     }
 
     private String change(Double current, Double previous) {

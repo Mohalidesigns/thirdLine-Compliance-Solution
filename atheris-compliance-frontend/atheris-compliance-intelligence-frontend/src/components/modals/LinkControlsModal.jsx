@@ -4,7 +4,7 @@ import {
   TableBody, TableRow, TableCell, TableContainer, Paper, TextField, Box,
   Typography, CircularProgress, InputAdornment, Checkbox,
 } from '@mui/material';
-import { Search, Add } from '@mui/icons-material';
+import { MagnifyingGlassIcon, PlusIcon, TL } from 'shared';
 import { api } from '../../services/api';
 
 export default function LinkControlsModal({ open, onClose, obligationId, initialIds = [], onSaved, onError }) {
@@ -50,14 +50,14 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
         <DialogTitle>Link Controls</DialogTitle>
-        <DialogContent dividers>
+        <DialogContent sx={{ '&&&': { pt: 2.5 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <Box sx={{ flex: 1 }}>
               <TextField size="small" fullWidth placeholder="Search control..."
                 value={search} onChange={e => setSearch(e.target.value)}
-                slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18 }} /></InputAdornment> } }} />
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><MagnifyingGlassIcon size={18} sx={{ color: TL.gray400 }} /></InputAdornment> } }} />
             </Box>
-            <Button size="small" variant="outlined" startIcon={<Add />} sx={{ width: 170, whiteSpace: 'nowrap' }}>
+            <Button variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
               Add New
             </Button>
           </Box>
@@ -70,8 +70,8 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Control</TableCell>
-                    <TableCell padding="checkbox" sx={{ fontWeight: 600, textAlign: 'right' }}>Select</TableCell>
+                    <TableCell>Control</TableCell>
+                    <TableCell align="right">Select</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -79,7 +79,7 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
                     <TableRow key={c.controlId} hover selected={selected.includes(c.controlId)}
                       onClick={() => toggle(c.controlId)} sx={{ cursor: 'pointer' }}>
                       <TableCell>
-                        <Typography variant="body2">{c.name || 'Untitled'}</Typography>
+                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{c.name || 'Untitled'}</Typography>
                       </TableCell>
                       <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
                         <Checkbox size="small" checked={selected.includes(c.controlId)} onChange={() => {}} />
@@ -91,8 +91,8 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
             </TableContainer>
           )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center' }}>
-          <Button onClick={onClose}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={loading || !selected.length}>
             {loading ? <CircularProgress size={18} /> : `Save (${selected.length})`}
           </Button>

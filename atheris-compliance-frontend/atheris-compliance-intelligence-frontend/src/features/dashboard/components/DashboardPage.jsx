@@ -1,60 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Box, Grid, Card, CardContent, Typography, Chip, IconButton,
+  Box, Typography, Chip, IconButton,
   Button, Tooltip, Alert, Snackbar,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import {
-  Visibility, CheckCircle, Schedule, ErrorOutline, LibraryBooks,
-  AssignmentTurnedIn, CloudOff, CloudDownload, Close,
-  Description, PictureAsPdf, Refresh, BugReport, HourglassEmpty,
-  Group, AccountTree, Warning,
-} from '@mui/icons-material';
+  PageHeader, KpiCards, DataCard, CardLink, StatusBadge, TL, tone,
+  EyeIcon, CheckCircleIcon, BuildingLibraryIcon, ClipboardDocumentCheckIcon, ClipboardDocumentListIcon,
+  CloudArrowUpIcon, ArrowUpTrayIcon, XMarkIcon, DocumentTextIcon, DocumentIcon, ArrowPathIcon,
+  ExclamationTriangleIcon, ExclamationCircleIcon, CpuChipIcon, UserGroupIcon, QueueListIcon, InboxIcon,
+} from 'shared';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
 import RegulatoryCoverage from './RegulatoryCoverage';
 
 const stageColors = {
-  completed: { bg: '#E6F4EA', color: '#2D7D46' },
-  processing: { bg: '#EBF8FF', color: '#3182CE' },
-  pending: { bg: '#FEF9E7', color: '#D4AF37' },
-  failed: { bg: '#FEE2E2', color: '#C53030' },
-  idle: { bg: '#EDF2F7', color: '#A0AEC0' },
+  completed: { tone: 'green', color: tone('green').dot },
+  processing: { tone: 'blue', color: tone('blue').dot },
+  pending: { tone: 'amber', color: tone('amber').dot },
+  failed: { tone: 'red', color: tone('red').dot },
+  idle: { tone: 'gray', color: TL.gray300 },
 };
-
-function KpiCard({ title, value, icon, color, loading, onClick }) {
-  return (
-    <Card sx={{ height: '100%', cursor: onClick ? 'pointer' : 'default', '&:hover': onClick ? { boxShadow: 4 } : {} }} onClick={onClick}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-          <Typography variant="body2" sx={{ color: '#718096', fontWeight: 500 }}>{title}</Typography>
-          <Avatar sx={{ width: 36, height: 36, bgcolor: `${color}15`, color: color }}>
-            {icon}
-          </Avatar>
-        </Box>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          {loading ? '...' : value}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Avatar({ sx, children }) {
-  return (
-    <Box sx={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', ...sx }}>
-      {children}
-    </Box>
-  );
-}
 
 function PipelineStage({ label, status }) {
   const c = stageColors[status] || stageColors.idle;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />
-      <Typography variant="caption" sx={{ color: c.color, fontWeight: 600, fontSize: '0.6rem' }}>
+      <Typography sx={{ color: status === 'idle' ? TL.gray400 : TL.gray600, fontWeight: 500, fontSize: '0.6875rem', whiteSpace: 'nowrap' }}>
         {label}
       </Typography>
     </Box>
@@ -175,58 +149,82 @@ export default function DashboardPage() {
 
   if (!user || user.role !== 'PLATFORM_ADMIN') return null;
 
+  const activeRegulators = regulators.filter(r => r.isActive && r.scraperEnabled).length;
+  const activeTenants = tenants.filter(t => t.isActive).length;
+  const ocrFailed = stats?.perType?.ocr_document?.failed || 0;
+  const systemFailures = pendings.length + ocrFailed;
+  const awaitingAi = stats?.perType?.classify_instrument?.pending || 0;
+  const awaitingTenant = instruments.filter(i => i.status === 'published').length;
+  const pipelineQueue = stats?.totalPending || 0;
+  const v = (n) => (loading ? '...' : n);
+
+  const kpiRoutes = {
+    regulators: '/admin/regulators',
+    tenants: '/admin/tenants',
+    failures: '/admin/pipeline?tab=system',
+    ai: '/admin/pipeline?tab=ai',
+    tenant: '/admin/pipeline?tab=tenant',
+    queue: '/admin/pipeline',
+  };
+  const kpis = [
+    { key: 'regulators', label: 'Active Regulators', value: v(activeRegulators), tone: 'blue', icon: <BuildingLibraryIcon />,
+      caption: loading ? undefined : `of ${regulators.length} regulators` },
+    { key: 'tenants', label: 'Active Tenants', value: v(activeTenants), tone: 'green', icon: <CheckCircleIcon />,
+      caption: loading ? undefined : `of ${tenants.length} onboarded` },
+    { key: 'failures', label: 'System Failures', value: v(systemFailures), tone: systemFailures > 0 ? 'red' : 'green', icon: <ExclamationCircleIcon />,
+      caption: loading ? undefined : `${pendings.length} downloads, ${ocrFailed} OCR failed` },
+    { key: 'ai', label: 'Awaiting AI', value: v(awaitingAi), tone: awaitingAi > 0 ? 'orange' : 'green', icon: <CpuChipIcon />,
+      caption: 'Classification jobs pending' },
+    { key: 'tenant', label: 'Awaiting Tenant', value: v(awaitingTenant), tone: awaitingTenant > 0 ? 'blue' : 'green', icon: <UserGroupIcon />,
+      caption: 'Published instruments' },
+    { key: 'queue', label: 'Pipeline Queue', value: v(pipelineQueue), tone: pipelineQueue > 0 ? 'amber' : 'green', icon: <QueueListIcon />,
+      caption: 'Jobs pending across stages' },
+  ];
+
+  const tenantStats = [
+    { label: 'Active', value: activeTenants },
+    { label: 'Licence Types', value: new Set(tenants.map(t => t.licenceType).filter(Boolean)).size },
+    { label: 'Subscription Tiers', value: new Set(tenants.map(t => t.subscriptionTier).filter(Boolean)).size },
+    { label: 'Regulator Subscriptions', value: tenants.reduce((n, t) => n + (t.regulators?.length || 0), 0) },
+  ];
+
+  const emptyRow = (cols, text) => (
+    <TableRow><TableCell colSpan={cols} align="center" sx={{ py: 4 }}><Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>{text}</Typography></TableCell></TableRow>
+  );
+
+  const quickActions = [
+    { label: 'Test Scraper', icon: <EyeIcon size={16} />, to: '/admin/regulators' },
+    { label: 'View Pipeline', icon: <ClipboardDocumentCheckIcon size={16} />, to: '/admin/pipeline' },
+    { label: 'Review Inbox', icon: <InboxIcon size={16} />, to: '/inbox' },
+    { label: 'Upload Document', icon: <DocumentTextIcon size={16} />, to: '/admin/regulators' },
+  ];
+
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Intelligence Hub Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">Compliance Monitoring & Regulatory Horizon Scanning</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => window.location.reload()}>Refresh</Button>
-          <Button variant="contained" size="small" sx={{ bgcolor: '#1A365D' }} startIcon={<AssignmentTurnedIn />}>Run Triage</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Intelligence Hub — compliance monitoring & regulatory horizon scanning"
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<ArrowPathIcon size={16} />} onClick={() => window.location.reload()}>Refresh</Button>
+            <Button variant="contained" startIcon={<ClipboardDocumentListIcon size={16} />}>Run Triage</Button>
+          </>
+        )}
+      />
 
       {/* Row 1 — KPI Cards */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="Active Regulators" value={regulators.filter(r => r.isActive && r.scraperEnabled).length} icon={<LibraryBooks sx={{ fontSize: 20 }} />} color="#1A365D" loading={loading}
-            onClick={() => navigate('/admin/regulators')} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="Active Tenants" value={tenants.filter(t => t.isActive).length} icon={<CheckCircle sx={{ fontSize: 20 }} />} color="#2D7D46" loading={loading}
-            onClick={() => navigate('/admin/tenants')} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="System Failures" value={pendings.length + (stats?.perType?.ocr_document?.failed || 0)} icon={<BugReport sx={{ fontSize: 20 }} />} color={(pendings.length + (stats?.perType?.ocr_document?.failed || 0)) > 0 ? '#C53030' : '#2D7D46'} loading={loading}
-            onClick={() => navigate('/admin/pipeline?tab=system')} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="Awaiting AI" value={stats?.perType?.classify_instrument?.pending || 0} icon={<HourglassEmpty sx={{ fontSize: 20 }} />} color={(stats?.perType?.classify_instrument?.pending || 0) > 0 ? '#DD6B20' : '#2D7D46'} loading={loading}
-            onClick={() => navigate('/admin/pipeline?tab=ai')} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="Awaiting Tenant" value={instruments.filter(i => i.status === 'published').length} icon={<Group sx={{ fontSize: 20 }} />} color={instruments.filter(i => i.status === 'published').length > 0 ? '#3182CE' : '#2D7D46'} loading={loading}
-            onClick={() => navigate('/admin/pipeline?tab=tenant')} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <KpiCard title="Pipeline Queue" value={stats?.totalPending || 0} icon={<AccountTree sx={{ fontSize: 20 }} />} color={(stats?.totalPending || 0) > 0 ? '#D4AF37' : '#2D7D46'} loading={loading}
-            onClick={() => navigate('/admin/pipeline')} />
-        </Grid>
-      </Grid>
+      <KpiCards items={kpis} onSelect={(key) => navigate(kpiRoutes[key])} columns={3} />
 
       {/* Row 1.5 — Pipeline Health */}
       {!loading && <Box sx={{ mb: 3 }}>
         <Alert
           severity={pendings.length > 0 ? 'warning' : 'success'}
-          icon={<Warning />}
+          icon={pendings.length > 0 ? <ExclamationTriangleIcon size={20} /> : <CheckCircleIcon size={20} />}
           action={pendings.length > 0 && (
             <Button color="inherit" size="small" onClick={() => navigate('/admin/pipeline?tab=system')}>
               View Failed
             </Button>
           )}
-          sx={{ alignItems: 'center' }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             Pipeline Health: {totalDiscovered + pendings.length} discovered &middot; {totalDiscovered} processed &middot; {pendings.length} pending downloads
@@ -234,289 +232,233 @@ export default function DashboardPage() {
         </Alert>
       </Box>}
 
-      {/* Row 1.75 — Regulatory Coverage Analytics */}
+      {/* Row 2 — Regulatory Coverage Analytics */}
       <RegulatoryCoverage />
 
-      {/* Row 2 — Document Pipeline Table */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>Document Pipeline</Typography>
-          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Document</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Regulator</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Pipeline Progress</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }} align="center">PDF</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">Loading...</Typography></TableCell></TableRow>
-                ) : documents.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">No documents in pipeline yet</Typography></TableCell></TableRow>
-                ) : documents.map((doc, idx) => {
-                  const stages = getPipelineStages(doc);
-                  const stageList = [
-                    { label: 'Download', status: stages.download },
-                    { label: 'OCR', status: stages.ocr },
-                    { label: 'Classify', status: stages.classify },
-                    { label: 'Publish', status: stages.publish },
-                  ];
-                  const regLabel = regulatorMap[doc.regulatorId] || `Reg #${doc.regulatorId}`;
-                  const hasPdf = doc._source === 'instrument' || (doc._source === 'job' && doc.payload?.pdf_s3_url);
-                  return (
-                    <TableRow key={`${doc._source}-${doc.id || doc.jobId || doc.instrumentId}`} hover>
-                      <TableCell sx={{ fontSize: '0.7rem', color: '#718096' }}>{idx + 1}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem', maxWidth: 220 }} noWrap>
-                          {doc.title || 'Untitled'}
+      {/* Row 3 — Document Pipeline Table */}
+      <DataCard
+        title="Document Pipeline"
+        subtitle="Latest 20 documents across discovery, OCR, classification and publishing"
+        actions={<CardLink onClick={() => navigate('/admin/pipeline')}>View All</CardLink>}
+        noPadding
+        sx={{ mb: 3 }}
+      >
+        <TableContainer sx={{ maxHeight: 500 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 48 }}>#</TableCell>
+                <TableCell>Document</TableCell>
+                <TableCell>Regulator</TableCell>
+                <TableCell>Pipeline Progress</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">PDF</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? emptyRow(6, 'Loading...') : documents.length === 0 ? emptyRow(6, 'No documents in pipeline yet') : documents.map((doc, idx) => {
+                const stages = getPipelineStages(doc);
+                const stageList = [
+                  { label: 'Download', status: stages.download },
+                  { label: 'OCR', status: stages.ocr },
+                  { label: 'Classify', status: stages.classify },
+                  { label: 'Publish', status: stages.publish },
+                ];
+                const regLabel = regulatorMap[doc.regulatorId] || `Reg #${doc.regulatorId}`;
+                const hasPdf = doc._source === 'instrument' || (doc._source === 'job' && doc.payload?.pdf_s3_url);
+                const statusKey = doc._source === 'pending' ? 'failed' : (doc.status === 'completed' || doc.status === 'published' ? 'completed' : 'pending');
+                return (
+                  <TableRow key={`${doc._source}-${doc.id || doc.jobId || doc.instrumentId}`} hover>
+                    <TableCell sx={{ color: TL.gray400, fontFamily: TL.mono, fontSize: '0.75rem' }}>{idx + 1}</TableCell>
+                    <TableCell>
+                      {doc.sourceUrl && (
+                        <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500, maxWidth: 260 }} noWrap>
+                          {doc.sourceUrl}
                         </Typography>
-                        {doc.sourceUrl && (
-                          <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.6rem', maxWidth: 220 }} noWrap>
-                            {doc.sourceUrl}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={regLabel} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: '#EDF2F7', color: '#4A5568' }} />
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          {stageList.map(s => (
-                            <PipelineStage key={s.label} label={s.label} status={s.status} />
-                          ))}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={doc._source === 'pending' ? 'Download Failed' : doc.status || doc._source}
-                          size="small"
-                          sx={{
-                            height: 18, fontSize: '0.6rem', fontWeight: 600,
-                            bgcolor: stageColors[doc._source === 'pending' ? 'failed' : (doc.status === 'completed' || doc.status === 'published' ? 'completed' : 'pending')].bg,
-                            color: stageColors[doc._source === 'pending' ? 'failed' : (doc.status === 'completed' || doc.status === 'published' ? 'completed' : 'pending')].color,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        {hasPdf ? (
-                          <Tooltip title="View PDF">
-                            <IconButton size="small" sx={{ width: 24, height: 24 }} onClick={() => handlePdfView(doc)}>
-                              <PictureAsPdf sx={{ fontSize: 14, color: '#C53030' }} />
+                      )}
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main', maxWidth: 260 }} noWrap>
+                        {doc.title || 'Untitled'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={regLabel} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1.25 }}>
+                        {stageList.map(s => (
+                          <PipelineStage key={s.label} label={s.label} status={s.status} />
+                        ))}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        label={doc._source === 'pending' ? 'Download Failed' : doc.status || doc._source}
+                        tone={stageColors[statusKey].tone}
+                        sx={{ textTransform: 'capitalize' }}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      {hasPdf ? (
+                        <Tooltip title="View PDF">
+                          <IconButton size="small" onClick={() => handlePdfView(doc)}>
+                            <DocumentIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : doc._source === 'pending' ? (
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                          <Tooltip title="Upload PDF">
+                            <IconButton size="small" onClick={() => handlePendUpload(doc.id)}>
+                              <ArrowUpTrayIcon size={16} />
                             </IconButton>
                           </Tooltip>
-                        ) : doc._source === 'pending' ? (
-                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                            <Tooltip title="Upload PDF">
-                              <IconButton size="small" sx={{ width: 20, height: 20 }} onClick={() => handlePendUpload(doc.id)}>
-                                <CloudDownload sx={{ fontSize: 12, color: '#1A365D' }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Skip">
-                              <IconButton size="small" sx={{ width: 20, height: 20 }} onClick={() => handlePendSkip(doc.id)}>
-                                <Close sx={{ fontSize: 12, color: '#718096' }} />
-                              </IconButton>
-                            </Tooltip>
-                            <input type="file" accept=".pdf,application/pdf" ref={(el) => { fileInputRefs.current[doc.id] = el; }} style={{ display: 'none' }} onChange={(e) => handlePendFile(doc.id, e)} />
-                          </Box>
-                        ) : (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>—</Typography>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+                          <Tooltip title="Skip">
+                            <IconButton size="small" onClick={() => handlePendSkip(doc.id)}>
+                              <XMarkIcon size={16} />
+                            </IconButton>
+                          </Tooltip>
+                          <input type="file" accept=".pdf,application/pdf" ref={(el) => { fileInputRefs.current[doc.id] = el; }} style={{ display: 'none' }} onChange={(e) => handlePendFile(doc.id, e)} />
+                        </Box>
+                      ) : (
+                        <Typography component="span" sx={{ fontSize: '0.75rem', color: TL.gray400 }}>—</Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </DataCard>
 
-      {/* Row 2.5 — Tenant Overview */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>Tenant Overview</Typography>
-            <Button size="small" endIcon={<Visibility sx={{ fontSize: 14 }} />} onClick={() => navigate('/admin/tenants')}>
-              Manage Tenants
-            </Button>
+      {/* Row 4 — Tenant Overview + Pending Downloads / Quick Actions */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 3, alignItems: 'start' }}>
+        <DataCard
+          title="Tenant Overview"
+          actions={<CardLink onClick={() => navigate('/admin/tenants')}>Manage Tenants</CardLink>}
+          noPadding
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, borderBottom: `1px solid ${TL.gray100}` }}>
+            {tenantStats.map((s, i) => (
+              <Box key={s.label} sx={{ px: 3, py: 2, borderLeft: i === 0 ? 0 : `1px solid ${TL.gray100}` }}>
+                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 500, color: TL.gray500, textTransform: 'uppercase', letterSpacing: '0.025em' }} noWrap>
+                  {s.label}
+                </Typography>
+                <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: TL.gray800, mt: 0.25 }}>{loading ? '...' : s.value}</Typography>
+              </Box>
+            ))}
           </Box>
-          <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Box sx={{ borderTop: '3px solid #1A365D', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">Active</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#1A365D' }}>{loading ? '...' : tenants.filter(t => t.isActive).length}</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Box sx={{ borderTop: '3px solid #2D7D46', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">Licence Types</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#2D7D46' }}>{loading ? '...' : new Set(tenants.map(t => t.licenceType).filter(Boolean)).size}</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Box sx={{ borderTop: '3px solid #D4AF37', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">Subscription Tiers</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#D4AF37' }}>{loading ? '...' : new Set(tenants.map(t => t.subscriptionTier).filter(Boolean)).size}</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Box sx={{ borderTop: '3px solid #C53030', p: 1.5, bgcolor: '#F7FAFC', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">Regulator Subscriptions</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#C53030' }}>{loading ? '...' : tenants.reduce((n, t) => n + (t.regulators?.length || 0), 0)}</Typography>
-              </Box>
-            </Grid>
-          </Grid>
-          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 260 }}>
+          <TableContainer sx={{ maxHeight: 320 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Tenant</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Licence</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Regulators</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Tier</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem' }}>Onboarded</TableCell>
+                  <TableCell>Tenant</TableCell>
+                  <TableCell>Licence</TableCell>
+                  <TableCell>Regulators</TableCell>
+                  <TableCell>Tier</TableCell>
+                  <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">Loading...</Typography></TableCell></TableRow>
-                ) : tenants.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} align="center"><Typography variant="caption" color="text.secondary">No tenants onboarded yet</Typography></TableCell></TableRow>
-                ) : tenants.map((t) => (
+                {loading ? emptyRow(5, 'Loading...') : tenants.length === 0 ? emptyRow(5, 'No tenants onboarded yet') : tenants.map((t) => (
                   <TableRow key={t.tenantId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/tenants/${t.tenantId}`)}>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>{t.legalName || '—'}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>#{t.tenantId}</Typography>
+                      <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>#{t.tenantId}</Typography>
+                      <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{t.legalName || '—'}</Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+                        Onboarded {t.onboardedAt ? new Date(t.onboardedAt).toLocaleDateString() : '—'}
+                      </Typography>
                     </TableCell>
-                    <TableCell sx={{ fontSize: '0.7rem' }}>{t.licenceType || '—'}</TableCell>
+                    <TableCell>{t.licenceType || '—'}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {(t.regulatorAbbreviations || []).length > 0
                           ? t.regulatorAbbreviations.slice(0, 3).map((ab, i) => (
-                            <Chip key={i} label={ab} size="small" sx={{ height: 16, fontSize: '0.55rem', bgcolor: '#EDF2F7', color: '#4A5568' }} />
+                            <Chip key={i} label={ab} size="small" />
                           ))
-                          : <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>{(t.regulators || []).length} subscribed</Typography>}
+                          : <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>{(t.regulators || []).length} subscribed</Typography>}
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Chip label={t.subscriptionTier || 'starter'} size="small" sx={{ height: 16, fontSize: '0.55rem', textTransform: 'capitalize', bgcolor: '#EBF8FF', color: '#3182CE' }} />
+                      <StatusBadge label={t.subscriptionTier || 'starter'} tone="blue" sx={{ textTransform: 'capitalize' }} />
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={t.isActive ? 'active' : 'inactive'}
-                        size="small"
-                        sx={{ height: 16, fontSize: '0.55rem', fontWeight: 600, textTransform: 'capitalize', bgcolor: t.isActive ? '#E6F4EA' : '#FEE2E2', color: t.isActive ? '#2D7D46' : '#C53030' }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.7rem', color: '#718096' }}>
-                      {t.onboardedAt ? new Date(t.onboardedAt).toLocaleDateString() : '—'}
+                      <StatusBadge label={t.isActive ? 'Active' : 'Inactive'} tone={t.isActive ? 'green' : 'red'} />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-        </CardContent>
-      </Card>
+        </DataCard>
 
-      {/* Row 3 — Bottom */}
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card>
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CloudOff sx={{ fontSize: 20, color: '#C53030' }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-                  Pending Manual Downloads
-                  {pendings.length > 0 && (
-                    <Chip size="small" label={pendings.length} sx={{ ml: 1, bgcolor: '#FEE2E2', color: '#C53030', fontWeight: 700, fontSize: '0.65rem' }} />
-                  )}
-                </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <DataCard
+            title={(
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                Pending Manual Downloads
+                {pendings.length > 0 && <StatusBadge label={pendings.length} tone="red" />}
               </Box>
-              {loading ? (
-                <Typography variant="caption" sx={{ display: 'block', p: 2, color: '#718096' }}>Loading...</Typography>
-              ) : pendings.length === 0 ? (
-                <Box sx={{ p: 2, textAlign: 'center' }}>
-                  <CloudDownload sx={{ fontSize: 32, color: '#A0AEC0', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">No pending downloads</Typography>
-                  <Typography variant="caption" color="text.secondary">Failed PDFs from scraper runs appear here</Typography>
-                </Box>
-              ) : (
-                <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                  {pendings.map(pd => (
-                    <Box key={pd.id} sx={{ p: 1.5, borderBottom: '1px solid #E2E8F0', '&:last-child': { borderBottom: 0 } }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.75rem', flex: 1, mr: 1 }} noWrap>
+            )}
+            actions={<CardLink onClick={() => navigate('/admin/pipeline?tab=system')}>View All</CardLink>}
+            noPadding
+          >
+            {loading ? (
+              <Typography sx={{ p: 3, fontSize: '0.8125rem', color: TL.gray500 }}>Loading...</Typography>
+            ) : pendings.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center', color: TL.gray400 }}>
+                <CloudArrowUpIcon size={32} sx={{ mb: 1 }} />
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>No pending downloads</Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>Failed PDFs from scraper runs appear here</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {pendings.map(pd => (
+                  <Box key={pd.id} sx={{ px: 3, py: 1.5, borderBottom: `1px solid ${TL.gray100}`, '&:last-child': { borderBottom: 0 } }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }} noWrap>
+                          {pd.sourceUrl?.length > 50 ? pd.sourceUrl.slice(0, 50) + '...' : pd.sourceUrl || ''}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }} noWrap>
                           {pd.title || 'Untitled Document'}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                          <Tooltip title="Upload PDF">
-                            <IconButton size="small" sx={{ width: 24, height: 24 }} onClick={() => handlePendUpload(pd.id)}>
-                              <CloudDownload sx={{ fontSize: 14, color: '#1A365D' }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Skip">
-                            <IconButton size="small" sx={{ width: 24, height: 24 }} onClick={() => handlePendSkip(pd.id)}>
-                              <Close sx={{ fontSize: 14, color: '#718096' }} />
-                            </IconButton>
-                          </Tooltip>
-                          <input type="file" accept=".pdf,application/pdf" ref={(el) => { fileInputRefs.current[pd.id] = el; }} style={{ display: 'none' }} onChange={(e) => handlePendFile(pd.id, e)} />
-                        </Box>
                       </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', display: 'block' }}>
-                        {pd.sourceUrl?.length > 50 ? pd.sourceUrl.slice(0, 50) + '...' : pd.sourceUrl || ''}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                        <Chip label={regulatorMap[pd.regulatorId] || `Reg #${pd.regulatorId}`} size="small" sx={{ height: 14, fontSize: '0.55rem', bgcolor: '#EDF2F7', color: '#4A5568' }} />
-                        <Chip label={pd.discoveredAt ? new Date(pd.discoveredAt).toLocaleDateString() : ''} size="small" sx={{ height: 14, fontSize: '0.55rem', bgcolor: '#EDF2F7', color: '#4A5568' }} />
+                      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                        <Tooltip title="Upload PDF">
+                          <IconButton size="small" onClick={() => handlePendUpload(pd.id)}>
+                            <ArrowUpTrayIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Skip">
+                          <IconButton size="small" onClick={() => handlePendSkip(pd.id)}>
+                            <XMarkIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
+                        <input type="file" accept=".pdf,application/pdf" ref={(el) => { fileInputRefs.current[pd.id] = el; }} style={{ display: 'none' }} onChange={(e) => handlePendFile(pd.id, e)} />
                       </Box>
                     </Box>
-                  ))}
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Quick Actions</Typography>
-              <Grid container spacing={1.5}>
-                <Grid size={{ xs: 6 }}>
-                  <Button variant="outlined" size="small" fullWidth startIcon={<Visibility />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => navigate('/admin/regulators')}>
-                    Test Scraper
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Button variant="outlined" size="small" fullWidth startIcon={<AssignmentTurnedIn />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => navigate('/admin/pipeline')}>
-                    View Pipeline
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Button variant="outlined" size="small" fullWidth startIcon={<LibraryBooks />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => navigate('/inbox')}>
-                    Review Inbox
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 6 }}>
-                  <Button variant="outlined" size="small" fullWidth startIcon={<Description />} sx={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                    onClick={() => navigate('/admin/regulators')}>
-                    Upload Document
-                  </Button>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.75 }}>
+                      <Chip label={regulatorMap[pd.regulatorId] || `Reg #${pd.regulatorId}`} size="small" />
+                      {pd.discoveredAt && <Chip label={new Date(pd.discoveredAt).toLocaleDateString()} size="small" />}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </DataCard>
+
+          <DataCard title="Quick Actions">
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
+              {quickActions.map(a => (
+                <Button key={a.label} variant="outlined" fullWidth startIcon={a.icon} sx={{ justifyContent: 'flex-start' }}
+                  onClick={() => navigate(a.to)}>
+                  {a.label}
+                </Button>
+              ))}
+            </Box>
+          </DataCard>
+        </Box>
+      </Box>
 
       <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
         {snackbar ? <Alert severity={snackbar.severity} onClose={() => setSnackbar(null)} variant="filled">{snackbar.message}</Alert> : undefined}

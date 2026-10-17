@@ -21,6 +21,8 @@ import com.atheris.compliance.intelligence.backend.modules.sanctions.entity.Sanc
 import com.atheris.compliance.intelligence.backend.modules.sanctions.repository.SanctionsRepository;
 import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.atheris.compliance.common.Constants;
+import com.atheris.compliance.common.risk.RiskBands;
+import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +56,7 @@ public class ToolkitImportService {
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper mapper;
 
-    private static final List<String> CRMP_SECTIONS = List.of(
+    static final List<String> CRMP_SECTIONS = List.of(
             "conduct_risk", "corporate_governance", "data_protection",
             "capital_market", "crmp", "esg", "cybersecurity", "consumer_protection",
             "abac", "amlcft", "actmgt", "cash_mgt");
@@ -86,6 +88,7 @@ public class ToolkitImportService {
 
     public ToolkitImportResult importToolkit() {
         unmapped.clear();
+        instrumentAreaCache.clear();
         regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
         controlDedupCount = 0;
         skippedNoControlRows = 0;
@@ -255,7 +258,9 @@ public class ToolkitImportService {
                 .description(descriptionText)
                 .plainEnglishStatement(statement)
                 .specificSectionReference(sectionRef)
-                .areaOfFocus(SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName))
+                // one vocabulary: inherit the instrument's area; the section area only when it has none
+                .areaOfFocus(AreasOfFocus.forObligation(instrumentArea(instrumentId),
+                    SECTION_AREA_OF_FOCUS.getOrDefault(sectionName, sectionName)))
                 .obligationType(shorten(o.getObligationType(), 100))
                 .recurringDeadlineType(shorten(o.getDeadlineType(), 50))
                 .riskDescription(o.getRiskDescription())
@@ -436,6 +441,14 @@ public class ToolkitImportService {
 
     // If the act has no canonical instrument (source appears only in CRMP/sanctions, not the universe),
     // create a stub instrument so obligations/sanctions have a home.
+    private final Map<Long, Optional<String>> instrumentAreaCache = new HashMap<>();
+
+    private String instrumentArea(Long instrumentId) {
+        if (instrumentId == null) return null;
+        return instrumentAreaCache.computeIfAbsent(instrumentId,
+            id -> instruments.findById(id).map(Instrument::getAreaOfFocus)).orElse(null);
+    }
+
     private Long ensureCanonicalInstrument(Regulation reg) {
         if (reg == null) return null;
         if (reg.getRegulatorId() == null) {
@@ -729,7 +742,7 @@ public class ToolkitImportService {
         return null;
     }
 
-    private String normalizeRiskLabel(String s) {
+    static String normalizeRiskLabel(String s) {
         if (s == null) return null;
         String v = s.toLowerCase(Locale.ROOT).trim();
         if (v.isEmpty()) return null;
@@ -745,27 +758,9 @@ public class ToolkitImportService {
         return null;
     }
 
+    /** Canonical bands (shared with the tenant risk matrix) — see {@link RiskBands}. */
     private String computeRiskBand(String likelihood, String impact) {
-        int l = riskScore(likelihood);
-        int i = riskScore(impact);
-        if (l <= 0 || i <= 0) return null;
-        int score = l * i;
-        if (score <= 3) return "Low";
-        if (score <= 6) return "Moderate";
-        if (score <= 9) return "High";
-        return "Critical";
-    }
-
-    private int riskScore(String label) {
-        if (label == null) return 0;
-        return switch (label.toLowerCase(Locale.ROOT).trim()) {
-            case "very low" -> 1;
-            case "low" -> 2;
-            case "medium", "moderate" -> 3;
-            case "high" -> 4;
-            case "very high" -> 5;
-            default -> 0;
-        };
+        return RiskBands.band(likelihood, impact);
     }
 
     private String normalizeYesNo(String s) {

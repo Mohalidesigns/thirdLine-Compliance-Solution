@@ -213,6 +213,7 @@ public class OnboardingService {
             case "ANALYST" -> AppRole.ANALYST;
             case "TENANT_ADMIN", "ADMIN" -> AppRole.TENANT_ADMIN;
             case "AUDITOR" -> AppRole.AUDITOR;
+            case "IT_OPS", "ITOPS", "IT OPS" -> AppRole.IT_OPS;
             default -> null;
         };
     }

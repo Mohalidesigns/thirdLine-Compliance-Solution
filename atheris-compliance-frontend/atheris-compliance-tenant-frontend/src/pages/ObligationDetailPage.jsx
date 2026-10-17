@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Paper, Snackbar,
+  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Snackbar,
 } from '@mui/material';
-import { Edit, UploadFile, Download, Link as LinkIcon, ArrowBack, Visibility, Gavel } from '@mui/icons-material';
 import {
-  DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer,
+  DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
   controlColumns, returnColumns,
+  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
+  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon,
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -20,7 +21,12 @@ import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
 
-const APPLICABILITY_COLOR = { applicable: '#2D7D46', not_applicable: '#C53030', under_review: '#DD6B20' };
+const APPLICABILITY_TONE = { applicable: 'green', not_applicable: 'red', under_review: 'orange' };
+
+const PANEL_LABEL_SX = {
+  display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
+  textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.75,
+};
 
 function formatDate(d) {
   if (!d) return '—';
@@ -107,14 +113,14 @@ export default function ObligationDetailPage() {
   const pageRows = filtered.slice(page * size, (page + 1) * size);
 
   const actionFor = {
-    controls: <Button size="small" variant="contained" startIcon={<Edit sx={{ fontSize: 16 }} />}
-      onClick={() => setActiveModal('controls')} sx={{ textTransform: 'none' }}>Link controls</Button>,
-    returns: <Button size="small" variant="contained" startIcon={<Edit sx={{ fontSize: 16 }} />}
-      onClick={() => setActiveModal('returns')} sx={{ textTransform: 'none' }}>Map return</Button>,
-    sanctions: <Button size="small" variant="contained" startIcon={<Edit sx={{ fontSize: 16 }} />}
-      onClick={() => setActiveModal('sanctions')} sx={{ textTransform: 'none' }}>Link sanctions</Button>,
-    evidence: <Button size="small" variant="contained" startIcon={<UploadFile sx={{ fontSize: 16 }} />}
-      onClick={() => setActiveModal('evidence')} sx={{ textTransform: 'none' }}>Upload</Button>,
+    controls: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setActiveModal('controls')}>Link controls</Button>,
+    returns: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setActiveModal('returns')}>Map return</Button>,
+    sanctions: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setActiveModal('sanctions')}>Link sanctions</Button>,
+    evidence: <Button size="small" variant="contained" startIcon={<ArrowUpTrayIcon size={16} />}
+      onClick={() => setActiveModal('evidence')}>Upload</Button>,
   };
 
   const columnsByTab = {
@@ -157,7 +163,7 @@ export default function ObligationDetailPage() {
   if (error || !selected) {
     return (
       <Box>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/obligations')} sx={{ mb: 2, textTransform: 'none' }}>
+        <Button variant="outlined" startIcon={<ArrowLeftIcon size={16} />} onClick={() => navigate('/obligations')} sx={{ mb: 2 }}>
           Back to Obligations
         </Button>
         <Alert severity="error">{error?.message || 'Failed to load obligation detail.'}</Alert>
@@ -175,48 +181,47 @@ export default function ObligationDetailPage() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate('/obligations')} sx={{ mb: 1.5, textTransform: 'none' }}>
-        Back to Obligations
-      </Button>
-
       <DetailHeader
+        band
+        onBack={() => navigate('/obligations')}
+        backLabel="Back to Obligations"
         title={selected.title || selected.name || 'Untitled obligation'}
         status={selected.applicability}
-        statusColor={APPLICABILITY_COLOR[selected.applicability]}
+        statusTone={APPLICABILITY_TONE[selected.applicability]}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             {selected.actName && (
-              <Typography variant="body2" sx={{ color: '#3182CE', fontWeight: 600, mr: 0.5 }}>
-                <LinkIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
+              <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, mr: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                <LinkIcon size={14} />
                 {selected.actName}
               </Typography>
             )}
             {chips.map((c) => (
               <Chip key={c} size="small" variant="outlined" label={c}
-                sx={{ height: 22, borderRadius: '4px', fontFamily: c === selected.sectionReference ? 'Roboto Mono, monospace' : undefined, fontSize: '0.7rem' }} />
+                sx={c === selected.sectionReference ? { fontFamily: TL.mono, fontSize: '0.7rem' } : undefined} />
             ))}
           </Box>
         )}
         description={selected.plainEnglishStatement}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Button size="small" variant="outlined" startIcon={<Edit sx={{ fontSize: 16 }} />}
-              onClick={() => setActiveModal('risk')} sx={{ textTransform: 'none' }}>Assess Risk</Button>
-            <Button size="small" variant="outlined" startIcon={<Edit sx={{ fontSize: 16 }} />}
-              onClick={() => setActiveModal('owner')} sx={{ textTransform: 'none' }}>Assign Owner</Button>
-            <Button size="small" variant="outlined" startIcon={<Gavel sx={{ fontSize: 16 }} />}
-              onClick={() => setActiveModal('gap')} sx={{ textTransform: 'none' }}>Gap</Button>
-            <Button size="small" variant="outlined" startIcon={<Visibility sx={{ fontSize: 16 }} />}
-              onClick={handleViewPdf} sx={{ textTransform: 'none' }}>PDF</Button>
+            <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
+              onClick={() => setActiveModal('risk')}>Assess Risk</Button>
+            <Button size="small" variant="outlined" startIcon={<UserCircleIcon size={16} />}
+              onClick={() => setActiveModal('owner')}>Assign Owner</Button>
+            <Button size="small" variant="outlined" startIcon={<ScaleIcon size={16} />}
+              onClick={() => setActiveModal('gap')}>Gap</Button>
+            <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
+              onClick={handleViewPdf}>PDF</Button>
           </Box>
         )}
       />
 
       {(selected.description || selected.plainEnglishStatement) && (
-        <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5 }}>
+        <DataCard title="Obligation Text" sx={{ mb: 3 }}>
           {selected.description && (
-            <Box sx={{ mb: selected.plainEnglishStatement ? 2 : 0 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <Box sx={{ mb: selected.plainEnglishStatement ? 2.5 : 0 }}>
+              <Typography component="span" sx={PANEL_LABEL_SX}>
                 Source Text
               </Typography>
               <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
@@ -224,24 +229,24 @@ export default function ObligationDetailPage() {
           )}
           {selected.plainEnglishStatement && (
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              <Typography component="span" sx={PANEL_LABEL_SX}>
                 Plain English
               </Typography>
               <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
             </Box>
           )}
-        </Paper>
+        </DataCard>
       )}
 
       <Box sx={{ mb: 3, width: '100%' }}>
         <CoverageStrip
           title="Coverage"
           items={[
-            { key: 'controls', label: 'Controls', value: counts.controls, color: '#DD6B20' },
-            { key: 'returns', label: 'Returns', value: counts.returns, color: '#6B46C1' },
-            { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, color: '#C53030' },
-            { key: 'evidence', label: 'Evidence', value: counts.evidence, color: '#2B6CB0' },
-            { key: 'history', label: 'History', value: counts.history, color: '#2C7A7B' },
+            { key: 'controls', label: 'Controls', value: counts.controls, tone: 'orange', icon: <ShieldCheckIcon /> },
+            { key: 'returns', label: 'Returns', value: counts.returns, tone: 'purple', icon: <CalendarDaysIcon /> },
+            { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, tone: 'red', icon: <ScaleIcon /> },
+            { key: 'evidence', label: 'Evidence', value: counts.evidence, tone: 'blue', icon: <DocumentTextIcon /> },
+            { key: 'history', label: 'History', value: counts.history, tone: 'teal', icon: <ClockIcon /> },
           ]}
           onTileClick={switchTab}
         />
@@ -266,7 +271,7 @@ export default function ObligationDetailPage() {
         emptyMessage={`No ${tab} recorded for this obligation.`}
         columns={columnsByTab[tab]}
         actions={tab === 'evidence' ? (ev) => (
-          <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><Download fontSize="small" /></IconButton>
+          <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><ArrowDownTrayIcon size={16} /></IconButton>
         ) : undefined}
       />
 
