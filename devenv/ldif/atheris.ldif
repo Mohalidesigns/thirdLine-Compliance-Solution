@@ -13,10 +13,18 @@
 #   Full-name attr    cn
 #
 # Identities (all directory passwords: Passw0rd!):
-#   analyst@atheris.test  — used as the tester/reviewer in SoD tests
-#   cco@atheris.test      — escalation L3 + board-pack sign-off
-#   manager@atheris.test  — escalation L2 target (set as manager of analyst)
-#   owner@atheris.test    — a finding owner who has a login
+#   analyst@atheris.test      — used as the tester/reviewer in SoD tests
+#   cco@atheris.test          — escalation L3 + board-pack sign-off
+#   manager@atheris.test      — escalation L2 target (set as manager of analyst)
+#   owner@atheris.test        — a finding owner who has a login
+#
+# Additional department-aligned identities (directory-only — they are NOT tenant app accounts;
+# use them to pick CCO/Analyst at onboarding or as extra reviewers in SoD tests):
+#   itsecurity@ / dba@ / network@ / sysadmin@ / corebanking@   (Information Technology)
+#   aml@ / regreporting@                                       (Compliance)
+#   ops@                                                       (Operations)
+#   treasury@                                                  (Finance & Treasury)
+#   internalaudit@                                             (Internal Audit)
 
 dn: ou=people,dc=atheris,dc=test
 objectClass: organizationalUnit
@@ -64,4 +72,114 @@ sn: Owner
 givenName: Obi
 mail: owner@atheris.test
 uid: owner
+userPassword: Passw0rd!
+
+dn: cn=itsecurity,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Tunde Bello
+sn: Bello
+givenName: Tunde
+mail: itsecurity@atheris.test
+uid: itsecurity
+userPassword: Passw0rd!
+
+dn: cn=dba,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ngozi Eze
+sn: Eze
+givenName: Ngozi
+mail: dba@atheris.test
+uid: dba
+userPassword: Passw0rd!
+
+dn: cn=network,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Emeka Obi
+sn: Obi
+givenName: Emeka
+mail: network@atheris.test
+uid: network
+userPassword: Passw0rd!
+
+dn: cn=sysadmin,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Fatima Yusuf
+sn: Yusuf
+givenName: Fatima
+mail: sysadmin@atheris.test
+uid: sysadmin
+userPassword: Passw0rd!
+
+dn: cn=corebanking,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Dapo Adeyemi
+sn: Adeyemi
+givenName: Dapo
+mail: corebanking@atheris.test
+uid: corebanking
+userPassword: Passw0rd!
+
+dn: cn=aml,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Halima Sani
+sn: Sani
+givenName: Halima
+mail: aml@atheris.test
+uid: aml
+userPassword: Passw0rd!
+
+dn: cn=regreporting,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Kelechi Nwosu
+sn: Nwosu
+givenName: Kelechi
+mail: regreporting@atheris.test
+uid: regreporting
+userPassword: Passw0rd!
+
+dn: cn=ops,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chioma Okafor
+sn: Okafor
+givenName: Chioma
+mail: ops@atheris.test
+uid: ops
+userPassword: Passw0rd!
+
+dn: cn=treasury,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Bode Ajayi
+sn: Ajayi
+givenName: Bode
+mail: treasury@atheris.test
+uid: treasury
+userPassword: Passw0rd!
+
+dn: cn=internalaudit,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Amaka Uche
+sn: Uche
+givenName: Amaka
+mail: internalaudit@atheris.test
+uid: internalaudit
 userPassword: Passw0rd!

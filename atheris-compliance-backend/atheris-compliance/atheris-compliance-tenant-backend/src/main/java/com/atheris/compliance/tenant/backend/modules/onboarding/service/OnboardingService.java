@@ -58,6 +58,7 @@ public class OnboardingService {
     private final SeedService seedService;
     private final LdapAuthService ldapAuth;
     private final SmtpSettingsService smtpSettings;
+    private final com.atheris.compliance.tenant.backend.modules.org.service.DefaultOrgSeedService orgSeedService;
 
     private static final String ACTIVE = "active";
     private static final String PENDING = "pending";
@@ -374,6 +375,9 @@ public class OnboardingService {
         p.setIsActive(true);
         p.setOnboardingCompletedAt(Instant.now());
         p.setOnboardingStep(7);
+
+        // Give the tenant a populated Organisation page (departments + teams) on first login.
+        orgSeedService.seedDefaults();
 
         profiles.save(p);
 
