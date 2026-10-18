@@ -455,7 +455,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                   No obligations are linked to this control yet.
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Use Edit to attach obligation IDs and establish traceability.
+                  Link this control from an obligation — obligations are the source of truth for the link.
                 </Typography>
               </Box>
             )}
@@ -575,6 +575,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
       <EditDialog open={editOpen} onClose={() => setEditOpen(false)} control={detail}
         onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
+        controlOwnerId={detail.controlOwnerId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
 
       <TestReviewDialog open={!!reviewTarget} test={reviewTarget} controlId={detail.controlId}
@@ -648,7 +649,6 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
       name: control.name || '', description: control.description || '', whatItDoes: control.whatItDoes || '',
       howTested: control.howTested || '', controlOwnerId: control.controlOwnerId ?? null,
       testFrequency: control.testFrequency || '', testFrequencyDays: control.testFrequencyDays?.toString() || '',
-      linkedObligationIds: control.linkedObligations?.map(o => o.obligationId).join(', ') || '',
       inherentRisk: control.inherentRisk || '',
     });
   }, [control]);
@@ -658,8 +658,6 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
       const body = { ...form };
       if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
-      if (body.linkedObligationIds) body.linkedObligationIds = body.linkedObligationIds.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-      else body.linkedObligationIds = [];
       await api.controls.update(control.controlId, body);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
@@ -690,8 +688,6 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
           </Grid>
           <Grid size={{ xs: 4 }}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
             onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 8 }}><TextField label="Linked Obligation IDs (comma-separated)" fullWidth size="small" value={form.linkedObligationIds}
-            onChange={e => setForm(f => ({ ...f, linkedObligationIds: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
@@ -703,12 +699,15 @@ function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSa
 }
 
 /* ───────── Record Test Dialog ───────── */
-function RecordTestDialog({ open, onClose, controlId, onSaved, onSnackbar, saving, setSaving }) {
+function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, onSnackbar, saving, setSaving }) {
   const [form, setForm] = useState({
     testDate: new Date().toISOString().split('T')[0], result: '', resultDescription: '',
     failureDetails: '', failureSeverity: '', evidenceUrl: '', remediationRequired: false,
     remediationOwnerId: null, remediationDeadline: '',
   });
+  useEffect(() => {
+    if (open) setForm(f => ({ ...f, remediationOwnerId: controlOwnerId ?? null }));
+  }, [open, controlOwnerId]);
   const handleSave = async () => {
     setSaving(true);
     try {

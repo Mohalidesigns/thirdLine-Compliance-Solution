@@ -46,10 +46,11 @@ export default function PersonPicker({
   sx,
   onOwnerCreated,
   onboarding = false,
+  allowAddInline = true,
 }) {
   if (mode === 'owner') {
     return <OwnerPickerBody {...{ value, onChange, label: label || 'Compliance Owner', allowCreate,
-      allowClear, disabled, size, fullWidth, helperText, sx, onOwnerCreated }} />;
+      allowClear, disabled, size, fullWidth, helperText, sx, onOwnerCreated, allowAddInline }} />;
   }
   if (mode === 'link') {
     return <LinkPickerBody {...{ value, onChange, label: label || 'Recipient email', disabled, size,
@@ -188,7 +189,7 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
 /* ─────────────── owner mode ─────────────── */
 
 function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disabled, size, fullWidth,
-  helperText, sx, onOwnerCreated }) {
+  helperText, sx, onOwnerCreated, allowAddInline = true }) {
   const [owners, setOwners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -296,14 +297,16 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
             }} />
         )}
       />
-      {allowCreate && (
+      {allowCreate && allowAddInline && ldapEnabled === false && (
         <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ mt: 0.5 }}
           onClick={() => { setError(''); setQuickOpen(true); }}>
           Add new owner
         </Button>
       )}
-      <QuickAddOwnerDialog open={quickOpen} onClose={() => setQuickOpen(false)}
-        onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); loadOwners(); setQuickOpen(false); }} />
+      {allowCreate && allowAddInline && ldapEnabled === false && (
+        <QuickAddOwnerDialog open={quickOpen} onClose={() => setQuickOpen(false)}
+          onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); loadOwners(); setQuickOpen(false); }} />
+      )}
     </Box>
   );
 }

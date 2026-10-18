@@ -3,14 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, Alert, IconButton,
-  FormControlLabel, Checkbox, Tooltip,
-  Snackbar, Alert as MuiAlert,
+  Tooltip, Snackbar, Alert as MuiAlert,
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  SectionTable, PageHeader, KpiCards, FilterBar, FilterField,
+  SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
-  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ClockIcon,
+  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -80,7 +79,6 @@ export default function ObligationsRegisterPage() {
   const [regulatorFilter, setRegulatorFilter] = useState(searchParams.get('regulator') || 'All');
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [hasGapFilter, setHasGapFilter] = useState(searchParams.get('hasGap') === 'true');
   const [noControl, setNoControl] = useState(false);
   // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
   const [heatmapDrill, setHeatmapDrill] = useState(() => (searchParams.get('cells')
@@ -98,7 +96,7 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl || heatmapDrill;
+    || areaFilter !== 'All' || statusFilter !== 'All' || noControl || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -106,7 +104,6 @@ export default function ObligationsRegisterPage() {
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
   if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
-  if (hasGapFilter) params.hasGap = 'true';
   if (noControl) params.noControl = 'true';
   if (heatmapDrill) { params.cells = heatmapDrill.cells; params.riskView = heatmapDrill.riskView; }
   if (sortField) params.sort = `${sortField},${sortDir}`;
@@ -143,7 +140,7 @@ export default function ObligationsRegisterPage() {
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setAreaFilter('All'); setStatusFilter('All'); setHasGapFilter(false); setNoControl(false);
+    setAreaFilter('All'); setStatusFilter('All'); setNoControl(false);
     clearHeatmapDrill();
     setPage(0);
   }
@@ -180,20 +177,20 @@ export default function ObligationsRegisterPage() {
   }
 
   function applyKpiFilter(type) {
+    setRiskFilter('All'); setRegulatorFilter('All'); setAreaFilter('All');
+    setStatusFilter('All'); setNoControl(false);
+    clearHeatmapDrill();
+    if (type === 'highRisk') { setRiskFilter('High'); }
+    else if (type === 'gaps') { setNoControl(true); }
     setPage(0);
-    if (type === 'highRisk') { setRiskFilter('High'); setStatusFilter('All'); }
-    else if (type === 'gaps') { setNoControl(true); setHasGapFilter(false); }
-    else if (type === 'underReview') { setStatusFilter('unclassified'); setHasGapFilter(false); setNoControl(false); }
-    else { setRiskFilter('All'); setHasGapFilter(false); setNoControl(false); setStatusFilter('All'); }
   }
 
   const activeKpi = riskFilter === 'High' ? 'highRisk'
-    : noControl ? 'gaps' : statusFilter === 'unclassified' ? 'underReview' : null;
+    : noControl ? 'gaps' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
     { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'gaps', label: 'No Control', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
-    { key: 'underReview', label: 'Under Review', value: stats?.underReview ?? 0, tone: 'purple', icon: <ClockIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];
@@ -221,7 +218,7 @@ export default function ObligationsRegisterPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={4} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={3} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}
@@ -229,19 +226,10 @@ export default function ObligationsRegisterPage() {
           { key: 'risk', label: 'Risk', value: riskFilter, onChange: (v) => { setRiskFilter(v); setPage(0); }, options: opts(riskLevels), allLabel: 'All', minWidth: 130 },
           { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); }, options: opts(stats?.regulators), allLabel: 'All', minWidth: 140 },
           { key: 'area', label: 'Domain', value: areaFilter, onChange: (v) => { setAreaFilter(v); setPage(0); }, options: opts(stats?.themes), allLabel: 'All', minWidth: 160 },
-          { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); },
-            options: ['active', 'unclassified', 'under_review'].map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
-            allLabel: 'All', minWidth: 130 },
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}
-      >
-        <FilterField label="Gap" minWidth={110}>
-          <FormControlLabel sx={{ height: 40, m: 0 }} control={
-            <Checkbox size="small" checked={hasGapFilter} onChange={e => { setHasGapFilter(e.target.checked); setPage(0); }} />
-          } label={<Typography variant="body2">Has gap</Typography>} />
-        </FilterField>
-      </FilterBar>
+      />
 
       {heatmapDrill && (
         <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

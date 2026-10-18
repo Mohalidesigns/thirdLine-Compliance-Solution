@@ -9,6 +9,7 @@ import java.util.List;
 public class ObligationRequest {
     private Long instrumentId;
     @NotBlank private String name;
+    private Long tenantRegulatorId;
     private String description;
     private String areaOfFocus;
     private String obligationType;

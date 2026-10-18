@@ -243,6 +243,7 @@ public class ObligationService {
                 .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
                 .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
                 .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
+                .tenantRegulatorId(ob.getTenantRegulatorId())
                 .applicability(c != null ? c.getApplicability() : null)
                 .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
                 .riskRating(riskRatingOf(c))
@@ -287,7 +288,14 @@ public class ObligationService {
         }
         if (areaOfFocus != null && !areaOfFocus.isBlank() && !areaOfFocus.equals(i.getAreaOfFocus())) return false;
         if (owner != null && !owner.isBlank() && !owner.equals(i.getAssignedOwnerName())) return false;
-        if (status != null && !status.isBlank() && !status.equals(i.getStatus())) return false;
+        if ("under_review".equals(status)) {
+            boolean underReview = i.getApplicability() == null
+                || !i.getApplicability().equals("applicable")
+                || "unclassified".equals(i.getStatus());
+            if (!underReview) return false;
+        } else if (status != null && !status.isBlank() && !status.equals(i.getStatus())) {
+            return false;
+        }
         if (q != null && !q.isBlank()) {
             String needle = q.toLowerCase();
             boolean match = contains(i.getDescription(), needle)
@@ -411,6 +419,7 @@ public class ObligationService {
             .instrumentId(req.getInstrumentId())
             .name(req.getName())
             .obligationNumber(nextObligationNumber())
+            .tenantRegulatorId(req.getTenantRegulatorId())
             .description(req.getDescription())
             .areaOfFocus(req.getAreaOfFocus())
             .obligationType(req.getObligationType())
@@ -426,6 +435,7 @@ public class ObligationService {
             .obligationId(saved.getObligationId())
             .status("active")
             .classificationVersion(1)
+            .applicability("applicable")
             .classifiedByUserId(userId)
             .classifiedAt(Instant.now())
             .hasGap(Boolean.TRUE.equals(req.getHasGap()))
@@ -434,6 +444,7 @@ public class ObligationService {
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
+        syncControlLinks(saved.getObligationId(), List.of(), c.getLinkedControlIds());
 
         audit.log(userId, "obligation_created", "obligation", saved.getObligationId(),
             java.util.Collections.singletonMap("instrumentId", saved.getInstrumentId()));
@@ -454,6 +465,7 @@ public class ObligationService {
         if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
         if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
         if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());
+        if (req.getTenantRegulatorId() != null) ob.setTenantRegulatorId(req.getTenantRegulatorId());
         ob.setInstrumentId(req.getInstrumentId() != null ? req.getInstrumentId() : ob.getInstrumentId());
         Obligation saved = obligationRepo.save(ob);
 
@@ -464,7 +476,9 @@ public class ObligationService {
             c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
         }
         if (req.getLinkedControlIds() != null) {
-            c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
+            List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
+            syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+            c.setLinkedControlIds(selected);
         }
         classifications.save(c);
         audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
@@ -475,6 +489,8 @@ public class ObligationService {
     public void deleteObligation(Long obligationId, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
+        classifications.findByObligationId(obligationId).ifPresent(c ->
+            syncControlLinks(obligationId, c.getLinkedControlIds(), List.of()));
         ob.setStatus("deleted");
         obligationRepo.save(ob);
         audit.log(userId, "obligation_deleted", "obligation", obligationId, Map.of());
@@ -511,6 +527,7 @@ public class ObligationService {
             .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
             .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
             .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
+            .tenantRegulatorId(ob.getTenantRegulatorId())
             .applicability(c != null ? c.getApplicability() : null)
             .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
             .riskRating(riskRatingOf(c))
@@ -800,11 +817,36 @@ public class ObligationService {
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
-        c.setLinkedControlIds(req.getLinkedControlIds() == null
-            ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
+        List<Integer> selected = req.getLinkedControlIds() == null
+            ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
+        syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+        c.setLinkedControlIds(selected);
         classifications.save(c);
         audit.log(userId, "link_controls", "obligation", obligationId,
             Map.of("linkedControlIds", c.getLinkedControlIds()));
+    }
+
+    private void syncControlLinks(Long obligationId, List<Integer> before, List<Integer> after) {
+        Set<Integer> prev = before == null ? Set.of() : new HashSet<>(before);
+        Set<Integer> next = after == null ? Set.of() : new HashSet<>(after);
+        Set<Integer> affected = new HashSet<>(prev);
+        affected.addAll(next);
+        if (affected.isEmpty()) {
+            return;
+        }
+        for (Control control : controlRepo.findAllById(affected)) {
+            List<Long> ids = control.getLinkedObligationIds() == null
+                ? new ArrayList<>() : new ArrayList<>(control.getLinkedObligationIds());
+            if (next.contains(control.getControlId())) {
+                if (!ids.contains(obligationId)) {
+                    ids.add(obligationId);
+                }
+            } else {
+                ids.remove(obligationId);
+            }
+            control.setLinkedObligationIds(ids);
+            controlRepo.save(control);
+        }
     }
 
     private ObligationClassification loadOrCreateClassification(Obligation ob, Integer userId) {
@@ -814,6 +856,7 @@ public class ObligationService {
                 .obligationId(ob.getObligationId())
                 .status("active")
                 .classificationVersion(1)
+                .applicability("applicable")
                 .classifiedByUserId(userId)
                 .classifiedAt(Instant.now())
                 .build());

@@ -28,6 +28,7 @@ public class ObligationRegisterItem {
     private String sourceTitle;
     private String regulatorAbbreviation;
     private String regulatorName;
+    private Long tenantRegulatorId;
 
     private String applicability;
     private String tenantRiskRating;

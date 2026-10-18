@@ -299,7 +299,7 @@ public class ControlService {
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
             .testFrequency(req.getTestFrequency())
             .testFrequencyDays(req.getTestFrequencyDays())
-            .linkedObligationIds(req.getLinkedObligationIds() == null ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())))
+            .linkedObligationIds(new ArrayList<>())
             .inherentRisk(req.getInherentRisk())
             .residualRisk(req.getInherentRisk())
             .status("Active")
@@ -337,9 +337,6 @@ public class ControlService {
         }
         if (req.getTestFrequencyDays() != null) {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
-        }
-        if (req.getLinkedObligationIds() != null) {
-            c.setLinkedObligationIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())));
         }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());
