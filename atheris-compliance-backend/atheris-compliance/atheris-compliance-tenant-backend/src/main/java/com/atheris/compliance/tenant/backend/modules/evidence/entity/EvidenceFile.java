@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.evidence.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -16,6 +17,7 @@ public class EvidenceFile {
     private String originalName;
     private String mimeType;
     private Long fileSize;
+    @JsonIgnore
     @Column(nullable = false)
     private String storagePath;
     private String sourceType;

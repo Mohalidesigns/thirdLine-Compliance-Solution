@@ -506,6 +506,8 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
+    bySource: (sourceType, sourceId, opts = {}) =>
+      request(`/evidence/by-source?sourceType=${encodeURIComponent(sourceType)}&sourceId=${sourceId}`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),
     upload: (formData, opts = {}) => rawRequest('/evidence/upload', {
       method: 'POST', body: formData, signal: opts.signal,

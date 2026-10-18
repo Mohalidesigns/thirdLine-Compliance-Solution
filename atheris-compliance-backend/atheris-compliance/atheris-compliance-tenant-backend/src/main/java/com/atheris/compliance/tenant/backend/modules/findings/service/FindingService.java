@@ -136,8 +136,11 @@ public class FindingService {
         Integer ownerId = test.getRemediationOwnerId() != null
             ? test.getRemediationOwnerId()
             : control.getControlOwnerId();
+        List<Long> obligationIds = control.getLinkedObligationIds();
+        Long linkedObligationId = obligationIds != null && obligationIds.size() == 1 ? obligationIds.get(0) : null;
         Finding f = Finding.builder()
             .triggeredByTestId(test.getTestId()).triggerReason("Control test failed")
+            .linkedControlId(control.getControlId()).linkedObligationId(linkedObligationId)
             .findingType("Control Failure").severity(severity)
             .description(String.format("Control %s (%s) failed on %s. %s",
                 control.getControlNumber(), control.getName(), test.getTestDate(), test.getResultDescription()))

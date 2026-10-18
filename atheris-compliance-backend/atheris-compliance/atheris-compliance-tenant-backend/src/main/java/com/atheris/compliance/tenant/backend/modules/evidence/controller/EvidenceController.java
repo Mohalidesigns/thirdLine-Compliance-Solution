@@ -14,6 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/evidence")
 @RequiredArgsConstructor
@@ -24,6 +26,12 @@ public class EvidenceController {
     @GetMapping
     public ResponseEntity<Page<EvidenceFile>> list(Pageable p) {
         return ResponseEntity.ok(service.list(p));
+    }
+
+    @GetMapping("/by-source")
+    public ResponseEntity<List<EvidenceFile>> listBySource(
+            @RequestParam String sourceType, @RequestParam Long sourceId) {
+        return ResponseEntity.ok(service.listBySource(sourceType, sourceId));
     }
 
     @GetMapping("/{id}/download")

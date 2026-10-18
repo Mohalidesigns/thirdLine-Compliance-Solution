@@ -66,7 +66,7 @@ public class ControlService {
             .values().stream()
             .filter(t -> WorkflowStatus.TEST_FAILED.equals(t.getResult()) || WorkflowStatus.TEST_PARTIAL.equals(t.getResult()))
             .count();
-        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
         long openFindings = findingRepo.findAll().stream()
             .filter(f -> openStatuses.contains(f.getStatus()))
             .count();
@@ -147,12 +147,12 @@ public class ControlService {
         return ia.compareTo(ib);
     }
 
-    /** Open findings (Open or In Remediation) linked to each control, batched for the page. */
+    /** Not-yet-closed findings linked to each control, batched for the page. */
     private Map<Integer, Long> getOpenFindingCounts(List<Integer> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
         return findingRepo.findByLinkedControlIdIn(ids).stream()
             .filter(f -> f.getLinkedControlId() != null && openStatuses.contains(f.getStatus()))
             .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
@@ -237,6 +237,19 @@ public class ControlService {
             nextTest = task.getDueDate();
         }
 
+        List<ControlDetailResponse.FindingItem> findings = findingRepo
+            .findByLinkedControlIdOrderByFindingIdDesc(id).stream()
+            .map(f -> ControlDetailResponse.FindingItem.builder()
+                .findingId(f.getFindingId())
+                .displayId("FIND-" + String.format("%03d", f.getFindingId()))
+                .severity(f.getSeverity())
+                .status(f.getStatus())
+                .description(f.getDescription())
+                .assignedToName(f.getAssignedToName())
+                .remediationDeadline(f.getRemediationDeadline())
+                .build())
+            .toList();
+
         return ControlDetailResponse.builder()
             .controlId(c.getControlId())
             .controlNumber(c.getControlNumber())
@@ -271,6 +284,7 @@ public class ControlService {
             .updatedAt(c.getUpdatedAt())
             .testHistory(tests)
             .nextTestDueDate(nextTest)
+            .findings(findings)
             .build();
     }
 

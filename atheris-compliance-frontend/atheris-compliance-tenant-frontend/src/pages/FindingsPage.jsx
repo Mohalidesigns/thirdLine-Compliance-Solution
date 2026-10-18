@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   TablePagination, TextField, MenuItem, Button, IconButton,
-  Paper, Dialog,
+  Paper, Dialog, Stepper, Step, StepLabel,
   DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Grid, Tooltip, Link, Checkbox, FormControlLabel,
+  Grid, Tooltip, Checkbox, FormControlLabel,
   Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
-  PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL,
-  PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon,
+  PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL, KpiCards,
+  PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon, ArrowPathIcon, CheckCircleIcon,
 } from 'shared';
 import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
+import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 
 const SECTION_LABEL_SX = {
   display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
@@ -33,7 +35,9 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [filters, setFilters] = useState({ status: 'Open', severity: '', overdueOnly: false });
+  const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false });
+  const [stats, setStats] = useState(null);
+  const [searchParams] = useSearchParams();
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [remediateOpen, setRemediateOpen] = useState(false);
@@ -53,6 +57,7 @@ export default function FindingsPage() {
     if (filters.overdueOnly) p.overdueOnly = true;
     api.findings.register(p).then(res => setData(res))
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
+    api.findings.stats().then(setStats).catch(() => {});
   }, [page, rowsPerPage, filters]);
 
   useEffect(() => { loadList(); }, [loadList]);
@@ -62,6 +67,35 @@ export default function FindingsPage() {
     api.findings.detail(id).then(res => { setDetail(res); setView('detail'); setDetailId(id); })
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const fid = searchParams.get('findingId');
+    if (fid) loadDetail(fid);
+  }, [searchParams, loadDetail]);
+
+  const byStatus = stats?.byStatus || {};
+  const findingKpis = [
+    { key: 'open', label: 'Open', value: byStatus['Open'] ?? 0, tone: 'blue', icon: <ExclamationTriangleIcon />,
+      active: filters.status === 'Open' },
+    { key: 'inremediation', label: 'In Remediation', value: byStatus['In Remediation'] ?? 0, tone: 'orange', icon: <ArrowPathIcon />,
+      active: filters.status === 'In Remediation' },
+    { key: 'awaiting', label: 'Awaiting Review', value: byStatus['Remediated'] ?? 0, tone: 'purple', icon: <ClockIcon />,
+      active: filters.status === 'Remediated' },
+    { key: 'overdue', label: 'Overdue', value: stats?.overdueRemediation ?? 0, tone: 'red', icon: <ClockIcon />,
+      active: !!filters.overdueOnly },
+    { key: 'closed', label: 'Closed', value: byStatus['Closed'] ?? 0, tone: 'green', icon: <CheckCircleIcon />,
+      active: filters.status === 'Closed' },
+  ];
+
+  const onKpiSelect = (key) => {
+    setPage(0);
+    const base = { severity: '', overdueOnly: false };
+    if (key === 'open') setFilters({ ...base, status: 'Open' });
+    else if (key === 'inremediation') setFilters({ ...base, status: 'In Remediation' });
+    else if (key === 'awaiting') setFilters({ ...base, status: 'Remediated' });
+    else if (key === 'overdue') setFilters({ ...base, status: '', overdueOnly: true });
+    else if (key === 'closed') setFilters({ ...base, status: 'Closed' });
+  };
 
   if (view === 'detail' && detail) {
     return (
@@ -101,6 +135,8 @@ export default function FindingsPage() {
           </>
         )}
       />
+
+      <KpiCards columns={5} items={findingKpis} onSelect={onKpiSelect} />
 
       <FilterBar>
         <FilterField label="Status" minWidth={170}>
@@ -236,6 +272,15 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
     && currentUser.userId === detail.remediationSubmittedByUserId;
   const canLink = LINK_ROLES.includes(currentUser?.role);
   const canRecord = SUBMIT_ROLES.includes(currentUser?.role);
+  const navigate = useNavigate();
+
+  const hasControl = detail.linkedControlId != null;
+  const stageNames = hasControl
+    ? ['Control', 'Test failed', 'Finding raised', 'In remediation', 'Review & sign off', 'Closed']
+    : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
+  const stageOffset = hasControl ? 2 : 0;
+  const stageByStatus = { Open: 0, 'In Remediation': 1, Remediated: 2, Closed: 3 };
+  const activeStep = isClosed ? stageNames.length : stageOffset + (stageByStatus[detail.status] ?? 0);
 
   return (
     <Box>
@@ -299,6 +344,38 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
+          <DataCard title="Workflow" sx={{ mb: 3 }}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {stageNames.map((name, i) => (
+                <Step key={name} completed={i < activeStep}>
+                  <StepLabel>
+                    <Typography
+                      onClick={hasControl && i === 0
+                        ? () => navigate(`/controls?controlId=${detail.linkedControlId}`)
+                        : undefined}
+                      sx={{
+                        fontSize: '0.8125rem', fontWeight: i === activeStep ? 700 : 500,
+                        color: i === activeStep ? 'primary.main' : (i < activeStep ? 'text.secondary' : 'text.disabled'),
+                        cursor: hasControl && i === 0 ? 'pointer' : 'default',
+                        textDecoration: hasControl && i === 0 ? 'underline' : 'none',
+                      }}>
+                      {name}
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+              {isClosed ? 'Finding closed — remediation signed off.'
+                : isRemediated ? (isSubmitter
+                  ? 'Awaiting sign off by another reviewer — you submitted this remediation.'
+                  : 'Remediation submitted — review and sign off to close.')
+                : isInRemediation ? 'Owner is remediating — record evidence or submit via the remediation link.'
+                : 'Assign an owner and start remediation.'}
+              {isOverdue && !isClosed ? ' SLA is overdue.' : ''}
+            </Typography>
+          </DataCard>
+
           {/* Timeline */}
           <DataCard title="Timeline">
             {detail.timeline && detail.timeline.length > 0 ? (
@@ -346,12 +423,11 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
               <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Owner'} (via link)`} />
             )}
             {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
-            {detail.remediationEvidenceUrl && (
-              <Box sx={{ mt: 1 }}>
-                <Link href={detail.remediationEvidenceUrl} target="_blank" rel="noopener" underline="hover"
-                  sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>View evidence</Link>
-              </Box>
-            )}
+            <Box sx={{ mt: 1.5 }}>
+              <Typography component="span" sx={SECTION_LABEL_SX}>Evidence</Typography>
+              <EvidenceFileList sourceType="finding" sourceId={detail.findingId}
+                emptyText="No evidence attached." />
+            </Box>
             {detail.reviewNotes && <DetailRow label="Review note" value={detail.reviewNotes} />}
             {detail.signedOffAt && (
               <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString()} />
@@ -369,7 +445,8 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         onSnackbar={onSnackbar} />
 
       <ReviewDialog open={reviewOpen} onClose={() => setReviewOpen(false)}
-        findingId={detail.findingId} onSaved={() => { setReviewOpen(false); onRefresh(); }}
+        findingId={detail.findingId} detail={detail}
+        onSaved={() => { setReviewOpen(false); onRefresh(); }}
         onSnackbar={onSnackbar} />
 
       <RemediationLinkDialog open={linkOpen} onClose={() => setLinkOpen(false)}
@@ -565,7 +642,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
 }
 
 /* ---------- Review / Sign-off Dialog ---------- */
-function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
+function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar }) {
   const [decision, setDecision] = useState('Accepted');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -586,11 +663,28 @@ function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
 
+  const submittedBy = detail?.remediationSubmittedViaLink
+    ? `${detail?.assignedToName || 'Owner'} (via link)`
+    : (detail?.remediationSubmittedByUserId != null ? 'Analyst (on behalf of owner)' : null);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Review Remediation</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: TL.gray50, borderRadius: 1 }}>
+          <Typography component="span" sx={SECTION_LABEL_SX}>Submitted remediation</Typography>
+          <DetailRow label="Owner" value={detail?.assignedToName || 'Unassigned'} />
+          {detail?.remediationSubmittedAt && (
+            <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleString()} />
+          )}
+          {submittedBy && <DetailRow label="Submitted by" value={submittedBy} />}
+          {detail?.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
+          <Box sx={{ mt: 1 }}>
+            <EvidenceFileList sourceType="finding" sourceId={findingId}
+              emptyText="No evidence attached." />
+          </Box>
+        </Box>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}>
             <TextField select label="Decision" fullWidth size="small" value={decision}
               onChange={e => setDecision(e.target.value)}>

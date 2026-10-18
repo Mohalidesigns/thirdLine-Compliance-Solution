@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RISK_COLOR, TL,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, RISK_COLOR, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
@@ -113,6 +113,11 @@ export default function ControlsPage() {
   const [recordTestOpen, setRecordTestOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState('');
+
+  useEffect(() => {
+    const cid = searchParams.get('controlId');
+    if (cid && !Number.isNaN(Number(cid))) setDetailId(Number(cid));
+  }, [searchParams]);
 
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
     || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All' || obligationFilter != null;
@@ -382,6 +387,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
   const [reviewTarget, setReviewTarget] = useState(null);
   const obligations = detail.linkedObligations || [];
   const testHistory = detail.testHistory || [];
+  const findings = detail.findings || [];
   return (
     <Box>
       <PageHeader
@@ -457,6 +463,56 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                 <Typography variant="caption" color="text.secondary">
                   Link this control from an obligation — obligations are the source of truth for the link.
                 </Typography>
+              </Box>
+            )}
+          </Section>
+
+          <Section icon={<ExclamationTriangleIcon />} title="Findings"
+            subtitle={findings.length
+              ? `${findings.length} finding${findings.length !== 1 ? 's' : ''} raised from this control`
+              : 'Gaps raised automatically when this control fails a test'}
+            action={findings.length > 0 ? <StatusBadge label={findings.length} tone="red" /> : null}
+            contentSx={findings.length > 0 ? { p: 0 } : undefined}>
+            {findings.length > 0 ? (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Finding</TableCell>
+                      <TableCell>Severity</TableCell>
+                      <TableCell>Owner</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Deadline</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {findings.map((f) => (
+                      <TableRow key={f.findingId} hover sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/findings?findingId=${f.findingId}`)}>
+                        <TableCell sx={{ maxWidth: 380 }}>
+                          <Typography variant="body2" sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: 'primary.main' }}>
+                            {f.displayId}
+                          </Typography>
+                          <Tooltip title={f.description || ''}>
+                            <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {f.description}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell><RiskBadge value={f.severity} /></TableCell>
+                        <TableCell>{f.assignedToName || '-'}</TableCell>
+                        <TableCell><StateBadge value={f.status} /></TableCell>
+                        <TableCell>{f.remediationDeadline ? formatDate(f.remediationDeadline) : '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <ExclamationTriangleIcon size={40} sx={{ opacity: 0.3, mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">No findings raised from this control</Typography>
+                <Typography variant="caption" color="text.secondary">A failed control test raises a finding here automatically.</Typography>
               </Box>
             )}
           </Section>
