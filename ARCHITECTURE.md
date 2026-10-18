@@ -260,7 +260,7 @@ GET    /api/v1/findings/overdue                    Overdue findings
 GET    /api/v1/findings/{id}                       Detail
 POST   /api/v1/findings                            Raise finding
 PUT    /api/v1/findings/{id}/assign                Assign for remediation
-PUT    /api/v1/findings/{id}/remediate             Submit remediation
+PUT    /api/v1/findings/{id}/remediate             Record remediation on the owner's behalf (multipart; owners normally use the public link)
 PUT    /api/v1/findings/{id}/close                 Close finding
 
 ── Returns ──

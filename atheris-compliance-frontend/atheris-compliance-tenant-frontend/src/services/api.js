@@ -410,7 +410,7 @@ export const api = {
     stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
-    remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
+    remediate: (id, formData) => rawRequest(`/findings/${id}/remediate`, { method: 'PUT', body: formData }),
     review: (id, decision, notes) => {
       const qs = new URLSearchParams({ decision });
       if (notes) qs.set('notes', notes);

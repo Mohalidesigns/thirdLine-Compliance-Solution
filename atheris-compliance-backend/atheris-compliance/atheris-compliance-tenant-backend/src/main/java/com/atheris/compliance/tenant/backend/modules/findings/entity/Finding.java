@@ -43,6 +43,9 @@ public class Finding {
     private String remediationEvidenceUrl;
     private Instant remediationSubmittedAt;
     private Integer remediationSubmittedByUserId;
+    @Builder.Default
+    private Boolean remediationSubmittedViaLink = false;
+    private Integer remediationSubmittedByOwnerId;
     @Column(columnDefinition = "text")
     private String reviewNotes;
     @Column(name = "signed_off_by_user_id")

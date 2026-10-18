@@ -9,6 +9,8 @@ import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingSpecification;
+import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
+import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
@@ -17,9 +19,11 @@ import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -35,6 +39,17 @@ public class FindingService {
     private final ControlRepository controlRepo;
     private final AuditService audit;
     private final NotificationService notifications;
+    private final EvidenceVaultService evidence;
+
+    private static final Set<String> ALLOWED_EVIDENCE_TYPES = Set.of(
+        "application/pdf", "image/png", "image/jpeg",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    @Value("${atheris.remediation.max-file-size-mb:20}")
+    private int maxFileMb;
+    @Value("${atheris.remediation.max-files:5}")
+    private int maxFiles;
 
     public Page<FindingRegisterItem> getRegisterList(
             String status, String severity, Boolean overdueOnly, Integer assignedToUserId, Pageable p) {
@@ -98,6 +113,8 @@ public class FindingService {
             .remediationEvidenceUrl(f.getRemediationEvidenceUrl())
             .remediationSubmittedAt(f.getRemediationSubmittedAt())
             .remediationSubmittedByUserId(f.getRemediationSubmittedByUserId())
+            .remediationSubmittedViaLink(f.getRemediationSubmittedViaLink())
+            .remediationSubmittedByOwnerId(f.getRemediationSubmittedByOwnerId())
             .reviewNotes(f.getReviewNotes())
             .signedOffByUserId(f.getSignedOffByUserId()).signedOffAt(f.getSignedOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
@@ -201,17 +218,38 @@ public class FindingService {
     }
 
     @Transactional
-    public Finding submitRemediation(Long id, SubmitRemediationRequest req, Integer userId) {
+    public Finding submitRemediation(Long id, String notes, List<MultipartFile> files, Integer userId) throws Exception {
         Finding f = findById(id);
         if (!WorkflowStatus.FINDING_IN_REMEDIATION.equals(f.getStatus())
                 && !WorkflowStatus.FINDING_OPEN.equals(f.getStatus())) {
             throw ApiException.conflict("invalid_transition",
                 "Remediation can only be submitted while a finding is Open or In Remediation");
         }
-        f.setRemediationNotes(req.getRemediationNotes());
-        f.setRemediationEvidenceUrl(req.getEvidenceUrl());
+
+        List<MultipartFile> uploads = files == null ? List.of()
+            : files.stream().filter(x -> x != null && !x.isEmpty()).toList();
+        if (uploads.size() > maxFiles) {
+            throw ApiException.badRequest("Too many files (max " + maxFiles + ")");
+        }
+        for (MultipartFile file : uploads) {
+            if (file.getSize() > (long) maxFileMb * 1024 * 1024) {
+                throw ApiException.badRequest("File too large (max " + maxFileMb + " MB): " + file.getOriginalFilename());
+            }
+            String type = file.getContentType();
+            if (type == null || !ALLOWED_EVIDENCE_TYPES.contains(type)) {
+                throw ApiException.badRequest("Unsupported file type: " + file.getOriginalFilename());
+            }
+            EvidenceFile saved = evidence.upload(file, "finding", f.getFindingId(),
+                "Remediation evidence (recorded by analyst)", userId);
+            if (f.getRemediationEvidenceUrl() == null) {
+                f.setRemediationEvidenceUrl("/api/v1/evidence/" + saved.getFileId() + "/download");
+            }
+        }
+
+        f.setRemediationNotes(notes);
         f.setRemediationSubmittedAt(Instant.now());
         f.setRemediationSubmittedByUserId(userId);
+        f.setRemediationSubmittedViaLink(false);
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
 

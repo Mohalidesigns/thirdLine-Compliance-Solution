@@ -22,6 +22,8 @@ const SECTION_LABEL_SX = {
 };
 const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
+const LINK_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
+const SUBMIT_ROLES = ['ANALYST', 'TENANT_ADMIN'];
 
 export default function FindingsPage() {
   const [view, setView] = useState('list');
@@ -232,6 +234,8 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const isSubmitter = currentUser?.userId != null
     && detail.remediationSubmittedByUserId != null
     && currentUser.userId === detail.remediationSubmittedByUserId;
+  const canLink = LINK_ROLES.includes(currentUser?.role);
+  const canRecord = SUBMIT_ROLES.includes(currentUser?.role);
 
   return (
     <Box>
@@ -258,11 +262,11 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
-            {(isOpen || isInRemediation) && (
+            {(isOpen || isInRemediation) && canLink && (
               <Button variant="outlined" size="small" onClick={onLink}>Remediation link</Button>
             )}
-            {isInRemediation && (
-              <Button variant="contained" size="small" onClick={onRemediate}>Submit Remediation</Button>
+            {isInRemediation && canRecord && (
+              <Button variant="outlined" size="small" onClick={onRemediate}>Record remediation on behalf of owner</Button>
             )}
             {isRemediated && !isSubmitter && (
               <Button variant="contained" color="success" size="small" onClick={onReview}>Review & Sign off</Button>
@@ -337,6 +341,9 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString() : '-'} />
             {detail.remediationSubmittedAt && (
               <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString()} />
+            )}
+            {detail.remediationSubmittedViaLink && (
+              <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Owner'} (via link)`} />
             )}
             {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
             {detail.remediationEvidenceUrl && (
@@ -505,35 +512,52 @@ function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
 
 /* ---------- Remediate Dialog ---------- */
 function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ remediationNotes: '', evidenceUrl: '' });
+  const [notes, setNotes] = useState('');
+  const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     setSaving(true);
     try {
+      const form = new FormData();
+      if (notes) form.append('notes', notes);
+      files.forEach((f) => form.append('files', f));
       await api.findings.remediate(findingId, form);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  useEffect(() => { if (open) setForm({ remediationNotes: '', evidenceUrl: '' }); }, [open]);
+  useEffect(() => { if (open) { setNotes(''); setFiles([]); } }, [open]);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Submit Remediation</DialogTitle>
+      <DialogTitle>Record Remediation</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Use this only when the owner cannot use the remediation link. The evidence is recorded
+          on the owner's behalf, and the analyst who records it cannot sign it off.
+        </Typography>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Remediation notes" fullWidth size="small" multiline minRows={3} value={form.remediationNotes}
-              onChange={e => setForm(f => ({ ...f, remediationNotes: e.target.value }))} />
+            <TextField label="Remediation notes" fullWidth size="small" multiline minRows={3} value={notes}
+              onChange={e => setNotes(e.target.value)} />
           </Grid>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
-              onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
+            <Button variant="outlined" component="label" startIcon={<ArrowUpTrayIcon size={16} />}>
+              Attach evidence files
+              <input hidden type="file" multiple
+                accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+                onChange={e => setFiles(Array.from(e.target.files || []))} />
+            </Button>
+            {files.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {files.map(f => f.name).join(', ')}
+              </Typography>
+            )}
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? 'Submitting...' : 'Submit Remediation'}
+          {saving ? 'Submitting...' : 'Record remediation'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -619,8 +643,8 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
       <DialogTitle>Remediation Link</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          A secure link the owner can use to submit remediation evidence without an account.
-          It has been emailed to the owner's address on file.
+          Send this to the owner so they can submit remediation evidence themselves — no account
+          needed. It has been emailed to the owner's address on file.
         </Typography>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} /></Box>

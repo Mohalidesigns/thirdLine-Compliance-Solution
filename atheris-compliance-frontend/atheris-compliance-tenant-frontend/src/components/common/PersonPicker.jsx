@@ -37,6 +37,7 @@ export default function PersonPicker({
   helperText,
   sx,
   onOwnerCreated,
+  onboarding = false,
 }) {
   if (mode === 'owner') {
     return <OwnerPickerBody {...{ value, onChange, label: label || 'Compliance Owner', allowCreate,
@@ -47,7 +48,7 @@ export default function PersonPicker({
       fullWidth, helperText, sx }} />;
   }
   return <UserPickerBody {...{ value, onChange, label: label || (role ? `${role} user` : 'User'), role,
-    authType, ldapConfig, allowCreate, allowClear, disabled, size, fullWidth, helperText, sx }} />;
+    authType, ldapConfig, allowCreate, allowClear, disabled, size, fullWidth, helperText, sx, onboarding }} />;
 }
 
 /* ─────────────── user mode ─────────────── */
@@ -62,7 +63,7 @@ function useDebounced(value, ms = 250) {
 }
 
 function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, allowCreate,
-  allowClear, disabled, size, fullWidth, helperText, sx }) {
+  allowClear, disabled, size, fullWidth, helperText, sx, onboarding }) {
   const [input, setInput] = useState('');
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -73,12 +74,13 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
   // When the caller doesn't tell us the auth type (e.g. user invites), ask the directory endpoint.
   useEffect(() => {
     if (authType) { setLdapEnabled(authType === 'ldap'); return; }
+    if (onboarding) { setLdapEnabled(false); return; }
     let cancelled = false;
     api.ldap.users('')
       .then((res) => { if (!cancelled) setLdapEnabled(!!res?.enabled); })
       .catch(() => { if (!cancelled) setLdapEnabled(false); });
     return () => { cancelled = true; };
-  }, [authType]);
+  }, [authType, onboarding]);
 
   useEffect(() => {
     if (ldapEnabled == null) return;
@@ -86,16 +88,20 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
     setLoading(true);
     setError('');
     const request = ldapEnabled
-      ? (ldapConfig ? api.onboarding.ldapUsers(ldapConfig, term) : api.ldap.users(term).then((r) => r.users || []))
-      : api.users.list(term).then((list) => (list || []).map((u) => ({
-          email: u.email, fullName: u.fullName, userId: u.userId, role: u.role,
-        })));
+      ? (ldapConfig
+          ? api.onboarding.ldapUsers(ldapConfig, term)
+          : (onboarding ? Promise.resolve([]) : api.ldap.users(term).then((r) => r.users || [])))
+      : (onboarding
+          ? Promise.resolve([])
+          : api.users.list(term).then((list) => (list || []).map((u) => ({
+              email: u.email, fullName: u.fullName, userId: u.userId, role: u.role,
+            }))));
     Promise.resolve(request)
       .then((list) => { if (!cancelled) setOptions(list || []); })
       .catch((e) => { if (!cancelled) { setOptions([]); setError(e.message || 'Search failed'); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [ldapEnabled, term, superStable(ldapConfig)]);
+  }, [ldapEnabled, term, superStable(ldapConfig), onboarding]);
 
   const selected = value && value.email ? value : null;
   const freeSolo = !ldapEnabled && allowCreate;

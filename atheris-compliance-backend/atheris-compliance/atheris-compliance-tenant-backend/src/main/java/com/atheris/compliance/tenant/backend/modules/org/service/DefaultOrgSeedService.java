@@ -12,14 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * Seeds a sensible default compliance org structure (departments, each with teams) so a newly
- * onboarded tenant does not land on an empty Organisation page. Idempotent: does nothing if any
- * department already exists. Departments are created without heads and teams without owners —
- * people are added later in Settings (or the person picker). The department/team names mirror the
- * wording banks use for return ownership, so seeded returns map onto real units.
- */
+/** Seeds the default department/team org structure; idempotent per name. */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -31,29 +27,35 @@ public class DefaultOrgSeedService {
     private final DepartmentRepository departments;
     private final TeamRepository teams;
 
-    /** Seeds the template once. Returns the number of departments created (0 when skipped). */
+    /** Seeds any missing template departments/teams. Returns the number of departments created. */
     @Transactional
     public int seedDefaults() {
-        if (departments.count() > 0) {
-            return 0;
-        }
         int created = 0;
+        int teamsCreated = 0;
         for (Map.Entry<String, List<String>> entry : TEMPLATE.entrySet()) {
-            Department department = departments.save(Department.builder()
-                .name(entry.getKey())
-                .isActive(true)
-                .build());
-            created++;
-            for (String teamName : entry.getValue()) {
-                teams.save(Team.builder()
-                    .departmentId(department.getDepartmentId())
-                    .name(teamName)
+            Department department = departments.findByName(entry.getKey()).orElse(null);
+            if (department == null) {
+                department = departments.save(Department.builder()
+                    .name(entry.getKey())
                     .isActive(true)
                     .build());
+                created++;
+            }
+            Set<String> existingTeams = teams.findByDepartmentIdOrderByNameAsc(department.getDepartmentId())
+                .stream().map(Team::getName).collect(Collectors.toSet());
+            for (String teamName : entry.getValue()) {
+                if (!existingTeams.contains(teamName)) {
+                    teams.save(Team.builder()
+                        .departmentId(department.getDepartmentId())
+                        .name(teamName)
+                        .isActive(true)
+                        .build());
+                    teamsCreated++;
+                }
             }
         }
-        log.info("[OrgSeed] Seeded default org structure: {} departments, {} teams",
-            created, TEMPLATE.values().stream().mapToInt(List::size).sum());
+        log.info("[OrgSeed] Default org structure: {} departments, {} teams created",
+            created, teamsCreated);
         return created;
     }
 

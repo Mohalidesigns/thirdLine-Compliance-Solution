@@ -35,7 +35,3 @@ CREATE INDEX idx_teams_department   ON teams(department_id);
 CREATE INDEX idx_owners_team        ON owners(team_id);
 CREATE INDEX idx_owners_department  ON owners(department_id);
 CREATE INDEX idx_owners_active      ON owners(is_active);
-
-INSERT INTO departments (name, code)
-SELECT 'Compliance', 'COMP'
-WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Compliance');

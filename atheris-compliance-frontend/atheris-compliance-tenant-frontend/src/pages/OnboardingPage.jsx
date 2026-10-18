@@ -23,6 +23,7 @@ const regulatorColumns = (selected, toggle, countField, countLabel) => [
   { id: 'select', label: '', minWidth: 48,
     render: (r) => (
       <Checkbox size="small" checked={selected.includes(r.regulatorId)}
+        onClick={(e) => e.stopPropagation()}
         onChange={() => toggle(r.regulatorId)} />
     ) },
   { id: 'name', label: 'Regulator', minWidth: 240,
@@ -546,7 +547,7 @@ export default function OnboardingPage() {
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
                   <Box sx={{ flex: 1 }}>
-                    <PersonPicker mode="user" role="CCO" authType={authType} ldapConfig={ldapConfig}
+                    <PersonPicker mode="user" role="CCO" authType={authType} ldapConfig={ldapConfig} onboarding
                       value={ccoUser.email ? { email: ccoUser.email, fullName: ccoUser.fullName } : null}
                       onChange={(p) => setCcoUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
                   </Box>
@@ -557,7 +558,7 @@ export default function OnboardingPage() {
                 </Box>
                 <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
                   <Box sx={{ flex: 1 }}>
-                    <PersonPicker mode="user" role="Analyst" authType={authType} ldapConfig={ldapConfig}
+                    <PersonPicker mode="user" role="Analyst" authType={authType} ldapConfig={ldapConfig} onboarding
                       value={analystUser.email ? { email: analystUser.email, fullName: analystUser.fullName } : null}
                       onChange={(p) => setAnalystUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
                   </Box>

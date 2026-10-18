@@ -187,6 +187,9 @@ public class RemediationLinkService {
 
         f.setRemediationNotes(notes);
         f.setRemediationSubmittedAt(Instant.now());
+        f.setRemediationSubmittedByUserId(null);
+        f.setRemediationSubmittedViaLink(true);
+        f.setRemediationSubmittedByOwnerId(link.getOwnerId() != null ? link.getOwnerId() : f.getAssignedToOwnerId());
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         findings.save(f);
 

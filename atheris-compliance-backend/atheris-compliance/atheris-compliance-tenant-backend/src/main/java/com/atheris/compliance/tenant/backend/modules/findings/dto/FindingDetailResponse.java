@@ -28,6 +28,8 @@ public class FindingDetailResponse {
     private Instant remediationSubmittedAt;
     /** Who submitted the remediation — the reviewer must not be the submitter (SoD). */
     private Integer remediationSubmittedByUserId;
+    private Boolean remediationSubmittedViaLink;
+    private Integer remediationSubmittedByOwnerId;
     /** Reviewer's reason when a remediation is rejected. */
     private String reviewNotes;
     private Integer signedOffByUserId;

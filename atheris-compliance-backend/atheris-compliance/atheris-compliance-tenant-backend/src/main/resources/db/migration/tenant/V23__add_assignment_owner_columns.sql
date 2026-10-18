@@ -7,8 +7,10 @@ ALTER TABLE controls
     ADD COLUMN IF NOT EXISTS control_owner_id INT REFERENCES owners(owner_id);
 
 ALTER TABLE findings
-    ADD COLUMN IF NOT EXISTS assigned_to_owner_id INT REFERENCES owners(owner_id);
+    ADD COLUMN IF NOT EXISTS assigned_to_owner_id INT REFERENCES owners(owner_id),
+    ADD COLUMN IF NOT EXISTS remediation_submitted_by_owner_id INT REFERENCES owners(owner_id);
 
 CREATE INDEX idx_obligation_class_owner ON obligation_classifications(assigned_owner_id);
 CREATE INDEX idx_controls_owner_id      ON controls(control_owner_id);
 CREATE INDEX idx_findings_owner         ON findings(assigned_to_owner_id);
+CREATE INDEX idx_findings_remediation_owner ON findings(remediation_submitted_by_owner_id);
