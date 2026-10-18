@@ -149,8 +149,8 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
         </DialogActions>
       </Dialog>
 
-      <LinkObligationsPicker open={pickerOpen} onClose={() => setPickerOpen(false)}
-        initialIds={form.linkedObligationIds} onSave={ids => set('linkedObligationIds', ids)} />
+      {pickerOpen && <LinkObligationsPicker open onClose={() => setPickerOpen(false)}
+        initialIds={form.linkedObligationIds} onSave={ids => set('linkedObligationIds', ids)} />}
     </>
   );
 }

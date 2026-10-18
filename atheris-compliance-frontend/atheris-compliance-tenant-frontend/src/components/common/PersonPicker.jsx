@@ -7,6 +7,14 @@ import { PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../org/QuickAddDialogs';
 
+let ldapTenantCache = null;
+async function isLdapTenant() {
+  if (ldapTenantCache !== null) return ldapTenantCache;
+  try { ldapTenantCache = !!(await api.ldap.users(''))?.enabled; }
+  catch { ldapTenantCache = false; }
+  return ldapTenantCache;
+}
+
 /**
  * One person picker for every "choose a person" surface, in three modes:
  *
@@ -185,6 +193,11 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [quickOpen, setQuickOpen] = useState(false);
+  const [ldapEnabled, setLdapEnabled] = useState(false);
+  const [directory, setDirectory] = useState([]);
+  const [input, setInput] = useState('');
+  const [resolving, setResolving] = useState(false);
+  const term = useDebounced(input);
 
   const loadOwners = () => {
     setLoading(true);
@@ -195,12 +208,47 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
   };
   useEffect(() => { loadOwners(); }, []);
 
-  const options = useMemo(() => owners.map((o) => ({
-    ownerId: o.ownerId, fullName: o.fullName, email: o.email,
-    departmentName: o.departmentName, teamName: o.teamName,
-  })), [owners]);
+  useEffect(() => { isLdapTenant().then(setLdapEnabled); }, []);
 
-  const selected = value != null ? options.find((o) => o.ownerId === value) || null : null;
+  useEffect(() => {
+    if (!ldapEnabled) { setDirectory([]); return; }
+    let cancelled = false;
+    api.ldap.users(term)
+      .then((res) => { if (!cancelled) setDirectory(res?.users || []); })
+      .catch(() => { if (!cancelled) setDirectory([]); });
+    return () => { cancelled = true; };
+  }, [ldapEnabled, term]);
+
+  const options = useMemo(() => {
+    const owned = owners.map((o) => ({
+      kind: 'owner', ownerId: o.ownerId, fullName: o.fullName, email: o.email,
+      departmentName: o.departmentName, teamName: o.teamName,
+    }));
+    if (!ldapEnabled) return owned;
+    const taken = new Set(owners.flatMap((o) => [ (o.email || '').toLowerCase(), (o.fullName || '').toLowerCase() ]).filter(Boolean));
+    const fromDirectory = directory
+      .filter((u) => u.email && !taken.has(u.email.toLowerCase()) && !taken.has((u.fullName || '').toLowerCase()))
+      .map((u) => ({ kind: 'directory', fullName: u.fullName, email: u.email }));
+    return [...owned, ...fromDirectory];
+  }, [owners, directory, ldapEnabled]);
+
+  const selected = value != null ? options.find((o) => o.kind === 'owner' && o.ownerId === value) || null : null;
+
+  const handleChange = async (_, o) => {
+    if (!o) { onChange(null); return; }
+    if (o.kind === 'owner') { onChange(o.ownerId); return; }
+    const existing = owners.find((x) => (x.email || '').toLowerCase() === (o.email || '').toLowerCase());
+    if (existing) { onChange(existing.ownerId); return; }
+    setResolving(true);
+    setError('');
+    try {
+      const created = await api.org.createOwner({ fullName: o.fullName || o.email, email: o.email });
+      loadOwners();
+      onChange(created.ownerId);
+      onOwnerCreated?.(created);
+    } catch (e) { setError(e.message || 'Failed to add owner'); }
+    finally { setResolving(false); }
+  };
 
   return (
     <Box sx={sx}>
@@ -210,34 +258,37 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
         disabled={disabled}
         options={options}
         value={selected}
-        onChange={(_, o) => onChange(o ? o.ownerId : null)}
+        onChange={handleChange}
+        onInputChange={(_, v) => setInput(v)}
         getOptionLabel={(o) => o.fullName || o.email || ''}
-        isOptionEqualToValue={(o, v) => o.ownerId === v.ownerId}
+        isOptionEqualToValue={(o, v) => o.kind === 'owner' && v.kind === 'owner'
+          ? o.ownerId === v.ownerId
+          : o.kind === 'directory' && v.kind === 'directory' && o.email === v.email}
         filterOptions={(list, state) => {
           const t = state.inputValue.trim().toLowerCase();
           if (!t) return list;
-          return list.filter((o) =>
-            (o.fullName || '').toLowerCase().includes(t) || (o.email || '').toLowerCase().includes(t));
+          return list.filter((o) => o.kind === 'directory'
+            || (o.fullName || '').toLowerCase().includes(t) || (o.email || '').toLowerCase().includes(t));
         }}
-        loading={loading}
-        noOptionsText="No matching owners"
+        loading={loading || resolving}
+        noOptionsText={ldapEnabled ? 'Search owners or your directory…' : 'No matching owners'}
         renderOption={(props, o) => (
-          <li {...props} key={o.ownerId}>
+          <li {...props} key={o.kind === 'owner' ? `o-${o.ownerId}` : `d-${o.email}`}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="body2" noWrap>{o.fullName}{o.departmentName ? ` — ${o.departmentName}` : ''}</Typography>
-              {o.email && <Typography variant="caption" color="text.secondary" noWrap>{o.email}</Typography>}
+              <Typography variant="body2" noWrap>{o.fullName}{o.kind === 'owner' && o.departmentName ? ` — ${o.departmentName}` : ''}</Typography>
+              {o.email && <Typography variant="caption" color="text.secondary" noWrap>{o.email}{o.kind === 'directory' ? ' · directory' : ''}</Typography>}
             </Box>
           </li>
         )}
         renderInput={(params) => (
-          <TextField {...params} label={label} placeholder="Search owners…"
+          <TextField {...params} label={label} placeholder={ldapEnabled ? 'Search owners or directory…' : 'Search owners…'}
             helperText={error || helperText} error={!!error}
             slotProps={{
               input: {
                 ...params.InputProps,
                 endAdornment: (
                   <>
-                    {loading ? <CircularProgress size={16} /> : null}
+                    {(loading || resolving) ? <CircularProgress size={16} /> : null}
                     {params.InputProps.endAdornment}
                   </>
                 ),
@@ -321,15 +372,30 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
   const [error, setError] = useState('');
   const [deptOpen, setDeptOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [ldapEnabled, setLdapEnabled] = useState(false);
+  const [dirInput, setDirInput] = useState('');
+  const [dirUsers, setDirUsers] = useState([]);
+  const dirTerm = useDebounced(dirInput);
 
   useEffect(() => {
     if (open) {
       setForm({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
       setError('');
+      setDirInput('');
+      isLdapTenant().then(setLdapEnabled);
       api.org.departments(true).then(setDepartments).catch((e) => setError(e.message));
       api.org.teams().then(setTeams).catch(() => {});
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !ldapEnabled) { setDirUsers([]); return; }
+    let cancelled = false;
+    api.ldap.users(dirTerm)
+      .then((r) => { if (!cancelled) setDirUsers(r?.users || []); })
+      .catch(() => { if (!cancelled) setDirUsers([]); });
+    return () => { cancelled = true; };
+  }, [open, ldapEnabled, dirTerm]);
 
   const departmentTeams = form.departmentId
     ? teams.filter((t) => t.departmentId === Number(form.departmentId))
@@ -362,6 +428,22 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
       <DialogContent dividers>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {ldapEnabled && (
+            <Autocomplete
+              size="small"
+              options={dirUsers}
+              getOptionLabel={(o) => (typeof o === 'string' ? o : (o.fullName || o.email || ''))}
+              isOptionEqualToValue={(o, v) => o.email === v.email}
+              onInputChange={(_, v) => setDirInput(v)}
+              onChange={(_, o) => {
+                if (o && typeof o !== 'string') setForm((f) => ({ ...f, fullName: o.fullName || f.fullName, email: o.email || f.email }));
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Search directory" placeholder="Search LDAP users…"
+                  helperText="Pick a directory user to prefill their name and email" />
+              )}
+            />
+          )}
           <TextField label="Full name" fullWidth size="small" required value={form.fullName}
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <TextField label="Email" fullWidth size="small" type="email" value={form.email}

@@ -200,9 +200,9 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Button>
       </DialogActions>
 
-      <LinkObligationsPicker open={linksOpen} onClose={() => setLinksOpen(false)}
+      {linksOpen && <LinkObligationsPicker open onClose={() => setLinksOpen(false)}
         initialIds={form.linkedObligationIds}
-        onSave={ids => set('linkedObligationIds', ids)} />
+        onSave={ids => set('linkedObligationIds', ids)} />}
     </Dialog>
   );
 }

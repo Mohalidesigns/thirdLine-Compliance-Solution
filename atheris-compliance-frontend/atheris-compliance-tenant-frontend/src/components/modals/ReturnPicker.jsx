@@ -15,26 +15,29 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
+  const load = () => {
+    setLoading(true);
+    api.returns.list()
+      .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (open) {
       setSelected([...(initialIds || [])]);
       setSearch('');
-      setLoading(true);
-      api.returns.list()
-        .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
-        .catch(() => setRows([]))
-        .finally(() => setLoading(false));
+      load();
     }
   }, [open, initialIds]);
 
   const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  const handleCreated = () => {
+  const handleCreated = (created) => {
     setCreateOpen(false);
-    setLoading(true);
-    api.returns.list()
-      .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
-      .finally(() => setLoading(false));
+    const id = typeof created === 'object' ? created?.returnId : created;
+    if (id) setSelected(prev => prev.includes(id) ? prev : [...prev, id]);
+    load();
   };
 
   const filtered = rows.filter(r => {
@@ -114,8 +117,8 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
         </DialogActions>
       </Dialog>
 
-      <CreateReturnDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={handleCreated} onSnackbar={() => {}} />
+      {createOpen && <CreateReturnDialog open onClose={() => setCreateOpen(false)}
+        onSaved={handleCreated} onSnackbar={() => {}} />}
     </>
   );
 }

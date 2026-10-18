@@ -217,10 +217,10 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         </DialogActions>
       </Dialog>
 
-      <LinkControlsPicker open={pickerOpen} onClose={() => setPickerOpen(false)}
-        initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />
-      <ReturnPicker open={returnPickerOpen} onClose={() => setReturnPickerOpen(false)}
-        initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />
+      {pickerOpen && <LinkControlsPicker open onClose={() => setPickerOpen(false)}
+        initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />}
+      {returnPickerOpen && <ReturnPicker open onClose={() => setReturnPickerOpen(false)}
+        initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />}
     </>
   );
 }
