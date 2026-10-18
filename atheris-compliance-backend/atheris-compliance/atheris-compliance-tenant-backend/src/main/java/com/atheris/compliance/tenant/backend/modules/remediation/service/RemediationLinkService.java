@@ -98,8 +98,20 @@ public class RemediationLinkService {
         return raw;
     }
 
+    /**
+     * Absolute URL for emails — the recipient opens it from their inbox, so it must point at the
+     * tenant portal (configured {@code atheris.email.base-url}), not the API origin.
+     */
     public String remediationUrl(String rawToken) {
         return email.baseUrl() + "/remediate/" + rawToken;
+    }
+
+    /**
+     * Relative path the client resolves against {@code window.location.origin}. Returned to the
+     * analyst UI so the copied link always matches the host they are actually using.
+     */
+    public String remediationPath(String rawToken) {
+        return "/remediate/" + rawToken;
     }
 
     @Transactional

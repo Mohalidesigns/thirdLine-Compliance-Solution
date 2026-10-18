@@ -14,6 +14,9 @@ import org.springframework.ldap.query.LdapQueryBuilder;
 import org.springframework.ldap.support.LdapUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +34,10 @@ public class LdapAuthService {
         public boolean ok() {
             return status == Status.SUCCESS;
         }
+    }
+
+    /** A directory entry offered to the person picker: the login email plus a display name. */
+    public record DirectoryUser(String email, String fullName, String dn) {
     }
 
     public boolean isLdapEnabled() {
@@ -108,6 +115,64 @@ public class LdapAuthService {
             log.warn("LDAP test connection failed: {}", e.getMessage());
             return new LdapResult(Status.UNAVAILABLE, null, "Could not reach the directory: " + e.getMessage());
         }
+    }
+
+    /**
+     * Search the directory using the tenant's saved settings. Empty when LDAP is not configured.
+     */
+    public List<DirectoryUser> searchUsers(String q) {
+        return currentSettings().map(s -> searchUsers(s, q)).orElseGet(List::of);
+    }
+
+    /**
+     * Search the directory for users matching {@code q} on the login (email) attribute or the
+     * full-name attribute. A blank {@code q} returns the first page of the directory. Never throws —
+     * an unreachable directory yields an empty list. Takes explicit settings so onboarding can
+     * search a directory that has not been persisted yet.
+     */
+    public List<DirectoryUser> searchUsers(LdapSettings s, String q) {
+        if (s == null || s.getUrl() == null || s.getUserSearchBase() == null) {
+            return List.of();
+        }
+        String term = q == null ? "" : sanitize(q);
+        LdapTemplate template = new LdapTemplate(contextSource(s));
+        Map<String, DirectoryUser> merged = new LinkedHashMap<>();
+        try {
+            searchInto(template, s, s.getUserSearchFilterAttribute(), term, merged);
+            if (!s.getFullNameAttribute().equalsIgnoreCase(s.getUserSearchFilterAttribute())) {
+                searchInto(template, s, s.getFullNameAttribute(), term, merged);
+            }
+        } catch (Exception e) {
+            log.warn("LDAP directory search failed: {}", e.getMessage());
+            return List.of();
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    /** Search one attribute and merge hits (keyed by DN) so the two passes don't duplicate. */
+    private void searchInto(LdapTemplate template, LdapSettings s, String attribute, String term,
+            Map<String, DirectoryUser> out) {
+        String pattern = term.isEmpty() ? "*" : "*" + term + "*";
+        List<DirectoryUser> results = template.search(
+            LdapQueryBuilder.query().base(s.getUserSearchBase())
+                .where(attribute).like(pattern),
+            (ContextMapper<DirectoryUser>) c -> {
+                DirContextOperations d = (DirContextOperations) c;
+                return new DirectoryUser(
+                    d.getStringAttribute(s.getUserSearchFilterAttribute()),
+                    d.getStringAttribute(s.getFullNameAttribute()),
+                    d.getNameInNamespace());
+            });
+        for (DirectoryUser u : results) {
+            if (u.dn() != null && u.email() != null && !u.email().isBlank()) {
+                out.putIfAbsent(u.dn().toLowerCase(), u);
+            }
+        }
+    }
+
+    /** Strip LDAP filter metacharacters so a free-text term can't break the search filter. */
+    private static String sanitize(String q) {
+        return q.trim().replaceAll("[^A-Za-z0-9@._\\- ]", "");
     }
 
     private LdapContextSource contextSource(LdapSettings s) {

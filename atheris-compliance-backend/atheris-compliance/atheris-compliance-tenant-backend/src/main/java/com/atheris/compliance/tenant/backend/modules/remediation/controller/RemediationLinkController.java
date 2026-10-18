@@ -21,7 +21,7 @@ public class RemediationLinkController {
 
     private final RemediationLinkService service;
 
-    /** Creates a link and returns the token/URL so the analyst can copy and share it. */
+    /** Creates a link and returns the token plus a relative path for the client to resolve. */
     @PostMapping("/{id}/remediation-link")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Map<String, Object>> create(
@@ -30,6 +30,6 @@ public class RemediationLinkController {
         String token = service.createLink(id, u.getUserId());
         return ResponseEntity.ok(Map.of(
             "token", token,
-            "url", service.remediationUrl(token)));
+            "path", service.remediationPath(token)));
     }
 }

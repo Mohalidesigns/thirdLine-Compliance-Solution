@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.license.dto.LicenseStatusRe
 import com.atheris.compliance.tenant.backend.modules.license.exception.LicenseActivationException;
 import com.atheris.compliance.tenant.backend.modules.license.exception.ProfileNotFoundException;
 import com.atheris.compliance.tenant.backend.modules.license.service.LicenseService;
+import com.atheris.compliance.tenant.backend.modules.ldap.dto.LdapDirectoryUser;
 import com.atheris.compliance.tenant.backend.modules.ldap.dto.LdapSettings;
 import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
@@ -243,6 +244,26 @@ public class OnboardingService {
             .fullNameAttribute(cfg.getFullNameAttribute()).build();
         LdapAuthService.LdapResult r = ldapAuth.testConnection(settings);
         return Map.of("ok", r.ok(), "message", r.message());
+    }
+
+    /**
+     * Search a candidate (not yet saved) directory for the onboarding person picker. Returns an
+     * empty list when the config is incomplete or the directory is unreachable — never throws.
+     */
+    public List<LdapDirectoryUser> searchLdapUsers(UserSetupRequest.LdapConfigRequest cfg, String q) {
+        if (cfg == null || cfg.getUrl() == null || cfg.getBindDn() == null
+                || cfg.getBindPassword() == null || cfg.getUserSearchBase() == null) {
+            return List.of();
+        }
+        LdapSettings settings = LdapSettings.builder()
+            .url(cfg.getUrl()).bindDn(cfg.getBindDn()).bindPassword(cfg.getBindPassword())
+            .userSearchBase(cfg.getUserSearchBase())
+            .userSearchFilterAttribute(cfg.getUserSearchFilterAttribute() != null ? cfg.getUserSearchFilterAttribute() : "mail")
+            .fullNameAttribute(cfg.getFullNameAttribute() != null ? cfg.getFullNameAttribute() : "cn")
+            .build();
+        return ldapAuth.searchUsers(settings, q).stream()
+            .map(u -> LdapDirectoryUser.builder().email(u.email()).fullName(u.fullName()).build())
+            .toList();
     }
 
     @Transactional

@@ -79,7 +79,6 @@ export default function ObligationsRegisterPage() {
   const [riskFilter, setRiskFilter] = useState(searchParams.get('risk') || 'All');
   const [regulatorFilter, setRegulatorFilter] = useState(searchParams.get('regulator') || 'All');
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
-  const [ownerFilter, setOwnerFilter] = useState(searchParams.get('owner') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [hasGapFilter, setHasGapFilter] = useState(searchParams.get('hasGap') === 'true');
   const [noControl, setNoControl] = useState(false);
@@ -99,14 +98,13 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || ownerFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl || heatmapDrill;
+    || areaFilter !== 'All' || statusFilter !== 'All' || hasGapFilter || noControl || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
   if (riskFilter !== 'All') params.risk = riskFilter;
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
   if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
-  if (ownerFilter !== 'All') params.owner = ownerFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (hasGapFilter) params.hasGap = 'true';
   if (noControl) params.noControl = 'true';
@@ -145,7 +143,7 @@ export default function ObligationsRegisterPage() {
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setAreaFilter('All'); setOwnerFilter('All'); setStatusFilter('All'); setHasGapFilter(false); setNoControl(false);
+    setAreaFilter('All'); setStatusFilter('All'); setHasGapFilter(false); setNoControl(false);
     clearHeatmapDrill();
     setPage(0);
   }
@@ -205,7 +203,7 @@ export default function ObligationsRegisterPage() {
     <Box>
       <PageHeader
         title="Obligations Register"
-        subtitle={`${total} obligation${total !== 1 ? 's' : ''} — assign owners, rate risk and track control gaps`}
+        subtitle={`${total} obligation${total !== 1 ? 's' : ''} — rate risk and track control gaps`}
         actions={(
           <>
             <Tooltip title="Refresh">
@@ -231,7 +229,6 @@ export default function ObligationsRegisterPage() {
           { key: 'risk', label: 'Risk', value: riskFilter, onChange: (v) => { setRiskFilter(v); setPage(0); }, options: opts(riskLevels), allLabel: 'All', minWidth: 130 },
           { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); }, options: opts(stats?.regulators), allLabel: 'All', minWidth: 140 },
           { key: 'area', label: 'Domain', value: areaFilter, onChange: (v) => { setAreaFilter(v); setPage(0); }, options: opts(stats?.themes), allLabel: 'All', minWidth: 160 },
-          { key: 'owner', label: 'Owner', value: ownerFilter, onChange: (v) => { setOwnerFilter(v); setPage(0); }, options: opts(stats?.owners), allLabel: 'All', minWidth: 140 },
           { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); },
             options: ['active', 'unclassified', 'under_review'].map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
             allLabel: 'All', minWidth: 130 },

@@ -35,6 +35,32 @@ export const publicApi = {
     }
     return res.json();
   },
+  // Public return event-filing upload — also no login; the token is the credential.
+  async returnUploadView(token) {
+    const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This upload link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async returnUploadSubmit(token, { triggerDate, reference, dueDate, file }) {
+    const form = new FormData();
+    if (triggerDate) form.append('triggerDate', triggerDate);
+    if (reference) form.append('reference', reference);
+    if (dueDate) form.append('dueDate', dueDate);
+    if (file) form.append('file', file);
+    const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
 };
 
 // A PDF endpoint answers 404 with {error, message} when the record has no stored
@@ -252,6 +278,9 @@ export const api = {
     testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
     toolkitRegulators: (data) => request('/onboarding/toolkit-regulators', { method: 'POST', body: JSON.stringify(data) }),
+    ldapUsers: (config, q) => request(`/onboarding/ldap/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, {
+      method: 'POST', body: JSON.stringify(config || {}),
+    }),
     saveSmtp: (data) => request('/onboarding/smtp', { method: 'POST', body: JSON.stringify(data) }),
     testSmtp: (data) => request('/onboarding/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
@@ -461,6 +490,10 @@ export const api = {
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
+    // Create (and email) a public, account-less event-filing upload link for an event-driven return.
+    createUploadLink: (returnId, body = {}) => request(`/returns/${returnId}/upload-link`, {
+      method: 'POST', body: JSON.stringify(body),
+    }),
   },
   sanctions: {
     list: (params = {}, opts = {}) => {
@@ -757,7 +790,7 @@ export const api = {
   },
   users: {
     me: () => request('/users/me'),
-    list: () => request('/users'),
+    list: (q) => request(`/users${q ? `?q=${encodeURIComponent(q)}` : ''}`),
     invite: (data) => request('/users/invite', {
       method: 'POST', body: JSON.stringify(data),
     }),
@@ -769,5 +802,9 @@ export const api = {
     updateManager: (id, managerUserId) => request(`/users/${id}/manager`, {
       method: 'PUT', body: JSON.stringify({ managerUserId }),
     }),
+  },
+  ldap: {
+    // Directory search for the person picker. Returns { enabled, users:[{email, fullName}] }.
+    users: (q, opts = {}) => request(`/ldap/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, { signal: opts.signal }),
   },
 };

@@ -602,14 +602,14 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
     if (!open) return;
     setLink(null); setCopied(false); setLoading(true);
     api.findings.remediationLink(findingId)
-      .then((res) => setLink(res))
+      .then((res) => setLink(res.path ? `${window.location.origin}${res.path}` : res.url))
       .catch((e) => onSnackbar(e.message))
       .finally(() => setLoading(false));
   }, [open, findingId]);
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(link.url);
+      await navigator.clipboard.writeText(link);
       setCopied(true);
     } catch { onSnackbar('Copy failed — select the link manually.'); }
   };
@@ -625,7 +625,7 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} /></Box>
         ) : link ? (
-          <TextField fullWidth size="small" label="Link" value={link.url} onFocus={(e) => e.target.select()}
+          <TextField fullWidth size="small" label="Link" value={link} onFocus={(e) => e.target.select()}
             slotProps={{ input: { readOnly: true } }} />
         ) : (
           <Alert severity="error">Could not create a link.</Alert>

@@ -22,6 +22,7 @@ import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
+import PersonPicker from '../components/common/PersonPicker';
 import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
@@ -97,6 +98,7 @@ export default function ReturnsPage() {
   const [detailItem, setDetailItem] = useState(null);
   const [eventSetupItem, setEventSetupItem] = useState(null);
   const [recordEventItem, setRecordEventItem] = useState(null);
+  const [uploadLinkItem, setUploadLinkItem] = useState(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -204,6 +206,8 @@ export default function ReturnsPage() {
           setSnackbar('Event filing created.');
           if (instance?.instanceId) { setDetailItem(null); setDetailId(instance.instanceId); }
         }} />
+      <SendUploadLinkDialog open={uploadLinkItem != null} item={uploadLinkItem}
+        onClose={() => setUploadLinkItem(null)} onSnackbar={setSnackbar} />
     </>
   );
   const snackbarEl = (
@@ -367,6 +371,7 @@ export default function ReturnsPage() {
                       onEditSchedule={canEditSchedule && !isEventDriven(item) ? () => setScheduleItem(item) : null}
                       onConfigureEvent={canEditSchedule && isEventDriven(item) ? () => setEventSetupItem(item) : null}
                       onRecordEvent={canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured ? () => setRecordEventItem(item) : null}
+                      onSendUploadLink={canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured ? () => setUploadLinkItem(item) : null}
                       onOpenEventFiling={(id) => { setDetailItem(item); setDetailId(id); }}
                       onDetail={() => {
                         if (item.currentInstanceId != null) { setDetailItem(item); setDetailId(item.currentInstanceId); }
@@ -412,7 +417,7 @@ export default function ReturnsPage() {
 
 /* ───────── Return Row (with expandable upcoming instances) ───────── */
 function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg, status, onExpand, onDetail,
-  onEditSchedule, onConfigureEvent, onRecordEvent, onOpenEventFiling }) {
+  onEditSchedule, onConfigureEvent, onRecordEvent, onSendUploadLink, onOpenEventFiling }) {
   return (
     <>
       <TableRow hover sx={{ cursor: 'pointer', bgcolor: rowBg,
@@ -495,6 +500,13 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
               <Tooltip title="Record trigger occurrence">
                 <Button size="small" variant="outlined" startIcon={<CalendarIcon size={16} />} onClick={e => { e.stopPropagation(); onRecordEvent(); }}>
                   Record event
+                </Button>
+              </Tooltip>
+            )}
+            {onSendUploadLink && (
+              <Tooltip title="Email an owner a link to upload the event filing themselves">
+                <Button size="small" variant="outlined" startIcon={<LinkIcon size={16} />} onClick={e => { e.stopPropagation(); onSendUploadLink(); }}>
+                  Send link
                 </Button>
               </Tooltip>
             )}
@@ -964,3 +976,62 @@ function SubmitDialog({ open, onClose, instanceId, onSaved, onSnackbar }) {
     </Dialog>
   );
 }
+
+/* ───────── Send upload link (public event filing) ───────── */
+function SendUploadLinkDialog({ open, item, onClose, onSnackbar }) {
+  const [email, setEmail] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [link, setLink] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) { setEmail(''); setLink(''); setCopied(false); setError(''); }
+  }, [open]);
+
+  if (!item) return null;
+
+  const create = async () => {
+    setCreating(true);
+    setError('');
+    try {
+      const res = await api.returns.createUploadLink(item.returnId, {
+        recipientEmail: email.trim() || undefined,
+      });
+      setLink(res.path ? `${window.location.origin}${res.path}` : res.url);
+    } catch (e) { setError(e.message); } finally { setCreating(false); }
+  };
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); }
+    catch { onSnackbar('Copy failed — select the link manually.'); }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Send event-filing upload link</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Create a secure link the owner can use to record an event filing for
+          <strong> {item.returnName}</strong> and attach evidence, without signing in.
+        </Typography>
+        <PersonPicker mode="link" label="Recipient (optional — defaults to the return owner)"
+          value={email} onChange={(v) => setEmail(v || '')} disabled={!!link} />
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        {link && (
+          <TextField fullWidth size="small" label="Link" value={link} onFocus={e => e.target.select()}
+            slotProps={{ input: { readOnly: true } }} sx={{ mt: 2 }} />
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+        {link
+          ? <Button variant="contained" onClick={copy}>{copied ? 'Copied' : 'Copy link'}</Button>
+          : <Button variant="contained" onClick={create} disabled={creating}>
+              {creating ? 'Creating…' : 'Create link'}
+            </Button>}
+      </DialogActions>
+    </Dialog>
+  );
+}
+

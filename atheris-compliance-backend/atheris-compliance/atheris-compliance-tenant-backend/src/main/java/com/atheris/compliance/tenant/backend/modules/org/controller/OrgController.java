@@ -83,7 +83,7 @@ public class OrgController {
     }
 
     @PostMapping("/owners")
-    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<OwnerDto> createOwner(@Valid @RequestBody OwnerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createOwner(request));
     }

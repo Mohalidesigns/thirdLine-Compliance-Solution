@@ -29,7 +29,26 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> findAll() {
-        return users.findByIsActiveTrue().stream().map(this::toDto).toList();
+        return findAll(null);
+    }
+
+    /** Active users, optionally narrowed to those whose name, email or job title contains {@code q}. */
+    public List<UserDto> findAll(String q) {
+        List<User> active = users.findByIsActiveTrue();
+        if (q == null || q.isBlank()) {
+            return active.stream().map(this::toDto).toList();
+        }
+        String needle = q.trim().toLowerCase();
+        return active.stream()
+            .filter(u -> contains(u.getEmail(), needle)
+                || contains(u.getFullName(), needle)
+                || contains(u.getJobTitle(), needle))
+            .map(this::toDto)
+            .toList();
+    }
+
+    private static boolean contains(String value, String needle) {
+        return value != null && value.toLowerCase().contains(needle);
     }
 
     public UserDto findById(Integer id) {

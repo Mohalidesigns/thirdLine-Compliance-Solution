@@ -89,12 +89,12 @@ public class SeedDataRepairService {
             SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
             if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
-                    + cr.riskRebanded() + cr.residualRatingRebanded() > 0)
+                    + cr.riskRebanded() + cr.residualRatingRebanded() + cr.howTestedCleared() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
             log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}",
                 r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated());
-            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}",
-                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded());
+            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}, howTested cleared={}",
+                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded(), cr.howTestedCleared());
             done.set(true);
         } catch (Throwable e) {
             log.warn("[SeedRepair] skipped this run: {}", e.getMessage());

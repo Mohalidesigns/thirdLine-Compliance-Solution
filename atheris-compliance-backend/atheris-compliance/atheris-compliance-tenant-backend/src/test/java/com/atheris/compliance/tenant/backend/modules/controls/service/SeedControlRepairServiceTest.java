@@ -55,7 +55,25 @@ class SeedControlRepairServiceTest {
         assertEquals(LocalDate.of(2027, 1, 14), next.getDueDate(), "same anchor, 90 instead of 30 days");
         assertEquals("Moderate", c.getResidualRiskRating(), "Medium x Medium = 9 is Moderate");
         assertEquals(List.of(next), moved);
-        assertEquals(new SeedControlRepairService.Result(1, 1, 1, 1), r);
+        assertEquals(new SeedControlRepairService.Result(1, 1, 1, 1, 0), r);
+    }
+
+    @Test
+    void duplicateHowTestedIsClearedButAuthoredTextIsKept() {
+        Control duplicate = control(1, "CRMP C001", "Critical");
+        duplicate.setDescription("Reconcile the ledger daily.");
+        duplicate.setHowTested("Reconcile the ledger daily.");
+        Control authored = control(2, "CRMP C002", "Critical");
+        authored.setDescription("Reconcile the ledger daily.");
+        authored.setHowTested("Sample 25 reconciliations each month.");
+
+        SeedControlRepairService.Result r = run(List.of(duplicate, authored), Set.of(), Map.of(), new ArrayList<>(),
+            platform("CRMP C001", "Critical"), platform("CRMP C002", "Critical"));
+
+        assertNull(duplicate.getHowTested(), "howTested still equal to description is cleared");
+        assertEquals("Sample 25 reconciliations each month.", authored.getHowTested(),
+            "an analyst-authored howTested is kept");
+        assertEquals(1, r.howTestedCleared());
     }
 
     @Test
@@ -108,7 +126,7 @@ class SeedControlRepairServiceTest {
 
         SeedControlRepairService.Result again = run(List.of(c), Set.of(), tasks, new ArrayList<>(), platform("CRMP C001", "High"));
 
-        assertEquals(new SeedControlRepairService.Result(0, 0, 0, 0), again);
+        assertEquals(new SeedControlRepairService.Result(0, 0, 0, 0, 0), again);
         assertEquals(LocalDate.of(2027, 1, 14), next.getDueDate());
     }
 

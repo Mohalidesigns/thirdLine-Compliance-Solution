@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { api } from '../services/api';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
+import PersonPicker from '../components/common/PersonPicker';
 
 // 7 fixed steps — the backend's currentStep numbering is authoritative (0..6).
 // Intelligence regulators feed the AI pipeline -> Review Inbox; Toolkit regulators
@@ -538,29 +539,34 @@ export default function OnboardingPage() {
                 )}
 
                 <Divider sx={{ my: 2 }}>Compliance roles</Divider>
-                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
-                  The {authType === 'ldap' ? 'directory must contain these emails; the directory owns the passwords' : 'CCO and Analyst sign in with these credentials'}. You can invite more users later.
+                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1.5 }}>
+                  {authType === 'ldap'
+                    ? 'Pick the CCO and Analyst from your directory — the directory owns their passwords.'
+                    : 'Choose an existing user or type the email to invite, then give a name. They sign in with the password you set.'}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="CCO Full Name" required value={ccoUser.fullName}
-                    onChange={e => setCcoUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="CCO Email" type="email" required value={ccoUser.email}
-                    onChange={e => setCcoUser(p => ({ ...p, email: e.target.value }))} />
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <PersonPicker mode="user" role="CCO" authType={authType} ldapConfig={ldapConfig}
+                      value={ccoUser.email ? { email: ccoUser.email, fullName: ccoUser.fullName } : null}
+                      onChange={(p) => setCcoUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
+                  </Box>
+                  {authType === 'local' && (
+                    <TextField size="small" label="CCO Password" type="password" required value={ccoUser.password}
+                      onChange={e => setCcoUser(p => ({ ...p, password: e.target.value }))} sx={{ flex: 1 }} />
+                  )}
                 </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="CCO Password" type="password" required value={ccoUser.password}
-                    onChange={e => setCcoUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
-                )}
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="Analyst Full Name" required value={analystUser.fullName}
-                    onChange={e => setAnalystUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="Analyst Email" type="email" required value={analystUser.email}
-                    onChange={e => setAnalystUser(p => ({ ...p, email: e.target.value }))} />
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <PersonPicker mode="user" role="Analyst" authType={authType} ldapConfig={ldapConfig}
+                      value={analystUser.email ? { email: analystUser.email, fullName: analystUser.fullName } : null}
+                      onChange={(p) => setAnalystUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
+                  </Box>
+                  {authType === 'local' && (
+                    <TextField size="small" label="Analyst Password" type="password" required value={analystUser.password}
+                      onChange={e => setAnalystUser(p => ({ ...p, password: e.target.value }))} sx={{ flex: 1 }} />
+                  )}
                 </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="Analyst Password" type="password" required value={analystUser.password}
-                    onChange={e => setAnalystUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
-                )}
+                <RoleConfirmation ccoUser={ccoUser} analystUser={analystUser} />
 
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleUserSetup} disabled={submitting}>
@@ -691,6 +697,39 @@ export default function OnboardingPage() {
           </Box>
         </Box>
       </Box>
+    </Box>
+  );
+}
+
+/** Read-only recap of the two compliance-role identities, so a CCO/Analyst swap is visible. */
+function RoleConfirmation({ ccoUser, analystUser }) {
+  const both = ccoUser.email && analystUser.email;
+  const same = ccoUser.email && ccoUser.email.toLowerCase() === (analystUser.email || '').toLowerCase();
+  const rows = [
+    { role: 'CCO', hint: 'Chief Compliance Officer', user: ccoUser },
+    { role: 'Analyst', hint: 'Reviews and tests controls', user: analystUser },
+  ];
+  return (
+    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`, mb: 2 }}>
+      <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: TL.gray400,
+        textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1 }}>
+        Confirm the roles
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {rows.map(({ role, hint, user }) => (
+          <Box key={role} sx={{ flex: '1 1 220px', minWidth: 0 }}>
+            <Typography variant="caption" sx={{ color: TL.gray500, display: 'block' }}>{role} — {hint}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+              {user.fullName || '—'} · {user.email || 'not set'}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+      {same && both && (
+        <Alert severity="warning" sx={{ mt: 1.5 }}>
+          The CCO and the Analyst are the same person. Assign two different people so segregation of duties holds.
+        </Alert>
+      )}
     </Box>
   );
 }

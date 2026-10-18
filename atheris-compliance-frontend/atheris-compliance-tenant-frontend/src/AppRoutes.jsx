@@ -38,6 +38,7 @@ const ApprovalsPage = lazy(() => import('./pages/runbooks/ApprovalsPage'));
 const CoverageMatrixPage = lazy(() => import('./pages/runbooks/CoverageMatrixPage'));
 const TemplateLibraryPage = lazy(() => import('./pages/runbooks/TemplateLibraryPage'));
 const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
+const PublicReturnUploadPage = lazy(() => import('./pages/PublicReturnUploadPage'));
 
 function Loading() {
   return (
@@ -64,6 +65,8 @@ export default function AppRoutes() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         {/* Public, no-login owner remediation page reached via an emailed token link. */}
         <Route path="/remediate/:token" element={<PublicRemediatePage />} />
+        {/* Public, no-login return event-filing upload page reached via an emailed token link. */}
+        <Route path="/return-upload/:token" element={<PublicReturnUploadPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />

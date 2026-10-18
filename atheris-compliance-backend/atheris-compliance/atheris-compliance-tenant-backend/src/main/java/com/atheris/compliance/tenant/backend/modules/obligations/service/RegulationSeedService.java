@@ -290,7 +290,8 @@ public class RegulationSeedService {
                     .theme(c.getTheme())
                     .controlType(c.getControlType() != null ? c.getControlType() : "CMP")
                     .whatItDoes(c.getMonitoringActivity())
-                    .howTested(c.getComplianceControl())
+                    // Deliberately NOT howTested: the toolkit only carries one control description,
+                    // and copying it here made the detail's "How it's tested" a duplicate of "Description".
                     .controlOwnerName(c.getResponsibleOfficer())
                     .ownerName(c.getOwnerName())
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))

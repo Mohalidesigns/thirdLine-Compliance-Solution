@@ -4,13 +4,13 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  TextField, MenuItem, Tooltip,
+  TextField, MenuItem, Tooltip, Autocomplete,
   Snackbar, Alert as MuiAlert, Link, Grid,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  KpiCards, FilterBar, SectionTable, PageHeader, RiskBadge, StatusBadge, StateBadge, RISK_COLOR, TL,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RISK_COLOR, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
@@ -30,13 +30,6 @@ function formatDate(d) {
 function actLabel(row) {
   if (!row) return '-';
   return row.actName || '-';
-}
-
-function residualRiskChip(rating, likelihood, impact) {
-  if (!rating) return <RiskBadge value={null} />;
-  const chip = <RiskBadge value={rating} />;
-  if (!likelihood && !impact) return chip;
-  return <Tooltip title={`${likelihood || '-'} × ${impact || '-'}`}><span>{chip}</span></Tooltip>;
 }
 
 const TEST_RESULT_TONE = { Passed: 'green', Failed: 'red', Partial: 'orange' };
@@ -67,6 +60,18 @@ const COLUMNS = [
       </Typography>
     </Tooltip>
   ) },
+  { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
+  { id: 'openFindings', label: 'Has Finding', minWidth: 120, render: (c) => {
+    const n = c.openFindings ?? 0;
+    return n > 0
+      ? <StatusBadge label={`${n} open`} tone="red" />
+      : <Typography variant="body2" color="text.secondary">None</Typography>;
+  } },
+  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
+    c.frequency
+      ? <Typography variant="body2">{c.frequency}</Typography>
+      : <Typography variant="body2" color="text.secondary">Not set</Typography>
+  ) },
   { id: 'ownerName', label: 'Owner', minWidth: 140, sortable: true, sortField: 'ownerName', render: (c) => (
     (c.ownerName || c.controlOwnerName)
       ? <Tooltip title={c.ownerName || c.controlOwnerName}>
@@ -75,22 +80,18 @@ const COLUMNS = [
         </Tooltip>
       : <Typography variant="body2" color="text.secondary">Unassigned</Typography>
   ) },
-  { id: 'risk', label: 'Risk', minWidth: 110, sortable: true, sortField: 'residualRiskRating', render: (c) => (
-    residualRiskChip(c.residualRiskRating || c.residualRisk, c.residualLikelihood, c.residualImpact)
-  ) },
-  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
-    c.frequency
-      ? <Typography variant="body2">{c.frequency}</Typography>
-      : <Typography variant="body2" color="text.secondary">Not set</Typography>
-  ) },
-  { id: 'nextTestDueDate', label: 'Next Test Due', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
 ];
 
 export default function ControlsPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const obligationIdParam = searchParams.get('obligationId');
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+
+  // "Linked obligation" filter lives in the URL (?obligationId=) so it survives navigation
+  // from the obligation detail page and can be cleared with a chip.
+  const obligationIdParam = searchParams.get('obligationId');
+  const obligationFilter = obligationIdParam && !Number.isNaN(Number(obligationIdParam))
+    ? Number(obligationIdParam) : null;
 
   const [detailId, setDetailId] = useState(null);
 
@@ -100,6 +101,7 @@ export default function ControlsPage() {
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
+  const [obligationInput, setObligationInput] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
@@ -113,7 +115,7 @@ export default function ControlsPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
-    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All';
+    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All' || obligationFilter != null;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -121,7 +123,7 @@ export default function ControlsPage() {
   if (riskFilter !== 'All') params.residualRisk = riskFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (actFilter !== 'All') params.actName = actFilter;
-  if (obligationIdParam) params.obligationId = obligationIdParam;
+  if (obligationFilter != null) params.obligationId = obligationFilter;
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
   const listQuery = useQuery({
@@ -133,6 +135,22 @@ export default function ControlsPage() {
   const statsQuery = useQuery({
     queryKey: ['controls', 'stats'],
     queryFn: () => api.controls.stats(),
+  });
+
+  // Typeahead source for the "Linked obligation" filter.
+  const obligationOptionsQuery = useQuery({
+    queryKey: ['controls', 'obligation-options', obligationInput],
+    queryFn: () => api.obligations.register({ q: obligationInput.trim(), size: 15 }),
+    enabled: obligationInput.trim().length >= 2,
+    staleTime: 60 * 1000,
+  });
+
+  // Resolve the currently-selected obligation (deep link or chip) to a readable label.
+  const selectedObligationQuery = useQuery({
+    queryKey: ['obligations', 'detail', String(obligationFilter)],
+    queryFn: ({ signal }) => api.obligations.obligationDetail(obligationFilter, signal),
+    enabled: obligationFilter != null,
+    staleTime: 5 * 60 * 1000,
   });
 
   const detailQuery = useQuery({
@@ -148,11 +166,28 @@ export default function ControlsPage() {
   const loading = listQuery.isPending;
   const error = listQuery.error?.message || '';
 
+  const obligationOptions = obligationOptionsQuery.data?.content || [];
+  const selectedObligation = selectedObligationQuery.data;
+  const obligationChipLabel = obligationFilter == null ? ''
+    : (selectedObligation?.title || selectedObligation?.name || `Obligation #${obligationFilter}`);
+  const obligationAutocompleteValue = obligationFilter == null ? null
+    : (obligationOptions.find((o) => o.obligationId === obligationFilter)
+        || { obligationId: obligationFilter, title: obligationChipLabel });
+
   const refreshAll = () => queryClient.invalidateQueries({ queryKey: ['controls'] });
+
+  function setObligationFilter(id) {
+    const next = new URLSearchParams(searchParams);
+    if (id == null) next.delete('obligationId'); else next.set('obligationId', String(id));
+    setSearchParams(next, { replace: true });
+    setObligationInput('');
+    setPage(0);
+  }
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All'); setRiskFilter('All');
     setOwnerFilter('All'); setStatusFilter('All'); setActFilter('All');
+    setObligationFilter(null);
     setPage(0);
   }
 
@@ -257,8 +292,38 @@ export default function ControlsPage() {
         filters={filters}
         showClear={hasFilters}
         onClear={clearFilters}
-      />
+      >
+        <FilterField label="Linked Obligation" minWidth={260}>
+          <Autocomplete
+            size="small"
+            options={obligationOptions}
+            value={obligationAutocompleteValue}
+            onChange={(_, opt) => setObligationFilter(opt ? opt.obligationId : null)}
+            onInputChange={(_, v) => setObligationInput(v)}
+            getOptionLabel={(o) => o.title || o.name || `Obligation #${o.obligationId}`}
+            isOptionEqualToValue={(o, v) => o.obligationId === v.obligationId}
+            filterOptions={(x) => x}
+            loading={obligationOptionsQuery.isFetching}
+            noOptionsText={obligationInput.trim().length >= 2 ? 'No obligations found' : 'Type to search obligations'}
+            renderInput={(params) => <TextField {...params} placeholder="Search obligation…" />}
+            sx={{ minWidth: 260 }}
+          />
+        </FilterField>
+      </FilterBar>
 
+      {obligationFilter != null && (
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            color="primary"
+            variant="outlined"
+            label={`Linked obligation: ${obligationChipLabel}`}
+            onDelete={() => setObligationFilter(null)}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Showing controls traced to this obligation
+          </Typography>
+        </Box>
+      )}
       <SectionTable
         columns={COLUMNS}
         rows={items}
@@ -346,7 +411,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           chip={<RiskChip rating={detail.residualRiskRating || detail.residualRisk}
             likelihood={detail.residualLikelihood} impact={detail.residualImpact} />} />
         <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
-        <StatTile icon={<CalendarDaysIcon />} label="Next Test Due"
+        <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
       </Box>
 
@@ -501,7 +566,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Field label="Act" value={actLabel(detail)} />
               <Field label="Regulatory Requirement" value={detail.regulatoryRequirement} />
               <Field label="Monitoring Activity" value={detail.monitoringActivity} />
-              <Field label="Due Date" value={detail.dueDate} />
               <Field label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
             </FieldGrid>
           </Section>
