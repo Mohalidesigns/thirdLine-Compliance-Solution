@@ -32,6 +32,10 @@ public final class WorkflowStatus {
     public static final String FINDING_REMEDIATED = "Remediated";
     public static final String FINDING_CLOSED = "Closed";
 
+    /** Finding types. */
+    public static final String FINDING_TYPE_CONTROL_FAILURE = "Control Failure";
+    public static final String FINDING_TYPE_GAP = "Gap";
+
     /** Severity bands (obligations and findings). */
     public static final String RISK_CRITICAL = "Critical";
     public static final String RISK_HIGH = "High";

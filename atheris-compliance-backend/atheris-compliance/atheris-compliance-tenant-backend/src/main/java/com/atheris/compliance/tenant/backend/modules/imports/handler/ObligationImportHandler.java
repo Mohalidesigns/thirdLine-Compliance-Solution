@@ -37,7 +37,7 @@ public class ObligationImportHandler implements ImportHandler {
     // Column indexes — must match COLUMNS order.
     private static final int TITLE = 0, TEXT = 1, PLAIN = 2, REGULATOR = 3, ACT = 4, SECTION = 5,
         AREA = 6, OB_TYPE = 7, DEADLINE = 8, EFFECTIVE = 9, IMPACT = 10, LIKELIHOOD = 11,
-        OWNER = 12, HAS_GAP = 13, GAP_DESC = 14;
+        OWNER = 12;
 
     private static final List<ImportColumn> COLUMNS = List.of(
         new ImportColumn("Obligation Title", true),
@@ -52,9 +52,7 @@ public class ObligationImportHandler implements ImportHandler {
         new ImportColumn("Effective Date", false),
         new ImportColumn("Impact", false),
         new ImportColumn("Likelihood", false),
-        new ImportColumn("Owner", false),
-        new ImportColumn("Has Gap", false),
-        new ImportColumn("Gap Description", false));
+        new ImportColumn("Owner", false));
 
     /** Column widths of the target VARCHAR columns on {@code obligations}. */
     private static final Map<Integer, Integer> MAX_LENGTH = Map.of(ACT, 500, AREA, 100, OB_TYPE, 100, DEADLINE, 100);
@@ -92,7 +90,6 @@ public class ObligationImportHandler implements ImportHandler {
         m.put("Likelihood", ObligationClassification.LIKELIHOOD_LEVELS);
         m.put("Owner", ownerRepo.findByIsActiveTrueOrderByFullNameAsc().stream()
             .map(Owner::getFullName).filter(Objects::nonNull).distinct().toList());
-        m.put("Has Gap", List.of("Y", "N"));
         return m;
     }
 
@@ -126,7 +123,7 @@ public class ObligationImportHandler implements ImportHandler {
     /** Parsed, resolved values of a valid row. */
     private record Parsed(String title, String text, String plain, TenantRegulator regulator, String act,
                           String section, String area, String obligationType, String deadline, LocalDate effective,
-                          String impact, String likelihood, Owner owner, boolean hasGap, String gapDescription) {}
+                          String impact, String likelihood, Owner owner) {}
 
     private record Lookups(Map<String, TenantRegulator> regulators, Map<String, Owner> owners,
                            Map<Integer, String> departmentNames, Set<String> existingKeys) {}
@@ -211,14 +208,6 @@ public class ObligationImportHandler implements ImportHandler {
                     errors.add("Effective Date '" + dateRaw + "' is not a valid date (use yyyy-MM-dd or dd/MM/yyyy)");
             }
 
-            boolean hasGap = false;
-            String gapRaw = row.value(HAS_GAP);
-            if (gapRaw != null) {
-                String g = norm(gapRaw);
-                if (YES.contains(g)) hasGap = true;
-                else if (!NO.contains(g)) errors.add("Has Gap '" + gapRaw + "' must be Y or N");
-            }
-
             // display summary — filled for every row so invalid rows are still recognisable
             row.setPrimary(title);
             row.setSecondary(row.value(PLAIN) != null ? row.value(PLAIN) : row.value(TEXT));
@@ -251,7 +240,7 @@ public class ObligationImportHandler implements ImportHandler {
             row.setErrors(new ArrayList<>());
             parsedRows.put(row, new Parsed(title, row.value(TEXT), row.value(PLAIN), regulator, row.value(ACT),
                 row.value(SECTION), row.value(AREA), row.value(OB_TYPE), row.value(DEADLINE), effective,
-                impact, likelihood, owner, hasGap, hasGap ? row.value(GAP_DESC) : null));
+                impact, likelihood, owner));
         }
         return parsedRows;
     }
@@ -307,8 +296,6 @@ public class ObligationImportHandler implements ImportHandler {
                 .classifiedAt(now)
                 .impactRating(p.impact())
                 .likelihoodRating(p.likelihood())
-                .hasGap(p.hasGap())
-                .gapDescription(p.gapDescription())
                 .linkedControlIds(new ArrayList<>())
                 .build();
             if (p.owner() != null) {

@@ -43,8 +43,6 @@ public class SaveReviewRequest {
         private Integer assignedOwnerId;
         private String assignedOwnerName;
         private String assignedDepartment;
-        private Boolean hasGap;
-        private String gapDescription;
         private List<Long> linkedReturnIds;
     }
 }

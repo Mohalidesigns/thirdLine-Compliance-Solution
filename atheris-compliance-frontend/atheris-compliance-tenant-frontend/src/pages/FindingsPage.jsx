@@ -16,6 +16,7 @@ import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
+import EntityPicker from '../components/modals/EntityPicker';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 
 const SECTION_LABEL_SX = {
@@ -39,6 +40,7 @@ export default function FindingsPage() {
   const [stats, setStats] = useState(null);
   const [searchParams] = useSearchParams();
   const [raiseOpen, setRaiseOpen] = useState(false);
+  const [raiseInitial, setRaiseInitial] = useState(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [remediateOpen, setRemediateOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -57,8 +59,12 @@ export default function FindingsPage() {
     if (filters.overdueOnly) p.overdueOnly = true;
     api.findings.register(p).then(res => setData(res))
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
-    api.findings.stats().then(setStats).catch(() => {});
+    loadStats();
   }, [page, rowsPerPage, filters]);
+
+  const loadStats = useCallback(() => {
+    api.findings.stats().then(setStats).catch(() => {});
+  }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -72,6 +78,25 @@ export default function FindingsPage() {
     const fid = searchParams.get('findingId');
     if (fid) loadDetail(fid);
   }, [searchParams, loadDetail]);
+
+  useEffect(() => {
+    const raise = searchParams.get('raise');
+    if (raise !== 'gap') return;
+    const oid = searchParams.get('obligationId');
+    const load = async () => {
+      let label = oid ? `Obligation #${oid}` : '';
+      if (oid) {
+        try {
+          const o = await api.obligations.register({ size: 200 });
+          const row = (o.content || o || []).find((x) => String(x.obligationId) === String(oid));
+          if (row) label = row.title || row.name || label;
+        } catch { /* label stays as the id */ }
+      }
+      setRaiseInitial({ findingType: 'Gap', linkedObligationId: oid ? Number(oid) : null, obligationLabel: label });
+      setRaiseOpen(true);
+    };
+    load();
+  }, [searchParams]);
 
   const byStatus = stats?.byStatus || {};
   const findingKpis = [
@@ -236,8 +261,8 @@ export default function FindingsPage() {
         )}
       </DataCard>
 
-      <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)}
-        onSaved={() => { setRaiseOpen(false); loadList(); }} onSnackbar={setSnackbar} />
+      <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)} initial={raiseInitial}
+        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
 
       {canImport && (
         <ImportDialog entityType="findings" entityLabel="findings" open={importOpen}
@@ -275,12 +300,16 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const navigate = useNavigate();
 
   const hasControl = detail.linkedControlId != null;
-  const stageNames = hasControl
-    ? ['Control', 'Test failed', 'Finding raised', 'In remediation', 'Review & sign off', 'Closed']
-    : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
-  const stageOffset = hasControl ? 2 : 0;
+  const isGapFinding = detail.findingType === 'Gap';
+  const stageNames = isGapFinding
+    ? ['Obligation (no control)', 'Gap raised', 'Control linked', 'In remediation', 'Review & sign off', 'Closed']
+    : hasControl
+      ? ['Control', 'Test failed', 'Finding raised', 'In remediation', 'Review & sign off', 'Closed']
+      : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
+  const stageOffset = (isGapFinding || hasControl) ? 2 : 0;
   const stageByStatus = { Open: 0, 'In Remediation': 1, Remediated: 2, Closed: 3 };
   const activeStep = isClosed ? stageNames.length : stageOffset + (stageByStatus[detail.status] ?? 0);
+  const controlLinked = detail.linkedControlId != null;
 
   return (
     <Box>
@@ -346,27 +375,34 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         <Grid size={{ xs: 12, md: 8 }}>
           <DataCard title="Workflow" sx={{ mb: 3 }}>
             <Stepper activeStep={activeStep} alternativeLabel>
-              {stageNames.map((name, i) => (
-                <Step key={name} completed={i < activeStep}>
-                  <StepLabel>
-                    <Typography
-                      onClick={hasControl && i === 0
-                        ? () => navigate(`/controls?controlId=${detail.linkedControlId}`)
-                        : undefined}
-                      sx={{
-                        fontSize: '0.8125rem', fontWeight: i === activeStep ? 700 : 500,
-                        color: i === activeStep ? 'primary.main' : (i < activeStep ? 'text.secondary' : 'text.disabled'),
-                        cursor: hasControl && i === 0 ? 'pointer' : 'default',
-                        textDecoration: hasControl && i === 0 ? 'underline' : 'none',
-                      }}>
-                      {name}
-                    </Typography>
-                  </StepLabel>
-                </Step>
-              ))}
+              {stageNames.map((name, i) => {
+                const linkable = (hasControl && i === 0) || (isGapFinding && detail.linkedObligationId != null && i === 0);
+                const stepDone = isGapFinding && i === 2 ? controlLinked : i < activeStep;
+                return (
+                  <Step key={name} completed={stepDone}>
+                    <StepLabel>
+                      <Typography
+                        onClick={linkable
+                          ? () => navigate(hasControl
+                            ? `/controls?controlId=${detail.linkedControlId}`
+                            : `/obligations/${detail.linkedObligationId}`)
+                          : undefined}
+                        sx={{
+                          fontSize: '0.8125rem', fontWeight: i === activeStep ? 700 : 500,
+                          color: i === activeStep ? 'primary.main' : (stepDone ? 'text.secondary' : 'text.disabled'),
+                          cursor: linkable ? 'pointer' : 'default',
+                          textDecoration: linkable ? 'underline' : 'none',
+                        }}>
+                        {name}
+                      </Typography>
+                    </StepLabel>
+                  </Step>
+                );
+              })}
             </Stepper>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
               {isClosed ? 'Finding closed — remediation signed off.'
+                : isGapFinding && !controlLinked ? 'This obligation has no control. Create/link a control (View controls on the obligation) before this gap finding can be closed.'
                 : isRemediated ? (isSubmitter
                   ? 'Awaiting sign off by another reviewer — you submitted this remediation.'
                   : 'Remediation submitted — review and sign off to close.')
@@ -465,25 +501,46 @@ function DetailRow({ label, value }) {
 }
 
 /* ---------- Raise Dialog ---------- */
-function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({
-    findingType: '', severity: '', description: '', rootCause: '',
-    linkedObligationId: '', linkedControlId: '',
+function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
+  const empty = {
+    findingType: 'Control Failure', severity: '', description: '', rootCause: '',
+    linkedObligationId: null, linkedControlId: null,
     assignedToOwnerId: null, remediationDeadline: '',
-  });
+  };
+  const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
+  const [obligationOpen, setObligationOpen] = useState(false);
+  const [controlLabel, setControlLabel] = useState('');
+  const [obligationLabel, setObligationLabel] = useState('');
+
+  const isGap = form.findingType === 'Gap';
+  const isFailure = form.findingType === 'Control Failure';
+
+  useEffect(() => {
+    if (open) {
+      setForm({ ...empty, ...(initial || {}) });
+      setControlLabel(initial?.controlLabel || '');
+      setObligationLabel(initial?.obligationLabel || '');
+    }
+  }, [open]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { ...form };
-      if (body.linkedObligationId) body.linkedObligationId = parseInt(body.linkedObligationId, 10);
-      if (body.linkedControlId) body.linkedControlId = parseInt(body.linkedControlId, 10);
+      const body = {
+        findingType: form.findingType, severity: form.severity, description: form.description,
+        rootCause: form.rootCause, assignedToOwnerId: form.assignedToOwnerId,
+        remediationDeadline: form.remediationDeadline,
+      };
+      if (isFailure) body.linkedControlId = form.linkedControlId;
+      if (isGap) body.linkedObligationId = form.linkedObligationId;
       await api.findings.raise(body);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  const reset = () => setForm({ findingType: '', severity: '', description: '', rootCause: '', linkedObligationId: '', linkedControlId: '', assignedToOwnerId: null, remediationDeadline: '' });
-  useEffect(() => { if (open) reset(); }, [open]);
+
+  const linkedOk = isFailure ? form.linkedControlId != null : (isGap ? form.linkedObligationId != null : true);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -492,11 +549,9 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid size={{ xs: 6 }}>
             <TextField select label="Finding type" fullWidth size="small" required value={form.findingType}
-              onChange={e => setForm(f => ({ ...f, findingType: e.target.value }))}>
-              <MenuItem value="">Select...</MenuItem>
-              <MenuItem value="Gap">Gap (no control exists)</MenuItem>
-              <MenuItem value="Control Failure">Control failure (test failed)</MenuItem>
-              <MenuItem value="Process Weakness">Process weakness</MenuItem>
+              onChange={e => setForm(f => ({ ...f, findingType: e.target.value, linkedControlId: null, linkedObligationId: null }))}>
+              <MenuItem value="Control Failure">Control failure (a control failed)</MenuItem>
+              <MenuItem value="Gap">Gap (obligation has no control)</MenuItem>
             </TextField>
           </Grid>
           <Grid size={{ xs: 6 }}>
@@ -509,6 +564,24 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
+          {isFailure && (
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField label="Control" fullWidth size="small" required value={controlLabel}
+                  placeholder="Select the control that failed" InputProps={{ readOnly: true }} />
+                <Button variant="outlined" onClick={() => setControlOpen(true)}>Select</Button>
+              </Box>
+            </Grid>
+          )}
+          {isGap && (
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField label="Obligation" fullWidth size="small" required value={obligationLabel}
+                  placeholder="Select the uncovered obligation" InputProps={{ readOnly: true }} />
+                <Button variant="outlined" onClick={() => setObligationOpen(true)}>Select</Button>
+              </Box>
+            </Grid>
+          )}
           <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} required value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
@@ -516,14 +589,6 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
           <Grid size={{ xs: 12 }}>
             <TextField label="Root cause" fullWidth size="small" multiline minRows={2} value={form.rootCause}
               onChange={e => setForm(f => ({ ...f, rootCause: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField label="Linked Obligation ID" fullWidth size="small" type="number" value={form.linkedObligationId}
-              onChange={e => setForm(f => ({ ...f, linkedObligationId: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField label="Linked Control ID" fullWidth size="small" type="number" value={form.linkedControlId}
-              onChange={e => setForm(f => ({ ...f, linkedControlId: e.target.value }))} />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
@@ -538,10 +603,47 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.findingType || !form.severity || !form.description || !form.remediationDeadline}>
+        <Button variant="contained" onClick={handleSave}
+          disabled={saving || !form.findingType || !form.severity || !form.description || !form.remediationDeadline || !linkedOk}>
           {saving ? 'Raising...' : 'Raise Finding'}
         </Button>
       </DialogActions>
+
+      {controlOpen && (
+        <EntityPicker open title="Select Control"
+          fetchRows={(q) => api.controls.register({ q: q || undefined, size: 50 })}
+          getKey={(c) => c.controlId}
+          label={(c) => `${c.controlNumber} · ${c.name}`}
+          columns={[
+            { label: 'Control', render: (c) => `${c.controlNumber || ''} ${c.name || ''}` },
+            { label: 'Owner', render: (c) => c.ownerName || c.controlOwnerName || '-' },
+            { label: 'Theme', render: (c) => c.theme || '-' },
+          ]}
+          onClose={() => setControlOpen(false)}
+          onSave={(id, row) => {
+            setForm(f => ({ ...f, linkedControlId: id }));
+            setControlLabel(row ? `${row.controlNumber || ''} · ${row.name || ''}` : `Control #${id}`);
+            setControlOpen(false);
+          }} />
+      )}
+
+      {obligationOpen && (
+        <EntityPicker open title="Select Obligation (no control)"
+          fetchRows={(q) => api.obligations.register({ q: q || undefined, noControl: 'true', size: 50 })}
+          getKey={(o) => o.obligationId}
+          label={(o) => o.title || o.name || `Obligation #${o.obligationId}`}
+          columns={[
+            { label: 'Obligation', render: (o) => o.title || o.name || `Obligation #${o.obligationId}` },
+            { label: 'Act', render: (o) => o.actName || '-' },
+            { label: 'Controls', render: (o) => o.controlCount ?? 0 },
+          ]}
+          onClose={() => setObligationOpen(false)}
+          onSave={(id, row) => {
+            setForm(f => ({ ...f, linkedObligationId: id }));
+            setObligationLabel(row ? (row.title || row.name || `Obligation #${id}`) : `Obligation #${id}`);
+            setObligationOpen(false);
+          }} />
+      )}
     </Dialog>
   );
 }

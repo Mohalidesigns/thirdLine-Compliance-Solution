@@ -6,7 +6,7 @@ import {
 const ITEMS = [
   { key: 'overdue_returns', label: 'Overdue Returns', icon: ClockIcon, tone: 'red', route: '/returns' },
   { key: 'controls_failing', label: 'Controls Failing', icon: ShieldCheckIcon, tone: 'orange', route: '/controls' },
-  { key: 'obligations_no_control', label: 'Obligations Without Controls', icon: LinkIcon, tone: 'purple', route: '/obligations?hasGap=true' },
+  { key: 'obligations_no_control', label: 'Obligations Without Controls', icon: LinkIcon, tone: 'purple', route: '/obligations?noControl=true' },
   { key: 'high_risk_findings', label: 'High-Risk Findings', icon: ExclamationTriangleIcon, tone: 'red', route: '/findings' },
 ];
 

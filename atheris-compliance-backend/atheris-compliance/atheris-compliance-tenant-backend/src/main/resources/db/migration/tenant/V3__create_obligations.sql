@@ -48,8 +48,6 @@ CREATE TABLE IF NOT EXISTS obligation_classifications (
     assigned_owner_name        TEXT,
     assigned_department        TEXT,
     linked_control_ids         JSONB,
-    has_gap                    BOOLEAN DEFAULT false,
-    gap_description            TEXT,
     classification_version     INT DEFAULT 1,
     classified_by_user_id      INT,
     classified_at              TIMESTAMP WITH TIME ZONE,
@@ -71,7 +69,6 @@ CREATE TABLE IF NOT EXISTS classification_history (
     applicability            VARCHAR(50),
     tenant_risk_rating       VARCHAR(50),
     assigned_owner_user_id   INT,
-    has_gap                  BOOLEAN,
     change_reason            TEXT,
     changed_by_user_id       INT,
     changed_at               TIMESTAMP WITH TIME ZONE DEFAULT NOW()

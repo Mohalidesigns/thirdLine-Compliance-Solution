@@ -15,8 +15,6 @@ public class ObligationRequest {
     private String obligationType;
     private String recurringDeadlineType;
     private LocalDate effectiveDate;
-    private Boolean hasGap;
-    private String gapDescription;
     private List<Integer> linkedControlIds;
     private String changeReason;
 }

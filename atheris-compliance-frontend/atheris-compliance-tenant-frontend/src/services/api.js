@@ -376,9 +376,6 @@ export const api = {
     updateRisk: (obligationId, data) => request(`/obligations/${obligationId}/risk`, {
       method: 'PUT', body: JSON.stringify(data),
     }),
-    updateGap: (obligationId, data) => request(`/obligations/${obligationId}/gap`, {
-      method: 'PUT', body: JSON.stringify(data),
-    }),
     linkControls: (obligationId, data) => request(`/obligations/${obligationId}/controls`, {
       method: 'PUT', body: JSON.stringify(data),
     }),

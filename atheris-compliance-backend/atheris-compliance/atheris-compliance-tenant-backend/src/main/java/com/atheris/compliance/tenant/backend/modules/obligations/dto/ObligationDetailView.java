@@ -50,8 +50,6 @@ public class ObligationDetailView {
     private String assignedOwnerName;
     private String controlOwner;
     private String assignedDepartment;
-    private Boolean hasGap;
-    private String gapDescription;
     private String status;
     private Integer classificationVersion;
     private Instant classifiedAt;
@@ -131,7 +129,6 @@ public class ObligationDetailView {
         private String applicability;
         private String tenantRiskRating;
         private Integer assignedOwnerUserId;
-        private Boolean hasGap;
         private String changeReason;
         private Integer changedByUserId;
         private String changedByName;

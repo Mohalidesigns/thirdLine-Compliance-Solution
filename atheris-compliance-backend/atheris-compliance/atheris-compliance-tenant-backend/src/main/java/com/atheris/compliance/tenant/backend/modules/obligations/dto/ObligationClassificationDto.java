@@ -25,8 +25,6 @@ public class ObligationClassificationDto {
     private String assignedOwnerName;
     private String assignedDepartment;
     private List<Integer> linkedControlIds;
-    private Boolean hasGap;
-    private String gapDescription;
     private String status;
     private Integer classificationVersion;
     private Instant classifiedAt;

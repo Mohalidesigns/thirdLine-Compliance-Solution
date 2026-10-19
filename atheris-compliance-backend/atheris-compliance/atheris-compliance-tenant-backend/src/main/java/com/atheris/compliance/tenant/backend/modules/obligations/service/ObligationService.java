@@ -60,13 +60,13 @@ public class ObligationService {
 
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
-            String status, Boolean hasGap, Boolean noControl, Long instrumentId,
+            String status, Boolean noControl, Long instrumentId,
             String act, Boolean hasPoints, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints))
             .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
@@ -258,8 +258,6 @@ public class ObligationService {
                 .controlOwner(ob.getControlOwner())
                 .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
                 .status(c != null ? c.getStatus() : ob.getStatus())
-                .hasGap(c != null && Boolean.TRUE.equals(c.getHasGap()))
-                .gapDescription(c != null ? c.getGapDescription() : null)
                 .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
                 .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
                 .linkedReturnIds(linkedReturnIds)
@@ -273,10 +271,9 @@ public class ObligationService {
     }
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
-                            String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl,
+                            String areaOfFocus, String owner, String status, Boolean noControl,
                             Long instrumentId, String act, Boolean hasPoints) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
-        if (hasGap != null && hasGap && !Boolean.TRUE.equals(i.getHasGap())) return false;
         if (noControl != null && noControl && i.getControlCount() > 0) return false;
         if (hasPoints != null && hasPoints != Boolean.TRUE.equals(i.getHasPoints())) return false;
         if (act != null && !act.isBlank() && !act.equals(i.getActName())) return false;
@@ -438,9 +435,7 @@ public class ObligationService {
             .applicability("applicable")
             .classifiedByUserId(userId)
             .classifiedAt(Instant.now())
-            .hasGap(Boolean.TRUE.equals(req.getHasGap()))
-            .gapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null)
-            .linkedControlIds(req.getLinkedControlIds() == null
+                        .linkedControlIds(req.getLinkedControlIds() == null
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
@@ -471,10 +466,6 @@ public class ObligationService {
 
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
-        if (req.getHasGap() != null) {
-            c.setHasGap(req.getHasGap());
-            c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
-        }
         if (req.getLinkedControlIds() != null) {
             List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
             syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
@@ -540,9 +531,7 @@ public class ObligationService {
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .status(c != null ? c.getStatus() : ob.getStatus())
-            .hasGap(c != null && Boolean.TRUE.equals(c.getHasGap()))
-            .gapDescription(c != null ? c.getGapDescription() : null)
-            .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
+                        .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
             .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
             .linkedReturnIds(linkedReturnIds)
             .returnNames(returnNames)
@@ -607,8 +596,7 @@ public class ObligationService {
             .map(h -> ObligationDetailView.HistoryItem.builder()
                 .classificationVersion(h.getClassificationVersion())
                 .applicability(h.getApplicability()).tenantRiskRating(h.getTenantRiskRating())
-                .assignedOwnerUserId(h.getAssignedOwnerUserId()).hasGap(h.getHasGap())
-                .changeReason(h.getChangeReason()).changedByUserId(h.getChangedByUserId())
+                                .changeReason(h.getChangeReason()).changedByUserId(h.getChangedByUserId())
                 .changedByName(h.getChangedByUserId() != null ? userNameById.get(h.getChangedByUserId()) : null)
                 .changedAt(h.getChangedAt()).build())
             .toList();
@@ -672,9 +660,7 @@ public class ObligationService {
             .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
-            .hasGap(c != null ? c.getHasGap() : null)
-            .gapDescription(c != null ? c.getGapDescription() : null)
-            .status(c != null ? c.getStatus() : ob.getStatus())
+                        .status(c != null ? c.getStatus() : ob.getStatus())
             .classificationVersion(c != null ? c.getClassificationVersion() : null)
             .classifiedAt(c != null ? c.getClassifiedAt() : null)
             .classifiedByName(c != null && c.getClassifiedByUserId() != null ? userNameById.get(c.getClassifiedByUserId()) : null)
@@ -799,19 +785,6 @@ public class ObligationService {
     }
 
     @Transactional
-    public void updateGap(Long obligationId, GapRequest req, Integer userId) {
-        Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
-        ObligationClassification c = loadOrCreateClassification(ob, userId);
-        recordHistory(c, ob, req.getChangeReason(), userId);
-        c.setHasGap(Boolean.TRUE.equals(req.getHasGap()));
-        c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
-        classifications.save(c);
-        audit.log(userId, "update_gap", "obligation", obligationId,
-            java.util.Collections.singletonMap("hasGap", req.getHasGap()));
-    }
-
-    @Transactional
     public void linkControls(Long obligationId, LinkControlsRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
@@ -869,8 +842,7 @@ public class ObligationService {
             .instrumentId(ob.getInstrumentId()).obligationId(ob.getObligationId())
             .classificationVersion(c.getClassificationVersion())
             .applicability(c.getApplicability()).tenantRiskRating(c.getTenantRiskRating())
-            .assignedOwnerUserId(c.getAssignedOwnerUserId()).hasGap(c.getHasGap())
-            .changeReason(changeReason).changedByUserId(userId).build());
+                        .changeReason(changeReason).changedByUserId(userId).build());
         c.setClassificationVersion(c.getClassificationVersion() + 1);
     }
 
@@ -906,8 +878,7 @@ public class ObligationService {
                 .applicability(h.getApplicability())
                 .tenantRiskRating(h.getTenantRiskRating())
                 .assignedOwnerUserId(h.getAssignedOwnerUserId())
-                .hasGap(h.getHasGap())
-                .changeReason(h.getChangeReason())
+                                .changeReason(h.getChangeReason())
                 .changedByUserId(h.getChangedByUserId())
                 .changedAt(h.getChangedAt())
                 .build())
@@ -940,9 +911,7 @@ public class ObligationService {
             .assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment())
             .linkedControlIds(c.getLinkedControlIds())
-            .hasGap(c.getHasGap())
-            .gapDescription(c.getGapDescription())
-            .status(c.getStatus())
+                        .status(c.getStatus())
             .classificationVersion(c.getClassificationVersion())
             .classifiedByUserId(c.getClassifiedByUserId())
             .classifiedAt(c.getClassifiedAt())
@@ -983,8 +952,7 @@ public class ObligationService {
             .residualRiskRating(c.getResidualRiskRating())
             .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment()).linkedControlIds(c.getLinkedControlIds())
-            .hasGap(c.getHasGap()).gapDescription(c.getGapDescription())
-            .classificationVersion(c.getClassificationVersion())
+                        .classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();
     }
 
@@ -993,10 +961,6 @@ public class ObligationService {
             .instrumentId(c.getInstrumentId()).obligationId(c.getObligationId())
             .sourceTitle("Instrument " + c.getInstrumentId()).status(c.getStatus())
             .applicability(c.getApplicability()).build();
-    }
-
-    public List<ObligationClassificationDto> getGaps() {
-        return classifications.findByHasGapTrue().stream().map(this::toDto).toList();
     }
 
     @Transactional
@@ -1013,8 +977,7 @@ public class ObligationService {
                 .instrumentId(ob.getInstrumentId()).obligationId(obligationId)
                 .classificationVersion(c.getClassificationVersion())
                 .applicability(c.getApplicability()).tenantRiskRating(c.getTenantRiskRating())
-                .assignedOwnerUserId(c.getAssignedOwnerUserId()).hasGap(c.getHasGap())
-                .changeReason(req.getChangeReason()).changedByUserId(userId).build());
+                                .changeReason(req.getChangeReason()).changedByUserId(userId).build());
             c.setClassificationVersion(c.getClassificationVersion() + 1);
         }
         if (req.getApplicability() != null) c.setApplicability(req.getApplicability());
@@ -1030,8 +993,6 @@ public class ObligationService {
         if (req.getAssignedOwnerName() != null) c.setAssignedOwnerName(req.getAssignedOwnerName());
         if (req.getAssignedDepartment() != null) c.setAssignedDepartment(req.getAssignedDepartment());
         if (req.getLinkedControlIds() != null) c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
-        if (req.getHasGap() != null) c.setHasGap(req.getHasGap());
-        if (req.getGapDescription() != null) c.setGapDescription(req.getGapDescription());
         c.setClassifiedByUserId(userId);
         c.setClassifiedAt(Instant.now());
         c.setStatus("active");
@@ -1060,9 +1021,7 @@ public class ObligationService {
             .inherentRiskRating(c.getInherentRiskRating()).residualRiskRating(c.getResidualRiskRating())
             .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment())
-            .linkedControlIds(c.getLinkedControlIds()).hasGap(c.getHasGap())
-            .gapDescription(c.getGapDescription())
-            .status(c.getStatus()).classificationVersion(c.getClassificationVersion())
+            .linkedControlIds(c.getLinkedControlIds())            .status(c.getStatus()).classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();
     }
 }

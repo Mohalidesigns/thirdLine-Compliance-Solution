@@ -36,7 +36,6 @@ public class ObligationController {
             @RequestParam(required = false) String areaOfFocus,
             @RequestParam(required = false) String owner,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Boolean hasGap,
             @RequestParam(required = false) Boolean noControl,
             @RequestParam(required = false) Long instrumentId,
             @RequestParam(required = false) String act,
@@ -45,7 +44,7 @@ public class ObligationController {
             @RequestParam(required = false) String riskView,
             Pageable p) {
         return ResponseEntity.ok(service.getRegisterList(
-            q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints,
+            q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints,
             cells, riskView, p));
     }
 
@@ -100,12 +99,6 @@ public class ObligationController {
         return ResponseEntity.ok(service.getInbox(p));
     }
 
-    @GetMapping("/gaps")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.ANALYST + "')")
-    public ResponseEntity<List<ObligationClassificationDto>> gaps() {
-        return ResponseEntity.ok(service.getGaps());
-    }
-
     @GetMapping("/{id}/detail")
     public ResponseEntity<ObligationDetailResponse> detail(@PathVariable Long id) {
         return ResponseEntity.ok(service.getDetail(id));
@@ -146,16 +139,6 @@ public class ObligationController {
             @RequestBody RiskAssessmentRequest req,
             @AuthenticationPrincipal User u) {
         service.updateRisk(id, req, u.getUserId());
-        return ResponseEntity.ok().build();
-    }
-
-    @PutMapping("/{id}/gap")
-    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
-    public ResponseEntity<Void> updateGap(
-            @PathVariable Long id,
-            @RequestBody GapRequest req,
-            @AuthenticationPrincipal User u) {
-        service.updateGap(id, req, u.getUserId());
         return ResponseEntity.ok().build();
     }
 

@@ -7,6 +7,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -40,6 +41,7 @@ public class FindingService {
     private final OwnerRepository ownerRepo;
     private final ControlRepository controlRepo;
     private final ControlTestResultRepository controlTestRepo;
+    private final ObligationClassificationRepository obligationClassificationRepo;
     private final AuditService audit;
     private final NotificationService notifications;
     private final EvidenceVaultService evidence;
@@ -144,7 +146,7 @@ public class FindingService {
         Finding f = Finding.builder()
             .triggeredByTestId(test.getTestId()).triggerReason("Control test failed")
             .linkedControlId(control.getControlId()).linkedObligationId(linkedObligationId)
-            .findingType("Control Failure").severity(severity)
+            .findingType(WorkflowStatus.FINDING_TYPE_CONTROL_FAILURE).severity(severity)
             .description(String.format("Control %s (%s) failed on %s. %s",
                 control.getControlNumber(), control.getName(), test.getTestDate(), test.getResultDescription()))
             .rootCause(test.getFailureDetails())
@@ -162,13 +164,32 @@ public class FindingService {
 
     @Transactional
     public FindingRaisedResponse manualRaise(RaiseFindingRequest req, Integer userId) {
+        String type = req.getFindingType();
+        Integer controlId = req.getLinkedControlId();
+        Long obligationId = req.getLinkedObligationId();
+        if (WorkflowStatus.FINDING_TYPE_GAP.equals(type)) {
+            if (obligationId == null) {
+                throw ApiException.badRequest("A gap finding must be linked to an obligation");
+            }
+            controlId = null;
+        } else if (WorkflowStatus.FINDING_TYPE_CONTROL_FAILURE.equals(type)) {
+            if (controlId == null) {
+                throw ApiException.badRequest("A control failure finding must be linked to a control");
+            }
+            if (obligationId == null) {
+                obligationId = controlRepo.findById(controlId)
+                    .map(Control::getLinkedObligationIds)
+                    .filter(ids -> ids != null && !ids.isEmpty())
+                    .map(ids -> ids.get(0)).orElse(null);
+            }
+        }
         int sla = slaDays(req.getSeverity());
         Finding f = Finding.builder()
-            .triggerReason("Manual discovery").findingType(req.getFindingType())
+            .triggerReason("Manual discovery").findingType(type)
             .severity(req.getSeverity()).description(req.getDescription())
             .rootCause(req.getRootCause())
-            .linkedObligationId(req.getLinkedObligationId())
-            .linkedControlId(req.getLinkedControlId())
+            .linkedObligationId(obligationId)
+            .linkedControlId(controlId)
             .assignedToOwnerId(req.getAssignedToOwnerId())
             .assignedToName(resolveOwnerName(req.getAssignedToOwnerId()))
             .assignedAt(req.getAssignedToOwnerId() != null ? Instant.now() : null)
@@ -278,6 +299,10 @@ public class FindingService {
         }
 
         if (WorkflowStatus.REVIEW_ACCEPTED.equals(decision)) {
+            if (WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType()) && !gapResolved(f)) {
+                throw ApiException.conflict("gap_open",
+                    "Link a control to this obligation before closing the gap finding");
+            }
             f.setStatus(WorkflowStatus.FINDING_CLOSED);
             f.setClosedAt(Instant.now());
             f.setSignedOffByUserId(reviewer.getUserId());
@@ -331,6 +356,19 @@ public class FindingService {
                 controlRepo.save(control);
             }
         });
+    }
+
+    /**
+     * A gap finding is resolved once its obligation is covered by at least one control.
+     * Closing a gap finding before that would clear nothing on the register.
+     */
+    private boolean gapResolved(Finding f) {
+        if (f.getLinkedObligationId() == null) {
+            return false;
+        }
+        return obligationClassificationRepo.findByObligationId(f.getLinkedObligationId())
+            .map(c -> c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty())
+            .orElse(false);
     }
 
     public FindingStatsDto getStats() {

@@ -9,7 +9,7 @@ import { api } from '../services/api';
 import {
   SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
-  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon,
+  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -79,7 +79,7 @@ export default function ObligationsRegisterPage() {
   const [regulatorFilter, setRegulatorFilter] = useState(searchParams.get('regulator') || 'All');
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [noControl, setNoControl] = useState(false);
+  const [noControl, setNoControl] = useState(() => searchParams.get('noControl') === 'true');
   // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
   const [heatmapDrill, setHeatmapDrill] = useState(() => (searchParams.get('cells')
     ? { cells: searchParams.get('cells'), riskView: searchParams.get('riskView') || 'inherent', label: searchParams.get('drill') || 'Selected cells' }
@@ -271,6 +271,14 @@ export default function ObligationsRegisterPage() {
         emptyMessage="No obligations found."
         actions={(item) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {(item.controlCount ?? 0) === 0 && (
+              <Tooltip title="Raise gap finding (no control)">
+                <IconButton size="small"
+                  onClick={() => navigate(`/findings?raise=gap&obligationId=${item.obligationId}`)}>
+                  <ExclamationCircleIcon size={16} />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title="Edit obligation">
               <IconButton size="small" onClick={() => openEdit(item)}><PencilSquareIcon size={16} /></IconButton>
             </Tooltip>

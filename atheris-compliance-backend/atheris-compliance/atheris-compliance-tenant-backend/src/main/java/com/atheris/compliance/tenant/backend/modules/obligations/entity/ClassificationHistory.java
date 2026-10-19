@@ -21,7 +21,6 @@ public class ClassificationHistory {
     private String applicability;
     private String tenantRiskRating;
     private Integer assignedOwnerUserId;
-    private Boolean hasGap;
     @Column(columnDefinition = "text")
     private String changeReason;
     private Integer changedByUserId;

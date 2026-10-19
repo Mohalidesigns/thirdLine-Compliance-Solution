@@ -15,7 +15,6 @@ import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
-import GapModal from '../components/modals/GapModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
@@ -208,8 +207,6 @@ export default function ObligationDetailPage() {
               onClick={() => setActiveModal('risk')}>Assess Risk</Button>
             <Button size="small" variant="outlined" startIcon={<ShieldCheckIcon size={16} />}
               onClick={() => navigate(`/controls?obligationId=${obligationId}`)}>View controls</Button>
-            <Button size="small" variant="outlined" startIcon={<ScaleIcon size={16} />}
-              onClick={() => setActiveModal('gap')}>Gap</Button>
             <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
               onClick={handleViewPdf}>PDF</Button>
           </Box>
@@ -285,8 +282,6 @@ export default function ObligationDetailPage() {
       <MapReturnModal open={activeModal === 'returns'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initialIds={returns.map((r) => r.returnId) || []}
         onSaved={onSaved('Return mapped')} onError={notify} />
-      <GapModal open={activeModal === 'gap'} onClose={() => setActiveModal(null)}
-        obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Gap updated')} onError={notify} />
       <EvidenceUploadModal open={activeModal === 'evidence'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} evidence={evidence}
         onSaved={onSaved('Evidence uploaded')} onError={notify} />
