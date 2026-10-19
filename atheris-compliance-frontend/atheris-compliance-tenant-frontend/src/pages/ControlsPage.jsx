@@ -606,6 +606,11 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Field label="Residual Likelihood" value={detail.residualLikelihood} />
               <Field label="Residual Impact" value={detail.residualImpact} />
             </FieldGrid>
+            {detail.residualRiskReason && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                {detail.residualRiskReason}
+              </Typography>
+            )}
           </Section>
 
           <Section icon={<UserCircleIcon />} title="Ownership">

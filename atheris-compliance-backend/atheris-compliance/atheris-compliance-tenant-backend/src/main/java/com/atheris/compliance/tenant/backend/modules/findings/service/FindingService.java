@@ -5,6 +5,8 @@ import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -37,6 +39,7 @@ public class FindingService {
     private final FindingRepository repo;
     private final OwnerRepository ownerRepo;
     private final ControlRepository controlRepo;
+    private final ControlTestResultRepository controlTestRepo;
     private final AuditService audit;
     private final NotificationService notifications;
     private final EvidenceVaultService evidence;
@@ -279,6 +282,7 @@ public class FindingService {
             f.setClosedAt(Instant.now());
             f.setSignedOffByUserId(reviewer.getUserId());
             f.setSignedOffAt(Instant.now());
+            reEvaluateControlResidualRisk(f);
             audit.log(reviewer.getUserId(), "finding_signed_off", "finding", id, Map.of());
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
             if (notes == null || notes.isBlank()) {
@@ -302,6 +306,31 @@ public class FindingService {
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
         }
         return repo.save(f);
+    }
+
+    /**
+     * Closing a finding re-evaluates the control's residual risk. While the control still has an
+     * open finding the failed test stands (residual = inherent); once the last finding is closed the
+     * remediation is treated as effective and residual reverts to Low, never above inherent risk.
+     */
+    private void reEvaluateControlResidualRisk(Finding f) {
+        if (f.getLinkedControlId() == null) {
+            return;
+        }
+        Integer controlId = f.getLinkedControlId();
+        controlRepo.findById(controlId).ifPresent(control -> {
+            boolean otherOpen = repo.findByLinkedControlIdOrderByFindingIdDesc(controlId).stream()
+                .filter(x -> !x.getFindingId().equals(f.getFindingId()))
+                .anyMatch(x -> !WorkflowStatus.FINDING_CLOSED.equals(x.getStatus()));
+            String risk = otherOpen
+                ? controlTestRepo.findTopByControlIdOrderByTestDateDesc(controlId)
+                    .map(t -> ResidualRisk.fromTestResult(t.getResult(), control.getInherentRisk())).orElse(null)
+                : ResidualRisk.capAtInherent(WorkflowStatus.RISK_LOW, control.getInherentRisk());
+            if (risk != null && !risk.equals(control.getResidualRisk())) {
+                control.setResidualRisk(risk);
+                controlRepo.save(control);
+            }
+        });
     }
 
     public FindingStatsDto getStats() {

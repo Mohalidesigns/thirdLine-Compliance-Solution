@@ -42,6 +42,7 @@ public class ControlDetailResponse {
     private List<TestResultItem> testHistory;
     private LocalDate nextTestDueDate;
     private List<FindingItem> findings;
+    private String residualRiskReason;
 
     @Data @Builder
     public static class FindingItem {

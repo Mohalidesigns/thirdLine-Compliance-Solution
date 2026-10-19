@@ -285,11 +285,41 @@ public class ControlService {
             .testHistory(tests)
             .nextTestDueDate(nextTest)
             .findings(findings)
+            .residualRiskReason(residualRiskReason(c, tests, findings))
             .build();
     }
 
     public ControlDto findById(Integer id) {
         return toDto(repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id)));
+    }
+
+    private static String residualRiskReason(Control c,
+            List<ControlDetailResponse.TestResultItem> tests,
+            List<ControlDetailResponse.FindingItem> findings) {
+        String inherent = c.getInherentRisk() != null ? c.getInherentRisk() : "unrated";
+        if (tests.isEmpty()) {
+            return "No test recorded yet — residual risk defaults to inherent risk (" + inherent + ").";
+        }
+        ControlDetailResponse.TestResultItem last = tests.get(0);
+        String when = last.getTestDate() != null ? " on " + last.getTestDate() : "";
+        String closedFinding = findings.stream()
+            .filter(f -> WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+            .map(ControlDetailResponse.FindingItem::getDisplayId)
+            .findFirst().orElse(null);
+        return switch (last.getResult() == null ? "" : last.getResult()) {
+            case WorkflowStatus.TEST_PASSED -> "Latest test passed" + when + " — residual risk lowered to Low.";
+            case WorkflowStatus.TEST_PARTIAL -> "Latest test partially passed" + when
+                + " — residual risk set to Medium (capped at inherent " + inherent + ").";
+            case WorkflowStatus.TEST_FAILED -> {
+                String base = "Latest test failed" + when
+                    + " — control ineffective, residual risk restored to inherent risk (" + inherent + ").";
+                yield closedFinding != null
+                    ? "Latest test failed" + when + ", but " + closedFinding
+                        + " was remediated and closed — residual risk restored to Low."
+                    : base;
+            }
+            default -> "Residual risk carried from the last test" + when + ".";
+        };
     }
 
     @Transactional

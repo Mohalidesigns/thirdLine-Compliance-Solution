@@ -208,14 +208,11 @@ public class ControlTestService {
     }
 
     private void updateResidualRisk(Control c, String result) {
-        String risk = switch (result) {
-            case WorkflowStatus.TEST_PASSED -> WorkflowStatus.RISK_LOW;
-            case WorkflowStatus.TEST_PARTIAL -> WorkflowStatus.RISK_MEDIUM;
-            case WorkflowStatus.TEST_FAILED -> c.getInherentRisk();
-            default -> c.getResidualRisk();
-        };
-        c.setResidualRisk(risk);
-        controls.save(c);
+        String risk = ResidualRisk.fromTestResult(result, c.getInherentRisk());
+        if (risk != null) {
+            c.setResidualRisk(risk);
+            controls.save(c);
+        }
     }
 
     private static String safeName(Control c) {
