@@ -10,7 +10,6 @@ public class RaiseFindingRequest {
     @NotBlank private String findingType;
     @NotBlank private String severity;
     @NotBlank private String description;
-    private String rootCause;
     private Long linkedObligationId;
     private Integer linkedControlId;
     private Integer assignedToOwnerId;

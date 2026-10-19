@@ -497,7 +497,6 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             {detail.externalReference && <DetailRow label="Reference" value={detail.externalReference} />}
             <DetailRow label="Type" value={detail.findingType} />
             <DetailRow label="Trigger" value={detail.triggerReason} />
-            {detail.rootCause && <DetailRow label="Root cause" value={detail.rootCause} />}
             <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString() : '-'} />
             <Box sx={{ borderTop: `1px solid ${TL.gray100}`, my: 2 }} />
             <Typography component="span" sx={SECTION_LABEL_SX}>Remediation</Typography>
@@ -566,7 +565,7 @@ function DetailRow({ label, value }) {
 /* ---------- Raise Dialog ---------- */
 function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
   const empty = {
-    findingType: 'Control Failure', severity: '', description: '', rootCause: '',
+    findingType: 'Control Failure', severity: '', description: '',
     linkedObligationId: null, linkedControlId: null,
     assignedToOwnerId: null, remediationDeadline: '',
   };
@@ -593,7 +592,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
     try {
       const body = {
         findingType: form.findingType, severity: form.severity, description: form.description,
-        rootCause: form.rootCause, assignedToOwnerId: form.assignedToOwnerId,
+        assignedToOwnerId: form.assignedToOwnerId,
         remediationDeadline: form.remediationDeadline,
       };
       if (isFailure) body.linkedControlId = form.linkedControlId;
@@ -648,10 +647,6 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
           <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} required value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <TextField label="Root cause" fullWidth size="small" multiline minRows={2} value={form.rootCause}
-              onChange={e => setForm(f => ({ ...f, rootCause: e.target.value }))} />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}

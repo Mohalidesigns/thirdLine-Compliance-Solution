@@ -15,7 +15,6 @@ public class FindingDetailResponse {
     private String findingType;
     private String severity;
     private String description;
-    private String rootCause;
     private Integer assignedToUserId;
     private String assignedToName;
     private Instant assignedAt;

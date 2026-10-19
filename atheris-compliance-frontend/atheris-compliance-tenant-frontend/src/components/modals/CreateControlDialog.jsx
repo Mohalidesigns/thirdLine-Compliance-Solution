@@ -7,12 +7,10 @@ import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
 
 const EMPTY = {
-  name: '', description: '', theme: '', controlType: '', inherentRisk: '',
+  name: '', description: '', controlType: '', inherentRisk: '',
   whatItDoes: '', howTested: '', controlOwnerId: null, testFrequency: '',
-  testFrequencyDays: '',
 };
 
-const THEMES = ['IT', 'Financial', 'Operational', 'Compliance', 'Legal'];
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
 const RISKS = ['Critical', 'High', 'Moderate', 'Low'];
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
@@ -46,7 +44,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
     try {
       const body = { ...form };
       if (!body.controlOwnerId) body.controlOwnerId = null;
-      if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
       const created = await api.controls.create(body);
       if (obligationId && created?.controlId) {
         await api.obligations.linkControls(obligationId, {
@@ -77,13 +74,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Classification</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
-            <Field label="Theme" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.theme} onChange={e => set('theme', e.target.value)}>
-                <MenuItem value=""><em>Select theme</em></MenuItem>
-                {THEMES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-              </TextField>
-            </Field>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
             <Field label="Control type" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.controlType} onChange={e => set('controlType', e.target.value)}>
                 <MenuItem value=""><em>Select type</em></MenuItem>
@@ -120,12 +111,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                 <MenuItem value=""><em>Select frequency</em></MenuItem>
                 {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
               </TextField>
-            </Field>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 2, mt: 2 }}>
-            <Field label="Frequency days" sx={{ mb: 0 }}>
-              <TextField fullWidth size="small" type="number" placeholder="e.g. 90"
-                value={form.testFrequencyDays} onChange={e => set('testFrequencyDays', e.target.value)} />
             </Field>
           </Box>
         </DialogContent>

@@ -28,8 +28,6 @@ public class Finding {
     private String severity;
     @Column(columnDefinition = "text")
     private String description;
-    @Column(columnDefinition = "text")
-    private String rootCause;
     private Integer assignedToUserId;
     private String assignedToName;
     private Integer assignedToOwnerId;

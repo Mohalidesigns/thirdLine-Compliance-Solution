@@ -40,8 +40,8 @@ public class FindingImportHandler implements ImportHandler {
 
     // Column indexes — must match COLUMNS order.
     private static final int REFERENCE = 0, DESCRIPTION = 1, FINDING_TYPE = 2, SEVERITY = 3, STATUS = 4,
-        DATE_RAISED = 5, DEADLINE = 6, ROOT_CAUSE = 7, CONTROL_NUMBER = 8, OBLIGATION_ID = 9, OWNER = 10,
-        REMEDIATION_NOTES = 11, DATE_REMEDIATED = 12, DATE_CLOSED = 13;
+        DATE_RAISED = 5, DEADLINE = 6, CONTROL_NUMBER = 7, OBLIGATION_ID = 8, OWNER = 9,
+        REMEDIATION_NOTES = 10, DATE_REMEDIATED = 11, DATE_CLOSED = 12;
 
     private static final List<ImportColumn> COLUMNS = List.of(
         new ImportColumn("Reference", false, true),
@@ -51,7 +51,6 @@ public class FindingImportHandler implements ImportHandler {
         new ImportColumn("Status", true),
         new ImportColumn("Date Raised", false),
         new ImportColumn("Remediation Deadline", false),
-        new ImportColumn("Root Cause", false),
         new ImportColumn("Linked Control Number", false, true),
         new ImportColumn("Linked Obligation ID", false, true),
         new ImportColumn("Owner", false),
@@ -333,7 +332,6 @@ public class FindingImportHandler implements ImportHandler {
                 .findingType(p.type())
                 .severity(p.severity())
                 .description(p.description())
-                .rootCause(row.value(ROOT_CAUSE))
                 .linkedControlId(p.control() != null ? p.control().getControlId() : null)
                 .linkedObligationId(p.obligationId())
                 .assignedToOwnerId(p.owner() != null ? p.owner().getOwnerId() : null)
