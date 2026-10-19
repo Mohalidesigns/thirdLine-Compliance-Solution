@@ -549,7 +549,8 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <StatusBadge label={t.reviewStatus || 'Pending'} tone={REVIEW_TONE[t.reviewStatus] || 'gray'} />
+                            <StatusBadge label={t.reviewStatus === 'Pending' ? 'Pending review' : (t.reviewStatus || 'Pending review')}
+                              tone={REVIEW_TONE[t.reviewStatus] || 'gray'} />
                             {t.reviewStatus === 'Pending' && canReview && t.testedByUserId !== user?.userId && (
                               <Tooltip title="Review this test result">
                                 <IconButton size="small" color="warning" onClick={() => setReviewTarget(t)}>
@@ -563,6 +564,13 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                               </Tooltip>
                             )}
                           </Box>
+                          {t.reviewStatus === 'Pending' && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                              {t.testedByUserId === user?.userId
+                                ? 'Awaiting review by another Analyst/CCO/Admin'
+                                : 'Awaiting independent review'}
+                            </Typography>
+                          )}
                           {t.reviewNotes && (
                             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
                               {t.reviewNotes}

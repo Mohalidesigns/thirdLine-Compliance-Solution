@@ -126,7 +126,13 @@ public class FindingService {
             .signedOffByUserId(f.getSignedOffByUserId()).signedOffAt(f.getSignedOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
             .linkedControlId(f.getLinkedControlId())
-            .linkedControlTested(f.getLinkedControlId() != null && controlTested(f.getLinkedControlId()))
+            .linkedControlProven(f.getLinkedControlId() != null && controlProven(f.getLinkedControlId()))
+            .linkedControlTestResult(f.getLinkedControlId() == null ? null
+                : controlTestRepo.findTopByControlIdOrderByTestDateDesc(f.getLinkedControlId())
+                    .map(ControlTestResult::getResult).orElse(null))
+            .linkedControlTestReviewStatus(f.getLinkedControlId() == null ? null
+                : controlTestRepo.findTopByControlIdOrderByTestDateDesc(f.getLinkedControlId())
+                    .map(ControlTestResult::getReviewStatus).orElse(null))
             .linkedObligationTitle(f.getLinkedObligationId() == null ? null
                 : obligationRepo.findById(f.getLinkedObligationId())
                     .map(o -> o.getTitle() != null ? o.getTitle() : o.getName()).orElse(null))
@@ -342,9 +348,19 @@ public class FindingService {
                 throw ApiException.conflict("gap_no_control",
                     "Create and link a control for this obligation before closing the gap finding");
             }
-            if (!controlTested(f.getLinkedControlId())) {
+            var test = controlTestRepo.findTopByControlIdOrderByTestDateDesc(f.getLinkedControlId());
+            if (test.isEmpty()) {
                 throw ApiException.conflict("gap_untested",
                     "Record a test for the linked control before closing the gap finding");
+            }
+            var t = test.get();
+            if (!WorkflowStatus.TEST_PASSED.equals(t.getResult())) {
+                throw ApiException.conflict("gap_test_failed",
+                    "The control's latest test must pass before closing the gap finding");
+            }
+            if (!WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())) {
+                throw ApiException.conflict("gap_test_unreviewed",
+                    "The control's test must be reviewed by another user before closing the gap finding");
             }
         }
         f.setStatus(WorkflowStatus.FINDING_CLOSED);
@@ -356,8 +372,11 @@ public class FindingService {
         return repo.save(f);
     }
 
-    private boolean controlTested(Integer controlId) {
-        return controlTestRepo.findTopByControlIdOrderByTestDateDesc(controlId).isPresent();
+    private boolean controlProven(Integer controlId) {
+        return controlTestRepo.findTopByControlIdOrderByTestDateDesc(controlId)
+            .map(t -> WorkflowStatus.TEST_PASSED.equals(t.getResult())
+                && WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus()))
+            .orElse(false);
     }
 
     @Transactional
@@ -434,7 +453,7 @@ public class FindingService {
         return obligationClassificationRepo.findByObligationId(f.getLinkedObligationId())
             .map(c -> c.getLinkedControlIds())
             .filter(ids -> ids != null && !ids.isEmpty())
-            .map(ids -> ids.stream().anyMatch(this::controlTested))
+            .map(ids -> ids.stream().anyMatch(this::controlProven))
             .orElse(false);
     }
 

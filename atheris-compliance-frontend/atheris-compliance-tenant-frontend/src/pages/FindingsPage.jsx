@@ -320,7 +320,9 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const hasControl = detail.linkedControlId != null;
   const isGapFinding = detail.findingType === 'Gap';
   const controlLinked = hasControl;
-  const controlTested = !!detail.linkedControlTested;
+  const controlProven = !!detail.linkedControlProven;
+  const testResult = detail.linkedControlTestResult;
+  const testReview = detail.linkedControlTestReviewStatus;
   const stageNames = isGapFinding
     ? ['Obligation has no control', 'Gap finding raised', 'Control created', 'Control tested', 'Closed']
     : hasControl
@@ -328,7 +330,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
       : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
   const stageByStatus = { Open: 0, 'In Remediation': 1, Remediated: 2, Closed: 3 };
   const activeStep = isGapFinding
-    ? (isClosed ? stageNames.length : (controlTested ? 4 : controlLinked ? 3 : 1))
+    ? (isClosed ? stageNames.length : (controlProven ? 4 : controlLinked ? 3 : 1))
     : (isClosed ? stageNames.length : (hasControl ? 2 : 0) + (stageByStatus[detail.status] ?? 0));
 
   return (
@@ -365,9 +367,12 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             )}
             {isGapFinding && !isClosed && (
               <Tooltip title={!controlLinked ? 'Create a control for the obligation first'
-                : !controlTested ? 'Record a test for the control first' : 'Close this gap finding'}>
+                : !testResult ? 'Record a test for the control first'
+                : testResult !== 'Passed' ? 'The control test must pass'
+                : testReview !== 'Accepted' ? 'The control test must be reviewed and accepted by another user'
+                : 'Close this gap finding'}>
                 <span>
-                  <Button variant="contained" color="success" size="small" disabled={!controlLinked || !controlTested}
+                  <Button variant="contained" color="success" size="small" disabled={!controlProven}
                     onClick={handleCloseGap}>Close gap</Button>
                 </span>
               </Tooltip>
@@ -417,7 +422,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
                 const toControl = (isGapFinding ? (i === 2 || i === 3) : i === 0) && hasControl;
                 const linkable = toObligation || toControl;
                 const stepDone = isGapFinding
-                  ? (i === 2 ? controlLinked : i === 3 ? controlTested : isClosed || (i === 0))
+                  ? (i === 2 ? controlLinked : i === 3 ? controlProven : isClosed || (i === 0))
                   : i < activeStep;
                 return (
                   <Step key={name} completed={stepDone}>
@@ -445,8 +450,10 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
               {isClosed ? (isGapFinding ? 'Gap closed — the obligation is covered by a tested control.' : 'Finding closed — remediation signed off.')
                 : isGapFinding ? (!controlLinked
                   ? 'This obligation has no control. Create a control for it, then test it.'
-                  : !controlTested ? 'Control created. Record a test result to prove it works, then close the gap.'
-                  : 'Control created and tested — you can close this gap finding.')
+                  : !testResult ? 'Control created. Record a test result for it, then a second user must review the test.'
+                  : testResult !== 'Passed' ? `The control's latest test is ${testResult}. It must pass before this gap can close.`
+                  : testReview !== 'Accepted' ? 'The control tested passed — a different user must review and accept the test before this gap can close.'
+                  : 'Control created and its test reviewed and passed — you can close this gap finding.')
                 : isRemediated ? (isSubmitter
                   ? 'Awaiting sign off by another reviewer — you submitted this remediation.'
                   : 'Remediation submitted — review and sign off to close.')
