@@ -17,6 +17,8 @@ import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
 import EntityPicker from '../components/modals/EntityPicker';
+import GapControlDialog from '../components/modals/GapControlDialog';
+import RecordTestDialog from '../components/modals/RecordTestDialog';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 
 const SECTION_LABEL_SX = {
@@ -297,18 +299,37 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const canLink = LINK_ROLES.includes(currentUser?.role);
   const canRecord = SUBMIT_ROLES.includes(currentUser?.role);
   const navigate = useNavigate();
+  const [createControlOpen, setCreateControlOpen] = useState(false);
+  const [recordTestOpen, setRecordTestOpen] = useState(false);
+
+  const linkControl = async (controlId) => {
+    try {
+      await api.findings.linkControl(detail.findingId, controlId);
+      setCreateControlOpen(false);
+      onRefresh();
+    } catch (e) { onSnackbar(e.message); }
+  };
+
+  const handleCloseGap = async () => {
+    try {
+      await api.findings.closeGap(detail.findingId);
+      onRefresh();
+    } catch (e) { onSnackbar(e.message); }
+  };
 
   const hasControl = detail.linkedControlId != null;
   const isGapFinding = detail.findingType === 'Gap';
+  const controlLinked = hasControl;
+  const controlTested = !!detail.linkedControlTested;
   const stageNames = isGapFinding
-    ? ['Obligation (no control)', 'Gap raised', 'Control linked', 'In remediation', 'Review & sign off', 'Closed']
+    ? ['Obligation has no control', 'Gap finding raised', 'Control created', 'Control tested', 'Closed']
     : hasControl
       ? ['Control', 'Test failed', 'Finding raised', 'In remediation', 'Review & sign off', 'Closed']
       : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
-  const stageOffset = (isGapFinding || hasControl) ? 2 : 0;
   const stageByStatus = { Open: 0, 'In Remediation': 1, Remediated: 2, Closed: 3 };
-  const activeStep = isClosed ? stageNames.length : stageOffset + (stageByStatus[detail.status] ?? 0);
-  const controlLinked = detail.linkedControlId != null;
+  const activeStep = isGapFinding
+    ? (isClosed ? stageNames.length : (controlTested ? 4 : controlLinked ? 3 : 1))
+    : (isClosed ? stageNames.length : (hasControl ? 2 : 0) + (stageByStatus[detail.status] ?? 0));
 
   return (
     <Box>
@@ -334,17 +355,34 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         )}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
-            {(isOpen || isInRemediation) && canLink && (
+            {isGapFinding && !isClosed && canRecord && (
+              <Button variant="outlined" size="small" onClick={() => setCreateControlOpen(true)}>
+                {controlLinked ? 'Change control' : 'Create control'}
+              </Button>
+            )}
+            {isGapFinding && controlLinked && !isClosed && canRecord && (
+              <Button variant="outlined" size="small" onClick={() => setRecordTestOpen(true)}>Record control test</Button>
+            )}
+            {isGapFinding && !isClosed && (
+              <Tooltip title={!controlLinked ? 'Create a control for the obligation first'
+                : !controlTested ? 'Record a test for the control first' : 'Close this gap finding'}>
+                <span>
+                  <Button variant="contained" color="success" size="small" disabled={!controlLinked || !controlTested}
+                    onClick={handleCloseGap}>Close gap</Button>
+                </span>
+              </Tooltip>
+            )}
+            {!isGapFinding && isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
+            {!isGapFinding && (isOpen || isInRemediation) && canLink && (
               <Button variant="outlined" size="small" onClick={onLink}>Remediation link</Button>
             )}
-            {isInRemediation && canRecord && (
+            {!isGapFinding && isInRemediation && canRecord && (
               <Button variant="outlined" size="small" onClick={onRemediate}>Record remediation on behalf of owner</Button>
             )}
-            {isRemediated && !isSubmitter && (
+            {!isGapFinding && isRemediated && !isSubmitter && (
               <Button variant="contained" color="success" size="small" onClick={onReview}>Review & Sign off</Button>
             )}
-            {isRemediated && isSubmitter && (
+            {!isGapFinding && isRemediated && isSubmitter && (
               <Tooltip title="You submitted this remediation — another Analyst, CCO or Admin must sign off">
                 <span><Button variant="contained" color="success" size="small" disabled>Review & Sign off</Button></span>
               </Tooltip>
@@ -375,14 +413,18 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
           <DataCard title="Workflow" sx={{ mb: 3 }}>
             <Stepper activeStep={activeStep} alternativeLabel>
               {stageNames.map((name, i) => {
-                const linkable = (hasControl && i === 0) || (isGapFinding && detail.linkedObligationId != null && i === 0);
-                const stepDone = isGapFinding && i === 2 ? controlLinked : i < activeStep;
+                const toObligation = isGapFinding && i === 0 && detail.linkedObligationId != null;
+                const toControl = (isGapFinding ? (i === 2 || i === 3) : i === 0) && hasControl;
+                const linkable = toObligation || toControl;
+                const stepDone = isGapFinding
+                  ? (i === 2 ? controlLinked : i === 3 ? controlTested : isClosed || (i === 0))
+                  : i < activeStep;
                 return (
                   <Step key={name} completed={stepDone}>
                     <StepLabel>
                       <Typography
                         onClick={linkable
-                          ? () => navigate(hasControl
+                          ? () => navigate(toControl
                             ? `/controls?controlId=${detail.linkedControlId}`
                             : `/obligations/${detail.linkedObligationId}`)
                           : undefined}
@@ -400,14 +442,17 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
               })}
             </Stepper>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
-              {isClosed ? 'Finding closed — remediation signed off.'
-                : isGapFinding && !controlLinked ? 'This obligation has no control. Create/link a control (View controls on the obligation) before this gap finding can be closed.'
+              {isClosed ? (isGapFinding ? 'Gap closed — the obligation is covered by a tested control.' : 'Finding closed — remediation signed off.')
+                : isGapFinding ? (!controlLinked
+                  ? 'This obligation has no control. Create a control for it, then test it.'
+                  : !controlTested ? 'Control created. Record a test result to prove it works, then close the gap.'
+                  : 'Control created and tested — you can close this gap finding.')
                 : isRemediated ? (isSubmitter
                   ? 'Awaiting sign off by another reviewer — you submitted this remediation.'
                   : 'Remediation submitted — review and sign off to close.')
                 : isInRemediation ? 'Owner is remediating — record evidence or submit via the remediation link.'
                 : 'Assign an owner and start remediation.'}
-              {isOverdue && !isClosed ? ' SLA is overdue.' : ''}
+              {isOverdue && !isClosed && !isGapFinding ? ' SLA is overdue.' : ''}
             </Typography>
           </DataCard>
 
@@ -486,6 +531,18 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
 
       <RemediationLinkDialog open={linkOpen} onClose={() => setLinkOpen(false)}
         findingId={detail.findingId} onSnackbar={onSnackbar} />
+
+      {isGapFinding && (
+        <GapControlDialog open={createControlOpen} onClose={() => setCreateControlOpen(false)}
+          obligationId={detail.linkedObligationId} currentControlId={detail.linkedControlId}
+          onLinked={linkControl} onSnackbar={onSnackbar} />
+      )}
+
+      {controlLinked && (
+        <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)}
+          controlId={detail.linkedControlId}
+          onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
+      )}
     </Box>
   );
 }

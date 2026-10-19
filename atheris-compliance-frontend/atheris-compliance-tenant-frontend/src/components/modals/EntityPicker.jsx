@@ -6,10 +6,6 @@ import {
 } from '@mui/material';
 import { MagnifyingGlassIcon } from 'shared';
 
-/**
- * Searchable single-select picker. `fetchRows(search)` returns the candidate rows; each row is
- * rendered by `columns` [{ label, render(record) }] and keyed by `getKey` with a `label`.
- */
 export default function EntityPicker({
   open, onClose, title, fetchRows, columns, getKey, label, initialId = null,
   onSave, searchPlaceholder = 'Search…', emptyText = 'Nothing found.',

@@ -414,6 +414,8 @@ export const api = {
       return request(`/findings/${id}/review?${qs.toString()}`, { method: 'PUT' });
     },
     remediationLink: (id) => request(`/findings/${id}/remediation-link`, { method: 'POST' }),
+    linkControl: (id, controlId) => request(`/findings/${id}/link-control?controlId=${controlId}`, { method: 'PUT' }),
+    closeGap: (id) => request(`/findings/${id}/close-gap`, { method: 'PUT' }),
   },
   controls: {
     list: (params = {}) => {

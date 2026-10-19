@@ -19,13 +19,10 @@ public class FindingRegisterItem {
     private Integer slaDays;
     private Long slaRemainingDays;
     private String externalReference;
-    /** The linked control's control number (e.g. CTL-0001), null when unlinked or the control is gone. */
     private String linkedControlIdentifier;
-    /** The linked obligation (set for gap findings and control failures traced to an obligation). */
     private Long linkedObligationId;
     private String linkedObligationDescription;
 
-    /** {@code linkedControlNumber} is resolved by the caller (batch-loaded once per page). */
     public static FindingRegisterItem from(com.atheris.compliance.tenant.backend.modules.findings.entity.Finding f,
                                            String linkedControlNumber) {
         long remaining = 0;

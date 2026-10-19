@@ -28,7 +28,7 @@ function Field({ label, children, sx }) {
   );
 }
 
-export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar }) {
+export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar, obligationId = null }) {
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +48,11 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
       if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
       const created = await api.controls.create(body);
+      if (obligationId && created?.controlId) {
+        await api.obligations.linkControls(obligationId, {
+          linkedControlIds: [created.controlId], changeReason: 'Control created from gap finding',
+        });
+      }
       onSaved?.(created);
     } catch (e) { const msg = e.message || 'Failed to create control.'; setError(msg); onSnackbar?.(msg); }
     finally { setSaving(false); }

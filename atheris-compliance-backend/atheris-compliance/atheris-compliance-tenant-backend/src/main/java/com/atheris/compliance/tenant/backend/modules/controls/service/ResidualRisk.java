@@ -2,12 +2,6 @@ package com.atheris.compliance.tenant.backend.modules.controls.service;
 
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 
-/**
- * The single rule for a control's residual risk from its latest test result:
- * Passed → Low, Partial → Medium, Failed → the control's inherent risk.
- * Residual risk is never allowed to exceed inherent risk — a control cannot make
- * exposure worse than having no control at all.
- */
 public final class ResidualRisk {
 
     private ResidualRisk() {}

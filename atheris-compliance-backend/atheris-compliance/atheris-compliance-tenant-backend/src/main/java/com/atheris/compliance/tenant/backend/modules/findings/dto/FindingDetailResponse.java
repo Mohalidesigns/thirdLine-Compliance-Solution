@@ -37,6 +37,8 @@ public class FindingDetailResponse {
     private Instant closedAt;
     private Long linkedObligationId;
     private Integer linkedControlId;
+    private Boolean linkedControlTested;
+    private String linkedObligationTitle;
     /** The linked control's control number, null when unlinked or the control is gone. */
     private String linkedControlNumber;
     private Integer createdByUserId;

@@ -77,10 +77,25 @@ public class FindingController {
         return ResponseEntity.ok(service.getDetail(id));
     }
 
-    /**
-     * Approve or reject a submitted remediation. An Analyst, CCO or Tenant Admin may sign off;
-     * the signer must not be the person who submitted it. No CCO-only step.
-     */
+    @PutMapping("/{id}/link-control")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<FindingDetailResponse> linkControl(
+            @PathVariable Long id,
+            @RequestParam Integer controlId,
+            @AuthenticationPrincipal User u) {
+        service.linkControl(id, controlId, u.getUserId());
+        return ResponseEntity.ok(service.getDetail(id));
+    }
+
+    @PutMapping("/{id}/close-gap")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<FindingDetailResponse> closeGap(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User u) {
+        service.closeGapFinding(id, u);
+        return ResponseEntity.ok(service.getDetail(id));
+    }
+
     @PutMapping("/{id}/review")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> review(

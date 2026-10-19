@@ -8,6 +8,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.Control
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -42,6 +43,7 @@ public class FindingService {
     private final ControlRepository controlRepo;
     private final ControlTestResultRepository controlTestRepo;
     private final ObligationClassificationRepository obligationClassificationRepo;
+    private final ObligationRepository obligationRepo;
     private final AuditService audit;
     private final NotificationService notifications;
     private final EvidenceVaultService evidence;
@@ -124,6 +126,10 @@ public class FindingService {
             .signedOffByUserId(f.getSignedOffByUserId()).signedOffAt(f.getSignedOffAt())
             .closedAt(f.getClosedAt()).linkedObligationId(f.getLinkedObligationId())
             .linkedControlId(f.getLinkedControlId())
+            .linkedControlTested(f.getLinkedControlId() != null && controlTested(f.getLinkedControlId()))
+            .linkedObligationTitle(f.getLinkedObligationId() == null ? null
+                : obligationRepo.findById(f.getLinkedObligationId())
+                    .map(o -> o.getTitle() != null ? o.getTitle() : o.getName()).orElse(null))
             .linkedControlNumber(f.getLinkedControlId() == null ? null
                 : controlRepo.findById(f.getLinkedControlId()).map(Control::getControlNumber).orElse(null))
             .createdByUserId(f.getCreatedByUserId())
@@ -217,6 +223,45 @@ public class FindingService {
         return saved;
     }
 
+        @Transactional
+    public Finding linkControl(Long id, Integer controlId, Integer userId) {
+        Finding f = findById(id);
+        if (!WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType())) {
+            throw ApiException.badRequest("Only a gap finding can be resolved by linking a control");
+        }
+        if (f.getLinkedObligationId() == null) {
+            throw ApiException.badRequest("This gap finding is not linked to an obligation");
+        }
+        Control control = controlRepo.findById(controlId)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + controlId));
+        f.setLinkedControlId(control.getControlId());
+        repo.save(f);
+
+        obligationClassificationRepo.findByObligationId(f.getLinkedObligationId()).ifPresent(c -> {
+            List<Integer> ids = c.getLinkedControlIds() == null
+                ? new ArrayList<>() : new ArrayList<>(c.getLinkedControlIds());
+            if (!ids.contains(control.getControlId())) {
+                ids.add(control.getControlId());
+                c.setLinkedControlIds(ids);
+                classificationsSave(c);
+            }
+        });
+        List<Long> controlObligations = control.getLinkedObligationIds() == null
+            ? new ArrayList<>() : new ArrayList<>(control.getLinkedObligationIds());
+        if (!controlObligations.contains(f.getLinkedObligationId())) {
+            controlObligations.add(f.getLinkedObligationId());
+            control.setLinkedObligationIds(controlObligations);
+            controlRepo.save(control);
+        }
+        audit.log(userId, "finding_control_linked", "finding", id,
+            Map.of("controlId", controlId));
+        return f;
+    }
+
+    private void classificationsSave(com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification c) {
+        obligationClassificationRepo.save(c);
+    }
+
     private String resolveOwnerName(Integer ownerId) {
         if (ownerId == null) {
             return null;
@@ -286,6 +331,35 @@ public class FindingService {
         return repo.save(f);
     }
 
+        @Transactional
+    public Finding closeGapFinding(Long id, User reviewer) {
+        Finding f = findById(id);
+        if (!WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType())) {
+            throw ApiException.badRequest("Only a gap finding can be closed this way");
+        }
+        if (!WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
+            if (f.getLinkedControlId() == null) {
+                throw ApiException.conflict("gap_no_control",
+                    "Create and link a control for this obligation before closing the gap finding");
+            }
+            if (!controlTested(f.getLinkedControlId())) {
+                throw ApiException.conflict("gap_untested",
+                    "Record a test for the linked control before closing the gap finding");
+            }
+        }
+        f.setStatus(WorkflowStatus.FINDING_CLOSED);
+        f.setClosedAt(Instant.now());
+        f.setSignedOffByUserId(reviewer.getUserId());
+        f.setSignedOffAt(Instant.now());
+        reEvaluateControlResidualRisk(f);
+        audit.log(reviewer.getUserId(), "gap_finding_closed", "finding", id, Map.of());
+        return repo.save(f);
+    }
+
+    private boolean controlTested(Integer controlId) {
+        return controlTestRepo.findTopByControlIdOrderByTestDateDesc(controlId).isPresent();
+    }
+
     @Transactional
     public Finding reviewRemediation(Long id, String decision, String notes, User reviewer) {
         Finding f = findById(id);
@@ -333,12 +407,7 @@ public class FindingService {
         return repo.save(f);
     }
 
-    /**
-     * Closing a finding re-evaluates the control's residual risk. While the control still has an
-     * open finding the failed test stands (residual = inherent); once the last finding is closed the
-     * remediation is treated as effective and residual reverts to Low, never above inherent risk.
-     */
-    private void reEvaluateControlResidualRisk(Finding f) {
+        private void reEvaluateControlResidualRisk(Finding f) {
         if (f.getLinkedControlId() == null) {
             return;
         }
@@ -358,16 +427,14 @@ public class FindingService {
         });
     }
 
-    /**
-     * A gap finding is resolved once its obligation is covered by at least one control.
-     * Closing a gap finding before that would clear nothing on the register.
-     */
-    private boolean gapResolved(Finding f) {
+        private boolean gapResolved(Finding f) {
         if (f.getLinkedObligationId() == null) {
             return false;
         }
         return obligationClassificationRepo.findByObligationId(f.getLinkedObligationId())
-            .map(c -> c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty())
+            .map(c -> c.getLinkedControlIds())
+            .filter(ids -> ids != null && !ids.isEmpty())
+            .map(ids -> ids.stream().anyMatch(this::controlTested))
             .orElse(false);
     }
 
