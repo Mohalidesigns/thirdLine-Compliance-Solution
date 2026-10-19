@@ -274,7 +274,8 @@ export default function ObligationsRegisterPage() {
             {(item.controlCount ?? 0) === 0 && (
               <Tooltip title="Raise gap finding (no control)">
                 <IconButton size="small"
-                  onClick={() => navigate(`/findings?raise=gap&obligationId=${item.obligationId}`)}>
+                  onClick={() => navigate(`/findings?raise=gap&obligationId=${item.obligationId}`)}
+                  sx={{ color: 'error.main', bgcolor: '#FEF2F2', '&:hover': { bgcolor: '#FEE2E2' } }}>
                   <ExclamationCircleIcon size={16} />
                 </IconButton>
               </Tooltip>

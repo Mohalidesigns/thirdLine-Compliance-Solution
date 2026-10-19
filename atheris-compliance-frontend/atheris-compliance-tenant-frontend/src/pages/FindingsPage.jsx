@@ -5,7 +5,7 @@ import {
   TablePagination, TextField, MenuItem, Button, IconButton,
   Paper, Dialog, Stepper, Step, StepLabel,
   DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Grid, Tooltip, Checkbox, FormControlLabel,
+  Grid, Tooltip, Checkbox, FormControlLabel, Chip,
   Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
@@ -205,7 +205,7 @@ export default function FindingsPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Finding</TableCell>
+                    <TableCell>Title</TableCell>
                     <TableCell>Severity</TableCell>
                     <TableCell>Owner</TableCell>
                     <TableCell>Deadline</TableCell>
@@ -221,12 +221,11 @@ export default function FindingsPage() {
                       <TableRow key={row.findingId} hover sx={{ cursor: 'pointer' }}
                         onClick={() => loadDetail(row.findingId)}>
                         <TableCell sx={{ maxWidth: 420 }}>
-                          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.description}
-                          </Typography>
-                          <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
-                            {row.displayId}{row.externalReference ? ` · ${row.externalReference}` : ''}
-                          </Typography>
+                          <Tooltip title={row.description || ''}>
+                            <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {row.description}
+                            </Typography>
+                          </Tooltip>
                         </TableCell>
                         <TableCell><RiskBadge value={row.severity} /></TableCell>
                         <TableCell>{row.assignedToName || '-'}</TableCell>
@@ -317,11 +316,12 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         band
         onBack={onBack}
         backLabel="Back to Findings"
-        title={detail.displayId}
+        title={detail.description || detail.displayId}
         status={detail.status}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <RiskBadge value={detail.severity} />
+            {detail.findingType && <Chip size="small" variant="outlined" label={detail.findingType} />}
             {detail.linkedControlId && (
               <Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>
                 Linked control:{' '}
@@ -332,7 +332,6 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             )}
           </Box>
         )}
-        description={detail.description}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
