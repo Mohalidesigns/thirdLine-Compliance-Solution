@@ -36,8 +36,7 @@ public class ObligationImportHandler implements ImportHandler {
 
     // Column indexes — must match COLUMNS order.
     private static final int TITLE = 0, TEXT = 1, PLAIN = 2, REGULATOR = 3, ACT = 4, SECTION = 5,
-        AREA = 6, OB_TYPE = 7, DEADLINE = 8, EFFECTIVE = 9, IMPACT = 10, LIKELIHOOD = 11,
-        OWNER = 12;
+        AREA = 6, EFFECTIVE = 7, IMPACT = 8, LIKELIHOOD = 9, OWNER = 10;
 
     private static final List<ImportColumn> COLUMNS = List.of(
         new ImportColumn("Obligation Title", true),
@@ -47,15 +46,13 @@ public class ObligationImportHandler implements ImportHandler {
         new ImportColumn("Act / Regulation", false),
         new ImportColumn("Section Reference", false),
         new ImportColumn("Area of Focus", false),
-        new ImportColumn("Obligation Type", false),
-        new ImportColumn("Deadline Type", false),
         new ImportColumn("Effective Date", false),
         new ImportColumn("Impact", false),
         new ImportColumn("Likelihood", false),
         new ImportColumn("Owner", false));
 
     /** Column widths of the target VARCHAR columns on {@code obligations}. */
-    private static final Map<Integer, Integer> MAX_LENGTH = Map.of(ACT, 500, AREA, 100, OB_TYPE, 100, DEADLINE, 100);
+    private static final Map<Integer, Integer> MAX_LENGTH = Map.of(ACT, 500, AREA, 100);
 
     private static final Map<String, String> IMPACT_ALIASES = buildAliases(ObligationClassification.IMPACT_LEVELS,
         Map.of("low", "Minor", "medium", "Moderate", "high", "Major", "critical", "Severe"));
@@ -103,14 +100,10 @@ public class ObligationImportHandler implements ImportHandler {
             "CBN AML/CFT Regulations 2022",
             "s.12(3)",
             "Anti-Money Laundering",
-            "Reporting",
-            "Monthly",
             "2026-01-31",
             "Major",
             "Likely",
-            "Jane Doe",
-            "N",
-            "");
+            "Jane Doe");
     }
 
     // ------------------------------------------------------------------ validate
@@ -122,7 +115,7 @@ public class ObligationImportHandler implements ImportHandler {
 
     /** Parsed, resolved values of a valid row. */
     private record Parsed(String title, String text, String plain, TenantRegulator regulator, String act,
-                          String section, String area, String obligationType, String deadline, LocalDate effective,
+                          String section, String area, LocalDate effective,
                           String impact, String likelihood, Owner owner) {}
 
     private record Lookups(Map<String, TenantRegulator> regulators, Map<String, Owner> owners,
@@ -239,8 +232,7 @@ public class ObligationImportHandler implements ImportHandler {
             row.setResult(ImportRowData.VALID);
             row.setErrors(new ArrayList<>());
             parsedRows.put(row, new Parsed(title, row.value(TEXT), row.value(PLAIN), regulator, row.value(ACT),
-                row.value(SECTION), row.value(AREA), row.value(OB_TYPE), row.value(DEADLINE), effective,
-                impact, likelihood, owner));
+                row.value(SECTION), row.value(AREA), effective, impact, likelihood, owner));
         }
         return parsedRows;
     }
@@ -269,8 +261,6 @@ public class ObligationImportHandler implements ImportHandler {
                 .actName(p.act())
                 .sectionReference(p.section())
                 .areaOfFocus(p.area())
-                .obligationType(p.obligationType())
-                .recurringDeadlineType(p.deadline())
                 .effectiveDate(p.effective())
                 .tenantRegulatorId(p.regulator().getId())
                 .inherentImpact(p.impact())

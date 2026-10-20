@@ -368,6 +368,7 @@ public class ReturnService {
             .actId(r.getActId())
             .actName(r.getActName())
             .linkedObligationCount((int) linkedObligationCount)
+            .linkedObligationTitle(obligationFallbackTitle(r))
             .filingRegulator(r.getFilingRegulator())
             .frequency(r.getFrequency())
             .frequencyType(r.getFrequencyType())
@@ -887,6 +888,18 @@ public class ReturnService {
     /** How many obligations a return is linked to (0 = none) — the register's data-quality signal. */
     private long linkedObligationCount(Long returnId) {
         return obligations.findLinkedObligationIds(returnId).size();
+    }
+
+    /**
+     * The Act/Obligation column falls back to a linked obligation when a return has no act. Only queried
+     * for the (now rare) no-act rows, so the register stays one query for the common case.
+     */
+    private String obligationFallbackTitle(RegulatoryReturn r) {
+        if (r.getActName() != null && !r.getActName().isBlank()) return null;
+        return obligations.findLinkedObligationDetails(r.getReturnId()).stream()
+            .map(ObligationRepository.LinkedObligationRow::getTitle)
+            .filter(t -> t != null && !t.isBlank())
+            .findFirst().orElse(null);
     }
 
     /** Hard-deletes a return and its periods, links and upload links. Blocked once any period has work on it. */

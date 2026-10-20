@@ -63,6 +63,12 @@ public class ReturnController {
         return ResponseEntity.ok(service.getStats());
     }
 
+    /** One return's register row by id — the returns details page (schedule + current/next filing). */
+    @GetMapping("/{returnId}")
+    public ResponseEntity<ReturnRegisterItem> byId(@PathVariable Long returnId) {
+        return ResponseEntity.ok(service.getRegisterItem(returnId));
+    }
+
     @GetMapping("/instances/{id}/detail")
     public ResponseEntity<ReturnInstanceDetailResponse> detail(@PathVariable Long id) {
         return ResponseEntity.ok(service.getDetail(id));

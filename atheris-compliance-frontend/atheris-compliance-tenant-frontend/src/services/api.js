@@ -462,6 +462,8 @@ export const api = {
       return request(`/returns/register${s ? '?' + s : ''}`, { signal: opts.signal });
     },
     stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
+    // One return's register row by id (the returns details page).
+    get: (returnId, opts = {}) => request(`/returns/${returnId}`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),

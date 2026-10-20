@@ -18,7 +18,7 @@ const TYPE_LABELS = {
   SEMI_ANNUAL: 'Semi-Annual',
   ANNUAL: 'Annual',
   BIENNIAL: 'Biennial',
-  EVENT_DRIVEN: 'Event-driven',
+  EVENT_DRIVEN: 'On event',
 };
 
 function typeLabel(t) {

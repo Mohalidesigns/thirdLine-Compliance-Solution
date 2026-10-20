@@ -112,7 +112,7 @@ public record DueRule(Kind kind, LocalDate firstDueDate, Integer daysAfterPeriod
 
     /** Wording for "no rule" on a return of this type. {@code legacyInstances}: it still has rule-less periods. */
     public static String describeNone(ReturnFrequency f, boolean legacyInstances) {
-        if (f == ReturnFrequency.EVENT_DRIVEN) return "Event-driven (no schedule)";
+        if (f == ReturnFrequency.EVENT_DRIVEN) return "On event (no schedule)";
         if (stepMonths(f) <= 0) return f == ReturnFrequency.WEEKLY ? "Every week (no rule)" : "Every day (no rule)";
         if (legacyInstances) return "Due 1st of each " + (f == ReturnFrequency.MONTHLY ? "month" : "period") + " (no rule)";
         return "Due date needed";

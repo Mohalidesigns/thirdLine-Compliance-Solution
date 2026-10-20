@@ -157,10 +157,7 @@ export default function PublicRemediatePage() {
           {view.findingType && (
             <Chip size="small" variant="outlined" label={view.findingType} />
           )}
-          {view.controlNumber && (
-            <Chip size="small" variant="outlined" label={view.controlNumber}
-              sx={{ fontFamily: TL.mono }} />
-          )}
+
         </Box>
       </Box>
 

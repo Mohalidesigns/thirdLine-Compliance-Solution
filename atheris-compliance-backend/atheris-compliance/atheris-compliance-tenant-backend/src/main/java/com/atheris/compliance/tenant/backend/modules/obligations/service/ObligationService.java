@@ -65,12 +65,12 @@ public class ObligationService {
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean noControl, Long instrumentId,
-            String act, Boolean hasPoints, String cells, String riskView, Pageable p) {
+            String act, Boolean hasPoints, Boolean hasReturns, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints, hasReturns))
             .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
@@ -88,6 +88,8 @@ public class ObligationService {
                 "Critical".equals(i.getInherentRiskRating()) || "High".equals(i.getInherentRiskRating())
                     || "Critical".equals(i.getTenantRiskRating()) || "High".equals(i.getTenantRiskRating())).count();
         long gaps = rows.stream().filter(i -> i.getControlCount() == 0).count();
+        long withReturns = rows.stream().filter(i -> i.getLinkedReturnIds() != null
+                && !i.getLinkedReturnIds().isEmpty()).count();
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
                 || !i.getApplicability().equals("applicable")
                 || "unclassified".equals(i.getStatus())).count();
@@ -112,7 +114,7 @@ public class ObligationService {
             .collect(Collectors.toCollection(TreeSet::new));
 
         return ObligationStats.builder()
-            .total(total).highRisk(highRisk).gaps(gaps).underReview(underReview)
+            .total(total).highRisk(highRisk).gaps(gaps).withReturns(withReturns).underReview(underReview)
             .withPoints(withPoints).withoutPoints(withoutPoints)
             .regulators(List.copyOf(regulators))
             .themes(List.copyOf(themes))
@@ -285,9 +287,13 @@ public class ObligationService {
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
                             String areaOfFocus, String owner, String status, Boolean noControl,
-                            Long instrumentId, String act, Boolean hasPoints) {
+                            Long instrumentId, String act, Boolean hasPoints, Boolean hasReturns) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
         if (noControl != null && noControl && i.getControlCount() > 0) return false;
+        if (hasReturns != null) {
+            boolean has = i.getLinkedReturnIds() != null && !i.getLinkedReturnIds().isEmpty();
+            if (hasReturns != has) return false;
+        }
         if (hasPoints != null && hasPoints != Boolean.TRUE.equals(i.getHasPoints())) return false;
         if (act != null && !act.isBlank() && !act.equals(i.getActName())) return false;
         if (risk != null && !risk.isBlank()
@@ -452,7 +458,7 @@ public class ObligationService {
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
-        syncControlLinks(saved.getObligationId(), List.of(), c.getLinkedControlIds());
+        syncControlLinks(saved.getObligationId(), List.of(), c.getLinkedControlIds(), userId);
 
         audit.log(userId, "obligation_created", "obligation", saved.getObligationId(),
             java.util.Collections.singletonMap("instrumentId", saved.getInstrumentId()));
@@ -481,7 +487,7 @@ public class ObligationService {
         recordHistory(c, ob, req.getChangeReason(), userId);
         if (req.getLinkedControlIds() != null) {
             List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
-            syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+            syncControlLinks(obligationId, c.getLinkedControlIds(), selected, userId);
             c.setLinkedControlIds(selected);
         }
         classifications.save(c);
@@ -494,7 +500,7 @@ public class ObligationService {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         classifications.findByObligationId(obligationId).ifPresent(c ->
-            syncControlLinks(obligationId, c.getLinkedControlIds(), List.of()));
+            syncControlLinks(obligationId, c.getLinkedControlIds(), List.of(), userId));
         ob.setStatus("deleted");
         obligationRepo.save(ob);
         audit.log(userId, "obligation_deleted", "obligation", obligationId, Map.of());
@@ -805,14 +811,14 @@ public class ObligationService {
         recordHistory(c, ob, req.getChangeReason(), userId);
         List<Integer> selected = req.getLinkedControlIds() == null
             ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
-        syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+        syncControlLinks(obligationId, c.getLinkedControlIds(), selected, userId);
         c.setLinkedControlIds(selected);
         classifications.save(c);
         audit.log(userId, "link_controls", "obligation", obligationId,
             Map.of("linkedControlIds", c.getLinkedControlIds()));
     }
 
-    private void syncControlLinks(Long obligationId, List<Integer> before, List<Integer> after) {
+    private void syncControlLinks(Long obligationId, List<Integer> before, List<Integer> after, Integer userId) {
         Set<Integer> prev = before == null ? Set.of() : new HashSet<>(before);
         Set<Integer> next = after == null ? Set.of() : new HashSet<>(after);
         Set<Integer> affected = new HashSet<>(prev);
@@ -832,6 +838,26 @@ public class ObligationService {
             }
             control.setLinkedObligationIds(ids);
             controlRepo.save(control);
+        }
+        // A "gap" is an obligation with no control: once it has one, its open gap findings auto-close.
+        if (!next.isEmpty()) autoCloseGapFindings(obligationId, userId);
+    }
+
+    /** Closes any open gap finding on an obligation that now has at least one linked control. */
+    private void autoCloseGapFindings(Long obligationId, Integer userId) {
+        List<Finding> open = findingRepo.findByLinkedObligationIdIn(List.of(obligationId)).stream()
+            .filter(f -> WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType()))
+            .filter(f -> !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+            .toList();
+        if (open.isEmpty()) return;
+        Instant now = Instant.now();
+        for (Finding f : open) {
+            f.setStatus(WorkflowStatus.FINDING_CLOSED);
+            f.setClosedAt(now);
+            f.setSignedOffAt(now);
+            findingRepo.save(f);
+            audit.log(userId, "finding_auto_closed", "finding", f.getFindingId(),
+                Map.of("reason", "control_linked", "obligationId", obligationId));
         }
     }
 

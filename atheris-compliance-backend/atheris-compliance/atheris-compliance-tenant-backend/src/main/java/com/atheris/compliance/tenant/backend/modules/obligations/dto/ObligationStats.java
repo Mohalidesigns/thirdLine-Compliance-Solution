@@ -11,6 +11,8 @@ public class ObligationStats {
     private long withPoints;
     private long withoutPoints;
     private long gaps;
+    /** Obligations that are linked to at least one return. */
+    private long withReturns;
     private long underReview;
     private List<String> regulators;
     private List<String> themes;

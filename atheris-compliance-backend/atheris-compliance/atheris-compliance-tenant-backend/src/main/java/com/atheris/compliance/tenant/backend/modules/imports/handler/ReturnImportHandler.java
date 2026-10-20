@@ -253,7 +253,7 @@ public class ReturnImportHandler implements ImportHandler {
                 frequency != null ? frequency.label() : freqRaw));
             int linkCount = ids.ids().size();
             row.setContext(joinContext(
-                frequency == ReturnFrequency.EVENT_DRIVEN ? "Event-driven"
+                frequency == ReturnFrequency.EVENT_DRIVEN ? "On event"
                     : firstDue != null ? "First due " + firstDue : null,
                 linkCount > 0 ? linkCount + " linked obligation" + (linkCount == 1 ? "" : "s") : null));
             row.setRisk(null);

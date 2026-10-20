@@ -20,6 +20,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ControlsPage = lazy(() => import('./pages/ControlsPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
 const ReturnsPage = lazy(() => import('./pages/ReturnsPage'));
+const ReturnsDetailPage = lazy(() => import('./pages/ReturnsDetailPage'));
 const SanctionsPage = lazy(() => import('./pages/SanctionsPage'));
 const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
@@ -97,6 +98,7 @@ export default function AppRoutes() {
           <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />
           <Route path="returns" element={<ReturnsPage />} />
+          <Route path="returns/:returnId" element={<ReturnsDetailPage />} />
           <Route path="sanctions" element={<SanctionsPage />} />
           <Route path="audit" element={<AuditTrailPage />} />
           <Route path="evidence" element={<EvidenceVaultPage />} />

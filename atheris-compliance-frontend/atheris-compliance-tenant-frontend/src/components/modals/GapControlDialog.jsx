@@ -94,10 +94,7 @@ export default function GapControlDialog({ open, onClose, obligationId, currentC
                         <Radio size="small" checked={selected === c.controlId} onChange={() => setSelected(c.controlId)} />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
-                          {c.controlNumber || ''}
-                        </Typography>
-                        <Typography variant="body2">{c.name}</Typography>
+                        <Typography variant="body2">{c.name || 'Control'}</Typography>
                       </TableCell>
                       <TableCell>{c.ownerName || c.controlOwnerName || '-'}</TableCell>
                       <TableCell>{c.theme || '-'}</TableCell>

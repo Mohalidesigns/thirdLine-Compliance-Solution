@@ -153,7 +153,7 @@ export default function PublicReturnUploadPage() {
           Event filing — {view.returnName}
         </Typography>
         <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mt: 0.5 }}>
-          Record an occurrence for this event-driven return and attach the supporting evidence.
+          Record an occurrence for this on-event return and attach the supporting evidence.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
           {view.regulator && <Chip size="small" variant="outlined" label={view.regulator} />}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   TablePagination, TextField, MenuItem, Button, IconButton,
@@ -52,6 +53,12 @@ export default function FindingsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const { user } = useAuth();
   const canImport = IMPORT_ROLES.includes(user?.role);
+  const queryClient = useQueryClient();
+  // A finding changes an obligation's finding state → refresh the obligations register/dashboard caches.
+  const refreshRelated = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['obligations'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  }, [queryClient]);
 
   const loadList = useCallback(() => {
     setLoading(true);
@@ -129,7 +136,7 @@ export default function FindingsPage() {
       <DetailView
         detail={detail}
         onBack={() => { setView('list'); setDetail(null); setDetailId(null); }}
-        onRefresh={() => loadDetail(detailId)}
+        onRefresh={() => { loadDetail(detailId); loadList(); loadStats(); refreshRelated(); }}
         onAssign={() => setAssignOpen(true)}
         onRemediate={() => setRemediateOpen(true)}
         onReview={() => setReviewOpen(true)}
@@ -263,7 +270,7 @@ export default function FindingsPage() {
       </DataCard>
 
       <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)} initial={raiseInitial}
-        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
+        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); loadList(); loadStats(); refreshRelated(); }} onSnackbar={setSnackbar} />
 
       {canImport && (
         <ImportDialog entityType="findings" entityLabel="findings" open={importOpen}
@@ -671,16 +678,16 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
         <EntityPicker open title="Select Control"
           fetchRows={(q) => api.controls.register({ q: q || undefined, size: 50 })}
           getKey={(c) => c.controlId}
-          label={(c) => `${c.controlNumber} · ${c.name}`}
+          label={(c) => c.name || 'Control'}
           columns={[
-            { label: 'Control', render: (c) => `${c.controlNumber || ''} ${c.name || ''}` },
+            { label: 'Control', render: (c) => c.name || 'Control' },
             { label: 'Owner', render: (c) => c.ownerName || c.controlOwnerName || '-' },
             { label: 'Theme', render: (c) => c.theme || '-' },
           ]}
           onClose={() => setControlOpen(false)}
           onSave={(id, row) => {
             setForm(f => ({ ...f, linkedControlId: id }));
-            setControlLabel(row ? `${row.controlNumber || ''} · ${row.name || ''}` : `Control #${id}`);
+            setControlLabel(row?.name || 'Control');
             setControlOpen(false);
           }} />
       )}

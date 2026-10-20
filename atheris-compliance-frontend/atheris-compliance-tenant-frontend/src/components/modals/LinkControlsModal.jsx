@@ -95,7 +95,7 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
                     <TableRow key={c.controlId} hover selected={selected.includes(c.controlId)}
                       onClick={() => toggle(c.controlId)} sx={{ cursor: 'pointer' }}>
                       <TableCell>
-                        <Typography variant="body2">{c.controlNumber} — {c.name}</Typography>
+                        <Typography variant="body2">{c.name || 'Control'}</Typography>
                       </TableCell>
                       <TableCell>{themeOf(c)}</TableCell>
                       <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>

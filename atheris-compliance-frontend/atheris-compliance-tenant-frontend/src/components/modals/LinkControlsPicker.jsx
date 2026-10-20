@@ -65,7 +65,7 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
                   <TableRow key={c.controlId} hover selected={selected.includes(c.controlId)}
                     onClick={() => toggle(c.controlId)} sx={{ cursor: 'pointer' }}>
                     <TableCell>
-                      <Typography variant="body2">{c.controlNumber} — {c.name}</Typography>
+                      <Typography variant="body2">{c.name || 'Control'}</Typography>
                     </TableCell>
                     <TableCell>{c.theme || c.controlType || '-'}</TableCell>
                     <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>

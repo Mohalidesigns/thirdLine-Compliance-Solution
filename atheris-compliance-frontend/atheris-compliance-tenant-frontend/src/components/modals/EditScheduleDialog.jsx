@@ -6,12 +6,12 @@ import {
 } from '@mui/material';
 import { api } from '../../services/api';
 
-const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'];
+const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'On event'];
 // Frequencies with no due rule (periods come straight from the cycle, or none at all).
-const NO_RULE = ['Daily', 'Weekly', 'Event-driven'];
+const NO_RULE = ['Daily', 'Weekly', 'On event'];
 const TYPE_TO_LABEL = {
   DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly',
-  SEMI_ANNUAL: 'Semi-Annual', ANNUAL: 'Annual', BIENNIAL: 'Biennial', EVENT_DRIVEN: 'Event-driven',
+  SEMI_ANNUAL: 'Semi-Annual', ANNUAL: 'Annual', BIENNIAL: 'Biennial', EVENT_DRIVEN: 'On event',
 };
 
 function norm(s) {
@@ -166,7 +166,7 @@ export default function EditScheduleDialog({ open, onClose, item, onSaved }) {
           </>
         )}
 
-        <TextField fullWidth size="small" type="number" label="Prep days" value={form.prepDays}
+        <TextField fullWidth size="small" type="number" label="Start preparing (days before due)" value={form.prepDays}
           onChange={e => set('prepDays', e.target.value)}
           helperText="Days before the due date that work on a period starts."
           slotProps={{ htmlInput: { min: 0 } }} />

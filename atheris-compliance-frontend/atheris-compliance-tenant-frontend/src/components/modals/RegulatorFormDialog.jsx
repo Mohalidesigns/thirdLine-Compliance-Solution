@@ -25,9 +25,10 @@ export default function RegulatorFormDialog({ open, onClose, regulator, onSaved 
     setSaving(true);
     setError('');
     try {
-      if (regulator) await api.regulators.update(regulator.id, form);
-      else await api.regulators.create(form);
-      onSaved();
+      const saved = regulator
+        ? await api.regulators.update(regulator.id, form)
+        : await api.regulators.create(form);
+      onSaved?.(saved || regulator);
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
 

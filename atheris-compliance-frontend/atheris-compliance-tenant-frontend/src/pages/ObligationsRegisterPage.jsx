@@ -9,7 +9,7 @@ import { api } from '../services/api';
 import {
   SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
-  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon,
+  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon, CalendarDaysIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -80,6 +80,7 @@ export default function ObligationsRegisterPage() {
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [noControl, setNoControl] = useState(() => searchParams.get('noControl') === 'true');
+  const [withReturns, setWithReturns] = useState(() => searchParams.get('hasReturns') === 'true');
   // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
   const [heatmapDrill, setHeatmapDrill] = useState(() => (searchParams.get('cells')
     ? { cells: searchParams.get('cells'), riskView: searchParams.get('riskView') || 'inherent', label: searchParams.get('drill') || 'Selected cells' }
@@ -96,7 +97,7 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || statusFilter !== 'All' || noControl || heatmapDrill;
+    || areaFilter !== 'All' || statusFilter !== 'All' || noControl || withReturns || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -105,6 +106,7 @@ export default function ObligationsRegisterPage() {
   if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (noControl) params.noControl = 'true';
+  if (withReturns) params.hasReturns = 'true';
   if (heatmapDrill) { params.cells = heatmapDrill.cells; params.riskView = heatmapDrill.riskView; }
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
@@ -140,7 +142,7 @@ export default function ObligationsRegisterPage() {
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setAreaFilter('All'); setStatusFilter('All'); setNoControl(false);
+    setAreaFilter('All'); setStatusFilter('All'); setNoControl(false); setWithReturns(false);
     clearHeatmapDrill();
     setPage(0);
   }
@@ -178,19 +180,22 @@ export default function ObligationsRegisterPage() {
 
   function applyKpiFilter(type) {
     setRiskFilter('All'); setRegulatorFilter('All'); setAreaFilter('All');
-    setStatusFilter('All'); setNoControl(false);
+    setStatusFilter('All'); setNoControl(false); setWithReturns(false);
     clearHeatmapDrill();
     if (type === 'highRisk') { setRiskFilter('High'); }
     else if (type === 'gaps') { setNoControl(true); }
+    else if (type === 'withReturns') { setWithReturns(true); }
     setPage(0);
   }
 
-  const activeKpi = riskFilter === 'High' ? 'highRisk'
-    : noControl ? 'gaps' : null;
+  const activeKpi = withReturns ? 'withReturns'
+    : riskFilter === 'High' ? 'highRisk'
+      : noControl ? 'gaps' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
     { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'gaps', label: 'No Control', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
+    { key: 'withReturns', label: 'With Returns', value: stats?.withReturns ?? 0, tone: 'green', icon: <CalendarDaysIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];
@@ -218,7 +223,7 @@ export default function ObligationsRegisterPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={3} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={4} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}

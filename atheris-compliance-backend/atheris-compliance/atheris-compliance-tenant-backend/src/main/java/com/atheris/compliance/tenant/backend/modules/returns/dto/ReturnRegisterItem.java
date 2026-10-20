@@ -16,6 +16,8 @@ public class ReturnRegisterItem {
     private String actName;
     /** Data-quality signal: how many obligations this return is linked to (0 = none). */
     private Integer linkedObligationCount;
+    /** Fallback for the Act/Obligation column when the return has no act: the first linked obligation's title. */
+    private String linkedObligationTitle;
     private String filingRegulator;
     private String frequency;
     private String frequencyType;

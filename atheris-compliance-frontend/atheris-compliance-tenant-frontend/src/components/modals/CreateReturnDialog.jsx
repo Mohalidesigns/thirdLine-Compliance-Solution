@@ -7,6 +7,7 @@ import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import PersonPicker from '../common/PersonPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
+import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
   returnName: '', actId: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
@@ -15,8 +16,8 @@ const EMPTY = {
   linkedObligationIds: [],
 };
 
-const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'Event-driven'];
-const EVENT_DRIVEN = 'Event-driven';
+const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'On event'];
+const EVENT_DRIVEN = 'On event';
 // Recurring frequencies that need a due rule; without one the return gets no periods.
 const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial'];
 
@@ -38,6 +39,15 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   const [regulators, setRegulators] = useState([]);
   const [acts, setActs] = useState([]);
   const [linksOpen, setLinksOpen] = useState(false);
+  const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
+
+  const addRegulator = (created) => {
+    setRegulatorAddOpen(false);
+    if (!created) return;
+    setRegulators(prev => [...prev, created]);
+    set('filingRegulator', created.abbreviation || created.name || '');
+    set('tenantRegulatorId', String(created.id ?? created.tenantRegulatorId));
+  };
 
   useEffect(() => {
     if (open) { setForm({ ...EMPTY }); setError(''); }
@@ -133,6 +143,9 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
                   onChange={e => set('filingRegulator', e.target.value)} />
               )}
             />
+            <Button size="small" sx={{ mt: 0.5, textTransform: 'none' }} onClick={() => setRegulatorAddOpen(true)}>
+              + Add regulator
+            </Button>
           </Field>
           <Field label="Return Type" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" value={form.returnType}
@@ -155,13 +168,14 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               disabled={form.frequency === EVENT_DRIVEN}
               onChange={e => set('filingDate', e.target.value)}
               helperText={form.frequency === EVENT_DRIVEN
-                ? 'Not used — event-driven returns have no fixed cycle.'
+                ? 'Not used — on-event returns have no fixed cycle.'
                 : 'Sets the filing cycle — e.g. Annual + 31 Mar is due every 31 March.'}
               slotProps={{ inputLabel: { shrink: true } }} />
           </Field>
-          <Field label="Prep offset (days)" sx={{ mb: 0 }}>
+          <Field label="Start preparing (days before due)" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" type="number" value={form.filingDeadlineOffsetDays}
-              onChange={e => set('filingDeadlineOffsetDays', e.target.value)} />
+              onChange={e => set('filingDeadlineOffsetDays', e.target.value)}
+              helperText="Work opens this many days before the due date." />
           </Field>
         </Box>
         {NEEDS_DUE_DATE.includes(form.frequency) && !form.filingDate && (
@@ -231,6 +245,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           }
           return next;
         })} />}
+      {regulatorAddOpen && <RegulatorFormDialog open onClose={() => setRegulatorAddOpen(false)} onSaved={addRegulator} />}
     </Dialog>
   );
 }

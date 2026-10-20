@@ -7,10 +7,10 @@ import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
+import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', description: '', areaOfFocus: '', obligationType: '',
-  recurringDeadlineType: '', effectiveDate: '',
+  instrumentId: '', name: '', tenantRegulatorId: '', description: '', areaOfFocus: '', effectiveDate: '',
   linkedControlIds: [], linkedReturnIds: [],
 };
 
@@ -19,16 +19,6 @@ const AREAS_OF_FOCUS = [
   'Consumer Protection', 'Cybersecurity', 'Anti-Bribery & Corruption',
   'Capital Market', 'Compliance Risk Management', 'ESG', 'Account Management',
   'Cash Management', 'Financial Reporting',
-];
-
-const OBLIGATION_TYPES = [
-  'reporting', 'disclosure', 'compliance', 'record_keeping',
-  'notification', 'approval', 'audit', 'other',
-];
-
-const DEADLINE_TYPES = [
-  'monthly', 'quarterly', 'semi_annually', 'annually',
-  'one_time', 'ongoing', 'ad_hoc',
 ];
 
 function Field({ label, children, sx }) {
@@ -50,6 +40,14 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   const [returnPickerOpen, setReturnPickerOpen] = useState(false);
   const [instruments, setInstruments] = useState([]);
   const [regulators, setRegulators] = useState([]);
+  const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
+
+  const addRegulator = (created) => {
+    setRegulatorAddOpen(false);
+    if (!created) return;
+    setRegulators(prev => [...prev, created]);
+    set('tenantRegulatorId', String(created.id ?? created.tenantRegulatorId));
+  };
 
   useEffect(() => {
     if (open) {
@@ -60,8 +58,6 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             tenantRegulatorId: initial.tenantRegulatorId ?? '',
             description: initial.description || '',
             areaOfFocus: initial.areaOfFocus || '',
-            obligationType: initial.obligationType || '',
-            recurringDeadlineType: initial.recurringDeadlineType || '',
             effectiveDate: initial.effectiveDate || '',
             linkedControlIds: [...(initial.linkedControlIds || [])],
             linkedReturnIds: [...(initial.linkedReturnIds || [])],
@@ -133,22 +129,6 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
                 {AREAS_OF_FOCUS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>
             </Field>
-            <Field label="Obligation type" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.obligationType}
-                onChange={e => set('obligationType', e.target.value)}>
-                <MenuItem value=""><em>Select type</em></MenuItem>
-                {OBLIGATION_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
-              </TextField>
-            </Field>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
-            <Field label="Deadline type" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.recurringDeadlineType}
-                onChange={e => set('recurringDeadlineType', e.target.value)}>
-                <MenuItem value=""><em>Select deadline</em></MenuItem>
-                {DEADLINE_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
-              </TextField>
-            </Field>
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
                 onChange={e => set('effectiveDate', e.target.value)} />
@@ -157,13 +137,17 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <Field label="Regulator *" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" select value={form.tenantRegulatorId}
-                onChange={e => set('tenantRegulatorId', e.target.value)}>
+                onChange={e => {
+                  if (e.target.value === '__add__') { setRegulatorAddOpen(true); return; }
+                  set('tenantRegulatorId', e.target.value);
+                }}>
                 <MenuItem value=""><em>Select regulator</em></MenuItem>
                 {regulators.map(r => (
                   <MenuItem key={r.id ?? r.tenantRegulatorId} value={String(r.id ?? r.tenantRegulatorId)}>
                     {r.abbreviation ? `${r.abbreviation} — ${r.name}` : r.name}
                   </MenuItem>
                 ))}
+                <MenuItem value="__add__" sx={{ color: 'primary.main', fontWeight: 600 }}>+ Add regulator</MenuItem>
               </TextField>
             </Field>
             <Field label="Instrument (optional)" sx={{ mb: 0 }}>
@@ -223,6 +207,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />}
       {returnPickerOpen && <ReturnPicker open onClose={() => setReturnPickerOpen(false)}
         initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />}
+      {regulatorAddOpen && <RegulatorFormDialog open onClose={() => setRegulatorAddOpen(false)} onSaved={addRegulator} />}
     </>
   );
 }

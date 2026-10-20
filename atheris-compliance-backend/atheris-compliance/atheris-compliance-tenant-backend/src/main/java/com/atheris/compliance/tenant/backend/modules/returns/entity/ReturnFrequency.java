@@ -21,7 +21,7 @@ public enum ReturnFrequency {
     SEMI_ANNUAL("Semi-Annual"),
     ANNUAL("Annual"),
     BIENNIAL("Biennial"),
-    EVENT_DRIVEN("Event-driven");
+    EVENT_DRIVEN("On event");
 
     /** Canonical labels in cycle order, e.g. for dropdowns. */
     public static final List<String> LABELS = Arrays.stream(values()).map(ReturnFrequency::label).toList();
@@ -42,7 +42,8 @@ public enum ReturnFrequency {
             "bi-annually", "biannually", "half-yearly", "half yearly", "every 6 months", "twice yearly");
         alias(ANNUAL, "annually", "yearly", "every year");
         alias(BIENNIAL, "every 2 years", "every two years");
-        alias(EVENT_DRIVEN, "ad hoc", "ad-hoc", "adhoc", "event driven", "on occurrence", "as required");
+        alias(EVENT_DRIVEN, "ad hoc", "ad-hoc", "adhoc", "event driven", "event-driven", "on occurrence",
+            "on event", "after incident", "after an incident", "as required", "triggered");
     }
 
     private final String label;
@@ -159,7 +160,8 @@ public enum ReturnFrequency {
             || (f.contains("not later than") && !periodic)
             || f.contains("after the meeting") || f.contains("after commencement")
             || f.contains("ad hoc") || f.contains("event driven") || f.contains("event-driven")
-            || f.contains("on occurrence")) {
+            || f.contains("on occurrence") || f.contains("on event") || f.contains("after incident")
+            || f.contains("after an incident")) {
             return periodEndAnchor(f).or(() -> Optional.of(EVENT_DRIVEN));
         }
 
