@@ -347,6 +347,11 @@ Startup: tenant V38–V41 + `RunbookFrameworkSeeder` (34 frameworks / 243 clause
 ### Not in this slice (follow-ups)
 Calendar (P7), Review Queue UI + instrument-change review triggers (P8; review events are created but not yet actionable), Analytics (P12), Settings → Runbooks tab (P14), MD/PDF runbook export, public attestation page, returns hook for RB-RET-*, coverage "control only" (amber = mapped to unpublished runbooks instead), dual-control re-auth for LDAP users, the spec's unit/integration/E2E tests.
 
+### Done — Runbook Template Library UX (tenant `/runbooks/templates`)
+- **Analyst can adopt.** `POST /runbooks/templates/{code}/adopt` moved from `RunbookRoles.APPROVERS` to `AUTHORS` (ANALYST/CCO/TENANT_ADMIN) — adopting only creates a DRAFT; publish approval stays with CCO/Tenant Admin. `CreateRunbookDialog` and `TemplateLibraryPage`/`TemplateDetailPage` gates updated to `AUTHOR_ROLES`.
+- **Table columns** are now Template (title only, no code chip) · Category · Area of focus · Criticality · Status. Area of focus is derived from `category` via `AREA_OF_FOCUS`/`areaOfFocus(category)` in `runbookConstants.js` (no new backend field).
+- **Row click opens a detail page**, not the drawer: new `TemplateDetailPage.jsx` at `/runbooks/templates/:code` with tabs Overview · Steps · Prerequisites · Escalation & Rollback · Framework Mapping (read-only; reuses `DetailVersionView` `StepsView`/`PrerequisitesView`/`EscalationRollbackView` and `AdoptTemplateDialog`). The old drawer + `TemplatePreview` were removed from `TemplateLibraryPage`.
+
 ## Done — Risk Heatmap Drill-down
 
 Tenant Dashboard → Risk Profile → Risk Heatmap is clickable: a populated cell, a band in the legend (now shows per-band counts, e.g. "Critical 1373"), or a row in the table view opens `/obligations?cells=<impact|likelihood;…>&riskView=inherent|residual&drill=<label>`. The register shows a removable "Risk heatmap (…)" chip.

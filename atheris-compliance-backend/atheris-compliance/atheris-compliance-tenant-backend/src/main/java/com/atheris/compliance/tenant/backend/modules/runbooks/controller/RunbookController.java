@@ -292,8 +292,9 @@ public class RunbookController {
         return templates.get(code);
     }
 
+    // Adopting only creates a DRAFT (authoring); approval/publish stays with APPROVERS.
     @PostMapping("/templates/{code}/adopt")
-    @PreAuthorize(RunbookRoles.APPROVERS)
+    @PreAuthorize(RunbookRoles.AUTHORS)
     public RunbookDetailDto adopt(@PathVariable String code, @RequestBody AdoptTemplateRequest req, @AuthenticationPrincipal User u) {
         return templates.adopt(code, req, u);
     }

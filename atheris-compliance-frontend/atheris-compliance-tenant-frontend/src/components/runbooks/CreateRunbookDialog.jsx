@@ -8,7 +8,7 @@ import {
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  CATEGORIES, CRITICALITIES, FREQUENCIES, APPROVER_ROLES, humanize, label,
+  CATEGORIES, CRITICALITIES, FREQUENCIES, AUTHOR_ROLES, humanize, label,
 } from '../../pages/runbooks/runbookConstants';
 import { errMsg } from './LibraryBadges';
 
@@ -19,14 +19,14 @@ const EMPTY = {
 
 /**
  * M1 — Create Runbook. Either creates a blank runbook (POST /runbooks) or adopts a platform
- * template (POST /runbooks/templates/{code}/adopt, CCO/TENANT_ADMIN only). On success the
- * builder opens at /runbooks/:id/edit.
+ * template (POST /runbooks/templates/{code}/adopt, authors: ANALYST/CCO/TENANT_ADMIN). On success
+ * the builder opens at /runbooks/:id/edit.
  */
 export default function CreateRunbookDialog({ open, onClose, onCreated }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const canAdopt = APPROVER_ROLES.includes(user?.role);
+  const canAdopt = AUTHOR_ROLES.includes(user?.role);
   const [form, setForm] = useState({ ...EMPTY, ownerUserId: user?.userId ?? '' });
   const [touched, setTouched] = useState(false);
 

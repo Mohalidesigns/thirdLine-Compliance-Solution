@@ -38,6 +38,7 @@ const ExecutionSummaryPage = lazy(() => import('./pages/runbooks/ExecutionSummar
 const ApprovalsPage = lazy(() => import('./pages/runbooks/ApprovalsPage'));
 const CoverageMatrixPage = lazy(() => import('./pages/runbooks/CoverageMatrixPage'));
 const TemplateLibraryPage = lazy(() => import('./pages/runbooks/TemplateLibraryPage'));
+const TemplateDetailPage = lazy(() => import('./pages/runbooks/TemplateDetailPage'));
 const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 const PublicReturnUploadPage = lazy(() => import('./pages/PublicReturnUploadPage'));
 
@@ -94,6 +95,7 @@ export default function AppRoutes() {
           <Route path="runbooks/approvals" element={<ApprovalsPage />} />
           <Route path="runbooks/coverage" element={<CoverageMatrixPage />} />
           <Route path="runbooks/templates" element={<TemplateLibraryPage />} />
+          <Route path="runbooks/templates/:code" element={<TemplateDetailPage />} />
           <Route path="runbooks/:id" element={<RunbookDetailPage />} />
           <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />

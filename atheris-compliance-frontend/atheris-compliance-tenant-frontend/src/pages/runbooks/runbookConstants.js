@@ -17,6 +17,23 @@ export const CATEGORIES = [
   { value: 'CUSTOM', label: 'Custom' },
 ];
 
+// Area of focus is derived from the runbook/template category (no separate field on the record).
+export const AREA_OF_FOCUS = {
+  ACCESS_REVIEW: 'Access Management',
+  VULN_MGMT: 'Vulnerability Management',
+  INCIDENT: 'Incident Management',
+  CONFIG_AUDIT: 'Configuration Management',
+  CRYPTO: 'Cryptography',
+  BCP_DR: 'Business Continuity',
+  PRIVACY: 'Data Privacy',
+  AML: 'AML / CFT',
+  RETURNS: 'Regulatory Reporting',
+  VENDOR: 'Third-Party Risk',
+  CHANGE: 'Change Management',
+  LOGGING: 'Logging & Monitoring',
+  CUSTOM: 'Custom',
+};
+
 export const CRITICALITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 export const CRITICALITY_COLOR = { CRITICAL: 'error', HIGH: 'error', MEDIUM: 'warning', LOW: 'success' };
 
@@ -81,6 +98,7 @@ export const PACK_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN', 'AUDITOR'];
 
 export const label = (list, value) =>
   (list.find((x) => (x.value ?? x) === value)?.label) ?? (value ? String(value).replace(/_/g, ' ') : '–');
+export const areaOfFocus = (category) => AREA_OF_FOCUS[category] || label(CATEGORIES, category);
 export const humanize = (v) => (v ? String(v).replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) : '–');
 
 export const formatMinutes = (m) => {
