@@ -100,7 +100,11 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={() => { onSave?.(selected); onClose(); }}>
+        <Button variant="contained" onClick={() => {
+          const selectedRows = rows.filter(r => selected.includes(r.obligationId));
+          onSave?.(selected, selectedRows);
+          onClose();
+        }}>
           Save ({selected.length})
         </Button>
       </DialogActions>

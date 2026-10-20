@@ -8,6 +8,8 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ActListItem {
     private Integer actId;
+    /** The platform regulation id — what {@code regulatory_returns.act_id} stores. */
+    private Long regulationId;
     private String name;
     private String abbreviation;
     private String regulatorName;

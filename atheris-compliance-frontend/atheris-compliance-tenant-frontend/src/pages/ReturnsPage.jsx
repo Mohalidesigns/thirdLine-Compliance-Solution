@@ -54,7 +54,9 @@ function inherentRiskChip(rating) {
   return <RiskBadge value={rating} />;
 }
 
-const STAGE_NAMES = ['Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
+// Must match the backend STAGE_ORDER (ReturnInstanceDetailResponse) — includes Not Started.
+const STAGE_NAMES = ['Not Started', 'Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
+const SIGN_OFF_IDX = STAGE_NAMES.indexOf('Sign-off');
 const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
 
 function formatDate(d) {
@@ -105,6 +107,7 @@ export default function ReturnsPage() {
   const [frequencyFilter, setFrequencyFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
+  const [unlinkedFilter, setUnlinkedFilter] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
@@ -115,7 +118,7 @@ export default function ReturnsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [snackbar, setSnackbar] = useState('');
 
-  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All';
+  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All' || unlinkedFilter;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -123,6 +126,7 @@ export default function ReturnsPage() {
   if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
   if (actFilter !== 'All') params.act = actFilter;
+  if (unlinkedFilter) params.unlinked = 'true';
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
   const listQuery = useQuery({
@@ -134,6 +138,13 @@ export default function ReturnsPage() {
   const statsQuery = useQuery({
     queryKey: ['returns', 'stats'],
     queryFn: ({ signal }) => api.returns.stats({ signal }),
+  });
+
+  // All acts (not just those already on a return) so the Act filter and picker can offer the full list.
+  const actsQuery = useQuery({
+    queryKey: ['acts', 'options'],
+    queryFn: ({ signal }) => api.acts.list({ size: 1000 }, { signal }),
+    staleTime: 5 * 60 * 1000,
   });
 
   // One-off schedule repair preview (dry run). TENANT_ADMIN only; errors (incl. 403) render nothing.
@@ -156,6 +167,8 @@ export default function ReturnsPage() {
   const items = listQuery.data?.content || [];
   const total = listQuery.data?.totalElements || 0;
   const stats = statsQuery.data;
+  const actOptions = ((actsQuery.data?.content) || (Array.isArray(actsQuery.data) ? actsQuery.data : []))
+    .map(a => a.name).filter(Boolean);
   const loading = listQuery.isPending;
   const error = listQuery.error?.message || '';
 
@@ -165,11 +178,14 @@ export default function ReturnsPage() {
 
   function clearFilters() {
     setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All'); setActFilter('All');
+    setUnlinkedFilter(false);
     setPage(0);
   }
 
   function applyKpiFilter(type) {
     setPage(0);
+    if (type === 'unlinked') { setUnlinkedFilter(v => !v); setStatusFilter('All'); return; }
+    setUnlinkedFilter(false);
     if (type === 'overdue') setStatusFilter('Overdue');
     else if (type === 'inProgress') setStatusFilter('In Progress');
     else if (type === 'submitted') setStatusFilter('Submitted');
@@ -184,7 +200,8 @@ export default function ReturnsPage() {
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, tone: 'orange', icon: <PresentationChartLineIcon /> },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
     { key: 'dueDateNeeded', label: 'Due date needed', value: stats?.dueDateNeeded ?? 0, tone: 'amber', icon: <ExclamationCircleIcon /> },
-  ].map((k) => ({ ...k, active: KPI_STATUS[k.key] != null && KPI_STATUS[k.key] === statusFilter }));
+    { key: 'unlinked', label: 'No obligations', value: stats?.unlinkedCount ?? 0, tone: 'amber', icon: <LinkIcon /> },
+  ].map((k) => ({ ...k, active: k.key === 'unlinked' ? unlinkedFilter : (KPI_STATUS[k.key] != null && KPI_STATUS[k.key] === statusFilter) }));
   const opts = (list) => (list || []).map((v) => ({ value: v, label: v }));
 
   const scheduleDialog = canEditSchedule && (
@@ -237,6 +254,8 @@ export default function ReturnsPage() {
           onBack={() => { setDetailId(null); setDetailItem(null); }}
           onRefresh={refresh}
           onSnackbar={setSnackbar}
+          canDelete={canEditSchedule}
+          onDeleted={() => { setDetailId(null); setDetailItem(null); setSnackbar('Return deleted.'); refresh(); }}
           onEditEventTrigger={canEditSchedule && isEventDriven(detail) ? () => {
             setEventSetupItem({ returnId: detail.returnId, returnName: detail.returnName,
               frequency: detail.frequency, frequencyType: detail.frequencyType,
@@ -294,7 +313,7 @@ export default function ReturnsPage() {
         </Alert>
       )}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={5} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={6} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search return, act, or regulator...' }}
@@ -306,7 +325,7 @@ export default function ReturnsPage() {
           { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); },
             options: opts(stats?.regulators), allLabel: 'All', minWidth: 150 },
           { key: 'act', label: 'Act', value: actFilter, onChange: (v) => { setActFilter(v); setPage(0); },
-            options: opts(stats?.actNames), allLabel: 'All', minWidth: 200 },
+            options: opts(actOptions.length ? actOptions : stats?.actNames), allLabel: 'All', minWidth: 200 },
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}
@@ -431,14 +450,19 @@ function ReturnRow({ item, idx, page, rowsPerPage, isOverdue, isExpanded, rowBg,
               {item.returnName || 'Untitled'}
             </Typography>
           </Tooltip>
-          <Tooltip title={item.actName || ''}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', maxWidth: 340, fontSize: '0.75rem',
+          <Tooltip title={item.actName || 'No governing act recorded'}>
+            <Typography variant="caption" sx={{ color: item.actName ? 'text.secondary' : '#C05621', display: 'block', maxWidth: 340, fontSize: '0.75rem',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.actName || 'No act recorded'}
             </Typography>
           </Tooltip>
-          <Box sx={{ mt: 0.5 }}>
+          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
             <Chip size="small" label={item.frequency || item.frequencyType || 'Ad hoc'} variant="outlined" />
+            {(item.linkedObligationCount ?? 0) === 0 && (
+              <Tooltip title="Not linked to any obligation — the filing has no documented duty behind it">
+                <span><StatusBadge label="No obligations" tone="amber" /></span>
+              </Tooltip>
+            )}
           </Box>
         </TableCell>
         <TableCell>
@@ -736,12 +760,28 @@ function LinkedObligations({ returnId }) {
 }
 
 /* ───────── Detail View ───────── */
-function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onEditEventTrigger }) {
+function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onEditEventTrigger, canDelete, onDeleted }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${detail.returnName}"?\n\nThis removes the return and its filing periods that have no work on them.`)) return;
+    setDeleting(true);
+    try {
+      await api.returns.remove(detail.returnId);
+      onDeleted?.();
+    } catch (e) {
+      onSnackbar?.(e.message || 'Delete failed.');
+    } finally { setDeleting(false); }
+  }
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
-  const currentStageIdx = STAGE_NAMES.indexOf(detail.currentStage);
-  const nextStage = currentStageIdx < STAGE_NAMES.length - 1 ? STAGE_NAMES[currentStageIdx + 1] : null;
+  // detail.stages is authoritative (backend STAGE_ORDER); fall back to the name lookup.
+  const currentStageIdx = (detail.stages || []).findIndex(s => s.current) >= 0
+    ? (detail.stages || []).findIndex(s => s.current)
+    : STAGE_NAMES.indexOf(detail.currentStage);
+  const nextStage = currentStageIdx >= 0 && currentStageIdx < STAGE_NAMES.length - 1
+    ? STAGE_NAMES[currentStageIdx + 1] : null;
 
   return (
     <Box>
@@ -756,7 +796,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
         )}
         onBack={onBack}
         backLabel="Back to Returns Register"
-        actions={(onEditSchedule || onEditEventTrigger) ? (
+        actions={(onEditSchedule || onEditEventTrigger || canDelete) ? (
           <>
             {onEditSchedule && (
               <Button variant="outlined" startIcon={<CalendarDaysIcon size={16} />} onClick={onEditSchedule}>
@@ -766,6 +806,11 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
             {onEditEventTrigger && (
               <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={onEditEventTrigger}>
                 Edit event trigger
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="outlined" color="error" disabled={deleting} onClick={handleDelete}>
+                {deleting ? 'Deleting…' : 'Delete'}
               </Button>
             )}
           </>
@@ -798,6 +843,7 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
           : null}>
         <FieldGrid min={160}>
           <Field label="Frequency" value={detail.frequency || detail.frequencyType} />
+          <Field label="Act" value={detail.actName} />
           <Field label="Regulator" value={detail.filingRegulator} />
           <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'Event-driven' : '—')} />
           <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
@@ -861,14 +907,14 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
                       <LinkIcon size={14} /> Evidence
                     </Link>
                   )}
-                  {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
+                  {stage.current && !isSubmitted && i < SIGN_OFF_IDX && (
                     <Box sx={{ mt: 1 }}>
                       <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
                         Mark complete → {STAGE_NAMES[i + 1]}
                       </Button>
                     </Box>
                   )}
-                  {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
+                  {stage.current && !isSubmitted && i === SIGN_OFF_IDX && (
                     <Box sx={{ mt: 1 }}>
                       <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
                         Mark as submitted

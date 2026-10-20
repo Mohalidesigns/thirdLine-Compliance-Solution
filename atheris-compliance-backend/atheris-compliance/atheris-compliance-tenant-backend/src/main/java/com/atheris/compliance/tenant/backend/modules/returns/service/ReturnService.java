@@ -1,6 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.returns.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
+import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
@@ -44,7 +46,9 @@ public class ReturnService {
 
     private final RegulatoryReturnRepository returns;
     private final ReturnFilingInstanceRepository instances;
+    private final ReturnUploadLinkRepository uploadLinks;
     private final TenantRegulatorRepository regulators;
+    private final ActRepository acts;
     private final ObligationRepository obligations;
     private final AuditService audit;
     private final TenantIdentityService tenantIdentity;
@@ -190,7 +194,7 @@ public class ReturnService {
     @Transactional
     public Page<ReturnRegisterItem> getRegister(String q, String frequency, String regulator,
                                                  String act, String frequencyType, String responsibleUnit,
-                                                 Long actId, String status, Pageable p) {
+                                                 Long actId, String status, Boolean unlinked, Pageable p) {
 
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
 
@@ -233,6 +237,9 @@ public class ReturnService {
         List<ReturnFilingInstance> allInsts = instances.findByReturnIdIn(returnIds);
         Map<Long, List<ReturnFilingInstance>> instsByReturn = allInsts.stream()
             .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+        // One query for every return's obligation-link count (data-quality signal for the row).
+        Map<Long, Long> linkCountByReturn = obligations.findAllReturnLinks().stream()
+            .collect(Collectors.groupingBy(ObligationRepository.ObligationReturnRow::getReturnId, Collectors.counting()));
 
         List<ReturnRegisterItem> items = new ArrayList<>();
         boolean filterStatus = status != null && !status.isBlank();
@@ -240,8 +247,13 @@ public class ReturnService {
 
         for (RegulatoryReturn r : allReturns) {
             List<ReturnFilingInstance> insts = instsByReturn.getOrDefault(r.getReturnId(), List.of());
-            ReturnRegisterItem item = buildRegisterItem(r, insts, now);
+            ReturnRegisterItem item = buildRegisterItem(r, insts, now,
+                linkCountByReturn.getOrDefault(r.getReturnId(), 0L));
             if (item == null) continue;
+            if (unlinked != null) {
+                boolean hasLinks = item.getLinkedObligationCount() != null && item.getLinkedObligationCount() > 0;
+                if (unlinked == hasLinks) continue; // unlinked=true keeps link-less rows; false keeps linked ones
+            }
             boolean eventDriven = ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY)
                 == ReturnFrequency.EVENT_DRIVEN;
             if (dueDateNeededFilter) {
@@ -268,9 +280,9 @@ public class ReturnService {
             items.add(item);
         }
 
-        // Sort by current due date (earliest first)
-        items.sort(Comparator.comparing(ReturnRegisterItem::getCurrentDueDate,
-            Comparator.nullsLast(Comparator.naturalOrder())));
+        // Sort — honour the requested Pageable sort for whitelisted fields, else default to due date (earliest first).
+        Comparator<ReturnRegisterItem> cmp = registerComparator(p.getSort());
+        items.sort(cmp);
 
         // Paginate in-memory
         int total = items.size();
@@ -286,6 +298,42 @@ public class ReturnService {
         RegulatoryReturn ret = returns.findById(returnId)
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
         return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
+    }
+
+    /**
+     * In-memory sort for the register (the rows are assembled from several queries). Only whitelisted
+     * properties are honoured — anything else (incl. service-resolved fields) falls back to the default
+     * of current due date ascending, so a bad {@code sort=} can never throw.
+     */
+    static Comparator<ReturnRegisterItem> registerComparator(Sort sort) {
+        Comparator<ReturnRegisterItem> cmp = null;
+        if (sort != null && sort.isSorted()) {
+            for (Sort.Order order : sort) {
+                Comparator<ReturnRegisterItem> c = registerFieldComparator(order.getProperty());
+                if (c == null) continue;
+                if (order.isDescending()) c = c.reversed();
+                cmp = cmp == null ? c : cmp.thenComparing(c);
+            }
+        }
+        if (cmp == null) {
+            cmp = Comparator.comparing(ReturnRegisterItem::getCurrentDueDate,
+                Comparator.nullsLast(Comparator.naturalOrder()));
+        }
+        return cmp;
+    }
+
+    private static Comparator<ReturnRegisterItem> registerFieldComparator(String property) {
+        return switch (property == null ? "" : property) {
+            case "returnName" -> Comparator.comparing(ReturnRegisterItem::getReturnName,
+                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "filingRegulator", "regulator" -> Comparator.comparing(ReturnRegisterItem::getFilingRegulator,
+                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "currentDueDate", "dueDate" -> Comparator.comparing(ReturnRegisterItem::getCurrentDueDate,
+                Comparator.nullsLast(Comparator.naturalOrder()));
+            case "currentStatus", "status" -> Comparator.comparing(ReturnRegisterItem::getCurrentStatus,
+                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            default -> null;
+        };
     }
 
     private static boolean isSubmitted(String status) {
@@ -306,13 +354,20 @@ public class ReturnService {
      * materialised yet, or due date needed) is listed without a current period/status.
      */
     private ReturnRegisterItem buildRegisterItem(RegulatoryReturn r, List<ReturnFilingInstance> insts, LocalDate now) {
+        return buildRegisterItem(r, insts, now, linkedObligationCount(r.getReturnId()));
+    }
+
+    private ReturnRegisterItem buildRegisterItem(RegulatoryReturn r, List<ReturnFilingInstance> insts, LocalDate now,
+                                                 long linkedObligationCount) {
         DueRule rule = DueRule.of(r);
         ReturnRegisterItem.ReturnRegisterItemBuilder b = ReturnRegisterItem.builder()
             .returnId(r.getReturnId())
             .returnName(r.getReturnName())
             .title(r.getReturnName())
             .deadline(r.getDeadlineText())
+            .actId(r.getActId())
             .actName(r.getActName())
+            .linkedObligationCount((int) linkedObligationCount)
             .filingRegulator(r.getFilingRegulator())
             .frequency(r.getFrequency())
             .frequencyType(r.getFrequencyType())
@@ -492,6 +547,12 @@ public class ReturnService {
             .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
         long unassigned = allReturns.stream()
             .filter(r -> r.getResponsibleUnit() == null || r.getResponsibleUnit().isBlank()).count();
+        Set<Long> linkedReturnIds = obligations.findAllReturnLinks().stream()
+            .map(ObligationRepository.ObligationReturnRow::getReturnId).collect(Collectors.toSet());
+        long unlinked = allReturns.stream().map(RegulatoryReturn::getReturnId)
+            .filter(id -> !linkedReturnIds.contains(id)).count();
+        long missingAct = allReturns.stream()
+            .filter(r -> r.getActId() == null && (r.getActName() == null || r.getActName().isBlank())).count();
         List<ReturnStatsDto.ActOption> actOptions = allReturns.stream()
             .filter(r -> r.getActId() != null)
             .collect(Collectors.toMap(RegulatoryReturn::getActId,
@@ -509,6 +570,8 @@ public class ReturnService {
             .frequencyTypeCount(byFrequencyType.size())
             .responsibleUnitCount(byResponsibleUnit.size())
             .unassignedCount(unassigned)
+            .unlinkedCount(unlinked)
+            .missingActCount(missingAct)
             .byFrequencyType(byFrequencyType)
             .byResponsibleUnit(byResponsibleUnit)
             .frequencyTypes(new ArrayList<>(byFrequencyType.keySet()))
@@ -526,6 +589,8 @@ public class ReturnService {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         ReturnInstanceDetailResponse detail = ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());
+        detail.setActId(r.getActId());
+        detail.setActName(r.getActName());
         detail.setFrequency(r.getFrequency());
         detail.setFrequencyType(r.getFrequencyType());
         detail.setDeadlineText(r.getDeadlineText());
@@ -639,15 +704,44 @@ public class ReturnService {
             snapshot = reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName();
         if (snapshot == null || snapshot.isBlank()) snapshot = "Unknown";
 
+        // A return must be grounded to a governing act: resolve it and snapshot its name.
+        Act act = resolveAct(req.getActId());
+
+        // Due rule — DATE (filingDate anchor) or OFFSET (days after period end). Daily/Weekly/Event-driven need none.
+        String ruleType = req.getRuleType() == null || req.getRuleType().isBlank()
+            ? null : req.getRuleType().trim().toUpperCase(Locale.ROOT);
+        if (ruleType == null && req.getFilingDate() != null) ruleType = DueRule.Kind.DATE.name();
+        LocalDate anchor = null;
+        Integer offsetDays = null;
+        if (ruleType != null) {
+            if (ruleType.equals(DueRule.Kind.DATE.name())) {
+                if (req.getFilingDate() == null) throw invalid("filingDate is required for a DATE rule");
+                anchor = req.getFilingDate();
+            } else if (ruleType.equals(DueRule.Kind.OFFSET.name())) {
+                if (freq != null && !DueRule.offsetSupported(freq))
+                    throw invalid("Days after period end is not available for " + freq.label() + " returns");
+                Integer d = req.getDueDaysAfterPeriodEnd();
+                if (d == null) throw invalid("dueDaysAfterPeriodEnd is required for an OFFSET rule");
+                int max = freq == ReturnFrequency.MONTHLY ? 28 : 365;
+                if (d < 1 || d > max)
+                    throw invalid("dueDaysAfterPeriodEnd must be between 1 and " + max + " days");
+                offsetDays = d;
+            } else {
+                throw invalid("ruleType must be DATE, OFFSET or null");
+            }
+        }
+
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
-            .actId(req.getActId())
+            .actId(act.getRegulationId())
+            .actName(act.getName())
             .returnType(req.getReturnType())
             .frequency(freq != null ? freq.label() : null)
             .frequencyType(freq != null ? freq.name() : ReturnFrequency.MONTHLY.name())
-            .filingDate(req.getFilingDate())
-            .dueDateSource(req.getFilingDate() != null ? DueRule.SOURCE_USER : null)
+            .filingDate(anchor)
+            .dueDaysAfterPeriodEnd(offsetDays)
+            .dueDateSource(ruleType != null ? DueRule.SOURCE_USER : null)
             .filingDeadlineOffsetDays(req.getFilingDeadlineOffsetDays())
             .filingChannel(req.getFilingChannel())
             .returnOwnerUserId(req.getReturnOwnerUserId())
@@ -659,6 +753,13 @@ public class ReturnService {
         audit.log(userId, "return_created", "return", saved.getReturnId(),
             Collections.singletonMap("name", saved.getReturnName()));
         return saved;
+    }
+
+    /** Resolves the governing act by its platform regulation id (what a return stores in {@code act_id}). */
+    private Act resolveAct(Long actId) {
+        if (actId == null) throw ApiException.badRequest("invalid_act", "An act is required for a return");
+        return acts.findByRegulationId(actId)
+            .orElseThrow(() -> ApiException.badRequest("invalid_act", "Unknown act (regulation id " + actId + ")"));
     }
 
     /**
@@ -754,8 +855,8 @@ public class ReturnService {
     @Transactional
     public void linkObligations(Long returnId, List<Long> obligationIds, Integer userId) {
         try {
-            if (!returns.existsById(returnId))
-                throw ApiException.notFound("Return not found: " + returnId);
+            RegulatoryReturn ret = returns.findById(returnId)
+                .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
             obligations.deleteObligationLinks(returnId);
             if (obligationIds != null) {
                 for (Long oid : new LinkedHashSet<>(obligationIds)) {
@@ -764,8 +865,47 @@ public class ReturnService {
                     obligations.insertReturnLink(oid, returnId);
                 }
             }
+            // Safety net: derive a missing governing act from a linked obligation (new returns require one).
+            if (ret.getActId() == null && obligationIds != null && !obligationIds.isEmpty()) {
+                obligations.findById(obligationIds.get(0)).ifPresent(ob -> {
+                    if (ob.getRegulationId() != null) {
+                        ret.setActId(ob.getRegulationId());
+                        if (ob.getActName() != null) ret.setActName(ob.getActName());
+                        returns.save(ret);
+                    }
+                });
+            }
             audit.log(userId, "link_obligations", "return", returnId,
                 Collections.singletonMap("obligationIds", obligationIds));
+            evictObligationRegisterAfterCommit();
+        } catch (RuntimeException e) {
+            rollback();
+            throw e;
+        }
+    }
+
+    /** How many obligations a return is linked to (0 = none) — the register's data-quality signal. */
+    private long linkedObligationCount(Long returnId) {
+        return obligations.findLinkedObligationIds(returnId).size();
+    }
+
+    /** Hard-deletes a return and its periods, links and upload links. Blocked once any period has work on it. */
+    @Transactional
+    public void delete(Long returnId, Integer userId) {
+        try {
+            RegulatoryReturn r = returns.findById(returnId)
+                .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+            List<ReturnFilingInstance> insts = instances.findByReturnId(returnId);
+            List<ReturnFilingInstance> removable = untouched.removable(insts);
+            if (removable.size() != insts.size())
+                throw ApiException.conflict("return_in_use",
+                    "This return has filing periods with work on them and cannot be deleted");
+            uploadLinks.deleteByReturnId(returnId);
+            obligations.deleteObligationLinks(returnId);
+            instances.deleteAll(insts);
+            returns.delete(r);
+            audit.log(userId, "return_deleted", "return", returnId,
+                Collections.singletonMap("name", r.getReturnName()));
             evictObligationRegisterAfterCommit();
         } catch (RuntimeException e) {
             rollback();

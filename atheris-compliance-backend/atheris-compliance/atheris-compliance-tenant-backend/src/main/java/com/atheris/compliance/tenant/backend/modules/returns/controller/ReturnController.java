@@ -53,8 +53,9 @@ public class ReturnController {
             @RequestParam(required = false) String responsibleUnit,
             @RequestParam(required = false) Long actId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean unlinked,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, frequencyType, responsibleUnit, actId, status, p));
+        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, frequencyType, responsibleUnit, actId, status, unlinked, p));
     }
 
     @GetMapping("/stats")
@@ -154,6 +155,14 @@ public class ReturnController {
             @AuthenticationPrincipal User u) {
         service.linkObligations(returnId, req.getLinkedObligationIds(), u.getUserId());
         return ResponseEntity.ok().build();
+    }
+
+    /** Deletes a return and its periods/links. Blocked once any filing period has work on it. */
+    @DeleteMapping("/{returnId}")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<Void> delete(@PathVariable Long returnId, @AuthenticationPrincipal User u) {
+        service.delete(returnId, u.getUserId());
+        return ResponseEntity.noContent().build();
     }
 
     /** Dry run of the one-off frequency_type repair; changes nothing. */

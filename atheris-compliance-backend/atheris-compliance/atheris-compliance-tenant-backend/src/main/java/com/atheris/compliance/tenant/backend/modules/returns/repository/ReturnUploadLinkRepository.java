@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface ReturnUploadLinkRepository extends JpaRepository<ReturnUploadLink, Long> {
     Optional<ReturnUploadLink> findByTokenHash(String tokenHash);
+    long deleteByReturnId(Long returnId);
+    boolean existsByReturnId(Long returnId);
 }

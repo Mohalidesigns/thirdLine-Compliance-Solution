@@ -76,6 +76,7 @@ public class ActService {
     private ActListItem toItem(Act a) {
         return ActListItem.builder()
             .actId(a.getActId())
+            .regulationId(a.getRegulationId())
             .name(a.getName())
             .abbreviation(a.getAbbreviation())
             .regulatorName(a.getRegulatorName())

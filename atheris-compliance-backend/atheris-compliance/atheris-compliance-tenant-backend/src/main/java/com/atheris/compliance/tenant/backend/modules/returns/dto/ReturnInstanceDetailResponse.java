@@ -16,6 +16,9 @@ public class ReturnInstanceDetailResponse {
     private Long instanceId;
     private Long returnId;
     private String returnName;
+    /** The governing act's platform regulation id (see {@code regulatory_returns.act_id}). */
+    private Long actId;
+    private String actName;
     private String frequency;
     private String frequencyType;
     private String deadlineText;

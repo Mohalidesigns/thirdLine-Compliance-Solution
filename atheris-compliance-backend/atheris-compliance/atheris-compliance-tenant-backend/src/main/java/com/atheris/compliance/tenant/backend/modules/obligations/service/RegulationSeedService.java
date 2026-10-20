@@ -126,7 +126,7 @@ public class RegulationSeedService {
             return 0;
         }
         Long instrumentId = bundle.getCanonicalInstrument().getInstrumentId();
-        upsertAct(bundle, instrumentId);
+        Act act = upsertAct(bundle, instrumentId);
         boolean hasObligations = obligationRepo.countByInstrumentId(instrumentId) > 0;
         TenantRegulator reg = tenantRegs.stream()
             .filter(r -> bundle.getRegulatorId() != null
@@ -207,8 +207,8 @@ public class RegulationSeedService {
                     .returnName(r.getTitle())
                     .filingRegulator(label)
                     .tenantRegulatorId(regId)
-                    .actId(bundle.getRegulationId())
-                    .actName(bundle.getRegulationName())
+                    .actId(act != null ? act.getRegulationId() : null)
+                    .actName(act != null ? act.getName() : bundle.getRegulationName())
                     .frequency(normalizeFrequency(r.getFrequency(), freqType))
                     .frequencyType(freqType.name())
                     .filingDate(rule != null && rule.kind() == DueRule.Kind.DATE ? rule.firstDueDate() : null)
@@ -336,10 +336,14 @@ public class RegulationSeedService {
         return createdObligations.size();
     }
 
-    /** Create/update the tenant act row for a bundle so acts are browsable and countable. Idempotent. */
-    private void upsertAct(PlatformRegulationSeed bundle, Long instrumentId) {
-        if (bundle.getRegulationId() == null) return;
-        if (bundle.getRegulationName() == null || bundle.getRegulationName().isBlank()) return;
+    /**
+     * Create/update the tenant act row for a bundle so acts are browsable and countable. Idempotent.
+     * Returns the saved act, or {@code null} when the bundle has no usable act identity (so callers
+     * don't ground a return to a non-existent act under the {@code fk_returns_act} constraint).
+     */
+    private Act upsertAct(PlatformRegulationSeed bundle, Long instrumentId) {
+        if (bundle.getRegulationId() == null) return null;
+        if (bundle.getRegulationName() == null || bundle.getRegulationName().isBlank()) return null;
         Act act = actRepo.findByRegulationId(bundle.getRegulationId()).orElseGet(Act::new);
         act.setRegulationId(bundle.getRegulationId());
         act.setCanonicalInstrumentId(instrumentId);
@@ -347,7 +351,7 @@ public class RegulationSeedService {
         act.setAbbreviation(bundle.getRegulationAbbreviation());
         act.setRegulatorId(bundle.getRegulatorId());
         act.setRegulatorName(bundle.getRegulatorName());
-        actRepo.save(act);
+        return actRepo.save(act);
     }
 
     private String deriveObligationName(PlatformRegulationSeed.ObligationItem o, int num) {

@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.imports.handler;
 
+import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
+import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.imports.entity.ImportRowData;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
@@ -47,7 +49,7 @@ public class ReturnImportHandler implements ImportHandler {
         new ImportColumn("Frequency", true),
         new ImportColumn("First Due Date", false),
         new ImportColumn("Prep Days Before Due", false),
-        new ImportColumn("Act / Regulation", false),
+        new ImportColumn("Act / Regulation", true),
         new ImportColumn("Return Type", false),
         new ImportColumn("Filing Channel", false),
         new ImportColumn("Responsible Unit", false),
@@ -68,6 +70,7 @@ public class ReturnImportHandler implements ImportHandler {
 
     private final RegulatoryReturnRepository returnRepo;
     private final ObligationRepository obligationRepo;
+    private final ActRepository actRepo;
     private final TenantRegulatorRepository regulatorRepo;
     private final UserRepository userRepo;
     private final TenantIdentityService tenantIdentity;
@@ -92,6 +95,8 @@ public class ReturnImportHandler implements ImportHandler {
         m.put("Regulator", activeRegulators(regulatorRepo, tenantIdentity).stream()
             .map(ImportParsing::regulatorLabel).distinct().toList());
         m.put("Frequency", ReturnFrequency.LABELS);
+        m.put("Act / Regulation", actRepo.findAllByOrderByNameAsc().stream()
+            .map(Act::getName).filter(Objects::nonNull).distinct().toList());
         return m;
     }
 
@@ -126,13 +131,20 @@ public class ReturnImportHandler implements ImportHandler {
 
     /** Parsed, resolved values of a valid row. */
     private record Parsed(String name, TenantRegulator regulator, ReturnFrequency frequency, LocalDate firstDue,
-                          int prepDays, User owner, List<Long> obligationIds) {}
+                          int prepDays, User owner, Act act, List<Long> obligationIds) {}
 
     private record Lookups(Map<String, TenantRegulator> regulators, Map<String, User> usersByEmail,
-                           Set<Long> liveObligationIds, Set<String> existingKeys) {}
+                           Map<String, Act> acts, Set<Long> liveObligationIds, Set<String> existingKeys) {}
 
     private Lookups loadLookups(List<ImportRowData> rows) {
         Map<String, TenantRegulator> regulators = regulatorLookup(activeRegulators(regulatorRepo, tenantIdentity));
+
+        // Acts resolvable by name or abbreviation (a return must be grounded to a governing act).
+        Map<String, Act> acts = new HashMap<>();
+        for (Act a : actRepo.findAll()) {
+            if (a.getName() != null) acts.putIfAbsent(norm(a.getName()), a);
+            if (a.getAbbreviation() != null) acts.putIfAbsent(norm(a.getAbbreviation()), a);
+        }
 
         Map<String, User> users = new HashMap<>();
         userRepo.findByIsActiveTrue().forEach(u -> {
@@ -150,7 +162,7 @@ public class ReturnImportHandler implements ImportHandler {
             .filter(r -> r.getStatus() != RegulatoryReturnStatus.INACTIVE)
             .map(r -> dedupKey(r.getReturnName(), r.getTenantRegulatorId()))
             .collect(Collectors.toSet());
-        return new Lookups(regulators, users, live, existing);
+        return new Lookups(regulators, users, acts, live, existing);
     }
 
     private Map<ImportRowData, Parsed> validateInternal(List<ImportRowData> rows, Lookups lk) {
@@ -176,6 +188,16 @@ public class ReturnImportHandler implements ImportHandler {
                 regulator = lk.regulators().get(norm(regRaw));
                 if (regulator == null)
                     errors.add("Regulator '" + regRaw + "' does not match any of your active regulators (name or abbreviation)");
+            }
+
+            String actRaw = row.value(ACT);
+            Act act = null;
+            if (actRaw == null) {
+                errors.add("Act / Regulation is required (a return must name its governing act)");
+            } else {
+                act = lk.acts().get(norm(actRaw));
+                if (act == null)
+                    errors.add("Act / Regulation '" + actRaw + "' does not match any act in your register");
             }
 
             String freqRaw = row.value(FREQUENCY);
@@ -259,7 +281,7 @@ public class ReturnImportHandler implements ImportHandler {
 
             row.setResult(ImportRowData.VALID);
             row.setErrors(new ArrayList<>());
-            parsedRows.put(row, new Parsed(name, regulator, frequency, firstDue, prepDays, owner, ids.ids()));
+            parsedRows.put(row, new Parsed(name, regulator, frequency, firstDue, prepDays, owner, act, ids.ids()));
         }
         return parsedRows;
     }
@@ -280,7 +302,8 @@ public class ReturnImportHandler implements ImportHandler {
                 .returnName(p.name())
                 .filingRegulator(snapshot(regulatorLabel(p.regulator())))
                 .tenantRegulatorId(p.regulator().getId())
-                .actName(row.value(ACT))
+                .actId(p.act().getRegulationId())
+                .actName(p.act().getName())
                 .returnType(row.value(RETURN_TYPE))
                 .frequency(p.frequency().label())
                 .frequencyType(p.frequency().name())

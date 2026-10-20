@@ -27,6 +27,10 @@ public class ReturnStatsDto {
     private long frequencyTypeCount;
     private long responsibleUnitCount;
     private long unassignedCount;
+    /** Data-quality: active returns with no obligation link. */
+    private long unlinkedCount;
+    /** Data-quality: active returns with no governing act (should be 0 once act is enforced). */
+    private long missingActCount;
     private Map<String, Long> byFrequencyType;
     private Map<String, Long> byResponsibleUnit;
     private List<String> frequencyTypes;

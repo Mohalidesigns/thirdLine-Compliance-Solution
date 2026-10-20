@@ -45,6 +45,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
     const q = search.toLowerCase();
     return (r.returnName || '').toLowerCase().includes(q)
       || (r.filingRegulator || '').toLowerCase().includes(q)
+      || (r.actName || '').toLowerCase().includes(q)
       || (r.returnType || '').toLowerCase().includes(q);
   });
 
@@ -78,6 +79,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
                   <TableRow>
                     <TableCell>Return</TableCell>
                     <TableCell>Regulator</TableCell>
+                    <TableCell>Act</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Frequency</TableCell>
                     <TableCell>Owner</TableCell>
@@ -95,6 +97,9 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
                         )}
                       </TableCell>
                       <TableCell>{r.filingRegulator || '-'}</TableCell>
+                      <TableCell sx={{ maxWidth: 160 }}>
+                        <Typography variant="body2" noWrap title={r.actName || ''}>{r.actName || '—'}</Typography>
+                      </TableCell>
                       <TableCell>{r.returnType || '-'}</TableCell>
                       <TableCell>{r.frequency || '-'}</TableCell>
                       <TableCell>{r.returnOwnerName || '-'}</TableCell>

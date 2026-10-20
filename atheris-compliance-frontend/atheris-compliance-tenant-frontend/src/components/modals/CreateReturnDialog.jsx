@@ -9,7 +9,7 @@ import PersonPicker from '../common/PersonPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
 
 const EMPTY = {
-  returnName: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
+  returnName: '', actId: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
   filingDate: '', filingDeadlineOffsetDays: '', filingChannel: '',
   returnOwnerUserId: '', returnOwnerName: '', returnOwnerEmail: '', responsibleUnit: '', responsiblePerson: '',
   linkedObligationIds: [],
@@ -36,6 +36,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [regulators, setRegulators] = useState([]);
+  const [acts, setActs] = useState([]);
   const [linksOpen, setLinksOpen] = useState(false);
 
   useEffect(() => {
@@ -50,15 +51,26 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
     }).catch(() => setRegulators([]));
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    api.acts.list({ size: 1000 }).then(res => {
+      const items = Array.isArray(res) ? res : (res.content || []);
+      setActs(items);
+    }).catch(() => setActs([]));
+  }, [open]);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.returnName.trim()) { setError('Return name is required'); return; }
+    if (!form.actId) { setError('Select the governing act'); return; }
     setSaving(true);
     setError('');
     try {
       const body = { ...form };
       delete body.returnOwnerEmail;
+      delete body.linkedObligationIds;
+      body.actId = parseInt(form.actId, 10);
       if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
       if (body.returnOwnerUserId) body.returnOwnerUserId = parseInt(body.returnOwnerUserId, 10);
       else delete body.returnOwnerUserId;
@@ -87,6 +99,16 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         <Field label="Return Name *">
           <TextField fullWidth size="small" required value={form.returnName}
             onChange={e => set('returnName', e.target.value)} />
+        </Field>
+        <Field label="Governing Act *">
+          <Autocomplete size="small" options={acts}
+            getOptionLabel={(o) => o.name || ''}
+            isOptionEqualToValue={(o, v) => String(o.regulationId) === String(v.regulationId)}
+            value={acts.find(a => String(a.regulationId) === String(form.actId)) || null}
+            onChange={(_, val) => set('actId', val ? String(val.regulationId) : '')}
+            renderInput={(params) => (
+              <TextField {...params} size="small" placeholder="Search act or regulation" required error={!form.actId} />
+            )} />
         </Field>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           <Field label="Regulator" sx={{ mb: 0 }}>
@@ -193,14 +215,22 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.returnName}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.returnName || !form.actId}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create Return'}
         </Button>
       </DialogActions>
 
       {linksOpen && <LinkObligationsPicker open onClose={() => setLinksOpen(false)}
         initialIds={form.linkedObligationIds}
-        onSave={ids => set('linkedObligationIds', ids)} />}
+        onSave={(ids, selectedRows) => setForm(f => {
+          const next = { ...f, linkedObligationIds: ids };
+          // Derive the governing act from a linked obligation when it isn't chosen yet.
+          if (!next.actId && selectedRows?.length) {
+            const withAct = selectedRows.find(ob => ob.regulationId != null);
+            if (withAct) next.actId = String(withAct.regulationId);
+          }
+          return next;
+        })} />}
     </Dialog>
   );
 }

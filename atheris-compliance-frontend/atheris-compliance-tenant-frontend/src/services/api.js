@@ -466,6 +466,8 @@ export const api = {
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
+    // Delete a return and its undisturbed periods/links (CCO, TENANT_ADMIN). 409 if a period has work.
+    remove: (returnId) => request(`/returns/${returnId}`, { method: 'DELETE' }),
     linkObligations: (returnId, linkedObligationIds) => request(`/returns/${returnId}/obligations`, {
       method: 'PUT', body: JSON.stringify({ linkedObligationIds }),
     }),

@@ -11,7 +11,11 @@ public class ReturnRegisterItem {
     private String returnName;
     /** Alias of {@link #returnName} for the shared intel return column. */
     private String title;
+    /** The governing act's platform regulation id (see {@code regulatory_returns.act_id}). */
+    private Long actId;
     private String actName;
+    /** Data-quality signal: how many obligations this return is linked to (0 = none). */
+    private Integer linkedObligationCount;
     private String filingRegulator;
     private String frequency;
     private String frequencyType;
