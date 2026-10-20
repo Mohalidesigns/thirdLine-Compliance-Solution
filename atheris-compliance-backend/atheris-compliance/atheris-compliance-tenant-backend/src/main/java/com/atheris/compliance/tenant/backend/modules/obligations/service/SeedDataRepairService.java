@@ -59,6 +59,7 @@ public class SeedDataRepairService {
     private final DashboardService dashboardService;
     private final SeedControlRepairService controlRepair;
     private final PendingReviewRepository pendingReviews;
+    private final SeedLinkRepairService linkRepair;
 
     private final AtomicBoolean done = new AtomicBoolean(false);
     private TransactionTemplate tx;
@@ -90,10 +91,15 @@ public class SeedDataRepairService {
             Map<Long, InstrumentContext> context = contextByInstrument(bundles);
             Result r = tx.execute(status -> repair(context));
             Integer regLinked = tx.execute(status -> linkRegulators(tenantId, bundles));
+            SeedLinkRepairService.Result lr = tx.execute(status -> linkRepair.repair(bundles));
             SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
+            log.info("[SeedRepair] duplicate obligations merged={}, duplicate groups left (both edited)={}, "
+                    + "controls relinked={}, obligations relinked={}",
+                lr.duplicatesMerged(), lr.duplicateGroupsSkipped(), lr.controlsRelinked(), lr.obligationsRelinked());
             if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
-                    + cr.riskRebanded() + cr.residualRatingRebanded() > 0)
+                    + cr.riskRebanded() + cr.residualRatingRebanded()
+                    + lr.duplicatesMerged() + lr.controlsRelinked() + lr.obligationsRelinked() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
             log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}",
                 r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked);

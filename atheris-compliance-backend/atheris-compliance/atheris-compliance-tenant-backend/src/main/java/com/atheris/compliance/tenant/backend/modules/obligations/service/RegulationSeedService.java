@@ -249,29 +249,16 @@ public class RegulationSeedService {
         // Maps each obligation -> the control IDs created in this bundle that link to it.
         Map<Long, List<Integer>> controlsByObligation = new HashMap<>();
         if (bundle.getControls() != null) {
+            // A control covers the obligation(s) of the toolkit row it came from — the platform's
+            // links, translated to this tenant's obligation ids. (It used to attach to every obligation
+            // of the act, and to keep the platform's ids untranslated.)
+            Map<Long, Long> platformToTenant = SeedLinks.platformToTenant(bundle.getObligations(),
+                createdObligations.isEmpty() ? obligationRepo.findByInstrumentId(instrumentId) : createdObligations);
             for (PlatformRegulationSeed.ControlItem c : bundle.getControls()) {
                 if (c.getControlNumber() == null || c.getControlNumber().isBlank()) continue;
                 if (controlRepo.existsByControlNumber(c.getControlNumber())) continue;
 
-                // Controls belong to the bundle's regulation, so they attach to ALL obligations of that
-                // instrument (the toolkit links controls at the act_id/regulation level). This guarantees every
-                // obligation carries its regulation's controls + additional controls.
-                List<Long> linkedIds = createdObligations.isEmpty()
-                    ? obligationRepo.findByInstrumentId(instrumentId).stream()
-                        .map(Obligation::getObligationId)
-                        .toList()
-                    : createdObligations.stream()
-                        .map(Obligation::getObligationId)
-                        .toList();
-                // Union in any platform-supplied explicit links (a subset of the same instrument).
-                if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isBlank()) {
-                    java.util.Set<Long> merged = new java.util.LinkedHashSet<>(linkedIds);
-                    java.util.Arrays.stream(c.getLinkedObligationIds().split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .forEach(s -> merged.add(Long.parseLong(s)));
-                    linkedIds = new ArrayList<>(merged);
-                }
+                List<Long> linkedIds = SeedLinks.translate(c.getLinkedObligationIds(), platformToTenant);
 
                 Control saved = controlRepo.save(Control.builder()
                     .controlNumber(c.getControlNumber())

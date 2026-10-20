@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import com.atheris.compliance.common.obligations.ObligationKey;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,11 +56,20 @@ public class ToolkitImportService {
     private final ComplianceControlRepository complianceControls;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper mapper;
+    private final ToolkitDataRepairService toolkitRepair;
 
     static final List<String> CRMP_SECTIONS = List.of(
             "conduct_risk", "corporate_governance", "data_protection",
             "capital_market", "crmp", "esg", "cybersecurity", "consumer_protection",
             "abac", "amlcft", "actmgt", "cash_mgt");
+
+    /**
+     * Obligation import order: the generic {@code crmp} sheet repeats rows of the topical sheets
+     * (with reworded interpretations), so it goes last and its copies are skipped as duplicates —
+     * the topical sheet's interpretation, points and controls win.
+     */
+    static final List<String> OBLIGATION_IMPORT_ORDER = java.util.stream.Stream.concat(
+            CRMP_SECTIONS.stream().filter(s -> !"crmp".equals(s)), java.util.stream.Stream.of("crmp")).toList();
 
     private static final Map<String, String> SECTION_AREA_OF_FOCUS = Map.ofEntries(
             Map.entry("conduct_risk", "Conduct Risk"),
@@ -76,6 +86,8 @@ public class ToolkitImportService {
             Map.entry("cash_mgt", "Cash Management"));
 
     private final List<String> unmapped = new ArrayList<>();
+    /** act id + {@link ObligationKey} → obligation id, for duplicate detection during an import run. */
+    private final Map<String, Long> obligationByActKey = new HashMap<>();
     private int regulatorCount = 0;
     private int actCount = 0;
     private int instrumentCount = 0;
@@ -89,6 +101,7 @@ public class ToolkitImportService {
     public ToolkitImportResult importToolkit() {
         unmapped.clear();
         instrumentAreaCache.clear();
+        obligationByActKey.clear();
         regulatorCount = actCount = instrumentCount = obligationCount = sanctionCount = returnCount = controlCount = 0;
         controlDedupCount = 0;
         skippedNoControlRows = 0;
@@ -107,13 +120,19 @@ public class ToolkitImportService {
 
                     importUniverse(doc.getUniverse() == null ? List.of() : doc.getUniverse());
                     if (doc.getObligations() != null) {
-                        for (String section : CRMP_SECTIONS) {
+                        for (ObligationMapping o : obligations.findAll()) {
+                            String k = ToolkitDataRepairService.actKey(o.getRegulationId(), o);
+                            if (k != null) obligationByActKey.putIfAbsent(k, o.getObligationId());
+                        }
+                        for (String section : OBLIGATION_IMPORT_ORDER) {
                             importCrmp(section, doc.getObligations().getOrDefault(section, List.of()));
                         }
                     }
                     importSanctions(doc.getSanctions() == null ? List.of() : doc.getSanctions());
                     importReturns(doc.getReturns() == null ? List.of() : doc.getReturns());
                     importCmpControlsFromSections(doc.getObligations() == null ? Map.of() : doc.getObligations());
+                    // each control links the obligation(s) of the row(s) it came from
+                    toolkitRepair.relinkControls(doc.getObligations() == null ? Map.of() : doc.getObligations());
                     return successResult();
                 } catch (Exception e) {
                     status.setRollbackOnly();
@@ -240,8 +259,10 @@ public class ToolkitImportService {
             String descriptionText = o.getDescription() == null
                 ? "" : stripQuotes(TextCleaner.stripMarkdown(o.getDescription().trim()));
             String sectionRef = shorten(o.getSectionRef(), 100);
-            if (obligations.existsByRegulationIdAndPlainEnglishStatementAndSpecificSectionReference(
-                    actId, statement, sectionRef)) {
+            // Natural key (title + section + verbatim text), not the interpreted text: the crmp sheet
+            // repeats topical rows with reworded interpretations.
+            String actKey = ToolkitDataRepairService.actKey(actId, o);
+            if (actKey != null && obligationByActKey.containsKey(actKey)) {
                 log.debug("[ToolkitImport] Skipping duplicate obligation for {}: {}...", source, statement.substring(0, Math.min(60, statement.length())));
                 continue;
             }
@@ -250,7 +271,7 @@ public class ToolkitImportService {
             String impactInherent = normalizeRiskLabel(o.getImpactInherent());
             String inherentRiskRating = computeRiskBand(likelihoodInherent, impactInherent);
 
-            obligations.save(ObligationMapping.builder()
+            ObligationMapping saved = obligations.save(ObligationMapping.builder()
                 .instrumentId(instrumentId)
                 .regulationId(actId)
                 .obligationNumber(++obligNumber)
@@ -270,6 +291,7 @@ public class ToolkitImportService {
                 .controlOwner(o.getOwner())
                 .points(o.getPoints() == null ? List.of() : o.getPoints())
                 .build());
+            if (actKey != null) obligationByActKey.put(actKey, saved.getObligationId());
             obligationCount++;
         }
     }
@@ -987,12 +1009,6 @@ public class ToolkitImportService {
 
                 // Resolve regulation
                 Long actId = findOrCreateAct(source, null);
-                String sectionRef = o.getSectionRef();
-
-                // Match ALL obligations by section reference for this regulation
-                List<Long> matchedObligationIds = matchObligationsBySection(actId, sectionRef);
-                String linkedIds = matchedObligationIds.isEmpty() ? null
-                    : matchedObligationIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 
                 // Residual risk
                 String likelihoodResidual = normalizeRiskLabel(o.getResidualLikelihood());
@@ -1039,7 +1055,7 @@ public class ToolkitImportService {
                         .ownerName(o.getResponsibility())
                         .actId(actId)
                         .actName(source)
-                        .linkedObligationIds(linkedIds)
+                        // linkedObligationIds: set by ToolkitDataRepairService.relinkControls (row of origin)
                         .status("Open")
                         .build());
                     byKey.put(key, saved);
@@ -1081,19 +1097,5 @@ public class ToolkitImportService {
         log.info("[ToolkitImport] Removed {} duplicate CRMP controls across {} groups ({} kept rows merged)",
             toDelete.size(), groups.size(), changed.size());
         return toDelete;
-    }
-
-    private List<Long> matchObligationsBySection(Long regulationId, String sectionRef) {
-        if (sectionRef == null || sectionRef.isBlank()) return List.of();
-        return obligations.findByRegulationId(regulationId).stream()
-            .filter(o -> {
-                String oRef = o.getSpecificSectionReference();
-                if (oRef == null || oRef.isBlank()) return false;
-                String norm = sectionRef.toLowerCase(Locale.ROOT).trim();
-                return norm.contains(oRef.toLowerCase(Locale.ROOT).trim())
-                    || oRef.toLowerCase(Locale.ROOT).trim().contains(norm);
-            })
-            .map(ObligationMapping::getObligationId)
-            .toList();
     }
 }

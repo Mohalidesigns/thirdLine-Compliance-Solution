@@ -13,6 +13,7 @@ import java.util.Optional;
 @Repository
 public interface ControlRepository extends JpaRepository<Control, Integer>, JpaSpecificationExecutor<Control> {
     Optional<Control> findByControlNumber(String controlNumber);
+    List<Control> findByControlNumberIn(java.util.Collection<String> controlNumbers);
     boolean existsByControlNumber(String controlNumber);
     List<Control> findByControlOwnerUserId(Integer userId);
     List<Control> findByControlOwnerId(Integer ownerId);

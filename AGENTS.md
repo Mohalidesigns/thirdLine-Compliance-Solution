@@ -241,7 +241,9 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 
 ## Done — Tenant E2E High findings (`bugfix/tenant-e2e-high-findings`)
 
-13 of the 17 High findings in `E2E_FINDINGS_2026-10-19.md` are fixed (see its "Fix log"). Q1 is config only (`OPENROUTER_API_KEY`). O1/O2/C2 (duplicate obligations, act-wide control links, dangling platform ids) have a plan but no changes yet.
+16 of the 17 High findings in `E2E_FINDINGS_2026-10-19.md` are fixed (see its "Fix log"); Q1 is config only (`OPENROUTER_API_KEY`).
+- **Duplicates / control links (O1/O2/C2):** shared `atheris-compliance-common` `obligations/ObligationKey` (title + label-less section + verbatim text). Intel import dedups on it with the `crmp` sheet last; `ToolkitDataRepairService` removes old duplicates and `relinkControls` links each control to the obligation of the toolkit row it came from. The seed DTO carries the platform `obligationId`; the tenant seed translates ids via `SeedLinks`. Tenant `SeedLinkRepairService` (run by `SeedDataRepairService`) merges duplicates, moving every reference first, and rebuilds links. **`ControlLinkService` is the only writer of `controls.linked_obligation_ids` / `obligation_classifications.linked_control_ids`** — never set either list directly.
+- **Gotcha:** the intel launch config runs `spring-boot:run` from the intel module, so it uses the *installed* common jar. After changing `atheris-compliance-common`, run `mvn install -pl atheris-compliance-common -DskipTests` or intel fails with `NoClassDefFoundError`.
 - **Auth:** tenant `api.js` refresh is single-flight (concurrent 401s share one `/auth/refresh`).
 - **Uploads (intel):** `UploadClassificationHandler` runs classification in its own `TransactionTemplate`, so FAILED is always saved. `StaleUploadRecovery` fails uploads stuck >30 min, and re-uploading a FAILED PDF retries it.
 - **Email (tenant):** STARTTLS is on by default. `EmailService.send` returns an `Outcome`, and the remediation-link API and dialog report `emailStatus` instead of always saying "emailed".

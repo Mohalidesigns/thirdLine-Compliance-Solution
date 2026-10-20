@@ -87,6 +87,7 @@ public class InternalRegulationSeedService {
                     .build())
                 .obligations(obligations.findByRegulationId(r.getRegulationId()).stream()
                     .map(o -> InternalRegulationSeed.ObligationItem.builder()
+                        .obligationId(o.getObligationId())
                         .obligationNumber(o.getObligationNumber())
                         .title(o.getTitle())
                         .description(o.getDescription())

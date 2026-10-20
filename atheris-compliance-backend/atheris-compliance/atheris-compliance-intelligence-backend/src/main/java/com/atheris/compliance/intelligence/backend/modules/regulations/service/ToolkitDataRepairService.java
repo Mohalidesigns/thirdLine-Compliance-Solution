@@ -1,5 +1,6 @@
 package com.atheris.compliance.intelligence.backend.modules.regulations.service;
 
+import com.atheris.compliance.common.obligations.ObligationKey;
 import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.atheris.compliance.intelligence.backend.modules.instruments.entity.Instrument;
@@ -9,6 +10,7 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitSeedDoc;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.shared.text.TextCleaner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +37,11 @@ import java.util.stream.Collectors;
  *   <li>control risk re-banded: {@code residualRiskRating} from the row's own residual likelihood ×
  *       impact; {@code riskLevel} (inherent) from the toolkit seed JSON row the control came from,
  *       because the control row does not store its inherent likelihood × impact. Either is changed
- *       only while it still equals the old band, so an admin's rating is kept.</li>
+ *       only while it still equals the old band, so an admin's rating is kept;</li>
+ *   <li>duplicate obligations removed: the same row appears on the generic {@code crmp} sheet and
+ *       on a topical sheet; one row per act + {@link ObligationKey} is kept (the topical copy);</li>
+ *   <li>control → obligation links rebuilt from the row each control came from (its Primary or
+ *       Additional Control cell), instead of a section-substring match across the whole act.</li>
  * </ul>
  * Toolkit seed rows only — AI-extracted obligations keep the classifier's values.
  */
@@ -53,7 +59,8 @@ public class ToolkitDataRepairService {
     private final ObjectMapper mapper;
 
     public record Result(int instrumentsUpdated, int riskRebanded, int areaReassigned,
-                         int controlRiskRebanded, int controlResidualRebanded) {}
+                         int controlRiskRebanded, int controlResidualRebanded,
+                         int duplicatesRemoved, int controlsRelinked) {}
 
     /** Inherent likelihood × impact of the seed row a control was created from. */
     record Inherent(String likelihood, String impact) {}
@@ -95,19 +102,157 @@ public class ToolkitDataRepairService {
             }
             obligations.saveAll(changed);
 
-            int[] controlCounts = repairControls(inherentByControlKey(seedSections()));
+            Map<String, List<ToolkitSeedDoc.ObligationRow>> sections = seedSections();
+            int[] controlCounts = repairControls(inherentByControlKey(sections));
+            int removed = removeDuplicateObligations(byId.keySet(), sections);
+            int relinked = relinkControls(sections);
 
-            Result r = new Result(changedInstruments.size(), rebanded, reassigned, controlCounts[0], controlCounts[1]);
+            Result r = new Result(changedInstruments.size(), rebanded, reassigned, controlCounts[0], controlCounts[1],
+                removed, relinked);
             log.info("[ToolkitRepair] instruments area-normalised={}, obligations risk re-banded={}, area reassigned={}, "
-                    + "controls risk re-banded={}, controls residual re-banded={}",
+                    + "controls risk re-banded={}, controls residual re-banded={}, duplicate obligations removed={}, "
+                    + "controls relinked={}",
                 r.instrumentsUpdated(), r.riskRebanded(), r.areaReassigned(),
-                r.controlRiskRebanded(), r.controlResidualRebanded());
+                r.controlRiskRebanded(), r.controlResidualRebanded(), r.duplicatesRemoved(), r.controlsRelinked());
             return r;
         } catch (Throwable e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             log.error("[ToolkitRepair] failed: {}", e.getMessage(), e);
-            return new Result(0, 0, 0, 0, 0);
+            return new Result(0, 0, 0, 0, 0, 0, 0);
         }
+    }
+
+    // ── duplicate obligations ───────────────────────────────────────────────
+
+    /**
+     * Keeps one toolkit obligation per act + {@link ObligationKey}. The keeper is the copy that
+     * matches a topical (non-{@code crmp}) seed row's interpreted text and section, else the lowest
+     * id. Controls point at obligations only through {@code linkedObligationIds}, which
+     * {@link #relinkControls} rebuilds afterwards, so nothing else needs re-pointing.
+     */
+    int removeDuplicateObligations(Collection<Long> toolkitInstrumentIds,
+                                   Map<String, List<ToolkitSeedDoc.ObligationRow>> sections) {
+        Set<String> topical = topicalSignatures(sections);
+        Map<String, List<ObligationMapping>> groups = new HashMap<>();
+        for (ObligationMapping o : obligations.findByInstrumentIdIn(toolkitInstrumentIds)) {
+            String key = actKey(o.getRegulationId(), o);
+            if (key != null) groups.computeIfAbsent(key, k -> new ArrayList<>()).add(o);
+        }
+        List<ObligationMapping> losers = new ArrayList<>();
+        for (List<ObligationMapping> group : groups.values()) {
+            if (group.size() < 2) continue;
+            ObligationMapping keep = chooseKeeper(group, topical);
+            group.stream().filter(o -> o != keep).forEach(losers::add);
+        }
+        obligations.deleteAll(losers);
+        return losers.size();
+    }
+
+    static ObligationMapping chooseKeeper(List<ObligationMapping> group, Set<String> topicalSignatures) {
+        Comparator<ObligationMapping> byId = Comparator.comparing(ObligationMapping::getObligationId,
+            Comparator.nullsLast(Comparator.naturalOrder()));
+        return group.stream()
+            .filter(o -> topicalSignatures.contains(signature(o.getPlainEnglishStatement(), o.getSpecificSectionReference())))
+            .min(byId)
+            .orElseGet(() -> group.stream().min(byId).orElseThrow());
+    }
+
+    /** Interpreted text + section of every row on a topical sheet (the copy that wins over crmp). */
+    static Set<String> topicalSignatures(Map<String, List<ToolkitSeedDoc.ObligationRow>> sections) {
+        Set<String> out = new HashSet<>();
+        sections.forEach((section, rows) -> {
+            if ("crmp".equals(section)) return;
+            for (ToolkitSeedDoc.ObligationRow r : rows) {
+                String plain = r.getPlain() == null || r.getPlain().isBlank() ? r.getDescription() : r.getPlain();
+                out.add(signature(plain, r.getSectionRef()));
+            }
+        });
+        return out;
+    }
+
+    static String signature(String plain, String section) {
+        return ObligationKey.normalize(plain) + '|' + ObligationKey.normalizeSection(section);
+    }
+
+    static String actKey(Long actId, ObligationMapping o) {
+        String key = ObligationKey.of(o.getTitle(), o.getSpecificSectionReference(), o.getDescription(),
+            o.getPlainEnglishStatement());
+        return key == null ? null : actId + "#" + key;
+    }
+
+    /** Key of a seed row, cleaned exactly as the importer stores it so it matches the saved obligation. */
+    static String actKey(Long actId, ToolkitSeedDoc.ObligationRow r) {
+        String plain = r.getPlain() == null || r.getPlain().isBlank() ? r.getDescription() : r.getPlain();
+        String key = ObligationKey.of(truncate(r.getTitle(), 500), truncate(r.getSectionRef(), 100),
+            clean(r.getDescription()), clean(plain));
+        return key == null ? null : actId + "#" + key;
+    }
+
+    private static String clean(String s) {
+        return s == null ? null : ToolkitImportService.stripQuotes(TextCleaner.stripMarkdown(s.trim()));
+    }
+
+    private static String truncate(String s, int max) {
+        return s == null || s.length() <= max ? s : s.substring(0, max);
+    }
+
+    // ── control → obligation links ──────────────────────────────────────────
+
+    /**
+     * Rebuilds {@code linkedObligationIds} of every toolkit control (CRMP area, not tied to a single
+     * obligation) from the seed rows that produced it: each row links its own obligation to its
+     * Primary/Additional control; a control produced by several rows links all of them.
+     * Returns the number of controls whose links changed.
+     */
+    public int relinkControls(Map<String, List<ToolkitSeedDoc.ObligationRow>> sections) {
+        List<ComplianceControl> toolkitControls = controls.findAll().stream()
+            .filter(c -> c.getObligationId() == null && c.getComplianceArea() != null
+                && ToolkitImportService.CRMP_SECTIONS.contains(c.getComplianceArea()))
+            .toList();
+        Map<String, Long> actIdByName = new HashMap<>();
+        for (ComplianceControl c : toolkitControls) {
+            if (c.getActName() != null && c.getActId() != null) actIdByName.putIfAbsent(c.getActName().trim(), c.getActId());
+        }
+        Map<String, Long> obligationByActKey = new HashMap<>();
+        for (ObligationMapping o : obligations.findByRegulationIdIn(new HashSet<>(actIdByName.values()))) {
+            String k = actKey(o.getRegulationId(), o);
+            if (k != null && o.getObligationId() != null) obligationByActKey.merge(k, o.getObligationId(), Math::min);
+        }
+        Map<String, Set<Long>> links = linksByControlKey(sections, actIdByName, obligationByActKey);
+
+        List<ComplianceControl> changed = new ArrayList<>();
+        for (ComplianceControl c : toolkitControls) {
+            Set<Long> ids = links.getOrDefault(controlKey(c.getActName(), c.getControlType(), c.getComplianceControl()), Set.of());
+            String joined = ids.isEmpty() ? null
+                : ids.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
+            if (!Objects.equals(joined, c.getLinkedObligationIds())) {
+                c.setLinkedObligationIds(joined);
+                changed.add(c);
+            }
+        }
+        controls.saveAll(changed);
+        return changed.size();
+    }
+
+    /** Pure: control key → obligation ids of the rows that carry that control. */
+    static Map<String, Set<Long>> linksByControlKey(Map<String, List<ToolkitSeedDoc.ObligationRow>> sections,
+                                                   Map<String, Long> actIdByName,
+                                                   Map<String, Long> obligationByActKey) {
+        Map<String, Set<Long>> out = new HashMap<>();
+        for (String section : ToolkitImportService.CRMP_SECTIONS) {
+            for (ToolkitSeedDoc.ObligationRow r : sections.getOrDefault(section, List.of())) {
+                if (r.getSource() == null || r.getSource().isBlank()) continue;
+                Long actId = actIdByName.get(r.getSource().trim());
+                String k = actId == null ? null : actKey(actId, r);
+                Long obligationId = k == null ? null : obligationByActKey.get(k);
+                if (obligationId == null) continue;
+                if (r.getPrimaryControl() != null && !r.getPrimaryControl().isBlank())
+                    out.computeIfAbsent(controlKey(r.getSource(), "PRIMARY", r.getPrimaryControl()), x -> new TreeSet<>()).add(obligationId);
+                if (r.getAdditionalControl() != null && !r.getAdditionalControl().isBlank())
+                    out.computeIfAbsent(controlKey(r.getSource(), "ADDITIONAL", r.getAdditionalControl()), x -> new TreeSet<>()).add(obligationId);
+            }
+        }
+        return out;
     }
 
     /** {inherent re-banded, residual re-banded}. */

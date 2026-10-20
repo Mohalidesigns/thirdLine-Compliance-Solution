@@ -13,6 +13,7 @@ public interface ObligationMappingRepository extends JpaRepository<ObligationMap
     List<ObligationMapping> findByInstrumentId(Long instrumentId);
     List<ObligationMapping> findByInstrumentIdIn(Collection<Long> instrumentIds);
     List<ObligationMapping> findByRegulationId(Long regulationId);
+    List<ObligationMapping> findByRegulationIdIn(Collection<Long> regulationIds);
     List<ObligationMapping> findByPointsIsNull();
     @Query(value = "SELECT * FROM obligation_mappings WHERE points IS NULL OR jsonb_array_length(points) = 0", nativeQuery = true)
     List<ObligationMapping> findByPointsEmpty();

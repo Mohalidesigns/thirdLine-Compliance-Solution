@@ -99,8 +99,8 @@ Drill from dashboard → 41 rows (= breakdown) ✓; drawer shows details, AI sum
 
 | # | Sev | Finding | Evidence / where |
 |---|-----|---------|------------------|
-| O1 | High — plan proposed | **Duplicate obligations**: 97 groups / 216 rows share instrument + title + section + identical text (e.g. "Failure to Complete CDD" ids 323 & 361). They come from the platform: intel `obligation_mappings` has 96 such groups; tenant `obligations` has 128. Inflates every count and risk total. | intel toolkit import dedup; tenant seed |
-| O2 | High — plan proposed | **Control over-linking makes coverage meaningless**: 471 obligations have 100+ linked controls, 699 have 20–99 (e.g. "Data Privacy Impact Assessment" → 210 controls). Every obligation in an act appears linked to every control of that act, so "Control coverage 100% / No control 0" says nothing. | seeded `linked_control_ids` |
+| O1 | High — **Fixed** | **Duplicate obligations**: 97 groups / 216 rows share instrument + title + section + identical text (e.g. "Failure to Complete CDD" ids 323 & 361). They come from the platform: intel `obligation_mappings` has 96 such groups; tenant `obligations` has 128. Inflates every count and risk total. | intel toolkit import dedup; tenant seed |
+| O2 | High — **Fixed** | **Control over-linking makes coverage meaningless**: 471 obligations have 100+ linked controls, 699 have 20–99 (e.g. "Data Privacy Impact Assessment" → 210 controls). Every obligation in an act appears linked to every control of that act, so "Control coverage 100% / No control 0" says nothing. | seeded `linked_control_ids` |
 | O3 | Med | Assess Risk saves `impactRating`/`likelihoodRating` but leaves `inherentImpact`/`inherentLikelihood` ("Medium") and `tenantRiskRating` unchanged, although the dialog says "Inherent risk is computed automatically from impact × likelihood". Two parallel sets of impact/likelihood fields. | `PUT` risk assessment → obligation 225 |
 | O4 | Med | Risk dialog mixes scales: Impact = Critical/High/Medium/Low (4), Likelihood = Rare…Almost Certain (5), while the risk matrix/heatmap uses Insignificant…Severe for impact. "Risk Rating" is also hand-selectable next to the computed one. | Assess Risk dialog |
 | O5 | Med | Assign Owner: owners are a separate org list, not tenant users — the 5 users can't be picked. "Add new owner" is offered to the CCO but `POST /org/owners` is TENANT_ADMIN-only → 403 "You do not have permission". | `OrgController.java:85` |
@@ -120,7 +120,7 @@ Drill from dashboard → 41 rows (= breakdown) ✓; drawer shows details, AI sum
 | # | Sev | Finding | Evidence / where |
 |---|-----|---------|------------------|
 | C1 | Med | "Tests due" KPI = 0 here, dashboard "Tests due (30 days)" = 6. | `/controls` vs `/dashboard` |
-| C2 | High — plan proposed | Control ↔ obligation links are out of sync: control CORPA119 lists **4** linked obligations, while obligations of the same act list 58–210 controls each (see O2). | control detail vs register |
+| C2 | High — **Fixed** | Control ↔ obligation links are out of sync: control CORPA119 lists **4** linked obligations, while obligations of the same act list 58–210 controls each (see O2). | control detail vs register |
 | C3 | Med | Record Test → "Remediation Owner" offers only org owners ("No owners yet"), and the entered **Remediation Deadline (20 Nov) is ignored** — the auto-raised finding gets the SLA default (3 Nov). | `Record Test` dialog → FIND-002 |
 | C4 | Low | Inconsistent seed data: "Annual policy review, internal audit." with test frequency Monthly. | row 2 |
 | — | ✓ | Failed test recorded → review "Pending"; the tester (CCO) cannot review own test ("a different analyst must review it") — SoD works. FIND-002 (High) auto-raised from the failed test. | |
@@ -235,7 +235,7 @@ Verified with `mvn compile` + `mvn test` (both backends, new unit tests `Renditi
 
 | # | Fix | Live check |
 |---|-----|-----------|
-| S1 | `api.js` `doRefresh()` shares one in-flight promise; a request whose token was already rotated retries with the current one instead of refreshing again. `rawRequest` uses the same path. | Not reproducible on demand (needs concurrent expiry) — code + build only |
+| S1 | `api.js` `doRefresh()` shares one in-flight promise; a request whose token was already rotated retries with the current one instead of refreshing again. `rawRequest` uses the same path. | Invalid access token + reload → ~13 parallel 401s → **one** `/auth/refresh` (200), user stays signed in |
 | Q1 | Config only: `OPENROUTER_API_KEY` in `.env` is rejected (401). Needs a valid key. | — |
 | Q2 | Intel `UploadClassificationHandler` is no longer one transaction: instrument + classification run in a `REQUIRES_NEW` `TransactionTemplate`; FAILED (with the root-cause message) is saved in its own transaction. New `StaleUploadRecovery` (every 10 min) fails uploads stuck in-flight >30 min; re-uploading the same PDF after a failure retries it instead of "duplicate". Tenant Upload History shows the error under "failed". | Stuck upload 1 → FAILED "Processing was interrupted…"; tenant `/uploads` shows **Failed** |
 | F3 | Tenant `spring.mail…starttls.enable` defaults to `true` (`SMTP_STARTTLS`); `.env.example` documents `SMTP_AUTH`/`SMTP_STARTTLS`. `EmailService.send` returns an `Outcome`; `POST /findings/{id}/remediation-link` returns `emailStatus` + `ownerEmail`; the dialog says "Emailed to …" only on `SENT`, otherwise why not + "copy the link". **Still needed:** `SMTP_USER`/`SMTP_PASSWORD` (Gmail app password) and `SMTP_AUTH=true` in `.env`. | FIND-001 (no owner) → "The owner has no email address on file — copy the link…" |
@@ -246,10 +246,21 @@ Verified with `mvn compile` + `mvn test` (both backends, new unit tests `Renditi
 | I1 | Instruments page uses `/subscriptions/instruments/universe` (server filters, sort, paging) + `universe-stats` for KPIs and breakdowns; universe sort gained `obligationCount`. | KPIs 112/54/37/1/20; High → 54 rows; CBN breakdown 41; sort spans all 112 |
 | G1 | Obligations get `tenantRegulatorId` in the seed and on review save; `SeedDataRepairService.linkRegulators` backfills (via seed bundles, else pending reviews). | 1535 linked; KPI Obligations 1535, CBN 750 (was 0) |
 | N1 | Return filing maker/checker: whoever completed Data Gathering/Draft can't complete Review, nor submit (409 `segregation_of_duties`). | Same user Draft→Review→Sign-off blocked with the message |
-| B3 | Runbook step `assignedRole` enforced on start/pass/fail/skip (403 `step_role_required`); CCO may do Analyst steps; CISO/DPO (no app role) stay open. | Unit-tested only — the shared browser was signed in by someone else mid-check |
+| B3 | Runbook step `assignedRole` enforced on start/pass/fail/skip (403 `step_role_required`); CCO may do Analyst steps; CISO/DPO (no app role) stay open. | RBX-2026-000003 step 1.1 (IT_OPS) as Tenant Admin → "This step is assigned to the IT_OPS role", 0/7 steps |
 | F1 | `POST /org/owners` (+ quick-add departments/teams) open to CCO; Add Owner dialog can prefill from a system user. | CCO created "E2E Owner (created by CCO)", preselected in Assign |
 | E1 | `EvidenceVaultService.uploadLinked` validates source type (control, control_test, finding, return_instance, obligation) and that the record exists. | Control #999999 → "No control #999999 exists" |
 
 Test data added: org owner "E2E Owner (created by CCO)"; remediation links for FIND-001; return instance "Basel III Leverage Ratio" 2026-11 advanced to Review by Dev CCO.
 
-O1/O2/C2: root causes and a fix plan are in the session notes (`O1-O2-C2-investigation.md`); nothing changed yet.
+### O1 / O2 / C2 (second pass, same branch)
+
+| # | Fix | Live check |
+|---|-----|-----------|
+| O1 | Shared `common/obligations/ObligationKey` (normalised title + section without "Section/Reg." label + verbatim text; interpreted text only when no verbatim). Intel import dedups on it and imports the generic `crmp` sheet last, so the topical copy wins; `ToolkitDataRepairService.removeDuplicateObligations` removes existing duplicates. Tenant `SeedLinkRepairService.mergeDuplicates` keeps the edited row (else the platform's copy, else lowest id), moves return/sanction links, findings, classification history, evidence, runbook and control links onto it, then deletes the copy; a group where both rows were edited is left and logged. | Intel 1535 → **1407** (128 removed); tenant 1536 → **1408** (128 merged, 0 skipped); obligation 225 (edited) kept; 0 orphan return links. Register total 1408; dashboard 1407 applicable, Critical/High 1202 |
+| O2 | Controls link the obligation of the toolkit row they came from (Primary/Additional cell), union across rows for a deduped control. Intel: `relinkControls` after import and in the repair (replaces the section-substring match). Seed DTO carries `obligationId`; the tenant seed translates platform ids via `SeedLinks` (no act-wide fallback). Tenant repair replaces a seeded control's links only while they are still the act-wide set. | Intel 2234 links, every obligation 1–3, 0 unlinked/dangling. Tenant links 115,996 → **2,234**; register "Controls" 1–3 per row; control detail "1 obligation traced" |
+| C2 | `ControlLinkService` is the one writer of both lists (control create/update, obligation create/update/classify/link-controls), validating ids (400 on unknown). Repair drops dangling platform ids and mirrors the remaining links both ways. `ControlService.getDetail` N+1 replaced by one `findAllById`. | control-only links 3,710 → **0**, obligation-only 0, dangling 0 |
+
+Not merged on purpose: 2 pairs on NDPA (obligations 967/1022, 982/1087) with the same text but different section references ("7(a,d,f…)" vs "Article 7", "28 (11)" vs "Article 28 (11-12)") — a person should decide.
+"No Control" is 0 and coverage 100% because every seeded obligation now has its own 1–3 controls (before, every control of the act).
+
+Test data added in this pass: runbook run RBX-2026-000003 pre-flighted and started (In progress, 0/7).

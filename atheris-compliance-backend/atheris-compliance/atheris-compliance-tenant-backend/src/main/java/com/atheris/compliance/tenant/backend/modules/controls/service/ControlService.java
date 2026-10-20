@@ -35,6 +35,7 @@ public class ControlService {
     private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
+    private final ControlLinkService links;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
@@ -195,9 +196,13 @@ public class ControlService {
         List<ControlDetailResponse.LinkedObligation> obligations = Collections.emptyList();
         if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isEmpty()) {
             List<Long> distinctIds = c.getLinkedObligationIds().stream().distinct().toList();
+            // one query for all linked obligations (was one findById per id)
+            Map<Long, com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation> byId =
+                obligationRepo.findAllById(distinctIds).stream().collect(Collectors.toMap(
+                    com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation::getObligationId, o -> o));
             obligations = distinctIds.stream()
                 .map(oid -> {
-                    var o = obligationRepo.findById(oid).orElse(null);
+                    var o = byId.get(oid);
                     if (o == null) {
                         return null;
                     }
@@ -299,13 +304,15 @@ public class ControlService {
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
             .testFrequency(req.getTestFrequency())
             .testFrequencyDays(req.getTestFrequencyDays())
-            .linkedObligationIds(req.getLinkedObligationIds() == null ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())))
+            .linkedObligationIds(new ArrayList<>())
             .inherentRisk(req.getInherentRisk())
             .residualRisk(req.getInherentRisk())
             .status("Active")
             .createdByUserId(userId)
             .build();
         Control saved = repo.save(c);
+        // both sides of the link (control + each obligation's classification)
+        links.setObligationsOfControl(saved, req.getLinkedObligationIds());
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
             Map.of("control_number", saved.getControlNumber()));
         testService.scheduleNextTest(saved);
@@ -339,7 +346,7 @@ public class ControlService {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
         }
         if (req.getLinkedObligationIds() != null) {
-            c.setLinkedObligationIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedObligationIds())));
+            links.setObligationsOfControl(c, req.getLinkedObligationIds());
         }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());

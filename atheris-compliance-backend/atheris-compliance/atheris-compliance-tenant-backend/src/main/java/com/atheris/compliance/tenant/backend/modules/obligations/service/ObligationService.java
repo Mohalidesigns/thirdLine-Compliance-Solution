@@ -49,6 +49,7 @@ public class ObligationService {
     private final RegulatorySanctionRepository sanctionRepo;
     private final ObligationSanctionRepository obligationSanctionRepo;
     private final TenantRegulatorRepository tenantRegulatorRepo;
+    private final com.atheris.compliance.tenant.backend.modules.controls.service.ControlLinkService controlLinks;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -430,10 +431,10 @@ public class ObligationService {
             .classifiedAt(Instant.now())
             .hasGap(Boolean.TRUE.equals(req.getHasGap()))
             .gapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null)
-            .linkedControlIds(req.getLinkedControlIds() == null
-                ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
+            .linkedControlIds(new ArrayList<>())
             .build();
-        classifications.save(c);
+        c = classifications.save(c);
+        if (req.getLinkedControlIds() != null) c = controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
 
         audit.log(userId, "obligation_created", "obligation", saved.getObligationId(),
             java.util.Collections.singletonMap("instrumentId", saved.getInstrumentId()));
@@ -463,10 +464,8 @@ public class ObligationService {
             c.setHasGap(req.getHasGap());
             c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
         }
-        if (req.getLinkedControlIds() != null) {
-            c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
-        }
         classifications.save(c);
+        if (req.getLinkedControlIds() != null) controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
         audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
         return toRegisterItem(saved, c, null, List.of(), List.of());
     }
@@ -800,9 +799,7 @@ public class ObligationService {
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
-        c.setLinkedControlIds(req.getLinkedControlIds() == null
-            ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
-        classifications.save(c);
+        c = controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
         audit.log(userId, "link_controls", "obligation", obligationId,
             Map.of("linkedControlIds", c.getLinkedControlIds()));
     }
@@ -986,13 +983,13 @@ public class ObligationService {
         if (req.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(req.getAssignedOwnerUserId());
         if (req.getAssignedOwnerName() != null) c.setAssignedOwnerName(req.getAssignedOwnerName());
         if (req.getAssignedDepartment() != null) c.setAssignedDepartment(req.getAssignedDepartment());
-        if (req.getLinkedControlIds() != null) c.setLinkedControlIds(new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())));
         if (req.getHasGap() != null) c.setHasGap(req.getHasGap());
         if (req.getGapDescription() != null) c.setGapDescription(req.getGapDescription());
         c.setClassifiedByUserId(userId);
         c.setClassifiedAt(Instant.now());
         c.setStatus("active");
         ObligationClassification saved = classifications.save(c);
+        if (req.getLinkedControlIds() != null) saved = controlLinks.setControlsOfObligation(saved, req.getLinkedControlIds());
         if (req.getLinkedReturnIds() != null) {
             Long targetObligation = req.getLinkedObligationId() != null
                 ? req.getLinkedObligationId() : obligationId;
