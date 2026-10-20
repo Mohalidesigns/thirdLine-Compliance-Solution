@@ -27,6 +27,8 @@ import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
+import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -52,6 +54,7 @@ public class ReviewService {
     private final OwnerRepository ownerRepo;
     private final DepartmentRepository departmentRepo;
     private final TenantIdentityService tenantIdentity;
+    private final TenantRegulatorRepository tenantRegulators;
 
     @PersistenceContext
     private EntityManager em;
@@ -266,6 +269,11 @@ public class ReviewService {
             // clean existing sanctions for this instrument (join cascades via obligation delete, sanctions remain orphaned — keep deduped rows)
             // we keep sanction rows for dedup but remove stale join already cascaded
 
+            // Link the obligations to the tenant's regulator so regulator counts include them.
+            Long tenantRegulatorId = r.getRegulatorId() == null ? null
+                : tenantRegulators.findByTenantIdAndPlatformRegulatorId(tenantIdentity.currentTenantId(), r.getRegulatorId())
+                    .map(TenantRegulator::getId).orElse(null);
+
             List<Obligation> savedObligations = new ArrayList<>();
             if (req.getObligations() != null) {
                 int num = 1;
@@ -280,6 +288,7 @@ public class ReviewService {
                         .plainEnglishStatement(shorten(o.getPlainEnglishStatement(), 2000))
                         .actName(shorten(o.getActName(), 500))
                         .regulationId(o.getRegulationId())
+                        .tenantRegulatorId(tenantRegulatorId)
                         .sectionReference(shorten(o.getSectionReference(), 255))
                         .areaOfFocus(o.getAreaOfFocus())
                         .obligationType(o.getObligationType())

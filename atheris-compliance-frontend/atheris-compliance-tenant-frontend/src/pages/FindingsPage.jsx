@@ -593,6 +593,23 @@ function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
 }
 
 /* ---------- Remediation Link Dialog ---------- */
+// Only claim the link was emailed when the server says the send succeeded.
+function EmailStatusNote({ status, to }) {
+  if (status === 'SENT') {
+    return <Alert severity="success" sx={{ mb: 2 }}>Emailed to {to}.</Alert>;
+  }
+  const reason = {
+    DISABLED: 'Email is not configured for this workspace',
+    NO_RECIPIENT: 'The owner has no email address on file',
+    FAILED: 'The email could not be sent',
+  }[status] || 'The link was not emailed';
+  return (
+    <Alert severity="warning" sx={{ mb: 2 }}>
+      {reason} — copy the link below and send it to the owner yourself.
+    </Alert>
+  );
+}
+
 function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
   const [link, setLink] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -620,8 +637,8 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           A secure link the owner can use to submit remediation evidence without an account.
-          It has been emailed to the owner's address on file.
         </Typography>
+        {link && <EmailStatusNote status={link.emailStatus} to={link.ownerEmail} />}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} /></Box>
         ) : link ? (

@@ -8,19 +8,49 @@ import { DataCard, StatusBadge, TL, ArrowPathIcon, ExclamationTriangleIcon } fro
 import { api } from '../../services/api';
 
 const STATUS_TONES = {
+  OVERDUE: 'red',
   SUBMITTED: 'green',
   SUBMITTED_LATE: 'orange',
   IN_PROGRESS: 'blue',
-  NOT_STARTED: 'red',
+  NOT_STARTED: 'gray',
   'N/A': 'gray',
 };
 
 const STATUS_LABELS = {
+  OVERDUE: 'OD',
   SUBMITTED: 'OK',
   SUBMITTED_LATE: 'Late',
   IN_PROGRESS: 'IP',
   NOT_STARTED: 'NS',
 };
+
+const STATUS_NAMES = {
+  OVERDUE: 'Overdue',
+  SUBMITTED: 'Submitted',
+  SUBMITTED_LATE: 'Submitted late',
+  IN_PROGRESS: 'In progress',
+  NOT_STARTED: 'Not started',
+};
+
+// Several periods in a month: "OD 5/17" = 5 of the month's 17 periods overdue; otherwise "NS ×30".
+function cellLabel(cell, status) {
+  const base = STATUS_LABELS[status] || status;
+  if (!cell || !(cell.count > 1)) return base;
+  if (status === 'OVERDUE') return `${base} ${cell.overdue}/${cell.count}`;
+  return `${base} ×${cell.count}`;
+}
+
+// A month cell can hold several periods (daily/weekly returns) — say how many and how they stand.
+function cellTooltip(cell, status) {
+  const head = STATUS_NAMES[status] || status;
+  if (!cell) return head;
+  if (cell.count > 1) {
+    const parts = [`${cell.count} periods`, `${cell.submitted} submitted`];
+    if (cell.overdue) parts.push(`${cell.overdue} overdue`);
+    return `${head} — ${parts.join(', ')}${cell.dueDate ? ` · next due ${cell.dueDate}` : ''}`;
+  }
+  return cell.dueDate ? `${head} · due ${cell.dueDate}` : head;
+}
 
 const fmtDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -184,10 +214,10 @@ export default function RenditionTab() {
                               {status === 'N/A' ? (
                                 <Typography component="span" sx={{ fontSize: '0.75rem', color: TL.gray400 }}>-</Typography>
                               ) : (
-                                <Tooltip title={cell?.dueDate ? `Due ${cell.dueDate}` : status}>
+                                <Tooltip title={cellTooltip(cell, status)}>
                                   <span>
                                     <StatusBadge
-                                      label={STATUS_LABELS[status] || status}
+                                      label={cellLabel(cell, status)}
                                       tone={STATUS_TONES[status] || 'gray'}
                                       sx={{ minWidth: 40, justifyContent: 'center' }} />
                                   </span>

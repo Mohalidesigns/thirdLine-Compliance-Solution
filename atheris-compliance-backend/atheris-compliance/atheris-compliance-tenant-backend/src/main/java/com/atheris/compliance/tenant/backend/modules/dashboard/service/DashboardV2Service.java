@@ -178,11 +178,16 @@ public class DashboardV2Service {
             .collect(Collectors.toMap(Department::getDepartmentId, Department::getName, (a, b) -> a));
 
         Map<String, Map<Long, RegulatoryReturn>> groupedReturns = new LinkedHashMap<>();
-        Map<String, Map<Long, Map<String, ReturnFilingInstance>>> gridData = new LinkedHashMap<>();
+        // group → return → month column → every instance due in that month. Daily and weekly
+        // returns have several periods per month (period labels "2026-10-16" / "2026-W42"), so
+        // the grid buckets by the due date's month instead of looking the period label up.
+        Map<String, Map<Long, Map<String, List<ReturnFilingInstance>>>> gridData = new LinkedHashMap<>();
 
         for (ReturnFilingInstance inst : instances) {
             RegulatoryReturn rr = returnMap.get(inst.getReturnId());
             if (rr == null) continue;
+            String month = monthKey(inst);
+            if (month == null) continue;
 
             String groupName;
             if ("areaOfFocus".equals(groupBy)) {
@@ -200,7 +205,8 @@ public class DashboardV2Service {
                 .putIfAbsent(inst.getReturnId(), rr);
             gridData.computeIfAbsent(groupName, k -> new LinkedHashMap<>())
                 .computeIfAbsent(inst.getReturnId(), k -> new LinkedHashMap<>())
-                .put(inst.getPeriod(), inst);
+                .computeIfAbsent(month, k -> new ArrayList<>())
+                .add(inst);
         }
 
         List<String> months = getMonthRange(from, to);
@@ -216,27 +222,52 @@ public class DashboardV2Service {
             for (Map.Entry<Long, RegulatoryReturn> retEntry : entry.getValue().entrySet()) {
                 Long returnId = retEntry.getKey();
                 RegulatoryReturn rr = retEntry.getValue();
-                Map<String, ReturnFilingInstance> periodMap = gridData.getOrDefault(groupName, Map.of())
+                Map<String, List<ReturnFilingInstance>> byMonth = gridData.getOrDefault(groupName, Map.of())
                     .getOrDefault(returnId, Map.of());
 
                 List<RenditionGridDto.CellStatus> cells = new ArrayList<>();
                 for (String month : months) {
-                    ReturnFilingInstance inst = periodMap.get(month);
-                    if (inst == null) {
+                    List<ReturnFilingInstance> monthInstances = byMonth.getOrDefault(month, List.of());
+                    if (monthInstances.isEmpty()) {
                         cells.add(RenditionGridDto.CellStatus.builder()
                             .period(month).status("N/A").build());
-                    } else {
-                        String status = inst.getStatus().name();
-                        cells.add(RenditionGridDto.CellStatus.builder()
-                            .period(month)
-                            .status(status)
-                            .dueDate(inst.getDueDate() != null ? inst.getDueDate().toString() : null)
-                            .build());
-                        gTotal++;
-                        if ("SUBMITTED".equals(status)) gSubmitted++;
-                        else if (inst.getDueDate() != null && inst.getDueDate().isBefore(today)) gOverdue++;
-                        else totalPending++;
+                        continue;
                     }
+                    int submitted = 0, overdue = 0, inProgress = 0, late = 0;
+                    LocalDate nextDue = null;
+                    for (ReturnFilingInstance inst : monthInstances) {
+                        boolean filed = inst.getStatus() == ReturnFilingStatus.SUBMITTED
+                            || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE;
+                        if (filed) {
+                            submitted++;
+                            if (inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE) late++;
+                        } else if (inst.getDueDate() != null && inst.getDueDate().isBefore(today)) {
+                            overdue++;
+                        } else {
+                            totalPending++;
+                            if (inst.getStatus() == ReturnFilingStatus.IN_PROGRESS) inProgress++;
+                            if (inst.getDueDate() != null && (nextDue == null || inst.getDueDate().isBefore(nextDue))) {
+                                nextDue = inst.getDueDate();
+                            }
+                        }
+                    }
+                    int count = monthInstances.size();
+                    // Worst state wins: an overdue period anywhere in the month marks the cell.
+                    String status = overdue > 0 ? "OVERDUE"
+                        : submitted == count ? (late > 0 ? "SUBMITTED_LATE" : "SUBMITTED")
+                        : inProgress > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+                    LocalDate shownDue = nextDue != null ? nextDue : monthInstances.get(monthInstances.size() - 1).getDueDate();
+                    cells.add(RenditionGridDto.CellStatus.builder()
+                        .period(month)
+                        .status(status)
+                        .dueDate(shownDue != null ? shownDue.toString() : null)
+                        .count(count)
+                        .submitted(submitted)
+                        .overdue(overdue)
+                        .build());
+                    gTotal += count;
+                    gSubmitted += submitted;
+                    gOverdue += overdue;
                 }
 
                 returnRows.add(RenditionGridDto.ReturnRow.builder()
@@ -305,8 +336,12 @@ public class DashboardV2Service {
             for (String likelihood : likelihoods) {
                 int impactIdx = impacts.indexOf(impact) + 1;
                 int likelihoodIdx = likelihoods.indexOf(likelihood) + 1;
-                int score = impactIdx * likelihoodIdx;
-                String band = resolveBand(score, bands);
+                // Same band rule as the Risk Profile panel and the register (canonical matrix axes,
+                // else the shared RiskBands toolkit scale) — not the cell's position in this grid.
+                int score = axisLevel(impact, ObligationClassification.IMPACT_LEVELS, impactIdx)
+                    * axisLevel(likelihood, ObligationClassification.LIKELIHOOD_LEVELS, likelihoodIdx);
+                String band = ObligationClassification.inherentBand(impact, likelihood);
+                if (band == null) band = resolveBand(impactIdx * likelihoodIdx, bands);
                 cellMap.get(impact).put(likelihood, RiskHeatmapDto.HeatmapCell.builder()
                     .impact(impact)
                     .likelihood(likelihood)
@@ -357,13 +392,28 @@ public class DashboardV2Service {
             .build();
     }
 
+    /**
+     * The configured axis when it covers every rating in use; otherwise the ratings in use ordered
+     * by their 1..5 level (seeded data mixes the toolkit's Very Low..Very High with 3-level labels),
+     * so the grid never grows extra columns past the top of the scale.
+     */
     private List<String> resolveAxis(List<String> configured, Set<String> seen, List<String> fallback) {
-        List<String> axis = new ArrayList<>(
-            configured != null && !configured.isEmpty() && configured.containsAll(seen) ? configured : fallback);
-        for (String value : seen) {
-            if (!axis.contains(value)) axis.add(value);
-        }
+        if (configured != null && !configured.isEmpty() && configured.containsAll(seen)) return new ArrayList<>(configured);
+        if (seen.isEmpty()) return new ArrayList<>(fallback);
+        List<String> axis = new ArrayList<>(seen);
+        axis.sort(Comparator.comparingInt((String v) -> {
+            int lvl = RiskBands.level(v);
+            return lvl > 0 ? lvl : 9;
+        }));
         return axis;
+    }
+
+    /** 1..5 level of a rating on the canonical axis, else the toolkit scale, else its grid position. */
+    private static int axisLevel(String label, List<String> canonical, int position) {
+        int idx = canonical.indexOf(label) + 1;
+        if (idx > 0) return idx;
+        int lvl = RiskBands.level(label);
+        return lvl > 0 ? lvl : position;
     }
 
     private String resolveBand(int score, Map<String, Integer> bands) {
@@ -422,7 +472,7 @@ public class DashboardV2Service {
                 .departmentHead(dept != null ? dept.getHeadOwnerId() != null ? "Dept Head" : null : null)
                 .escalationLevel(inst.getEscalationLevel())
                 .escalationLabel(label)
-                .daysLate(inst.getDaysLate() != null ? inst.getDaysLate() : 0)
+                .daysLate(daysLate(inst, LocalDate.now()))
                 .escalatedAt(inst.getEscalatedAt())
                 .dueDate(inst.getDueDate() != null ? inst.getDueDate().toString() : null)
                 .period(inst.getPeriod())
@@ -435,6 +485,19 @@ public class DashboardV2Service {
                 .total(rows.size()).l1(l1).l2(l2).l3(l3)
                 .build())
             .build();
+    }
+
+    /**
+     * Days past due. {@code daysLate} is only stored when a return is submitted, so for an open
+     * period it is computed from the due date (an escalated period due 3 days ago is 3 days late).
+     */
+    static int daysLate(ReturnFilingInstance inst, LocalDate today) {
+        boolean filed = inst.getStatus() == ReturnFilingStatus.SUBMITTED
+            || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE;
+        if (filed || inst.getDueDate() == null) {
+            return inst.getDaysLate() != null ? inst.getDaysLate() : 0;
+        }
+        return (int) Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(inst.getDueDate(), today));
     }
 
     // ------------------------------------------------------------------ control coverage
@@ -636,6 +699,13 @@ public class DashboardV2Service {
     private String resolveDepartmentName(Map<Integer, String> deptNames, Integer departmentId) {
         if (departmentId == null) return "Unassigned";
         return deptNames.getOrDefault(departmentId, "Unassigned");
+    }
+
+    /** The grid column ("yyyy-MM") an instance belongs to: its due date's month, else a monthly period label. */
+    static String monthKey(ReturnFilingInstance inst) {
+        if (inst.getDueDate() != null) return YearMonth.from(inst.getDueDate()).toString();
+        String period = inst.getPeriod();
+        return period != null && period.matches("\\d{4}-\\d{2}") ? period : null;
     }
 
     private List<String> getMonthRange(LocalDate from, LocalDate to) {

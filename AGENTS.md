@@ -239,6 +239,24 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - Seeded **control** risk (`compliance_controls.risk_level`, tenant `controls.inherent_risk`/`residual_risk`) still carries the old inflated toolkit band and drives test frequency (1835 tests due in 30 days) — being fixed in its own session.
 - Near-duplicate seeded act names (e.g. "Consumer Protection Framework" vs "CBN Consumer Protection Framework") split Risk by Act rows.
 
+## Done — Tenant E2E High findings (`bugfix/tenant-e2e-high-findings`)
+
+13 of the 17 High findings in `E2E_FINDINGS_2026-10-19.md` are fixed (see its "Fix log"). Q1 is config only (`OPENROUTER_API_KEY`). O1/O2/C2 (duplicate obligations, act-wide control links, dangling platform ids) have a plan but no changes yet.
+- **Auth:** tenant `api.js` refresh is single-flight (concurrent 401s share one `/auth/refresh`).
+- **Uploads (intel):** `UploadClassificationHandler` runs classification in its own `TransactionTemplate`, so FAILED is always saved. `StaleUploadRecovery` fails uploads stuck >30 min, and re-uploading a FAILED PDF retries it.
+- **Email (tenant):** STARTTLS is on by default. `EmailService.send` returns an `Outcome`, and the remediation-link API and dialog report `emailStatus` instead of always saying "emailed".
+- **Returns:**
+  - the rendition grid buckets by due month (daily/weekly periods are aggregated per cell, e.g. `OD 5/17`);
+  - escalation days late are computed from the due date for open periods;
+  - `filingRegulator` is now the regulator; the seed is fixed and `ReturnRegulatorRepairService` repairs existing rows;
+  - maker/checker: whoever completed Data Gathering or Draft can't complete Review or submit (409 `segregation_of_duties`).
+- **Regulators:** obligations carry `tenantRegulatorId` (seed + review save); `SeedDataRepairService.linkRegulators` backfills existing rows.
+- **Heatmap:** bands via `ObligationClassification.inherentBand`/`RiskBands`, the same rule as the Risk Profile panel; axes are ordered by level.
+- **Instruments page:** KPIs, filters, sort and paging come from `/subscriptions/instruments/universe` (+ `universe-stats`). The universe sort accepts `obligationCount`.
+- **Runbooks:** a step's `assignedRole` is enforced when the role is an app role (CCO may do ANALYST steps; CISO/DPO stay open).
+- **Org:** the CCO may create owners, departments and teams; Add Owner can prefill from a system user.
+- **Evidence:** user uploads validate the source type and that the linked record exists (`uploadLinked`).
+
 ## Done — Dashboard Consistency (tenant `/dashboard`) — `bugfix/dashboard-consistency`
 
 Every widget now adds up and agrees with the others; `DashboardConsistencyTest` cross-checks the totals.

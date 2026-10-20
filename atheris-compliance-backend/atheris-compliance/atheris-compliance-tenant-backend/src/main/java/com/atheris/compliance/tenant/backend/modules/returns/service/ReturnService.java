@@ -552,6 +552,10 @@ public class ReturnService {
         ReturnStage next = STAGES.get(idx + 1);
 
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
+        // Maker/checker: whoever prepared the filing (Data Gathering / Draft) cannot also review it.
+        if (inst.getCurrentStage() == ReturnStage.REVIEW && preparers(stageData).contains(String.valueOf(userId)))
+            throw ApiException.conflict("segregation_of_duties",
+                "You prepared this filing, so a different user must complete the review.");
         Map<String, String> stageEntry = new HashMap<>();
         stageEntry.put("completedAt", Instant.now().toString());
         stageEntry.put("completedByUserId", String.valueOf(userId));
@@ -591,11 +595,15 @@ public class ReturnService {
         if (inst.getCurrentStage() != ReturnStage.SIGN_OFF)
             throw ApiException.conflict("not_ready_to_submit",
                 "A return can only be submitted once it reaches the Sign-off stage");
+        Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
+        // The person who signs off and submits must not be the one who prepared the figures.
+        if (preparers(stageData).contains(String.valueOf(userId)))
+            throw ApiException.conflict("segregation_of_duties",
+                "You prepared this filing, so a different user must sign it off and submit it.");
         LocalDate today = LocalDate.now();
         boolean late = today.isAfter(inst.getDueDate());
         int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
 
-        Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
         Map<String, String> stageEntry = new HashMap<>();
         stageEntry.put("completedAt", Instant.now().toString());
         stageEntry.put("completedByUserId", String.valueOf(userId));
@@ -1051,6 +1059,16 @@ public class ReturnService {
                 .orElse(null);
         }
         return null;
+    }
+
+    /** Users (ids as stored in stage data) who completed the preparation stages of a filing. */
+    static Set<String> preparers(Map<String, Map<String, String>> stageData) {
+        Set<String> out = new HashSet<>();
+        for (ReturnStage st : List.of(ReturnStage.DATA_GATHERING, ReturnStage.DRAFT)) {
+            Map<String, String> e = stageData.get(st.db());
+            if (e != null && e.get("completedByUserId") != null) out.add(e.get("completedByUserId"));
+        }
+        return out;
     }
 
     private Map<String, Map<String, String>> parseStageData(String json) {

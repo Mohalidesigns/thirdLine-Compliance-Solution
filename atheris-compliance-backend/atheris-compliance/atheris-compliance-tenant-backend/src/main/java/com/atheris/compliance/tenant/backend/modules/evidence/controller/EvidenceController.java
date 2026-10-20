@@ -58,7 +58,7 @@ public class EvidenceController {
             throw ApiException.badRequest("empty_file", "The uploaded file is empty");
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
-                .body(service.upload(file, sourceType, sourceId, description, u.getUserId()));
+                .body(service.uploadLinked(file, sourceType, sourceId, description, u.getUserId()));
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {

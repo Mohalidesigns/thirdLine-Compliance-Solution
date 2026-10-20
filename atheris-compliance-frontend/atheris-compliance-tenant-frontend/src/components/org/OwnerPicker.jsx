@@ -64,11 +64,16 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
   const [error, setError] = useState('');
   const [deptOpen, setDeptOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [fromUser, setFromUser] = useState('');
 
   useEffect(() => {
     if (open) {
       setForm({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
+      setFromUser('');
       setError('');
+      // Tenant users can be made owners in one step (owners are a separate org list).
+      api.runbooks.assignees().then(setUsers).catch(() => setUsers([]));
       api.org.departments(true).then(setDepartments).catch(e => setError(e.message));
       api.org.teams().then(setTeams).catch(() => {});
     }
@@ -105,6 +110,21 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
       <DialogContent dividers>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {users.length > 0 && (
+            <TextField select label="From a system user (optional)" fullWidth size="small" value={fromUser}
+              helperText="Fills in the name and email of an existing user"
+              onChange={e => {
+                const id = e.target.value;
+                setFromUser(id);
+                const u = users.find(x => String(x.userId) === String(id));
+                if (u) setForm(f => ({ ...f, fullName: u.fullName || f.fullName, email: u.email || f.email }));
+              }}>
+              <MenuItem value="">None — enter details below</MenuItem>
+              {users.map(u => (
+                <MenuItem key={u.userId} value={String(u.userId)}>{u.fullName} · {u.email}</MenuItem>
+              ))}
+            </TextField>
+          )}
           <TextField label="Full name" fullWidth size="small" required value={form.fullName}
             onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
           <TextField label="Email" fullWidth size="small" type="email" value={form.email}

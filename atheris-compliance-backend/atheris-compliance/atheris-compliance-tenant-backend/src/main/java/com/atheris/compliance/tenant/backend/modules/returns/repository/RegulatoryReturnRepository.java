@@ -12,6 +12,7 @@ public interface RegulatoryReturnRepository extends JpaRepository<RegulatoryRetu
     List<RegulatoryReturn> findByStatus(RegulatoryReturnStatus status);
     List<RegulatoryReturn> findByFilingRegulator(String regulator);
     List<RegulatoryReturn> findByTenantRegulatorId(Long tenantRegulatorId);
+    List<RegulatoryReturn> findByTenantRegulatorIdIsNotNull();
     long countByTenantRegulatorId(Long tenantRegulatorId);
     List<RegulatoryReturn> findByActId(Long actId);
     long countByActId(Long actId);

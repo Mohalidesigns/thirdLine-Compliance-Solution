@@ -27,9 +27,13 @@ public class RemediationLinkController {
     public ResponseEntity<Map<String, Object>> create(
             @PathVariable Long id,
             @AuthenticationPrincipal User u) {
-        String token = service.createLink(id, u.getUserId());
-        return ResponseEntity.ok(Map.of(
-            "token", token,
-            "url", service.remediationUrl(token)));
+        RemediationLinkService.CreatedLink created = service.createLink(id, u.getUserId());
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("token", created.token());
+        body.put("url", service.remediationUrl(created.token()));
+        // SENT | DISABLED | NO_RECIPIENT | FAILED — the UI must not claim "emailed" unless SENT.
+        body.put("emailStatus", created.emailOutcome().name());
+        body.put("ownerEmail", created.ownerEmail());
+        return ResponseEntity.ok(body);
     }
 }

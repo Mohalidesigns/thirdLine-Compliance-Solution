@@ -25,6 +25,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Te
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformRegulationSeed;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnRegulatorRepairService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -140,6 +141,7 @@ public class RegulationSeedService {
                     .sectionReference(o.getSpecificSectionReference())
                     .actName(bundle.getRegulationName())
                     .regulationId(bundle.getRegulationId())
+                    .tenantRegulatorId(reg != null ? reg.getId() : null)
                     // one vocabulary with the universe: inherit the instrument's area
                     .areaOfFocus(AreasOfFocus.forObligation(
                         bundle.getCanonicalInstrument().getAreaOfFocus(), o.getAreaOfFocus()))
@@ -182,9 +184,9 @@ public class RegulationSeedService {
                 if (r.getTitle() == null || r.getTitle().isBlank()) continue;
                 Long regId = reg != null ? reg.getId() : null;
                 if (returns.existsByReturnNameAndTenantRegulatorId(r.getTitle(), regId)) continue;
-                String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
-                    ? r.getResponsibleUnit()
-                    : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
+                // The filing regulator is the regulator itself — never the responsible unit, which is
+                // the department/desk inside it and is stored separately below.
+                String label = ReturnRegulatorRepairService.regulatorLabel(reg);
                 // Same type logic as the frequency repair, so a fresh tenant is never flagged by it.
                 ReturnFrequency freqType = ReturnDeadlineParser.platformType(r).orElse(ReturnFrequency.MONTHLY);
                 // Due rule from the platform's deadline wording; none → "Due date needed". The platform's

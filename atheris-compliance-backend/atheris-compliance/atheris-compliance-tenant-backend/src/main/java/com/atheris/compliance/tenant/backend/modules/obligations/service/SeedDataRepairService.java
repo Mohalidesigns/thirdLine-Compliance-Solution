@@ -8,6 +8,8 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.review.entity.PendingReview;
+import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantRegulatorRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
@@ -56,6 +58,7 @@ public class SeedDataRepairService {
     private final ObligationService obligationService;
     private final DashboardService dashboardService;
     private final SeedControlRepairService controlRepair;
+    private final PendingReviewRepository pendingReviews;
 
     private final AtomicBoolean done = new AtomicBoolean(false);
     private TransactionTemplate tx;
@@ -86,13 +89,14 @@ public class SeedDataRepairService {
             if (bundles.isEmpty()) return; // platform not reachable yet — retry on the next run
             Map<Long, InstrumentContext> context = contextByInstrument(bundles);
             Result r = tx.execute(status -> repair(context));
+            Integer regLinked = tx.execute(status -> linkRegulators(tenantId, bundles));
             SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
             if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
                     + cr.riskRebanded() + cr.residualRatingRebanded() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
-            log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}",
-                r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated());
+            log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}",
+                r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked);
             log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}",
                 cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded());
             done.set(true);
@@ -109,6 +113,40 @@ public class SeedDataRepairService {
                 b.getRegulationId(), b.getRegulationName(), b.getCanonicalInstrument().getAreaOfFocus()));
         }
         return out;
+    }
+
+    /**
+     * Obligations were saved without {@code tenantRegulatorId} (seed and review save), so every
+     * regulator showed 0 obligations. Links each one through its instrument's platform regulator —
+     * taken from the seed bundles, else from the review the instrument came through.
+     */
+    int linkRegulators(Long tenantId, List<PlatformRegulationSeed> bundles) {
+        List<Obligation> unlinked = obligationRepo.findByTenantRegulatorIdIsNull();
+        if (unlinked.isEmpty()) return 0;
+        Map<Long, Integer> platformRegByInstrument = new HashMap<>();
+        for (PlatformRegulationSeed b : bundles) {
+            if (b.getCanonicalInstrument() != null && b.getCanonicalInstrument().getInstrumentId() != null
+                    && b.getRegulatorId() != null)
+                platformRegByInstrument.putIfAbsent(b.getCanonicalInstrument().getInstrumentId(), b.getRegulatorId());
+        }
+        for (PendingReview pr : pendingReviews.findAll()) {
+            if (pr.getInstrumentId() != null && pr.getRegulatorId() != null)
+                platformRegByInstrument.putIfAbsent(pr.getInstrumentId(), pr.getRegulatorId());
+        }
+        Map<Integer, Long> tenantRegByPlatform = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
+            .filter(t -> t.getPlatformRegulatorId() != null)
+            .collect(Collectors.toMap(TenantRegulator::getPlatformRegulatorId, TenantRegulator::getId, (a, b) -> a));
+        List<Obligation> changed = new ArrayList<>();
+        for (Obligation o : unlinked) {
+            Integer platformReg = platformRegByInstrument.get(o.getInstrumentId());
+            Long tenantReg = platformReg != null ? tenantRegByPlatform.get(platformReg) : null;
+            if (tenantReg != null) {
+                o.setTenantRegulatorId(tenantReg);
+                changed.add(o);
+            }
+        }
+        if (!changed.isEmpty()) obligationRepo.saveAll(changed);
+        return changed.size();
     }
 
     Result repair(Map<Long, InstrumentContext> context) {

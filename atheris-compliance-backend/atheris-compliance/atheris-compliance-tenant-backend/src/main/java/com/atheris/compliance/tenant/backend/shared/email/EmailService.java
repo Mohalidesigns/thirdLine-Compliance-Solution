@@ -36,14 +36,17 @@ public class EmailService {
         return baseUrl;
     }
 
-    public void send(String to, String subject, String body, String link) {
+    /** What happened to a send — callers that tell the user "emailed" must check for {@code SENT}. */
+    public enum Outcome { SENT, DISABLED, NO_RECIPIENT, FAILED }
+
+    public Outcome send(String to, String subject, String body, String link) {
         if (!enabled) {
             log.info("[email-skipped] to={} subject={}", to, subject);
-            return;
+            return Outcome.DISABLED;
         }
         if (to == null || to.isBlank()) {
             log.warn("[email-skip] no recipient for subject={}", subject);
-            return;
+            return Outcome.NO_RECIPIENT;
         }
         try {
             var message = mailSender.createMimeMessage();
@@ -55,8 +58,10 @@ public class EmailService {
             helper.setText(full + "\n— The Atheris Platform", false);
             mailSender.send(message);
             log.info("[email-sent] to={} subject={}", to, subject);
+            return Outcome.SENT;
         } catch (Exception e) {
             log.error("[email-failed] to={} subject={} error={}", to, subject, e.getMessage());
+            return Outcome.FAILED;
         }
     }
 }

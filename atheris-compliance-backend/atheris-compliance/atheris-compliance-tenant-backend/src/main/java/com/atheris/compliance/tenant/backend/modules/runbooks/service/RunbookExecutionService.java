@@ -218,6 +218,7 @@ public class RunbookExecutionService {
         }
         RunbookStepExecution s = findStep(execId, stepExecId);
         requireWorkable(e, s);
+        requireStepRole(s, stepDefs(e.getVersionId()), user);
         if (!ST_PENDING.equals(s.getStatus())) throw ApiException.conflict("The step is already " + s.getStatus());
         List<RunbookStepExecution> all = stepExecs.findByExecutionIdOrderBySortOrderAsc(execId);
         boolean rollback = s.getRollbackId() != null;
@@ -249,6 +250,7 @@ public class RunbookExecutionService {
         requireWorkable(e, s);
         if (!ST_IN_PROGRESS.equals(s.getStatus())) throw ApiException.conflict("Start the step before passing it");
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepRole(s, defs, user);
         List<RunbookStepEvidenceReq> missing = missingMandatory(s, defs, evidence.findByStepExecIdOrderByCapturedAtAsc(stepExecId));
         if (!missing.isEmpty()) {
             throw ApiException.conflict("evidence_required", "Capture the mandatory evidence first: "
@@ -325,6 +327,7 @@ public class RunbookExecutionService {
 
         Runbook rb = runbookService.find(e.getRunbookId());
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepRole(s, defs, user);
         RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
         String code = stepCode(s, defs);
         s.setStatus(ST_FAILED);
@@ -373,6 +376,7 @@ public class RunbookExecutionService {
             throw ApiException.conflict("The step can no longer be skipped");
         }
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepRole(s, defs, user);
         RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
         if (def != null && !Boolean.TRUE.equals(def.getAllowSkip())) throw ApiException.conflict("This step does not allow skipping");
         if (req.getReason() == null || req.getReason().trim().length() < 10) {
@@ -743,6 +747,29 @@ public class RunbookExecutionService {
                 default -> "The execution is " + e.getStatus();
             });
         }
+    }
+
+    /**
+     * A step assigned to an application role (ANALYST, CCO, IT_OPS, TENANT_ADMIN) may only be worked
+     * by a user holding that role — a CCO may also perform Analyst steps. Roles the tenant has no
+     * user role for (CISO, DPO, …) are descriptive and open to any executor. Rollback steps follow
+     * the same rule through their own definition when they carry one.
+     */
+    private static void requireStepRole(RunbookStepExecution s, StepDefs defs, User u) {
+        RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
+        String required = def != null ? def.getAssignedRole() : null;
+        if (!roleMayPerform(required, u.getRole())) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "step_role_required",
+                "This step is assigned to the " + required + " role");
+        }
+    }
+
+    static boolean roleMayPerform(String required, String userRole) {
+        if (required == null || required.isBlank()) return true;
+        String r = required.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!EXECUTOR_ROLES.contains(r)) return true;
+        if (r.equals(userRole)) return true;
+        return AppRole.ANALYST.equals(r) && AppRole.CCO.equals(userRole);
     }
 
     private static void requireExecutor(User u) {

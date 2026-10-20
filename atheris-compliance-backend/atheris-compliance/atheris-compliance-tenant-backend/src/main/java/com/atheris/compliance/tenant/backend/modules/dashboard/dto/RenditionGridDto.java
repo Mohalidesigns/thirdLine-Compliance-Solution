@@ -29,8 +29,14 @@ public class RenditionGridDto {
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class CellStatus {
         private String period;
+        /** OVERDUE | SUBMITTED | SUBMITTED_LATE | IN_PROGRESS | NOT_STARTED | N/A — worst state of the month's periods. */
         private String status;
+        /** Next open due date in the month, else the last one. */
         private String dueDate;
+        /** Filing periods due in this month (several for daily/weekly returns). */
+        private int count;
+        private int submitted;
+        private int overdue;
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
