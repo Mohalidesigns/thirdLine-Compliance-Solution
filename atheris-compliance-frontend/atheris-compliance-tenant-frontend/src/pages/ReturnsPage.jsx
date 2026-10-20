@@ -9,9 +9,9 @@ import {
 } from '@mui/material';
 import {
   PageHeader, KpiCards, FilterBar, StatusBadge,
-  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, ClockIcon, CheckCircleIcon, LinkIcon,
+  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, ClockIcon, CheckCircleIcon,
   ClipboardDocumentListIcon, ExclamationTriangleIcon,
-  PresentationChartLineIcon, ExclamationCircleIcon,
+  PresentationChartLineIcon,
 } from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -140,15 +140,13 @@ export default function ReturnsPage() {
     else setStatusFilter('All');
   }
 
-  const KPI_STATUS = { overdue: 'Overdue', inProgress: 'In Progress', submitted: 'Submitted', dueDateNeeded: DUE_DATE_NEEDED };
+  const KPI_STATUS = { overdue: 'Overdue', inProgress: 'In Progress', submitted: 'Submitted' };
   const kpis = [
     { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, tone: 'orange', icon: <PresentationChartLineIcon /> },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
-    { key: 'dueDateNeeded', label: 'Due date needed', value: stats?.dueDateNeeded ?? 0, tone: 'amber', icon: <ExclamationCircleIcon /> },
-    { key: 'unlinked', label: 'No obligations', value: stats?.unlinkedCount ?? 0, tone: 'amber', icon: <LinkIcon /> },
-  ].map((k) => ({ ...k, active: k.key === 'unlinked' ? unlinkedFilter : (KPI_STATUS[k.key] != null && KPI_STATUS[k.key] === statusFilter) }));
+  ].map((k) => ({ ...k, active: KPI_STATUS[k.key] != null && KPI_STATUS[k.key] === statusFilter }));
   const opts = (list) => (list || []).map((v) => ({ value: v, label: v }));
 
   const snackbarEl = (
@@ -193,7 +191,7 @@ export default function ReturnsPage() {
         </Alert>
       )}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={6} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={4} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search return, act, or regulator...' }}

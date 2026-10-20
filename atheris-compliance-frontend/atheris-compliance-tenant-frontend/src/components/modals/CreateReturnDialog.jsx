@@ -17,6 +17,7 @@ const EMPTY = {
 };
 
 const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'On event'];
+const RETURN_TYPES = ['Statutory', 'Prudential', 'Statistical', 'Regulatory', 'Ad-hoc', 'Other'];
 const EVENT_DRIVEN = 'On event';
 // Recurring frequencies that need a due rule; without one the return gets no periods.
 const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial'];
@@ -38,6 +39,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   const [error, setError] = useState('');
   const [regulators, setRegulators] = useState([]);
   const [acts, setActs] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [linksOpen, setLinksOpen] = useState(false);
   const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
 
@@ -67,6 +69,14 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       const items = Array.isArray(res) ? res : (res.content || []);
       setActs(items);
     }).catch(() => setActs([]));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    api.org.departments(true).then(res => {
+      const items = Array.isArray(res) ? res : (res.content || []);
+      setDepartments(items);
+    }).catch(() => setDepartments([]));
   }, [open]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -148,8 +158,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             </Button>
           </Field>
           <Field label="Return Type" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" value={form.returnType}
-              onChange={e => set('returnType', e.target.value)} />
+            <TextField select fullWidth size="small" value={form.returnType}
+              onChange={e => set('returnType', e.target.value)}>
+              <MenuItem value=""><em>None</em></MenuItem>
+              {RETURN_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
           </Field>
         </Box>
 
@@ -169,7 +182,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               onChange={e => set('filingDate', e.target.value)}
               helperText={form.frequency === EVENT_DRIVEN
                 ? 'Not used — on-event returns have no fixed cycle.'
-                : 'Sets the filing cycle — e.g. Annual + 31 Mar is due every 31 March.'}
+                : ' '}
               slotProps={{ inputLabel: { shrink: true } }} />
           </Field>
           <Field label="Start preparing (days before due)" sx={{ mb: 0 }}>
@@ -194,22 +207,28 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Responsible</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           <Field label="Responsible Unit" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" value={form.responsibleUnit}
-              onChange={e => set('responsibleUnit', e.target.value)} />
+            <Autocomplete size="small" freeSolo options={departments}
+              getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+              isOptionEqualToValue={(o, v) => (typeof v === 'string' ? o.name === v : o.departmentId === v?.departmentId)}
+              value={departments.find(d => d.name === form.responsibleUnit) || form.responsibleUnit || null}
+              onChange={(_, val) => set('responsibleUnit', typeof val === 'string' ? val : (val?.name || ''))}
+              renderInput={(params) => (
+                <TextField {...params} size="small" placeholder="Search or type unit / department"
+                  onChange={e => set('responsibleUnit', e.target.value)} />
+              )} />
           </Field>
           <Field label="Responsible Person" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" value={form.responsiblePerson}
-              onChange={e => set('responsiblePerson', e.target.value)} />
+            <PersonPicker mode="user" label="Responsible person"
+              value={form.responsiblePerson ? { email: form.returnOwnerEmail || '', fullName: form.responsiblePerson, userId: form.returnOwnerUserId || null } : null}
+              onChange={(u) => setForm(f => ({
+                ...f,
+                responsiblePerson: u?.fullName || u?.email || '',
+                returnOwnerName: u?.fullName || u?.email || '',
+                returnOwnerUserId: u?.userId || '',
+                returnOwnerEmail: u?.email || '',
+              }))} />
           </Field>
         </Box>
-
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Owner</Typography>
-        <Field label="Return Owner">
-          <PersonPicker mode="user" label="Return owner"
-            value={form.returnOwnerName ? { email: form.returnOwnerEmail || '', fullName: form.returnOwnerName, userId: form.returnOwnerUserId || null } : null}
-            onChange={(u) => setForm(f => ({ ...f, returnOwnerName: u?.fullName || u?.email || '', returnOwnerUserId: u?.userId || '', returnOwnerEmail: u?.email || '' }))} />
-        </Field>
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Linked Obligations</Typography>

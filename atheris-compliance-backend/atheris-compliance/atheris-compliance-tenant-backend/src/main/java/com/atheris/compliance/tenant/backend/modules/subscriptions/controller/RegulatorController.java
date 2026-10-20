@@ -42,7 +42,7 @@ public class RegulatorController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<TenantRegulatorDto> create(@Valid @RequestBody CreateRegulatorRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
     }

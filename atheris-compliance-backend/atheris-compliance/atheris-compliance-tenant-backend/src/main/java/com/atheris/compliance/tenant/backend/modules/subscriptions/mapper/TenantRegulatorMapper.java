@@ -22,5 +22,6 @@ public interface TenantRegulatorMapper {
     @Mapping(target = "tenantId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntity(@MappingTarget TenantRegulator entity, UpdateRegulatorRequest req);
 }

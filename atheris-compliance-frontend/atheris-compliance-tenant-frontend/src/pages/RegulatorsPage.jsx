@@ -46,7 +46,7 @@ export default function RegulatorsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = ['TENANT_ADMIN', 'CCO'].includes(user?.role);
+  const canManage = ['TENANT_ADMIN', 'CCO', 'ANALYST'].includes(user?.role);
 
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [q, setQ] = useState(searchParams.get('q') || '');

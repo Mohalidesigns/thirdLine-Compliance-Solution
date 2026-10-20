@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  Select, FormControl, InputLabel, Button, Alert, Grid,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Alert, Grid,
 } from '@mui/material';
 import { api } from '../../services/api';
 
-const FREQUENCIES = ['immediate', 'daily', 'weekly'];
-
 export default function RegulatorFormDialog({ open, onClose, regulator, onSaved }) {
-  const [form, setForm] = useState({ platformRegulatorId: null, name: '', abbreviation: '', notificationFrequency: 'immediate' });
+  const [form, setForm] = useState({ name: '', abbreviation: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,8 +13,8 @@ export default function RegulatorFormDialog({ open, onClose, regulator, onSaved 
     if (!open) return;
     setError('');
     setForm(regulator
-      ? { platformRegulatorId: regulator.platformRegulatorId ?? null, name: regulator.name || '', abbreviation: regulator.abbreviation || '', notificationFrequency: regulator.notificationFrequency || 'immediate' }
-      : { platformRegulatorId: null, name: '', abbreviation: '', notificationFrequency: 'immediate' });
+      ? { name: regulator.name || '', abbreviation: regulator.abbreviation || '' }
+      : { name: '', abbreviation: '' });
   }, [open, regulator]);
 
   async function handleSave() {
@@ -42,24 +39,9 @@ export default function RegulatorFormDialog({ open, onClose, regulator, onSaved 
             <TextField label="Name" fullWidth size="small" required value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </Grid>
-          <Grid size={{ xs: 6 }}>
+          <Grid size={{ xs: 12 }}>
             <TextField label="Abbreviation" fullWidth size="small" value={form.abbreviation}
               onChange={e => setForm(f => ({ ...f, abbreviation: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField label="Platform Regulator ID" type="number" fullWidth size="small"
-              value={form.platformRegulatorId ?? ''}
-              helperText="Optional — links to a central platform regulator"
-              onChange={e => setForm(f => ({ ...f, platformRegulatorId: e.target.value ? Number(e.target.value) : null }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Notification Frequency</InputLabel>
-              <Select value={form.notificationFrequency} label="Notification Frequency"
-                onChange={e => setForm(f => ({ ...f, notificationFrequency: e.target.value }))}>
-                {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-              </Select>
-            </FormControl>
           </Grid>
         </Grid>
       </DialogContent>

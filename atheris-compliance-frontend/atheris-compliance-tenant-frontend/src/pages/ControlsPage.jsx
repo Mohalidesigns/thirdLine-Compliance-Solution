@@ -353,13 +353,6 @@ export default function ControlsPage() {
         onRowClick={(c) => setDetailId(c.controlId)}
         rowKey={(c) => c.controlId}
         emptyMessage="No controls found."
-        actions={(c) => (
-          <Tooltip title="View detail">
-            <IconButton size="small" onClick={() => setDetailId(c.controlId)}>
-              <EyeIcon size={16} />
-            </IconButton>
-          </Tooltip>
-        )}
       />
 
       <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}

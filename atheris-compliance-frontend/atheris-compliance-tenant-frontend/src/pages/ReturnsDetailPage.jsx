@@ -90,6 +90,16 @@ export default function ReturnsDetailPage() {
 
   const item = itemQuery.data;
   const filings = filingsQuery.data?.content || [];
+  // History shows only instances actually recorded on the system — past/current periods and
+  // anything already worked on — never the forward-looking generated schedule.
+  const now = Date.now();
+  const recordedFilings = filings.filter((f) => {
+    if (f.triggerDate) return true;
+    if (f.isOverdue) return true;
+    if ((f.status && f.status !== 'Not Started') || (f.currentStage && f.currentStage !== 'Not Started')) return true;
+    if (!f.dueDate) return true;
+    return new Date(f.dueDate).getTime() <= now;
+  });
 
   useEffect(() => {
     if (selectedInstanceId == null && item?.currentInstanceId != null) setSelectedInstanceId(item.currentInstanceId);
@@ -108,7 +118,7 @@ export default function ReturnsDetailPage() {
   function openFiling(instanceId) {
     if (instanceId == null) return;
     setSelectedInstanceId(instanceId);
-    setTab(0);
+    setTab(1);
   }
 
   if (itemQuery.isPending) {
@@ -176,39 +186,13 @@ export default function ReturnsDetailPage() {
       </PageHeader>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="Filing" />
-        <Tab label={`History${filings.length ? ` (${filings.length})` : ''}`} />
         <Tab label="Details" />
+        <Tab label={`Filings${recordedFilings.length ? ` (${recordedFilings.length})` : ''}`} />
+        <Tab label="History" />
       </Tabs>
 
-      {/* ── Filing (selected current instance) ── */}
-      {tab === 0 && (
-        instanceQuery.isPending && selectedInstanceId != null ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>
-        ) : selectedInstanceId == null ? (
-          <Alert severity="info">
-            {isEventDriven(item)
-              ? 'No filing yet. Configure the trigger and record an event to create one.'
-              : item.dueDateNeeded
-                ? 'This return needs a due date before periods can be scheduled.'
-                : 'No filing period has been generated yet.'}
-          </Alert>
-        ) : instanceQuery.error ? (
-          <Alert severity="error">{instanceQuery.error.message || 'Failed to load the filing.'}</Alert>
-        ) : detail ? (
-          <FilingPanel detail={detail} onRefresh={refresh} onSnackbar={setSnackbar}
-            noPeriodLabel={noPeriodLabel} />
-        ) : null
-      )}
-
-      {/* ── History (all periods) ── */}
-      {tab === 1 && (
-        <HistoryTable filings={filings} isEventDriven={isEventDriven(item)}
-          selectedId={selectedInstanceId} onOpen={openFiling} loading={filingsQuery.isPending} />
-      )}
-
       {/* ── Details (schedule + obligations) ── */}
-      {tab === 2 && (
+      {tab === 0 && (
         <>
           <Section icon={<CalendarIcon />} title="Schedule">
             <FieldGrid min={160}>
@@ -266,6 +250,32 @@ export default function ReturnsDetailPage() {
             )}
           </Section>
         </>
+      )}
+
+      {/* ── Filings (selected current instance) ── */}
+      {tab === 1 && (
+        instanceQuery.isPending && selectedInstanceId != null ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>
+        ) : selectedInstanceId == null ? (
+          <Alert severity="info">
+            {isEventDriven(item)
+              ? 'No filing yet. Configure the trigger and record an event to create one.'
+              : item.dueDateNeeded
+                ? 'This return needs a due date before periods can be scheduled.'
+                : 'No filing period has been generated yet.'}
+          </Alert>
+        ) : instanceQuery.error ? (
+          <Alert severity="error">{instanceQuery.error.message || 'Failed to load the filing.'}</Alert>
+        ) : detail ? (
+          <FilingPanel detail={detail} onRefresh={refresh} onSnackbar={setSnackbar}
+            noPeriodLabel={noPeriodLabel} />
+        ) : null
+      )}
+
+      {/* ── History (recorded periods only) ── */}
+      {tab === 2 && (
+        <HistoryTable filings={recordedFilings} isEventDriven={isEventDriven(item)}
+          selectedId={selectedInstanceId} onOpen={openFiling} loading={filingsQuery.isPending} />
       )}
 
       {canEditSchedule && (
