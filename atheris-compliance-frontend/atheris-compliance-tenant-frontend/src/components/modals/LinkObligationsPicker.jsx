@@ -106,8 +106,13 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
       </DialogActions>
     </Dialog>
 
-    <CreateObligationDialog open={createOpen} onClose={() => setCreateOpen(false)}
-      onSaved={() => { setCreateOpen(false); reload(); }} />
+    {createOpen && <CreateObligationDialog open onClose={() => setCreateOpen(false)}
+      onSaved={(created) => {
+        setCreateOpen(false);
+        const id = typeof created === 'object' ? created?.obligationId : created;
+        if (id) setSelected(prev => prev.includes(id) ? prev : [...prev, id]);
+        reload();
+      }} />}
     </>
   );
 }

@@ -38,7 +38,7 @@ function CoverageTable({ data, dimension }) {
             <TableCell>{data.dimension || 'Dimension'}</TableCell>
             <TableCell align="right">Obligations</TableCell>
             <TableCell align="right">Covered</TableCell>
-            <TableCell align="right">Gaps</TableCell>
+            <TableCell align="right">No Control</TableCell>
             <TableCell align="right">Coverage %</TableCell>
           </TableRow>
         </TableHead>
@@ -84,7 +84,7 @@ export default function ControlCoverageTab() {
       <DataCard
         noPadding
         title="Control Coverage"
-        subtitle={`${summary?.totalCovered ?? 0}/${summary?.totalObligations ?? 0} applicable obligations covered${summary?.totalGaps > 0 ? ` — ${summary.totalGaps} gaps` : ''}`}
+        subtitle={`${summary?.totalCovered ?? 0}/${summary?.totalObligations ?? 0} applicable obligations covered${summary?.totalGaps > 0 ? ` — ${summary.totalGaps} with no control` : ''}`}
         actions={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <ToggleButtonGroup size="small" value={coverageBy} exclusive

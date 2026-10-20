@@ -30,6 +30,9 @@ public class TenantProfile {
     private List<Integer> subscribedRegulators;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
+    private List<Integer> toolkitRegulators;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
     private List<String> subscribedDocumentTypes;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -66,8 +69,6 @@ public class TenantProfile {
     @Builder.Default
     private Boolean intelligenceEnabled = true;
     @Builder.Default
-    private Boolean autoSubscribeRegulators = false;
-    @Builder.Default
     private Boolean autoSeedObligations = false;
     private String deviceFingerprint;
     private Instant deviceFingerprintProvisionedAt;
@@ -78,6 +79,16 @@ public class TenantProfile {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> ldapConfig;
+
+    private String smtpHost;
+    private Integer smtpPort;
+    private String smtpUsername;
+    private String smtpPasswordEncrypted;
+    @Builder.Default
+    private Boolean smtpAuth = false;
+    @Builder.Default
+    private Boolean smtpStarttls = false;
+    private String smtpFrom;
 
     private Instant createdAt;
     private Instant updatedAt;

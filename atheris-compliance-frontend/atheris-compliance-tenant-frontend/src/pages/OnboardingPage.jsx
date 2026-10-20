@@ -2,17 +2,39 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   required, validateName, validateEmail, validatePhone, validatePassword,
-  TL, KeyIcon, CheckCircleIcon,
+  TL, KeyIcon, CheckCircleIcon, SectionTable,
 } from 'shared';
 import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
 import {
   Box, Typography, Stepper, Step, StepLabel, Button, TextField,
-  Alert, CircularProgress, Radio, RadioGroup, Divider,
+  Alert, CircularProgress, Radio, RadioGroup, Divider, Chip, Checkbox,
   FormControl, FormLabel, FormControlLabel, LinearProgress,
 } from '@mui/material';
 import { api } from '../services/api';
+import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
+import PersonPicker from '../components/common/PersonPicker';
 
-const STEPS = ['License', 'Institution', 'User Setup', 'Confirm'];
+// 7 fixed steps — the backend's currentStep numbering is authoritative (0..6).
+// Intelligence regulators feed the AI pipeline -> Review Inbox; Toolkit regulators
+// feed the toolkit seed -> Obligations Register (only when the license enables it).
+const STEPS = ['License', 'Institution', 'User Setup', 'Intelligence', 'Toolkit', 'SMTP', 'Confirm'];
+
+const regulatorColumns = (selected, toggle, countField, countLabel) => [
+  { id: 'select', label: '', minWidth: 48,
+    render: (r) => (
+      <Checkbox size="small" checked={selected.includes(r.regulatorId)}
+        onClick={(e) => e.stopPropagation()}
+        onChange={() => toggle(r.regulatorId)} />
+    ) },
+  { id: 'name', label: 'Regulator', minWidth: 240,
+    render: (r) => <Typography variant="body2">{r.name || '—'}</Typography> },
+  { id: 'abbreviation', label: 'Abbrev', minWidth: 100,
+    render: (r) => (r.abbreviation
+      ? <Chip size="small" label={r.abbreviation} sx={{ height: 22, borderRadius: '4px' }} />
+      : <Typography variant="body2" color="text.secondary">—</Typography>) },
+  { id: countField, label: countLabel, minWidth: 120,
+    render: (r) => <Typography variant="body2">{r[countField] ?? 0}</Typography> },
+];
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -51,6 +73,14 @@ export default function OnboardingPage() {
   const [breakGlass, setBreakGlass] = useState({ fullName: '', email: '', password: '' });
 
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [availableRegulators, setAvailableRegulators] = useState([]);
+  // Intelligence regulators feed the AI pipeline -> Review Inbox.
+  const [selectedRegulators, setSelectedRegulators] = useState([]);
+  // Toolkit regulators feed the toolkit seed -> Obligations Register.
+  const [selectedToolkitRegulators, setSelectedToolkitRegulators] = useState([]);
+  const [autoSeedObligations, setAutoSeedObligations] = useState(false);
+  const [regSearch, setRegSearch] = useState('');
+  const [toolkitSearch, setToolkitSearch] = useState('');
 
   useEffect(() => {
     loadStatus();
@@ -79,6 +109,10 @@ export default function OnboardingPage() {
       setStep(resp.currentStep || 0);
       if (resp.legalName) setInstitution(prev => ({ ...prev, legalName: resp.legalName }));
       if (resp.authType) setAuthType(resp.authType);
+      if (resp.availableRegulators) setAvailableRegulators(resp.availableRegulators);
+      if (resp.subscribedRegulators) setSelectedRegulators(resp.subscribedRegulators);
+      if (resp.toolkitRegulators) setSelectedToolkitRegulators(resp.toolkitRegulators);
+      setAutoSeedObligations(!!resp.autoSeedObligations);
     } catch {
       setStep(0);
     } finally {
@@ -124,7 +158,7 @@ export default function OnboardingPage() {
     try {
       const resp = await data;
       setStep(resp.currentStep != null ? resp.currentStep : nextStep);
-      if (nextStep === 6 && resp.onboardingCompleted) {
+      if (resp.onboardingCompleted) {
         setSeeding(true);
       }
     } catch (err) {
@@ -217,9 +251,85 @@ export default function OnboardingPage() {
         ? { authType: 'local', localAdmin, seedUsers }
         : { authType: 'ldap', ldapConfig, breakGlassAdmin: breakGlass, seedUsers };
       await api.onboarding.userSetup(authData);
-      await api.onboarding.regulators({ subscribedRegulators: [] });
-      await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
+      await loadRegulators();
+      setStep(3);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function loadRegulators() {
+    try {
+      const resp = await api.onboarding.status({ signal: AbortSignal.timeout(8000) });
+      setAvailableRegulators(resp.availableRegulators || []);
+      if (resp.subscribedRegulators?.length) setSelectedRegulators(resp.subscribedRegulators);
+      if (resp.toolkitRegulators?.length) setSelectedToolkitRegulators(resp.toolkitRegulators);
+      setAutoSeedObligations(!!resp.autoSeedObligations);
+    } catch {
+      /* regulators are only listable once the license api-key is active */
+    }
+  }
+
+  function toggleRegulator(id) {
+    setSelectedRegulators(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function toggleToolkitRegulator(id) {
+    setSelectedToolkitRegulators(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function filterRegulators(list, term) {
+    const t = (term || '').trim().toLowerCase();
+    if (!t) return list;
+    return list.filter(r =>
+      (r.name || '').toLowerCase().includes(t) ||
+      (r.abbreviation || '').toLowerCase().includes(t));
+  }
+
+  async function handleSaveRegulators() {
+    if (selectedRegulators.length === 0) {
+      setError('Select at least one regulator to subscribe to.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.regulators({ subscribedRegulators: selectedRegulators });
+      setStep(4);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveToolkitRegulators() {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.toolkitRegulators({ subscribedRegulators: selectedToolkitRegulators });
       setStep(5);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleSaveSmtp(config) {
+    return api.onboarding.saveSmtp(config);
+  }
+
+  async function handleContinueSmtp() {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.documentTypes({ subscribedDocumentTypes: [], notificationRiskRatings: [] });
+      setStep(6);
     } catch (err) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -230,14 +340,16 @@ export default function OnboardingPage() {
   function handleConfirm() {
     submit('confirm',
       api.onboarding.confirm({ webhookUrl: webhookUrl || undefined }),
-      6
+      7
     );
   }
 
   function getActiveStep() {
-    if (step <= 2) return step;
-    return 3;
+    return Math.min(step, 6);
   }
+
+  const regRows = filterRegulators(availableRegulators, regSearch);
+  const toolkitRows = filterRegulators(availableRegulators, toolkitSearch);
 
   if (loading) {
     return (
@@ -249,7 +361,7 @@ export default function OnboardingPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, p: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 640, mx: 'auto', pt: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: 720, mx: 'auto', pt: { xs: 2, md: 4 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <Box component="img" src={verityLogoLight} alt="Verity Compliance" sx={{ height: 44, width: 'auto' }} />
         </Box>
@@ -428,29 +540,34 @@ export default function OnboardingPage() {
                 )}
 
                 <Divider sx={{ my: 2 }}>Compliance roles</Divider>
-                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1 }}>
-                  The {authType === 'ldap' ? 'directory must contain these emails; the directory owns the passwords' : 'CCO and Analyst sign in with these credentials'}. You can invite more users later.
+                <Typography sx={{ display: 'block', fontSize: '0.75rem', color: TL.gray500, mb: 1.5 }}>
+                  {authType === 'ldap'
+                    ? 'Pick the CCO and Analyst from your directory — the directory owns their passwords.'
+                    : 'Choose an existing user or type the email to invite, then give a name. They sign in with the password you set.'}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="CCO Full Name" required value={ccoUser.fullName}
-                    onChange={e => setCcoUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="CCO Email" type="email" required value={ccoUser.email}
-                    onChange={e => setCcoUser(p => ({ ...p, email: e.target.value }))} />
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <PersonPicker mode="user" role="CCO" authType={authType} ldapConfig={ldapConfig} onboarding
+                      value={ccoUser.email ? { email: ccoUser.email, fullName: ccoUser.fullName } : null}
+                      onChange={(p) => setCcoUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
+                  </Box>
+                  {authType === 'local' && (
+                    <TextField size="small" label="CCO Password" type="password" required value={ccoUser.password}
+                      onChange={e => setCcoUser(p => ({ ...p, password: e.target.value }))} sx={{ flex: 1 }} />
+                  )}
                 </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="CCO Password" type="password" required value={ccoUser.password}
-                    onChange={e => setCcoUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
-                )}
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField fullWidth size="small" label="Analyst Full Name" required value={analystUser.fullName}
-                    onChange={e => setAnalystUser(p => ({ ...p, fullName: e.target.value }))} />
-                  <TextField fullWidth size="small" label="Analyst Email" type="email" required value={analystUser.email}
-                    onChange={e => setAnalystUser(p => ({ ...p, email: e.target.value }))} />
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <PersonPicker mode="user" role="Analyst" authType={authType} ldapConfig={ldapConfig} onboarding
+                      value={analystUser.email ? { email: analystUser.email, fullName: analystUser.fullName } : null}
+                      onChange={(p) => setAnalystUser(prev => ({ ...prev, email: p?.email || '', fullName: p?.fullName || '' }))} />
+                  </Box>
+                  {authType === 'local' && (
+                    <TextField size="small" label="Analyst Password" type="password" required value={analystUser.password}
+                      onChange={e => setAnalystUser(p => ({ ...p, password: e.target.value }))} sx={{ flex: 1 }} />
+                  )}
                 </Box>
-                {authType === 'local' && (
-                  <TextField fullWidth size="small" label="Analyst Password" type="password" required value={analystUser.password}
-                    onChange={e => setAnalystUser(p => ({ ...p, password: e.target.value }))} sx={{ mb: 2 }} />
-                )}
+                <RoleConfirmation ccoUser={ccoUser} analystUser={analystUser} />
 
                 <Button fullWidth variant="contained" size="large"
                   onClick={handleUserSetup} disabled={submitting}>
@@ -460,6 +577,114 @@ export default function OnboardingPage() {
             )}
 
             {!seeding && !completed && getActiveStep() === 3 && (
+              <Box>
+                <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
+                  Choose the regulators whose documents you want monitored. Their instruments arrive
+                  in your Review Inbox after the AI pipeline processes them.
+                </Typography>
+
+                <SectionTable
+                  columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents')}
+                  rows={regRows}
+                  total={regRows.length}
+                  page={0}
+                  size={regRows.length || 1}
+                  loading={false}
+                  rowKey={(r) => r.regulatorId}
+                  onRowClick={(r) => toggleRegulator(r.regulatorId)}
+                  search={{ value: regSearch, onChange: setRegSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                  rowsPerPageOptions={[Math.max(regRows.length, 1)]}
+                  emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
+                />
+
+                <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
+                  <Button size="small" onClick={() => setSelectedRegulators(regRows.map(r => r.regulatorId))}>
+                    Select all
+                  </Button>
+                  <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
+                  <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
+                    {selectedRegulators.length} selected
+                  </Typography>
+                </Box>
+
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2 }}
+                  onClick={handleSaveRegulators} disabled={submitting || selectedRegulators.length === 0}>
+                  {submitting ? <CircularProgress size={20} /> : 'Continue'}
+                </Button>
+              </Box>
+            )}
+
+            {!seeding && !completed && getActiveStep() === 4 && (
+              <Box>
+                {autoSeedObligations ? (
+                  <>
+                    <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 2 }}>
+                      Your license includes the compliance toolkit. Choose the regulators whose toolkit
+                      obligations should be loaded straight into your Obligations Register. You can skip this.
+                    </Typography>
+
+                    <SectionTable
+                      columns={regulatorColumns(selectedToolkitRegulators, toggleToolkitRegulator, 'toolkitCount', 'Obligations')}
+                      rows={toolkitRows}
+                      total={toolkitRows.length}
+                      page={0}
+                      size={toolkitRows.length || 1}
+                      loading={false}
+                      rowKey={(r) => r.regulatorId}
+                      onRowClick={(r) => toggleToolkitRegulator(r.regulatorId)}
+                      search={{ value: toolkitSearch, onChange: setToolkitSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                      rowsPerPageOptions={[Math.max(toolkitRows.length, 1)]}
+                      emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
+                      <Button size="small" onClick={() => setSelectedToolkitRegulators(toolkitRows.map(r => r.regulatorId))}>
+                        Select all
+                      </Button>
+                      <Button size="small" onClick={() => setSelectedToolkitRegulators([])}>Clear</Button>
+                      <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
+                        {selectedToolkitRegulators.length} selected
+                      </Typography>
+                    </Box>
+                  </>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Your license does not include compliance-toolkit obligations, so there is nothing to
+                    select here. Continue to set up your outgoing email.
+                  </Alert>
+                )}
+
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 2 }}
+                  onClick={handleSaveToolkitRegulators} disabled={submitting}>
+                  {submitting ? <CircularProgress size={20} /> : 'Continue'}
+                </Button>
+              </Box>
+            )}
+
+            {!seeding && !completed && getActiveStep() === 5 && (
+              <SmtpSettingsForm
+                onSave={handleSaveSmtp}
+                onTest={api.onboarding.testSmtp}
+                intro="Optionally connect your organisation's SMTP server so notifications and remediation emails are sent from your own domain. You can change this later in Settings."
+                renderActions={({ save, saving, testing }) => (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                    <Button variant="contained" onClick={handleContinueSmtp} disabled={submitting}>
+                      Skip for now
+                    </Button>
+                    <Button variant="contained" onClick={save} disabled={saving || testing}>
+                      {saving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Save SMTP settings'}
+                    </Button>
+                    <Button variant="contained"
+                      onClick={async () => { await save(); handleContinueSmtp(); }}
+                      disabled={submitting}>
+                      {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Continue'}
+                    </Button>
+                  </Box>
+                )}
+              />
+            )}
+
+            {!seeding && !completed && getActiveStep() === 6 && (
               <Box>
                 <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mb: 3 }}>
                   You're all set! Review your selections and complete setup.
@@ -473,6 +698,39 @@ export default function OnboardingPage() {
           </Box>
         </Box>
       </Box>
+    </Box>
+  );
+}
+
+/** Read-only recap of the two compliance-role identities, so a CCO/Analyst swap is visible. */
+function RoleConfirmation({ ccoUser, analystUser }) {
+  const both = ccoUser.email && analystUser.email;
+  const same = ccoUser.email && ccoUser.email.toLowerCase() === (analystUser.email || '').toLowerCase();
+  const rows = [
+    { role: 'CCO', hint: 'Chief Compliance Officer', user: ccoUser },
+    { role: 'Analyst', hint: 'Reviews and tests controls', user: analystUser },
+  ];
+  return (
+    <Box sx={{ p: 2, borderRadius: '10px', bgcolor: TL.gray50, border: `1px solid ${TL.gray100}`, mb: 2 }}>
+      <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: TL.gray400,
+        textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1 }}>
+        Confirm the roles
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        {rows.map(({ role, hint, user }) => (
+          <Box key={role} sx={{ flex: '1 1 220px', minWidth: 0 }}>
+            <Typography variant="caption" sx={{ color: TL.gray500, display: 'block' }}>{role} — {hint}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+              {user.fullName || '—'} · {user.email || 'not set'}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+      {same && both && (
+        <Alert severity="warning" sx={{ mt: 1.5 }}>
+          The CCO and the Analyst are the same person. Assign two different people so segregation of duties holds.
+        </Alert>
+      )}
     </Box>
   );
 }

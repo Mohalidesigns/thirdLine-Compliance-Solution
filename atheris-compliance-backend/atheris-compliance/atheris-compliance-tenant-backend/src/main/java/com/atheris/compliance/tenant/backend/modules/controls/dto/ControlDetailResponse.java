@@ -41,6 +41,19 @@ public class ControlDetailResponse {
     private Instant updatedAt;
     private List<TestResultItem> testHistory;
     private LocalDate nextTestDueDate;
+    private List<FindingItem> findings;
+    private String residualRiskReason;
+
+    @Data @Builder
+    public static class FindingItem {
+        private Long findingId;
+        private String displayId;
+        private String severity;
+        private String status;
+        private String description;
+        private String assignedToName;
+        private LocalDate remediationDeadline;
+    }
 
     @Data @Builder
     public static class LinkedObligation {

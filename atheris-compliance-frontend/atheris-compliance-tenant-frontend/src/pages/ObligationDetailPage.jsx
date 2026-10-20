@@ -8,15 +8,13 @@ import {
   DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
   controlColumns, returnColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
-  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon,
+  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon,
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
-import OwnerModal from '../components/modals/OwnerModal';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
-import GapModal from '../components/modals/GapModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
@@ -207,10 +205,8 @@ export default function ObligationDetailPage() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
               onClick={() => setActiveModal('risk')}>Assess Risk</Button>
-            <Button size="small" variant="outlined" startIcon={<UserCircleIcon size={16} />}
-              onClick={() => setActiveModal('owner')}>Assign Owner</Button>
-            <Button size="small" variant="outlined" startIcon={<ScaleIcon size={16} />}
-              onClick={() => setActiveModal('gap')}>Gap</Button>
+            <Button size="small" variant="outlined" startIcon={<ShieldCheckIcon size={16} />}
+              onClick={() => navigate(`/controls?obligationId=${obligationId}`)}>View controls</Button>
             <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
               onClick={handleViewPdf}>PDF</Button>
           </Box>
@@ -277,8 +273,6 @@ export default function ObligationDetailPage() {
 
       <RiskAssessmentModal open={activeModal === 'risk'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Risk assessment saved')} onError={notify} />
-      <OwnerModal open={activeModal === 'owner'} onClose={() => setActiveModal(null)}
-        obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Owner saved')} onError={notify} />
       <LinkControlsModal open={activeModal === 'controls'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initialIds={controls.map((c) => c.controlId) || []}
         onSaved={onSaved('Controls linked')} onError={notify} />
@@ -288,8 +282,6 @@ export default function ObligationDetailPage() {
       <MapReturnModal open={activeModal === 'returns'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initialIds={returns.map((r) => r.returnId) || []}
         onSaved={onSaved('Return mapped')} onError={notify} />
-      <GapModal open={activeModal === 'gap'} onClose={() => setActiveModal(null)}
-        obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Gap updated')} onError={notify} />
       <EvidenceUploadModal open={activeModal === 'evidence'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} evidence={evidence}
         onSaved={onSaved('Evidence uploaded')} onError={notify} />

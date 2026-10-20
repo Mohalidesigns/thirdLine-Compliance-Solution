@@ -13,15 +13,19 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const load = () => {
+    setLoading(true);
+    api.controls.list({})
+      .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (open) {
       setSelected([...(initialIds || [])]);
       setSearch('');
-      setLoading(true);
-      api.controls.list({})
-        .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
-        .catch(() => setRows([]))
-        .finally(() => setLoading(false));
+      load();
     }
   }, [open, initialIds]);
 

@@ -98,13 +98,13 @@ public class SeedDataRepairService {
                     + "controls relinked={}, obligations relinked={}",
                 lr.duplicatesMerged(), lr.duplicateGroupsSkipped(), lr.controlsRelinked(), lr.obligationsRelinked());
             if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
-                    + cr.riskRebanded() + cr.residualRatingRebanded()
+                    + cr.riskRebanded() + cr.residualRatingRebanded() + cr.howTestedCleared()
                     + lr.duplicatesMerged() + lr.controlsRelinked() + lr.obligationsRelinked() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
             log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}",
                 r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked);
-            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}",
-                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded());
+            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}, howTested cleared={}",
+                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded(), cr.howTestedCleared());
             done.set(true);
         } catch (Throwable e) {
             log.warn("[SeedRepair] skipped this run: {}", e.getMessage());

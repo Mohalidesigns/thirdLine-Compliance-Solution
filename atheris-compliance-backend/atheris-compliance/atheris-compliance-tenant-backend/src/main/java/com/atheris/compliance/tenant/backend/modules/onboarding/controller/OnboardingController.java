@@ -1,12 +1,15 @@
 package com.atheris.compliance.tenant.backend.modules.onboarding.controller;
 
+import com.atheris.compliance.tenant.backend.modules.ldap.dto.LdapDirectoryUser;
 import com.atheris.compliance.tenant.backend.modules.onboarding.dto.*;
 import com.atheris.compliance.tenant.backend.modules.onboarding.service.OnboardingService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.service.SeedService;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -47,10 +50,36 @@ public class OnboardingController {
         return ResponseEntity.ok(service.testLdapConnection(req));
     }
 
+    /** Search a candidate (not yet saved) directory for the onboarding person picker. */
+    @PostMapping("/ldap/users")
+    public ResponseEntity<List<LdapDirectoryUser>> searchLdapUsers(
+            @RequestBody UserSetupRequest.LdapConfigRequest req,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(service.searchLdapUsers(req, q));
+    }
+
     @PostMapping("/regulators")
     public ResponseEntity<OnboardingStatusResponse> saveRegulators(
             @RequestBody RegulatorSubscriptionRequest req) {
         return ResponseEntity.ok(service.saveRegulators(req));
+    }
+
+    @PostMapping("/toolkit-regulators")
+    public ResponseEntity<OnboardingStatusResponse> saveToolkitRegulators(
+            @RequestBody RegulatorSubscriptionRequest req) {
+        return ResponseEntity.ok(service.saveToolkitRegulators(req));
+    }
+
+    @PostMapping("/smtp")
+    public ResponseEntity<OnboardingStatusResponse> saveSmtp(
+            @RequestBody SmtpConfigRequest req) {
+        return ResponseEntity.ok(service.saveSmtp(req));
+    }
+
+    @PostMapping("/smtp/test")
+    public ResponseEntity<Map<String, Object>> testSmtp(
+            @RequestBody SmtpConfigRequest req) {
+        return ResponseEntity.ok(service.testSmtp(req));
     }
 
     @PostMapping("/document-types")

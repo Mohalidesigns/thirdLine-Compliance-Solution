@@ -91,8 +91,6 @@ public class LicenseService {
             profile.setDeviceFingerprintProvisionedAt(Instant.now());
         }
         profile.setLicenseGracePeriodEnd(platformResp.getGracePeriodEnd());
-        profile.setAutoSubscribeRegulators(platformResp.getAutoSubscribeRegulators() != null
-            ? platformResp.getAutoSubscribeRegulators() : false);
         profile.setAutoSeedObligations(platformResp.getAutoSeedObligations() != null
             ? platformResp.getAutoSeedObligations() : false);
 
@@ -274,7 +272,6 @@ public class LicenseService {
             .gracePeriodEnd(platformResp.getGracePeriodEnd())
             .gracePeriodDays(platformResp.getGracePeriodDays())
             .deviceRegistered(platformResp.getDeviceRegistered())
-            .autoSubscribeRegulators(platformResp.getAutoSubscribeRegulators())
             .autoSeedObligations(platformResp.getAutoSeedObligations())
             .deviceCount(platformResp.getDeviceCount())
             .deviceLimit(platformResp.getDeviceLimit())

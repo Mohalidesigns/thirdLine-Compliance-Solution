@@ -85,9 +85,8 @@ public class OrgController {
     }
 
     @PostMapping("/owners")
-    // The CCO assigns findings/obligations to owners, so they can add them (and the
-    // department/team an owner sits in) without waiting for a tenant admin. Edit/delete stay admin-only.
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    // CCO and analysts assign findings/obligations to owners, so they can add them. Edit/delete stay admin-only.
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<OwnerDto> createOwner(@Valid @RequestBody OwnerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createOwner(request));
     }

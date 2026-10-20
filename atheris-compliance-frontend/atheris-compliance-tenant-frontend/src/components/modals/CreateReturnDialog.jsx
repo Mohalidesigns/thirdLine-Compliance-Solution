@@ -5,12 +5,13 @@ import {
 } from '@mui/material';
 import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
+import PersonPicker from '../common/PersonPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
 
 const EMPTY = {
   returnName: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
   filingDate: '', filingDeadlineOffsetDays: '', filingChannel: '',
-  returnOwnerUserId: '', returnOwnerName: '', responsibleUnit: '', responsiblePerson: '',
+  returnOwnerUserId: '', returnOwnerName: '', returnOwnerEmail: '', responsibleUnit: '', responsiblePerson: '',
   linkedObligationIds: [],
 };
 
@@ -57,8 +58,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
     setError('');
     try {
       const body = { ...form };
+      delete body.returnOwnerEmail;
       if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
       if (body.returnOwnerUserId) body.returnOwnerUserId = parseInt(body.returnOwnerUserId, 10);
+      else delete body.returnOwnerUserId;
       if (body.tenantRegulatorId) body.tenantRegulatorId = parseInt(body.tenantRegulatorId, 10);
       else delete body.tenantRegulatorId;
       if (!body.filingDate || body.frequency === EVENT_DRIVEN) delete body.filingDate;
@@ -166,16 +169,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Owner</Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <Field label="Owner User ID" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="number" value={form.returnOwnerUserId}
-              onChange={e => set('returnOwnerUserId', e.target.value)} />
-          </Field>
-          <Field label="Owner Name" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" value={form.returnOwnerName}
-              onChange={e => set('returnOwnerName', e.target.value)} />
-          </Field>
-        </Box>
+        <Field label="Return Owner">
+          <PersonPicker mode="user" label="Return owner"
+            value={form.returnOwnerName ? { email: form.returnOwnerEmail || '', fullName: form.returnOwnerName, userId: form.returnOwnerUserId || null } : null}
+            onChange={(u) => setForm(f => ({ ...f, returnOwnerName: u?.fullName || u?.email || '', returnOwnerUserId: u?.userId || '', returnOwnerEmail: u?.email || '' }))} />
+        </Field>
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Linked Obligations</Typography>
@@ -200,9 +198,9 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         </Button>
       </DialogActions>
 
-      <LinkObligationsPicker open={linksOpen} onClose={() => setLinksOpen(false)}
+      {linksOpen && <LinkObligationsPicker open onClose={() => setLinksOpen(false)}
         initialIds={form.linkedObligationIds}
-        onSave={ids => set('linkedObligationIds', ids)} />
+        onSave={ids => set('linkedObligationIds', ids)} />}
     </Dialog>
   );
 }

@@ -1,0 +1,7 @@
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_host VARCHAR(255);
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_port INTEGER;
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_username VARCHAR(255);
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_password_encrypted TEXT;
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_auth BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_starttls BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS smtp_from VARCHAR(255);

@@ -13,6 +13,8 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
+import PersonPicker from '../components/common/PersonPicker';
+import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
@@ -36,6 +38,7 @@ export default function SettingsPage() {
           ...(canManageWorkspace ? [
             { key: 2, label: 'Federal Public Holidays' },
             { key: 3, label: 'System Users' },
+            { key: 4, label: 'Email / SMTP' },
           ] : []),
         ]}
       />
@@ -44,7 +47,42 @@ export default function SettingsPage() {
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
       {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
       {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
+      {tab === 4 && canManageWorkspace && <SmtpTab />}
     </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ Email / SMTP */
+
+function SmtpTab() {
+  const query = useQuery({
+    queryKey: ['settings', 'smtp'],
+    queryFn: ({ signal }) => api.settings.smtp({ signal }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => api.settings.saveSmtp(data),
+  });
+
+  if (query.isPending) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
+  if (query.isError) return <Alert severity="error">{query.error.message}</Alert>;
+
+  return (
+    <Card sx={{ maxWidth: 720 }}>
+      <CardContent sx={{ p: 3 }}>
+        <Typography variant="h6" sx={{ mb: 0.5 }}>Email / SMTP</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Outbound email for notifications and remediation links, sent from your own domain.
+        </Typography>
+        <SmtpSettingsForm
+          load={() => query.data}
+          passwordSet={!!query.data?.passwordSet}
+          onSave={saveMutation.mutateAsync}
+          onTest={api.settings.testSmtp}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -670,7 +708,7 @@ function SystemUsersTab({ isAdmin }) {
   const load = useCallback(() => {
     setLoading(true);
     // deactivated users and pending invites are listed too, so an admin can see and reactivate them
-    api.users.list({ includeInactive: true })
+    api.users.list(undefined, { includeInactive: true })
       .then(setUsers)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -783,22 +821,30 @@ function SystemUsersTab({ isAdmin }) {
 }
 
 function InviteUserDialog({ open, onClose, onSaved, onError }) {
-  const [form, setForm] = useState({ email: '', fullName: '', jobTitle: '', department: '', role: 'ANALYST' });
+  const [person, setPerson] = useState(null);
+  const [form, setForm] = useState({ jobTitle: '', department: '', role: 'ANALYST' });
+  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ email: '', fullName: '', jobTitle: '', department: '', role: 'ANALYST' });
+    if (open) { setPerson(null); setForm({ jobTitle: '', department: '', role: 'ANALYST' }); setError(''); }
   }, [open]);
 
+  const email = person?.email || '';
+  const fullName = person?.fullName || '';
+  const canSave = !!email.trim() && !!fullName.trim();
+
   const handleSave = async () => {
+    if (!canSave) { setError('Pick a directory user or enter an email and name.'); return; }
     setSaving(true);
+    setError('');
     try {
-      const body = { email: form.email.trim(), fullName: form.fullName.trim(), role: form.role };
+      const body = { email: email.trim(), fullName: fullName.trim(), role: form.role };
       if (form.jobTitle.trim()) body.jobTitle = form.jobTitle.trim();
       if (form.department.trim()) body.department = form.department.trim();
       await api.users.invite(body);
       onSaved();
-    } catch (e) { onError(e.message); }
+    } catch (e) { setError(e.message); onError(e.message); }
     finally { setSaving(false); }
   };
 
@@ -808,12 +854,7 @@ function InviteUserDialog({ open, onClose, onSaved, onError }) {
       <DialogContent dividers>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <TextField label="Full name" fullWidth size="small" required value={form.fullName}
-              onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
+            <PersonPicker mode="user" label="User" value={person} onChange={setPerson} />
           </Grid>
           <Grid size={{ xs: 6 }}>
             <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
@@ -829,11 +870,12 @@ function InviteUserDialog({ open, onClose, onSaved, onError }) {
               {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
             </TextField>
           </Grid>
+          {error && <Grid size={{ xs: 12 }}><Alert severity="error">{error}</Alert></Grid>}
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.email.trim() || !form.fullName.trim()}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !canSave}>
           {saving ? 'Inviting...' : 'Send Invite'}
         </Button>
       </DialogActions>

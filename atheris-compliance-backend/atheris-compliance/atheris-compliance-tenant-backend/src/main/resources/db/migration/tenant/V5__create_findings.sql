@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS findings (
     -- Who submitted the remediation (the signer must be a different person), and
     -- the reviewer's note when a remediation is rejected.
     remediation_submitted_by_user_id INT,
+    remediation_submitted_via_link BOOLEAN NOT NULL DEFAULT FALSE,
     review_notes              TEXT,
     -- Generic sign-off (Analyst, CCO or Tenant Admin may sign off) — not CCO-specific.
     signed_off_by_user_id     INT,

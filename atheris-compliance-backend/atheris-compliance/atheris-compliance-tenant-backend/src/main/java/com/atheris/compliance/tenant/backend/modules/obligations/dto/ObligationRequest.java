@@ -9,13 +9,12 @@ import java.util.List;
 public class ObligationRequest {
     private Long instrumentId;
     @NotBlank private String name;
+    private Long tenantRegulatorId;
     private String description;
     private String areaOfFocus;
     private String obligationType;
     private String recurringDeadlineType;
     private LocalDate effectiveDate;
-    private Boolean hasGap;
-    private String gapDescription;
     private List<Integer> linkedControlIds;
     private String changeReason;
 }

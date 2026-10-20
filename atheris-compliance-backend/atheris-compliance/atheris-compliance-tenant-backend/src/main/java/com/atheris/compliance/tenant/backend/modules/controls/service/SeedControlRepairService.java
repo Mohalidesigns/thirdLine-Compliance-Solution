@@ -43,14 +43,15 @@ public class SeedControlRepairService {
     private final ControlTaskRepository tasks;
     private final ControlTestResultRepository testResults;
 
-    public record Result(int riskRebanded, int cadenceChanged, int tasksRescheduled, int residualRatingRebanded) {}
+    public record Result(int riskRebanded, int cadenceChanged, int tasksRescheduled,
+                         int residualRatingRebanded, int howTestedCleared) {}
 
     /** Runs inside the caller's transaction. */
     public Result repair(List<PlatformRegulationSeed> bundles) {
         Map<String, PlatformRegulationSeed.ControlItem> platform = platformControls(bundles);
         List<Control> seeded = controls.findAll().stream()
             .filter(c -> platform.containsKey(c.getControlNumber())).toList();
-        if (seeded.isEmpty()) return new Result(0, 0, 0, 0);
+        if (seeded.isEmpty()) return new Result(0, 0, 0, 0, 0);
         List<Integer> ids = seeded.stream().map(Control::getControlId).toList();
         Set<Integer> tested = testResults.findByControlIdInOrderByTestDateDesc(ids).stream()
             .map(ControlTestResult::getControlId).collect(Collectors.toSet());
@@ -83,10 +84,18 @@ public class SeedControlRepairService {
     static Result apply(List<Control> seeded, Map<String, PlatformRegulationSeed.ControlItem> platform,
                         Set<Integer> tested, Map<Integer, List<ControlTask>> pendingTasks,
                         LocalDate today, List<ControlTask> moved) {
-        int risk = 0, cadence = 0, rescheduled = 0, residualRating = 0;
+        int risk = 0, cadence = 0, rescheduled = 0, residualRating = 0, howTested = 0;
         for (Control c : seeded) {
             PlatformRegulationSeed.ControlItem p = platform.get(c.getControlNumber());
             if (p == null) continue;
+
+            // The old seed copied the single toolkit control text into howTested as well as
+            // description, so the detail page showed the same paragraph twice. Clear it back to
+            // null only where it still equals the description — a howTested an analyst wrote is kept.
+            if (c.getHowTested() != null && c.getHowTested().equals(c.getDescription())) {
+                c.setHowTested(null);
+                howTested++;
+            }
 
             String rating = rebandIfLegacy(c.getResidualRiskRating(), c.getResidualLikelihood(), c.getResidualImpact());
             if (rating != null) {
@@ -121,7 +130,7 @@ public class SeedControlRepairService {
                 rescheduled++;
             }
         }
-        return new Result(risk, cadence, rescheduled, residualRating);
+        return new Result(risk, cadence, rescheduled, residualRating, howTested);
     }
 
     /**

@@ -351,6 +351,11 @@ export const api = {
       get: (id) => request(`/admin/jobs/${id}`),
       getPdfUrl: (id) => request(`/admin/jobs/${id}/pdf`),
     },
+    // Document pipeline (non-toolkit documents only) — server-side list + KPIs.
+    pipeline: {
+      list: (params = '', signal) => request(`/admin/pipeline${toQuery(params)}`, { signal }),
+      stats: (signal) => request('/admin/pipeline/stats', { signal }),
+    },
     instruments: {
       list: (params = '', signal) => request(`/platform/instruments${toQuery(params)}`, { signal }),
       get: (id) => request(`/platform/instruments/${id}`),

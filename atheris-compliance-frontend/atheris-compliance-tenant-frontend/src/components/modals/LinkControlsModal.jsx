@@ -43,7 +43,10 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
   const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleCreated = (created) => {
-    if (created?.controlId) setControls(prev => [...prev, created]);
+    if (created?.controlId) {
+      setControls(prev => [...prev, created]);
+      setSelected(prev => prev.includes(created.controlId) ? prev : [...prev, created.controlId]);
+    }
     setCreateOpen(false);
   };
 
@@ -113,8 +116,8 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
         </DialogActions>
       </Dialog>
 
-      <CreateControlDialog open={createOpen} onClose={() => setCreateOpen(false)}
-        onSaved={handleCreated} onSnackbar={onError} />
+      {createOpen && <CreateControlDialog open onClose={() => setCreateOpen(false)}
+        onSaved={handleCreated} onSnackbar={onError} />}
     </>
   );
 }

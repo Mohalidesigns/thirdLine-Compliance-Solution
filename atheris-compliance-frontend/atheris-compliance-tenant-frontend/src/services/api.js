@@ -35,6 +35,32 @@ export const publicApi = {
     }
     return res.json();
   },
+  // Public return event-filing upload — also no login; the token is the credential.
+  async returnUploadView(token) {
+    const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This upload link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async returnUploadSubmit(token, { triggerDate, reference, dueDate, file }) {
+    const form = new FormData();
+    if (triggerDate) form.append('triggerDate', triggerDate);
+    if (reference) form.append('reference', reference);
+    if (dueDate) form.append('dueDate', dueDate);
+    if (file) form.append('file', file);
+    const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
 };
 
 // A PDF endpoint answers 404 with {error, message} when the record has no stored
@@ -267,6 +293,12 @@ export const api = {
     userSetup: (data) => request('/onboarding/user-setup', { method: 'POST', body: JSON.stringify(data) }),
     testLdap: (data) => request('/onboarding/ldap/test-connection', { method: 'POST', body: JSON.stringify(data) }),
     regulators: (data) => request('/onboarding/regulators', { method: 'POST', body: JSON.stringify(data) }),
+    toolkitRegulators: (data) => request('/onboarding/toolkit-regulators', { method: 'POST', body: JSON.stringify(data) }),
+    ldapUsers: (config, q) => request(`/onboarding/ldap/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, {
+      method: 'POST', body: JSON.stringify(config || {}),
+    }),
+    saveSmtp: (data) => request('/onboarding/smtp', { method: 'POST', body: JSON.stringify(data) }),
+    testSmtp: (data) => request('/onboarding/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
     documentTypes: (data) => request('/onboarding/document-types', { method: 'POST', body: JSON.stringify(data) }),
     confirm: (data) => request('/onboarding/confirm', { method: 'POST', body: JSON.stringify(data) }),
     seedStatus: (opts = {}) => request('/onboarding/seed-status', opts),
@@ -360,9 +392,6 @@ export const api = {
     updateRisk: (obligationId, data) => request(`/obligations/${obligationId}/risk`, {
       method: 'PUT', body: JSON.stringify(data),
     }),
-    updateGap: (obligationId, data) => request(`/obligations/${obligationId}/gap`, {
-      method: 'PUT', body: JSON.stringify(data),
-    }),
     linkControls: (obligationId, data) => request(`/obligations/${obligationId}/controls`, {
       method: 'PUT', body: JSON.stringify(data),
     }),
@@ -394,7 +423,7 @@ export const api = {
     stats: (opts = {}) => request('/findings/stats', { signal: opts.signal }),
     raise: (data) => request('/findings', { method: 'POST', body: JSON.stringify(data) }),
     assign: (id, data) => request(`/findings/${id}/assign`, { method: 'PUT', body: JSON.stringify(data) }),
-    remediate: (id, data) => request(`/findings/${id}/remediate`, { method: 'PUT', body: JSON.stringify(data) }),
+    remediate: (id, formData) => rawRequest(`/findings/${id}/remediate`, { method: 'PUT', body: formData }),
     review: (id, decision, notes) => {
       const qs = new URLSearchParams({ decision });
       if (notes) qs.set('notes', notes);
@@ -474,6 +503,10 @@ export const api = {
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
+    // Create (and email) a public, account-less event-filing upload link for an event-driven return.
+    createUploadLink: (returnId, body = {}) => request(`/returns/${returnId}/upload-link`, {
+      method: 'POST', body: JSON.stringify(body),
+    }),
   },
   sanctions: {
     list: (params = {}, opts = {}) => {
@@ -486,6 +519,8 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
+    bySource: (sourceType, sourceId, opts = {}) =>
+      request(`/evidence/by-source?sourceType=${encodeURIComponent(sourceType)}&sourceId=${sourceId}`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),
     upload: (formData, opts = {}) => rawRequest('/evidence/upload', {
       method: 'POST', body: formData, signal: opts.signal,
@@ -601,6 +636,20 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+    smtp: () => request('/settings/smtp'),
+    saveSmtp: (data) => request('/settings/smtp', { method: 'PUT', body: JSON.stringify(data) }),
+    testSmtp: (data) => request('/settings/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  federalPublicHolidays: {
+    list: (year, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (year && year !== 'All') qs.set('year', year);
+      const s = qs.toString();
+      return request(`/federal-public-holidays${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    create: (data) => request('/federal-public-holidays', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/federal-public-holidays/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (id) => request(`/federal-public-holidays/${id}`, { method: 'DELETE' }),
   },
   federalPublicHolidays: {
     list: (year, opts = {}) => {
@@ -756,7 +805,14 @@ export const api = {
   },
   users: {
     me: () => request('/users/me'),
-    list: (opts = {}) => request(`/users${opts.includeInactive ? '?includeInactive=true' : ''}`),
+    // q narrows by name/email/job title; includeInactive also returns deactivated users (Settings)
+    list: (q, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (q) qs.set('q', q);
+      if (opts.includeInactive) qs.set('includeInactive', 'true');
+      const s = qs.toString();
+      return request(`/users${s ? '?' + s : ''}`);
+    },
     invite: (data) => request('/users/invite', {
       method: 'POST', body: JSON.stringify(data),
     }),
@@ -768,5 +824,9 @@ export const api = {
     updateManager: (id, managerUserId) => request(`/users/${id}/manager`, {
       method: 'PUT', body: JSON.stringify({ managerUserId }),
     }),
+  },
+  ldap: {
+    // Directory search for the person picker. Returns { enabled, users:[{email, fullName}] }.
+    users: (q, opts = {}) => request(`/ldap/users${q ? `?q=${encodeURIComponent(q)}` : ''}`, { signal: opts.signal }),
   },
 };

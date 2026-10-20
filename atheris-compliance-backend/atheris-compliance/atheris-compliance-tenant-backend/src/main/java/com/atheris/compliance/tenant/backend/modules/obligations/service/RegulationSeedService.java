@@ -6,6 +6,8 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFreque
 import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
 import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
+import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
+import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationPoint;
@@ -57,6 +59,7 @@ public class RegulationSeedService {
     private final ControlRepository controlRepo;
     private final ActRepository actRepo;
     private final TenantIdentityService tenantIdentity;
+    private final TenantProfileRepository profiles;
     private final PlatformTransactionManager txManager;
 
     // Each regulation bundle is seeded in its own REQUIRES_NEW transaction via a TransactionTemplate,
@@ -70,21 +73,30 @@ public class RegulationSeedService {
         txTemplate.setPropagationBehavior(Propagation.REQUIRES_NEW.value());
     }
 
+    /** Toolkit obligations land in the Register for exactly the regulators chosen at onboarding. */
+    private List<Integer> toolkitRegulatorIds(Long tenantId) {
+        return profiles.findByTenantId(tenantId)
+            .map(TenantProfile::getToolkitRegulators)
+            .orElse(List.of())
+            .stream()
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .sorted()
+            .toList();
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int seedAll() {
         Long tenantId = tenantIdentity.currentTenantId();
-        List<TenantRegulator> regs = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
-            .filter(r -> r.getPlatformRegulatorId() != null)
-            .toList();
-        List<Integer> platformIds = regs.stream()
-            .map(TenantRegulator::getPlatformRegulatorId)
-            .sorted()
-            .distinct()
-            .toList();
+        List<Integer> platformIds = toolkitRegulatorIds(tenantId);
         if (platformIds.isEmpty()) {
-            log.info("Seed skipped: no active regulators for tenant {}", tenantId);
+            log.info("Seed skipped: no toolkit regulators for tenant {}", tenantId);
             return 0;
         }
+        List<TenantRegulator> regs = tenantRegulators.findByTenantIdAndIsActiveTrue(tenantId).stream()
+            .filter(r -> r.getPlatformRegulatorId() != null)
+            .filter(r -> platformIds.contains(r.getPlatformRegulatorId()))
+            .toList();
 
         List<PlatformRegulationSeed> bundles = platform.fetchRegulationSeeds(platformIds);
         int seeded = 0;
@@ -267,7 +279,8 @@ public class RegulationSeedService {
                     .theme(c.getTheme())
                     .controlType(c.getControlType() != null ? c.getControlType() : "CMP")
                     .whatItDoes(c.getMonitoringActivity())
-                    .howTested(c.getComplianceControl())
+                    // Deliberately NOT howTested: the toolkit only carries one control description,
+                    // and copying it here made the detail's "How it's tested" a duplicate of "Description".
                     .controlOwnerName(c.getResponsibleOfficer())
                     .ownerName(c.getOwnerName())
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))

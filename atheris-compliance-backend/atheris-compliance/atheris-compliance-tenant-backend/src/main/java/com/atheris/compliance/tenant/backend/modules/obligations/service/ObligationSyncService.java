@@ -72,16 +72,13 @@ public class ObligationSyncService {
             return;
         }
 
-        List<Integer> platformRegulatorIds = tenantRegulators
-            .findByTenantIdAndIsActiveTrue(tenantId)
-            .stream()
-            .map(TenantRegulator::getPlatformRegulatorId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        List<Integer> platformRegulatorIds = p.getSubscribedRegulators() != null
+            ? p.getSubscribedRegulators().stream().filter(Objects::nonNull).distinct().collect(Collectors.toList())
+            : List.of();
 
-        log.info("Sync check: tenant {} has {} active platform regulatorIds: {}", tenantId, platformRegulatorIds.size(), platformRegulatorIds);
+        log.info("Sync check: tenant {} has {} intelligence regulatorIds: {}", tenantId, platformRegulatorIds.size(), platformRegulatorIds);
         if (platformRegulatorIds.isEmpty()) {
-            log.info("Sync skipped: no active regulators for tenant {}", tenantId);
+            log.info("Sync skipped: no intelligence regulators for tenant {}", tenantId);
             return;
         }
 
@@ -107,21 +104,25 @@ public class ObligationSyncService {
             }
 
             log.info("Received {} instruments from platform", results.size());
-            int created = 0, skipped = 0;
+            int created = 0, inRegister = 0, alreadyQueued = 0, noObligations = 0, toolkit = 0;
 
             for (PlatformInstrumentSummary item : results) {
+                if (com.atheris.compliance.common.Constants.UPLOAD_SOURCE_TOOLKIT.equals(item.getUploadSource())) {
+                    toolkit++;
+                    continue;
+                }
                 if (obligationRepository.countByInstrumentId(item.getInstrumentId()) > 0) {
-                    skipped++;
+                    inRegister++;
                     continue;
                 }
                 if (pendingReviews.existsByInstrumentIdAndTenantId(item.getInstrumentId(), tenantId)) {
-                    skipped++;
+                    alreadyQueued++;
                     continue;
                 }
 
                 PlatformInstrumentDetail detail = platformClient.getInstrumentDetail(item.getInstrumentId());
                 if (detail == null || detail.getObligations() == null || detail.getObligations().isEmpty()) {
-                    skipped++;
+                    noObligations++;
                     continue;
                 }
 
@@ -198,7 +199,8 @@ public class ObligationSyncService {
                     extracted.size(), item.getInstrumentId(), detail.getSourceTitle());
             }
 
-            log.info("Sync complete: {} created, {} skipped (already exist)", created, skipped);
+            log.info("Sync complete: {} created, {} skipped ({} toolkit, {} already in register, {} already queued, {} without obligations)",
+                created, toolkit + inRegister + alreadyQueued + noObligations, toolkit, inRegister, alreadyQueued, noObligations);
 
             pollingConfig.setLastPolledAt(Instant.now());
             pollingConfigs.save(pollingConfig);

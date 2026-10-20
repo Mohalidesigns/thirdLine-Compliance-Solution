@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import { DetailHeader } from 'shared';
 import api from '../../../services/api';
@@ -8,20 +8,15 @@ import ControlDetailContent from './detail/ControlDetailContent';
 export default function ControlDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [ctl, setCtl] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError(null);
-    api.platform.controls.get(id)
-      .then(data => { if (alive) setCtl(data); })
-      .catch(err => { if (alive) setError(err.message); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [id]);
+  const query = useQuery({
+    queryKey: ['controls', 'detail', String(id)],
+    queryFn: ({ signal }) => api.platform.controls.get(id, signal),
+  });
+
+  const ctl = query.data;
+  const loading = query.isPending;
+  const error = query.isError ? (query.error?.message || 'Failed to load control') : null;
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;

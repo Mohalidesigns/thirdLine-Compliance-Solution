@@ -20,8 +20,6 @@ public class ClassifyObligationRequest {
     private String assignedOwnerName;
     private String assignedDepartment;
     private List<Integer> linkedControlIds;
-    private Boolean hasGap;
-    private String gapDescription;
     private List<Long> linkedReturnIds;
     private Long linkedObligationId;
     private String changeReason;

@@ -231,17 +231,22 @@ public class RegulatorService {
     public void syncFromProfile() {
         Long tenantId = tenantIdentity.currentTenantId();
         profiles.findByTenantId(tenantId).ifPresent(p -> {
-            List<Integer> subscribed = p.getSubscribedRegulators();
-            if (subscribed == null || subscribed.isEmpty()) {
-                return;
-            }
-
-            long existingCount = repo.countByTenantId(tenantId);
-            if (existingCount >= subscribed.size()) {
+            // tenant_regulators is the union of the two onboarding selections: intelligence
+            // regulators (Review Inbox) and toolkit regulators (Obligations Register).
+            List<Integer> subscribed = new ArrayList<>();
+            if (p.getSubscribedRegulators() != null) subscribed.addAll(p.getSubscribedRegulators());
+            if (p.getToolkitRegulators() != null) subscribed.addAll(p.getToolkitRegulators());
+            subscribed = subscribed.stream().filter(java.util.Objects::nonNull).distinct().toList();
+            if (subscribed.isEmpty()) {
                 return;
             }
 
             List<TenantRegulator> existing = repo.findByTenantIdAndIsActiveTrue(tenantId);
+            long existingCount = existing.size();
+            if (existingCount >= subscribed.size()) {
+                return;
+            }
+
             List<RegulatorSummary> allRegs = platform.fetchRegulators();
 
             for (Integer regId : subscribed) {

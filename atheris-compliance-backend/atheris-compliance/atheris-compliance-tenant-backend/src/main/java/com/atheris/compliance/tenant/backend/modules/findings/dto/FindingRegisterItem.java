@@ -21,6 +21,8 @@ public class FindingRegisterItem {
     private String externalReference;
     /** The linked control's control number (e.g. CTL-0001), null when unlinked or the control is gone. */
     private String linkedControlIdentifier;
+    /** The linked obligation (set for gap findings and control failures traced to an obligation). */
+    private Long linkedObligationId;
     private String linkedObligationDescription;
 
     /** {@code linkedControlNumber} is resolved by the caller (batch-loaded once per page). */
@@ -39,6 +41,7 @@ public class FindingRegisterItem {
             .slaDays(f.getSlaDays()).slaRemainingDays(Math.max(remaining, 0))
             .externalReference(f.getExternalReference())
             .linkedControlIdentifier(linkedControlNumber)
+            .linkedObligationId(f.getLinkedObligationId())
             .linkedObligationDescription(null)
             .build();
     }

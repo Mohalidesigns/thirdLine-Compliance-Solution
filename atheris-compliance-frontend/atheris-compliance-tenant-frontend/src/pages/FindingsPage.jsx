@@ -1,21 +1,24 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   TablePagination, TextField, MenuItem, Button, IconButton,
-  Paper, Dialog,
+  Paper, Dialog, Stepper, Step, StepLabel,
   DialogTitle, DialogContent, DialogActions, CircularProgress, Alert,
-  Grid, Tooltip, Link, Checkbox, FormControlLabel,
+  Grid, Tooltip, Checkbox, FormControlLabel, Chip,
   Snackbar, Alert as MuiAlert
 } from '@mui/material';
 import {
-  PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL,
-  PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon,
+  PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL, KpiCards,
+  PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon, ArrowPathIcon, CheckCircleIcon,
 } from 'shared';
 import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
 import { isReadOnly } from '../utils/roles';
+import EntityPicker from '../components/modals/EntityPicker';
+import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 
 const SECTION_LABEL_SX = {
   display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
@@ -23,6 +26,8 @@ const SECTION_LABEL_SX = {
 };
 const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
+const LINK_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
+const SUBMIT_ROLES = ['ANALYST', 'TENANT_ADMIN'];
 
 // Same date style as the rest of the app ("20 Oct 2026").
 const DATE_FMT = { day: '2-digit', month: 'short', year: 'numeric' };
@@ -35,8 +40,11 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [filters, setFilters] = useState({ status: 'Open', severity: '', overdueOnly: false });
+  const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false });
+  const [stats, setStats] = useState(null);
+  const [searchParams] = useSearchParams();
   const [raiseOpen, setRaiseOpen] = useState(false);
+  const [raiseInitial, setRaiseInitial] = useState(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [remediateOpen, setRemediateOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -55,7 +63,12 @@ export default function FindingsPage() {
     if (filters.overdueOnly) p.overdueOnly = true;
     api.findings.register(p).then(res => setData(res))
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
+    loadStats();
   }, [page, rowsPerPage, filters]);
+
+  const loadStats = useCallback(() => {
+    api.findings.stats().then(setStats).catch(() => {});
+  }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -64,6 +77,54 @@ export default function FindingsPage() {
     api.findings.detail(id).then(res => { setDetail(res); setView('detail'); setDetailId(id); })
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const fid = searchParams.get('findingId');
+    if (fid) loadDetail(fid);
+  }, [searchParams, loadDetail]);
+
+  useEffect(() => {
+    const raise = searchParams.get('raise');
+    if (raise !== 'gap') return;
+    const oid = searchParams.get('obligationId');
+    const load = async () => {
+      let label = oid ? `Obligation #${oid}` : '';
+      if (oid) {
+        try {
+          const o = await api.obligations.register({ size: 200 });
+          const row = (o.content || o || []).find((x) => String(x.obligationId) === String(oid));
+          if (row) label = row.title || row.name || label;
+        } catch { /* label stays as the id */ }
+      }
+      setRaiseInitial({ findingType: 'Gap', linkedObligationId: oid ? Number(oid) : null, obligationLabel: label });
+      setRaiseOpen(true);
+    };
+    load();
+  }, [searchParams]);
+
+  const byStatus = stats?.byStatus || {};
+  const findingKpis = [
+    { key: 'open', label: 'Open', value: byStatus['Open'] ?? 0, tone: 'blue', icon: <ExclamationTriangleIcon />,
+      active: filters.status === 'Open' },
+    { key: 'inremediation', label: 'In Remediation', value: byStatus['In Remediation'] ?? 0, tone: 'orange', icon: <ArrowPathIcon />,
+      active: filters.status === 'In Remediation' },
+    { key: 'awaiting', label: 'Awaiting Review', value: byStatus['Remediated'] ?? 0, tone: 'purple', icon: <ClockIcon />,
+      active: filters.status === 'Remediated' },
+    { key: 'overdue', label: 'Overdue', value: stats?.overdueRemediation ?? 0, tone: 'red', icon: <ClockIcon />,
+      active: !!filters.overdueOnly },
+    { key: 'closed', label: 'Closed', value: byStatus['Closed'] ?? 0, tone: 'green', icon: <CheckCircleIcon />,
+      active: filters.status === 'Closed' },
+  ];
+
+  const onKpiSelect = (key) => {
+    setPage(0);
+    const base = { severity: '', overdueOnly: false };
+    if (key === 'open') setFilters({ ...base, status: 'Open' });
+    else if (key === 'inremediation') setFilters({ ...base, status: 'In Remediation' });
+    else if (key === 'awaiting') setFilters({ ...base, status: 'Remediated' });
+    else if (key === 'overdue') setFilters({ ...base, status: '', overdueOnly: true });
+    else if (key === 'closed') setFilters({ ...base, status: 'Closed' });
+  };
 
   if (view === 'detail' && detail) {
     return (
@@ -105,6 +166,8 @@ export default function FindingsPage() {
           </>
         )}
       />
+
+      <KpiCards columns={5} items={findingKpis} onSelect={onKpiSelect} />
 
       <FilterBar>
         <FilterField label="Status" minWidth={170}>
@@ -148,7 +211,7 @@ export default function FindingsPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Finding</TableCell>
+                    <TableCell>Title</TableCell>
                     <TableCell>Severity</TableCell>
                     <TableCell>Owner</TableCell>
                     <TableCell>Deadline</TableCell>
@@ -164,12 +227,11 @@ export default function FindingsPage() {
                       <TableRow key={row.findingId} hover sx={{ cursor: 'pointer' }}
                         onClick={() => loadDetail(row.findingId)}>
                         <TableCell sx={{ maxWidth: 420 }}>
-                          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {row.description}
-                          </Typography>
-                          <Typography sx={{ fontFamily: TL.mono, fontSize: '0.75rem', color: TL.gray500 }}>
-                            {row.displayId}{row.externalReference ? ` · ${row.externalReference}` : ''}
-                          </Typography>
+                          <Tooltip title={row.description || ''}>
+                            <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {row.description}
+                            </Typography>
+                          </Tooltip>
                         </TableCell>
                         <TableCell><RiskBadge value={row.severity} /></TableCell>
                         <TableCell>{row.assignedToName || '-'}</TableCell>
@@ -204,8 +266,8 @@ export default function FindingsPage() {
         )}
       </DataCard>
 
-      <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)}
-        onSaved={() => { setRaiseOpen(false); loadList(); }} onSnackbar={setSnackbar} />
+      <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)} initial={raiseInitial}
+        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); loadList(); loadStats(); }} onSnackbar={setSnackbar} />
 
       {canImport && (
         <ImportDialog entityType="findings" entityLabel="findings" open={importOpen}
@@ -238,6 +300,21 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const isSubmitter = currentUser?.userId != null
     && detail.remediationSubmittedByUserId != null
     && currentUser.userId === detail.remediationSubmittedByUserId;
+  const canLink = LINK_ROLES.includes(currentUser?.role);
+  const canRecord = SUBMIT_ROLES.includes(currentUser?.role);
+  const navigate = useNavigate();
+
+  const hasControl = detail.linkedControlId != null;
+  const isGapFinding = detail.findingType === 'Gap';
+  const stageNames = isGapFinding
+    ? ['Obligation (no control)', 'Gap raised', 'Control linked', 'In remediation', 'Review & sign off', 'Closed']
+    : hasControl
+      ? ['Control', 'Test failed', 'Finding raised', 'In remediation', 'Review & sign off', 'Closed']
+      : ['Finding raised', 'In remediation', 'Review & sign off', 'Closed'];
+  const stageOffset = (isGapFinding || hasControl) ? 2 : 0;
+  const stageByStatus = { Open: 0, 'In Remediation': 1, Remediated: 2, Closed: 3 };
+  const activeStep = isClosed ? stageNames.length : stageOffset + (stageByStatus[detail.status] ?? 0);
+  const controlLinked = detail.linkedControlId != null;
 
   return (
     <Box>
@@ -245,11 +322,12 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         band
         onBack={onBack}
         backLabel="Back to Findings"
-        title={detail.displayId}
+        title={detail.description || detail.displayId}
         status={detail.status}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <RiskBadge value={detail.severity} />
+            {detail.findingType && <Chip size="small" variant="outlined" label={detail.findingType} />}
             {detail.linkedControlId && (
               <Typography sx={{ fontSize: '0.8125rem', color: TL.gray500 }}>
                 Linked control:{' '}
@@ -260,15 +338,14 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             )}
           </Box>
         )}
-        description={detail.description}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {isOpen && <Button variant="outlined" size="small" onClick={onAssign}>Assign</Button>}
-            {(isOpen || isInRemediation) && (
+            {(isOpen || isInRemediation) && canLink && (
               <Button variant="outlined" size="small" onClick={onLink}>Remediation link</Button>
             )}
-            {isInRemediation && (
-              <Button variant="contained" size="small" onClick={onRemediate}>Submit Remediation</Button>
+            {isInRemediation && canRecord && (
+              <Button variant="outlined" size="small" onClick={onRemediate}>Record remediation on behalf of owner</Button>
             )}
             {isRemediated && !isSubmitter && (
               <Button variant="contained" color="success" size="small" onClick={onReview}>Review & Sign off</Button>
@@ -301,6 +378,45 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
+          <DataCard title="Workflow" sx={{ mb: 3 }}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {stageNames.map((name, i) => {
+                const linkable = (hasControl && i === 0) || (isGapFinding && detail.linkedObligationId != null && i === 0);
+                const stepDone = isGapFinding && i === 2 ? controlLinked : i < activeStep;
+                return (
+                  <Step key={name} completed={stepDone}>
+                    <StepLabel>
+                      <Typography
+                        onClick={linkable
+                          ? () => navigate(hasControl
+                            ? `/controls?controlId=${detail.linkedControlId}`
+                            : `/obligations/${detail.linkedObligationId}`)
+                          : undefined}
+                        sx={{
+                          fontSize: '0.8125rem', fontWeight: i === activeStep ? 700 : 500,
+                          color: i === activeStep ? 'primary.main' : (stepDone ? 'text.secondary' : 'text.disabled'),
+                          cursor: linkable ? 'pointer' : 'default',
+                          textDecoration: linkable ? 'underline' : 'none',
+                        }}>
+                        {name}
+                      </Typography>
+                    </StepLabel>
+                  </Step>
+                );
+              })}
+            </Stepper>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+              {isClosed ? 'Finding closed — remediation signed off.'
+                : isGapFinding && !controlLinked ? 'This obligation has no control. Create/link a control (View controls on the obligation) before this gap finding can be closed.'
+                : isRemediated ? (isSubmitter
+                  ? 'Awaiting sign off by another reviewer — you submitted this remediation.'
+                  : 'Remediation submitted — review and sign off to close.')
+                : isInRemediation ? 'Owner is remediating — record evidence or submit via the remediation link.'
+                : 'Assign an owner and start remediation.'}
+              {isOverdue && !isClosed ? ' SLA is overdue.' : ''}
+            </Typography>
+          </DataCard>
+
           {/* Timeline */}
           <DataCard title="Timeline">
             {detail.timeline && detail.timeline.length > 0 ? (
@@ -344,13 +460,15 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             {detail.remediationSubmittedAt && (
               <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString('en-GB', DATE_FMT)} />
             )}
-            {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
-            {detail.remediationEvidenceUrl && (
-              <Box sx={{ mt: 1 }}>
-                <Link href={detail.remediationEvidenceUrl} target="_blank" rel="noopener" underline="hover"
-                  sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>View evidence</Link>
-              </Box>
+            {detail.remediationSubmittedViaLink && (
+              <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Owner'} (via link)`} />
             )}
+            {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
+            <Box sx={{ mt: 1.5 }}>
+              <Typography component="span" sx={SECTION_LABEL_SX}>Evidence</Typography>
+              <EvidenceFileList sourceType="finding" sourceId={detail.findingId}
+                emptyText="No evidence attached." />
+            </Box>
             {detail.reviewNotes && <DetailRow label="Review note" value={detail.reviewNotes} />}
             {detail.signedOffAt && (
               <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString('en-GB', DATE_FMT)} />
@@ -368,7 +486,8 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         onSnackbar={onSnackbar} />
 
       <ReviewDialog open={reviewOpen} onClose={() => setReviewOpen(false)}
-        findingId={detail.findingId} onSaved={() => { setReviewOpen(false); onRefresh(); }}
+        findingId={detail.findingId} detail={detail}
+        onSaved={() => { setReviewOpen(false); onRefresh(); }}
         onSnackbar={onSnackbar} />
 
       <RemediationLinkDialog open={linkOpen} onClose={() => setLinkOpen(false)}
@@ -387,25 +506,46 @@ function DetailRow({ label, value }) {
 }
 
 /* ---------- Raise Dialog ---------- */
-function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({
-    findingType: '', severity: '', description: '', rootCause: '',
-    linkedObligationId: '', linkedControlId: '',
+function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
+  const empty = {
+    findingType: 'Control Failure', severity: '', description: '', rootCause: '',
+    linkedObligationId: null, linkedControlId: null,
     assignedToOwnerId: null, remediationDeadline: '',
-  });
+  };
+  const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
+  const [obligationOpen, setObligationOpen] = useState(false);
+  const [controlLabel, setControlLabel] = useState('');
+  const [obligationLabel, setObligationLabel] = useState('');
+
+  const isGap = form.findingType === 'Gap';
+  const isFailure = form.findingType === 'Control Failure';
+
+  useEffect(() => {
+    if (open) {
+      setForm({ ...empty, ...(initial || {}) });
+      setControlLabel(initial?.controlLabel || '');
+      setObligationLabel(initial?.obligationLabel || '');
+    }
+  }, [open]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { ...form };
-      if (body.linkedObligationId) body.linkedObligationId = parseInt(body.linkedObligationId, 10);
-      if (body.linkedControlId) body.linkedControlId = parseInt(body.linkedControlId, 10);
+      const body = {
+        findingType: form.findingType, severity: form.severity, description: form.description,
+        rootCause: form.rootCause, assignedToOwnerId: form.assignedToOwnerId,
+        remediationDeadline: form.remediationDeadline,
+      };
+      if (isFailure) body.linkedControlId = form.linkedControlId;
+      if (isGap) body.linkedObligationId = form.linkedObligationId;
       await api.findings.raise(body);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  const reset = () => setForm({ findingType: '', severity: '', description: '', rootCause: '', linkedObligationId: '', linkedControlId: '', assignedToOwnerId: null, remediationDeadline: '' });
-  useEffect(() => { if (open) reset(); }, [open]);
+
+  const linkedOk = isFailure ? form.linkedControlId != null : (isGap ? form.linkedObligationId != null : true);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -414,11 +554,9 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid size={{ xs: 6 }}>
             <TextField select label="Finding type" fullWidth size="small" required value={form.findingType}
-              onChange={e => setForm(f => ({ ...f, findingType: e.target.value }))}>
-              <MenuItem value="">Select...</MenuItem>
-              <MenuItem value="Gap">Gap (no control exists)</MenuItem>
-              <MenuItem value="Control Failure">Control failure (test failed)</MenuItem>
-              <MenuItem value="Process Weakness">Process weakness</MenuItem>
+              onChange={e => setForm(f => ({ ...f, findingType: e.target.value, linkedControlId: null, linkedObligationId: null }))}>
+              <MenuItem value="Control Failure">Control failure (a control failed)</MenuItem>
+              <MenuItem value="Gap">Gap (obligation has no control)</MenuItem>
             </TextField>
           </Grid>
           <Grid size={{ xs: 6 }}>
@@ -431,6 +569,24 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
+          {isFailure && (
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField label="Control" fullWidth size="small" required value={controlLabel}
+                  placeholder="Select the control that failed" InputProps={{ readOnly: true }} />
+                <Button variant="outlined" onClick={() => setControlOpen(true)}>Select</Button>
+              </Box>
+            </Grid>
+          )}
+          {isGap && (
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField label="Obligation" fullWidth size="small" required value={obligationLabel}
+                  placeholder="Select the uncovered obligation" InputProps={{ readOnly: true }} />
+                <Button variant="outlined" onClick={() => setObligationOpen(true)}>Select</Button>
+              </Box>
+            </Grid>
+          )}
           <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} required value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
@@ -438,14 +594,6 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
           <Grid size={{ xs: 12 }}>
             <TextField label="Root cause" fullWidth size="small" multiline minRows={2} value={form.rootCause}
               onChange={e => setForm(f => ({ ...f, rootCause: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField label="Linked Obligation ID" fullWidth size="small" type="number" value={form.linkedObligationId}
-              onChange={e => setForm(f => ({ ...f, linkedObligationId: e.target.value }))} />
-          </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField label="Linked Control ID" fullWidth size="small" type="number" value={form.linkedControlId}
-              onChange={e => setForm(f => ({ ...f, linkedControlId: e.target.value }))} />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
@@ -460,10 +608,47 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar }) {
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.findingType || !form.severity || !form.description || !form.remediationDeadline}>
+        <Button variant="contained" onClick={handleSave}
+          disabled={saving || !form.findingType || !form.severity || !form.description || !form.remediationDeadline || !linkedOk}>
           {saving ? 'Raising...' : 'Raise Finding'}
         </Button>
       </DialogActions>
+
+      {controlOpen && (
+        <EntityPicker open title="Select Control"
+          fetchRows={(q) => api.controls.register({ q: q || undefined, size: 50 })}
+          getKey={(c) => c.controlId}
+          label={(c) => `${c.controlNumber} · ${c.name}`}
+          columns={[
+            { label: 'Control', render: (c) => `${c.controlNumber || ''} ${c.name || ''}` },
+            { label: 'Owner', render: (c) => c.ownerName || c.controlOwnerName || '-' },
+            { label: 'Theme', render: (c) => c.theme || '-' },
+          ]}
+          onClose={() => setControlOpen(false)}
+          onSave={(id, row) => {
+            setForm(f => ({ ...f, linkedControlId: id }));
+            setControlLabel(row ? `${row.controlNumber || ''} · ${row.name || ''}` : `Control #${id}`);
+            setControlOpen(false);
+          }} />
+      )}
+
+      {obligationOpen && (
+        <EntityPicker open title="Select Obligation (no control)"
+          fetchRows={(q) => api.obligations.register({ q: q || undefined, noControl: 'true', size: 50 })}
+          getKey={(o) => o.obligationId}
+          label={(o) => o.title || o.name || `Obligation #${o.obligationId}`}
+          columns={[
+            { label: 'Obligation', render: (o) => o.title || o.name || `Obligation #${o.obligationId}` },
+            { label: 'Act', render: (o) => o.actName || '-' },
+            { label: 'Controls', render: (o) => o.controlCount ?? 0 },
+          ]}
+          onClose={() => setObligationOpen(false)}
+          onSave={(id, row) => {
+            setForm(f => ({ ...f, linkedObligationId: id }));
+            setObligationLabel(row ? (row.title || row.name || `Obligation #${id}`) : `Obligation #${id}`);
+            setObligationOpen(false);
+          }} />
+      )}
     </Dialog>
   );
 }
@@ -537,35 +722,52 @@ function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }
 
 /* ---------- Remediate Dialog ---------- */
 function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ remediationNotes: '', evidenceUrl: '' });
+  const [notes, setNotes] = useState('');
+  const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const handleSave = async () => {
     setSaving(true);
     try {
+      const form = new FormData();
+      if (notes) form.append('notes', notes);
+      files.forEach((f) => form.append('files', f));
       await api.findings.remediate(findingId, form);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  useEffect(() => { if (open) setForm({ remediationNotes: '', evidenceUrl: '' }); }, [open]);
+  useEffect(() => { if (open) { setNotes(''); setFiles([]); } }, [open]);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Submit Remediation</DialogTitle>
+      <DialogTitle>Record Remediation</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Use this only when the owner cannot use the remediation link. The evidence is recorded
+          on the owner's behalf, and the analyst who records it cannot sign it off.
+        </Typography>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Remediation notes" fullWidth size="small" multiline minRows={3} value={form.remediationNotes}
-              onChange={e => setForm(f => ({ ...f, remediationNotes: e.target.value }))} />
+            <TextField label="Remediation notes" fullWidth size="small" multiline minRows={3} value={notes}
+              onChange={e => setNotes(e.target.value)} />
           </Grid>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
-              onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
+            <Button variant="outlined" component="label" startIcon={<ArrowUpTrayIcon size={16} />}>
+              Attach evidence files
+              <input hidden type="file" multiple
+                accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
+                onChange={e => setFiles(Array.from(e.target.files || []))} />
+            </Button>
+            {files.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {files.map(f => f.name).join(', ')}
+              </Typography>
+            )}
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? 'Submitting...' : 'Submit Remediation'}
+          {saving ? 'Submitting...' : 'Record remediation'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -573,7 +775,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
 }
 
 /* ---------- Review / Sign-off Dialog ---------- */
-function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
+function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar }) {
   const [decision, setDecision] = useState('Accepted');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -594,11 +796,28 @@ function ReviewDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
 
+  const submittedBy = detail?.remediationSubmittedViaLink
+    ? `${detail?.assignedToName || 'Owner'} (via link)`
+    : (detail?.remediationSubmittedByUserId != null ? 'Analyst (on behalf of owner)' : null);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Review Remediation</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: TL.gray50, borderRadius: 1 }}>
+          <Typography component="span" sx={SECTION_LABEL_SX}>Submitted remediation</Typography>
+          <DetailRow label="Owner" value={detail?.assignedToName || 'Unassigned'} />
+          {detail?.remediationSubmittedAt && (
+            <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleString()} />
+          )}
+          {submittedBy && <DetailRow label="Submitted by" value={submittedBy} />}
+          {detail?.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
+          <Box sx={{ mt: 1 }}>
+            <EvidenceFileList sourceType="finding" sourceId={findingId}
+              emptyText="No evidence attached." />
+          </Box>
+        </Box>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}>
             <TextField select label="Decision" fullWidth size="small" value={decision}
               onChange={e => setDecision(e.target.value)}>
@@ -644,21 +863,25 @@ function EmailStatusNote({ status, to }) {
 
 function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
   const [link, setLink] = useState(null);
+  const [email, setEmail] = useState(null);   // { status, to } — whether the owner was really emailed
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setLink(null); setCopied(false); setLoading(true);
+    setLink(null); setEmail(null); setCopied(false); setLoading(true);
     api.findings.remediationLink(findingId)
-      .then((res) => setLink(res))
+      .then((res) => {
+        setLink(res.path ? `${window.location.origin}${res.path}` : res.url);
+        setEmail({ status: res.emailStatus, to: res.ownerEmail });
+      })
       .catch((e) => onSnackbar(e.message))
       .finally(() => setLoading(false));
   }, [open, findingId]);
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(link.url);
+      await navigator.clipboard.writeText(link);
       setCopied(true);
     } catch { onSnackbar('Copy failed — select the link manually.'); }
   };
@@ -668,13 +891,14 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
       <DialogTitle>Remediation Link</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          A secure link the owner can use to submit remediation evidence without an account.
+          Send this to the owner so they can submit remediation evidence themselves — no account
+          needed.
         </Typography>
-        {link && <EmailStatusNote status={link.emailStatus} to={link.ownerEmail} />}
+        {link && email && <EmailStatusNote status={email.status} to={email.to} />}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} /></Box>
         ) : link ? (
-          <TextField fullWidth size="small" label="Link" value={link.url} onFocus={(e) => e.target.select()}
+          <TextField fullWidth size="small" label="Link" value={link} onFocus={(e) => e.target.select()}
             slotProps={{ input: { readOnly: true } }} />
         ) : (
           <Alert severity="error">Could not create a link.</Alert>

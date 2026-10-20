@@ -201,14 +201,18 @@ public class RegulatorService {
     private Map<Integer, long[]> buildInstrumentStats() {
         List<Instrument> allInstruments = instrumentRepo.findAll();
         Map<Long, Integer> instrumentRegulator = new HashMap<>();
+        Set<Long> toolkitInstrumentIds = new HashSet<>();
         for (Instrument i : allInstruments) {
             if (i.getRegulatorId() != null) instrumentRegulator.put(i.getInstrumentId(), i.getRegulatorId());
+            if (Constants.UPLOAD_SOURCE_TOOLKIT.equals(i.getUploadSource())) {
+                toolkitInstrumentIds.add(i.getInstrumentId());
+            }
         }
 
         Map<Integer, long[]> map = new HashMap<>();
         allInstruments.forEach(i -> {
             if (i.getRegulatorId() == null) return;
-            long[] arr = map.computeIfAbsent(i.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0});
+            long[] arr = map.computeIfAbsent(i.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0, 0, 0});
             arr[0]++;
             if (i.getDiscoveredAt() != null) {
                 long epoch = i.getDiscoveredAt().toEpochMilli();
@@ -218,21 +222,22 @@ public class RegulatorService {
         List<PendingDownload> allPending = pendingRepo.findByStatusOrderByDiscoveredAtDesc("pending");
         allPending.forEach(p -> {
             if (p.getRegulatorId() == null) return;
-            map.computeIfAbsent(p.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0})[2]++;
+            map.computeIfAbsent(p.getRegulatorId(), k -> new long[]{0, 0, 0, 0, 0, 0, 0})[2]++;
         });
         // obligation count per regulator: sum obligations of each instrument the regulator owns
         obligationRepo.findAll().forEach(o -> {
             Integer regId = instrumentRegulator.get(o.getInstrumentId());
             if (regId == null) return;
-            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0});
+            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0, 0, 0});
             arr[3]++;
+            if (toolkitInstrumentIds.contains(o.getInstrumentId())) arr[5]++;
+            else arr[6]++;
         });
         // return count per regulator: sum regulatory returns of each instrument the regulator owns
         returnRepo.findAll().forEach(rt -> {
             Integer regId = instrumentRegulator.get(rt.getInstrumentId());
             if (regId == null) return;
-            long[] arr = map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0});
-            arr[4]++;
+            map.computeIfAbsent(regId, k -> new long[]{0, 0, 0, 0, 0, 0, 0})[4]++;
         });
         return map;
     }
@@ -260,6 +265,8 @@ public class RegulatorService {
             .pendingDownloadCount(stats != null ? (int) stats[2] : 0)
             .obligationCount(stats != null ? stats[3] : 0)
             .returnCount(stats != null ? stats[4] : 0)
+            .toolkitCount(stats != null ? stats[5] : 0)
+            .intelligenceCount(stats != null ? stats[6] : 0)
             .lastInstrumentDiscoveredAt(stats != null && stats[1] > 0 ? Instant.ofEpochMilli(stats[1]) : null)
             .build();
     }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Button, TextField, MenuItem, FormControlLabel,
+  Box, Typography, Button, TextField, MenuItem,
   Alert, CircularProgress, Collapse, Paper, Table, TableBody,
   TableCell, TableHead, TableRow, Checkbox,
   IconButton, Snackbar, Tooltip, Chip, Skeleton, Autocomplete,
@@ -272,17 +272,6 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                 <TextField fullWidth multiline rows={2} size="small" label="Applicability reasoning / risk justification"
                   value={item.applicabilityReasoning || ''}
                   onChange={e => onChange(index, 'applicabilityReasoning', e.target.value)} />
-                <Box sx={{ mt: 1 }}>
-                  <FormControlLabel control={
-                    <Checkbox size="small" checked={!!item.hasGap}
-                      onChange={e => onChange(index, 'hasGap', e.target.checked)} />
-                  } label={<Typography variant="body2">Has gap (a weakness in how this obligation is met — flagged for follow-up)</Typography>} />
-                  {item.hasGap && (
-                    <TextField fullWidth multiline rows={2} size="small" label="Gap description"
-                      value={item.gapDescription || ''} sx={{ mt: 1 }}
-                      onChange={e => onChange(index, 'gapDescription', e.target.value)} />
-                  )}
-                </Box>
               </Panel>
 
               <Panel title="Linked Regulatory Returns" sx={{ mb: 0 }}>
@@ -388,8 +377,6 @@ export default function ReviewEditPage() {
         assignedOwnerId: o.assignedOwnerId ?? null,
         assignedOwnerName: o.assignedOwnerName ?? '',
         assignedDepartment: o.assignedDepartment ?? '',
-        hasGap: !!o.hasGap,
-        gapDescription: o.gapDescription ?? '',
         linkedReturnIds: o.linkedReturnIds ?? [],
       })));
     }
@@ -461,8 +448,6 @@ export default function ReviewEditPage() {
       assignedOwnerId: null,
       assignedOwnerName: '',
       assignedDepartment: '',
-      hasGap: false,
-      gapDescription: '',
       linkedReturnIds: [],
     }]);
   }
@@ -517,8 +502,6 @@ export default function ReviewEditPage() {
         assignedOwnerId: o.assignedOwnerId ?? undefined,
         assignedOwnerName: o.assignedOwnerName || undefined,
         assignedDepartment: o.assignedDepartment || undefined,
-        hasGap: o.hasGap,
-        gapDescription: o.gapDescription || undefined,
         linkedReturnIds: o.linkedReturnIds?.length ? o.linkedReturnIds : undefined,
       })),
     };

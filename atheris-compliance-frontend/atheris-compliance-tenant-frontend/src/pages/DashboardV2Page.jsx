@@ -34,7 +34,7 @@ function BreakdownTable({ title, label, rows, nameKey }) {
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right">High Risk</TableCell>
                 <TableCell align="right">Moderate</TableCell>
-                <TableCell align="right">Gaps</TableCell>
+                <TableCell align="right">No Control</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

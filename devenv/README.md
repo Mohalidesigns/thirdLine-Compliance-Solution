@@ -66,7 +66,12 @@ emails must match directory entries) and set a **break-glass** local Tenant Admi
 | `cco@atheris.test` | escalation L3, board-pack sign-off |
 | `manager@atheris.test` | escalation L2 (set as the analyst's manager) |
 | `owner@atheris.test` | finding owner who has a login |
+| `itsecurity@` / `dba@` / `network@` / `sysadmin@` / `corebanking@` | Information Technology (directory-only) |
+| `aml@` / `regreporting@` | Compliance (directory-only) |
+| `ops@` · `treasury@` · `internalaudit@` | Operations / Finance / Audit (directory-only) |
 
-An owner **without** a directory entry (e.g. `contractor@atheris.test`) exercises the public
+The department-aligned identities are **directory-only** — they are not tenant app accounts (no
+`users` row, no role). Use them to pick the CCO/Analyst at onboarding or as extra reviewers in SoD
+tests. An owner **without** a directory entry (e.g. `contractor@atheris.test`) exercises the public
 remediation-link flow — they receive the link by email in Mailpit (http://localhost:8025) and
 never sign in.

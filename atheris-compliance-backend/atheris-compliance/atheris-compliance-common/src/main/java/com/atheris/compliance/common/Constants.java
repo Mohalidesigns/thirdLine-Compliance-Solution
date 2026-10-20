@@ -22,6 +22,12 @@ public final class Constants {
     public static final String INST_SUPERSEDED = "Superseded";
     public static final String INST_WITHDRAWN = "Withdrawn";
 
+    // ── Upload Source (how an instrument entered the platform) ──
+    public static final String UPLOAD_SOURCE_TOOLKIT = "toolkit_seed";
+    public static final String UPLOAD_SOURCE_SCRAPER = "scraper";
+    public static final String UPLOAD_SOURCE_MANUAL = "manual_upload";
+    public static final String UPLOAD_SOURCE_BACKFILL = "backfill";
+
     // ── Risk Ratings ──
     public static final String RISK_HIGH = "High";
     public static final String RISK_MEDIUM = "Medium";

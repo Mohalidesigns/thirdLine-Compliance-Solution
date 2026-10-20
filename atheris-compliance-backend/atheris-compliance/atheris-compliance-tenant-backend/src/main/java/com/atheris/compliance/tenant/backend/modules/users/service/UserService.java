@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.users.service;
 
 import com.atheris.compliance.tenant.backend.modules.auth.entity.InviteToken;
 import com.atheris.compliance.tenant.backend.modules.auth.repository.*;
+import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.users.dto.*;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
@@ -27,17 +28,34 @@ public class UserService {
     private final InviteTokenRepository inviteTokens;
     private final RefreshTokenRepository refreshTokens;
     private final PasswordEncoder passwordEncoder;
+    private final LdapAuthService ldapAuth;
 
     public List<UserDto> findAll() {
-        return findAll(false);
+        return findAll(null, false);
     }
 
-    /** Settings lists deactivated users too (with pending invites), so they can be seen and reactivated. */
-    public List<UserDto> findAll(boolean includeInactive) {
-        return (includeInactive ? users.findAll() : users.findByIsActiveTrue()).stream()
+    public List<UserDto> findAll(String q) {
+        return findAll(q, false);
+    }
+
+    /**
+     * Users, optionally narrowed to those whose name, email or job title contains {@code q}.
+     * Settings asks for inactive users too (deactivated, pending invites) so they can be reactivated.
+     */
+    public List<UserDto> findAll(String q, boolean includeInactive) {
+        List<User> pool = includeInactive ? users.findAll() : users.findByIsActiveTrue();
+        String needle = q == null ? "" : q.trim().toLowerCase();
+        return pool.stream()
+            .filter(u -> needle.isEmpty() || contains(u.getEmail(), needle)
+                || contains(u.getFullName(), needle) || contains(u.getJobTitle(), needle))
             .sorted(java.util.Comparator.comparing((User u) -> !Boolean.TRUE.equals(u.getIsActive()))
                 .thenComparing(u -> u.getFullName() == null ? "" : u.getFullName(), String.CASE_INSENSITIVE_ORDER))
-            .map(this::toDto).toList();
+            .map(this::toDto)
+            .toList();
+    }
+
+    private static boolean contains(String value, String needle) {
+        return value != null && value.toLowerCase().contains(needle);
     }
 
     public UserDto findById(Integer id) {
@@ -51,12 +69,21 @@ public class UserService {
             throw ApiException.conflict("already_exists", "A user with this email already exists");
         if (req.getRole() == null || !AppRole.ALL.contains(req.getRole()))
             throw ApiException.badRequest("Invalid role: " + req.getRole());
+
+        // On an LDAP tenant the directory owns the password, so the user is created ACTIVE
+        // (exactly as onboarding does) and can sign in immediately — no invite-accept step.
+        // On a local tenant they still need to set a password via the invite link.
+        boolean ldap = ldapAuth.isLdapEnabled();
         User user = User.builder()
             .email(req.getEmail().toLowerCase().trim()).fullName(req.getFullName())
             .jobTitle(req.getJobTitle()).department(req.getDepartment()).role(req.getRole())
-            .inviteStatus("pending").invitedByUserId(invitedBy).invitedAt(Instant.now())
+            .inviteStatus(ldap ? "active" : "pending").invitedByUserId(invitedBy).invitedAt(Instant.now())
             .isActive(true).build();
         users.save(user);
+        if (ldap) {
+            log.info("LDAP user provisioned active: {} (role: {})", user.getEmail(), user.getRole());
+            return toDto(user);
+        }
         String raw = generateToken();
         inviteTokens.save(InviteToken.builder()
             .userId(user.getUserId()).token(raw).tokenHash(sha256(raw))

@@ -11,4 +11,6 @@ public class RegulatorSummary {
     private String name;
     private String abbreviation;
     private Long obligationCount;
+    private Long toolkitCount;
+    private Long intelligenceCount;
 }

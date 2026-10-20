@@ -4,11 +4,13 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Re
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface RegulatoryReturnRepository extends JpaRepository<RegulatoryReturn, Long>, JpaSpecificationExecutor<RegulatoryReturn> {
     List<RegulatoryReturn> findByActId(Long actId);
+    List<RegulatoryReturn> findByActIdIn(Collection<Long> actIds);
     long countByActId(Long actId);
     boolean existsByTitleAndActId(String title, Long actId);
 }

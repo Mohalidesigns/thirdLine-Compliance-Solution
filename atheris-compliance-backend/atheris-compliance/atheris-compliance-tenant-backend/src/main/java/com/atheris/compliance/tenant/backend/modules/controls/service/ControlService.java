@@ -35,7 +35,6 @@ public class ControlService {
     private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
-    private final ControlLinkService links;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
@@ -66,7 +65,7 @@ public class ControlService {
             .values().stream()
             .filter(t -> WorkflowStatus.TEST_FAILED.equals(t.getResult()) || WorkflowStatus.TEST_PARTIAL.equals(t.getResult()))
             .count();
-        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
         long openFindings = findingRepo.findAll().stream()
             .filter(f -> openStatuses.contains(f.getStatus()))
             .count();
@@ -147,12 +146,12 @@ public class ControlService {
         return ia.compareTo(ib);
     }
 
-    /** Open findings (Open or In Remediation) linked to each control, batched for the page. */
+    /** Not-yet-closed findings linked to each control, batched for the page. */
     private Map<Integer, Long> getOpenFindingCounts(List<Integer> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
+        List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
         return findingRepo.findByLinkedControlIdIn(ids).stream()
             .filter(f -> f.getLinkedControlId() != null && openStatuses.contains(f.getStatus()))
             .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
@@ -241,6 +240,19 @@ public class ControlService {
             nextTest = task.getDueDate();
         }
 
+        List<ControlDetailResponse.FindingItem> findings = findingRepo
+            .findByLinkedControlIdOrderByFindingIdDesc(id).stream()
+            .map(f -> ControlDetailResponse.FindingItem.builder()
+                .findingId(f.getFindingId())
+                .displayId("FIND-" + String.format("%03d", f.getFindingId()))
+                .severity(f.getSeverity())
+                .status(f.getStatus())
+                .description(f.getDescription())
+                .assignedToName(f.getAssignedToName())
+                .remediationDeadline(f.getRemediationDeadline())
+                .build())
+            .toList();
+
         return ControlDetailResponse.builder()
             .controlId(c.getControlId())
             .controlNumber(c.getControlNumber())
@@ -275,11 +287,42 @@ public class ControlService {
             .updatedAt(c.getUpdatedAt())
             .testHistory(tests)
             .nextTestDueDate(nextTest)
+            .findings(findings)
+            .residualRiskReason(residualRiskReason(c, tests, findings))
             .build();
     }
 
     public ControlDto findById(Integer id) {
         return toDto(repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id)));
+    }
+
+    private static String residualRiskReason(Control c,
+            List<ControlDetailResponse.TestResultItem> tests,
+            List<ControlDetailResponse.FindingItem> findings) {
+        String inherent = c.getInherentRisk() != null ? c.getInherentRisk() : "unrated";
+        if (tests.isEmpty()) {
+            return "No test recorded yet — residual risk defaults to inherent risk (" + inherent + ").";
+        }
+        ControlDetailResponse.TestResultItem last = tests.get(0);
+        String when = last.getTestDate() != null ? " on " + last.getTestDate() : "";
+        String closedFinding = findings.stream()
+            .filter(f -> WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+            .map(ControlDetailResponse.FindingItem::getDisplayId)
+            .findFirst().orElse(null);
+        return switch (last.getResult() == null ? "" : last.getResult()) {
+            case WorkflowStatus.TEST_PASSED -> "Latest test passed" + when + " — residual risk lowered to Low.";
+            case WorkflowStatus.TEST_PARTIAL -> "Latest test partially passed" + when
+                + " — residual risk set to Medium (capped at inherent " + inherent + ").";
+            case WorkflowStatus.TEST_FAILED -> {
+                String base = "Latest test failed" + when
+                    + " — control ineffective, residual risk restored to inherent risk (" + inherent + ").";
+                yield closedFinding != null
+                    ? "Latest test failed" + when + ", but " + closedFinding
+                        + " was remediated and closed — residual risk restored to Low."
+                    : base;
+            }
+            default -> "Residual risk carried from the last test" + when + ".";
+        };
     }
 
     @Transactional
@@ -310,8 +353,6 @@ public class ControlService {
             .createdByUserId(userId)
             .build();
         Control saved = repo.save(c);
-        // both sides of the link (control + each obligation's classification)
-        links.setObligationsOfControl(saved, req.getLinkedObligationIds());
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
             Map.of("control_number", saved.getControlNumber()));
         testService.scheduleNextTest(saved);
@@ -343,9 +384,6 @@ public class ControlService {
         }
         if (req.getTestFrequencyDays() != null) {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
-        }
-        if (req.getLinkedObligationIds() != null) {
-            links.setObligationsOfControl(c, req.getLinkedObligationIds());
         }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());

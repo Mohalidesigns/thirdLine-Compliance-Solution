@@ -102,8 +102,20 @@ public class RemediationLinkService {
         return new CreatedLink(raw, outcome, ownerEmail);
     }
 
+    /**
+     * Absolute URL for emails — the recipient opens it from their inbox, so it must point at the
+     * tenant portal (configured {@code atheris.email.base-url}), not the API origin.
+     */
     public String remediationUrl(String rawToken) {
         return email.baseUrl() + "/remediate/" + rawToken;
+    }
+
+    /**
+     * Relative path the client resolves against {@code window.location.origin}. Returned to the
+     * analyst UI so the copied link always matches the host they are actually using.
+     */
+    public String remediationPath(String rawToken) {
+        return "/remediate/" + rawToken;
     }
 
     @Transactional
@@ -179,6 +191,9 @@ public class RemediationLinkService {
 
         f.setRemediationNotes(notes);
         f.setRemediationSubmittedAt(Instant.now());
+        f.setRemediationSubmittedByUserId(null);
+        f.setRemediationSubmittedViaLink(true);
+        f.setRemediationSubmittedByOwnerId(link.getOwnerId() != null ? link.getOwnerId() : f.getAssignedToOwnerId());
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         findings.save(f);
 

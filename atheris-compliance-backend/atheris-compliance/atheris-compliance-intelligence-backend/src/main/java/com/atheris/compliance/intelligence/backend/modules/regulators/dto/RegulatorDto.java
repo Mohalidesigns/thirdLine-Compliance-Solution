@@ -32,4 +32,6 @@ public class RegulatorDto {
     private Instant lastInstrumentDiscoveredAt;
     private Long obligationCount;
     private Long returnCount;
+    private Long toolkitCount;
+    private Long intelligenceCount;
 }

@@ -16,7 +16,6 @@ public class LicenseStatusResponse {
     private Instant gracePeriodEnd;
     private Integer gracePeriodDays;
     private Boolean deviceRegistered;
-    private Boolean autoSubscribeRegulators;
     private Boolean autoSeedObligations;
     private Integer deviceCount;
     private Integer deviceLimit;

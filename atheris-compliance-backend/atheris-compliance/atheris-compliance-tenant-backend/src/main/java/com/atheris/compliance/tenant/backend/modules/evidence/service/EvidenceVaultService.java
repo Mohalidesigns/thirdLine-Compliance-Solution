@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @Service @Slf4j @RequiredArgsConstructor
 public class EvidenceVaultService {
 
@@ -33,6 +35,10 @@ public class EvidenceVaultService {
 
     public Page<EvidenceFile> list(Pageable p) {
         return repo.findAllByOrderByCreatedAtDesc(p);
+    }
+
+    public List<EvidenceFile> listBySource(String sourceType, Long sourceId) {
+        return repo.findBySourceTypeAndSourceId(sourceType, sourceId);
     }
 
     public EvidenceFile getFile(Long id) {

@@ -50,6 +50,9 @@ public class InternalInstrumentService {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), Constants.INST_PUBLISHED));
             predicates.add(root.get("regulatorId").in(regulatorIds));
+            // Toolkit obligations are delivered to tenants via the acts/seed endpoint and land in
+            // the Register directly; only AI-pipeline documents belong in the Review Inbox.
+            predicates.add(cb.notEqual(root.get("uploadSource"), Constants.UPLOAD_SOURCE_TOOLKIT));
             if (since != null) {
                 jakarta.persistence.criteria.Expression<LocalDate> effectiveDate =
                         cb.coalesce(root.get("publishedAt"), root.get("dateIssued"));
@@ -289,6 +292,7 @@ public class InternalInstrumentService {
             .aiSummary(i.getAiSummary())
             .status(i.getStatus())
             .documentType(i.getNature())
+            .uploadSource(i.getUploadSource())
             .publishedAt(i.getPublishedAt())
             .pdfUrl(storage.generatePresignedUrl(i.getPdfUrl(), 3600))
             .build();

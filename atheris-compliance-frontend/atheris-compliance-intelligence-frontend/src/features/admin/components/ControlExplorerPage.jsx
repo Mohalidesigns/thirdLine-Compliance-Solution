@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TablePagination, CircularProgress, Alert, TableSortLabel, Button,
@@ -28,13 +29,8 @@ function countOf(map, key) {
 
 export default function ControlExplorerPage() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [themeFilter, setThemeFilter] = useState('All');
   const [riskFilter, setRiskFilter] = useState('All');
@@ -42,45 +38,35 @@ export default function ControlExplorerPage() {
   const [sortField, setSortField] = useState('controlNumber');
   const [sortDir, setSortDir] = useState('asc');
 
-  const reqId = useRef(0);
-  const alive = useRef(true);
-  // Reset on setup (not just false on cleanup): StrictMode's mount→unmount→mount would
-  // otherwise leave alive=false for the real mount and every fetch would bail early.
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-
   const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All' || statusFilter !== 'All';
 
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await api.platform.controls.stats();
-      if (alive.current) setStats(data);
-    } catch { /* optional */ }
-  }, []);
+  const statsQuery = useQuery({
+    queryKey: ['controls', 'stats'],
+    queryFn: ({ signal }) => api.platform.controls.stats(signal),
+  });
+  const stats = statsQuery.data;
 
-  const loadRows = useCallback(async () => {
-    const id = ++reqId.current;
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams({ page, size: rowsPerPage, sort: `${sortField},${sortDir}` });
-      if (search) params.set('q', search);
-      if (themeFilter !== 'All') params.set('theme', themeFilter);
-      if (riskFilter !== 'All') params.set('riskLevel', riskFilter);
-      if (statusFilter !== 'All') params.set('status', statusFilter);
-      const data = await api.platform.controls.list(params.toString());
-      if (!alive.current || id !== reqId.current) return;
-      setRows(data.content || []);
-      setTotal(data.totalElements || 0);
-    } catch (err) {
-      if (!alive.current || id !== reqId.current) return;
-      setError(err.message);
-    } finally {
-      if (alive.current && id === reqId.current) setLoading(false);
-    }
-  }, [page, rowsPerPage, search, themeFilter, riskFilter, statusFilter, sortField, sortDir]);
+  const params = (() => {
+    const p = new URLSearchParams({ page, size: rowsPerPage, sort: `${sortField},${sortDir}` });
+    if (search) p.set('q', search);
+    if (themeFilter !== 'All') p.set('theme', themeFilter);
+    if (riskFilter !== 'All') p.set('riskLevel', riskFilter);
+    if (statusFilter !== 'All') p.set('status', statusFilter);
+    return p.toString();
+  })();
 
-  useEffect(() => { loadRows(); }, [loadRows]);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const listQuery = useQuery({
+    queryKey: ['controls', 'list', params],
+    queryFn: ({ signal }) => api.platform.controls.list(params, signal),
+    placeholderData: keepPreviousData,
+  });
+
+  const rows = listQuery.data?.content || [];
+  const total = listQuery.data?.totalElements || 0;
+  const loading = listQuery.isPending;
+  const error = listQuery.isError ? (listQuery.error?.message || 'Failed to load controls') : '';
+  const loadRows = () => listQuery.refetch();
+  const loadStats = () => statsQuery.refetch();
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All'); setRiskFilter('All'); setStatusFilter('All'); setPage(0);
@@ -118,7 +104,7 @@ export default function ControlExplorerPage() {
         }
       />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <KpiCards items={kpis} columns={5} />
 

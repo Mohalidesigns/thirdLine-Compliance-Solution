@@ -34,8 +34,6 @@ public class ObligationDetailResponse {
     private String assignedOwnerName;
     private String assignedDepartment;
     private List<Integer> linkedControlIds;
-    private Boolean hasGap;
-    private String gapDescription;
     private String status;
     private Integer classificationVersion;
     private Integer classifiedByUserId;
@@ -72,7 +70,6 @@ public class ObligationDetailResponse {
         private String applicability;
         private String tenantRiskRating;
         private Integer assignedOwnerUserId;
-        private Boolean hasGap;
         private String changeReason;
         private Integer changedByUserId;
         private Instant changedAt;

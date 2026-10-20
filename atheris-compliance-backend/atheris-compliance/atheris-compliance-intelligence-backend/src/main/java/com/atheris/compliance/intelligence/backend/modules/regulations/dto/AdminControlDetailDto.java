@@ -32,4 +32,14 @@ public class AdminControlDetailDto {
     private Long obligationId;
     private String linkedObligationIds;
     private Instant createdAt;
+    /** Traceability: the obligations this control is linked to (resolved from the FK and the CSV). */
+    private List<LinkedObligation> linkedObligations;
+
+    @Data @Builder
+    public static class LinkedObligation {
+        private Long obligationId;
+        private String title;
+        private String description;
+        private String instrumentTitle;
+    }
 }

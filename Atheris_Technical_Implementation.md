@@ -943,7 +943,7 @@ public ControlTestResult submitTestResult(Long controlId, SubmitTestRequest requ
 GET    /api/v1/findings                      List all findings (filter by status, severity)
 GET    /api/v1/findings/{id}                 Get finding details + full history
 PATCH  /api/v1/findings/{id}/assign          Assign remediation owner + deadline
-PATCH  /api/v1/findings/{id}/remediate       Mark as remediated (upload evidence)
+PATCH  /api/v1/findings/{id}/remediate       Record remediation for an owner (multipart; fallback — owners normally submit via the public link)
 PATCH  /api/v1/findings/{id}/close           CCO closes the finding
 GET    /api/v1/findings/overdue              Findings past remediation deadline
 GET    /api/v1/findings/summary              Count by severity/status
@@ -5920,7 +5920,9 @@ PUT    /api/v1/findings/{id}/assign
        → Assign finding to a remediation owner
 
 PUT    /api/v1/findings/{id}/remediate
-       → Submit remediation evidence
+       → Record remediation on the owner's behalf (in-app fallback; owners normally
+         submit evidence themselves through the account-less public link
+         POST /api/v1/public/remediation/{token}, recorded with via_link + owner id)
        Body: {
          "remediation_notes": "Cash forecasting system restored...",
          "evidence_file": <multipart file>

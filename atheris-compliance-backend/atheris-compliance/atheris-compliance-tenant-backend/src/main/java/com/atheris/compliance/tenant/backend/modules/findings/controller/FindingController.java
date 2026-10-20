@@ -11,6 +11,9 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/findings")
@@ -63,17 +66,14 @@ public class FindingController {
         return ResponseEntity.ok(service.getDetail(id));
     }
 
-    /**
-     * Submit remediation in-app. Used by owners who have a login; owners without one use
-     * the public remediation link. An Analyst records remediation; the CCO is not part of it.
-     */
-    @PutMapping("/{id}/remediate")
+    @PutMapping(value = "/{id}/remediate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> remediate(
             @PathVariable Long id,
-            @Valid @RequestBody SubmitRemediationRequest req,
-            @AuthenticationPrincipal User u) {
-        service.submitRemediation(id, req, u.getUserId());
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal User u) throws Exception {
+        service.submitRemediation(id, notes, files, u.getUserId());
         return ResponseEntity.ok(service.getDetail(id));
     }
 

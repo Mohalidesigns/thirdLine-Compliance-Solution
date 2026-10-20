@@ -28,6 +28,7 @@ public class ObligationRegisterItem {
     private String sourceTitle;
     private String regulatorAbbreviation;
     private String regulatorName;
+    private Long tenantRegulatorId;
 
     private String applicability;
     private String tenantRiskRating;
@@ -48,8 +49,6 @@ public class ObligationRegisterItem {
     private String controlOwner;
     private String assignedDepartment;
     private String status;
-    private Boolean hasGap;
-    private String gapDescription;
     private List<Integer> linkedControlIds;
     private Integer controlCount;
     private List<Long> linkedReturnIds;

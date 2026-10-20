@@ -64,7 +64,7 @@ public class FindingImportHandler implements ImportHandler {
     private static final int PREVIEW_DESCRIPTION_MAX = 120;
 
     static final String OPEN = "Open", IN_REMEDIATION = "In Remediation", REMEDIATED = "Remediated", CLOSED = "Closed";
-    static final List<String> FINDING_TYPES = List.of("Gap", "Control Failure", "Process Weakness");
+    static final List<String> FINDING_TYPES = List.of("Control Failure", "Gap");
     static final List<String> SEVERITIES = List.of("Critical", "High", "Medium", "Low");
     static final List<String> STATUSES = List.of(OPEN, IN_REMEDIATION, REMEDIATED, CLOSED);
 

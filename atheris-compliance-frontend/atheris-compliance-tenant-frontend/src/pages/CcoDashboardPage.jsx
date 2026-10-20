@@ -116,7 +116,7 @@ export default function CcoDashboardPage() {
   function onKpiDrill(key, label) {
     if (key === 'score') return;
     if (key === 'highRisk') navigate(`/obligations?risk=${encodeURIComponent(label)}`);
-    else if (key === 'gaps') navigate('/obligations?hasGap=true');
+    else if (key === 'gaps') navigate('/obligations?noControl=true');
     else if (key === 'coverage') navigate('/controls');
   }
 

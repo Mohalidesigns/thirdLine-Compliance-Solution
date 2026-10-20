@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Box, CircularProgress, Alert, Divider, Typography, Chip, FormControlLabel, Checkbox,
+  Box, CircularProgress, Alert, Divider, Typography, Chip,
 } from '@mui/material';
 import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
@@ -9,8 +9,8 @@ import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
 
 const EMPTY = {
-  instrumentId: '', name: '', description: '', areaOfFocus: '', obligationType: '',
-  recurringDeadlineType: '', effectiveDate: '', hasGap: false, gapDescription: '',
+  instrumentId: '', name: '', tenantRegulatorId: '', description: '', areaOfFocus: '', obligationType: '',
+  recurringDeadlineType: '', effectiveDate: '',
   linkedControlIds: [], linkedReturnIds: [],
 };
 
@@ -49,6 +49,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   const [pickerOpen, setPickerOpen] = useState(false);
   const [returnPickerOpen, setReturnPickerOpen] = useState(false);
   const [instruments, setInstruments] = useState([]);
+  const [regulators, setRegulators] = useState([]);
 
   useEffect(() => {
     if (open) {
@@ -56,13 +57,12 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         ? {
             instrumentId: initial.instrumentId ?? '',
             name: initial.name || '',
+            tenantRegulatorId: initial.tenantRegulatorId ?? '',
             description: initial.description || '',
             areaOfFocus: initial.areaOfFocus || '',
             obligationType: initial.obligationType || '',
             recurringDeadlineType: initial.recurringDeadlineType || '',
             effectiveDate: initial.effectiveDate || '',
-            hasGap: Boolean(initial.hasGap),
-            gapDescription: initial.gapDescription || '',
             linkedControlIds: [...(initial.linkedControlIds || [])],
             linkedReturnIds: [...(initial.linkedReturnIds || [])],
           }
@@ -72,6 +72,9 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       api.instruments.list(0, 50, '')
         .then(d => setInstruments(Array.isArray(d) ? d : (d.content || [])))
         .catch(() => setInstruments([]));
+      api.regulators.list()
+        .then(d => setRegulators(Array.isArray(d) ? d : (d.content || [])))
+        .catch(() => setRegulators([]));
     }
   }, [open, editing, initial]);
 
@@ -85,9 +88,9 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       const body = {
         ...form,
         instrumentId: form.instrumentId ? Number(form.instrumentId) : null,
+        tenantRegulatorId: form.tenantRegulatorId ? Number(form.tenantRegulatorId) : null,
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
-        gapDescription: form.hasGap ? form.gapDescription || null : null,
       };
       const saved = editing && initial
         ? await api.obligations.update(initial.obligationId, body)
@@ -151,7 +154,18 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
                 onChange={e => set('effectiveDate', e.target.value)} />
             </Field>
           </Box>
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Field label="Regulator *" sx={{ mb: 0 }}>
+              <TextField fullWidth size="small" select value={form.tenantRegulatorId}
+                onChange={e => set('tenantRegulatorId', e.target.value)}>
+                <MenuItem value=""><em>Select regulator</em></MenuItem>
+                {regulators.map(r => (
+                  <MenuItem key={r.id ?? r.tenantRegulatorId} value={String(r.id ?? r.tenantRegulatorId)}>
+                    {r.abbreviation ? `${r.abbreviation} — ${r.name}` : r.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Field>
             <Field label="Instrument (optional)" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" select value={form.instrumentId}
                 onChange={e => set('instrumentId', e.target.value)}>
@@ -196,18 +210,6 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
               </Box>
             )}
           </Field>
-
-          <Box sx={{ mt: 2 }}>
-            <FormControlLabel control={
-              <Checkbox size="small" checked={form.hasGap} onChange={e => set('hasGap', e.target.checked)} />
-            } label={<Typography variant="body2">Has gap — flag a weakness in how this is met</Typography>} />
-            {form.hasGap && (
-              <Field label="Gap description" sx={{ mt: 1 }}>
-                <TextField fullWidth size="small" multiline minRows={2} placeholder="Describe the gap"
-                  value={form.gapDescription} onChange={e => set('gapDescription', e.target.value)} />
-              </Field>
-            )}
-          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
@@ -217,10 +219,10 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         </DialogActions>
       </Dialog>
 
-      <LinkControlsPicker open={pickerOpen} onClose={() => setPickerOpen(false)}
-        initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />
-      <ReturnPicker open={returnPickerOpen} onClose={() => setReturnPickerOpen(false)}
-        initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />
+      {pickerOpen && <LinkControlsPicker open onClose={() => setPickerOpen(false)}
+        initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />}
+      {returnPickerOpen && <ReturnPicker open onClose={() => setReturnPickerOpen(false)}
+        initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />}
     </>
   );
 }

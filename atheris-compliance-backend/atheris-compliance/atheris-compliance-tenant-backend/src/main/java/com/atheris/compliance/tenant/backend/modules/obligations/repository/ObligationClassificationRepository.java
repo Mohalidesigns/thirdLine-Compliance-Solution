@@ -20,9 +20,7 @@ public interface ObligationClassificationRepository extends JpaRepository<Obliga
     List<ObligationClassification> findByObligationIdIn(Collection<Long> obligationIds);
     Page<ObligationClassification> findByApplicability(String applicability, Pageable p);
     Page<ObligationClassification> findByStatus(String status, Pageable p);
-    List<ObligationClassification> findByHasGapTrue();
     long countByApplicability(String applicability);
-    long countByHasGapTrue();
 
     @Modifying
     @Query(value = "DELETE FROM obligation_classifications WHERE instrument_id = :instrumentId", nativeQuery = true)

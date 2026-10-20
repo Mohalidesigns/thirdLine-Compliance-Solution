@@ -109,7 +109,96 @@ public class ObligationExplorerService {
         List<ObligationExplorerItem> items = rows.stream()
                 .map(ob -> toItem(ob, instrumentMap, regulationMap, regulatorMap))
                 .toList();
+        applyCounts(items);
         return new PageImpl<>(items, pageable, page.getTotalElements());
+    }
+
+    /**
+     * Fills Returns / Controls / Sanctions counts for one page of rows using the SAME link
+     * semantics as the detail tabs (returns by act, sanctions by instrument or act, controls by
+     * the {@code obligation_id} FK or the CSV {@code linked_obligation_ids}), so a register cell
+     * and the detail tab always agree. Batched: a fixed number of queries per page, never per row.
+     */
+    private void applyCounts(List<ObligationExplorerItem> items) {
+        if (items.isEmpty()) return;
+        Set<Long> obligationIds = items.stream().map(ObligationExplorerItem::getObligationId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> instrumentIds = items.stream().map(ObligationExplorerItem::getInstrumentId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> actIds = items.stream().map(ObligationExplorerItem::getActId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<Long, Long> returnsByAct = new HashMap<>();
+        if (!actIds.isEmpty()) {
+            for (RegulatoryReturn r : returnRepo.findByActIdIn(actIds)) {
+                if (r.getActId() != null) returnsByAct.merge(r.getActId(), 1L, Long::sum);
+            }
+        }
+
+        Map<Long, Map<Long, SanctionsPenalty>> sanctionsByInstrument = new HashMap<>();
+        if (!instrumentIds.isEmpty()) {
+            for (SanctionsPenalty s : sanctionsRepo.findByInstrumentIdIn(instrumentIds)) {
+                if (s.getInstrumentId() != null)
+                    sanctionsByInstrument.computeIfAbsent(s.getInstrumentId(), k -> new LinkedHashMap<>())
+                            .put(s.getSanctionId(), s);
+            }
+        }
+        Map<Long, Map<Long, SanctionsPenalty>> sanctionsByAct = new HashMap<>();
+        if (!actIds.isEmpty()) {
+            for (SanctionsPenalty s : sanctionsRepo.findByRegulationIdIn(actIds)) {
+                if (s.getRegulationId() != null)
+                    sanctionsByAct.computeIfAbsent(s.getRegulationId(), k -> new LinkedHashMap<>())
+                            .put(s.getSanctionId(), s);
+            }
+        }
+
+        Map<Long, Map<Long, ComplianceControl>> controlsByFk = new HashMap<>();
+        if (!obligationIds.isEmpty()) {
+            for (ComplianceControl c : controlRepo.findByObligationIdIn(obligationIds)) {
+                if (c.getObligationId() != null)
+                    controlsByFk.computeIfAbsent(c.getObligationId(), k -> new LinkedHashMap<>())
+                            .put(c.getComplianceControlId(), c);
+            }
+        }
+        Map<Long, Map<Long, ComplianceControl>> controlsByLink = new HashMap<>();
+        if (!obligationIds.isEmpty()) {
+            for (ComplianceControl c : controlRepo.findByLinkedObligationIdIn(obligationIds)) {
+                for (Long oid : parseIdCsv(c.getLinkedObligationIds())) {
+                    if (obligationIds.contains(oid))
+                        controlsByLink.computeIfAbsent(oid, k -> new LinkedHashMap<>())
+                                .put(c.getComplianceControlId(), c);
+                }
+            }
+        }
+
+        for (ObligationExplorerItem it : items) {
+            long returns = it.getActId() != null ? returnsByAct.getOrDefault(it.getActId(), 0L) : 0L;
+
+            Map<Long, SanctionsPenalty> sanctions = new LinkedHashMap<>();
+            if (it.getInstrumentId() != null)
+                sanctions.putAll(sanctionsByInstrument.getOrDefault(it.getInstrumentId(), Map.of()));
+            if (it.getActId() != null)
+                sanctions.putAll(sanctionsByAct.getOrDefault(it.getActId(), Map.of()));
+
+            Map<Long, ComplianceControl> controls = new LinkedHashMap<>();
+            controls.putAll(controlsByFk.getOrDefault(it.getObligationId(), Map.of()));
+            controls.putAll(controlsByLink.getOrDefault(it.getObligationId(), Map.of()));
+
+            it.setReturnCount(returns);
+            it.setSanctionCount((long) sanctions.size());
+            it.setControlCount((long) controls.size());
+        }
+    }
+
+    private static Set<Long> parseIdCsv(String csv) {
+        Set<Long> ids = new HashSet<>();
+        if (csv == null || csv.isBlank()) return ids;
+        for (String part : csv.split(",")) {
+            String t = part.trim();
+            if (t.isEmpty()) continue;
+            try { ids.add(Long.parseLong(t)); } catch (NumberFormatException ignored) { /* skip junk */ }
+        }
+        return ids;
     }
 
     private List<Predicate> predicates(ListFilter f, Set<Integer> regulatorIds,

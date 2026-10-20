@@ -42,8 +42,6 @@ public class InboxItemResponse {
     private String assignedOwnerName;
     private String assignedDepartment;
     private List<Integer> linkedControlIds;
-    private Boolean hasGap;
-    private String gapDescription;
     private Integer classificationVersion;
     private Instant classifiedAt;
     private Instant updatedAt;

@@ -326,8 +326,6 @@ public class ReviewService {
                     if (o.getLikelihoodJustification() != null) c.setLikelihoodJustification(o.getLikelihoodJustification());
                     if (o.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(o.getAssignedOwnerUserId());
                     applyOwner(c, o);
-                    if (o.getHasGap() != null) c.setHasGap(o.getHasGap());
-                    if (o.getGapDescription() != null) c.setGapDescription(o.getGapDescription());
                     c.setClassifiedByUserId(userId);
                     c.setClassifiedAt(Instant.now());
                     c.setStatus("active");

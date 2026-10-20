@@ -47,10 +47,6 @@ public class ObligationClassification {
     @Column(columnDefinition = "jsonb")
     private List<Integer> linkedControlIds;
     @Builder.Default
-    private Boolean hasGap = false;
-    @Column(columnDefinition = "text")
-    private String gapDescription;
-    @Builder.Default
     private Integer classificationVersion = 1;
     private Integer classifiedByUserId;
     private Instant classifiedAt;

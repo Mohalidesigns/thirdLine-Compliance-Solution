@@ -21,7 +21,7 @@ public class RemediationLinkController {
 
     private final RemediationLinkService service;
 
-    /** Creates a link and returns the token/URL so the analyst can copy and share it. */
+    /** Creates a link and returns the token plus a relative path for the client to resolve. */
     @PostMapping("/{id}/remediation-link")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Map<String, Object>> create(
@@ -30,7 +30,7 @@ public class RemediationLinkController {
         RemediationLinkService.CreatedLink created = service.createLink(id, u.getUserId());
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("token", created.token());
-        body.put("url", service.remediationUrl(created.token()));
+        body.put("path", service.remediationPath(created.token()));
         // SENT | DISABLED | NO_RECIPIENT | FAILED — the UI must not claim "emailed" unless SENT.
         body.put("emailStatus", created.emailOutcome().name());
         body.put("ownerEmail", created.ownerEmail());

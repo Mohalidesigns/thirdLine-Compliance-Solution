@@ -88,7 +88,7 @@ public class ReturnController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Long> create(
             @Valid @RequestBody CreateReturnRequest req,
             @AuthenticationPrincipal User u) {
@@ -147,7 +147,7 @@ public class ReturnController {
     }
 
     @PutMapping("/{returnId}/obligations")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> linkObligations(
             @PathVariable Long returnId,
             @RequestBody LinkObligationsRequest req,

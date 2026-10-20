@@ -3,7 +3,10 @@ package com.atheris.compliance.tenant.backend.modules.onboarding.service;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationSyncService;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
+import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
+import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
+import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -16,23 +19,31 @@ public class SeedService {
     private final ObligationSyncService syncService;
     private final ObligationRepository obligationRepo;
     private final PendingReviewRepository pendingReviewRepo;
+    private final TenantProfileRepository profiles;
+    private final TenantIdentityService tenantIdentity;
 
     @Async
     public void seedAsync() {
-        log.info("[SeedService] Async seed started");
-        try {
-            int seeded = regulationSeedService.seedAll();
-            log.info("[SeedService] seedAll completed: {} seeded", seeded);
-        } catch (Exception e) {
-            log.error("[SeedService] seedAll failed: {}", e.getMessage(), e);
+        TenantProfile profile = profiles.findByTenantId(tenantIdentity.currentTenantId()).orElse(null);
+        boolean autoSeed = profile != null && Boolean.TRUE.equals(profile.getAutoSeedObligations());
+        boolean hasToolkitRegulators = profile != null && profile.getToolkitRegulators() != null
+            && !profile.getToolkitRegulators().isEmpty();
+
+        if (autoSeed && hasToolkitRegulators) {
+            try {
+                int seeded = regulationSeedService.seedAll();
+                log.info("[SeedService] seedAll completed: {} seeded", seeded);
+            } catch (Exception e) {
+                log.error("[SeedService] seedAll failed: {}", e.getMessage(), e);
+            }
         }
+
         try {
             syncService.syncNow();
             log.info("[SeedService] syncNow completed");
         } catch (Exception e) {
             log.error("[SeedService] syncNow failed: {}", e.getMessage(), e);
         }
-        log.info("[SeedService] Async seed finished");
     }
 
     public SeedStatusDto getStatus() {

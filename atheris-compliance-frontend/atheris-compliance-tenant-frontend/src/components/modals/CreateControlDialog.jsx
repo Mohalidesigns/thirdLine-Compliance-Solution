@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Box, CircularProgress, Alert, Divider, Typography, Chip,
+  Box, CircularProgress, Alert, Divider, Typography,
 } from '@mui/material';
-import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
-import LinkObligationsPicker from './LinkObligationsPicker';
 
 const EMPTY = {
   name: '', description: '', theme: '', controlType: '', inherentRisk: '',
   whatItDoes: '', howTested: '', controlOwnerId: null, testFrequency: '',
-  testFrequencyDays: '', linkedObligationIds: [],
+  testFrequencyDays: '',
 };
 
 const THEMES = ['IT', 'Financial', 'Operational', 'Compliance', 'Legal'];
@@ -34,7 +32,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (open) setForm({ ...EMPTY });
@@ -50,7 +47,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
       const body = { ...form };
       if (!body.controlOwnerId) body.controlOwnerId = null;
       if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
-      body.linkedObligationIds = (body.linkedObligationIds || []).map(Number);
       const created = await api.controls.create(body);
       onSaved?.(created);
     } catch (e) { const msg = e.message || 'Failed to create control.'; setError(msg); onSnackbar?.(msg); }
@@ -126,19 +122,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
               <TextField fullWidth size="small" type="number" placeholder="e.g. 90"
                 value={form.testFrequencyDays} onChange={e => set('testFrequencyDays', e.target.value)} />
             </Field>
-            <Field label="Linked obligations" sx={{ mb: 0 }}>
-              <Button variant="outlined" fullWidth sx={{ justifyContent: 'flex-start' }}
-                startIcon={<LinkIcon size={16} />} onClick={() => setPickerOpen(true)}>
-                {form.linkedObligationIds.length > 0
-                  ? `Linked obligations (${form.linkedObligationIds.length})`
-                  : 'Link obligations'}
-              </Button>
-              {form.linkedObligationIds.length > 0 && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                  <Chip size="small" label={`${form.linkedObligationIds.length} selected`} />
-                </Box>
-              )}
-            </Field>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -148,9 +131,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
           </Button>
         </DialogActions>
       </Dialog>
-
-      <LinkObligationsPicker open={pickerOpen} onClose={() => setPickerOpen(false)}
-        initialIds={form.linkedObligationIds} onSave={ids => set('linkedObligationIds', ids)} />
     </>
   );
 }

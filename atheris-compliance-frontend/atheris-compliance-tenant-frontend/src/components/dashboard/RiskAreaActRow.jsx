@@ -56,7 +56,7 @@ export function RiskProfileRow({ profile = {} }) {
     <DataCard
       title="Inherent Risk Profile"
       subtitle={`${total} applicable obligations rated by inherent risk`}
-      actions={<CardLink onClick={() => navigate('/obligations?hasGap=true')}>Control gaps: {gaps}</CardLink>}
+      actions={<CardLink onClick={() => navigate('/obligations?noControl=true')}>Obligations with no control: {gaps}</CardLink>}
       sx={{ height: '100%' }}
     >
       <Box sx={{ position: 'relative', height: 180, mb: 2 }}>
@@ -146,7 +146,7 @@ export function AreaOfFocusTable({ profile = {}, coverage = {} }) {
                 <TableCell>Area of Focus</TableCell>
                 <TableCell align="right">Obligations</TableCell>
                 <TableCell align="right">Critical + High</TableCell>
-                <TableCell align="right">Gaps</TableCell>
+                <TableCell align="right">No Control</TableCell>
                 <TableCell align="right">Coverage</TableCell>
               </TableRow>
             </TableHead>
@@ -227,7 +227,7 @@ export function ActBreakdownTable({ profile = {} }) {
                 <TableCell>Act</TableCell>
                 <TableCell align="right">Obligations</TableCell>
                 <TableCell align="right">Critical + High</TableCell>
-                <TableCell align="right">Gaps</TableCell>
+                <TableCell align="right">No Control</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

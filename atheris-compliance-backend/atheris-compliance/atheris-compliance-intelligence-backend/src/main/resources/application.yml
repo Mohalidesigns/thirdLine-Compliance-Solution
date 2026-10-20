@@ -48,17 +48,16 @@ spring:
       max-file-size: 50MB
       max-request-size: 55MB
   ai:
-    # OpenAI-compatible client pointed at OpenRouter. base-url omits /v1 —
-    # Spring AI appends the default completions-path /v1/chat/completions.
+    # Primary AI provider — Google Gemini via its OpenAI-compatible endpoint. base-url is the
+    # host+version (no path); completions-path completes it. Credentials from env only — no literals.
     openai:
-      api-key: ${OPENROUTER_API_KEY}
-      base-url: ${AI_BASE_URL:https://openrouter.ai/api}
+      api-key: ${GEMINI_API_KEY:}
+      base-url: ${AI_PRIMARY_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       chat:
+        completions-path: ${AI_PRIMARY_COMPLETIONS_PATH:/openai/chat/completions}
         options:
-          model: ${AI_MODEL:google/gemini-2.5-flash-lite}
+          model: ${AI_MODEL:gemini-3.8-flash}
           temperature: 0.0
-          # OpenRouter free tier rejects an uncapped request (default 65535 > balance) with
-          # HTTP 402. Set AI_MAX_TOKENS (env) or delete this line once the account has credits.
           max-tokens: ${AI_MAX_TOKENS:32000}
 
 server:
@@ -79,19 +78,24 @@ atheris:
   encryption-key: ${ENCRYPTION_KEY:temporary-dev-encryption-key-change-in-prod}
 
   ai:
-    fallback-enabled: true
-    cooldown-initial-ms: 300000    # 5 minutes initial cooldown on rate limit
-    cooldown-max-ms: 900000        # 15 minutes max cooldown
+    fallback-enabled: ${AI_FALLBACK_ENABLED:true}
+    cooldown-initial-ms: 60000     # 1 minute initial cooldown on rate limit/error (fast recovery)
+    cooldown-max-ms: 300000        # 5 minutes max cooldown
     cooldown-multiplier: 3         # multiply cooldown by 3 each consecutive failure
-    # OpenRouter model ids. Primary follows AI_MODEL (same as spring.ai.openai above);
-    # the fallback is tried when the primary is rate-limited or failing (default: the
-    # stock primary, so a custom AI_MODEL still has a working model to fall back to).
-    primary-model: ${AI_MODEL:google/gemini-2.5-flash-lite}
-    fallback-model: ${AI_FALLBACK_MODEL:google/gemini-2.5-flash-lite}
-    # OpenRouter reasoning switch for both models: unset = send nothing (provider
-    # default); false = "reasoning": {"enabled": false} (reasoning models such as
-    # nemotron/qwen otherwise spend max-tokens thinking); true = force it on.
+    # Primary = Google Gemini (AI_MODEL). Fallback = a SECOND provider with its own base-url +
+    # key (the ISW AI gateway); when fallback-base-url is blank the fallback reuses the primary.
+    # All values are env-driven — no secrets here.
+    primary-model: ${AI_MODEL:gemini-3.8-flash}
+    fallback-model: ${AI_FALLBACK_MODEL:deepseek-v4.1}
+    fallback-base-url: ${AI_FALLBACK_BASE_URL:https://ai-gateway.isw.la}
+    fallback-api-key: ${AI_FALLBACK_API_KEY:}
+    # OpenRouter reasoning switch (primary only): unset = send nothing (provider default);
+    # false = {"reasoning":{"enabled":false}} (reasoning models otherwise burn max-tokens thinking).
     reasoning-enabled: ${AI_REASONING_ENABLED:}
+    # OCR text handed to the classifier: split into fixed-size chunks and merged. 0 = no cap
+    # (the whole document is processed). Small chunks keep each AI call fast.
+    max-ocr-chars: ${AI_MAX_OCR_CHARS:0}
+    chunk-size: ${AI_CHUNK_SIZE:15000}
 
   jwt:
     secret: ${JWT_SECRET:atheris-platform-jwt-secret-change-in-production-min-32-chars}

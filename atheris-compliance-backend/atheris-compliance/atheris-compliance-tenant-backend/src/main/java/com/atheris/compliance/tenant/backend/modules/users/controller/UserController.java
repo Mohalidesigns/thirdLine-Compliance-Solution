@@ -33,13 +33,14 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
-    public ResponseEntity<List<UserDto>> list(@RequestParam(defaultValue = "false") boolean includeInactive) {
-        return ResponseEntity.ok(service.findAll(includeInactive));
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<List<UserDto>> list(@RequestParam(required = false) String q,
+                                              @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(service.findAll(q, includeInactive));
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<UserDto> invite(
             @Valid @RequestBody InviteUserRequest req,
             @AuthenticationPrincipal User u) {

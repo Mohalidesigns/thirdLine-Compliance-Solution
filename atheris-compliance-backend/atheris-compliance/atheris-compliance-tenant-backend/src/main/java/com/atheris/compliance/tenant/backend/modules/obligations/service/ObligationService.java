@@ -49,7 +49,6 @@ public class ObligationService {
     private final RegulatorySanctionRepository sanctionRepo;
     private final ObligationSanctionRepository obligationSanctionRepo;
     private final TenantRegulatorRepository tenantRegulatorRepo;
-    private final com.atheris.compliance.tenant.backend.modules.controls.service.ControlLinkService controlLinks;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -61,13 +60,13 @@ public class ObligationService {
 
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
-            String status, Boolean hasGap, Boolean noControl, Long instrumentId,
+            String status, Boolean noControl, Long instrumentId,
             String act, Boolean hasPoints, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, hasGap, noControl, instrumentId, act, hasPoints))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints))
             .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
@@ -84,9 +83,7 @@ public class ObligationService {
         long highRisk = rows.stream().filter(i ->
                 "Critical".equals(i.getInherentRiskRating()) || "High".equals(i.getInherentRiskRating())
                     || "Critical".equals(i.getTenantRiskRating()) || "High".equals(i.getTenantRiskRating())).count();
-        // Applicable obligations with no linked control — the dashboard's "No Control" rule.
-        // (The "has gap" flag is separate: a person's judgement, filtered with hasGap.)
-        long gaps = rows.stream().filter(ObligationService::isUncovered).count();
+        long gaps = rows.stream().filter(i -> i.getControlCount() == 0).count();
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
                 || !i.getApplicability().equals("applicable")
                 || "unclassified".equals(i.getStatus())).count();
@@ -249,6 +246,7 @@ public class ObligationService {
                 .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
                 .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
                 .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
+                .tenantRegulatorId(ob.getTenantRegulatorId())
                 .applicability(c != null ? c.getApplicability() : null)
                 .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
                 .riskRating(riskRatingOf(c))
@@ -265,8 +263,6 @@ public class ObligationService {
                 .controlOwner(ob.getControlOwner())
                 .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
                 .status(c != null ? c.getStatus() : ob.getStatus())
-                .hasGap(c != null && Boolean.TRUE.equals(c.getHasGap()))
-                .gapDescription(c != null ? c.getGapDescription() : null)
                 .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
                 .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
                 .linkedReturnIds(linkedReturnIds)
@@ -279,16 +275,11 @@ public class ObligationService {
         return rows;
     }
 
-    static boolean isUncovered(ObligationRegisterItem i) {
-        return i.getControlCount() == 0 && "applicable".equals(i.getApplicability());
-    }
-
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
-                            String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl,
+                            String areaOfFocus, String owner, String status, Boolean noControl,
                             Long instrumentId, String act, Boolean hasPoints) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
-        if (hasGap != null && hasGap && !Boolean.TRUE.equals(i.getHasGap())) return false;
-        if (noControl != null && noControl && !isUncovered(i)) return false;
+        if (noControl != null && noControl && i.getControlCount() > 0) return false;
         if (hasPoints != null && hasPoints != Boolean.TRUE.equals(i.getHasPoints())) return false;
         if (act != null && !act.isBlank() && !act.equals(i.getActName())) return false;
         if (risk != null && !risk.isBlank()
@@ -299,7 +290,14 @@ public class ObligationService {
         }
         if (areaOfFocus != null && !areaOfFocus.isBlank() && !areaOfFocus.equals(i.getAreaOfFocus())) return false;
         if (owner != null && !owner.isBlank() && !owner.equals(i.getAssignedOwnerName())) return false;
-        if (status != null && !status.isBlank() && !status.equals(i.getStatus())) return false;
+        if ("under_review".equals(status)) {
+            boolean underReview = i.getApplicability() == null
+                || !i.getApplicability().equals("applicable")
+                || "unclassified".equals(i.getStatus());
+            if (!underReview) return false;
+        } else if (status != null && !status.isBlank() && !status.equals(i.getStatus())) {
+            return false;
+        }
         if (q != null && !q.isBlank()) {
             String needle = q.toLowerCase();
             boolean match = contains(i.getDescription(), needle)
@@ -423,6 +421,7 @@ public class ObligationService {
             .instrumentId(req.getInstrumentId())
             .name(req.getName())
             .obligationNumber(nextObligationNumber())
+            .tenantRegulatorId(req.getTenantRegulatorId())
             .description(req.getDescription())
             .areaOfFocus(req.getAreaOfFocus())
             .obligationType(req.getObligationType())
@@ -438,14 +437,14 @@ public class ObligationService {
             .obligationId(saved.getObligationId())
             .status("active")
             .classificationVersion(1)
+            .applicability("applicable")
             .classifiedByUserId(userId)
             .classifiedAt(Instant.now())
-            .hasGap(Boolean.TRUE.equals(req.getHasGap()))
-            .gapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null)
-            .linkedControlIds(new ArrayList<>())
+                        .linkedControlIds(req.getLinkedControlIds() == null
+                ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
-        c = classifications.save(c);
-        if (req.getLinkedControlIds() != null) c = controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
+        classifications.save(c);
+        syncControlLinks(saved.getObligationId(), List.of(), c.getLinkedControlIds());
 
         audit.log(userId, "obligation_created", "obligation", saved.getObligationId(),
             java.util.Collections.singletonMap("instrumentId", saved.getInstrumentId()));
@@ -466,17 +465,18 @@ public class ObligationService {
         if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
         if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
         if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());
+        if (req.getTenantRegulatorId() != null) ob.setTenantRegulatorId(req.getTenantRegulatorId());
         ob.setInstrumentId(req.getInstrumentId() != null ? req.getInstrumentId() : ob.getInstrumentId());
         Obligation saved = obligationRepo.save(ob);
 
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
-        if (req.getHasGap() != null) {
-            c.setHasGap(req.getHasGap());
-            c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
+        if (req.getLinkedControlIds() != null) {
+            List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
+            syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+            c.setLinkedControlIds(selected);
         }
         classifications.save(c);
-        if (req.getLinkedControlIds() != null) controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
         audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
         return toRegisterItem(saved, c, null, List.of(), List.of());
     }
@@ -485,6 +485,8 @@ public class ObligationService {
     public void deleteObligation(Long obligationId, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
+        classifications.findByObligationId(obligationId).ifPresent(c ->
+            syncControlLinks(obligationId, c.getLinkedControlIds(), List.of()));
         ob.setStatus("deleted");
         obligationRepo.save(ob);
         audit.log(userId, "obligation_deleted", "obligation", obligationId, Map.of());
@@ -521,6 +523,7 @@ public class ObligationService {
             .sourceTitle(d != null ? d.getSourceTitle() : "Standalone obligation")
             .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
             .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
+            .tenantRegulatorId(ob.getTenantRegulatorId())
             .applicability(c != null ? c.getApplicability() : null)
             .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
             .riskRating(riskRatingOf(c))
@@ -535,9 +538,7 @@ public class ObligationService {
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .status(c != null ? c.getStatus() : ob.getStatus())
-            .hasGap(c != null && Boolean.TRUE.equals(c.getHasGap()))
-            .gapDescription(c != null ? c.getGapDescription() : null)
-            .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
+                        .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
             .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
             .linkedReturnIds(linkedReturnIds)
             .returnNames(returnNames)
@@ -602,8 +603,7 @@ public class ObligationService {
             .map(h -> ObligationDetailView.HistoryItem.builder()
                 .classificationVersion(h.getClassificationVersion())
                 .applicability(h.getApplicability()).tenantRiskRating(h.getTenantRiskRating())
-                .assignedOwnerUserId(h.getAssignedOwnerUserId()).hasGap(h.getHasGap())
-                .changeReason(h.getChangeReason()).changedByUserId(h.getChangedByUserId())
+                                .changeReason(h.getChangeReason()).changedByUserId(h.getChangedByUserId())
                 .changedByName(h.getChangedByUserId() != null ? userNameById.get(h.getChangedByUserId()) : null)
                 .changedAt(h.getChangedAt()).build())
             .toList();
@@ -669,9 +669,7 @@ public class ObligationService {
                 .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
-            .hasGap(c != null ? c.getHasGap() : null)
-            .gapDescription(c != null ? c.getGapDescription() : null)
-            .status(c != null ? c.getStatus() : ob.getStatus())
+                        .status(c != null ? c.getStatus() : ob.getStatus())
             .classificationVersion(c != null ? c.getClassificationVersion() : null)
             .classifiedAt(c != null ? c.getClassifiedAt() : null)
             .classifiedByName(c != null && c.getClassifiedByUserId() != null ? userNameById.get(c.getClassifiedByUserId()) : null)
@@ -810,27 +808,41 @@ public class ObligationService {
     }
 
     @Transactional
-    public void updateGap(Long obligationId, GapRequest req, Integer userId) {
-        Obligation ob = obligationRepo.findById(obligationId)
-            .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
-        ObligationClassification c = loadOrCreateClassification(ob, userId);
-        recordHistory(c, ob, req.getChangeReason(), userId);
-        c.setHasGap(Boolean.TRUE.equals(req.getHasGap()));
-        c.setGapDescription(Boolean.TRUE.equals(req.getHasGap()) ? req.getGapDescription() : null);
-        classifications.save(c);
-        audit.log(userId, "update_gap", "obligation", obligationId,
-            java.util.Collections.singletonMap("hasGap", req.getHasGap()));
-    }
-
-    @Transactional
     public void linkControls(Long obligationId, LinkControlsRequest req, Integer userId) {
         Obligation ob = obligationRepo.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
-        c = controlLinks.setControlsOfObligation(c, req.getLinkedControlIds());
+        List<Integer> selected = req.getLinkedControlIds() == null
+            ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
+        syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+        c.setLinkedControlIds(selected);
+        classifications.save(c);
         audit.log(userId, "link_controls", "obligation", obligationId,
             Map.of("linkedControlIds", c.getLinkedControlIds()));
+    }
+
+    private void syncControlLinks(Long obligationId, List<Integer> before, List<Integer> after) {
+        Set<Integer> prev = before == null ? Set.of() : new HashSet<>(before);
+        Set<Integer> next = after == null ? Set.of() : new HashSet<>(after);
+        Set<Integer> affected = new HashSet<>(prev);
+        affected.addAll(next);
+        if (affected.isEmpty()) {
+            return;
+        }
+        for (Control control : controlRepo.findAllById(affected)) {
+            List<Long> ids = control.getLinkedObligationIds() == null
+                ? new ArrayList<>() : new ArrayList<>(control.getLinkedObligationIds());
+            if (next.contains(control.getControlId())) {
+                if (!ids.contains(obligationId)) {
+                    ids.add(obligationId);
+                }
+            } else {
+                ids.remove(obligationId);
+            }
+            control.setLinkedObligationIds(ids);
+            controlRepo.save(control);
+        }
     }
 
     private ObligationClassification loadOrCreateClassification(Obligation ob, Integer userId) {
@@ -840,6 +852,7 @@ public class ObligationService {
                 .obligationId(ob.getObligationId())
                 .status("active")
                 .classificationVersion(1)
+                .applicability("applicable")
                 .classifiedByUserId(userId)
                 .classifiedAt(Instant.now())
                 .build());
@@ -852,8 +865,7 @@ public class ObligationService {
             .instrumentId(ob.getInstrumentId()).obligationId(ob.getObligationId())
             .classificationVersion(c.getClassificationVersion())
             .applicability(c.getApplicability()).tenantRiskRating(c.getTenantRiskRating())
-            .assignedOwnerUserId(c.getAssignedOwnerUserId()).hasGap(c.getHasGap())
-            .changeReason(changeReason).changedByUserId(userId).build());
+                        .changeReason(changeReason).changedByUserId(userId).build());
         c.setClassificationVersion(c.getClassificationVersion() + 1);
     }
 
@@ -889,8 +901,7 @@ public class ObligationService {
                 .applicability(h.getApplicability())
                 .tenantRiskRating(h.getTenantRiskRating())
                 .assignedOwnerUserId(h.getAssignedOwnerUserId())
-                .hasGap(h.getHasGap())
-                .changeReason(h.getChangeReason())
+                                .changeReason(h.getChangeReason())
                 .changedByUserId(h.getChangedByUserId())
                 .changedAt(h.getChangedAt())
                 .build())
@@ -923,9 +934,7 @@ public class ObligationService {
             .assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment())
             .linkedControlIds(c.getLinkedControlIds())
-            .hasGap(c.getHasGap())
-            .gapDescription(c.getGapDescription())
-            .status(c.getStatus())
+                        .status(c.getStatus())
             .classificationVersion(c.getClassificationVersion())
             .classifiedByUserId(c.getClassifiedByUserId())
             .classifiedAt(c.getClassifiedAt())
@@ -966,8 +975,7 @@ public class ObligationService {
             .residualRiskRating(c.getResidualRiskRating())
             .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment()).linkedControlIds(c.getLinkedControlIds())
-            .hasGap(c.getHasGap()).gapDescription(c.getGapDescription())
-            .classificationVersion(c.getClassificationVersion())
+                        .classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();
     }
 
@@ -976,10 +984,6 @@ public class ObligationService {
             .instrumentId(c.getInstrumentId()).obligationId(c.getObligationId())
             .sourceTitle("Instrument " + c.getInstrumentId()).status(c.getStatus())
             .applicability(c.getApplicability()).build();
-    }
-
-    public List<ObligationClassificationDto> getGaps() {
-        return classifications.findByHasGapTrue().stream().map(this::toDto).toList();
     }
 
     @Transactional
@@ -996,8 +1000,7 @@ public class ObligationService {
                 .instrumentId(ob.getInstrumentId()).obligationId(obligationId)
                 .classificationVersion(c.getClassificationVersion())
                 .applicability(c.getApplicability()).tenantRiskRating(c.getTenantRiskRating())
-                .assignedOwnerUserId(c.getAssignedOwnerUserId()).hasGap(c.getHasGap())
-                .changeReason(req.getChangeReason()).changedByUserId(userId).build());
+                                .changeReason(req.getChangeReason()).changedByUserId(userId).build());
             c.setClassificationVersion(c.getClassificationVersion() + 1);
         }
         if (req.getApplicability() != null) c.setApplicability(req.getApplicability());
@@ -1012,13 +1015,16 @@ public class ObligationService {
         if (req.getAssignedOwnerUserId() != null) c.setAssignedOwnerUserId(req.getAssignedOwnerUserId());
         if (req.getAssignedOwnerName() != null) c.setAssignedOwnerName(req.getAssignedOwnerName());
         if (req.getAssignedDepartment() != null) c.setAssignedDepartment(req.getAssignedDepartment());
-        if (req.getHasGap() != null) c.setHasGap(req.getHasGap());
-        if (req.getGapDescription() != null) c.setGapDescription(req.getGapDescription());
+        if (req.getLinkedControlIds() != null) {
+            // obligation side is the source; mirror onto the controls like the other link paths
+            List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
+            syncControlLinks(obligationId, c.getLinkedControlIds(), selected);
+            c.setLinkedControlIds(selected);
+        }
         c.setClassifiedByUserId(userId);
         c.setClassifiedAt(Instant.now());
         c.setStatus("active");
         ObligationClassification saved = classifications.save(c);
-        if (req.getLinkedControlIds() != null) saved = controlLinks.setControlsOfObligation(saved, req.getLinkedControlIds());
         if (req.getLinkedReturnIds() != null) {
             Long targetObligation = req.getLinkedObligationId() != null
                 ? req.getLinkedObligationId() : obligationId;
@@ -1043,9 +1049,7 @@ public class ObligationService {
             .inherentRiskRating(c.getInherentRiskRating()).residualRiskRating(c.getResidualRiskRating())
             .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
             .assignedDepartment(c.getAssignedDepartment())
-            .linkedControlIds(c.getLinkedControlIds()).hasGap(c.getHasGap())
-            .gapDescription(c.getGapDescription())
-            .status(c.getStatus()).classificationVersion(c.getClassificationVersion())
+            .linkedControlIds(c.getLinkedControlIds())            .status(c.getStatus()).classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();
     }
 }
