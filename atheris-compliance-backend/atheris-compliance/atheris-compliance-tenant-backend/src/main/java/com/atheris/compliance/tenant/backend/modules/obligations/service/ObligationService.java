@@ -2,6 +2,9 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
+import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
+import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
+import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.repository.EvidenceFileRepository;
@@ -49,6 +52,7 @@ public class ObligationService {
     private final RegulatorySanctionRepository sanctionRepo;
     private final ObligationSanctionRepository obligationSanctionRepo;
     private final TenantRegulatorRepository tenantRegulatorRepo;
+    private final FindingRepository findingRepo;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -203,6 +207,12 @@ public class ObligationService {
             ? tenantRegulatorRepo.findAll().stream().collect(Collectors.toMap(TenantRegulator::getId, r -> r, (a, b) -> a))
             : Map.of();
 
+        Map<Long, List<Finding>> activeFindingsByObligation = allObligations.isEmpty() ? Map.of()
+            : findingRepo.findByLinkedObligationIdIn(allObligations.stream().map(Obligation::getObligationId).toList())
+                .stream()
+                .filter(f -> f.getLinkedObligationId() != null && !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+                .collect(Collectors.groupingBy(Finding::getLinkedObligationId));
+
         List<ObligationRegisterItem> rows = new ArrayList<>();
         for (Obligation ob : allObligations) {
             ObligationClassification c = classByObligation.get(ob.getObligationId());
@@ -262,6 +272,9 @@ public class ObligationService {
                 .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
                 .linkedReturnIds(linkedReturnIds)
                 .returnNames(returnNames)
+                .activeFindingsCount(activeFindingsByObligation.getOrDefault(ob.getObligationId(), List.of()).size())
+                .latestActiveFindingId(activeFindingsByObligation.getOrDefault(ob.getObligationId(), List.of())
+                    .stream().map(Finding::getFindingId).max(Comparator.naturalOrder()).orElse(null))
                 .classificationVersion(c != null ? c.getClassificationVersion() : null)
                 .classifiedAt(c != null ? c.getClassifiedAt() : null)
                 .sanctions(toSanctionItems(sanctionsForRow))

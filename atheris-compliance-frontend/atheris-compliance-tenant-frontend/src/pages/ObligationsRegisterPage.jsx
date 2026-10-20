@@ -9,7 +9,7 @@ import { api } from '../services/api';
 import {
   SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
-  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon,
+  ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -271,7 +271,15 @@ export default function ObligationsRegisterPage() {
         emptyMessage="No obligations found."
         actions={(item) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {(item.controlCount ?? 0) === 0 && (
+            {(item.activeFindingsCount ?? 0) > 0 ? (
+              <Tooltip title={`${item.activeFindingsCount} finding${item.activeFindingsCount === 1 ? '' : 's'} on this obligation`}>
+                <IconButton size="small"
+                  onClick={() => navigate(`/findings?findingId=${item.latestActiveFindingId}`)}
+                  sx={{ color: 'primary.main', bgcolor: '#EEF2FF', '&:hover': { bgcolor: '#E0E7FF' } }}>
+                  <EyeIcon size={16} />
+                </IconButton>
+              </Tooltip>
+            ) : (item.controlCount ?? 0) === 0 && (
               <Tooltip title="Raise gap finding (no control)">
                 <IconButton size="small"
                   onClick={() => navigate(`/findings?raise=gap&obligationId=${item.obligationId}`)}

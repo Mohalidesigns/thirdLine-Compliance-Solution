@@ -48,6 +48,8 @@ public class ObligationRegisterItem {
     private String status;
     private List<Integer> linkedControlIds;
     private Integer controlCount;
+    private Integer activeFindingsCount;
+    private Long latestActiveFindingId;
     private List<Long> linkedReturnIds;
     private List<String> returnNames;
     private Integer classificationVersion;
