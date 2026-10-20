@@ -1,0 +1,41 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "intel-backend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "set -a && . ./.env && set +a && mkdir -p $TMPDIR/opencode && export JAVA_HOME=/Users/mac/Library/Java/JavaVirtualMachines/openjdk-25.0.2/Contents/Home && cd atheris-compliance-backend/atheris-compliance/atheris-compliance-intelligence-backend && exec mvn spring-boot:run -Dspring-boot.run.arguments=--logging.file.name=$TMPDIR/opencode/intel.log"
+      ],
+      "port": 9090
+    },
+    {
+      "name": "tenant-backend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "set -a && . ./.env && set +a && mkdir -p $TMPDIR/opencode && export JAVA_HOME=/Users/mac/Library/Java/JavaVirtualMachines/openjdk-25.0.2/Contents/Home && cd atheris-compliance-backend/atheris-compliance && exec mvn spring-boot:run -pl atheris-compliance-tenant-backend -am -Dspring-boot.run.arguments=--logging.file.name=$TMPDIR/opencode/tenant.log"
+      ],
+      "port": 9091
+    },
+    {
+      "name": "intel-frontend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd atheris-compliance-frontend/atheris-compliance-intelligence-frontend && exec npm run dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "tenant-frontend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd atheris-compliance-frontend/atheris-compliance-tenant-frontend && exec npm run dev"
+      ],
+      "port": 5174
+    }
+  ]
+}

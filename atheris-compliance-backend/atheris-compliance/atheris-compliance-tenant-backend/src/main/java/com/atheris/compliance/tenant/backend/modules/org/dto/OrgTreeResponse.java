@@ -14,6 +14,9 @@ public class OrgTreeResponse {
     public static class DepartmentNode {
         private DepartmentDto department;
         private List<TeamNode> teams;
+        /** Owners attached to the department directly (no team). */
+        @Builder.Default
+        private List<OwnerDto> owners = List.of();
     }
 
     @Data

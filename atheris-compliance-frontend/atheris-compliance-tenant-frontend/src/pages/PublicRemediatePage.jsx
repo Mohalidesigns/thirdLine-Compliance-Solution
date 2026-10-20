@@ -9,7 +9,7 @@ import {
   StatusBadge, TL, riskTone,
   ShieldCheckIcon, ExclamationTriangleIcon, TrashIcon, ArrowUpTrayIcon, CheckCircleIcon, ClockIcon,
 } from 'shared';
-import verityLogoLight from '../Verity/verity-logo-light.png';
+import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
 import { publicApi } from '../services/api';
 
 const labelSx = { fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' };

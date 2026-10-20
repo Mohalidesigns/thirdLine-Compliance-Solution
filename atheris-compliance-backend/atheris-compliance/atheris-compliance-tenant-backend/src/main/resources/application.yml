@@ -38,6 +38,8 @@ spring:
     properties:
       mail.smtp.auth: ${SMTP_AUTH:false}
       mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      # Implicit TLS (port 465): SMTP_SSL=true and SMTP_STARTTLS=false.
+      mail.smtp.ssl.enable: ${SMTP_SSL:false}
   flyway:
     enabled: true
     locations: classpath:db/migration/tenant
@@ -84,6 +86,7 @@ atheris:
       enabled: ${SEED_USERS_ENABLED:false}
       domain: ${SEED_USERS_DOMAIN:mamcorp.test}
       password: ${SEED_USERS_PASSWORD:}
+      emails: ${SEED_USERS_EMAILS:}
 logging:
   level:
     com.atheris.compliance: DEBUG

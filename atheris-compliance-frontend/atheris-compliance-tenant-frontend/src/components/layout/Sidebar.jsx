@@ -5,8 +5,8 @@ import {
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
   BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon, CloudArrowUpIcon,
 } from 'shared';
-import verityLogoDark from '../../Verity/verity-logo-dark.png';
-import verityMark from '../../Verity/verity-mark.png';
+import verityLogoDark from '../../atheris-verity/verity-logo-on-black.svg';
+import verityMark from '../../atheris-verity/verity-mark-on-black.svg';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 

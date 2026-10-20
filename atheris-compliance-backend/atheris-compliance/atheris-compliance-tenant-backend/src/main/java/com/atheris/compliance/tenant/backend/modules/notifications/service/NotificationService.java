@@ -71,10 +71,17 @@ public class NotificationService {
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject) {
+        notifyRoleEmailed(role, category, severity, summary, link, subject, null);
+    }
+
+    /** Same as above, but never emails {@code excludeUserId} — the person who triggered the action. */
+    @Transactional
+    public void notifyRoleEmailed(String role, String category, String severity,
+                                  String summary, String link, String subject, Integer excludeUserId) {
         notifyRole(role, category, severity, summary, link);
         List<User> holders = users.findByRole(role);
         for (User u : holders) {
-            if (Boolean.FALSE.equals(u.getIsActive())) {
+            if (Boolean.FALSE.equals(u.getIsActive()) || u.getUserId().equals(excludeUserId)) {
                 continue;
             }
             email.send(u.getEmail(), subject, summary, absolute(link));

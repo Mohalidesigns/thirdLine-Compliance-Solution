@@ -265,10 +265,11 @@ public class RunbookExecutionService {
             stepExecs.save(s);
             audit.log(user.getUserId(), "step_pass_requested", SUBJECT_EXECUTION, execId,
                 Map.of("stepExecId", stepExecId, "stepCode", String.valueOf(def.getStepCode())));
-            notifications.notifyRole(def.getAssignedRole() != null && EXECUTOR_ROLES.contains(def.getAssignedRole())
+            notifications.notifyRoleEmailed(def.getAssignedRole() != null && EXECUTOR_ROLES.contains(def.getAssignedRole())
                     ? def.getAssignedRole() : AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
                 "Dual-control verification needed on " + e.getExecutionRef() + " step " + def.getStepCode(),
-                "/runbooks/executions/" + execId);
+                "/runbooks/executions/" + execId,
+                "Verification needed: " + e.getExecutionRef() + " step " + def.getStepCode(), user.getUserId());
         } else {
             s.setStatus(ST_PASSED);
             s.setCompletedAt(Instant.now());
@@ -756,9 +757,10 @@ public class RunbookExecutionService {
         e.setStatus(EX_PENDING_SIGNOFF);
         executions.save(e);
         audit.log(null, "execution_completed", SUBJECT_EXECUTION, e.getExecutionId(), Map.of("outcome", outcome));
-        notifications.notifyRole(AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
+        notifications.notifyRoleEmailed(AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
             "Runbook execution " + e.getExecutionRef() + " is ready for sign-off (" + outcome + ")",
-            "/runbooks/executions/" + e.getExecutionId() + "/summary");
+            "/runbooks/executions/" + e.getExecutionId() + "/summary",
+            "Sign-off needed: " + e.getExecutionRef());
     }
 
     private List<RunbookStepExecution> recount(RunbookExecution e) {

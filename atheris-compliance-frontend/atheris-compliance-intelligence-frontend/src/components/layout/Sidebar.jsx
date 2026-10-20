@@ -15,10 +15,10 @@ const ICONS = {
   ClipboardDocumentCheck: ClipboardDocumentCheckIcon,
 };
 
-// Verity logos live in public/Verity/ (served from the site root).
+// Verity logos live in public/atheris-verity/ (served from the site root).
 const BRAND = {
   name: 'Verity Compliance', tagline: 'Compliance Intelligence',
-  logo: '/Verity/verity-logo-dark.png', mark: '/Verity/verity-mark.png',
+  logo: '/atheris-verity/verity-logo-on-black.svg', mark: '/atheris-verity/verity-mark-on-black.svg',
 };
 
 export default function Sidebar(props) {

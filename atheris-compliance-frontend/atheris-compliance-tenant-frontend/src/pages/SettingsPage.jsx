@@ -325,7 +325,7 @@ function OrganizationTab({ isAdmin }) {
             subheader={
               <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                 {dept.department.teamCount ?? dept.teams.length} team(s) ·
-                {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
+                {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, (dept.owners || []).length)} owner(s)
                 {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
@@ -339,6 +339,33 @@ function OrganizationTab({ isAdmin }) {
             )}
           />
           <CardContent sx={{ pt: 0 }}>
+            {(dept.owners || []).length > 0 && (
+              <Box sx={{ pl: 4, mb: 2 }}>
+                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: TL.gray500, textTransform: 'uppercase', mb: 0.5 }}>
+                  Department owners (no team)
+                </Typography>
+                {dept.owners.map(owner => (
+                  <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
+                    <UserCircleIcon size={16} sx={{ color: TL.gray400 }} />
+                    <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{owner.fullName}</Typography>
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
+                    {owner.isActive === false && <StateBadge value="Inactive" />}
+                    {isAdmin && (
+                      <Box sx={{ ml: 'auto' }}>
+                        <IconButton size="small" aria-label={`Edit owner ${owner.fullName}`}
+                          onClick={() => setOwnerModal({ owner, departmentId: dept.department.departmentId })}>
+                          <PencilSquareIcon size={16} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDelete(() => api.org.deleteOwner(owner.ownerId), 'Owner')}>
+                          <TrashIcon size={16} />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            )}
             {dept.teams.map(team => (
               <Box key={team.team.teamId} sx={{ pl: 4, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

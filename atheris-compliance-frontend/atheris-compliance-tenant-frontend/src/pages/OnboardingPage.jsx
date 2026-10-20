@@ -4,7 +4,7 @@ import {
   required, validateName, validateEmail, validatePhone, validatePassword,
   TL, KeyIcon, CheckCircleIcon,
 } from 'shared';
-import verityLogoLight from '../Verity/verity-logo-light.png';
+import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
 import {
   Box, Typography, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup, Divider,

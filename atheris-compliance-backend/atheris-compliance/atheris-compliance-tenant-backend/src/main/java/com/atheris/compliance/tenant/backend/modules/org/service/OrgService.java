@@ -377,6 +377,11 @@ public class OrgService {
             .map(CompletableFuture::join)
             .toList();
 
+        List<OwnerDto> departmentOwners = owners.findByDepartmentIdOrderByFullNameAsc(department.getDepartmentId()).stream()
+            .filter(owner -> owner.getTeamId() == null)
+            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .toList();
+
         return OrgTreeResponse.DepartmentNode.builder()
             .department(DepartmentDto.builder()
                 .departmentId(department.getDepartmentId())
@@ -386,6 +391,7 @@ public class OrgService {
                 .isActive(department.getIsActive())
                 .build())
             .teams(teamNodes)
+            .owners(departmentOwners)
             .build();
     }
 
