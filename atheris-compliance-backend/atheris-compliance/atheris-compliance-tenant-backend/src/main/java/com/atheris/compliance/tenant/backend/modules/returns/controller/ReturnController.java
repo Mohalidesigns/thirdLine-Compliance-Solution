@@ -73,7 +73,7 @@ public class ReturnController {
             @PathVariable Long id,
             @Valid @RequestBody AdvanceStageRequest req,
             @AuthenticationPrincipal User u) {
-        service.advanceStage(id, req, u.getUserId());
+        service.advanceStage(id, req, u.getUserId(), u.getFullName());
         return ResponseEntity.ok().build();
     }
 
@@ -83,7 +83,7 @@ public class ReturnController {
             @PathVariable Long id,
             @RequestBody AdvanceStageRequest req,
             @AuthenticationPrincipal User u) {
-        service.submit(id, req.getEvidenceUrl(), u.getUserId());
+        service.submit(id, req.getEvidenceUrl(), u.getUserId(), u.getFullName());
         return ResponseEntity.ok().build();
     }
 

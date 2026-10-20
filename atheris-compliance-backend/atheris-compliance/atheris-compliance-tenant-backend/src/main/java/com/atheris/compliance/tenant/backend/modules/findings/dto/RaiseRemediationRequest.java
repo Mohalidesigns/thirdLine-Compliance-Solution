@@ -8,4 +8,6 @@ import java.time.LocalDate;
 public class RaiseRemediationRequest {
     @NotNull private Integer assignedToOwnerId;
     @NotNull private LocalDate remediationDeadline;
+    /** Required when the deadline goes past the finding's SLA (created + SLA days). */
+    private String deadlineJustification;
 }

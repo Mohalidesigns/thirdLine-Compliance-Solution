@@ -35,8 +35,11 @@ public class ActService {
     private final RegulatoryReturnRepository returns;
     private final RegulatorySanctionRepository sanctions;
 
-    public Page<ActListItem> list(String q, String regulator, Pageable pageable) {
-        return acts.findAll(spec(q, regulator), pageable).map(this::toItem);
+    /** {@code inRegister}: only acts whose instrument has obligations in this tenant's register. */
+    public Page<ActListItem> list(String q, String regulator, Boolean inRegister, Pageable pageable) {
+        java.util.Set<Long> registerInstruments = Boolean.TRUE.equals(inRegister)
+            ? new java.util.HashSet<>(obligations.findDistinctInstrumentIds()) : null;
+        return acts.findAll(spec(q, regulator, registerInstruments), pageable).map(this::toItem);
     }
 
     public ActDetailResponse detail(Integer id) {
@@ -64,8 +67,12 @@ public class ActService {
                 ? "Unspecified" : a.getRegulatorName();
             byRegulator.merge(key, 1L, Long::sum);
         }
+        java.util.Set<Long> registerInstruments = new java.util.HashSet<>(obligations.findDistinctInstrumentIds());
+        long inRegister = all.stream().filter(a -> a.getCanonicalInstrumentId() != null
+            && registerInstruments.contains(a.getCanonicalInstrumentId())).count();
         return ActStatsDto.builder()
             .totalActs(all.size())
+            .actsInRegister(inRegister)
             .byRegulator(new LinkedHashMap<>(byRegulator))
             .regulators(List.copyOf(byRegulator.keySet()))
             .build();
@@ -102,9 +109,13 @@ public class ActService {
         return a.getRegulationId() == null ? 0 : sanctions.countByRegulationId(a.getRegulationId());
     }
 
-    private Specification<Act> spec(String q, String regulator) {
+    private Specification<Act> spec(String q, String regulator, java.util.Set<Long> instrumentIds) {
         return (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (instrumentIds != null) {
+                if (instrumentIds.isEmpty()) return cb.disjunction();
+                predicates.add(root.get("canonicalInstrumentId").in(instrumentIds));
+            }
             if (q != null && !q.isBlank()) {
                 String like = "%" + q.trim().toLowerCase() + "%";
                 predicates.add(cb.or(

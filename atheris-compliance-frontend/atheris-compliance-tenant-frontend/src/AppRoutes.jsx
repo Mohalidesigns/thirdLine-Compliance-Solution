@@ -54,18 +54,28 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Each role's landing page: IT Ops only executes runbooks, so it starts in the run console.
+export function homeFor(role) {
+  return role === 'IT_OPS' ? '/runbooks/executions' : '/dashboard';
+}
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={homeFor(user?.role)} replace />;
+}
+
 export default function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
   return (
     <Suspense fallback={<Loading />}>
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/login" element={isAuthenticated ? <HomeRedirect /> : <LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         {/* Public, no-login owner remediation page reached via an emailed token link. */}
         <Route path="/remediate/:token" element={<PublicRemediatePage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/dashboard" />} />
+          <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="dashboard/v2" element={<DashboardV2Page />} />
           <Route path="reports" element={<ReportsPage />} />
@@ -101,7 +111,7 @@ export default function AppRoutes() {
           <Route path="overview" element={<Navigate to="/dashboard" />} />
           <Route path="upload" element={<Navigate to="/uploads" />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" />} />
+        <Route path="*" element={<HomeRedirect />} />
       </Routes>
     </Suspense>
   );

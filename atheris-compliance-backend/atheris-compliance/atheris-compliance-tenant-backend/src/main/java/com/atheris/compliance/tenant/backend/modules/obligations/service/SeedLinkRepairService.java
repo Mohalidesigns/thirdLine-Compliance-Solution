@@ -246,7 +246,8 @@ public class SeedLinkRepairService {
             List<Long> next = instIds != null && !instIds.isEmpty() && existing.equals(instIds)
                 ? platformLinks.get(c.getControlId())
                 : new ArrayList<>(existing);
-            if (!new ArrayList<>(next).equals(current)) {
+            // compare as sets: the same links in another order are not a change (keeps the repair idempotent)
+            if (!new HashSet<>(next).equals(new HashSet<>(current)) || next.size() != current.size()) {
                 c.setLinkedObligationIds(new ArrayList<>(next));
                 changedControls.add(c);
             }
@@ -285,7 +286,7 @@ public class SeedLinkRepairService {
                     }
                 }
             }
-            if (!new ArrayList<>(next).equals(current)) {
+            if (!next.equals(new HashSet<>(current)) || next.size() != current.size()) {
                 cls.setLinkedControlIds(new ArrayList<>(next));
                 changedCls.add(cls);
             }

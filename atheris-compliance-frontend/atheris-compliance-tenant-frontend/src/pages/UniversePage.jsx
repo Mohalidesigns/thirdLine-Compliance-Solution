@@ -295,7 +295,7 @@ export default function UniversePage() {
               <FieldGrid>
                 <Field label="Regulator" value={detail?.regulatorName || selected.regulatorName} />
                 <Field label="Reference" value={selected.sourceReferenceNumber} mono />
-                <Field label="Document type" value={detail?.documentType || selected.documentType} />
+                <Field label="Nature" value={selected.nature || detail?.nature || detail?.documentType || selected.documentType} />
                 <Field label="Issued" value={formatDate(detail?.publishedAt || selected.dateIssued)} />
                 <Field label="Area of focus" value={selected.areaOfFocus} />
                 <Field label="Obligations in register" value={String(selected.obligationCount)} />

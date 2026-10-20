@@ -4,13 +4,16 @@ import {
   Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, Grid, Chip, CircularProgress, Alert,
   TablePagination, Paper, Table, TableHead, TableBody, TableRow, TableCell,
-  Tooltip
+  Tooltip, Autocomplete
 } from '@mui/material';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   PageHeader, TL,
   ArrowUpTrayIcon, ArrowDownTrayIcon, DocumentIcon, DocumentTextIcon, FolderOpenIcon,
 } from 'shared';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { isReadOnly } from '../utils/roles';
 
 function fileIcon(mime) {
   if (!mime) return <DocumentIcon size={18} />;
@@ -27,6 +30,9 @@ function formatSize(bytes) {
 }
 
 export default function EvidenceVaultPage() {
+  const { user } = useAuth();
+  // upload is ANALYST / CCO / TENANT_ADMIN (IT Ops captures evidence inside runbook steps)
+  const canUpload = !isReadOnly(user?.role);
   const [data, setData] = useState({ content: [], totalElements: 0 });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -61,11 +67,11 @@ export default function EvidenceVaultPage() {
       <PageHeader
         title="Evidence Vault"
         subtitle="Upload and browse all evidence files"
-        actions={(
+        actions={canUpload ? (
           <Button variant="contained" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setUploadOpen(true)}>
             Upload Evidence
           </Button>
-        )}
+        ) : null}
       />
 
       <Paper sx={{ overflow: 'hidden' }}>
@@ -113,7 +119,7 @@ export default function EvidenceVaultPage() {
                       <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {f.description || '-'}
                       </TableCell>
-                      <TableCell sx={{ color: TL.gray500 }}>{f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell sx={{ color: TL.gray500 }}>{f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Download">
                           <IconButton size="small" onClick={() => handleDownload(f.fileId)}>
@@ -179,7 +185,7 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
           </Grid>
           <Grid size={{ xs: 6 }}>
             <TextField select label="Source type" fullWidth size="small" value={sourceType}
-              onChange={e => setSourceType(e.target.value)}>
+              onChange={e => { setSourceType(e.target.value); setSourceId(''); }}>
               <MenuItem value="">None</MenuItem>
               <MenuItem value="control">Control</MenuItem>
               <MenuItem value="finding">Finding</MenuItem>
@@ -188,8 +194,7 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
             </TextField>
           </Grid>
           <Grid size={{ xs: 6 }}>
-            <TextField label="Source ID" fullWidth size="small" type="number" value={sourceId}
-              onChange={e => setSourceId(e.target.value)} />
+            <SourcePicker sourceType={sourceType} value={sourceId} onChange={setSourceId} />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <TextField label="Description" fullWidth size="small" multiline minRows={2} value={description}
@@ -204,5 +209,58 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+/**
+ * Pick the linked record by what people know it as — a control number/name or a finding
+ * reference — instead of typing an internal id. Return periods and tests keep the id field.
+ */
+function SourcePicker({ sourceType, value, onChange }) {
+  const [input, setInput] = useState('');
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => { const t = setTimeout(() => setDebounced(input), 300); return () => clearTimeout(t); }, [input]);
+  useEffect(() => { setInput(''); }, [sourceType]);
+
+  const controlsQuery = useQuery({
+    queryKey: ['evidence-source', 'controls', debounced],
+    queryFn: () => api.controls.register({ q: debounced || undefined, page: 0, size: 20 }),
+    enabled: sourceType === 'control',
+    placeholderData: keepPreviousData,
+  });
+  const findingsQuery = useQuery({
+    queryKey: ['evidence-source', 'findings'],
+    queryFn: () => api.findings.register({ page: 0, size: 200 }),
+    enabled: sourceType === 'finding',
+    staleTime: 60 * 1000,
+  });
+
+  if (sourceType !== 'control' && sourceType !== 'finding') {
+    return (
+      <TextField label={sourceType ? 'Source ID' : 'Source (choose a type)'} fullWidth size="small" type="number"
+        disabled={!sourceType} value={value} onChange={e => onChange(e.target.value)} />
+    );
+  }
+  const options = sourceType === 'control'
+    ? (controlsQuery.data?.content || []).map(c => ({ id: String(c.controlId), label: `${c.controlNumber} — ${c.name || ''}` }))
+    : (findingsQuery.data?.content || [])
+      .filter(f => !debounced || `${f.displayId} ${f.description || ''}`.toLowerCase().includes(debounced.toLowerCase()))
+      .map(f => ({ id: String(f.findingId), label: `${f.displayId} — ${(f.description || '').slice(0, 60)}` }));
+  const selected = options.find(o => o.id === String(value)) || (value ? { id: String(value), label: `#${value}` } : null);
+  return (
+    <Autocomplete
+      size="small"
+      options={options}
+      value={selected}
+      loading={sourceType === 'control' ? controlsQuery.isFetching : findingsQuery.isFetching}
+      filterOptions={x => x}
+      isOptionEqualToValue={(o, v) => o.id === v.id}
+      onChange={(_, o) => onChange(o ? o.id : '')}
+      onInputChange={(_, v, reason) => { if (reason === 'input') setInput(v); }}
+      renderInput={params => (
+        <TextField {...params} label={sourceType === 'control' ? 'Control' : 'Finding'}
+          placeholder={sourceType === 'control' ? 'Search number or name' : 'Search FIND-…'} />
+      )}
+    />
   );
 }

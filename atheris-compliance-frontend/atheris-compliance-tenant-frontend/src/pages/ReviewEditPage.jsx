@@ -276,7 +276,7 @@ function ObligationRow({ item, index, onChange, onRemove, owners, onOwnerCreated
                   <FormControlLabel control={
                     <Checkbox size="small" checked={!!item.hasGap}
                       onChange={e => onChange(index, 'hasGap', e.target.checked)} />
-                  } label={<Typography variant="body2">Has gap (no control covers this obligation)</Typography>} />
+                  } label={<Typography variant="body2">Has gap (a weakness in how this obligation is met — flagged for follow-up)</Typography>} />
                   {item.hasGap && (
                     <TextField fullWidth multiline rows={2} size="small" label="Gap description"
                       value={item.gapDescription || ''} sx={{ mt: 1 }}

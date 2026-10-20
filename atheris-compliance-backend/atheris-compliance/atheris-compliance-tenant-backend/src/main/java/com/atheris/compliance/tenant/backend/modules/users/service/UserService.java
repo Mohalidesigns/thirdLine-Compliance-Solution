@@ -29,7 +29,15 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public List<UserDto> findAll() {
-        return users.findByIsActiveTrue().stream().map(this::toDto).toList();
+        return findAll(false);
+    }
+
+    /** Settings lists deactivated users too (with pending invites), so they can be seen and reactivated. */
+    public List<UserDto> findAll(boolean includeInactive) {
+        return (includeInactive ? users.findAll() : users.findByIsActiveTrue()).stream()
+            .sorted(java.util.Comparator.comparing((User u) -> !Boolean.TRUE.equals(u.getIsActive()))
+                .thenComparing(u -> u.getFullName() == null ? "" : u.getFullName(), String.CASE_INSENSITIVE_ORDER))
+            .map(this::toDto).toList();
     }
 
     public UserDto findById(Integer id) {
@@ -81,9 +89,13 @@ public class UserService {
     }
 
     @Transactional
-    public void deactivate(Integer userId) {
+    public void deactivate(Integer userId, Integer actorUserId) {
         User user = users.findById(userId)
             .orElseThrow(() -> ApiException.notFound("User not found: " + userId));
+        if (userId.equals(actorUserId))
+            throw ApiException.conflict("cannot_deactivate_self", "You cannot deactivate your own account");
+        if (AppRole.TENANT_ADMIN.equals(user.getRole()) && Boolean.TRUE.equals(user.getIsActive()) && activeAdmins() <= 1)
+            throw ApiException.conflict("last_admin", "This is the last active tenant admin — make someone else an admin first");
         user.setIsActive(false);
         users.save(user);
         refreshTokens.findByUserIdAndIsRevokedFalse(userId).forEach(rt -> {
@@ -107,8 +119,15 @@ public class UserService {
         User u = users.findById(id)
             .orElseThrow(() -> ApiException.notFound("User not found: " + id));
         if (role == null || !AppRole.ALL.contains(role)) throw ApiException.badRequest("Invalid role: " + role);
+        if (AppRole.TENANT_ADMIN.equals(u.getRole()) && !AppRole.TENANT_ADMIN.equals(role)
+                && Boolean.TRUE.equals(u.getIsActive()) && activeAdmins() <= 1)
+            throw ApiException.conflict("last_admin", "This is the last active tenant admin — make someone else an admin first");
         u.setRole(role);
         return toDto(users.save(u));
+    }
+
+    private long activeAdmins() {
+        return users.findByRoleAndIsActiveTrue(AppRole.TENANT_ADMIN).size();
     }
 
     /** Set (or clear) a user's manager — the escalation target for level-2 notifications. */

@@ -84,7 +84,9 @@ public class ObligationService {
         long highRisk = rows.stream().filter(i ->
                 "Critical".equals(i.getInherentRiskRating()) || "High".equals(i.getInherentRiskRating())
                     || "Critical".equals(i.getTenantRiskRating()) || "High".equals(i.getTenantRiskRating())).count();
-        long gaps = rows.stream().filter(i -> i.getControlCount() == 0).count();
+        // Applicable obligations with no linked control — the dashboard's "No Control" rule.
+        // (The "has gap" flag is separate: a person's judgement, filtered with hasGap.)
+        long gaps = rows.stream().filter(ObligationService::isUncovered).count();
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
                 || !i.getApplicability().equals("applicable")
                 || "unclassified".equals(i.getStatus())).count();
@@ -99,7 +101,10 @@ public class ObligationService {
             .map(ObligationRegisterItem::getAreaOfFocus)
             .filter(Objects::nonNull).filter(s -> !s.isBlank())
             .collect(Collectors.toCollection(TreeSet::new));
+        // Only real assignments: the seeded "control owner" text (hundreds of free-text variants)
+        // made the owner filter unusable.
         Set<String> owners = rows.stream()
+            .filter(i -> i.getAssignedOwnerId() != null || i.getAssignedOwnerUserId() != null)
             .map(ObligationRegisterItem::getAssignedOwnerName)
             .filter(Objects::nonNull).filter(s -> !s.isBlank())
             .collect(Collectors.toCollection(TreeSet::new));
@@ -255,6 +260,8 @@ public class ObligationService {
                 .impactRating(c != null ? c.getImpactRating() : null)
                 .likelihoodRating(c != null ? c.getLikelihoodRating() : null)
                 .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+                .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
+                .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
                 .controlOwner(ob.getControlOwner())
                 .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
                 .status(c != null ? c.getStatus() : ob.getStatus())
@@ -272,12 +279,16 @@ public class ObligationService {
         return rows;
     }
 
+    static boolean isUncovered(ObligationRegisterItem i) {
+        return i.getControlCount() == 0 && "applicable".equals(i.getApplicability());
+    }
+
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
                             String areaOfFocus, String owner, String status, Boolean hasGap, Boolean noControl,
                             Long instrumentId, String act, Boolean hasPoints) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
         if (hasGap != null && hasGap && !Boolean.TRUE.equals(i.getHasGap())) return false;
-        if (noControl != null && noControl && i.getControlCount() > 0) return false;
+        if (noControl != null && noControl && !isUncovered(i)) return false;
         if (hasPoints != null && hasPoints != Boolean.TRUE.equals(i.getHasPoints())) return false;
         if (act != null && !act.isBlank() && !act.equals(i.getActName())) return false;
         if (risk != null && !risk.isBlank()
@@ -519,6 +530,8 @@ public class ObligationService {
             .inherentImpact(ob.getInherentImpact())
             .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
             .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+                .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
+                .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .status(c != null ? c.getStatus() : ob.getStatus())
@@ -652,6 +665,8 @@ public class ObligationService {
             .assignedTeamId(c != null ? c.getAssignedTeamId() : null)
             .assignedDepartmentId(c != null ? c.getAssignedDepartmentId() : null)
             .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+                .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
+                .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .hasGap(c != null ? c.getHasGap() : null)
@@ -775,6 +790,20 @@ public class ObligationService {
         if (req.getImpactJustification() != null) c.setImpactJustification(req.getImpactJustification());
         if (req.getLikelihoodRating() != null) c.setLikelihoodRating(req.getLikelihoodRating());
         if (req.getLikelihoodJustification() != null) c.setLikelihoodJustification(req.getLikelihoodJustification());
+        // Inherent risk is impact × likelihood — keep the obligation's inherent fields and the rating
+        // in step with what was just assessed (they used to keep the seeded values). An explicit
+        // risk rating in the request is an override and wins.
+        if (req.getImpactRating() != null || req.getLikelihoodRating() != null) {
+            String band = ObligationClassification.inherentBand(c.getImpactRating(), c.getLikelihoodRating());
+            ob.setInherentImpact(c.getImpactRating());
+            ob.setInherentLikelihood(c.getLikelihoodRating());
+            if (band != null) {
+                ob.setInherentRiskRating(band);
+                if (req.getTenantRiskRating() == null) c.setTenantRiskRating(band);
+            }
+            obligationRepo.save(ob);
+            evictRegisterCache();
+        }
         classifications.save(c);
         audit.log(userId, "update_risk", "obligation", obligationId,
             java.util.Collections.singletonMap("tenantRiskRating", req.getTenantRiskRating()));

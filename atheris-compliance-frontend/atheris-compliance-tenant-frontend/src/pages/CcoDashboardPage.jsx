@@ -1,5 +1,5 @@
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   PageHeader, KpiCards, ArrowPathIcon, ScaleIcon, PlusIcon,
@@ -28,6 +28,7 @@ const row = (cols) => ({
 });
 
 export default function CcoDashboardPage() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
   const canGenerate = ['CCO', 'TENANT_ADMIN'].includes(user?.role);
@@ -138,7 +139,11 @@ export default function CcoDashboardPage() {
               variant="outlined"
               startIcon={<ArrowPathIcon size={16} />}
               disabled={refreshing}
-              onClick={() => queries.forEach(q => q.refetch())}
+              // every dashboard query (incl. sections' own: heatmap, risk by area/act) + the runbooks widget
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                queryClient.invalidateQueries({ queryKey: ['runbooks-dashboard'] });
+              }}
             >
               Refresh
             </Button>

@@ -128,8 +128,12 @@ public class FindingService {
             .assignedToOwnerId(ownerId)
             .assignedToName(resolveOwnerName(ownerId))
             .assignedAt(ownerId != null ? Instant.now() : null)
-            .remediationDeadline(LocalDate.now().plus(sla, ChronoUnit.DAYS))
-            .slaDays(sla).createdByUserId(test.getTestedByUserId()).status(WorkflowStatus.FINDING_OPEN).build();
+            // the tester's deadline when they gave one (it used to be dropped for the SLA default)
+            .remediationDeadline(test.getRemediationDeadline() != null
+                ? test.getRemediationDeadline() : LocalDate.now().plus(sla, ChronoUnit.DAYS))
+            .slaDays(sla).createdByUserId(test.getTestedByUserId())
+            // an owner named at test time means remediation is already assigned
+            .status(ownerId != null ? WorkflowStatus.FINDING_IN_REMEDIATION : WorkflowStatus.FINDING_OPEN).build();
         Finding saved = repo.save(f);
         audit.log(test.getTestedByUserId(), "finding_auto_raised", "finding", saved.getFindingId(),
             Map.of("severity", severity));
@@ -162,15 +166,36 @@ public class FindingService {
     @Transactional
     public Finding assign(Long id, RaiseRemediationRequest req, Integer userId) {
         Finding f = findById(id);
+        LocalDate deadline = req.getRemediationDeadline();
+        if (deadline.isBefore(LocalDate.now()))
+            throw ApiException.badRequest("deadline_in_past", "The remediation deadline cannot be in the past");
+        LocalDate slaDeadline = slaDeadline(f);
+        String justification = req.getDeadlineJustification() == null ? null : req.getDeadlineJustification().trim();
+        boolean beyondSla = slaDeadline != null && deadline.isAfter(slaDeadline);
+        if (beyondSla && (justification == null || justification.length() < 10))
+            throw ApiException.badRequest("justification_required",
+                "The deadline is past the " + f.getSlaDays() + "-day SLA (" + slaDeadline + ") — give a reason of at least 10 characters");
         f.setAssignedToOwnerId(req.getAssignedToOwnerId());
         f.setAssignedToName(resolveOwnerName(req.getAssignedToOwnerId()));
-        f.setRemediationDeadline(req.getRemediationDeadline());
+        f.setRemediationDeadline(deadline);
         f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
         f.setAssignedAt(Instant.now());
-        audit.log(userId, "finding_assigned", "finding", id, Map.of());
+        Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("deadline", deadline.toString());
+        if (beyondSla) {
+            details.put("slaDeadline", slaDeadline.toString());
+            details.put("justification", justification);
+        }
+        audit.log(userId, "finding_assigned", "finding", id, details);
         Finding saved = repo.save(f);
         notifyOwnerOfAssignment(saved);
         return saved;
+    }
+
+    /** Raised date + SLA days; null when either is unknown. */
+    static LocalDate slaDeadline(Finding f) {
+        if (f.getCreatedAt() == null || f.getSlaDays() == null) return null;
+        return f.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate().plusDays(f.getSlaDays());
     }
 
     private String resolveOwnerName(Integer ownerId) {

@@ -110,7 +110,7 @@ export default function ComplianceTrendChart({ trend = [], metrics = {} }) {
                   tickFormatter={v => `${v}%`}
                 />
                 <Tooltip
-                  formatter={(value, name) => [fmt(value), name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing']}
+                  formatter={(value, name) => [fmt(value), name === 'score' ? 'Compliance Score' : name === 'returnsOnTime' ? 'Returns On Time' : 'Controls Passing (of all controls)']}
                   labelFormatter={d => formatDate(d)}
                   contentStyle={{ borderRadius: 8, border: `1px solid ${TL.gray100}`, boxShadow: TL.cardShadow, fontSize: 12 }}
                 />
@@ -139,7 +139,7 @@ export default function ComplianceTrendChart({ trend = [], metrics = {} }) {
             <Box sx={{ display: 'flex', gap: 3, mt: 2, pt: 2, borderTop: `1px solid ${TL.gray100}`, flexWrap: 'wrap' }}>
               <MiniStat label="Current Score" dot={NAVY} value={fmt(latest.score)} color={latest.score == null ? TL.gray500 : latest.score >= 90 ? GREEN : latest.score >= 70 ? ORANGE : RED} />
               <MiniStat label="Returns On Time" dot={GREEN} value={fmt(latest.returnsOnTime)} />
-              <MiniStat label="Controls Passing" dot={YELLOW} value={fmt(latest.controlsPassing)} />
+              <MiniStat label="Controls Passing (of all)" dot={YELLOW} value={fmt(latest.controlsPassing)} />
             </Box>
           )}
         </>

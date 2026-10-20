@@ -200,7 +200,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
           <Box sx={{ mt: 2 }}>
             <FormControlLabel control={
               <Checkbox size="small" checked={form.hasGap} onChange={e => set('hasGap', e.target.checked)} />
-            } label={<Typography variant="body2">Has gap — no control covers this</Typography>} />
+            } label={<Typography variant="body2">Has gap — flag a weakness in how this is met</Typography>} />
             {form.hasGap && (
               <Field label="Gap description" sx={{ mt: 1 }}>
                 <TextField fullWidth size="small" multiline minRows={2} placeholder="Describe the gap"

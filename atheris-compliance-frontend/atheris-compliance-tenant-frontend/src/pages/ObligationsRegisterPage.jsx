@@ -14,6 +14,8 @@ import {
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
+import { useAuth } from '../contexts/AuthContext';
+import { isReadOnly } from '../utils/roles';
 
 const ellipsis = (maxWidth) => ({
   maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -67,6 +69,8 @@ const COLUMNS = [
 ];
 
 export default function ObligationsRegisterPage() {
+  const { user } = useAuth();
+  const readOnly = isReadOnly(user?.role);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -211,12 +215,16 @@ export default function ObligationsRegisterPage() {
             <Tooltip title="Refresh">
               <IconButton onClick={refresh}><ArrowPathIcon size={18} /></IconButton>
             </Tooltip>
-            <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
-              Import
-            </Button>
-            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={openCreate}>
-              New Obligation
-            </Button>
+            {!readOnly && (
+              <>
+                <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
+                  Import
+                </Button>
+                <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={openCreate}>
+                  New Obligation
+                </Button>
+              </>
+            )}
           </>
         )}
       />

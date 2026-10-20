@@ -101,7 +101,7 @@ export default function UploadPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      if (title) formData.append('title', title);
+      formData.append('title', title.trim() || file.name.replace(/\.[^.]+$/, ''));
       if (tenantRegulatorId) formData.append('tenant_regulator_id', tenantRegulatorId);
       await api.uploads.upload(formData);
       setSuccess('Upload started.');
@@ -135,7 +135,7 @@ export default function UploadPage() {
           onChange={e => {
             const f = e.target.files[0];
             setFile(f);
-            if (f) setTitle(f.name.replace(/\.[^.]+$/, ''));
+            // the file name is only a placeholder: pre-filling the box glued typed titles onto it
           }} />
         <FilterField label="File" minWidth={160}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -154,7 +154,7 @@ export default function UploadPage() {
           </Box>
         </FilterField>
         <FilterField label="Title" grow>
-          <TextField size="small" placeholder="Title" value={title}
+          <TextField size="small" placeholder={file ? file.name.replace(/\.[^.]+$/, '') : 'Title'} value={title}
             onChange={e => setTitle(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
         </FilterField>
         <FilterField label="Regulator" minWidth={150}>

@@ -756,7 +756,7 @@ export const api = {
   },
   users: {
     me: () => request('/users/me'),
-    list: () => request('/users'),
+    list: (opts = {}) => request(`/users${opts.includeInactive ? '?includeInactive=true' : ''}`),
     invite: (data) => request('/users/invite', {
       method: 'POST', body: JSON.stringify(data),
     }),

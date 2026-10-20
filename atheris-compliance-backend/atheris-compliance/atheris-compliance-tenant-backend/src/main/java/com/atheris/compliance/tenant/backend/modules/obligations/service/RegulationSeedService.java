@@ -273,7 +273,9 @@ public class RegulationSeedService {
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))
                     .testFrequencyDays(ControlSchedule.daysForFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel())))
                     .inherentRisk(c.getRiskLevel())
-                    .residualRisk(c.getRiskLevel())
+                    // the toolkit's residual (likelihood × impact after controls), not a copy of inherent
+                    .residualRisk(c.getResidualRiskRating() != null && !c.getResidualRiskRating().isBlank()
+                        ? c.getResidualRiskRating() : c.getRiskLevel())
                     .residualLikelihood(c.getResidualLikelihood())
                     .residualImpact(c.getResidualImpact())
                     .residualRiskRating(c.getResidualRiskRating())

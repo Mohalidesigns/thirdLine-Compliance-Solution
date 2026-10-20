@@ -40,7 +40,7 @@ export default function GapModal({ open, onClose, obligationId, initial = {}, on
         <FormControlLabel control={
           <Switch checked={!!form.hasGap}
             onChange={e => setForm({ ...form, hasGap: e.target.checked })} />
-        } label={<Typography variant="body2">Has gap (no control covers this obligation)</Typography>} />
+        } label={<Typography variant="body2">Has gap (a weakness in how this obligation is met — flagged for follow-up)</Typography>} />
         {form.hasGap && (
           <TextField size="small" fullWidth multiline rows={3} label="Gap description"
             value={form.gapDescription || ''}

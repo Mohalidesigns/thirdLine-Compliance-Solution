@@ -8,4 +8,6 @@ public interface RunbookExecutionEscalationRepository extends JpaRepository<Runb
     List<RunbookExecutionEscalation> findByExecutionIdOrderBySentAtAsc(Long executionId);
     boolean existsByExecutionIdAndTriggerType(Long executionId, String triggerType);
     long countByAcknowledgedAtIsNull();
+    long countByAcknowledgedAtIsNullAndExecutionIdNotIn(java.util.Collection<Long> executionIds);
+    List<RunbookExecutionEscalation> findByExecutionIdAndAcknowledgedAtIsNull(Long executionId);
 }

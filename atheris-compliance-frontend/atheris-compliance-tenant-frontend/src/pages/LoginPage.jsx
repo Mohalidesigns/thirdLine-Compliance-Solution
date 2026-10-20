@@ -35,7 +35,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true }); // the index route sends each role to its landing page
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

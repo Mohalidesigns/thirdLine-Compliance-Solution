@@ -284,6 +284,13 @@ export default function InstrumentsPage() {
   const [showOcr, setShowOcr] = useState(false);
   const [sanctionsOpen, setSanctionsOpen] = useState(true);
 
+  // Keep the open detail in step with ?id= (browser Back / Forward).
+  const urlId = searchParams.get('id');
+  useEffect(() => {
+    if (!urlId) setDetailItem(prev => (prev ? null : prev));
+    else setDetailItem(prev => (prev && String(prev.id) === urlId ? prev : { id: Number(urlId) }));
+  }, [urlId]);
+
   // Debounce the server-side search so each keystroke doesn't fire (and cancel) a request.
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -372,6 +379,8 @@ export default function InstrumentsPage() {
 
   function openDetail(item) {
     setDetailItem(item);
+    // put the instrument in the URL so browser Back returns to the list and the page can be shared
+    setSearchParams({ id: String(item.id) });
     setShowOcr(false);
     setSanctionsOpen(true);
   }
@@ -379,7 +388,7 @@ export default function InstrumentsPage() {
   function closeDetail() {
     setDetailItem(null);
     setShowOcr(false);
-    if (searchParams.has('id')) setSearchParams({}, { replace: true });
+    if (searchParams.has('id')) setSearchParams({});
   }
 
   async function fetchPdfBlob(instrumentId) {
@@ -425,6 +434,7 @@ export default function InstrumentsPage() {
     const sanctions = Array.isArray(detailData?.sanctions) ? detailData.sanctions : [];
     const riskRating = detailData?.riskRating || d.riskRating;
     const status = detailData?.status || d.status;
+    const noDocument = !!detailData && !detailData.pdfUrl;
     return (
       <Box>
         <PageHeader
@@ -433,12 +443,21 @@ export default function InstrumentsPage() {
           backLabel="Back to Instruments"
           actions={(
             <>
-              <Button variant="outlined" onClick={() => handleViewInstrument(d)} startIcon={<EyeIcon size={16} />}>
-                View Instrument
-              </Button>
-              <Button variant="outlined" onClick={() => handleDownloadInstrument(d)} startIcon={<ArrowDownTrayIcon size={16} />}>
-                Download
-              </Button>
+              {/* toolkit instruments carry no PDF — say so up front instead of a 404 after the click */}
+              <Tooltip title={noDocument ? 'No document is available for this instrument' : ''}>
+                <span>
+                  <Button variant="outlined" disabled={noDocument} onClick={() => handleViewInstrument(d)} startIcon={<EyeIcon size={16} />}>
+                    View Instrument
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title={noDocument ? 'No document is available for this instrument' : ''}>
+                <span>
+                  <Button variant="outlined" disabled={noDocument} onClick={() => handleDownloadInstrument(d)} startIcon={<ArrowDownTrayIcon size={16} />}>
+                    Download
+                  </Button>
+                </span>
+              </Tooltip>
             </>
           )}
         >
@@ -478,7 +497,7 @@ export default function InstrumentsPage() {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Document Type</Typography>
+                  <Typography variant="caption" color="text.secondary">Nature</Typography>
                   <Typography variant="body2">{detailData?.documentType || d.documentType || '-'}</Typography>
                 </Box>
                 <Box>

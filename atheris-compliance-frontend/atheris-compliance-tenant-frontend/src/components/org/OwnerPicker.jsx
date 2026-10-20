@@ -93,6 +93,8 @@ function QuickAddOwnerDialog({ open, onClose, onCreated }) {
       if (form.jobTitle.trim()) body.jobTitle = form.jobTitle.trim();
       if (form.departmentId) body.departmentId = Number(form.departmentId);
       if (form.teamId) body.teamId = Number(form.teamId);
+      // created from a system user: link it, so the owner also gets in-app notifications
+      if (fromUser) body.userId = Number(fromUser);
       const created = await api.org.createOwner(body);
       onCreated(created);
     } catch (e) { setError(e.message); }

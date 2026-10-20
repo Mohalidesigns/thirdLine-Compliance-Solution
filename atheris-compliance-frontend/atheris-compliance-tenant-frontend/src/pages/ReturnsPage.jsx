@@ -53,7 +53,12 @@ function inherentRiskChip(rating) {
   return <RiskBadge value={rating} />;
 }
 
-const STAGE_NAMES = ['Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
+// Same order as the backend's ReturnStage (Not Started is a stage too — leaving it out shifted
+// every "Mark complete → X" label one stage ahead of the real transition).
+const STAGE_NAMES = ['Not Started', 'Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
+const SIGN_OFF_INDEX = STAGE_NAMES.indexOf('Sign-off');
+// PUT /returns/instances/{id}/submit is CCO / TENANT_ADMIN only.
+const SUBMIT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
 
 function formatDate(d) {
@@ -177,7 +182,7 @@ export default function ReturnsPage() {
 
   const KPI_STATUS = { overdue: 'Overdue', inProgress: 'In Progress', submitted: 'Submitted', dueDateNeeded: DUE_DATE_NEEDED };
   const kpis = [
-    { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
+    { key: 'total', label: 'Filing Periods', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, tone: 'orange', icon: <PresentationChartLineIcon /> },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
@@ -268,9 +273,11 @@ export default function ReturnsPage() {
                 Import
               </Button>
             )}
-            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
-              Add Return
-            </Button>
+            {canImport && (
+              <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
+                Add Return
+              </Button>
+            )}
           </>
         )}
       />
@@ -725,6 +732,8 @@ function LinkedObligations({ returnId }) {
 
 /* ───────── Detail View ───────── */
 function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onEditEventTrigger }) {
+  const { user } = useAuth();
+  const canSubmit = SUBMIT_ROLES.includes(user?.role);
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
@@ -849,18 +858,24 @@ function DetailView({ detail, onBack, onRefresh, onSnackbar, onEditSchedule, onE
                       <LinkIcon size={14} /> Evidence
                     </Link>
                   )}
-                  {stage.current && !isSubmitted && i < STAGE_NAMES.length - 1 && (
+                  {stage.current && !isSubmitted && i < SIGN_OFF_INDEX && (
                     <Box sx={{ mt: 1 }}>
                       <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
                         Mark complete → {STAGE_NAMES[i + 1]}
                       </Button>
                     </Box>
                   )}
-                  {stage.current && i === STAGE_NAMES.length - 1 && !isSubmitted && (
+                  {stage.current && i === SIGN_OFF_INDEX && !isSubmitted && (
                     <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
-                        Mark as submitted
-                      </Button>
+                      {canSubmit ? (
+                        <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
+                          Sign off &amp; mark as submitted
+                        </Button>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          Waiting for a CCO to sign off and submit.
+                        </Typography>
+                      )}
                     </Box>
                   )}
                 </Box>
@@ -921,7 +936,7 @@ function AdvanceDialog({ open, onClose, instanceId, stageName, nextStageName, on
         <Grid container spacing={2}>
           <Grid size={{ xs: 12 }}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
             onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
+          <Grid size={{ xs: 12 }}><TextField label="Completed by (defaults to you)" fullWidth size="small" value={form.completedByName}
             onChange={e => setForm(f => ({ ...f, completedByName: e.target.value }))} /></Grid>
         </Grid>
       </DialogContent>

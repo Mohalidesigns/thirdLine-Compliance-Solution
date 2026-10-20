@@ -32,6 +32,8 @@ export default function ActsPage() {
   const [size, setSize] = useState(Number(searchParams.get('size') || 20));
   const [sortField, setSortField] = useState(searchParams.get('sortField') || 'name');
   const [sortDir, setSortDir] = useState(searchParams.get('sortDir') || 'asc');
+  // Default to the acts in this tenant's register (the platform has hundreds the tenant never adopted).
+  const [allActs, setAllActs] = useState(searchParams.get('all') === '1');
 
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput), 300);
@@ -45,8 +47,9 @@ export default function ActsPage() {
     if (page) p.page = String(page);
     if (size !== 20) p.size = String(size);
     if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
+    if (allActs) p.all = '1';
     setSearchParams(p, { replace: true });
-  }, [q, regulatorFilter, page, size, sortField, sortDir, setSearchParams]);
+  }, [q, regulatorFilter, page, size, sortField, sortDir, allActs, setSearchParams]);
 
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['acts-stats'],
@@ -56,13 +59,14 @@ export default function ActsPage() {
   const params = {
     q: q || undefined,
     regulator: regulatorFilter !== 'All' ? regulatorFilter : undefined,
+    inRegister: allActs ? undefined : 'true',
     page,
     size,
     sort: sortField ? `${sortField},${sortDir}` : undefined,
   };
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['acts', q, regulatorFilter, page, size, sortField, sortDir],
+    queryKey: ['acts', q, regulatorFilter, allActs, page, size, sortField, sortDir],
     queryFn: ({ signal }) => api.acts.list(params, { signal }),
     placeholderData: (prev) => prev,
   });
@@ -71,9 +75,9 @@ export default function ActsPage() {
   const total = data?.totalElements ?? 0;
   const regulatorOptions = stats?.regulators || [];
 
-  const hasFilters = !!searchInput || regulatorFilter !== 'All';
+  const hasFilters = !!searchInput || regulatorFilter !== 'All' || allActs;
 
-  function clearFilters() { setSearchInput(''); setQ(''); setRegulatorFilter('All'); setPage(0); }
+  function clearFilters() { setSearchInput(''); setQ(''); setRegulatorFilter('All'); setAllActs(false); setPage(0); }
 
   function handleSort(field) {
     if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -85,12 +89,14 @@ export default function ActsPage() {
 
   function onKpiSelect(key) {
     setPage(0);
-    if (key === 'total') setRegulatorFilter('All');
+    if (key === 'register') { setAllActs(false); setRegulatorFilter('All'); }
+    if (key === 'total') { setAllActs(true); setRegulatorFilter('All'); }
   }
 
   // Drill into a regulator from the Total Acts breakdown.
   function onKpiDrill(key, label) {
     if (key !== 'total') return;
+    setAllActs(true); // the breakdown counts every platform act
     setRegulatorFilter(label);
     setPage(0);
   }
@@ -103,17 +109,17 @@ export default function ActsPage() {
   }), { obligations: 0, controls: 0, returns: 0, sanctions: 0 });
 
   const kpis = [
-    { key: 'total', label: 'Total Acts', value: stats?.totalActs ?? 0, tone: 'blue',
+    { key: 'register', label: 'In My Register', value: stats?.actsInRegister ?? 0, tone: 'green',
+      icon: <ScaleIcon />, active: !allActs },
+    { key: 'total', label: 'All Platform Acts', value: stats?.totalActs ?? 0, tone: 'blue',
       icon: <BuildingLibraryIcon />, breakdown: topTen(stats?.byRegulator),
-      active: regulatorFilter !== 'All' },
+      active: allActs },
     { key: 'obligations', label: 'Obligations (page)', value: pageTotals.obligations, tone: 'purple',
       icon: <ScaleIcon /> },
     { key: 'controls', label: 'Controls (page)', value: pageTotals.controls, tone: 'teal',
       icon: <ClipboardDocumentCheckIcon /> },
     { key: 'returns', label: 'Returns (page)', value: pageTotals.returns, tone: 'orange',
       icon: <DocumentTextIcon /> },
-    { key: 'sanctions', label: 'Sanctions (page)', value: pageTotals.sanctions, tone: 'red',
-      icon: <BanknotesIcon /> },
   ];
 
   return (

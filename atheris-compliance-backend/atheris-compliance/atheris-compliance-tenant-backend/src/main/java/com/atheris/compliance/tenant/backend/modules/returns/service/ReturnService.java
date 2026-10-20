@@ -361,14 +361,21 @@ public class ReturnService {
                 .totalInstances(insts.size()).overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
         }
 
+        // The row shows the period that needs action: the oldest missed one, else the next one due.
+        // (It used to show the next due date next to the "overdue" of an older period.)
         ReturnFilingInstance current = null;
+        ReturnFilingInstance oldestOverdue = null;
         for (ReturnFilingInstance i : insts) {
             boolean submitted = ReturnFilingStatus.SUBMITTED.equals(i.getStatus())
                 || ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus());
-            if (!submitted && i.getDueDate() != null && !i.getDueDate().isBefore(now)) {
-                if (current == null || i.getDueDate().isBefore(current.getDueDate())) current = i;
+            if (submitted || i.getDueDate() == null) continue;
+            if (i.getDueDate().isBefore(now)) {
+                if (oldestOverdue == null || i.getDueDate().isBefore(oldestOverdue.getDueDate())) oldestOverdue = i;
+            } else if (current == null || i.getDueDate().isBefore(current.getDueDate())) {
+                current = i;
             }
         }
+        if (oldestOverdue != null) current = oldestOverdue;
         if (current == null) {
             current = insts.stream()
                 .max((a, c) -> {
@@ -541,7 +548,7 @@ public class ReturnService {
     }
 
     @Transactional
-    public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId) {
+    public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId, String userName) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
@@ -559,7 +566,10 @@ public class ReturnService {
         Map<String, String> stageEntry = new HashMap<>();
         stageEntry.put("completedAt", Instant.now().toString());
         stageEntry.put("completedByUserId", String.valueOf(userId));
-        if (req.getCompletedByName() != null) stageEntry.put("completedByName", req.getCompletedByName());
+        // who completed the stage is always recorded — the signed-in user unless a name was typed
+        String completedBy = req.getCompletedByName() != null && !req.getCompletedByName().isBlank()
+            ? req.getCompletedByName().trim() : userName;
+        if (completedBy != null) stageEntry.put("completedByName", completedBy);
         if (req.getEvidenceUrl() != null) stageEntry.put("evidenceUrl", req.getEvidenceUrl());
         stageData.put(inst.getCurrentStage().db(), stageEntry);
         try {
@@ -585,7 +595,7 @@ public class ReturnService {
     }
 
     @Transactional
-    public void submit(Long instanceId, String evidenceUrl, Integer userId) {
+    public void submit(Long instanceId, String evidenceUrl, Integer userId, String userName) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
@@ -607,6 +617,7 @@ public class ReturnService {
         Map<String, String> stageEntry = new HashMap<>();
         stageEntry.put("completedAt", Instant.now().toString());
         stageEntry.put("completedByUserId", String.valueOf(userId));
+        if (userName != null) stageEntry.put("completedByName", userName);
         if (evidenceUrl != null) stageEntry.put("evidenceUrl", evidenceUrl);
         stageData.put("Sign-off", stageEntry);
         try {

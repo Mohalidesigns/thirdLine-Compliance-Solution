@@ -82,33 +82,34 @@ function EscalationSection({ data }) {
             <TableRow>
               <TableCell>Return</TableCell>
               <TableCell>Regulator</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell>Area of Focus</TableCell>
               <TableCell>Owner</TableCell>
-              <TableCell>Dept Head</TableCell>
               <TableCell>Level</TableCell>
               <TableCell align="right">Days Late</TableCell>
-              <TableCell>Period</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {escalations.map((e, i) => (
               <TableRow key={e.returnId ? `${e.returnId}-${e.period}-${i}` : i} hover
                 sx={{ bgcolor: e.escalationLevel >= 3 ? '#FEF2F2' : e.escalationLevel >= 2 ? '#FFFBEB' : 'inherit' }}>
+                {/* 5 columns (UI rule): period, department and area ride as captions */}
                 <TableCell>
                   <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'primary.main' }}>{e.returnName || '-'}</Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
+                    {[e.period, e.department, e.areaOfFocus].filter(Boolean).join(' · ')}
+                  </Typography>
                 </TableCell>
                 <TableCell>{e.regulator || '-'}</TableCell>
-                <TableCell>{e.department || '-'}</TableCell>
-                <TableCell>{e.areaOfFocus || '-'}</TableCell>
-                <TableCell>{e.returnOwner || '-'}</TableCell>
-                <TableCell>{e.departmentHead || '-'}</TableCell>
+                <TableCell>
+                  {e.returnOwner || '-'}
+                  {e.departmentHead && (
+                    <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>Head: {e.departmentHead}</Typography>
+                  )}
+                </TableCell>
                 <TableCell>
                   <StatusBadge label={e.escalationLabel}
                     tone={e.escalationLevel >= 3 ? 'red' : e.escalationLevel >= 2 ? 'orange' : 'blue'} />
                 </TableCell>
                 <TableCell align="right">{e.daysLate ?? 0}</TableCell>
-                <TableCell>{e.period || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -105,6 +105,9 @@ public class ReportsService {
         BoardPack pack = load(id);
         if ("SIGNED_OFF".equals(pack.getStatus()))
             throw ApiException.conflict("already_signed_off", "This board pack is already signed off");
+        // Maker/checker: the person who generated the pack cannot also sign it off.
+        if (user != null && pack.getGeneratedByUserId() != null && pack.getGeneratedByUserId().equals(user.getUserId()))
+            throw ApiException.conflict("same_person", "You generated this board pack — a different person must sign it off");
 
         ComplianceMetricsDto m = metrics.compute(pack.getPeriodFrom(), pack.getPeriodTo());
         TenantProfile profile = tenantIdentity.currentProfile().orElse(null);
@@ -130,11 +133,11 @@ public class ReportsService {
         return toDto(pack);
     }
 
-    public byte[] download(Long id) {
+    public byte[] download(Long id, User user) {
         BoardPack pack = load(id);
         try {
             byte[] bytes = Files.readAllBytes(Path.of(pack.getFilePath()));
-            audit.log(null, "board_pack_downloaded", "board_pack", pack.getBoardPackId(), Map.of());
+            audit.log(user != null ? user.getUserId() : null, "board_pack_downloaded", "board_pack", pack.getBoardPackId(), Map.of());
             return bytes;
         } catch (IOException e) {
             throw ApiException.notFound("Board pack file is unavailable");
@@ -192,6 +195,7 @@ public class ReportsService {
             .sections(p.getSections()).status(p.getStatus())
             .complianceScore(p.getComplianceScore())
             .fileName(p.getFileName()).fileSha256(p.getFileSha256())
+            .generatedByUserId(p.getGeneratedByUserId())
             .generatedByName(p.getGeneratedByName()).generatedAt(p.getGeneratedAt())
             .signedOffByName(p.getSignedOffByName()).signedOffAt(p.getSignedOffAt()).signOffNote(p.getSignOffNote())
             .build();

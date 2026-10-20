@@ -56,8 +56,7 @@ public class ControlService {
         long total = repo.count();
         long active = repo.countByStatus("Active");
         long highRisk = repo.countByResidualRisk("High");
-        Set<Integer> overdueTaskControlIds = new HashSet<>(repo.findControlIdsWithOverdueTasks(LocalDate.now()));
-        long testsDue = overdueTaskControlIds.size();
+        long testsDue = ControlTaskRules.testsDue(taskRepo.findAll(), LocalDate.now());
         List<String> themes = repo.findDistinctThemes();
         List<String> owners = repo.findDistinctOwners();
         List<String> acts = repo.findDistinctActNames();

@@ -34,6 +34,7 @@ public class UploadService {
     private final PlatformApiClient platformClient;
     private final PendingReviewRepository pendingReviews;
     private final TenantIdentityService tenantIdentity;
+    private final com.atheris.compliance.tenant.backend.modules.audit.service.AuditService audit;
 
     @Transactional
     public UploadJobResponse uploadDocument(MultipartFile file, Long tenantRegulatorId,
@@ -76,6 +77,11 @@ public class UploadService {
             job.setStatus(result.getInstrumentId() != null ? "completed" : "processing");
         }
         uploadJobs.save(job);
+        java.util.Map<String, Object> details = new java.util.HashMap<>();
+        details.put("title", job.getTitle());
+        details.put("fileName", file.getOriginalFilename());
+        details.put("status", job.getStatus());
+        audit.logCurrentUser("document_uploaded", "upload_job", job.getId(), details);
 
         return UploadJobResponse.builder()
             .uploadId(uploadId)

@@ -59,6 +59,10 @@ public class SeedControlRepairService {
 
         List<ControlTask> moved = new ArrayList<>();
         Result r = apply(seeded, platform, tested, pending, LocalDate.now(), moved);
+        int residualAligned = alignResidual(seeded, tested);
+        if (residualAligned > 0)
+            org.slf4j.LoggerFactory.getLogger(SeedControlRepairService.class)
+                .info("[SeedRepair] controls residual risk set from the toolkit residual rating={}", residualAligned);
         controls.saveAll(seeded);
         tasks.saveAll(moved);
         return r;
@@ -118,6 +122,24 @@ public class SeedControlRepairService {
             }
         }
         return new Result(risk, cadence, rescheduled, residualRating);
+    }
+
+    /**
+     * The seed copied the inherent band into {@code residualRisk}, so "high residual risk" counted
+     * almost every control. An untested seeded control whose residual is still that copy takes the
+     * toolkit's residual rating (residual likelihood × impact) instead. A tested control keeps the
+     * residual its tests produced.
+     */
+    static int alignResidual(List<Control> seeded, Set<Integer> tested) {
+        int n = 0;
+        for (Control c : seeded) {
+            String rating = c.getResidualRiskRating();
+            if (rating == null || rating.isBlank() || tested.contains(c.getControlId())) continue;
+            if (!Objects.equals(c.getResidualRisk(), c.getInherentRisk()) || rating.equals(c.getResidualRisk())) continue;
+            c.setResidualRisk(rating);
+            n++;
+        }
+        return n;
     }
 
     private static boolean untouchedFutureTest(ControlTask t, LocalDate today) {
