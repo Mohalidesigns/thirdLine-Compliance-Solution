@@ -16,3 +16,5 @@ Thumbs.db
 data/
 data/
 .vite/
+# local secrets
+.gemini-key
