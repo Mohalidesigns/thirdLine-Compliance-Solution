@@ -6,7 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.acts.repository.ActReposito
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
-import com.atheris.compliance.tenant.backend.modules.notifications.service.EscalationNotifier;
+import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
@@ -17,6 +17,7 @@ import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +40,6 @@ import java.util.stream.Collectors;
 public class ReturnService {
 
     private static final int SYSTEM_USER_ID = 0;
-    private static final int ESCALATION_CAP = 3;
     private static final List<ReturnStage> STAGES = List.of(ReturnStage.values());
     /** Register status filter value for returns with no due rule. */
     public static final String STATUS_DUE_DATE_NEEDED = "Due date needed";
@@ -54,7 +54,7 @@ public class ReturnService {
     private final TenantIdentityService tenantIdentity;
     private final ObligationService obligationService;
     private final UntouchedInstances untouched;
-    private final EscalationNotifier escalationNotifier;
+    private final EscalationPolicyService escalationPolicyService;
     private final NotificationService notifications;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -64,23 +64,9 @@ public class ReturnService {
     @Value("${atheris.returns.instance-lookahead-days:120}")
     private int lookaheadDays;
 
-    @Value("${atheris.returns.escalation-thresholds:2,5}")
-    private String escalationThresholds;
-
-    private List<Integer> thresholds() {
-        List<Integer> out = new ArrayList<>();
-        if (escalationThresholds != null)
-            for (String t : escalationThresholds.split(",")) {
-                String s = t.trim();
-                if (!s.isEmpty()) try { out.add(Integer.parseInt(s)); } catch (NumberFormatException ignored) {}
-            }
-        return out;
-    }
-
     @Scheduled(fixedDelay = 300000)
     void scheduledMaintenance() {
         try { ensureInstancesForActive(); } catch (Exception e) { log.warn("Scheduled ensureInstances failed: {}", e.getMessage()); }
-        try { catchUpEscalations(); } catch (Exception e) { log.warn("Scheduled catchUpEscalations failed: {}", e.getMessage()); }
     }
 
     @Transactional
@@ -384,6 +370,7 @@ public class ReturnService {
             .responsiblePerson(r.getResponsiblePerson())
             .responsibleUnits(r.getResponsibleUnits())
             .responsiblePersons(r.getResponsiblePersons())
+            .escalationPolicyId(r.getEscalationPolicyId())
             .dueDateNeeded(DueRule.dueDateNeeded(r))
             .dueRuleType(rule != null ? rule.kind().name() : null)
             .firstDueDate(rule != null && rule.kind() == DueRule.Kind.DATE ? rule.firstDueDate() : null)
@@ -753,7 +740,8 @@ public class ReturnService {
             .responsibleUnits(units)
             .responsiblePersons(persons)
             .responsibleUnit(units.isEmpty() ? null : units.get(0))
-            .responsiblePerson(persons.isEmpty() ? null : persons.get(0)).build();
+            .responsiblePerson(persons.isEmpty() ? null : persons.get(0))
+            .escalationPolicyId(req.getEscalationPolicyId()).build();
         RegulatoryReturn saved = returns.save(r);
         ensureInstances(saved);
         audit.log(userId, "return_created", "return", saved.getReturnId(),
@@ -1087,12 +1075,14 @@ public class ReturnService {
     private void materializeAt(RegulatoryReturn ret, String period, LocalDate due, Set<String> existing) {
         if (!existing.add(period)) return;
         int offset = ret.getFilingDeadlineOffsetDays() != null ? ret.getFilingDeadlineOffsetDays() : 5;
-        instances.save(ReturnFilingInstance.builder()
+        ReturnFilingInstance instance = instances.save(ReturnFilingInstance.builder()
             .returnId(ret.getReturnId())
             .period(period).dueDate(due).prepStartDate(due.minusDays(offset))
             .filingChannel(ret.getFilingChannel())
             .currentStage(ReturnStage.NOT_STARTED)
             .status(ReturnFilingStatus.NOT_STARTED).build());
+        escalationPolicyService.ensureFrozen(EscalationConstants.SUBJECT_RETURN, instance.getInstanceId(),
+            ret.getEscalationPolicyId());
     }
 
     private enum PeriodUnit { DAY, WEEK, MONTH }
@@ -1118,42 +1108,6 @@ public class ReturnService {
             case WEEK  -> date.plusWeeks(step.amount());
             case MONTH -> date.plusMonths(step.amount());
         };
-    }
-
-    private void catchUpEscalations() {
-        for (ReturnFilingInstance inst : instances.findByStatusNotInAndDueDateBefore(
-                List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE), LocalDate.now())) {
-            try {
-                long days = ChronoUnit.DAYS.between(inst.getDueDate(), LocalDate.now());
-                int implied = impliedEscalation(days);
-                int current = inst.getEscalationLevel() != null ? inst.getEscalationLevel() : 0;
-                if (implied > current) {
-                    inst.setEscalationLevel(implied);
-                    inst.setEscalatedAt(Instant.now());
-                    instances.save(inst);
-                    audit.log(SYSTEM_USER_ID, "return_escalated", "return_instance", inst.getInstanceId(),
-                        Collections.singletonMap("level", implied));
-                    log.info("Escalated return instance {} to level {}", inst.getInstanceId(), implied);
-                    try {
-                        escalationNotifier.escalate(implied, inst.getStageOwnerUserId(), NotificationConstants.CATEGORY_RETURNS,
-                            "Regulatory return overdue",
-                            "Return filing " + inst.getPeriod() + " is " + days + " day(s) overdue (L" + implied + ")",
-                            "/returns");
-                    } catch (Exception ne) {
-                        log.warn("Escalation notification failed for instance {}: {}", inst.getInstanceId(), ne.getMessage());
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Escalation check failed for instance {}: {}", inst.getInstanceId(), e.getMessage());
-            }
-        }
-    }
-
-    private int impliedEscalation(long daysLate) {
-        if (daysLate <= 0) return 0;
-        int level = 1;
-        for (int t : thresholds()) if (daysLate > t) level++;
-        return Math.min(level, ESCALATION_CAP);
     }
 
     /** Blank → null; otherwise a canonical label/alias or recognisable free text, else 400. */

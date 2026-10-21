@@ -53,6 +53,7 @@ public class RegulatoryReturn {
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;
+    private Long escalationPolicyId;
     private String responsibleUnit;
     private String responsiblePerson;
     @JdbcTypeCode(SqlTypes.JSON)

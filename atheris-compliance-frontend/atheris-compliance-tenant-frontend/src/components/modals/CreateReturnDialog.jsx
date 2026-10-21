@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Autocomplete, Chip,
@@ -11,8 +12,8 @@ import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
   returnName: '', actId: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
-  filingDate: '', deadlineKind: 'DATE', dueDaysAfterPeriodEnd: '', filingDeadlineOffsetDays: '', filingChannel: '',
-  responsibleUnits: [], responsiblePersons: [],
+  filingDate: '', ruleType: 'DATE', dueDaysAfterPeriodEnd: '', filingDeadlineOffsetDays: '', filingChannel: '',
+  responsibleUnits: [], responsiblePersons: [], escalationPolicyId: '',
   linkedObligationIds: [],
 };
 
@@ -43,46 +44,47 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [regulators, setRegulators] = useState([]);
-  const [acts, setActs] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [extraRegulators, setExtraRegulators] = useState([]);
   const [linksOpen, setLinksOpen] = useState(false);
   const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
+
+  const regulatorsQuery = useQuery({
+    queryKey: ['regulators', 'list'],
+    queryFn: ({ signal }) => api.regulators.list({}, { signal }),
+    enabled: open,
+  });
+  const actsQuery = useQuery({
+    queryKey: ['acts', 'list', 1000],
+    queryFn: ({ signal }) => api.acts.list({ size: 1000 }, { signal }),
+    enabled: open,
+  });
+  const departmentsQuery = useQuery({
+    queryKey: ['org', 'departments', true],
+    queryFn: () => api.org.departments(true),
+    enabled: open,
+  });
+  const policiesQuery = useQuery({
+    queryKey: ['escalation', 'policies', 'RETURN'],
+    queryFn: () => api.escalation.policies('RETURN'),
+    enabled: open,
+  });
+
+  const asList = (d) => (Array.isArray(d) ? d : (d?.content || []));
+  const regulators = useMemo(() => [...asList(regulatorsQuery.data), ...extraRegulators], [regulatorsQuery.data, extraRegulators]);
+  const acts = asList(actsQuery.data);
+  const departments = asList(departmentsQuery.data);
+  const policies = asList(policiesQuery.data);
 
   const addRegulator = (created) => {
     setRegulatorAddOpen(false);
     if (!created) return;
-    setRegulators(prev => [...prev, created]);
+    setExtraRegulators(prev => [...prev, created]);
     set('filingRegulator', created.abbreviation || created.name || '');
     set('tenantRegulatorId', String(created.id ?? created.tenantRegulatorId));
   };
 
   useEffect(() => {
-    if (open) { setForm({ ...EMPTY }); setError(''); }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    api.regulators.list().then(res => {
-      const items = Array.isArray(res) ? res : (res.content || []);
-      setRegulators(items);
-    }).catch(() => setRegulators([]));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    api.acts.list({ size: 1000 }).then(res => {
-      const items = Array.isArray(res) ? res : (res.content || []);
-      setActs(items);
-    }).catch(() => setActs([]));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    api.org.departments(true).then(res => {
-      const items = Array.isArray(res) ? res : (res.content || []);
-      setDepartments(items);
-    }).catch(() => setDepartments([]));
+    if (open) { setForm({ ...EMPTY }); setError(''); setExtraRegulators([]); }
   }, [open]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -100,6 +102,8 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       else delete body.filingDeadlineOffsetDays;
       if (body.tenantRegulatorId) body.tenantRegulatorId = parseInt(body.tenantRegulatorId, 10);
       else delete body.tenantRegulatorId;
+      if (form.escalationPolicyId) body.escalationPolicyId = parseInt(form.escalationPolicyId, 10);
+      else delete body.escalationPolicyId;
 
       body.responsibleUnits = (form.responsibleUnits || [])
         .map(u => (typeof u === 'string' ? u : (u.name || ''))).filter(Boolean);
@@ -114,18 +118,15 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       body.returnOwnerName = firstPerson ? (firstPerson.fullName || firstPerson.email) : undefined;
       if (!body.returnOwnerName) delete body.returnOwnerName;
 
-      if (form.deadlineKind === 'EVENT') {
-        body.frequency = EVENT_DRIVEN;
+      if (form.frequency === EVENT_DRIVEN) {
         delete body.filingDate;
         delete body.dueDaysAfterPeriodEnd;
         delete body.ruleType;
-      } else if (form.deadlineKind === 'OFFSET') {
-        body.ruleType = 'OFFSET';
+      } else if (form.ruleType === 'OFFSET') {
         delete body.filingDate;
         if (body.dueDaysAfterPeriodEnd) body.dueDaysAfterPeriodEnd = parseInt(body.dueDaysAfterPeriodEnd, 10);
         else delete body.dueDaysAfterPeriodEnd;
       } else {
-        body.ruleType = 'DATE';
         delete body.dueDaysAfterPeriodEnd;
         if (!body.filingDate) delete body.filingDate;
       }
@@ -287,6 +288,17 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           <Field label="Responsible Persons" sx={{ mb: 0 }}>
             <MultiPersonPicker label="Responsible persons" value={form.responsiblePersons}
               onChange={(list) => set('responsiblePersons', list)} />
+          </Field>
+        </Box>
+
+        <Box sx={{ mt: 2 }}>
+          <Field label="Escalation &amp; reminders" sx={{ mb: 0 }}>
+            <TextField select fullWidth size="small" value={form.escalationPolicyId}
+              onChange={e => set('escalationPolicyId', e.target.value)}
+              helperText="Who is reminded and escalated when this return approaches or passes its due date.">
+              <MenuItem value=""><em>Tenant default</em></MenuItem>
+              {policies.map(p => <MenuItem key={p.policyId} value={String(p.policyId)}>{p.name}</MenuItem>)}
+            </TextField>
           </Field>
         </Box>
 

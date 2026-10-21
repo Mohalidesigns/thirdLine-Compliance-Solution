@@ -28,4 +28,5 @@ public class CreateReturnRequest {
     private String responsiblePerson;
     private java.util.List<String> responsibleUnits;
     private java.util.List<String> responsiblePersons;
+    private Long escalationPolicyId;
 }

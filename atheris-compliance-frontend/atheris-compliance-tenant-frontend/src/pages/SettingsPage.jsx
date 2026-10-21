@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/QuickAddDialogs';
 import PersonPicker from '../components/common/PersonPicker';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
+import NotificationsTab from '../components/settings/NotificationsTab';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
@@ -39,6 +40,7 @@ export default function SettingsPage() {
             { key: 2, label: 'Federal Public Holidays' },
             { key: 3, label: 'System Users' },
             { key: 4, label: 'Email / SMTP' },
+            { key: 5, label: 'Notifications' },
           ] : []),
         ]}
       />
@@ -48,6 +50,7 @@ export default function SettingsPage() {
       {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
       {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
       {tab === 4 && canManageWorkspace && <SmtpTab />}
+      {tab === 5 && canManageWorkspace && <NotificationsTab />}
     </Box>
   );
 }

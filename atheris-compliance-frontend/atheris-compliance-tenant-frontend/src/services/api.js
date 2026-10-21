@@ -617,6 +617,22 @@ export const api = {
       }),
     },
   },
+  escalation: {
+    policies: (subjectType) => request(`/escalation/policies${subjectType ? `?subjectType=${subjectType}` : ''}`),
+    policy: (id) => request(`/escalation/policies/${id}`),
+    createPolicy: (data) => request('/escalation/policies', { method: 'POST', body: JSON.stringify(data) }),
+    updatePolicy: (id, data) => request(`/escalation/policies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deletePolicy: (id) => request(`/escalation/policies/${id}`, { method: 'DELETE' }),
+    instance: (subjectType, subjectId) => request(`/escalation/instances/${subjectType}/${subjectId}`),
+    saveInstance: (subjectType, subjectId, data) => request(`/escalation/instances/${subjectType}/${subjectId}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    deleteInstance: (subjectType, subjectId) => request(`/escalation/instances/${subjectType}/${subjectId}`, {
+      method: 'DELETE',
+    }),
+    reapply: (subjectType, subjectId, policyId) => request(
+      `/escalation/instances/${subjectType}/${subjectId}/reapply?policyId=${policyId}`, { method: 'POST' }),
+  },
   settings: {
     polling: () => request('/settings/polling'),
     updatePolling: (data) => request('/settings/polling', {
@@ -629,6 +645,11 @@ export const api = {
     smtp: () => request('/settings/smtp'),
     saveSmtp: (data) => request('/settings/smtp', { method: 'PUT', body: JSON.stringify(data) }),
     testSmtp: (data) => request('/settings/smtp/test', { method: 'POST', body: JSON.stringify(data) }),
+    notificationTemplates: (opts = {}) => request('/settings/notification-templates', { signal: opts.signal }),
+    notificationTemplate: (key) => request(`/settings/notification-templates/${key}`),
+    updateNotificationTemplate: (key, data) => request(`/settings/notification-templates/${key}`, {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
   },
   federalPublicHolidays: {
     list: (year, opts = {}) => {

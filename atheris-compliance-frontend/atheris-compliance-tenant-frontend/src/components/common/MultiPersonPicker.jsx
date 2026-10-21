@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { TextField, Autocomplete, Box, CircularProgress, Typography, Chip } from '@mui/material';
 import { api } from '../../services/api';
 
@@ -13,32 +14,26 @@ function useDebounced(value, ms = 250) {
 
 export default function MultiPersonPicker({ value = [], onChange, label = 'People', disabled = false, size = 'small', helperText }) {
   const [input, setInput] = useState('');
-  const [options, setOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [ldapEnabled, setLdapEnabled] = useState(null);
   const term = useDebounced(input);
 
-  useEffect(() => {
-    let cancelled = false;
-    api.ldap.users('')
-      .then((res) => { if (!cancelled) setLdapEnabled(!!res?.enabled); })
-      .catch(() => { if (!cancelled) setLdapEnabled(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const ldapQuery = useQuery({
+    queryKey: ['ldap', 'enabled'],
+    queryFn: () => api.ldap.users('').then((res) => !!res?.enabled),
+    staleTime: Infinity,
+  });
+  const ldapEnabled = ldapQuery.data ?? null;
 
-  useEffect(() => {
-    if (ldapEnabled == null) return;
-    let cancelled = false;
-    setLoading(true);
-    const request = ldapEnabled
+  const optionsQuery = useQuery({
+    queryKey: ['multi-person-options', ldapEnabled ? 'ldap' : 'local', term],
+    queryFn: () => (ldapEnabled
       ? api.ldap.users(term).then((r) => r.users || [])
-      : api.users.list(term).then((list) => (list || []).map((u) => ({ email: u.email, fullName: u.fullName, userId: u.userId })));
-    Promise.resolve(request)
-      .then((list) => { if (!cancelled) setOptions(list || []); })
-      .catch(() => { if (!cancelled) setOptions([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [ldapEnabled, term]);
+      : api.users.list(term).then((list) => (list || []).map((u) => ({ email: u.email, fullName: u.fullName, userId: u.userId })))),
+    enabled: ldapEnabled != null,
+    placeholderData: (prev) => prev,
+  });
+
+  const options = optionsQuery.data || [];
+  const loading = ldapEnabled == null || optionsQuery.isFetching;
 
   return (
     <Autocomplete

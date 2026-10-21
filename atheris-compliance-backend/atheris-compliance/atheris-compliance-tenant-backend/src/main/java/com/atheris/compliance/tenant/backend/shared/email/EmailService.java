@@ -7,6 +7,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @Slf4j
 public class EmailService {
@@ -41,6 +43,10 @@ public class EmailService {
     }
 
     public void send(String to, String subject, String body, String link) {
+        send(to, null, subject, body, link);
+    }
+
+    public void send(String to, List<String> cc, String subject, String body, String link) {
         if (to == null || to.isBlank()) {
             log.warn("[email-skip] no recipient for subject={}", subject);
             return;
@@ -61,10 +67,16 @@ public class EmailService {
             var helper = new MimeMessageHelper(message, false, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
+            if (cc != null) {
+                String[] ccArray = cc.stream()
+                    .filter(c -> c != null && !c.isBlank() && !c.equalsIgnoreCase(to))
+                    .distinct().toArray(String[]::new);
+                if (ccArray.length > 0) helper.setCc(ccArray);
+            }
             helper.setSubject(subject);
             helper.setText(text, false);
             outbound.sender().send(message);
-            log.info("[email-sent] to={} subject={}", to, subject);
+            log.info("[email-sent] to={} cc={} subject={}", to, cc, subject);
         } catch (Exception e) {
             log.error("[email-failed] to={} subject={} error={}", to, subject, e.getMessage());
         }
