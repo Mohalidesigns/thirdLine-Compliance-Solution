@@ -140,6 +140,20 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Reusable Escalation & Reminder engine — returns + controls (tenant) — `feature/findings-action-ux`
+Policy-driven escalation and reminders for return filings and control tests, replacing the old ad-hoc ladders.
+- **Scheduling** — `config/SchedulingConfig` provides a virtual-thread `SimpleAsyncTaskScheduler`; `EscalationEngine.tick()` (`@Scheduled`, 5 min, 90 s initial) scans every `EscalationSubjectHandler`. Scheduled tasks only use virtual threads (request handling / `@Async` are untouched).
+- **Model (tenant V45 `escalation_*` + V46 `notification_templates`)** — `escalation_policies` (+`_levels`), `escalation_instances` (+`_instance_levels`) for per-subject overrides, `escalation_events` (unique `subject_type/subject_id/trigger_type/level` = fire-once ledger; reminders upsert), and ALTERs `regulatory_returns`/`controls` add `escalation_policy_id`. Defaults (`EscalationDefaultSeeder`): **RETURN** (remind 10 d before, repeat 2 d, sendLink, L1 assignee +0 d / L2 manager +3 d / L3 manager-of-manager +7 d fallback **CCO**) and **CONTROL** (remind 5 d, repeat 2 d, no link, L1 assignee +0 d / L2 manager +2 d / L3 **CCO** +5 d). Offsets are `DAYS|HOURS`; L3 chains the manager ladder and falls back to CCO.
+- **Resolution** — `EscalationPolicyService.resolve(subjectType, subjectId, subjectPolicyId)`: an instance override wins, else the subject's policy, else the tenant default for the type. Returns **freeze** the policy into an instance row at filing creation (`materializeAt` → `ensureFrozen`); the per-filing dialog edits the instance, the return-detail dialog sets the subject policy (`PUT /returns/{returnId}/escalation-policy`).
+- **Delivery** — `EscalationTargetResolver` (ASSIGNEE / MANAGER / MANAGER_OF_MANAGER / PERSON / ROLE, CCO fallback), `EscalationDeliveryService` (in-app notification + email, **owner CC'd**, `{{placeholder}}` templates via `NotificationTemplateService`). Email via `EmailService.send(to, cc[], subject, body, link)`.
+- **Templates** — five seeded defaults, runtime-editable at `GET/PUT /api/v1/settings/notification-templates[/{key}]`; FE **Settings → Notifications** tab.
+- **Returns handler** (`ReturnsEscalationHandler`) — approaching/reminder/overdue per open filing; name→directory resolution; `markEscalated`. The old `catchUpEscalations`/thresholds/`EscalationNotifier` were removed.
+- **Controls handler** (`ControlsEscalationHandler`) — open `control_tasks` (±150 d) → approaching/reminder/overdue; assignee = task user, owner = control owner (CC'd), link `/controls?controlId=`. `ControlTestService.processOverdueTasks` now only flips Pending→Overdue (the bespoke 2/5-day ladder and `EscalationNotifier` were deleted).
+- **Public filing link (phase 3)** — `return_upload_links.instance_id`; `ReturnUploadLinkService.createFilingLink` + filing `view`/`submit` (evidence via `EvidenceVaultService` or a reference) → `ReturnService.submitFromLink` marks the filing **Submitted** (attributed to the link, stops reminders). Approaching/reminder **emails carry `/return-upload/{token}`** (in-app notifications stay on the internal link); the public page handles `mode=FILING`.
+- **FE** — Settings → Notifications tab; Create-Return + return-detail **Escalation policy** pickers; per-filing **Escalation override** dialog; `MultiPersonPicker`/`PersonPicker` converted to TanStack Query.
+- **Commits:** `07cf383`, `41eba77`, `00bd9b8`, `4333549`, `90a221b`. **V43 edit + V45/V46 → drop/recreate the tenant DB and re-onboard.**
+- **Follow-ups:** per-control policy override (the `controls.escalation_policy_id` column exists but has no entity field/UI — the tenant default applies); manual "Send link" for periodic returns (engine-driven only).
+
 ### Returns Act/Obligation grounding + reliability (tenant) — `feature/findings-action-ux`
 A return is now grounded to a governing **Act** (required) and its **Obligation** links are surfaced as a data-quality signal — plus several reliability fixes.
 - **Act is required on create.** `CreateReturnRequest.actId` is `@NotNull`; `ReturnService.doCreate` resolves it via `acts.findByRegulationId` (`resolveAct`), 400 `invalid_act` if unknown, and snapshots **both** `act_id` and `act_name` (previously `actName` was never set — every manual return was `act_id=null`/`act_name=null`, "No act recorded"). `CreateReturnDialog` gained a required **Governing Act** picker (over `GET /acts`, value = `regulationId`); `ActListItem` gained `regulationId`. Linking an obligation auto-fills the act from the obligation's `regulationId`.
@@ -307,6 +321,7 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - `PlatformApiClient` swallows platform failures, so "platform down" surfaces as 404 instead of 502.
 - `changePassword` does not apply the password-strength rule that invite/reset use.
 - Seeded **control** risk (`compliance_controls.risk_level`, tenant `controls.inherent_risk`/`residual_risk`) still carries the old inflated toolkit band and drives test frequency (1835 tests due in 30 days) — being fixed in its own session.
+- **Escalation**: no per-control policy override UI (column exists, entity field does not); no manual "Send link" for periodic returns; `PersonPicker` owner-mode still creates owners on directory pick.
 - Near-duplicate seeded act names (e.g. "Consumer Protection Framework" vs "CBN Consumer Protection Framework") split Risk by Act rows.
 
 ## Done — Dashboard Consistency (tenant `/dashboard`) — `bugfix/dashboard-consistency`
