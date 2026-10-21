@@ -16,6 +16,7 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
+import EscalationOverrideDialog from '../components/returns/EscalationOverrideDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
 import PersonPicker from '../components/common/PersonPicker';
@@ -375,6 +376,7 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [escalationOpen, setEscalationOpen] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
   async function startFiling() {
     setStarting(true);
@@ -404,7 +406,12 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
       </Box>
 
       <Section icon={<CalendarIcon />} title="Filing"
-        action={detail.currentStage ? <Chip size="small" variant="outlined" label={detail.currentStage} /> : null}>
+        action={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {detail.currentStage && <Chip size="small" variant="outlined" label={detail.currentStage} />}
+            <Button size="small" variant="outlined" onClick={() => setEscalationOpen(true)}>Escalation</Button>
+          </Box>
+        )}>
         <FieldGrid min={160}>
           <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'On event' : '—')} />
           <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
@@ -513,6 +520,8 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
       <SubmitDialog open={submitOpen} onClose={() => setSubmitOpen(false)}
         instanceId={detail.instanceId}
         onSaved={() => { setSubmitOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
+      <EscalationOverrideDialog open={escalationOpen} instanceId={detail.instanceId}
+        onClose={() => setEscalationOpen(false)} onSnackbar={onSnackbar} />
     </Box>
   );
 }
