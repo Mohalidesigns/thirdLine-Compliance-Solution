@@ -688,6 +688,28 @@ public class ReturnService {
     }
 
     @Transactional
+    public void submitFromLink(Long instanceId, String evidenceRef, Integer userId) {
+        ReturnFilingInstance inst = instances.findById(instanceId)
+            .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+        if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
+            return;
+        LocalDate today = LocalDate.now();
+        boolean late = inst.getDueDate() != null && today.isAfter(inst.getDueDate());
+        int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
+        inst.setCurrentStage(ReturnStage.SUBMITTED);
+        inst.setStatus(late ? ReturnFilingStatus.SUBMITTED_LATE : ReturnFilingStatus.SUBMITTED);
+        inst.setSubmittedDate(today);
+        inst.setSubmittedByUserId(userId);
+        inst.setSubmissionEvidenceUrl(evidenceRef);
+        inst.setDaysLate(daysLate);
+        inst.setEscalationLevel(0);
+        inst.setEscalatedAt(null);
+        instances.save(inst);
+        audit.log(userId, "return_submitted_via_link", "return_instance", instanceId,
+            Collections.singletonMap("days_late", daysLate));
+    }
+
+    @Transactional
     public RegulatoryReturn create(CreateReturnRequest req, Integer userId) {
         try {
             return doCreate(req, userId);

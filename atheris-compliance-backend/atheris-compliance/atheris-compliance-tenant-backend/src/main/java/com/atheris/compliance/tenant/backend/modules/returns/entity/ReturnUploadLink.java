@@ -24,6 +24,7 @@ public class ReturnUploadLink {
     private String tokenHash;
     @Column(nullable = false)
     private Long returnId;
+    private Long instanceId;
     private String recipientEmail;
     private String recipientName;
     @Column(nullable = false)

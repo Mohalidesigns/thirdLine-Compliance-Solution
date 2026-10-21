@@ -11,6 +11,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFiling
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnUploadLinkService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
@@ -34,6 +35,7 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
     private final RegulatoryReturnRepository returns;
     private final UserRepository users;
     private final OwnerRepository owners;
+    private final ReturnUploadLinkService uploadLinks;
 
     @Override
     public String subjectType() {
@@ -89,6 +91,28 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             instance.setEscalatedAt(Instant.now());
             instances.save(instance);
         });
+    }
+
+    @Override
+    public Optional<String> filingLink(EscalationCandidate candidate) {
+        RegulatoryReturn r = returns.findById(candidate.linkSubjectId()).orElse(null);
+        if (r == null || "EVENT_DRIVEN".equalsIgnoreCase(r.getFrequencyType())) return Optional.empty();
+        String recipient = firstEmail(candidate);
+        if (recipient == null) return Optional.empty();
+        try {
+            String raw = uploadLinks.createFilingLink(r.getReturnId(), candidate.subjectId(), recipient, null, null);
+            return Optional.of("/return-upload/" + raw);
+        } catch (RuntimeException e) {
+            log.warn("[Escalation] filing link failed for return {}: {}", r.getReturnId(), e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private String firstEmail(EscalationCandidate candidate) {
+        for (Person p : candidate.assignees() == null ? List.<Person>of() : candidate.assignees()) {
+            if (p.hasEmail()) return p.email();
+        }
+        return candidate.owner() != null && candidate.owner().hasEmail() ? candidate.owner().email() : null;
     }
 
     private List<Person> assignees(RegulatoryReturn r, Map<String, Person> directory) {

@@ -1,13 +1,18 @@
 package com.atheris.compliance.tenant.backend.modules.returns.service;
 
+import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
+import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.PublicReturnUploadView;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.RecordReturnEventRequest;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnUploadLink;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnUploadLinkRepository;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
@@ -38,7 +43,10 @@ public class ReturnUploadLinkService {
 
     private final ReturnUploadLinkRepository links;
     private final RegulatoryReturnRepository returns;
+    private final ReturnFilingInstanceRepository instances;
     private final ReturnEventService returnEvents;
+    private final ReturnService returnService;
+    private final EvidenceVaultService evidenceVault;
     private final UserRepository users;
     private final EmailService email;
     private final TenantIdentityService tenantIdentity;
@@ -72,6 +80,29 @@ public class ReturnUploadLinkService {
         return raw;
     }
 
+    @Transactional
+    public String createFilingLink(Long returnId, Long instanceId, String recipientEmail, String recipientName, Integer userId) {
+        RegulatoryReturn ret = returns.findById(returnId)
+            .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+        if (ret.getStatus() != RegulatoryReturnStatus.ACTIVE)
+            throw ApiException.conflict("return_inactive", "This return is inactive.");
+        ReturnFilingInstance inst = instances.findById(instanceId)
+            .orElseThrow(() -> ApiException.notFound("Filing not found: " + instanceId));
+        if (!returnId.equals(inst.getReturnId()))
+            throw ApiException.badRequest("invalid_filing", "Filing does not belong to this return.");
+        String raw = randomToken();
+        links.save(ReturnUploadLink.builder()
+            .tokenHash(sha256(raw))
+            .returnId(returnId)
+            .instanceId(instanceId)
+            .recipientEmail(recipientEmail)
+            .recipientName(recipientName)
+            .expiresAt(LocalDate.now().plusDays(expiryDays).atStartOfDay(ZoneOffset.UTC).toInstant())
+            .createdByUserId(userId)
+            .build());
+        return raw;
+    }
+
     /** Relative path the client resolves against {@code window.location.origin}. */
     public String uploadPath(String rawToken) {
         return "/return-upload/" + rawToken;
@@ -88,12 +119,37 @@ public class ReturnUploadLinkService {
         RegulatoryReturn ret = returns.findById(link.getReturnId())
             .orElseThrow(() -> ApiException.notFound("Return not found"));
         TenantProfile p = tenantIdentity.currentProfile().orElse(null);
+        if (link.getInstanceId() != null) {
+            ReturnFilingInstance inst = instances.findById(link.getInstanceId()).orElse(null);
+            boolean editable = ret.getStatus() == RegulatoryReturnStatus.ACTIVE && inst != null
+                && inst.getStatus() != ReturnFilingStatus.SUBMITTED && inst.getStatus() != ReturnFilingStatus.SUBMITTED_LATE;
+            return PublicReturnUploadView.builder()
+                .returnId(ret.getReturnId())
+                .institutionName(p != null ? p.getLegalName() : "Institution")
+                .mode("FILING")
+                .instanceId(inst != null ? inst.getInstanceId() : null)
+                .period(inst != null ? inst.getPeriod() : null)
+                .dueDate(inst != null ? inst.getDueDate() : null)
+                .status(inst != null && inst.getStatus() != null ? inst.getStatus().db() : null)
+                .returnName(ret.getReturnName())
+                .regulator(ret.getFilingRegulator())
+                .actName(ret.getActName())
+                .frequency(ret.getFrequency())
+                .frequencyType(ret.getFrequencyType())
+                .deadlineText(ret.getDeadlineText())
+                .responsibleUnit(ret.getResponsibleUnit())
+                .responsiblePerson(ret.getResponsiblePerson())
+                .ownerName(ret.getReturnOwnerName())
+                .editable(editable)
+                .build();
+        }
         boolean editable = ret.getStatus() == RegulatoryReturnStatus.ACTIVE
             && ret.getEventTriggerLabel() != null && !ret.getEventTriggerLabel().isBlank()
             && ret.getEventDeadlineMode() != null && !ret.getEventDeadlineMode().isBlank();
         return PublicReturnUploadView.builder()
             .returnId(ret.getReturnId())
             .institutionName(p != null ? p.getLegalName() : "Institution")
+            .mode("EVENT")
             .returnName(ret.getReturnName())
             .regulator(ret.getFilingRegulator())
             .actName(ret.getActName())
@@ -120,6 +176,10 @@ public class ReturnUploadLinkService {
         ReturnUploadLink link = resolve(rawToken);
         RegulatoryReturn ret = returns.findById(link.getReturnId())
             .orElseThrow(() -> ApiException.notFound("Return not found"));
+        if (link.getInstanceId() != null) {
+            submitFiling(link, reference, file);
+            return;
+        }
         requireEventDriven(ret);
         if (triggerDate == null) throw ApiException.badRequest("The event (trigger) date is required.");
         if (triggerDate.isAfter(LocalDate.now())) throw ApiException.badRequest("The event date cannot be in the future.");
@@ -139,6 +199,32 @@ public class ReturnUploadLinkService {
         }
 
         link.setUseCount(link.getUseCount() + 1);
+        link.setLastUsedAt(Instant.now());
+        links.save(link);
+    }
+
+    private void submitFiling(ReturnUploadLink link, String reference, MultipartFile file) {
+        ReturnFilingInstance inst = instances.findById(link.getInstanceId())
+            .orElseThrow(() -> ApiException.notFound("Filing not found"));
+        if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
+            throw ApiException.conflict("already_submitted", "This filing has already been submitted.");
+        boolean hasFile = file != null && !file.isEmpty();
+        String evidenceRef;
+        if (hasFile) {
+            try {
+                EvidenceFile f = evidenceVault.upload(file, "return_instance", inst.getInstanceId(),
+                    "Filing submission " + inst.getPeriod(), null);
+                evidenceRef = f.getOriginalName() != null ? f.getOriginalName() : ("evidence:" + f.getFileId());
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to store filing evidence", e);
+            }
+        } else if (reference != null && !reference.isBlank()) {
+            evidenceRef = reference.trim();
+        } else {
+            throw ApiException.badRequest("Provide the filing data: attach a file or a reference.");
+        }
+        returnService.submitFromLink(inst.getInstanceId(), evidenceRef, null);
+        link.setUseCount((link.getUseCount() == null ? 0 : link.getUseCount()) + 1);
         link.setLastUsedAt(Instant.now());
         links.save(link);
     }

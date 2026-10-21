@@ -92,16 +92,17 @@ export default function PublicReturnUploadPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError('');
-    if (!triggerDate) { setSubmitError('The event (trigger) date is required.'); return; }
+    const isFiling = view?.mode === 'FILING';
+    if (!isFiling && !triggerDate) { setSubmitError('The event (trigger) date is required.'); return; }
     if (mode === 'reference' && !reference.trim()) { setSubmitError('Provide an evidence reference.'); return; }
     if (mode === 'file' && !file) { setSubmitError('Attach an evidence file.'); return; }
-    if (view.deadlineMode === 'MANUAL' && !dueDate) { setSubmitError('This return requires a due date.'); return; }
+    if (!isFiling && view.deadlineMode === 'MANUAL' && !dueDate) { setSubmitError('This return requires a due date.'); return; }
     setSubmitting(true);
     try {
       await publicApi.returnUploadSubmit(token, {
-        triggerDate,
+        triggerDate: isFiling ? undefined : triggerDate,
         reference: mode === 'reference' ? reference.trim() : undefined,
-        dueDate: view.deadlineMode === 'MANUAL' ? dueDate : undefined,
+        dueDate: !isFiling && view.deadlineMode === 'MANUAL' ? dueDate : undefined,
         file: mode === 'file' ? file : undefined,
       });
       setDone(true);
@@ -136,30 +137,36 @@ export default function PublicReturnUploadPage() {
 
   if (done) {
     return shell(
-      <Notice icon={<CheckCircleIcon size={28} />} tone={{ tile: '#F0FDF4', fg: '#15803D' }} title="Event filing recorded">
-        Thank you. The event filing has been recorded and the compliance team has been notified.
-        You do not need to do anything further.
+      <Notice icon={<CheckCircleIcon size={28} />} tone={{ tile: '#F0FDF4', fg: '#15803D' }}
+        title={view?.mode === 'FILING' ? 'Filing submitted' : 'Event filing recorded'}>
+        {view?.mode === 'FILING'
+          ? 'Thank you. The filing has been submitted to the compliance team, who will review it. You do not need to do anything further.'
+          : 'Thank you. The event filing has been recorded and the compliance team has been notified. You do not need to do anything further.'}
       </Notice>
     );
   }
 
   const closed = view.editable === false;
+  const filing = view.mode === 'FILING';
 
   return shell(
     <TLCard>
       <Box sx={{ px: { xs: 2, md: 4 }, py: 3, borderBottom: `1px solid ${TL.gray100}` }}>
         <Typography sx={labelSx}>{view.institutionName || 'Institution'}</Typography>
         <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: '2rem', color: TL.textPrimary, mt: 0.5 }}>
-          Event filing — {view.returnName}
+          {filing ? 'Filing submission' : 'Event filing'} — {view.returnName}
         </Typography>
         <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, mt: 0.5 }}>
-          Record an occurrence for this on-event return and attach the supporting evidence.
+          {filing
+            ? 'Provide the filing data for the period below and attach the supporting evidence.'
+            : 'Record an occurrence for this on-event return and attach the supporting evidence.'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
           {view.regulator && <Chip size="small" variant="outlined" label={view.regulator} />}
           {view.actName && <Chip size="small" variant="outlined" label={view.actName} />}
           {view.frequency && <Chip size="small" variant="outlined" label={view.frequency} />}
-          {view.triggerLabel && <StatusBadge dot label={view.triggerLabel} tone="blue" />}
+          {filing && view.period && <StatusBadge dot label={`Period ${view.period}`} tone="blue" />}
+          {!filing && view.triggerLabel && <StatusBadge dot label={view.triggerLabel} tone="blue" />}
         </Box>
       </Box>
 
@@ -171,8 +178,18 @@ export default function PublicReturnUploadPage() {
           <Detail label="Regulator" value={view.regulator} />
           <Detail label="Act / Regulation" value={view.actName} />
           <Detail label="Frequency" value={view.frequency || view.frequencyType} />
-          <Detail label="Event trigger" value={view.triggerLabel} />
-          <Detail label="Deadline rule" value={deadlineRule(view)} />
+          {filing ? (
+            <>
+              <Detail label="Period" value={view.period} />
+              <Detail label="Due date" value={view.dueDate} />
+              <Detail label="Status" value={view.status} />
+            </>
+          ) : (
+            <>
+              <Detail label="Event trigger" value={view.triggerLabel} />
+              <Detail label="Deadline rule" value={deadlineRule(view)} />
+            </>
+          )}
           <Detail label="Responsible unit" value={view.responsibleUnit} />
           <Detail label="Responsible person" value={view.responsiblePerson} />
           <Detail label="Return owner" value={view.ownerName} />
@@ -182,17 +199,21 @@ export default function PublicReturnUploadPage() {
 
         {closed ? (
           <Alert severity="info" icon={<ShieldCheckIcon size={20} />}>
-            This return is not accepting event filings right now. Please contact the compliance team.
+            {filing
+              ? 'This filing has already been submitted, or the return is not active. Please contact the compliance team.'
+              : 'This return is not accepting event filings right now. Please contact the compliance team.'}
           </Alert>
         ) : (
           <form onSubmit={handleSubmit}>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField label="Event (trigger) date" type="date" fullWidth required
-                  InputLabelProps={{ shrink: true }} inputProps={{ max: new Date().toISOString().split('T')[0] }}
-                  value={triggerDate} onChange={(e) => setTriggerDate(e.target.value)} />
-              </Grid>
-              {view.deadlineMode === 'MANUAL' && (
+              {!filing && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField label="Event (trigger) date" type="date" fullWidth required
+                    InputLabelProps={{ shrink: true }} inputProps={{ max: new Date().toISOString().split('T')[0] }}
+                    value={triggerDate} onChange={(e) => setTriggerDate(e.target.value)} />
+                </Grid>
+              )}
+              {!filing && view.deadlineMode === 'MANUAL' && (
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField label="Due date" type="date" fullWidth required
                     InputLabelProps={{ shrink: true }} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -240,7 +261,7 @@ export default function PublicReturnUploadPage() {
                 <Stack direction="row" justifyContent="flex-end">
                   <Button type="submit" variant="contained" disabled={submitting}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon size={16} />}>
-                    {submitting ? 'Submitting…' : 'Record event filing'}
+                    {submitting ? 'Submitting…' : (filing ? 'Submit filing' : 'Record event filing')}
                   </Button>
                 </Stack>
               </Grid>

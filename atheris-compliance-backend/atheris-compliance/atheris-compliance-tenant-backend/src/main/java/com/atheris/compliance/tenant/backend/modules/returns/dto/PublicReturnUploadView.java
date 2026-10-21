@@ -2,7 +2,8 @@ package com.atheris.compliance.tenant.backend.modules.returns.dto;
 
 import lombok.*;
 
-/** Sanitised return view shown on the public (no-login) event-filing upload page. */
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @Builder
@@ -12,7 +13,12 @@ public class PublicReturnUploadView {
     private Long returnId;
     private String institutionName;
 
-    // Return identity
+    private String mode;
+    private Long instanceId;
+    private String period;
+    private LocalDate dueDate;
+    private String status;
+
     private String returnName;
     private String regulator;
     private String actName;

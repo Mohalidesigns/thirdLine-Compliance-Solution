@@ -67,12 +67,13 @@ public class EscalationEngine {
 
         LocalDateTime approachAt = approachAt(candidate, config);
         if (approachAt != null && now.isBefore(dueAt) && !now.isBefore(approachAt)) {
+            boolean sendLink = Boolean.TRUE.equals(config.getSendLink());
             if (!fired(candidate, EscalationConstants.TRIGGER_APPROACHING, 0)) {
-                fire(candidate, null, EscalationConstants.TRIGGER_APPROACHING, 0, now);
+                fire(candidate, null, EscalationConstants.TRIGGER_APPROACHING, 0, now, sendLink);
             }
             Integer repeat = config.getReminderRepeatValue();
             if (repeat != null && repeat > 0) {
-                reminderIfDue(candidate, approachAt, now, repeat, config.getReminderRepeatUnit());
+                reminderIfDue(candidate, approachAt, now, repeat, config.getReminderRepeatUnit(), sendLink);
             }
         }
 
@@ -80,7 +81,7 @@ public class EscalationEngine {
             if (level.getLevelNo() == null) continue;
             LocalDateTime target = dueAt.plus(level.getAfterValue() == null ? 0 : level.getAfterValue(), unit(level.getAfterUnit()));
             if (!now.isBefore(target) && !fired(candidate, EscalationConstants.TRIGGER_OVERDUE, level.getLevelNo())) {
-                fire(candidate, level, EscalationConstants.TRIGGER_OVERDUE, level.getLevelNo(), now);
+                fire(candidate, level, EscalationConstants.TRIGGER_OVERDUE, level.getLevelNo(), now, false);
                 handlerFor(candidate.subjectType()).ifPresent(h -> h.markEscalated(candidate.subjectId(), level.getLevelNo()));
             }
         }
@@ -94,7 +95,7 @@ public class EscalationEngine {
     }
 
     private void reminderIfDue(EscalationCandidate candidate, LocalDateTime approachAt, LocalDateTime now,
-                               int repeat, String repeatUnit) {
+                               int repeat, String repeatUnit, boolean sendLink) {
         EscalationEvent last = events
             .findBySubjectTypeAndSubjectIdAndTriggerTypeAndLevel(candidate.subjectType(), candidate.subjectId(),
                 EscalationConstants.TRIGGER_REMINDER, 0)
@@ -102,19 +103,23 @@ public class EscalationEngine {
         LocalDateTime base = last == null ? approachAt
             : LocalDateTime.ofInstant(last.getFiredAt(), ZoneId.systemDefault());
         if (!now.isBefore(base.plus(repeat, unit(repeatUnit)))) {
-            fire(candidate, null, EscalationConstants.TRIGGER_REMINDER, 0, now);
+            fire(candidate, null, EscalationConstants.TRIGGER_REMINDER, 0, now, sendLink);
         }
     }
 
-    private void fire(EscalationCandidate candidate, EscalationLevelDto level, String trigger, int levelNo, LocalDateTime now) {
+    private void fire(EscalationCandidate candidate, EscalationLevelDto level, String trigger, int levelNo,
+                      LocalDateTime now, boolean includePublicLink) {
         List<EscalationTarget> targets = level == null
             ? resolver.assigneeTargets(candidate.assignees(), candidate.owner())
             : resolver.resolve(level, candidate.assignees(), candidate.owner());
         if (targets.isEmpty()) return;
 
+        String publicLink = includePublicLink
+            ? handlerFor(candidate.subjectType()).flatMap(h -> h.filingLink(candidate)).orElse(null)
+            : null;
         String templateKey = templateKey(candidate, trigger);
         Map<String, String> vars = baseVars(candidate, trigger, levelNo);
-        delivery.deliver(candidate, templateKey, trigger, levelNo, targets, vars, candidate.owner());
+        delivery.deliver(candidate, templateKey, trigger, levelNo, targets, vars, candidate.owner(), publicLink);
 
         EscalationEvent event = events
             .findBySubjectTypeAndSubjectIdAndTriggerTypeAndLevel(candidate.subjectType(), candidate.subjectId(), trigger, levelNo)

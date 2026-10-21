@@ -23,29 +23,31 @@ public class EscalationDeliveryService {
     private final NotificationTemplateService templates;
 
     public void deliver(EscalationCandidate candidate, String templateKey, String triggerType, int level,
-                        List<EscalationTarget> targets, Map<String, String> baseVars, Person owner) {
+                        List<EscalationTarget> targets, Map<String, String> baseVars, Person owner, String publicLink) {
         if (targets.isEmpty()) return;
         String severity = EscalationConstants.TRIGGER_OVERDUE.equals(triggerType)
             ? NotificationConstants.SEVERITY_HIGH
             : NotificationConstants.SEVERITY_MEDIUM;
-        String relativeLink = candidate.linkBase() + candidate.linkSubjectId();
-        String absoluteLink = email.baseUrl() + relativeLink;
+        String internalLink = candidate.linkBase() + candidate.linkSubjectId();
+        String emailLink = publicLink != null && !publicLink.isBlank() ? publicLink : internalLink;
+        String absoluteLink = email.baseUrl() + emailLink;
         List<String> cc = owner != null && owner.hasEmail() ? List.of(owner.email()) : List.of();
 
         for (EscalationTarget target : targets) {
             Map<String, String> vars = new HashMap<>(baseVars);
             vars.put("recipientName", displayName(target));
+            vars.put("link", emailLink);
             NotificationTemplateService.RenderedEmail rendered = templates.render(templateKey, vars);
             String summary = baseVars.getOrDefault("summary", candidate.subjectLabel());
             String subject = rendered.subject() != null ? rendered.subject() : summary;
             String body = rendered.body() != null ? rendered.body() : summary;
 
             if (target.role() != null) {
-                notifications.notifyRoleEmailed(target.role(), candidate.category(), severity, summary, relativeLink, subject);
+                notifications.notifyRoleEmailed(target.role(), candidate.category(), severity, summary, internalLink, subject);
                 continue;
             }
             if (target.userId() != null) {
-                notifications.notifyUser(target.userId(), candidate.category(), severity, summary, relativeLink);
+                notifications.notifyUser(target.userId(), candidate.category(), severity, summary, internalLink);
             }
             String to = target.email() != null && !target.email().isBlank() ? target.email() : null;
             if (to != null) {
