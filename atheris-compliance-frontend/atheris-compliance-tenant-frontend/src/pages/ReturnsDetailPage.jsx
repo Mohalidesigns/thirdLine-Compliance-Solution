@@ -17,6 +17,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
 import EscalationOverrideDialog from '../components/returns/EscalationOverrideDialog';
+import ReturnEscalationPolicyDialog from '../components/returns/ReturnEscalationPolicyDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
 import PersonPicker from '../components/common/PersonPicker';
@@ -82,6 +83,7 @@ export default function ReturnsDetailPage() {
   const [eventSetupOpen, setEventSetupOpen] = useState(false);
   const [recordEventOpen, setRecordEventOpen] = useState(false);
   const [sendLinkOpen, setSendLinkOpen] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [snackbar, setSnackbar] = useState('');
 
   const itemQuery = useQuery({
@@ -179,6 +181,11 @@ export default function ReturnsDetailPage() {
             {canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured && (
               <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setSendLinkOpen(true)}>
                 Send link
+              </Button>
+            )}
+            {canEditSchedule && (
+              <Button variant="outlined" onClick={() => setPolicyOpen(true)}>
+                Escalation policy
               </Button>
             )}
           </>
@@ -310,6 +317,8 @@ export default function ReturnsDetailPage() {
         onSaved={(instance) => { setRecordEventOpen(false); setSnackbar('Event filing created.'); refresh(); if (instance?.instanceId) openFiling(instance.instanceId); }} />
       <SendUploadLinkDialog open={sendLinkOpen} item={item}
         onClose={() => setSendLinkOpen(false)} onSnackbar={setSnackbar} />
+      {policyOpen && <ReturnEscalationPolicyDialog open item={item} onClose={() => setPolicyOpen(false)}
+        onSnackbar={setSnackbar} onSaved={() => setSnackbar('Escalation policy saved.')} />}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

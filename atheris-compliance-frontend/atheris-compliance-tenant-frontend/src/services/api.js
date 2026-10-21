@@ -478,6 +478,9 @@ export const api = {
     updateSchedule: (returnId, body) => request(`/returns/${returnId}/schedule`, {
       method: 'PUT', body: JSON.stringify(body),
     }),
+    updateEscalationPolicy: (returnId, escalationPolicyId) => request(`/returns/${returnId}/escalation-policy`, {
+      method: 'PUT', body: JSON.stringify({ escalationPolicyId }),
+    }),
     configureEventTrigger: (returnId, body, opts = {}) => request(`/returns/${returnId}/event-trigger`, {
       signal: opts.signal,
       method: 'PUT', body: JSON.stringify(body),

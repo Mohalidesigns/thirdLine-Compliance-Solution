@@ -113,6 +113,15 @@ public class ReturnController {
         return ResponseEntity.ok(service.updateSchedule(returnId, req, u.getUserId()));
     }
 
+    @PutMapping("/{returnId}/escalation-policy")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnRegisterItem> updateEscalationPolicy(
+            @PathVariable Long returnId,
+            @RequestBody SetReturnEscalationPolicyRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateEscalationPolicy(returnId, req.getEscalationPolicyId(), u.getUserId()));
+    }
+
     @PutMapping("/{returnId}/event-trigger")
     @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> configureEventTrigger(

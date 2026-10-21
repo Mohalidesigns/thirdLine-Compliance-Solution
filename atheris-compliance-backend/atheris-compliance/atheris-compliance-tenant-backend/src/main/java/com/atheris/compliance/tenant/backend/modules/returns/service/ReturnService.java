@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.acts.repository.ActReposito
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
@@ -283,6 +284,22 @@ public class ReturnService {
     public ReturnRegisterItem getRegisterItem(Long returnId) {
         RegulatoryReturn ret = returns.findById(returnId)
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+        return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
+    }
+
+    @Transactional
+    public ReturnRegisterItem updateEscalationPolicy(Long returnId, Long policyId, Integer userId) {
+        RegulatoryReturn ret = returns.findById(returnId)
+            .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+        if (policyId != null) {
+            EscalationPolicyDto policy = escalationPolicyService.get(policyId);
+            if (!EscalationConstants.SUBJECT_RETURN.equalsIgnoreCase(policy.getSubjectType()))
+                throw ApiException.badRequest("invalid_policy", "Select a return escalation policy");
+        }
+        ret.setEscalationPolicyId(policyId);
+        returns.save(ret);
+        audit.log(userId, "return_escalation_policy_set", "return", returnId,
+            Collections.singletonMap("policyId", String.valueOf(policyId)));
         return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
     }
 

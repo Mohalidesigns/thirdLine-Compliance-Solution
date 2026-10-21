@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   TextField, Autocomplete, Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   CircularProgress, Alert, Typography, MenuItem,
@@ -7,28 +8,18 @@ import { PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../org/QuickAddDialogs';
 
-let ldapTenantCache = null;
-async function isLdapTenant() {
-  if (ldapTenantCache !== null) return ldapTenantCache;
-  try { ldapTenantCache = !!(await api.ldap.users(''))?.enabled; }
-  catch { ldapTenantCache = false; }
-  return ldapTenantCache;
+function useLdapEnabled({ authType, onboarding } = {}) {
+  const query = useQuery({
+    queryKey: ['ldap', 'enabled'],
+    queryFn: () => api.ldap.users('').then((res) => !!res?.enabled),
+    staleTime: Infinity,
+    enabled: !authType && !onboarding,
+  });
+  if (authType) return authType === 'ldap';
+  if (onboarding) return false;
+  return query.data ?? null;
 }
 
-/**
- * One person picker for every "choose a person" surface, in three modes:
- *
- *  - `user`  — a login identity (email + full name). On an LDAP tenant it searches the directory
- *              and you must pick a real entry; on a local tenant it searches active users and also
- *              accepts a new email to invite. Used by onboarding (CCO / Analyst) and user invites.
- *  - `owner` — a compliance owner (`ownerId`); searches owners and can create a new one (no login).
- *              Controls and findings assign owners with this.
- *  - `link`  — an email to send a tokenised upload link to (returns / remediation); searches owner
- *              emails and accepts any typed address.
- *
- * `value` shapes by mode: user → { email, fullName, userId? } | null; owner → ownerId | null;
- * link → email string | ''.
- */
 export default function PersonPicker({
   mode = 'user',
   value,
@@ -74,43 +65,29 @@ function useDebounced(value, ms = 250) {
 function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, allowCreate,
   allowClear, disabled, size, fullWidth, helperText, sx, onboarding }) {
   const [input, setInput] = useState('');
-  const [options, setOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [ldapEnabled, setLdapEnabled] = useState(authType ? authType === 'ldap' : null);
   const term = useDebounced(input);
+  const ldapEnabled = useLdapEnabled({ authType, onboarding });
+  const cfgKey = ldapConfig ? JSON.stringify(ldapConfig) : '';
 
-  // When the caller doesn't tell us the auth type (e.g. user invites), ask the directory endpoint.
-  useEffect(() => {
-    if (authType) { setLdapEnabled(authType === 'ldap'); return; }
-    if (onboarding) { setLdapEnabled(false); return; }
-    let cancelled = false;
-    api.ldap.users('')
-      .then((res) => { if (!cancelled) setLdapEnabled(!!res?.enabled); })
-      .catch(() => { if (!cancelled) setLdapEnabled(false); });
-    return () => { cancelled = true; };
-  }, [authType, onboarding]);
-
-  useEffect(() => {
-    if (ldapEnabled == null) return;
-    let cancelled = false;
-    setLoading(true);
-    setError('');
-    const request = ldapEnabled
-      ? (ldapConfig
-          ? api.onboarding.ldapUsers(ldapConfig, term)
-          : (onboarding ? Promise.resolve([]) : api.ldap.users(term).then((r) => r.users || [])))
-      : (onboarding
-          ? Promise.resolve([])
-          : api.users.list(term).then((list) => (list || []).map((u) => ({
-              email: u.email, fullName: u.fullName, userId: u.userId, role: u.role,
-            }))));
-    Promise.resolve(request)
-      .then((list) => { if (!cancelled) setOptions(list || []); })
-      .catch((e) => { if (!cancelled) { setOptions([]); setError(e.message || 'Search failed'); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [ldapEnabled, term, superStable(ldapConfig), onboarding]);
+  const optionsQuery = useQuery({
+    queryKey: ['person-options', ldapEnabled ? 'ldap' : 'local', onboarding, cfgKey, term],
+    queryFn: () => {
+      if (ldapEnabled) {
+        if (ldapConfig) return api.onboarding.ldapUsers(ldapConfig, term);
+        if (onboarding) return Promise.resolve([]);
+        return api.ldap.users(term).then((r) => r.users || []);
+      }
+      if (onboarding) return Promise.resolve([]);
+      return api.users.list(term).then((list) => (list || []).map((u) => ({
+        email: u.email, fullName: u.fullName, userId: u.userId, role: u.role,
+      })));
+    },
+    enabled: ldapEnabled != null,
+    placeholderData: (prev) => prev,
+  });
+  const options = optionsQuery.data || [];
+  const loading = ldapEnabled == null || optionsQuery.isFetching;
+  const error = optionsQuery.isError ? (optionsQuery.error?.message || 'Search failed') : '';
 
   const selected = value && value.email ? value : null;
   const freeSolo = !ldapEnabled && allowCreate;
@@ -118,7 +95,6 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
   const handleChange = (_, option) => {
     if (option == null) { onChange(null); return; }
     if (typeof option === 'string') {
-      // A typed address (local tenant): keep any name already entered, else blank for the parent.
       onChange({ email: option.trim(), fullName: selected?.fullName || '' });
       return;
     }
@@ -190,35 +166,25 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
 
 function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disabled, size, fullWidth,
   helperText, sx, onOwnerCreated, allowAddInline = true }) {
-  const [owners, setOwners] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const qc = useQueryClient();
   const [quickOpen, setQuickOpen] = useState(false);
-  const [ldapEnabled, setLdapEnabled] = useState(false);
-  const [directory, setDirectory] = useState([]);
+  const [actionError, setActionError] = useState('');
   const [input, setInput] = useState('');
   const [resolving, setResolving] = useState(false);
   const term = useDebounced(input);
+  const ldapEnabled = useLdapEnabled();
 
-  const loadOwners = () => {
-    setLoading(true);
-    api.org.owners()
-      .then((list) => { setOwners(list || []); setError(''); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { loadOwners(); }, []);
-
-  useEffect(() => { isLdapTenant().then(setLdapEnabled); }, []);
-
-  useEffect(() => {
-    if (!ldapEnabled) { setDirectory([]); return; }
-    let cancelled = false;
-    api.ldap.users(term)
-      .then((res) => { if (!cancelled) setDirectory(res?.users || []); })
-      .catch(() => { if (!cancelled) setDirectory([]); });
-    return () => { cancelled = true; };
-  }, [ldapEnabled, term]);
+  const ownersQuery = useQuery({ queryKey: ['org', 'owners'], queryFn: () => api.org.owners() });
+  const owners = ownersQuery.data || [];
+  const dirQuery = useQuery({
+    queryKey: ['ldap', 'users', term],
+    queryFn: () => api.ldap.users(term).then((res) => res?.users || []),
+    enabled: !!ldapEnabled,
+    placeholderData: (prev) => prev,
+  });
+  const directory = ldapEnabled ? (dirQuery.data || []) : [];
+  const loading = ownersQuery.isLoading;
+  const error = actionError || ownersQuery.error?.message || dirQuery.error?.message || '';
 
   const options = useMemo(() => {
     const owned = owners.map((o) => ({
@@ -226,7 +192,7 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
       departmentName: o.departmentName, teamName: o.teamName,
     }));
     if (!ldapEnabled) return owned;
-    const taken = new Set(owners.flatMap((o) => [ (o.email || '').toLowerCase(), (o.fullName || '').toLowerCase() ]).filter(Boolean));
+    const taken = new Set(owners.flatMap((o) => [(o.email || '').toLowerCase(), (o.fullName || '').toLowerCase()]).filter(Boolean));
     const fromDirectory = directory
       .filter((u) => u.email && !taken.has(u.email.toLowerCase()) && !taken.has((u.fullName || '').toLowerCase()))
       .map((u) => ({ kind: 'directory', fullName: u.fullName, email: u.email }));
@@ -241,13 +207,13 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
     const existing = owners.find((x) => (x.email || '').toLowerCase() === (o.email || '').toLowerCase());
     if (existing) { onChange(existing.ownerId); return; }
     setResolving(true);
-    setError('');
+    setActionError('');
     try {
       const created = await api.org.createOwner({ fullName: o.fullName || o.email, email: o.email });
-      loadOwners();
+      qc.invalidateQueries({ queryKey: ['org', 'owners'] });
       onChange(created.ownerId);
       onOwnerCreated?.(created);
-    } catch (e) { setError(e.message || 'Failed to add owner'); }
+    } catch (e) { setActionError(e.message || 'Failed to add owner'); }
     finally { setResolving(false); }
   };
 
@@ -299,13 +265,13 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
       />
       {allowCreate && allowAddInline && ldapEnabled === false && (
         <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ mt: 0.5 }}
-          onClick={() => { setError(''); setQuickOpen(true); }}>
+          onClick={() => { setActionError(''); setQuickOpen(true); }}>
           Add new owner
         </Button>
       )}
       {allowCreate && allowAddInline && ldapEnabled === false && (
         <QuickAddOwnerDialog open={quickOpen} onClose={() => setQuickOpen(false)}
-          onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); loadOwners(); setQuickOpen(false); }} />
+          onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); qc.invalidateQueries({ queryKey: ['org', 'owners'] }); setQuickOpen(false); }} />
       )}
     </Box>
   );
@@ -314,14 +280,9 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
 /* ─────────────── link mode ─────────────── */
 
 function LinkPickerBody({ value, onChange, label, disabled, size, fullWidth, helperText, sx }) {
-  const [owners, setOwners] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    api.org.owners()
-      .then((list) => setOwners(list || []))
-      .catch(() => setOwners([]))
-      .finally(() => setLoading(false));
-  }, []);
+  const ownersQuery = useQuery({ queryKey: ['org', 'owners'], queryFn: () => api.org.owners() });
+  const owners = ownersQuery.data || [];
+  const loading = ownersQuery.isLoading;
   const email = typeof value === 'string' ? value : (value?.email || '');
   return (
     <Box sx={sx}>
@@ -368,37 +329,39 @@ function LinkPickerBody({ value, onChange, label, disabled, size, fullWidth, hel
 /* ─────────────── owner quick-add ─────────────── */
 
 export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
+  const qc = useQueryClient();
   const [form, setForm] = useState({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
-  const [departments, setDepartments] = useState([]);
-  const [teams, setTeams] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deptOpen, setDeptOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
-  const [ldapEnabled, setLdapEnabled] = useState(false);
   const [dirInput, setDirInput] = useState('');
-  const [dirUsers, setDirUsers] = useState([]);
   const dirTerm = useDebounced(dirInput);
+  const ldapEnabled = useLdapEnabled();
+
+  const departmentsQuery = useQuery({
+    queryKey: ['org', 'departments', true],
+    queryFn: () => api.org.departments(true),
+    enabled: open,
+  });
+  const teamsQuery = useQuery({ queryKey: ['org', 'teams'], queryFn: () => api.org.teams(), enabled: open });
+  const dirQuery = useQuery({
+    queryKey: ['ldap', 'users', dirTerm],
+    queryFn: () => api.ldap.users(dirTerm).then((r) => r?.users || []),
+    enabled: open && !!ldapEnabled,
+  });
+  const departments = departmentsQuery.data || [];
+  const teams = teamsQuery.data || [];
+  const dirUsers = ldapEnabled ? (dirQuery.data || []) : [];
+  const shownError = error || departmentsQuery.error?.message || '';
 
   useEffect(() => {
     if (open) {
       setForm({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
       setError('');
       setDirInput('');
-      isLdapTenant().then(setLdapEnabled);
-      api.org.departments(true).then(setDepartments).catch((e) => setError(e.message));
-      api.org.teams().then(setTeams).catch(() => {});
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !ldapEnabled) { setDirUsers([]); return; }
-    let cancelled = false;
-    api.ldap.users(dirTerm)
-      .then((r) => { if (!cancelled) setDirUsers(r?.users || []); })
-      .catch(() => { if (!cancelled) setDirUsers([]); });
-    return () => { cancelled = true; };
-  }, [open, ldapEnabled, dirTerm]);
 
   const departmentTeams = form.departmentId
     ? teams.filter((t) => t.departmentId === Number(form.departmentId))
@@ -421,15 +384,15 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
   };
 
   const reload = () => {
-    api.org.departments(true).then(setDepartments).catch(() => {});
-    api.org.teams().then(setTeams).catch(() => {});
+    qc.invalidateQueries({ queryKey: ['org', 'departments', true] });
+    qc.invalidateQueries({ queryKey: ['org', 'teams'] });
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add New Owner</DialogTitle>
       <DialogContent dividers>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {shownError && <Alert severity="error" sx={{ mb: 2 }}>{shownError}</Alert>}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {ldapEnabled && (
             <Autocomplete
@@ -506,9 +469,4 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
         onCreated={(t) => { reload(); setForm((f) => ({ ...f, teamId: String(t.teamId) })); setTeamOpen(false); }} />
     </Dialog>
   );
-}
-
-/** Stable stringify so an inline object prop doesn't refetch on every render. */
-function superStable(obj) {
-  return obj ? JSON.stringify(obj) : '';
 }
