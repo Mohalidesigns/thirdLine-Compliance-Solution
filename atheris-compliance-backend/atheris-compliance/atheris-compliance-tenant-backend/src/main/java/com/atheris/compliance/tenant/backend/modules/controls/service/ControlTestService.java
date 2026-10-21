@@ -7,7 +7,6 @@ import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequ
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.findings.service.FindingService;
-import com.atheris.compliance.tenant.backend.modules.notifications.service.EscalationNotifier;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
@@ -25,16 +24,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ControlTestService {
 
-    private static final long ESCALATE_TO_MANAGER_AFTER_DAYS = 2;
-    private static final long ESCALATE_TO_CCO_AFTER_DAYS = 5;
-
     private final ControlTestResultRepository testRepo;
     private final ControlTaskRepository taskRepo;
     private final ControlRepository controls;
     private final FindingService findingService;
     private final AuditService audit;
     private final NotificationService notifications;
-    private final EscalationNotifier escalationNotifier;
 
     public List<ControlTestResult> getTestHistory(Integer controlId) {
         return testRepo.findByControlIdOrderByTestDateDesc(controlId);
@@ -182,29 +177,6 @@ public class ControlTestService {
             taskRepo.save(t);
         }
         log.info("Marked {} control tasks as overdue", due.size());
-
-        for (ControlTask t : taskRepo.findByStatusAndDueDateBefore(WorkflowStatus.TASK_OVERDUE, today.plusDays(1))) {
-            long daysOverdue = ChronoUnit.DAYS.between(t.getDueDate(), today);
-            int implied = daysOverdue > ESCALATE_TO_CCO_AFTER_DAYS ? 3
-                        : daysOverdue > ESCALATE_TO_MANAGER_AFTER_DAYS ? 2
-                        : 1;
-            int current = t.getEscalationLevel() != null ? t.getEscalationLevel() : 0;
-            if (implied <= current) {
-                continue;
-            }
-            t.setEscalationLevel(implied);
-            t.setEscalatedAt(Instant.now());
-            taskRepo.save(t);
-            try {
-                escalationNotifier.escalate(implied, t.getAssignedToUserId(), NotificationConstants.CATEGORY_CONTROLS,
-                    "Control test overdue",
-                    "Control test \"" + safeName(t) + "\" is " + daysOverdue + " day(s) overdue (L" + implied + ")",
-                    "/controls");
-            } catch (Exception e) {
-                log.warn("Control-task escalation notify failed for task {}: {}", t.getTaskId(), e.getMessage());
-            }
-            log.info("Control task {} escalated to level {}", t.getTaskId(), implied);
-        }
     }
 
     private void updateResidualRisk(Control c, String result) {
@@ -217,10 +189,5 @@ public class ControlTestService {
 
     private static String safeName(Control c) {
         return c.getName() != null && !c.getName().isBlank() ? c.getName() : "Control " + c.getControlId();
-    }
-
-    private static String safeName(ControlTask t) {
-        return t.getControlName() != null && !t.getControlName().isBlank()
-            ? t.getControlName() : "Control " + t.getControlId();
     }
 }
