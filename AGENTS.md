@@ -554,29 +554,10 @@ Dashboard V2 routed at `/dashboard/v2` and fixed (inverted quarter date range, a
 
 ## Done — Intel Explorers (obligations, sanctions, returns, controls)
 
-Four vertical slices, each a `GET /api/v1/admin/<entity>` + `/stats` + `/{id}` behind `@PreAuthorize("hasRole('PLATFORM_ADMIN')")`, following the `AdminRegulationController` pattern, plus an explorer and detail page following `RegulationExplorerPage`/`RegulationDetailPage`. Routes, nav and API client live in one shared commit made up front.
-
-### Entity naming differs per module — check before copying code between them
-| Entity | Act FK | Section field | actName |
-|---|---|---|---|
-| `ObligationMapping` | `regulationId` → column `act_id` | **`specificSectionReference`** | resolved (batch-loaded) |
-| `SanctionsPenalty` | `regulationId` → column `act_id` | `sourceSectionReference` | resolved (batch-loaded) |
-| `RegulatoryReturn` | **`actId`** directly | `sectionReference` | resolved (batch-loaded) |
-| `ComplianceControl` | **`actId`** directly | — | **denormalised on the row** |
-
-The tenant obligation DTOs use `sectionReference`, so intel's `specificSectionReference` is a genuine trap when porting a page across.
-
-### Sorting on a service-resolved field throws at runtime
-`actName` is not persisted on `ObligationMapping`, `SanctionsPenalty` or `RegulatoryReturn` — it is resolved in the service. Passing `sort=actName` into `Pageable` raises `PropertyReferenceException`. The explorers therefore sort Act on `regulationId`/`actId`, or leave it unsortable. `ComplianceControl` is the exception: `actName` IS a column there, so it sorts normally.
-
-### N+1 avoided
-Act names are resolved by collecting the page's distinct act ids into a `Set` and issuing one `findAllById` — one extra query per page regardless of page size. Obligation stats aggregate in SQL via new group-by queries rather than loading all ~1541 rows.
-
-### The Intel frontend has NO TanStack Query
-`@tanstack/react-query` is not a dependency of `atheris-compliance-intelligence-frontend` and there is no `QueryClientProvider` in its `main.jsx`. The `frontend-register-page` convention's "use TanStack Query, never raw useEffect" applies to the TENANT app only. Intel explorers use the raw `useState`/`useCallback`/`useEffect` pattern with race guards, matching `RegulationExplorerPage`. Aligning Intel with the tenant app would be a separate, deliberate migration.
-
-### Known lint debt (pre-existing, not new)
-The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 errors per explorer/detail pair. The reference `RegulationExplorerPage`/`RegulationDetailPage` produce the identical 3 errors, and `npx eslint .` over the intel frontend already reports ~316 problems. No suppressions were added. Note the intel `npm run lint` script covers only the intel app; the tenant frontend has no eslint config at all.
+Four slices (`GET /api/v1/admin/<entity>` + `/stats` + `/{id}`, `PLATFORM_ADMIN`) each with an explorer + detail page (pattern: `AdminRegulationController` / `RegulationExplorerPage`).
+- **Act FK / section field differ per module** — `ObligationMapping` (`regulationId`→`act_id`, section **`specificSectionReference`**, actName batch-resolved), `SanctionsPenalty` (`regulationId`, `sourceSectionReference`), `RegulatoryReturn` (`actId`, `sectionReference`), `ComplianceControl` (`actId`, actName denormalised on the row). Tenant obligation DTOs use `sectionReference`, so intel's `specificSectionReference` is a genuine porting trap.
+- **Never sort a service-resolved field** — `actName` is resolved in the service on `ObligationMapping`/`SanctionsPenalty`/`RegulatoryReturn`, so `sort=actName` throws `PropertyReferenceException`; sort on `regulationId`/`actId` instead (`ComplianceControl.actName` IS a column). Act names resolved via one `findAllById` per page (no N+1); obligation stats aggregate in SQL.
+- **Intel has NO TanStack Query** (no dependency, no `QueryClientProvider`) — intel explorers use raw `useState`/`useCallback`/`useEffect` with race guards; do not add TanStack as a side effect. Known lint debt is pre-existing: the raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` (~3 errors per page; ~316 across the intel app), no suppressions, and the tenant frontend has no eslint config.
 ## Done — Returns Register/Details Harmonized (incl. backend linkage)
 
 `GET /returns/{returnId}/obligations` enriched to `LinkedObligationItem` (rows lazily fetch on expand); `overcomeCount` → `overdueCount`. Known: `ReturnService.getRegister` ignores `Pageable` sort.
@@ -586,25 +567,14 @@ The raw fetch-in-effect idiom trips `react-hooks/set-state-in-effect` — 3 erro
 
 ## Done — Instruments / Obligations / Sanctions Harmonized
 
-Pages now render DTO enrichment they never read (verbatim vs interpreted text, section/area/type/deadline chips, act linkage, expandable sanction panels). Fixed: Instruments drawer read non-existent `obl.section`/`obl.type`/`s.type`; Instruments pagination capped at one page; register `hasGap` filter shadowed (renamed `hasGapFilter`).
-- **Sanction amount field:** `InstrumentDetailResponse.SanctionItem.amountNaira` vs `sanctionAmountNaira` on every other sanction DTO.
-- **Query keys for by-id details must be stringified** (`['x', String(id)]`) — `useParams()` gives strings, list ids are numbers.
-- Concurrent agents must not share `dist/`; verify with `npx vite build --outDir dist-verify-<name> --emptyOutDir`.
+Pages render DTO enrichment they previously ignored (verbatim vs interpreted text, section/area/type/deadline chips, act linkage, expandable sanction panels). Fixed the Instruments drawer reading non-existent `obl.section`/`obl.type`/`s.type`, a one-page pagination cap, and the shadowed `hasGap` filter. **Traps:** `InstrumentDetailResponse.SanctionItem.amountNaira` vs `sanctionAmountNaira` elsewhere; by-id detail query keys must be `['x', String(id)]`; concurrent builds must not share `dist/`.
 
 ## Done — Review Inbox Harmonized (enriched obligation summary)
 
-`ReviewInboxPage.jsx` now mirrors `ReviewEditPage.jsx` (the harmonization reference).
-
-- **Expandable rows** — each review row has a chevron; expanding lazily calls `GET /review/{reviewId}` (`api.review.get`) and renders a read-only enriched obligation table: `#`, Obligation (bold title + grey `plainEnglishStatement` caption, verbatim `description` behind an `InfoOutlined` tooltip), Section (mono chip), Area (`areaOfFocus`), Risk (`inherentRiskChip` with `likelihood × impact` tooltip), Act (`actName`, falls back to `Reg #{regulationId}`). `applicable === false` renders at 0.45 opacity with a "Not applicable" chip.
-- **No backend change** — `ReviewItem` (list DTO) stays instrument-level; enrichment comes from the existing detail endpoint. `enabled: open` means collapsed rows fire no request (no N+1 on list load); `staleTime: 5min` makes re-expanding free.
-- **Shared detail cache** — query key is `['review', String(reviewId)]`, matching `ReviewEditPage`'s `useParams()` string key, so expanding a row warms the detail page and vice-versa. The key must be stringified: `useParams()` gives a string while `item.reviewId` is a JSON number, and TanStack hashes `['review',12]` and `['review','12']` differently.
-- **TanStack Query migration** — list / stats / skip moved off raw `useEffect` + `useState` per the register-page convention; list uses `placeholderData: keepPreviousData` so paging and sorting no longer flash a spinner. All queries pass `{ signal }` through to `api.review.*`.
-- **Outer table trimmed to 5 data columns** (+ chevron + actions): Document (Source chip folded inline before the title), Regulator, Risk, Obligations, Received. Nothing previously shown was dropped; the standalone `source` sort header is gone, but source remains filterable via the dropdown and the Intel/Upload KPI cards.
+`ReviewInboxPage` mirrors `ReviewEditPage`: expandable rows lazily `GET /review/{reviewId}` (no N+1 on load, `staleTime 5m`), read-only enriched obligation table; list/stats/skip on TanStack with `keepPreviousData`; outer table trimmed to 5 data columns (source folded into the Document cell). Shared detail cache key must be stringified: `['review', String(reviewId)]`.
 ## Done — Dashboard V2 (Rendition Tracker + Control Coverage)
 
-`DashboardV2Page` (Rendition tab + Control Coverage tab, `RiskHeatmap`) backed by `DashboardV2Controller`/`DashboardV2Service` (`/dashboard/v2/{rendition-grid,escalation-matrix,risk-heatmap,control-coverage,returns-by-period,risk-profile,thresholds}`) and `risk_matrix_config` (V28). Risk scoring: Impact Insignificant..Severe × Likelihood Rare..Almost Certain (1–25); bands Low / Moderate (≥6) / High (≥12) / Critical (≥18). `computeResidualRisk()` not yet wired into control tests. Returns seeding fix: `filing_due_day_of_month` was NULL on all returns → `parseDueDayFromFrequency()` added.
-- The live tenant `/dashboard` is **`CcoDashboardPage.jsx`** (imported under alias `DashboardPage`); V2 was unreachable until routed at `/dashboard/v2`.
-- **Grep the import PATH, not the identifier** (aliased imports give false positives).
+`DashboardV2Page` (Rendition + Control Coverage tabs, `RiskHeatmap`) via `DashboardV2Controller`/`DashboardV2Service` (`/dashboard/v2/{rendition-grid,escalation-matrix,risk-heatmap,control-coverage,returns-by-period,risk-profile,thresholds}`) and `risk_matrix_config` (V28); scoring Impact(1–5)×Likelihood(1–5), bands Low/Moderate≥6/High≥12/Critical≥18. The live tenant `/dashboard` is `CcoDashboardPage` (aliased as `DashboardPage`). **Grep the import PATH, not the identifier.**
 
 ## Done — Pipeline Stage Breakdown
 
@@ -624,41 +594,23 @@ Tenant portal `:5174`; polls via `ObligationSyncService` (no webhooks); uploads 
 
 ## Done — Per-Obligation Review Workflow (Edit & Save gate)
 
-**Rule: NO document reaches the Obligations Register without a human "Edit & Save" on the Review page; instruments carry NO classification — it lives per obligation** (`obligation_classifications.obligation_id UNIQUE`). Flow: upload/sync → `pending_reviews` (V21) → `/review` → `/review/edit/:id` (per-row classification) → save → `/instruments` (confirmed only) → `/obligations`.
-- **Review save deletes obligations by `instrument_id`:** `ReviewService.save()` deletes the instrument's existing obligations + classifications (`deleteByInstrumentId`), then recreates one `Obligation` + one `ObligationClassification` per applicable obligation.
-- Register classify calls use `selected.obligationId`, NOT `instrumentId`.
-- **`published_at` is never populated; use `dateIssued`** (AI-extracted) — tenant maps `publishedAt ?? dateIssued`.
+**NO document reaches the Obligations Register without a human "Edit & Save"; instruments carry no classification — it lives per obligation** (`obligation_classifications.obligation_id UNIQUE`). Flow: upload/sync → `pending_reviews` (V21) → `/review` → `/review/edit/:id` → save (deletes + recreates obligations & classifications by `instrument_id`) → `/instruments`. Register classify calls use `selected.obligationId`, not `instrumentId`. **`published_at` is never populated — use `dateIssued`.**
 
 ## Done — Returns Module Enhancements (enums, regulator FK, lazy instances + escalation, bidirectional obligation linking)
 
-**No scheduler:** filing instances materialize idempotently on read (`getCalendar`/`getDetail`) and after `create()` (`ensureInstances`, frequency-aware, `UNIQUE(return_id, period)`); escalation catches up lazily (L1 >0d, L2 >2d, L3 >5d; `submit()` resets). Enums `ReturnStage`/`ReturnFilingStatus`/`RegulatoryReturnStatus` use `@Converter(autoApply=true)` so DB keeps display strings. `regulatory_returns.tenant_regulator_id` FK (+ name snapshot). Return→obligation linking via `GET/PUT /returns/{returnId}/obligations`. V6/V14 edited in place.
-- **flyway-maven-plugin needs the fully-qualified goal** (`mvn org.flywaydb:flyway-maven-plugin:10.12.0:repair` + `-Dflyway.` props) — it is not in the module pom.
+**No scheduler:** filing instances materialize idempotently on read/after `create()` (`ensureInstances`, frequency-aware, `UNIQUE(return_id, period)`); enums via `@Converter(autoApply=true)` keep display strings; `regulatory_returns.tenant_regulator_id` FK (+ name snapshot); return↔obligation linking via `GET/PUT /returns/{returnId}/obligations`. The lazy escalation ladder it introduced was **replaced by the escalation engine above**. **flyway-maven-plugin needs the fully-qualified goal** (`org.flywaydb:flyway-maven-plugin:10.12.0:repair`) — not in the module pom.
 
 ## Done — Configurable License Seed & Toolkit Regulator Fix
 
-License flags `autoSubscribeRegulators` / `autoSeedObligations` (intel V12 + tenant V28, default false) drive onboarding; toolkit seeds go straight to the Register (Inbox 0 is expected), AI/uploads stay gated via Review. Toolkit regulator inference chain (`inferRegulatorFromTitle → inferRegulatorForAct → mapAreaToRegulator → Federal Govt`) took null-regulator instruments 29 → 0. Review Inbox sync fixed: `findRecentForTenant` uses `coalesce(publishedAt, dateIssued)`, onboarding salvage subscribes regulators when none chosen, sync watermark not advanced on error.
+License flags `autoSubscribeRegulators`/`autoSeedObligations` (intel V12 + tenant V28, default false) drive onboarding; toolkit seeds go straight to the Register (Inbox 0 is expected). Toolkit regulator inference chain took null-regulator instruments 29→0; Review-Inbox sync uses `coalesce(publishedAt, dateIssued)`.
 
-## Done — Classifier/Toolkit Harmonization (backend-only, verbatim + plain, 60+ cap)
+## Done — Classifier/Toolkit Harmonization (verbatim + plain, atomic obligations)
 
-One register row = one enforceable duty for both `toolkit_seed` and `ai_extracted`. Classifier prompt is atomic (one "shall" = one obligation), separates verbatim `description` (≤500) from interpreted `statement` (≤250), emits risk/likelihood/impact/controlOwner/sanctions/act_name and 12 unified areas of focus; `max 3500` tokens with 80k → 2×40k chunk merge. `ObligationMapping` gains `description`/`title`/risk/owner/`act_id` (intel V3 edited); the 14-column item propagates through `InternalInstrumentDetail` → `ObligationSyncService` → Review DTOs → `ReviewService.save()`. Seeder order `AdminUserSeeder @Order(0)` → `ToolkitStartupSeeder @Order(1)`; scraper/storage logging INFO → DEBUG.
+One register row = one enforceable duty for both `toolkit_seed` and `ai_extracted`: atomic prompt (one "shall" = one obligation), verbatim `description` (≤500) vs interpreted `statement` (≤250), risk/likelihood/impact/controlOwner/sanctions/act_name + 12 unified areas; `ObligationMapping` gains `description`/`title`/risk/owner/`act_id` (intel V3 edited); seeder order `AdminUserSeeder @Order(0)` → `ToolkitStartupSeeder @Order(1)`.
 
 ## Done — Toolkit Seed via Committed JSON (no LLM points)
 
-**Problem:** `classpath:toolkit/compliance_toolkits.md` never travelled into the JAR, so a fresh boot parsed nothing; points were generated per-startup via batched LLM calls (62 batches × 25, then virtual-threads/concurrency-5) — Gemini 429 / cooldown / quota burned, points backlog never finished, obligating an AI call for data the markdown already contained.
-
-**Solution:** the markdown is converted once, offline, to a committed typed JSON (`tools/toolkit-md-points/export_json.py` → `compliance_toolkits.json`, ~4.8 MB), verified by `verify_json.py` (parity 1541 obligations / 597 sanctions / 139 returns / 363 universe / 192 CMP), and read at startup by the importer. Points and interpreted text are authored in the markdown and pass through verbatim — **no LLM calls at seed time**, no `OPENROUTER_API_KEY` needed to seed, no per-startup points job.
-
-### Changes
-- **`compliance_toolkits.json`** (committed, `src/main/resources/toolkit/`) — typed `ToolkitSeedDoc`: `meta` (with per-table totals), `universe`/`universeSanctions` (informational), `obligations` (Map<String, List<ObligationRow>>), `sanctions`, `returns`, `monitoringPlan` (CMP controls). `compliance_toolkits.md` retained as the human source.
-- **`ToolkitImportService`** — all six importers rewritten over typed DTOs (`importUniverse`, `importCrmp`, `importSanctions`, `importReturns`, `importCmpControls`, `importCmpControlsFromSections`); markdown row-parsing helpers (`parseSections`, `normalizeSectionName`, `col`, `headerIndex`, `isSubHeader`, `get`×2, `extractReference`, `parsePointsCell`, `CELL_SPLIT`) deleted. Business logic kept: findOrCreateAct chain, canonical instrument linking, verbatim/interpreted split with plain→description fallback, points passthrough, existsBy dedup, global CMP numbering (`PREF C%03d`/`PREF A%03d`).
-- **`ToolkitImportResult`** (new, `dto/seed/`) — typed result DTO (`@Data @Builder @NoArgsConstructor @AllArgsConstructor @JsonInclude(NON_NULL)`; regulators/acts/instruments/obligations/sanctions/returns/controls/unmappedSources/unmappedList/error/cause), same JSON shape as the legacy `Map<String, Object>`; `importToolkit()`/`successResult()`/`errorResult()` return it; `AdminRegulationController` → `ResponseEntity<ToolkitImportResult>`; `ToolkitStartupSeeder` reads `result.getError()`.
-- **Deleted** — `PointsRetryScheduler` (scheduler), `BatchPointsResponse` (DTO), `atheris.points.*` config (the `compliance_toolkits.md`-only bulges that survived the md→JSON refactor) — points fill from the JSON, not the LLM.
-- **DB env vars** — datasource username reads `DB_USERNAME` (was `DB_USER`), password reads `DB_PASSWORD`; **no hardcoded fallbacks** in `application.yml` (both backends). Credentials come only from the OS env; `.env.example` and AGENTS.md How-to-run updated.
-
-### Verified
-- `verify_json.py` → `VERIFY OK … (1541/597/139/363/192)` EXIT 0.
-- `JAVA_HOME=<graalvm-ce-21.0.2> mvn -q -pl atheris-compliance-intelligence-backend -am compile` clean (default JDK 27 breaks Lombok — always compile with GraalVM 21).
-- Fresh-DB boot parity check is the outstanding verification (Flyway migrate → `ToolkitStartupSeeder` → SQL counts vs 1541/597/139/363/192).
+The toolkit markdown is converted once, offline, to a committed typed JSON (`tools/toolkit-md-points/export_json.py` → `compliance_toolkits.json`, ~4.8 MB; `verify_json.py` parity 1541/597/139/363/192) and read at startup by `ToolkitImportService` (rewritten over typed DTOs, `ToolkitImportResult` added) — **no LLM calls at seed time**. `PointsRetryScheduler`/`BatchPointsResponse`/`atheris.points.*` deleted. Datasource creds come only from `DB_USERNAME`/`DB_PASSWORD` (no fallbacks in `application.yml`; compile with GraalVM 21 — default JDK 27 breaks Lombok).
 
 
 
