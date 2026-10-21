@@ -25,6 +25,8 @@ public class ReturnRegisterItem {
     private String deadline;
     private String responsibleUnit;
     private String responsiblePerson;
+    private List<String> responsibleUnits;
+    private List<String> responsiblePersons;
     private String currentPeriod;
     private LocalDate currentDueDate;
     private String currentStatus;

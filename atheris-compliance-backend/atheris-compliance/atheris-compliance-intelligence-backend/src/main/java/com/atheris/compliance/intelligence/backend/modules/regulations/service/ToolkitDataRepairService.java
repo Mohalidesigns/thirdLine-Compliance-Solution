@@ -1,5 +1,6 @@
 package com.atheris.compliance.intelligence.backend.modules.regulations.service;
 
+import com.atheris.compliance.common.returns.ReturnFrequencyClassifier;
 import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.common.taxonomy.AreasOfFocus;
 import com.atheris.compliance.intelligence.backend.modules.instruments.entity.Instrument;
@@ -8,7 +9,9 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.entity.Ob
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitSeedDoc;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,10 +53,11 @@ public class ToolkitDataRepairService {
     private final InstrumentRepository instruments;
     private final ObligationMappingRepository obligations;
     private final ComplianceControlRepository controls;
+    private final RegulatoryReturnRepository returns;
     private final ObjectMapper mapper;
 
     public record Result(int instrumentsUpdated, int riskRebanded, int areaReassigned,
-                         int controlRiskRebanded, int controlResidualRebanded) {}
+                         int controlRiskRebanded, int controlResidualRebanded, int returnsRetyped) {}
 
     /** Inherent likelihood × impact of the seed row a control was created from. */
     record Inherent(String likelihood, String impact) {}
@@ -96,18 +100,35 @@ public class ToolkitDataRepairService {
             obligations.saveAll(changed);
 
             int[] controlCounts = repairControls(inherentByControlKey(seedSections()));
+            int returnsRetyped = repairReturnFrequencies();
 
-            Result r = new Result(changedInstruments.size(), rebanded, reassigned, controlCounts[0], controlCounts[1]);
+            Result r = new Result(changedInstruments.size(), rebanded, reassigned, controlCounts[0], controlCounts[1], returnsRetyped);
             log.info("[ToolkitRepair] instruments area-normalised={}, obligations risk re-banded={}, area reassigned={}, "
-                    + "controls risk re-banded={}, controls residual re-banded={}",
+                    + "controls risk re-banded={}, controls residual re-banded={}, returns re-typed={}",
                 r.instrumentsUpdated(), r.riskRebanded(), r.areaReassigned(),
-                r.controlRiskRebanded(), r.controlResidualRebanded());
+                r.controlRiskRebanded(), r.controlResidualRebanded(), r.returnsRetyped());
             return r;
         } catch (Throwable e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             log.error("[ToolkitRepair] failed: {}", e.getMessage(), e);
-            return new Result(0, 0, 0, 0, 0);
+            return new Result(0, 0, 0, 0, 0, 0);
         }
+    }
+
+    int repairReturnFrequencies() {
+        int changed = 0;
+        List<RegulatoryReturn> dirty = new ArrayList<>();
+        for (RegulatoryReturn r : returns.findAll()) {
+            String code = ReturnFrequencyClassifier.classify(r.getFrequency())
+                .orElse(ReturnFrequencyClassifier.MONTHLY);
+            if (!code.equals(r.getFrequencyType())) {
+                r.setFrequencyType(code);
+                dirty.add(r);
+                changed++;
+            }
+        }
+        returns.saveAll(dirty);
+        return changed;
     }
 
     /** {inherent re-banded, residual re-banded}. */

@@ -26,4 +26,6 @@ public class CreateReturnRequest {
     private String returnOwnerName;
     private String responsibleUnit;
     private String responsiblePerson;
+    private java.util.List<String> responsibleUnits;
+    private java.util.List<String> responsiblePersons;
 }

@@ -341,6 +341,14 @@ public class ReturnService {
             || ReturnFilingStatus.SUBMITTED_LATE.db().equalsIgnoreCase(status);
     }
 
+    private static boolean isReturnOverdue(ReturnRegisterItem item, LocalDate now) {
+        boolean eventDriven = item.getFrequencyType() != null
+            && ReturnFrequency.EVENT_DRIVEN.name().equalsIgnoreCase(item.getFrequencyType());
+        if (eventDriven) return item.getEventOverdueCount() > 0;
+        return item.getCurrentDueDate() != null && item.getCurrentDueDate().isBefore(now)
+            && !isSubmitted(item.getCurrentStatus());
+    }
+
     /** Display deadline for the shared register column: the regulator's wording, else the current due date. */
     private static String deadlineOf(RegulatoryReturn r, LocalDate currentDue) {
         String text = r.getDeadlineText();
@@ -374,6 +382,8 @@ public class ReturnService {
             .frequencyType(r.getFrequencyType())
             .responsibleUnit(r.getResponsibleUnit())
             .responsiblePerson(r.getResponsiblePerson())
+            .responsibleUnits(r.getResponsibleUnits())
+            .responsiblePersons(r.getResponsiblePersons())
             .dueDateNeeded(DueRule.dueDateNeeded(r))
             .dueRuleType(rule != null ? rule.kind().name() : null)
             .firstDueDate(rule != null && rule.kind() == DueRule.Kind.DATE ? rule.firstDueDate() : null)
@@ -503,25 +513,14 @@ public class ReturnService {
         Set<Long> eventReturnIds = allReturns.stream()
             .filter(r -> ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY) == ReturnFrequency.EVENT_DRIVEN)
             .map(RegulatoryReturn::getReturnId).collect(Collectors.toSet());
-        long overdue = allInstances.stream().filter(i ->
-            !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) &&
-            !ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()) &&
-            !eventReturnIds.contains(i.getReturnId()) &&
-            i.getDueDate() != null && i.getDueDate().isBefore(now)).count();
-        long inProgress = allInstances.stream().filter(i ->
-            !eventReturnIds.contains(i.getReturnId()) && ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
-        long submitted = allInstances.stream().filter(i ->
-            !eventReturnIds.contains(i.getReturnId()) && (
-            ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) ||
-            ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()))).count();
-        overdue += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
-            && i.getTriggerDate() != null && i.getDueDate() != null && i.getDueDate().isBefore(now)
-            && !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) && !ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus())).count();
-        inProgress += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
-            && i.getTriggerDate() != null && ReturnFilingStatus.IN_PROGRESS.equals(i.getStatus())).count();
-        submitted += allInstances.stream().filter(i -> eventReturnIds.contains(i.getReturnId())
-            && i.getTriggerDate() != null && (ReturnFilingStatus.SUBMITTED.equals(i.getStatus())
-                || ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus()))).count();
+        Map<Long, List<ReturnFilingInstance>> instsByReturn = allInstances.stream()
+            .collect(Collectors.groupingBy(ReturnFilingInstance::getReturnId));
+        List<ReturnRegisterItem> rowItems = allReturns.stream()
+            .map(r -> buildRegisterItem(r, instsByReturn.getOrDefault(r.getReturnId(), List.of()), now))
+            .filter(Objects::nonNull).toList();
+        long overdue = rowItems.stream().filter(i -> isReturnOverdue(i, now)).count();
+        long inProgress = rowItems.stream().filter(i -> "In Progress".equalsIgnoreCase(i.getCurrentStatus())).count();
+        long submitted = rowItems.stream().filter(i -> isSubmitted(i.getCurrentStatus())).count();
 
         List<String> frequencies = allReturns.stream()
             .map(RegulatoryReturn::getFrequency).filter(Objects::nonNull)
@@ -563,7 +562,7 @@ public class ReturnService {
 
         return ReturnStatsDto.builder()
             .buckets(statusBuckets(allInstances, eventReturnIds, now))
-            .total(allInstances.size())
+            .total(rowItems.size())
             .overdue(overdue).inProgress(inProgress).submitted(submitted)
             .dueDateNeeded(dueDateNeeded)
             .frequencies(frequencies).regulators(regulators).actNames(actNames)
@@ -732,6 +731,10 @@ public class ReturnService {
             }
         }
 
+        List<String> units = req.getResponsibleUnits() != null ? req.getResponsibleUnits()
+            : (req.getResponsibleUnit() != null && !req.getResponsibleUnit().isBlank() ? List.of(req.getResponsibleUnit()) : List.of());
+        List<String> persons = req.getResponsiblePersons() != null ? req.getResponsiblePersons()
+            : (req.getResponsiblePerson() != null && !req.getResponsiblePerson().isBlank() ? List.of(req.getResponsiblePerson()) : List.of());
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
@@ -747,8 +750,10 @@ public class ReturnService {
             .filingChannel(req.getFilingChannel())
             .returnOwnerUserId(req.getReturnOwnerUserId())
             .returnOwnerName(req.getReturnOwnerName())
-            .responsibleUnit(req.getResponsibleUnit())
-            .responsiblePerson(req.getResponsiblePerson()).build();
+            .responsibleUnits(units)
+            .responsiblePersons(persons)
+            .responsibleUnit(units.isEmpty() ? null : units.get(0))
+            .responsiblePerson(persons.isEmpty() ? null : persons.get(0)).build();
         RegulatoryReturn saved = returns.save(r);
         ensureInstances(saved);
         audit.log(userId, "return_created", "return", saved.getReturnId(),

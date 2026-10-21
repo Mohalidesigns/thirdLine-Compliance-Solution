@@ -2,8 +2,12 @@ package com.atheris.compliance.tenant.backend.modules.returns.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "regulatory_returns")
@@ -51,6 +55,14 @@ public class RegulatoryReturn {
     private String returnOwnerName;
     private String responsibleUnit;
     private String responsiblePerson;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private List<String> responsibleUnits = new ArrayList<>();
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    @Builder.Default
+    private List<String> responsiblePersons = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
 

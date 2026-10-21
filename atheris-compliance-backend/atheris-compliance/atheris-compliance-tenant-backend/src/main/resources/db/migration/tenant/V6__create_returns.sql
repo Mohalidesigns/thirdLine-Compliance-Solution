@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     return_owner_name          TEXT,
     responsible_unit           TEXT,
     responsible_person         TEXT,
+    responsible_units          JSONB DEFAULT '[]',
+    responsible_persons        JSONB DEFAULT '[]',
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

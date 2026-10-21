@@ -1,5 +1,6 @@
 package com.atheris.compliance.intelligence.backend.modules.regulations.service;
 
+import com.atheris.compliance.common.returns.ReturnFrequencyClassifier;
 import com.atheris.compliance.intelligence.backend.modules.instruments.entity.Instrument;
 import com.atheris.compliance.intelligence.backend.modules.instruments.repository.InstrumentRepository;
 import com.atheris.compliance.intelligence.backend.modules.obligations.entity.ObligationMapping;
@@ -852,40 +853,7 @@ public class ToolkitImportService {
      * Returns one of: DAILY, WEEKLY, MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, BIENNIAL, EVENT_DRIVEN.
      */
     private String classifyFrequency(String freq) {
-        if (freq == null || freq.isBlank()) return "MONTHLY";
-        String f = freq.trim().toLowerCase();
-
-        // Event-driven patterns (check FIRST — these override recurring)
-        if (f.contains("within") || f.contains("upon") || f.contains("on request")
-            || f.contains("as required") || f.contains("as directed")
-            || f.contains("as determined") || f.contains("as prescribed")
-            || f.contains("immediately") || f.contains("no fixed timeline")
-            || f.contains("ongoing") || f.contains("continuous")
-            || f.contains("as detected") || f.contains("as disputes")
-            || f.contains("per risk") || f.contains("triggered")
-            || f.contains("from date") || f.contains("on-demand")
-            || f.contains("during") || f.contains("in advance")
-            || f.contains("at least") || f.contains("without delay")
-            || f.contains("not less than") || f.contains("not later than")
-                && !f.contains("month") && !f.contains("quarter") && !f.contains("year")
-            || f.contains("after the meeting")
-            || f.contains("after commencement")
-            || f.contains("upon request")) {
-            return "EVENT_DRIVEN";
-        }
-
-        // Recurring patterns
-        if (f.contains("daily")) return "DAILY";
-        if (f.contains("weekly")) return "WEEKLY";
-        if (f.contains("semi") || f.contains("twice yearly") || f.contains("every 6 months"))
-            return "SEMI_ANNUAL";
-        if (f.contains("quarter")) return "QUARTERLY";
-        if (f.contains("every 2 years") || f.contains("biennial")) return "BIENNIAL";
-        if (f.contains("annual") || f.contains("annually") || f.contains("once per calendar year"))
-            return "ANNUAL";
-        if (f.contains("monthly")) return "MONTHLY";
-
-        return "MONTHLY"; // default
+        return ReturnFrequencyClassifier.classify(freq).orElse(ReturnFrequencyClassifier.MONTHLY);
     }
 
     /**

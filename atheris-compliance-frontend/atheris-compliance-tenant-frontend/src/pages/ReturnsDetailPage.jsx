@@ -58,6 +58,14 @@ function isEventDriven(item) {
 function noPeriodLabel(item) {
   return isEventDriven(item) ? 'On event' : 'No scheduled period';
 }
+function responsibleUnits(item) {
+  if (item?.responsibleUnits?.length) return item.responsibleUnits;
+  return item?.responsibleUnit ? [item.responsibleUnit] : [];
+}
+function responsiblePersons(item) {
+  if (item?.responsiblePersons?.length) return item.responsiblePersons;
+  return item?.responsiblePerson ? [item.responsiblePerson] : [];
+}
 
 export default function ReturnsDetailPage() {
   const { returnId } = useParams();
@@ -201,8 +209,16 @@ export default function ReturnsDetailPage() {
               <Field label="Frequency" value={isEventDriven(item) ? 'On event' : (item.frequency || item.frequencyType)} />
               <Field label="Due rule" value={dueRuleText(item)} />
               <Field label="Start preparing" value={item.prepDays != null ? `${item.prepDays} day(s) before due` : '—'} />
-              <Field label="Responsible unit" value={item.responsibleUnit} />
-              <Field label="Responsible person" value={item.responsiblePerson} />
+              <Field label="Responsible units">
+                {responsibleUnits(item).length
+                  ? responsibleUnits(item).map((u) => <Chip key={u} size="small" variant="outlined" label={u} sx={{ mr: 0.5, mb: 0.5 }} />)
+                  : <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>—</Typography>}
+              </Field>
+              <Field label="Responsible persons">
+                {responsiblePersons(item).length
+                  ? responsiblePersons(item).map((p) => <Chip key={p} size="small" variant="outlined" label={p} sx={{ mr: 0.5, mb: 0.5 }} />)
+                  : <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>—</Typography>}
+              </Field>
               {item.deadlineText && <Field label="Regulator wording" value={item.deadlineText} />}
             </FieldGrid>
           </Section>
@@ -358,7 +374,14 @@ function HistoryTable({ filings, isEventDriven, selectedId, onOpen, loading }) {
 function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
   const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
+  async function startFiling() {
+    setStarting(true);
+    try { await api.returns.advance(detail.instanceId, {}); onRefresh(); }
+    catch (e) { onSnackbar(e.message); }
+    finally { setStarting(false); }
+  }
   const currentStageIdx = (detail.stages || []).findIndex(s => s.current) >= 0
     ? (detail.stages || []).findIndex(s => s.current)
     : STAGE_NAMES.indexOf(detail.currentStage);
@@ -440,7 +463,14 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
                       <LinkIcon size={14} /> Evidence
                     </Link>
                   )}
-                  {stage.current && !isSubmitted && i < SIGN_OFF_IDX && (
+                  {stage.current && !isSubmitted && i === 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Button size="small" variant="contained" onClick={startFiling} disabled={starting}>
+                        {starting ? 'Starting…' : 'Start filing'}
+                      </Button>
+                    </Box>
+                  )}
+                  {stage.current && !isSubmitted && i > 0 && i < SIGN_OFF_IDX && (
                     <Box sx={{ mt: 1 }}>
                       <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
                         Mark complete → {STAGE_NAMES[i + 1]}

@@ -662,6 +662,7 @@ One register row = one enforceable duty for both `toolkit_seed` and `ai_extracte
 ## CODING STYLE
 
 - controllers must be using thin and delegate to service classes
+- NEVER add comments to backend Java code — no line comments, no block/multiline comments, no Javadoc. New backend code must be self-explanatory.
 - always try to use jpa query methods where possible
 - for filtering and searching, use jpa criteria unless otherwise
 - avoid using jpql no matter what, when necessary use native query after prompting me for approval

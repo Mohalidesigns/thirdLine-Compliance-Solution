@@ -215,6 +215,8 @@ public class RegulationSeedService {
                     .dueDaysAfterPeriodEnd(rule != null && rule.kind() == DueRule.Kind.OFFSET ? rule.daysAfterPeriodEnd() : null)
                     .dueDateSource(rule != null ? DueRule.SOURCE_PLATFORM_TEXT : null)
                     .deadlineText(ReturnDeadlineParser.deadlineText(r, parsed))
+                    .responsibleUnits(r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank() ? List.of(r.getResponsibleUnit()) : List.of())
+                    .responsiblePersons(r.getResponsiblePerson() != null && !r.getResponsiblePerson().isBlank() ? List.of(r.getResponsiblePerson()) : List.of())
                     .responsibleUnit(r.getResponsibleUnit())
                     .responsiblePerson(r.getResponsiblePerson())
                     .status(com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus.ACTIVE)

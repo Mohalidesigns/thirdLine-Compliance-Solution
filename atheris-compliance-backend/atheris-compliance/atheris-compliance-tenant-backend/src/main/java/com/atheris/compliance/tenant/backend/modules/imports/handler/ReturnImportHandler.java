@@ -314,6 +314,8 @@ public class ReturnImportHandler implements ImportHandler {
                 .filingChannel(row.value(CHANNEL))
                 .returnOwnerUserId(p.owner() != null ? p.owner().getUserId() : null)
                 .returnOwnerName(p.owner() != null ? p.owner().getFullName() : null)
+                .responsibleUnits(row.value(UNIT) != null && !row.value(UNIT).isBlank() ? java.util.List.of(row.value(UNIT)) : java.util.List.of())
+                .responsiblePersons(row.value(PERSON) != null && !row.value(PERSON).isBlank() ? java.util.List.of(row.value(PERSON)) : java.util.List.of())
                 .responsibleUnit(row.value(UNIT))
                 .responsiblePerson(row.value(PERSON))
                 .build());
