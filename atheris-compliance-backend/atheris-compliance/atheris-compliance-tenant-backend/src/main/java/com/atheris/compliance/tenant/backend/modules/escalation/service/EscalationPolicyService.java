@@ -45,10 +45,11 @@ public class EscalationPolicyService {
     public EscalationPolicyDto create(EscalationPolicyRequest req, Integer userId) {
         try {
             String subjectType = validate(req);
-            if (Boolean.TRUE.equals(req.getIsDefault())) clearDefaults(subjectType);
+            if (Boolean.TRUE.equals(req.getIsDefault())) clearDefaults(subjectType, req.getFrequencyScope(), null);
             EscalationPolicy policy = EscalationPolicy.builder()
                 .name(req.getName().trim())
                 .subjectType(subjectType)
+                .frequencyScope(normScope(req.getFrequencyScope()))
                 .isDefault(Boolean.TRUE.equals(req.getIsDefault()))
                 .isActive(req.getIsActive() == null || req.getIsActive())
                 .reminderStartValue(req.getReminderStartValue())
@@ -76,8 +77,9 @@ public class EscalationPolicyService {
             String subjectType = validate(req);
             policy.setName(req.getName().trim());
             policy.setSubjectType(subjectType);
-            if (Boolean.TRUE.equals(req.getIsDefault())) clearDefaults(subjectType, id);
+            if (Boolean.TRUE.equals(req.getIsDefault())) clearDefaults(subjectType, req.getFrequencyScope(), id);
             policy.setIsDefault(Boolean.TRUE.equals(req.getIsDefault()));
+            policy.setFrequencyScope(normScope(req.getFrequencyScope()));
             policy.setIsActive(req.getIsActive() == null || req.getIsActive());
             policy.setReminderStartValue(req.getReminderStartValue());
             policy.setReminderStartUnit(normUnit(req.getReminderStartUnit()));
@@ -212,18 +214,33 @@ public class EscalationPolicyService {
     }
 
     public EscalationInstanceDto resolve(String subjectType, Long subjectId, Long subjectPolicyId) {
+        return resolve(subjectType, subjectId, subjectPolicyId, null);
+    }
+
+    public EscalationInstanceDto resolve(String subjectType, Long subjectId, Long subjectPolicyId, String frequencyScope) {
         Optional<EscalationInstance> override = instances.findBySubjectTypeAndSubjectId(subjectType, subjectId);
         if (override.isPresent()) return toInstanceDto(override.get());
         EscalationPolicy policy = null;
         if (subjectPolicyId != null) policy = policies.findById(subjectPolicyId).orElse(null);
-        if (policy == null) policy = defaultPolicy(subjectType).orElse(null);
+        if (policy == null) policy = defaultPolicy(subjectType, frequencyScope).orElse(null);
         return policy == null ? null : fromPolicy(policy);
     }
 
     public Optional<EscalationPolicy> defaultPolicy(String subjectType) {
-        return policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
+        return defaultPolicy(subjectType, null);
+    }
+
+    public Optional<EscalationPolicy> defaultPolicy(String subjectType, String frequencyScope) {
+        String scope = normScope(frequencyScope);
+        List<EscalationPolicy> actives = policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
             .filter(p -> Boolean.TRUE.equals(p.getIsDefault()) && !Boolean.FALSE.equals(p.getIsActive()))
-            .findFirst();
+            .toList();
+        if (scope != null) {
+            Optional<EscalationPolicy> match = actives.stream()
+                .filter(p -> scope.equals(normScope(p.getFrequencyScope()))).findFirst();
+            if (match.isPresent()) return match;
+        }
+        return actives.stream().filter(p -> normScope(p.getFrequencyScope()) == null).findFirst();
     }
 
     private EscalationPolicy load(Long id) {
@@ -246,14 +263,14 @@ public class EscalationPolicyService {
         return subjectType;
     }
 
-    private void clearDefaults(String subjectType) { clearDefaults(subjectType, null); }
-
-    private void clearDefaults(String subjectType, Long exceptId) {
+    private void clearDefaults(String subjectType, String frequencyScope, Long exceptId) {
+        String scope = normScope(frequencyScope);
         for (EscalationPolicy p : policies.findBySubjectTypeOrderByNameAsc(subjectType)) {
-            if (Boolean.TRUE.equals(p.getIsDefault()) && (exceptId == null || !exceptId.equals(p.getPolicyId()))) {
-                p.setIsDefault(false);
-                policies.save(p);
-            }
+            if (!Boolean.TRUE.equals(p.getIsDefault())) continue;
+            if (!Objects.equals(normScope(p.getFrequencyScope()), scope)) continue;
+            if (exceptId != null && exceptId.equals(p.getPolicyId())) continue;
+            p.setIsDefault(false);
+            policies.save(p);
         }
     }
 
@@ -290,6 +307,7 @@ public class EscalationPolicyService {
             .reminderStartValue(p.getReminderStartValue()).reminderStartUnit(p.getReminderStartUnit())
             .reminderRepeatValue(p.getReminderRepeatValue()).reminderRepeatUnit(p.getReminderRepeatUnit())
             .sendLink(p.getSendLink())
+            .frequencyScope(p.getFrequencyScope())
             .levels(policyLevels.findByPolicyIdOrderByLevelNoAsc(p.getPolicyId()).stream().map(this::toLevelDto).toList())
             .createdAt(p.getCreatedAt()).updatedAt(p.getUpdatedAt())
             .build();
@@ -332,6 +350,11 @@ public class EscalationPolicyService {
             .targetType(l.getTargetType()).targetRole(l.getTargetRole()).targetUserId(l.getTargetUserId())
             .targetName(l.getTargetName()).targetEmail(l.getTargetEmail())
             .build();
+    }
+
+    private static String normScope(String scope) {
+        if (scope == null || scope.isBlank()) return null;
+        return scope.trim().toUpperCase(Locale.ROOT);
     }
 
     private static String normUnit(String unit) {

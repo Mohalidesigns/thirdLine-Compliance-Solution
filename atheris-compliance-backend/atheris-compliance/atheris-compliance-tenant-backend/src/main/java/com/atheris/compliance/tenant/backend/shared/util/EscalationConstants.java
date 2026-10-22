@@ -19,6 +19,7 @@ public final class EscalationConstants {
     public static final String TRIGGER_APPROACHING = "APPROACHING";
     public static final String TRIGGER_REMINDER = "REMINDER";
     public static final String TRIGGER_OVERDUE = "OVERDUE";
+    public static final String TRIGGER_GATHERING = "GATHERING";
 
     public static final String CHANNEL_EMAIL = "EMAIL";
 
@@ -27,6 +28,7 @@ public final class EscalationConstants {
     public static final String KEY_RETURN_APPROACHING = "return.filing.approaching";
     public static final String KEY_RETURN_REMINDER = "return.filing.reminder";
     public static final String KEY_RETURN_OVERDUE = "return.filing.overdue";
+    public static final String KEY_RETURN_GATHERING = "return.filing.gathering";
     public static final String KEY_CONTROL_APPROACHING = "control.test.approaching";
     public static final String KEY_CONTROL_OVERDUE = "control.test.overdue";
 }

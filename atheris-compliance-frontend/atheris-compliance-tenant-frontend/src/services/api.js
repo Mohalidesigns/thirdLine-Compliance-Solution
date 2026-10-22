@@ -446,6 +446,8 @@ export const api = {
   tasks: {
     mine: (opts = {}) => request('/tasks', { signal: opts.signal }),
     overdue: (opts = {}) => request('/tasks/overdue', { signal: opts.signal }),
+    center: (params = {}, opts = {}) => request(`/tasks/center${toQuery(params)}`, { signal: opts.signal }),
+    centerStats: (params = {}, opts = {}) => request(`/tasks/center/stats${toQuery(params)}`, { signal: opts.signal }),
   },
   returns: {
     list: () => request('/returns/list'),
@@ -480,6 +482,12 @@ export const api = {
     }),
     updateEscalationPolicy: (returnId, escalationPolicyId) => request(`/returns/${returnId}/escalation-policy`, {
       method: 'PUT', body: JSON.stringify({ escalationPolicyId }),
+    }),
+    // Edit responsible person(s) + owner (analyst, CC'd on reminders).
+    update: (returnId, body) => request(`/returns/${returnId}`, { method: 'PUT', body: JSON.stringify(body) }),
+    // Set the return's escalation contact + reminder cadence (per-return policy).
+    updateEscalation: (returnId, body) => request(`/returns/${returnId}/escalation`, {
+      method: 'PUT', body: JSON.stringify(body),
     }),
     configureEventTrigger: (returnId, body, opts = {}) => request(`/returns/${returnId}/event-trigger`, {
       signal: opts.signal,

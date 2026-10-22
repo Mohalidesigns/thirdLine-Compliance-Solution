@@ -9,6 +9,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryRe
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturnStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnStage;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnUploadLinkService;
@@ -78,7 +79,9 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
                 r.getReturnId(),
                 "/returns/",
                 NotificationConstants.CATEGORY_RETURNS,
-                extra));
+                extra,
+                r.getFrequencyType(),
+                instance.getCurrentStage() == ReturnStage.DATA_GATHERING));
         }
         return out;
     }

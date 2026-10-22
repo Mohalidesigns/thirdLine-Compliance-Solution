@@ -103,6 +103,26 @@ public class ReturnController {
             .body(service.create(req, u.getUserId()).getReturnId());
     }
 
+    /** Edits a return's responsible person(s) and owner (analyst, CC'd on reminders). */
+    @PutMapping("/{returnId}")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnRegisterItem> update(
+            @PathVariable Long returnId,
+            @RequestBody UpdateReturnRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateBasic(returnId, req, u.getUserId()));
+    }
+
+    /** Sets the return's escalation contact + reminder cadence (stored on a per-return policy). */
+    @PutMapping("/{returnId}/escalation")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnRegisterItem> updateEscalation(
+            @PathVariable Long returnId,
+            @RequestBody UpdateReturnEscalationRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateEscalation(returnId, req, u.getUserId()));
+    }
+
     /** Sets the frequency and due-date rule; regenerates untouched periods. Returns the updated register row. */
     @PutMapping("/{returnId}/schedule")
     @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")

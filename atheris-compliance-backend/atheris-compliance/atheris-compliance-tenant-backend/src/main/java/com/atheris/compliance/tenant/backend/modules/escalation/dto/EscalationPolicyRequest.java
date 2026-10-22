@@ -19,6 +19,7 @@ public class EscalationPolicyRequest {
     private Integer reminderRepeatValue;
     private String reminderRepeatUnit;
     private Boolean sendLink;
+    private String frequencyScope;
     @Builder.Default
     private List<EscalationLevelRequest> levels = List.of();
 }

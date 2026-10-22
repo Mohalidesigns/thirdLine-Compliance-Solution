@@ -7,6 +7,7 @@ import {
 import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
 import MultiPersonPicker from '../common/MultiPersonPicker';
+import PersonPicker from '../common/PersonPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
@@ -14,6 +15,9 @@ const EMPTY = {
   returnName: '', actId: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
   filingDate: '', ruleType: 'DATE', dueDaysAfterPeriodEnd: '', filingDeadlineOffsetDays: '', filingChannel: '',
   responsibleUnits: [], responsiblePersons: [], escalationPolicyId: '',
+  ownerEmail: '', ownerName: '', ownerUserId: '',
+  escalateToEmail: '', escalateToName: '', escalateToUserId: '',
+  reminderStartValue: 10, reminderStartUnit: 'DAYS', reminderRepeatValue: 2, reminderRepeatUnit: 'DAYS',
   linkedObligationIds: [],
 };
 
@@ -88,15 +92,21 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   }, [open]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const ownerValue = form.ownerEmail ? { email: form.ownerEmail, fullName: form.ownerName, userId: form.ownerUserId || null } : null;
+  const escalateValue = form.escalateToEmail ? { email: form.escalateToEmail, fullName: form.escalateToName, userId: form.escalateToUserId || null } : null;
 
   const handleSave = async () => {
     if (!form.returnName.trim()) { setError('Return name is required'); return; }
     if (!form.actId) { setError('Select the governing act'); return; }
+    if (!(form.responsiblePersons || []).length) { setError('Select at least one responsible person — they submit the filing data'); return; }
     setSaving(true);
     setError('');
     try {
       const body = { ...form };
       delete body.linkedObligationIds;
+      ['ownerEmail', 'ownerName', 'ownerUserId',
+        'escalateToEmail', 'escalateToName', 'escalateToUserId',
+        'reminderStartValue', 'reminderStartUnit', 'reminderRepeatValue', 'reminderRepeatUnit'].forEach(k => delete body[k]);
       body.actId = parseInt(form.actId, 10);
       if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
       else delete body.filingDeadlineOffsetDays;
@@ -112,10 +122,8 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       delete body.responsibleUnit;
       delete body.responsiblePerson;
 
-      const firstPerson = (form.responsiblePersons || [])[0];
-      if (firstPerson?.userId) body.returnOwnerUserId = parseInt(firstPerson.userId, 10);
-      else delete body.returnOwnerUserId;
-      body.returnOwnerName = firstPerson ? (firstPerson.fullName || firstPerson.email) : undefined;
+      if (form.ownerUserId) body.returnOwnerUserId = parseInt(form.ownerUserId, 10);
+      body.returnOwnerName = form.ownerName || form.ownerEmail || undefined;
       if (!body.returnOwnerName) delete body.returnOwnerName;
 
       if (form.frequency === EVENT_DRIVEN) {
@@ -135,6 +143,17 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       const created = await api.returns.create(body);
       if (form.linkedObligationIds?.length) {
         await api.returns.linkObligations(created, form.linkedObligationIds.map(Number));
+      }
+      if (form.escalateToEmail || form.escalateToName || form.escalateToUserId) {
+        await api.returns.updateEscalation(created, {
+          reminderStartValue: form.reminderStartValue === '' ? null : Number(form.reminderStartValue),
+          reminderStartUnit: form.reminderStartUnit,
+          reminderRepeatValue: form.reminderRepeatValue === '' ? null : Number(form.reminderRepeatValue),
+          reminderRepeatUnit: form.reminderRepeatUnit,
+          escalateToUserId: form.escalateToUserId ? Number(form.escalateToUserId) : null,
+          escalateToName: form.escalateToName || null,
+          escalateToEmail: form.escalateToEmail || null,
+        });
       }
       onSaved?.(created);
       onClose();
@@ -206,7 +225,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             <TextField select fullWidth size="small" value={form.frequency}
               onChange={e => set('frequency', e.target.value)}>
               <MenuItem value=""><em>None</em></MenuItem>
-              {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+              {[...CYCLES, EVENT_DRIVEN].map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
             </TextField>
           </Field>
           <Field label="Start preparing (days before due)" sx={{ mb: 0 }}>
@@ -275,7 +294,17 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
         <Divider sx={{ my: 2 }} />
         <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Responsible</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <Field label="Responsible Units" sx={{ mb: 0 }}>
+          <Field label="Responsible person(s) * — they submit the data" sx={{ mb: 0 }}>
+            <MultiPersonPicker label="Responsible person(s)" value={form.responsiblePersons}
+              onChange={(list) => set('responsiblePersons', list)} />
+          </Field>
+          <Field label="Owner (analyst) — CC'd on reminders" sx={{ mb: 0 }}>
+            <PersonPicker mode="user" label="Owner" value={ownerValue}
+              onChange={(p) => setForm(f => ({ ...f, ownerEmail: p?.email || '', ownerName: p?.fullName || '', ownerUserId: p?.userId ?? '' }))} />
+          </Field>
+        </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
+          <Field label="Responsible units (metadata)" sx={{ mb: 0 }}>
             <Autocomplete multiple size="small" freeSolo options={departments}
               getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
               isOptionEqualToValue={(o, v) => (typeof v === 'string' ? o.name === v : o.departmentId === v?.departmentId)}
@@ -285,19 +314,28 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
                 <TextField {...params} size="small" placeholder="Search or type unit / department" />
               )} />
           </Field>
-          <Field label="Responsible Persons" sx={{ mb: 0 }}>
-            <MultiPersonPicker label="Responsible persons" value={form.responsiblePersons}
-              onChange={(list) => set('responsiblePersons', list)} />
+          <Field label="Escalate to (if it goes overdue)" sx={{ mb: 0 }}>
+            <PersonPicker mode="user" label="Escalate to" value={escalateValue}
+              onChange={(p) => setForm(f => ({ ...f, escalateToEmail: p?.email || '', escalateToName: p?.fullName || '', escalateToUserId: p?.userId ?? '' }))} />
           </Field>
         </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Field label="Escalation &amp; reminders" sx={{ mb: 0 }}>
-            <TextField select fullWidth size="small" value={form.escalationPolicyId}
-              onChange={e => set('escalationPolicyId', e.target.value)}
-              helperText="Who is reminded and escalated when this return approaches or passes its due date.">
-              <MenuItem value=""><em>Tenant default</em></MenuItem>
-              {policies.map(p => <MenuItem key={p.policyId} value={String(p.policyId)}>{p.name}</MenuItem>)}
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 2, mt: 2 }}>
+          <Field label="Remind before due" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" type="number" value={form.reminderStartValue}
+              onChange={e => set('reminderStartValue', e.target.value)} />
+          </Field>
+          <Field label="Unit" sx={{ mb: 0 }}>
+            <TextField select fullWidth size="small" value={form.reminderStartUnit} onChange={e => set('reminderStartUnit', e.target.value)}>
+              <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+            </TextField>
+          </Field>
+          <Field label="Repeat every" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" type="number" value={form.reminderRepeatValue}
+              onChange={e => set('reminderRepeatValue', e.target.value)} />
+          </Field>
+          <Field label="Repeat unit" sx={{ mb: 0 }}>
+            <TextField select fullWidth size="small" value={form.reminderRepeatUnit} onChange={e => set('reminderRepeatUnit', e.target.value)}>
+              <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
             </TextField>
           </Field>
         </Box>

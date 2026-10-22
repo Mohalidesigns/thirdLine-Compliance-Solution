@@ -6,7 +6,9 @@ import com.atheris.compliance.tenant.backend.modules.acts.repository.ActReposito
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
@@ -301,6 +303,70 @@ public class ReturnService {
         audit.log(userId, "return_escalation_policy_set", "return", returnId,
             Collections.singletonMap("policyId", String.valueOf(policyId)));
         return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
+    }
+
+    @Transactional
+    public ReturnRegisterItem updateBasic(Long returnId, UpdateReturnRequest req, Integer userId) {
+        try {
+            RegulatoryReturn r = returns.findById(returnId)
+                .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+            List<String> persons = req.getResponsiblePersons() == null ? List.<String>of()
+                : req.getResponsiblePersons().stream().filter(p -> p != null && !p.isBlank()).map(String::trim).toList();
+            if (persons.isEmpty())
+                throw ApiException.badRequest("responsible_person_required", "Select at least one responsible person.");
+            r.setResponsiblePersons(persons);
+            r.setResponsiblePerson(persons.get(0));
+            if (req.getReturnOwnerUserId() != null) {
+                r.setReturnOwnerUserId(req.getReturnOwnerUserId());
+                r.setReturnOwnerName(req.getReturnOwnerName());
+            }
+            returns.save(r);
+            audit.log(userId, "return_updated", "return", returnId,
+                Collections.singletonMap("responsiblePersons", String.valueOf(persons.size())));
+            ensureInstances(r);
+            return buildRegisterItem(r, instances.findByReturnId(returnId), LocalDate.now());
+        } catch (Throwable e) {
+            rollback();
+            throw e instanceof RuntimeException re ? re : new RuntimeException(e);
+        }
+    }
+
+    @Transactional
+    public ReturnRegisterItem updateEscalation(Long returnId, UpdateReturnEscalationRequest req, Integer userId) {
+        try {
+            RegulatoryReturn r = returns.findById(returnId)
+                .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+            List<EscalationLevelRequest> levels = List.of(
+                EscalationLevelRequest.builder().levelNo(1).afterValue(0).afterUnit(EscalationConstants.UNIT_DAYS)
+                    .targetType(EscalationConstants.TARGET_PERSON).targetUserId(req.getEscalateToUserId())
+                    .targetName(req.getEscalateToName()).targetEmail(req.getEscalateToEmail()).build(),
+                EscalationLevelRequest.builder().levelNo(2).afterValue(3).afterUnit(EscalationConstants.UNIT_DAYS)
+                    .targetType(EscalationConstants.TARGET_MANAGER).build(),
+                EscalationLevelRequest.builder().levelNo(3).afterValue(7).afterUnit(EscalationConstants.UNIT_DAYS)
+                    .targetType(EscalationConstants.TARGET_MANAGER_OF_MANAGER).targetRole(AppRole.CCO).build());
+            EscalationPolicyRequest policyReq = EscalationPolicyRequest.builder()
+                .name(r.getReturnName() + " escalation #" + r.getReturnId())
+                .subjectType(EscalationConstants.SUBJECT_RETURN)
+                .frequencyScope(r.getFrequencyType())
+                .isDefault(false).isActive(true)
+                .reminderStartValue(req.getReminderStartValue())
+                .reminderStartUnit(req.getReminderStartUnit())
+                .reminderRepeatValue(req.getReminderRepeatValue())
+                .reminderRepeatUnit(req.getReminderRepeatUnit())
+                .sendLink(true).levels(levels).build();
+            Long policyId = r.getEscalationPolicyId();
+            EscalationPolicyDto dto = policyId == null
+                ? escalationPolicyService.create(policyReq, userId)
+                : escalationPolicyService.update(policyId, policyReq, userId);
+            r.setEscalationPolicyId(dto.getPolicyId());
+            returns.save(r);
+            audit.log(userId, "return_escalation_set", "return", returnId,
+                Collections.singletonMap("policyId", String.valueOf(dto.getPolicyId())));
+            return buildRegisterItem(r, instances.findByReturnId(returnId), LocalDate.now());
+        } catch (Throwable e) {
+            rollback();
+            throw e instanceof RuntimeException re ? re : new RuntimeException(e);
+        }
     }
 
     /**
@@ -761,6 +827,8 @@ public class ReturnService {
             : (req.getResponsibleUnit() != null && !req.getResponsibleUnit().isBlank() ? List.of(req.getResponsibleUnit()) : List.of());
         List<String> persons = req.getResponsiblePersons() != null ? req.getResponsiblePersons()
             : (req.getResponsiblePerson() != null && !req.getResponsiblePerson().isBlank() ? List.of(req.getResponsiblePerson()) : List.of());
+        if (persons.isEmpty()) throw ApiException.badRequest("responsible_person_required",
+            "Select at least one responsible person — they receive the filing request and submit the data.");
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
@@ -996,6 +1064,9 @@ public class ReturnService {
      * Runs in the caller's transaction (none for the scheduler, so each save commits on its own).
      */
     public void ensureInstances(RegulatoryReturn ret) {
+        boolean hasPerson = (ret.getResponsiblePersons() != null && !ret.getResponsiblePersons().isEmpty())
+            || (ret.getResponsiblePerson() != null && !ret.getResponsiblePerson().isBlank());
+        if (!hasPerson) return;
         PeriodStep step = stepForType(ret.getFrequencyType());
         if (step == null) return; // EVENT_DRIVEN — no instances
         DueRule rule = DueRule.of(ret);

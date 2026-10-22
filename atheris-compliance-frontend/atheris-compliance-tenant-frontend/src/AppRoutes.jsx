@@ -29,6 +29,7 @@ const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
 const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const TasksPage = lazy(() => import('./pages/TasksPage'));
 const RunbooksLibraryPage = lazy(() => import('./pages/runbooks/RunbooksLibraryPage'));
 const RunbookDetailPage = lazy(() => import('./pages/runbooks/RunbookDetailPage'));
 const RunbookBuilderPage = lazy(() => import('./pages/runbooks/RunbookBuilderPage'));
@@ -73,6 +74,7 @@ export default function AppRoutes() {
           <Route index element={<Navigate to="/dashboard" />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="dashboard/v2" element={<DashboardV2Page />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />

@@ -69,7 +69,9 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 c == null ? null : c.getControlId().longValue(),
                 "/controls?controlId=",
                 NotificationConstants.CATEGORY_CONTROLS,
-                extra));
+                extra,
+                null,
+                false));
         }
         return out;
     }

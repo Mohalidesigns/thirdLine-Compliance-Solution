@@ -210,6 +210,9 @@ public class ReturnImportHandler implements ImportHandler {
                     errors.add("Frequency '" + freqRaw + "' must be one of " + String.join(", ", ReturnFrequency.LABELS));
             }
 
+            if (row.value(PERSON) == null || row.value(PERSON).isBlank())
+                errors.add("Responsible Person is required (they receive the filing request and submit the data)");
+
             LocalDate firstDue = null;
             String dateRaw = row.value(FIRST_DUE);
             if (frequency != ReturnFrequency.EVENT_DRIVEN) {

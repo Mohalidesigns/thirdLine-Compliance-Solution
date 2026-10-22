@@ -32,6 +32,11 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "[L{{level}}] Overdue filing: {{returnName}}",
                 "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue. "
                     + "Escalated to level {{level}}.", true);
+            templates.ensure(EscalationConstants.KEY_RETURN_GATHERING,
+                "Action required: prepare {{returnName}}",
+                "Hi {{recipientName}},\n\nPlease prepare the filing for {{returnName}} ({{period}}), due on {{dueDate}}. "
+                    + "Share the data with the compliance team using the link below.\n\n"
+                    + "Regulator: {{regulator}}\nAct: {{actName}}", true);
             templates.ensure(EscalationConstants.KEY_CONTROL_APPROACHING,
                 "Upcoming control test: {{controlName}}",
                 "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}}, "

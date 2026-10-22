@@ -39,6 +39,9 @@ public class EscalationPolicy {
     @Builder.Default
     private Boolean sendLink = true;
 
+    @Column(length = 20)
+    private String frequencyScope;
+
     private Integer createdByUserId;
     private Instant createdAt;
     private Instant updatedAt;

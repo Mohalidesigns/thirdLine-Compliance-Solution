@@ -16,6 +16,8 @@ public record EscalationCandidate(
     Long linkSubjectId,
     String linkBase,
     String category,
-    Map<String, String> extraVars
+    Map<String, String> extraVars,
+    String frequencyScope,
+    Boolean gatheringReady
 ) {
 }

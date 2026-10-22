@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS escalation_policies (
     reminder_repeat_value  INT,
     reminder_repeat_unit   VARCHAR(10),
     send_link              BOOLEAN NOT NULL DEFAULT TRUE,
+    frequency_scope        VARCHAR(20),
     created_by_user_id     INT,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -17,7 +18,7 @@ CREATE TABLE IF NOT EXISTS escalation_policies (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_escalation_policy_name
     ON escalation_policies (subject_type, lower(name));
 CREATE UNIQUE INDEX IF NOT EXISTS uq_escalation_policy_default
-    ON escalation_policies (subject_type) WHERE is_default;
+    ON escalation_policies (subject_type, COALESCE(frequency_scope, '')) WHERE is_default;
 
 CREATE TABLE IF NOT EXISTS escalation_policy_levels (
     level_id        BIGSERIAL PRIMARY KEY,
