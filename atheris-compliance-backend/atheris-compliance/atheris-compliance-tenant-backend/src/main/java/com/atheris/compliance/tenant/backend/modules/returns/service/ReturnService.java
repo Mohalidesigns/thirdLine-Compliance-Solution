@@ -9,6 +9,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.service.Obligat
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
@@ -344,13 +345,23 @@ public class ReturnService {
                     .targetType(EscalationConstants.TARGET_MANAGER).build(),
                 EscalationLevelRequest.builder().levelNo(3).afterValue(7).afterUnit(EscalationConstants.UNIT_DAYS)
                     .targetType(EscalationConstants.TARGET_MANAGER_OF_MANAGER).targetRole(AppRole.CCO).build());
+            Integer startVal = req.getReminderStartValue();
+            String startUnit = req.getReminderStartUnit();
+            if (startVal == null) {
+                EscalationPolicy def = escalationPolicyService
+                    .defaultPolicy(EscalationConstants.SUBJECT_RETURN, r.getFrequencyType()).orElse(null);
+                if (def != null) {
+                    startVal = def.getReminderStartValue();
+                    startUnit = def.getReminderStartUnit();
+                }
+            }
             EscalationPolicyRequest policyReq = EscalationPolicyRequest.builder()
                 .name(r.getReturnName() + " escalation #" + r.getReturnId())
                 .subjectType(EscalationConstants.SUBJECT_RETURN)
                 .frequencyScope(r.getFrequencyType())
                 .isDefault(false).isActive(true)
-                .reminderStartValue(req.getReminderStartValue())
-                .reminderStartUnit(req.getReminderStartUnit())
+                .reminderStartValue(startVal)
+                .reminderStartUnit(startUnit)
                 .reminderRepeatValue(req.getReminderRepeatValue())
                 .reminderRepeatUnit(req.getReminderRepeatUnit())
                 .sendLink(true).levels(levels).build();

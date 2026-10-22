@@ -94,10 +94,11 @@ public class EscalationEngine {
     }
 
     private LocalDateTime approachAt(EscalationCandidate candidate, EscalationInstanceDto config) {
+        if (candidate.approachAt() != null) return candidate.approachAt();
         if (config.getReminderStartValue() != null) {
             return candidate.dueAt().minus(config.getReminderStartValue(), unit(config.getReminderStartUnit()));
         }
-        return candidate.approachAt();
+        return null;
     }
 
     private void reminderIfDue(EscalationCandidate candidate, LocalDateTime approachAt, LocalDateTime now,

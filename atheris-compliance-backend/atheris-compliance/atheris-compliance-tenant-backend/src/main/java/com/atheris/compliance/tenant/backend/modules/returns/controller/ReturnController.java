@@ -115,7 +115,7 @@ public class ReturnController {
 
     /** Sets the return's escalation contact + reminder cadence (stored on a per-return policy). */
     @PutMapping("/{returnId}/escalation")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> updateEscalation(
             @PathVariable Long returnId,
             @RequestBody UpdateReturnEscalationRequest req,

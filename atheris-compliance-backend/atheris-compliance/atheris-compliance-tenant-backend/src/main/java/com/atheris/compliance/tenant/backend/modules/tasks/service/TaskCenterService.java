@@ -137,23 +137,24 @@ public class TaskCenterService {
         for (RegulatoryReturn r : returns.findByStatus(RegulatoryReturnStatus.ACTIVE)) {
             if (!hasResponsiblePerson(r)) {
                 out.add(returnGap(r, "person", "RETURN_NO_RESPONSIBLE_PERSON",
-                    "No responsible person — filings are not generated", "Assign"));
+                    "No responsible person — filings are not generated", "Assign", "ASSIGN"));
             } else if (dueDateNeeded(r)) {
                 out.add(returnGap(r, "duedate", "RETURN_DUE_DATE_NEEDED",
-                    "Due date needed — set the schedule to generate filings", "Set due date"));
+                    "Due date needed — set the schedule to generate filings", "Set due date", "OPEN"));
             }
         }
         return out;
     }
 
-    private TaskItemDto returnGap(RegulatoryReturn r, String kind, String type, String caption, String label) {
+    private TaskItemDto returnGap(RegulatoryReturn r, String kind, String type, String caption,
+                                  String label, String actionType) {
         return TaskItemDto.builder()
             .id(-r.getReturnId()).key("return:" + r.getReturnId() + ":" + kind)
             .type(type).category(CATEGORY_RETURNS)
             .title(r.getReturnName()).caption(caption)
             .priority("MEDIUM").dueDate(null).daysRemaining(null)
             .ownerName(r.getReturnOwnerName()).ownerUserId(r.getReturnOwnerUserId())
-            .linkPath("/returns").actionLabel(label).actionType("OPEN")
+            .linkPath("/returns").actionLabel(label).actionType(actionType)
             .sourceRef(Map.of("returnId", r.getReturnId()))
             .build();
     }

@@ -230,6 +230,13 @@ public class EscalationPolicyService {
         return defaultPolicy(subjectType, null);
     }
 
+    public boolean hasDefaultExact(String subjectType, String frequencyScope) {
+        String scope = normScope(frequencyScope);
+        return policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
+            .anyMatch(p -> Boolean.TRUE.equals(p.getIsDefault())
+                && Objects.equals(normScope(p.getFrequencyScope()), scope));
+    }
+
     public Optional<EscalationPolicy> defaultPolicy(String subjectType, String frequencyScope) {
         String scope = normScope(frequencyScope);
         List<EscalationPolicy> actives = policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()

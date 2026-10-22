@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Chip, CircularProgress, Stack, Typography, Snackbar, Alert } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, Stack, Typography, Snackbar, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
-  PageHeader, KpiCards, FilterBar, SectionTable, StatusBadge,
+  PageHeader, KpiCards, FilterBar, SectionTable,
   ClockIcon, ExclamationTriangleIcon, CheckCircleIcon, InboxIcon,
 } from 'shared';
+import MultiPersonPicker from '../components/common/MultiPersonPicker';
 import { api } from '../services/api';
 
 const opt = (values) => values.map((v) => ({ value: v, label: v }));
@@ -36,6 +38,7 @@ export default function TasksPage() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [snackbar, setSnackbar] = useState('');
+  const [assignFor, setAssignFor] = useState(null);
 
   const params = { assignee, page, size };
   if (category) params.category = category;
@@ -59,6 +62,15 @@ export default function TasksPage() {
       setSnackbar('Filing started — the responsible person will be notified.');
     },
     onError: (e) => setSnackbar(e.message || 'Could not start the filing.'),
+  });
+  const assignMut = useMutation({
+    mutationFn: ({ returnId, persons }) => api.returns.update(returnId, { responsiblePersons: persons }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      setAssignFor(null);
+      setSnackbar('Responsible person set — filings will now generate.');
+    },
+    onError: (e) => setSnackbar(e.message || 'Could not assign the responsible person.'),
   });
 
   const rows = data?.content || [];
@@ -154,15 +166,25 @@ export default function TasksPage() {
           onRowClick={(t) => navigate(t.linkPath)}
           emptyMessage="Nothing to action — no filings are due soon or overdue."
           emptyIcon={<CheckCircleIcon size={44} sx={{ mb: 1, opacity: 0.35 }} />}
-          actions={(t) => (
-            t.actionType === 'START' ? (
-              <Button size="small" variant="contained" disabled={startMut.isPending}
-                onClick={() => startMut.mutate(t.sourceRef?.instanceId)}>Start</Button>
-            ) : (
-              <Button size="small" variant="outlined" onClick={() => navigate(t.linkPath)}>{t.actionLabel || 'Open'}</Button>
-            )
-          )}
+          actions={(t) => {
+            if (t.actionType === 'START') {
+              return (
+                <Button size="small" variant="contained" disabled={startMut.isPending}
+                  onClick={() => startMut.mutate(t.sourceRef?.instanceId)}>Start</Button>
+              );
+            }
+            if (t.actionType === 'ASSIGN') {
+              return <Button size="small" variant="contained" onClick={() => setAssignFor(t)}>Assign</Button>;
+            }
+            return <Button size="small" variant="outlined" onClick={() => navigate(t.linkPath)}>{t.actionLabel || 'Open'}</Button>;
+          }}
         />
+      )}
+
+      {assignFor && (
+        <AssignDialog task={assignFor} saving={assignMut.isPending}
+          onClose={() => setAssignFor(null)}
+          onSave={(persons) => assignMut.mutate({ returnId: assignFor.sourceRef?.returnId, persons })} />
       )}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
@@ -170,5 +192,27 @@ export default function TasksPage() {
         <Alert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</Alert>
       </Snackbar>
     </Box>
+  );
+}
+
+function AssignDialog({ task, saving, onClose, onSave }) {
+  const [persons, setPersons] = useState([]);
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Assign responsible person</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {task.title} — the responsible person receives the filing request and submits the data.
+        </Typography>
+        <MultiPersonPicker label="Responsible person(s)" value={persons} onChange={setPersons} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" disabled={saving || !persons.length}
+          onClick={() => onSave((persons || []).map((p) => p.fullName || p.email).filter(Boolean))}>
+          {saving ? 'Saving…' : 'Assign'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

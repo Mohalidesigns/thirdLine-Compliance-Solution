@@ -53,7 +53,7 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
 
     private void seed(String subjectType, String frequencyScope, String name, int startValue, int repeatValue,
                       boolean sendLink, List<EscalationLevelRequest> levels) {
-        if (policies.defaultPolicy(subjectType, frequencyScope).isPresent()) return;
+        if (policies.hasDefaultExact(subjectType, frequencyScope)) return;
         policies.create(EscalationPolicyRequest.builder()
             .name(name).subjectType(subjectType).frequencyScope(frequencyScope).isDefault(true).isActive(true)
             .reminderStartValue(startValue).reminderStartUnit(EscalationConstants.UNIT_DAYS)

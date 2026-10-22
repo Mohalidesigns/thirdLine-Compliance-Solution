@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import MultiPersonPicker from '../common/MultiPersonPicker';
 import PersonPicker from '../common/PersonPicker';
 import LinkObligationsPicker from './LinkObligationsPicker';
@@ -45,6 +46,7 @@ function Field({ label, children, sx }) {
 }
 
 export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar }) {
+  const { user } = useAuth();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -88,8 +90,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   };
 
   useEffect(() => {
-    if (open) { setForm({ ...EMPTY }); setError(''); setExtraRegulators([]); }
-  }, [open]);
+    if (open) {
+      setForm({ ...EMPTY, ownerEmail: user?.email || '', ownerName: user?.fullName || '', ownerUserId: user?.userId ?? '' });
+      setError(''); setExtraRegulators([]);
+    }
+  }, [open, user]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const ownerValue = form.ownerEmail ? { email: form.ownerEmail, fullName: form.ownerName, userId: form.ownerUserId || null } : null;
@@ -146,8 +151,6 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       }
       if (form.escalateToEmail || form.escalateToName || form.escalateToUserId) {
         await api.returns.updateEscalation(created, {
-          reminderStartValue: form.reminderStartValue === '' ? null : Number(form.reminderStartValue),
-          reminderStartUnit: form.reminderStartUnit,
           reminderRepeatValue: form.reminderRepeatValue === '' ? null : Number(form.reminderRepeatValue),
           reminderRepeatUnit: form.reminderRepeatUnit,
           escalateToUserId: form.escalateToUserId ? Number(form.escalateToUserId) : null,
@@ -228,9 +231,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               {[...CYCLES, EVENT_DRIVEN].map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
             </TextField>
           </Field>
-          <Field label="Start preparing (days before due)" sx={{ mb: 0 }}>
+          <Field label="Start preparing / remind before due (days)" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" type="number" value={form.filingDeadlineOffsetDays}
-              onChange={e => set('filingDeadlineOffsetDays', e.target.value)} />
+              onChange={e => set('filingDeadlineOffsetDays', e.target.value)}
+              helperText="Reminders begin this many days before the due date. Leave blank to use the frequency default." />
           </Field>
         </Box>
 
@@ -319,17 +323,8 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               onChange={(p) => setForm(f => ({ ...f, escalateToEmail: p?.email || '', escalateToName: p?.fullName || '', escalateToUserId: p?.userId ?? '' }))} />
           </Field>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 2, mt: 2 }}>
-          <Field label="Remind before due" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="number" value={form.reminderStartValue}
-              onChange={e => set('reminderStartValue', e.target.value)} />
-          </Field>
-          <Field label="Unit" sx={{ mb: 0 }}>
-            <TextField select fullWidth size="small" value={form.reminderStartUnit} onChange={e => set('reminderStartUnit', e.target.value)}>
-              <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
-            </TextField>
-          </Field>
-          <Field label="Repeat every" sx={{ mb: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
+          <Field label="Repeat reminders every" sx={{ mb: 0 }}>
             <TextField fullWidth size="small" type="number" value={form.reminderRepeatValue}
               onChange={e => set('reminderRepeatValue', e.target.value)} />
           </Field>
