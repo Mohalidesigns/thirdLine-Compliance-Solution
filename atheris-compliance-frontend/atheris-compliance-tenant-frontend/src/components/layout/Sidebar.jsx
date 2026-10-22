@@ -20,7 +20,7 @@ export default function Sidebar(props) {
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => api.tasks.centerStats({ assignee: 'all' })
+    const load = () => api.tasks.centerStats()
       .then(s => { if (!cancelled) setOpenTasks(s?.total || 0); })
       .catch(() => {});
     load();

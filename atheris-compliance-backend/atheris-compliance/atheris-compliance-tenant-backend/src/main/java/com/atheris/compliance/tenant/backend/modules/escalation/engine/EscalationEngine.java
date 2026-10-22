@@ -66,13 +66,14 @@ public class EscalationEngine {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime dueAt = candidate.dueAt();
 
-        if (Boolean.TRUE.equals(candidate.gatheringReady())
+        if (Boolean.TRUE.equals(config.getNotifyOnStart())
+            && Boolean.TRUE.equals(candidate.gatheringReady())
             && !fired(candidate, EscalationConstants.TRIGGER_GATHERING, 0)) {
             fire(candidate, null, EscalationConstants.TRIGGER_GATHERING, 0, now, Boolean.TRUE.equals(config.getSendLink()));
         }
 
         LocalDateTime approachAt = approachAt(candidate, config);
-        if (approachAt != null && now.isBefore(dueAt) && !now.isBefore(approachAt)) {
+        if (candidate.started() && approachAt != null && now.isBefore(dueAt) && !now.isBefore(approachAt)) {
             boolean sendLink = Boolean.TRUE.equals(config.getSendLink());
             if (!fired(candidate, EscalationConstants.TRIGGER_APPROACHING, 0)) {
                 fire(candidate, null, EscalationConstants.TRIGGER_APPROACHING, 0, now, sendLink);

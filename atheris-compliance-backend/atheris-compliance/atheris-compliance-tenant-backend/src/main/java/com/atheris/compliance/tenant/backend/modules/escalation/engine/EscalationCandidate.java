@@ -18,6 +18,7 @@ public record EscalationCandidate(
     String category,
     Map<String, String> extraVars,
     String frequencyScope,
-    Boolean gatheringReady
+    Boolean gatheringReady,
+    boolean started
 ) {
 }

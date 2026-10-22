@@ -57,6 +57,7 @@ public class EscalationPolicyService {
                 .reminderRepeatValue(req.getReminderRepeatValue())
                 .reminderRepeatUnit(normUnit(req.getReminderRepeatUnit()))
                 .sendLink(req.getSendLink() == null || req.getSendLink())
+                .notifyOnStart(Boolean.TRUE.equals(req.getNotifyOnStart()))
                 .createdByUserId(userId)
                 .build();
             policy = policies.save(policy);
@@ -86,6 +87,7 @@ public class EscalationPolicyService {
             policy.setReminderRepeatValue(req.getReminderRepeatValue());
             policy.setReminderRepeatUnit(normUnit(req.getReminderRepeatUnit()));
             policy.setSendLink(req.getSendLink() == null || req.getSendLink());
+            policy.setNotifyOnStart(Boolean.TRUE.equals(req.getNotifyOnStart()));
             policy = policies.save(policy);
             policyLevels.deleteByPolicyId(id);
             writePolicyLevels(id, req.getLevels());
@@ -314,6 +316,7 @@ public class EscalationPolicyService {
             .reminderStartValue(p.getReminderStartValue()).reminderStartUnit(p.getReminderStartUnit())
             .reminderRepeatValue(p.getReminderRepeatValue()).reminderRepeatUnit(p.getReminderRepeatUnit())
             .sendLink(p.getSendLink())
+            .notifyOnStart(p.getNotifyOnStart())
             .frequencyScope(p.getFrequencyScope())
             .levels(policyLevels.findByPolicyIdOrderByLevelNoAsc(p.getPolicyId()).stream().map(this::toLevelDto).toList())
             .createdAt(p.getCreatedAt()).updatedAt(p.getUpdatedAt())
@@ -337,6 +340,7 @@ public class EscalationPolicyService {
             .reminderStartValue(p.getReminderStartValue()).reminderStartUnit(p.getReminderStartUnit())
             .reminderRepeatValue(p.getReminderRepeatValue()).reminderRepeatUnit(p.getReminderRepeatUnit())
             .sendLink(p.getSendLink()).active(p.getIsActive())
+            .notifyOnStart(p.getNotifyOnStart())
             .levels(policyLevels.findByPolicyIdOrderByLevelNoAsc(p.getPolicyId()).stream().map(this::toLevelDto).toList())
             .build();
     }

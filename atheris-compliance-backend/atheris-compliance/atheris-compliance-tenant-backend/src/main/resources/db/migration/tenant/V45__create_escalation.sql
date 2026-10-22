@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS escalation_policies (
     reminder_repeat_value  INT,
     reminder_repeat_unit   VARCHAR(10),
     send_link              BOOLEAN NOT NULL DEFAULT TRUE,
+    notify_on_start        BOOLEAN NOT NULL DEFAULT FALSE,
     frequency_scope        VARCHAR(20),
     created_by_user_id     INT,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -19,6 +19,7 @@ public class EscalationInstanceDto {
     private Integer reminderRepeatValue;
     private String reminderRepeatUnit;
     private Boolean sendLink;
+    private Boolean notifyOnStart;
     private Boolean active;
     @Builder.Default
     private List<EscalationLevelDto> levels = List.of();

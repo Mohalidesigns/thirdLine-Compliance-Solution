@@ -21,6 +21,7 @@ public class EscalationPolicyDto {
     private Integer reminderRepeatValue;
     private String reminderRepeatUnit;
     private Boolean sendLink;
+    private Boolean notifyOnStart;
     private String frequencyScope;
     @Builder.Default
     private List<EscalationLevelDto> levels = List.of();

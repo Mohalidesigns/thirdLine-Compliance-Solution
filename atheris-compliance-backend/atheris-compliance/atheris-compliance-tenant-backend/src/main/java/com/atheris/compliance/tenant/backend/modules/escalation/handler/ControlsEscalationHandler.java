@@ -71,7 +71,8 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 NotificationConstants.CATEGORY_CONTROLS,
                 extra,
                 null,
-                false));
+                false,
+                true));
         }
         return out;
     }

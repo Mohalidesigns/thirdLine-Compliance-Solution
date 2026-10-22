@@ -134,14 +134,22 @@ public class TaskCenterService {
                 .build());
         }
 
+        int noPerson = 0;
         for (RegulatoryReturn r : returns.findByStatus(RegulatoryReturnStatus.ACTIVE)) {
-            if (!hasResponsiblePerson(r)) {
-                out.add(returnGap(r, "person", "RETURN_NO_RESPONSIBLE_PERSON",
-                    "No responsible person — filings are not generated", "Assign", "ASSIGN"));
-            } else if (dueDateNeeded(r)) {
-                out.add(returnGap(r, "duedate", "RETURN_DUE_DATE_NEEDED",
-                    "Due date needed — set the schedule to generate filings", "Set due date", "OPEN"));
-            }
+            if (!hasResponsiblePerson(r)) { noPerson++; continue; }
+            if (dueDateNeeded(r)) out.add(returnGap(r, "duedate", "RETURN_DUE_DATE_NEEDED",
+                "Due date needed — set the schedule to generate filings", "Set due date", "OPEN"));
+        }
+        if (noPerson > 0) {
+            out.add(TaskItemDto.builder()
+                .id(-1L).key("returns:no-responsible-person")
+                .type("RETURN_NO_RESPONSIBLE_PERSON").category(CATEGORY_RETURNS)
+                .title("Returns need a responsible person")
+                .caption(noPerson + " return(s) have no responsible person — no filings are generated until one is set")
+                .priority("MEDIUM").dueDate(null).daysRemaining(null)
+                .linkPath("/returns").actionLabel("Review returns").actionType("OPEN")
+                .sourceRef(Map.of("count", noPerson))
+                .build());
         }
         return out;
     }
@@ -160,6 +168,9 @@ public class TaskCenterService {
     }
 
     private int leadDays(RegulatoryReturn r) {
+        if (r.getFilingDeadlineOffsetDays() != null && r.getFilingDeadlineOffsetDays() > 0) {
+            return r.getFilingDeadlineOffsetDays();
+        }
         EscalationPolicy pol = null;
         if (r.getEscalationPolicyId() != null) pol = policies.findById(r.getEscalationPolicyId()).orElse(null);
         if (pol == null) pol = policyService.defaultPolicy(EscalationConstants.SUBJECT_RETURN, r.getFrequencyType()).orElse(null);
