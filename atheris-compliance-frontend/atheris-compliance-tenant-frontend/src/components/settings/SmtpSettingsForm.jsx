@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Alert, Divider,
   FormControlLabel, Checkbox, Grid, CircularProgress,
@@ -28,15 +28,18 @@ export default function SmtpSettingsForm({
   const [success, setSuccess] = useState('');
   const [testResult, setTestResult] = useState(null);
 
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   useEffect(() => {
-    if (!load) return;
+    if (!loadRef.current) { setLoading(false); return; }
     let alive = true;
-    load()
+    Promise.resolve(loadRef.current())
       .then(cfg => { if (alive && cfg) setForm({ ...EMPTY, ...cfg, password: '' }); })
       .catch(err => { if (alive) setError(err.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [load]);
+  }, []);
 
   const set = (key, value) => setForm(f => ({ ...f, [key]: value }));
   const payload = () => ({

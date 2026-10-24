@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
@@ -9,36 +10,34 @@ import { api } from '../../services/api';
 import CreateReturnDialog from './CreateReturnDialog';
 
 export default function ReturnPicker({ open, onClose, initialIds = [], onSave }) {
-  const [rows, setRows] = useState([]);
+  const qc = useQueryClient();
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const load = () => {
-    setLoading(true);
-    api.returns.list()
-      .then(d => setRows(Array.isArray(d) ? d : (d.content || [])))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  };
+  const { data, isPending } = useQuery({
+    queryKey: ['returns', 'list'],
+    queryFn: () => api.returns.list(),
+    enabled: open,
+  });
+  const rows = Array.isArray(data) ? data : (data?.content || []);
 
   useEffect(() => {
     if (open) {
       setSelected([...(initialIds || [])]);
       setSearch('');
-      load();
+      setCreateOpen(false);
     }
   }, [open, initialIds]);
-
-  const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleCreated = (created) => {
     setCreateOpen(false);
     const id = typeof created === 'object' ? created?.returnId : created;
     if (id) setSelected(prev => prev.includes(id) ? prev : [...prev, id]);
-    load();
+    qc.invalidateQueries({ queryKey: ['returns'] });
   };
+
+  const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const filtered = rows.filter(r => {
     if (!search) return true;
@@ -51,7 +50,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
         <DialogTitle>Map Return Required</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -66,7 +65,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
             </Button>
           </Box>
 
-          {loading && rows.length === 0 ? (
+          {isPending && rows.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
           ) : rows.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No returns configured yet.</Typography>
@@ -80,9 +79,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
                     <TableCell>Return</TableCell>
                     <TableCell>Regulator</TableCell>
                     <TableCell>Act</TableCell>
-                    <TableCell>Type</TableCell>
                     <TableCell>Frequency</TableCell>
-                    <TableCell>Owner</TableCell>
                     <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>Select</TableCell>
                   </TableRow>
                 </TableHead>
@@ -100,9 +97,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
                       <TableCell sx={{ maxWidth: 160 }}>
                         <Typography variant="body2" noWrap title={r.actName || ''}>{r.actName || '—'}</Typography>
                       </TableCell>
-                      <TableCell>{r.returnType || '-'}</TableCell>
                       <TableCell>{r.frequency || '-'}</TableCell>
-                      <TableCell>{r.returnOwnerName || '-'}</TableCell>
                       <TableCell padding="checkbox" sx={{ textAlign: 'right' }}>
                         <Checkbox size="small" checked={selected.includes(r.returnId)} onChange={() => {}} />
                       </TableCell>
@@ -122,8 +117,7 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
         </DialogActions>
       </Dialog>
 
-      {createOpen && <CreateReturnDialog open onClose={() => setCreateOpen(false)}
-        onSaved={handleCreated} onSnackbar={() => {}} />}
+      {createOpen && <CreateReturnDialog open onClose={() => setCreateOpen(false)} onSaved={handleCreated} />}
     </>
   );
 }

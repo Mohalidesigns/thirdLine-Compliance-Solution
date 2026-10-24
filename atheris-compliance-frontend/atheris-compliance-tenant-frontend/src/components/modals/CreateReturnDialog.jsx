@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Autocomplete, Chip,
+  Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material';
-import { LinkIcon } from 'shared';
+import { LinkIcon, ChevronDownIcon } from 'shared';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import MultiPersonPicker from '../common/MultiPersonPicker';
@@ -17,8 +18,9 @@ const EMPTY = {
   filingDate: '', ruleType: 'DATE', dueDaysAfterPeriodEnd: '', filingDeadlineOffsetDays: '', filingChannel: '',
   responsibleUnits: [], responsiblePersons: [], escalationPolicyId: '',
   ownerEmail: '', ownerName: '', ownerUserId: '',
-  escalateToEmail: '', escalateToName: '', escalateToUserId: '',
   reminderStartValue: 10, reminderStartUnit: 'DAYS', reminderRepeatValue: 2, reminderRepeatUnit: 'DAYS',
+  level1Person: null, level1AfterValue: 3, level1AfterUnit: 'DAYS',
+  level2Person: null, level2AfterValue: 7, level2AfterUnit: 'DAYS',
   linkedObligationIds: [],
 };
 
@@ -51,6 +53,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [extraRegulators, setExtraRegulators] = useState([]);
+  const [level2Shown, setLevel2Shown] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
   const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
 
@@ -69,17 +72,10 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
     queryFn: () => api.org.departments(true),
     enabled: open,
   });
-  const policiesQuery = useQuery({
-    queryKey: ['escalation', 'policies', 'RETURN'],
-    queryFn: () => api.escalation.policies('RETURN'),
-    enabled: open,
-  });
-
   const asList = (d) => (Array.isArray(d) ? d : (d?.content || []));
   const regulators = useMemo(() => [...asList(regulatorsQuery.data), ...extraRegulators], [regulatorsQuery.data, extraRegulators]);
   const acts = asList(actsQuery.data);
   const departments = asList(departmentsQuery.data);
-  const policies = asList(policiesQuery.data);
 
   const addRegulator = (created) => {
     setRegulatorAddOpen(false);
@@ -92,17 +88,19 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
   useEffect(() => {
     if (open) {
       setForm({ ...EMPTY, ownerEmail: user?.email || '', ownerName: user?.fullName || '', ownerUserId: user?.userId ?? '' });
-      setError(''); setExtraRegulators([]);
+      setError(''); setExtraRegulators([]); setLevel2Shown(false);
     }
   }, [open, user]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const ownerValue = form.ownerEmail ? { email: form.ownerEmail, fullName: form.ownerName, userId: form.ownerUserId || null } : null;
-  const escalateValue = form.escalateToEmail ? { email: form.escalateToEmail, fullName: form.escalateToName, userId: form.escalateToUserId || null } : null;
 
   const handleSave = async () => {
     if (!form.returnName.trim()) { setError('Return name is required'); return; }
-    if (!form.actId) { setError('Select the governing act'); return; }
+    if (!form.actId && !(form.linkedObligationIds || []).length) {
+      setError('Ground this return to an Act, or link at least one obligation');
+      return;
+    }
     if (!(form.responsiblePersons || []).length) { setError('Select at least one responsible person — they submit the filing data'); return; }
     setSaving(true);
     setError('');
@@ -110,11 +108,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       const body = { ...form };
       delete body.linkedObligationIds;
       ['ownerEmail', 'ownerName', 'ownerUserId',
-        'escalateToEmail', 'escalateToName', 'escalateToUserId',
+        'level1Person', 'level1AfterValue', 'level1AfterUnit',
+        'level2Person', 'level2AfterValue', 'level2AfterUnit',
         'reminderStartValue', 'reminderStartUnit', 'reminderRepeatValue', 'reminderRepeatUnit'].forEach(k => delete body[k]);
       body.actId = parseInt(form.actId, 10);
-      if (body.filingDeadlineOffsetDays) body.filingDeadlineOffsetDays = parseInt(body.filingDeadlineOffsetDays, 10);
-      else delete body.filingDeadlineOffsetDays;
+      delete body.filingDeadlineOffsetDays;
       if (body.tenantRegulatorId) body.tenantRegulatorId = parseInt(body.tenantRegulatorId, 10);
       else delete body.tenantRegulatorId;
       if (form.escalationPolicyId) body.escalationPolicyId = parseInt(form.escalationPolicyId, 10);
@@ -149,13 +147,31 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       if (form.linkedObligationIds?.length) {
         await api.returns.linkObligations(created, form.linkedObligationIds.map(Number));
       }
-      if (form.escalateToEmail || form.escalateToName || form.escalateToUserId) {
+      const remindersChanged = String(form.reminderStartValue) !== '10' || form.reminderStartUnit !== 'DAYS'
+        || String(form.reminderRepeatValue) !== '2' || form.reminderRepeatUnit !== 'DAYS';
+      // A blank "Level N" means that level is not wanted; levels are sent in order, so they stay contiguous.
+      // No person picked → level 1 goes to the responsible person's manager, level 2 to the CCO.
+      const levels = (level2Shown ? [1, 2] : [1])
+        .filter(n => String(form[`level${n}AfterValue`]).trim() !== '')
+        .map(n => {
+          const row = { afterValue: Number(form[`level${n}AfterValue`]), afterUnit: form[`level${n}AfterUnit`] };
+          const p = form[`level${n}Person`];
+          if (p && (p.email || p.userId)) {
+            return { ...row, targetType: 'PERSON', targetUserId: p.userId ? Number(p.userId) : null,
+              targetName: p.fullName || null, targetEmail: p.email || null };
+          }
+          return { ...row, targetType: n === 1 ? 'MANAGER' : 'CCO' };
+        });
+      const levelsChanged = JSON.stringify(levels) !== JSON.stringify([
+        { targetType: 'MANAGER', afterValue: 3, afterUnit: 'DAYS' },
+      ]);
+      if (remindersChanged || levelsChanged) {
         await api.returns.updateEscalation(created, {
+          reminderStartValue: form.reminderStartValue === '' ? null : Number(form.reminderStartValue),
+          reminderStartUnit: form.reminderStartUnit,
           reminderRepeatValue: form.reminderRepeatValue === '' ? null : Number(form.reminderRepeatValue),
           reminderRepeatUnit: form.reminderRepeatUnit,
-          escalateToUserId: form.escalateToUserId ? Number(form.escalateToUserId) : null,
-          escalateToName: form.escalateToName || null,
-          escalateToEmail: form.escalateToEmail || null,
+          levels,
         });
       }
       onSaved?.(created);
@@ -175,14 +191,28 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           <TextField fullWidth size="small" required value={form.returnName}
             onChange={e => set('returnName', e.target.value)} />
         </Field>
-        <Field label="Governing Act *">
+        <Field label="Grounding — link obligations, or pick an act below">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button size="small" variant="outlined" startIcon={<LinkIcon size={16} />}
+              onClick={() => setLinksOpen(true)}>
+              {form.linkedObligationIds.length > 0
+                ? `Linked obligations (${form.linkedObligationIds.length})`
+                : 'Link obligations'}
+            </Button>
+            {form.linkedObligationIds.map(id => (
+              <Chip key={id} size="small" label={`Obligation #${id}`} onDelete={() => set('linkedObligationIds', form.linkedObligationIds.filter(x => x !== id))} />
+            ))}
+          </Box>
+        </Field>
+        <Field label="Act">
           <Autocomplete size="small" options={acts}
             getOptionLabel={(o) => o.name || ''}
             isOptionEqualToValue={(o, v) => String(o.regulationId) === String(v.regulationId)}
             value={acts.find(a => String(a.regulationId) === String(form.actId)) || null}
             onChange={(_, val) => set('actId', val ? String(val.regulationId) : '')}
             renderInput={(params) => (
-              <TextField {...params} size="small" placeholder="Search act or regulation" required error={!form.actId} />
+              <TextField {...params} size="small" placeholder="Search act"
+                error={!form.actId && !(form.linkedObligationIds || []).length} />
             )} />
         </Field>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -231,10 +261,9 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
               {[...CYCLES, EVENT_DRIVEN].map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
             </TextField>
           </Field>
-          <Field label="Start preparing / remind before due (days)" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="number" value={form.filingDeadlineOffsetDays}
-              onChange={e => set('filingDeadlineOffsetDays', e.target.value)}
-              helperText="Reminders begin this many days before the due date. Leave blank to use the frequency default." />
+          <Field label="Filing Channel" sx={{ mb: 0 }}>
+            <TextField fullWidth size="small" value={form.filingChannel}
+              onChange={e => set('filingChannel', e.target.value)} />
           </Field>
         </Box>
 
@@ -288,72 +317,105 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             Without a due date this return will show as 'Due date needed'.
           </Alert>
         )}
-        <Box sx={{ mt: 2 }}>
-          <Field label="Filing Channel" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" value={form.filingChannel}
-              onChange={e => set('filingChannel', e.target.value)} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
+          <Field label="Remind before" sx={{ mb: 0 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1 }}>
+              <TextField fullWidth size="small" type="number" value={form.reminderStartValue}
+                slotProps={{ htmlInput: { min: 0 } }}
+                onChange={e => set('reminderStartValue', e.target.value)} />
+              <TextField select fullWidth size="small" value={form.reminderStartUnit}
+                onChange={e => set('reminderStartUnit', e.target.value)}>
+                <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+              </TextField>
+            </Box>
+            {String(form.reminderStartValue).trim() !== '' && Number(form.reminderStartValue) === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                No advance reminder is sent.
+              </Typography>
+            )}
+          </Field>
+          <Field label="Remind after every" sx={{ mb: 0 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 1 }}>
+              <TextField fullWidth size="small" type="number" value={form.reminderRepeatValue}
+                slotProps={{ htmlInput: { min: 0 } }}
+                onChange={e => set('reminderRepeatValue', e.target.value)} />
+              <TextField select fullWidth size="small" value={form.reminderRepeatUnit}
+                onChange={e => set('reminderRepeatUnit', e.target.value)}>
+                <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+              </TextField>
+            </Box>
           </Field>
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Responsible</Typography>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <Field label="Responsible person(s) * — they submit the data" sx={{ mb: 0 }}>
-            <MultiPersonPicker label="Responsible person(s)" value={form.responsiblePersons}
+          <Field label="Responsible person" sx={{ mb: 0 }}>
+            <MultiPersonPicker label="Responsible person" value={form.responsiblePersons}
               onChange={(list) => set('responsiblePersons', list)} />
           </Field>
-          <Field label="Owner (analyst) — CC'd on reminders" sx={{ mb: 0 }}>
+          <Field label="Owner" sx={{ mb: 0 }}>
             <PersonPicker mode="user" label="Owner" value={ownerValue}
               onChange={(p) => setForm(f => ({ ...f, ownerEmail: p?.email || '', ownerName: p?.fullName || '', ownerUserId: p?.userId ?? '' }))} />
           </Field>
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
-          <Field label="Responsible units (metadata)" sx={{ mb: 0 }}>
-            <Autocomplete multiple size="small" freeSolo options={departments}
-              getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
-              isOptionEqualToValue={(o, v) => (typeof v === 'string' ? o.name === v : o.departmentId === v?.departmentId)}
-              value={form.responsibleUnits}
-              onChange={(_, val) => set('responsibleUnits', val)}
-              renderInput={(params) => (
-                <TextField {...params} size="small" placeholder="Search or type unit / department" />
-              )} />
-          </Field>
-          <Field label="Escalate to (if it goes overdue)" sx={{ mb: 0 }}>
-            <PersonPicker mode="user" label="Escalate to" value={escalateValue}
-              onChange={(p) => setForm(f => ({ ...f, escalateToEmail: p?.email || '', escalateToName: p?.fullName || '', escalateToUserId: p?.userId ?? '' }))} />
-          </Field>
-        </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 2 }}>
-          <Field label="Repeat reminders every" sx={{ mb: 0 }}>
-            <TextField fullWidth size="small" type="number" value={form.reminderRepeatValue}
-              onChange={e => set('reminderRepeatValue', e.target.value)} />
-          </Field>
-          <Field label="Repeat unit" sx={{ mb: 0 }}>
-            <TextField select fullWidth size="small" value={form.reminderRepeatUnit} onChange={e => set('reminderRepeatUnit', e.target.value)}>
-              <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
-            </TextField>
-          </Field>
-        </Box>
-
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Linked Obligations</Typography>
-        <Field label="Obligations this return is filed to satisfy">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Button size="small" variant="outlined" startIcon={<LinkIcon size={16} />}
-              onClick={() => setLinksOpen(true)}>
-              {form.linkedObligationIds.length > 0
-                ? `Linked obligations (${form.linkedObligationIds.length})`
-                : 'Link obligations'}
-            </Button>
-            {form.linkedObligationIds.map(id => (
-              <Chip key={id} size="small" label={`Obligation #${id}`} onDelete={() => set('linkedObligationIds', form.linkedObligationIds.filter(x => x !== id))} />
-            ))}
-          </Box>
+        <Field label="Responsible team" sx={{ mt: 2 }}>
+          <Autocomplete multiple size="small" freeSolo options={departments}
+            getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+            isOptionEqualToValue={(o, v) => (typeof v === 'string' ? o.name === v : o.departmentId === v?.departmentId)}
+            value={form.responsibleUnits}
+            onChange={(_, val) => set('responsibleUnits', val)}
+            renderInput={(params) => (
+              <TextField {...params} size="small" placeholder="Search or type unit / department" />
+            )} />
         </Field>
+
+        <Accordion disableGutters elevation={0}
+          sx={{ mt: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
+          <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Escalation</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {(level2Shown ? [1, 2] : [1]).map((n) => (
+              <Box key={n} sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1, mb: 1.5 }}>
+                <Field label="Escalate to" sx={{ mb: 0 }}>
+                  <PersonPicker mode="user" label={`Level ${n} escalate to`} value={form[`level${n}Person`]}
+                    onChange={p => set(`level${n}Person`, p)} />
+                </Field>
+                <Field label={`Level ${n}`} sx={{ mb: 0 }}>
+                  <TextField fullWidth size="small" type="number" value={form[`level${n}AfterValue`]}
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    onChange={e => set(`level${n}AfterValue`, e.target.value)} />
+                </Field>
+                <Field label="Unit" sx={{ mb: 0 }}>
+                  <TextField select fullWidth size="small" value={form[`level${n}AfterUnit`]}
+                    onChange={e => set(`level${n}AfterUnit`, e.target.value)}>
+                    <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+                  </TextField>
+                </Field>
+              </Box>
+            ))}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              {level2Shown ? (
+                <Button size="small" variant="text" onClick={() => {
+                  setLevel2Shown(false);
+                  setForm(f => ({ ...f, level2AfterValue: '', level2Person: null }));
+                }}>Remove level 2</Button>
+              ) : (
+                <Button size="small" variant="text" onClick={() => {
+                  setLevel2Shown(true);
+                  setForm(f => ({ ...f, level2AfterValue: EMPTY.level2AfterValue, level2Person: null }));
+                }}>+ Add another level</Button>
+              )}
+              <Typography variant="caption" color="text.secondary">After the due date.</Typography>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.returnName || !form.actId}>
+        <Button variant="contained" onClick={handleSave}
+          disabled={saving || !form.returnName || (!form.actId && !(form.linkedObligationIds || []).length)}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create Return'}
         </Button>
       </DialogActions>

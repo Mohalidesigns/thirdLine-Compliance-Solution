@@ -45,16 +45,15 @@ public class ReturnInstanceItem {
 
     private static final List<ReturnStage> STAGE_ORDER =
         List.of(ReturnStage.NOT_STARTED, ReturnStage.DATA_GATHERING, ReturnStage.DRAFT,
-            ReturnStage.REVIEW, ReturnStage.SIGN_OFF, ReturnStage.SUBMITTED);
+            ReturnStage.REVIEW, ReturnStage.COMPLETED);
 
     public static ReturnInstanceItem from(ReturnFilingInstance inst, String returnName, String filingRegulator,
                                            String actName, String responsibleUnit, String responsiblePerson) {
         int currentIdx = STAGE_ORDER.indexOf(inst.getCurrentStage());
+        boolean completed = inst.getCurrentStage() == ReturnStage.COMPLETED;
         List<StageSummary> stages = STAGE_ORDER.stream().map(s -> {
             int idx = STAGE_ORDER.indexOf(s);
-            return StageSummary.builder().name(s.db()).completed(
-                idx < currentIdx || ReturnFilingStatus.SUBMITTED.equals(inst.getStatus())
-                    || ReturnFilingStatus.SUBMITTED_LATE.equals(inst.getStatus()))
+            return StageSummary.builder().name(s.db()).completed(idx < currentIdx || completed)
                 .build();
         }).toList();
 

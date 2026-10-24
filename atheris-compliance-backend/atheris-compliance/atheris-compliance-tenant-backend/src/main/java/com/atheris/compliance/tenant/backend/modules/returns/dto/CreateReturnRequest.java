@@ -1,7 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.returns.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.time.LocalDate;
 
@@ -10,8 +9,8 @@ public class CreateReturnRequest {
     @NotBlank private String returnName;
     private String filingRegulator;
     private Long tenantRegulatorId;
-    /** Required — a return must be grounded to a governing act. Holds the act's platform regulation id. */
-    @NotNull private Long actId;
+    /** Optional — the governing act's platform regulation id. Linked obligations ground the return when absent. */
+    private Long actId;
     private String returnType;
     private String frequency;
     /** Fixed-date due rule anchor. Mutually exclusive with {@link #dueDaysAfterPeriodEnd}. */

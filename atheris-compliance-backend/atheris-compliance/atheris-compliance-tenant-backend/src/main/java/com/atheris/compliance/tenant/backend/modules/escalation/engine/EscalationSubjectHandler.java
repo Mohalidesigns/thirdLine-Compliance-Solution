@@ -16,4 +16,8 @@ public interface EscalationSubjectHandler {
     default Optional<String> filingLink(EscalationCandidate candidate) {
         return Optional.empty();
     }
+
+    default boolean remindUnstarted() {
+        return false;
+    }
 }

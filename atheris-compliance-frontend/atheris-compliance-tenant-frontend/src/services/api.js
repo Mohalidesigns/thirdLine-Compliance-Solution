@@ -468,7 +468,10 @@ export const api = {
     get: (returnId, opts = {}) => request(`/returns/${returnId}`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
-    submit: (id, data) => request(`/returns/instances/${id}/submit`, { method: 'PUT', body: JSON.stringify(data) }),
+    // Review the data submitted by the responsible person at Data Gathering (analyst). ACCEPT → Draft; REJECT → re-send link.
+    dataReview: (id, data) => request(`/returns/instances/${id}/data-review`, { method: 'PUT', body: JSON.stringify(data) }),
+    // Review the drafted report at the Review stage (CCO). ACCEPT → Completed; REJECT → request changes (back to Draft).
+    review: (id, data) => request(`/returns/instances/${id}/review`, { method: 'PUT', body: JSON.stringify(data) }),
     create: (data) => request('/returns', { method: 'POST', body: JSON.stringify(data) }),
     // Delete a return and its undisturbed periods/links (CCO, TENANT_ADMIN). 409 if a period has work.
     remove: (returnId) => request(`/returns/${returnId}`, { method: 'DELETE' }),

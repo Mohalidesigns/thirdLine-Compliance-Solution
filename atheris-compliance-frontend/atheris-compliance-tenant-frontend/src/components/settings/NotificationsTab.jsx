@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Button, Alert, CircularProgress, Table, TableHead, TableBody,
-  TableRow, TableCell, TableContainer, Chip, MenuItem, TextField, IconButton,
+  TableRow, TableCell, TableContainer, MenuItem, TextField, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Checkbox, FormControlLabel, Tooltip,
 } from '@mui/material';
-import { DataCard, StateBadge, PlusIcon, PencilSquareIcon, TrashIcon } from 'shared';
+import { DataCard, PlusIcon, PencilSquareIcon, TrashIcon } from 'shared';
 import { api } from '../../services/api';
 
 const SUBJECT_TYPES = [
@@ -46,16 +46,11 @@ function emptyPolicy() {
 export default function NotificationsTab() {
   const qc = useQueryClient();
   const [policyEdit, setPolicyEdit] = useState(null);
-  const [templateEdit, setTemplateEdit] = useState(null);
   const [error, setError] = useState('');
 
   const policiesQuery = useQuery({
     queryKey: ['escalation', 'policies'],
     queryFn: ({ signal }) => api.escalation.policies(null),
-  });
-  const templatesQuery = useQuery({
-    queryKey: ['settings', 'notification-templates'],
-    queryFn: ({ signal }) => api.settings.notificationTemplates({ signal }),
   });
 
   const savePolicy = useMutation({
@@ -68,14 +63,7 @@ export default function NotificationsTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['escalation', 'policies'] }),
     onError: (e) => setError(e.message),
   });
-  const saveTemplate = useMutation({
-    mutationFn: ({ key, data }) => api.settings.updateNotificationTemplate(key, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings', 'notification-templates'] }); setTemplateEdit(null); },
-    onError: (e) => setError(e.message),
-  });
-
   const policies = policiesQuery.data || [];
-  const templates = templatesQuery.data || [];
 
   return (
     <Box>
@@ -103,7 +91,6 @@ export default function NotificationsTab() {
                   <TableRow key={p.policyId} hover>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>{p.name}</Typography>
-                      {p.isDefault && <Chip size="small" label="Default" sx={{ mt: 0.5 }} color="primary" variant="outlined" />}
                     </TableCell>
                     <TableCell>{SUBJECT_TYPES.find(s => s.value === p.subjectType)?.label || p.subjectType}</TableCell>
                     <TableCell>
@@ -133,48 +120,9 @@ export default function NotificationsTab() {
         )}
       </DataCard>
 
-      <DataCard title="Email templates" sx={{ mt: 3 }}>
-        {templatesQuery.isPending ? <CircularProgress size={22} /> : (
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Template</TableCell>
-                  <TableCell>Subject</TableCell>
-                  <TableCell sx={{ width: 120 }}>Owner CC</TableCell>
-                  <TableCell sx={{ width: 64 }} />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {templates.map((t) => (
-                  <TableRow key={t.templateKey} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'Roboto Mono, monospace', fontSize: '0.75rem' }}>{t.templateKey}</Typography>
-                      {!t.isActive && <StateBadge value="Inactive" />}
-                    </TableCell>
-                    <TableCell>{t.subject}</TableCell>
-                    <TableCell>{t.ccOwner ? 'Yes' : 'No'}</TableCell>
-                    <TableCell>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={() => setTemplateEdit({ ...t })}>
-                        <PencilSquareIcon size={16} />
-                      </IconButton></Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </DataCard>
-
       {policyEdit && (
         <PolicyDialog value={policyEdit} saving={savePolicy.isPending}
           onClose={() => setPolicyEdit(null)} onSave={(p) => savePolicy.mutate(p)} />
-      )}
-      {templateEdit && (
-        <TemplateDialog value={templateEdit} saving={saveTemplate.isPending}
-          onClose={() => setTemplateEdit(null)}
-          onSave={(data) => saveTemplate.mutate({ key: templateEdit.templateKey, data })} />
       )}
     </Box>
   );
@@ -207,6 +155,7 @@ function PolicyDialog({ value, saving, onClose, onSave }) {
 
           <Grid size={{ xs: 6 }}>
             <TextField label="Start reminding before due" type="number" fullWidth size="small"
+              slotProps={{ htmlInput: { min: 0 } }}
               value={form.reminderStartValue ?? ''} onChange={e => set('reminderStartValue', e.target.value === '' ? null : Number(e.target.value))} />
           </Grid>
           <Grid size={{ xs: 6 }}>
@@ -217,6 +166,7 @@ function PolicyDialog({ value, saving, onClose, onSave }) {
           </Grid>
           <Grid size={{ xs: 6 }}>
             <TextField label="Repeat every" type="number" fullWidth size="small"
+              slotProps={{ htmlInput: { min: 0 } }}
               value={form.reminderRepeatValue ?? ''} onChange={e => set('reminderRepeatValue', e.target.value === '' ? null : Number(e.target.value))} />
           </Grid>
           <Grid size={{ xs: 6 }}>
@@ -237,6 +187,7 @@ function PolicyDialog({ value, saving, onClose, onSave }) {
                 </Grid>
                 <Grid size={{ xs: 2 }}>
                   <TextField label="After" type="number" size="small" fullWidth value={l.afterValue ?? 0}
+                    slotProps={{ htmlInput: { min: 0 } }}
                     onChange={e => setLevel(i, 'afterValue', e.target.value === '' ? 0 : Number(e.target.value))} />
                 </Grid>
                 <Grid size={{ xs: 2 }}>
@@ -292,37 +243,6 @@ function PolicyDialog({ value, saving, onClose, onSave }) {
         <Button variant="contained" disabled={saving || !form.name} onClick={() => onSave(form)}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function TemplateDialog({ value, saving, onClose, onSave }) {
-  const [form, setForm] = useState({
-    subject: value.subject || '', body: value.body || '',
-    ccOwner: value.ccOwner !== false, isActive: value.isActive !== false,
-  });
-  return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Edit template — {value.templateKey}</DialogTitle>
-      <DialogContent>
-        <TextField label="Subject" fullWidth size="small" sx={{ mt: 1, mb: 2 }}
-          value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-        <TextField label="Body" fullWidth multiline minRows={8}
-          value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} />
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-          Placeholders: {'{{returnName}} {{period}} {{dueDate}} {{daysLeft}} {{daysLate}} {{level}} {{regulator}} {{actName}} {{controlName}} {{recipientName}} {{link}}'}
-        </Typography>
-        <FormControlLabel sx={{ mt: 1 }}
-          control={<Checkbox checked={form.ccOwner} onChange={e => setForm(f => ({ ...f, ccOwner: e.target.checked }))} />}
-          label="CC the owner / analyst" />
-        <FormControlLabel
-          control={<Checkbox checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />}
-          label="Active" />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={saving} onClick={() => onSave(form)}>{saving ? 'Saving…' : 'Save'}</Button>
       </DialogActions>
     </Dialog>
   );

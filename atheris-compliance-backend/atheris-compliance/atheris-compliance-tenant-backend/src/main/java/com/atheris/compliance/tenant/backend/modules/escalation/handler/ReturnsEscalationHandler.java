@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.escalation.handler;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationCandidate;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationSubjectHandler;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.Person;
+import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
@@ -37,6 +38,7 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
     private final UserRepository users;
     private final OwnerRepository owners;
     private final ReturnUploadLinkService uploadLinks;
+    private final LdapAuthService ldap;
 
     @Override
     public String subjectType() {
@@ -63,6 +65,7 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
         for (ReturnFilingInstance instance : found) {
             RegulatoryReturn r = byId.get(instance.getReturnId());
             if (r == null || instance.getDueDate() == null) continue;
+            if (instance.isPendingReview()) continue;
             Map<String, String> extra = new HashMap<>();
             extra.put("period", instance.getPeriod() == null ? "" : instance.getPeriod());
             extra.put("regulator", r.getFilingRegulator() == null ? "" : r.getFilingRegulator());
@@ -98,6 +101,11 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
     }
 
     @Override
+    public boolean remindUnstarted() {
+        return true;
+    }
+
+    @Override
     public Optional<String> filingLink(EscalationCandidate candidate) {
         RegulatoryReturn r = returns.findById(candidate.linkSubjectId()).orElse(null);
         if (r == null || "EVENT_DRIVEN".equalsIgnoreCase(r.getFrequencyType())) return Optional.empty();
@@ -127,11 +135,6 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             if (person != null) out.add(person);
             else if (name.contains("@")) out.add(new Person(null, name.trim(), null));
         }
-        Person owner = owner(r);
-        if (owner != null && owner.hasEmail()
-            && out.stream().noneMatch(p -> owner.email().equalsIgnoreCase(p.email()))) {
-            out.add(owner);
-        }
         return out;
     }
 
@@ -155,6 +158,14 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             if (Boolean.TRUE.equals(o.getIsActive()) && o.getFullName() != null) {
                 map.putIfAbsent(o.getFullName().trim().toLowerCase(Locale.ROOT),
                     new Person(o.getFullName(), o.getEmail(), o.getUserId()));
+            }
+        }
+        if (ldap.isLdapEnabled()) {
+            for (LdapAuthService.DirectoryUser u : ldap.searchUsers("")) {
+                if (u.fullName() != null && !u.fullName().isBlank() && u.email() != null && !u.email().isBlank()) {
+                    map.putIfAbsent(u.fullName().trim().toLowerCase(Locale.ROOT),
+                        new Person(u.fullName(), u.email(), null));
+                }
             }
         }
         return map;

@@ -84,14 +84,24 @@ public class ReturnController {
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/instances/{id}/submit")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
-    public ResponseEntity<Void> submit(
+    @PutMapping("/instances/{id}/data-review")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnInstanceDetailResponse> dataReview(
             @PathVariable Long id,
-            @RequestBody AdvanceStageRequest req,
+            @RequestBody ReviewFilingRequest req,
             @AuthenticationPrincipal User u) {
-        service.submit(id, req.getEvidenceUrl(), u.getUserId());
-        return ResponseEntity.ok().build();
+        service.review(id, req.getDecision(), req.getNotes(), u.getUserId());
+        return ResponseEntity.ok(service.getDetail(id));
+    }
+
+    @PutMapping("/instances/{id}/review")
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnInstanceDetailResponse> review(
+            @PathVariable Long id,
+            @RequestBody ReviewFilingRequest req,
+            @AuthenticationPrincipal User u) {
+        service.review(id, req.getDecision(), req.getNotes(), u.getUserId());
+        return ResponseEntity.ok(service.getDetail(id));
     }
 
     @PostMapping

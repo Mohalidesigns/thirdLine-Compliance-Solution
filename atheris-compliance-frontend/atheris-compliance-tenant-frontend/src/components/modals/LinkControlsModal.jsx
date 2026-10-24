@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Table, TableHead,
   TableBody, TableRow, TableCell, TableContainer, Paper, TextField, Box,
@@ -9,26 +10,29 @@ import { api } from '../../services/api';
 import CreateControlDialog from './CreateControlDialog';
 
 export default function LinkControlsModal({ open, onClose, obligationId, initialIds = [], onSaved, onError }) {
-  const [controls, setControls] = useState([]);
+  const qc = useQueryClient();
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+
+  const { data, isPending } = useQuery({
+    queryKey: ['controls', 'picker'],
+    queryFn: () => api.controls.list({}),
+    enabled: open,
+  });
+  const controls = Array.isArray(data) ? data : (data?.content || []);
 
   useEffect(() => {
     if (open) {
       setSelected([...(initialIds || [])]);
       setSearch('');
-      setLoading(true);
-      api.controls.list({})
-        .then(d => setControls(Array.isArray(d) ? d : (d.content || [])))
-        .catch(() => onError?.('Failed to load controls.'))
-        .finally(() => setLoading(false));
+      setCreateOpen(false);
     }
   }, [open, initialIds]);
 
   async function handleSave() {
-    setLoading(true);
+    setSaving(true);
     try {
       await api.obligations.linkControls(obligationId, {
         linkedControlIds: selected,
@@ -37,17 +41,16 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
       onSaved?.();
       onClose();
     } catch (e) { onError?.(e.message || 'Failed to save controls.'); }
-    finally { setLoading(false); }
+    finally { setSaving(false); }
   }
 
   const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleCreated = (created) => {
-    if (created?.controlId) {
-      setControls(prev => [...prev, created]);
-      setSelected(prev => prev.includes(created.controlId) ? prev : [...prev, created.controlId]);
-    }
+    const id = typeof created === 'object' ? created?.controlId : created;
+    if (id) setSelected(prev => prev.includes(id) ? prev : [...prev, id]);
     setCreateOpen(false);
+    qc.invalidateQueries({ queryKey: ['controls'] });
   };
 
   const filtered = controls.filter(c => {
@@ -76,7 +79,7 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
             </Button>
           </Box>
 
-          {loading && controls.length === 0 ? (
+          {isPending && controls.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
           ) : controls.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No controls available.</Typography>
@@ -110,8 +113,8 @@ export default function LinkControlsModal({ open, onClose, obligationId, initial
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={loading || !selected.length}>
-            {loading ? <CircularProgress size={18} /> : `Save (${selected.length})`}
+          <Button variant="contained" onClick={handleSave} disabled={saving || !selected.length}>
+            {saving ? <CircularProgress size={18} /> : `Save (${selected.length})`}
           </Button>
         </DialogActions>
       </Dialog>

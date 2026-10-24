@@ -5,8 +5,7 @@ public enum ReturnStage {
     DATA_GATHERING("Data Gathering"),
     DRAFT("Draft"),
     REVIEW("Review"),
-    SIGN_OFF("Sign-off"),
-    SUBMITTED("Submitted");
+    COMPLETED("Completed");
 
     private final String db;
 
@@ -15,7 +14,11 @@ public enum ReturnStage {
     public String db() { return db; }
 
     public static ReturnStage fromDb(String s) {
+        if (s == null) return null;
         for (ReturnStage v : values()) if (v.db.equalsIgnoreCase(s)) return v;
+        String t = s.trim().toLowerCase();
+        if (t.equals("sign-off") || t.equals("signoff")) return REVIEW;
+        if (t.equals("submitted") || t.equals("submitted late")) return COMPLETED;
         throw new IllegalArgumentException("Unknown stage: " + s);
     }
 }

@@ -26,23 +26,23 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         try {
             seed(EscalationConstants.SUBJECT_RETURN, null, "Standard Return Escalation",
-                10, 2, true, standardLevels(0, 3, 7));
+                10, 2, true, true, standardLevels(0, 3, 7));
             seed(EscalationConstants.SUBJECT_RETURN, "DAILY", "Daily Return Escalation",
-                0, 1, true, standardLevels(0, 1, 2));
+                12, 12, true, true, standardLevels(0, 1, 2), EscalationConstants.UNIT_HOURS, 0, 1);
             seed(EscalationConstants.SUBJECT_RETURN, "WEEKLY", "Weekly Return Escalation",
-                2, 1, true, standardLevels(0, 2, 4));
+                2, 1, true, true, standardLevels(0, 2, 4));
             seed(EscalationConstants.SUBJECT_RETURN, "MONTHLY", "Monthly Return Escalation",
-                10, 2, true, standardLevels(0, 3, 7));
+                10, 2, true, true, standardLevels(0, 3, 7));
             seed(EscalationConstants.SUBJECT_RETURN, "QUARTERLY", "Quarterly Return Escalation",
-                15, 3, true, standardLevels(0, 5, 10));
+                15, 3, true, true, standardLevels(0, 5, 10));
             seed(EscalationConstants.SUBJECT_RETURN, "SEMI_ANNUAL", "Semi-Annual Return Escalation",
-                21, 5, true, standardLevels(0, 7, 14));
+                21, 5, true, true, standardLevels(0, 7, 14));
             seed(EscalationConstants.SUBJECT_RETURN, "ANNUAL", "Annual Return Escalation",
-                30, 7, true, standardLevels(0, 7, 14));
+                30, 7, true, true, standardLevels(0, 7, 14));
             seed(EscalationConstants.SUBJECT_RETURN, "BIENNIAL", "Biennial Return Escalation",
-                30, 7, true, standardLevels(0, 7, 14));
+                30, 7, true, true, standardLevels(0, 7, 14));
             seed(EscalationConstants.SUBJECT_CONTROL, null, "Standard Control Test Escalation",
-                5, 2, false, List.of(
+                5, 2, false, false, List.of(
                     level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
                     level(2, 2, EscalationConstants.TARGET_MANAGER, null),
                     level(3, 5, EscalationConstants.TARGET_ROLE, AppRole.CCO)));
@@ -52,13 +52,26 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
     }
 
     private void seed(String subjectType, String frequencyScope, String name, int startValue, int repeatValue,
-                      boolean sendLink, List<EscalationLevelRequest> levels) {
-        if (policies.hasDefaultExact(subjectType, frequencyScope)) return;
+                      boolean sendLink, boolean notifyOnStart, List<EscalationLevelRequest> levels) {
+        seed(subjectType, frequencyScope, name, startValue, repeatValue, sendLink, notifyOnStart, levels,
+            EscalationConstants.UNIT_DAYS, startValue, repeatValue);
+    }
+
+    private void seed(String subjectType, String frequencyScope, String name, int startValue, int repeatValue,
+                      boolean sendLink, boolean notifyOnStart, List<EscalationLevelRequest> levels, String unit,
+                      int legacyStartValue, int legacyRepeatValue) {
+        if (policies.hasDefaultExact(subjectType, frequencyScope)) {
+            if (notifyOnStart) {
+                policies.refreshSeededDefault(subjectType, frequencyScope, legacyStartValue, legacyRepeatValue,
+                    startValue, unit, repeatValue, unit);
+            }
+            return;
+        }
         policies.create(EscalationPolicyRequest.builder()
             .name(name).subjectType(subjectType).frequencyScope(frequencyScope).isDefault(true).isActive(true)
-            .reminderStartValue(startValue).reminderStartUnit(EscalationConstants.UNIT_DAYS)
-            .reminderRepeatValue(repeatValue).reminderRepeatUnit(EscalationConstants.UNIT_DAYS)
-            .sendLink(sendLink).levels(levels).build(), null);
+            .reminderStartValue(startValue).reminderStartUnit(unit)
+            .reminderRepeatValue(repeatValue).reminderRepeatUnit(unit)
+            .sendLink(sendLink).notifyOnStart(notifyOnStart).levels(levels).build(), null);
         log.info("[EscalationSeeder] created default {}{} escalation policy",
             subjectType, frequencyScope == null ? "" : " " + frequencyScope);
     }

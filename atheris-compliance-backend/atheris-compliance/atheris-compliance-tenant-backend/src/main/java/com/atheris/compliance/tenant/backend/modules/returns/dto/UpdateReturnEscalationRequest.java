@@ -1,7 +1,10 @@
 package com.atheris.compliance.tenant.backend.modules.returns.dto;
 
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -10,7 +13,5 @@ public class UpdateReturnEscalationRequest {
     private String reminderStartUnit;
     private Integer reminderRepeatValue;
     private String reminderRepeatUnit;
-    private Integer escalateToUserId;
-    private String escalateToName;
-    private String escalateToEmail;
+    private List<EscalationLevelRequest> levels;
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
@@ -9,32 +10,25 @@ import { api } from '../../services/api';
 import CreateObligationDialog from './CreateObligationDialog';
 
 export default function LinkObligationsPicker({ open, onClose, initialIds = [], onSave }) {
-  const [rows, setRows] = useState([]);
+  const qc = useQueryClient();
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+
+  const { data, isPending } = useQuery({
+    queryKey: ['obligations', 'picker'],
+    queryFn: () => api.obligations.register({ size: 1000 }),
+    enabled: open,
+  });
+  const rows = Array.isArray(data) ? data : (data?.content || []);
 
   useEffect(() => {
     if (open) {
       setSelected([...(initialIds || [])]);
       setSearch('');
-      setLoading(true);
-      api.obligations.register({ size: 1000 })
-        .then(res => {
-          const items = Array.isArray(res) ? res : (res.content || []);
-          setRows(items);
-        })
-        .catch(() => setRows([]))
-        .finally(() => setLoading(false));
+      setCreateOpen(false);
     }
   }, [open, initialIds]);
-
-  const reload = () => {
-    api.obligations.register({ size: 1000 })
-      .then(res => setRows(Array.isArray(res) ? res : (res.content || [])))
-      .catch(() => {});
-  };
 
   const toggle = id => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
@@ -65,7 +59,7 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
             Add New Obligation
           </Button>
         </Box>
-        {loading ? (
+        {isPending ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
         ) : rows.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No obligations available.</Typography>
@@ -115,7 +109,7 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
         setCreateOpen(false);
         const id = typeof created === 'object' ? created?.obligationId : created;
         if (id) setSelected(prev => prev.includes(id) ? prev : [...prev, id]);
-        reload();
+        qc.invalidateQueries({ queryKey: ['obligations'] });
       }} />}
     </>
   );

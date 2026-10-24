@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Chip, CircularProgress, Stack, Typography, Snackbar, Alert,
+import { Box, Button, Chip, Stack, Typography, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
-  PageHeader, KpiCards, FilterBar, SectionTable,
+  PageHeader, KpiCards, FilterBar, SectionTable, SectionTabs,
   ClockIcon, ExclamationTriangleIcon, CheckCircleIcon, InboxIcon,
 } from 'shared';
 import MultiPersonPicker from '../components/common/MultiPersonPicker';
@@ -12,6 +12,12 @@ import { api } from '../services/api';
 
 const opt = (values) => values.map((v) => ({ value: v, label: v }));
 const PRIORITIES = ['OVERDUE', 'HIGH', 'MEDIUM', 'SOON', 'LOW'];
+const CATEGORIES = [
+  { key: 'CONTROLS', label: 'Controls' },
+  { key: 'RETURNS', label: 'Returns' },
+  { key: 'FINDINGS', label: 'Findings' },
+  { key: 'OBLIGATIONS', label: 'Obligations' },
+];
 const priorityChip = {
   OVERDUE: { label: 'Overdue', color: 'error' },
   HIGH: { label: 'High', color: 'warning' },
@@ -20,18 +26,19 @@ const priorityChip = {
   LOW: { label: 'Low', color: 'default' },
 };
 
-function dueText(t) {
-  if (t.dueDate == null) return '—';
-  if (t.daysRemaining < 0) return `${Math.abs(t.daysRemaining)}d overdue`;
-  if (t.daysRemaining === 0) return 'Today';
-  return `in ${t.daysRemaining}d`;
+function relText(t) {
+  if (t.dueDate == null || t.daysRemaining == null) return null;
+  if (t.daysRemaining < 0) return `${Math.abs(t.daysRemaining)} days overdue`;
+  if (t.daysRemaining === 0) return 'today';
+  if (t.daysRemaining === 1) return '1 day';
+  return `${t.daysRemaining} days`;
 }
 
 export default function TasksPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [assignee, setAssignee] = useState('me');
-  const [category, setCategory] = useState('');
+  const [assignee, setAssignee] = useState('all');
+  const [category, setCategory] = useState('RETURNS');
   const [priority, setPriority] = useState('');
   const [q, setQ] = useState('');
   const [kpi, setKpi] = useState(null);
@@ -40,8 +47,7 @@ export default function TasksPage() {
   const [snackbar, setSnackbar] = useState('');
   const [assignFor, setAssignFor] = useState(null);
 
-  const params = { assignee, page, size };
-  if (category) params.category = category;
+  const params = { assignee, category, page, size };
   if (priority) params.priority = priority;
   if (q) params.q = q;
 
@@ -51,8 +57,8 @@ export default function TasksPage() {
     placeholderData: (prev) => prev,
   });
   const { data: stats } = useQuery({
-    queryKey: ['tasks', 'center-stats', assignee],
-    queryFn: ({ signal }) => api.tasks.centerStats({ assignee }, { signal }),
+    queryKey: ['tasks', 'center-stats', assignee, category],
+    queryFn: ({ signal }) => api.tasks.centerStats({ assignee, category }, { signal }),
   });
 
   const startMut = useMutation({
@@ -75,6 +81,9 @@ export default function TasksPage() {
 
   const rows = data?.content || [];
   const total = data?.totalElements || 0;
+  const byCategory = stats?.byCategory || {};
+
+  const tabs = CATEGORIES.map((c) => ({ ...c, count: byCategory[c.key] ?? 0 }));
 
   const kpis = useMemo(() => [
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, tone: 'red', icon: <ExclamationTriangleIcon size={16} /> },
@@ -95,26 +104,30 @@ export default function TasksPage() {
 
   const columns = [
     {
-      id: 'title', label: 'Task', minWidth: 280, render: (t) => (
-        <Box sx={{ minWidth: 0 }}>
+      id: 'title', label: 'Task', minWidth: 260, render: (t) => (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
           <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{t.title}</Typography>
-          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25 }}>
-            <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
-              color={priorityChip[t.priority]?.color || 'default'} />
-            <Typography variant="caption" color="text.secondary" noWrap>{t.type?.replaceAll('_', ' ').toLowerCase()}</Typography>
-          </Stack>
-        </Box>
+          <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
+            color={priorityChip[t.priority]?.color || 'default'} />
+        </Stack>
       ),
     },
-    { id: 'caption', label: 'Related', minWidth: 200, render: (t) => <Typography variant="body2" color="text.secondary">{t.caption || '—'}</Typography> },
     {
-      id: 'due', label: 'Due', minWidth: 120, render: (t) => (
-        <Typography variant="body2" sx={{ color: t.daysRemaining < 0 ? 'error.main' : 'text.primary' }}>
-          {dueText(t)}{t.dueDate ? <Typography component="span" variant="caption" color="text.secondary">{` · ${t.dueDate}`}</Typography> : null}
-        </Typography>
+      id: 'due', label: 'Due date', minWidth: 160, render: (t) => (
+        t.dueDate ? (
+          <Typography variant="body2" sx={{ color: t.daysRemaining < 0 ? 'error.main' : 'text.primary' }} noWrap>
+            {t.dueDate}
+            {relText(t) ? <Typography component="span" variant="caption" color="text.secondary">{` (${relText(t)})`}</Typography> : null}
+          </Typography>
+        ) : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
-    { id: 'owner', label: 'Owner', minWidth: 150, render: (t) => <Typography variant="body2">{t.ownerName || '—'}</Typography> },
+    {
+      id: 'regulator', label: 'Regulator', minWidth: 130, render: (t) => (
+        t.regulator ? <Chip size="small" variant="outlined" label={t.regulator} /> : <Typography variant="body2" color="text.secondary">—</Typography>
+      ),
+    },
+    { id: 'responsible', label: 'Responsible person', minWidth: 180, render: (t) => <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography> },
   ];
 
   return (
@@ -133,19 +146,19 @@ export default function TasksPage() {
         )}
       />
 
+      <SectionTabs tabs={tabs} value={category} onChange={(v) => { setCategory(v); setKpi(null); setPage(0); }} sx={{ mb: 2 }} />
+
       <KpiCards items={kpis.map((k) => ({ ...k, active: kpi === k.key }))}
         onSelect={(key) => { setKpi((v) => (v === key ? null : key)); setPage(0); }} columns={5} />
 
       <FilterBar
-        search={{ value: q, onChange: (v) => { setQ(v); setPage(0); }, placeholder: 'Search task, return, or owner…' }}
+        search={{ value: q, onChange: (v) => { setQ(v); setPage(0); }, placeholder: 'Search task, regulator, or owner…' }}
         filters={[
-          { key: 'category', label: 'Category', value: category, onChange: (v) => { setCategory(v); setPage(0); },
-            options: opt(['RETURNS']), allLabel: 'All', minWidth: 150 },
           { key: 'priority', label: 'Priority', value: priority, onChange: (v) => { setPriority(v); setPage(0); },
             options: opt(PRIORITIES), allLabel: 'All', minWidth: 150 },
         ]}
-        showClear={!!(q || category || priority || kpi)}
-        onClear={() => { setQ(''); setCategory(''); setPriority(''); setKpi(null); setPage(0); }}
+        showClear={!!(q || priority || kpi)}
+        onClear={() => { setQ(''); setPriority(''); setKpi(null); setPage(0); }}
       />
 
       {isError ? (
@@ -164,7 +177,7 @@ export default function TasksPage() {
           onSize={(s) => { setSize(s); setPage(0); }}
           rowKey={(t) => t.key}
           onRowClick={(t) => navigate(t.linkPath)}
-          emptyMessage="Nothing to action — no filings are due soon or overdue."
+          emptyMessage="Nothing to action in this category."
           emptyIcon={<CheckCircleIcon size={44} sx={{ mb: 1, opacity: 0.35 }} />}
           actions={(t) => {
             if (t.actionType === 'START') {

@@ -10,6 +10,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryRe
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFrequency;
+import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnStage;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnUploadLink;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
@@ -103,6 +104,16 @@ public class ReturnUploadLinkService {
         return raw;
     }
 
+    public void emailFilingLink(Long returnId, String to, String name, String rawToken) {
+        if (to == null || to.isBlank()) return;
+        RegulatoryReturn ret = returns.findById(returnId).orElse(null);
+        String returnName = ret != null ? ret.getReturnName() : "the return";
+        email.send(to, "Action required: filing data for " + returnName,
+            "The compliance team reviewed the submission for \"" + returnName
+                + "\" and requested changes. Please resubmit the filing data using the link below.\n",
+            uploadUrl(rawToken));
+    }
+
     /** Relative path the client resolves against {@code window.location.origin}. */
     public String uploadPath(String rawToken) {
         return "/return-upload/" + rawToken;
@@ -122,7 +133,9 @@ public class ReturnUploadLinkService {
         if (link.getInstanceId() != null) {
             ReturnFilingInstance inst = instances.findById(link.getInstanceId()).orElse(null);
             boolean editable = ret.getStatus() == RegulatoryReturnStatus.ACTIVE && inst != null
-                && inst.getStatus() != ReturnFilingStatus.SUBMITTED && inst.getStatus() != ReturnFilingStatus.SUBMITTED_LATE;
+                && !inst.isPendingReview()
+                && (inst.getCurrentStage() == ReturnStage.NOT_STARTED
+                    || inst.getCurrentStage() == ReturnStage.DATA_GATHERING);
             return PublicReturnUploadView.builder()
                 .returnId(ret.getReturnId())
                 .institutionName(p != null ? p.getLegalName() : "Institution")
@@ -223,7 +236,8 @@ public class ReturnUploadLinkService {
         } else {
             throw ApiException.badRequest("Provide the filing data: attach a file or a reference.");
         }
-        returnService.submitFromLink(inst.getInstanceId(), evidenceRef, null);
+        returnService.submitFromLink(inst.getInstanceId(), evidenceRef,
+            link.getRecipientName(), link.getRecipientEmail(), null);
         link.setUseCount((link.getUseCount() == null ? 0 : link.getUseCount()) + 1);
         link.setLastUsedAt(Instant.now());
         links.save(link);

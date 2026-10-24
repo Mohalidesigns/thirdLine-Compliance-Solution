@@ -42,6 +42,22 @@ public class ReturnFilingInstance {
     private LocalDate submittedDate;
     private Integer submittedByUserId;
     private String submissionEvidenceUrl;
+
+    @Builder.Default
+    private boolean pendingReview = false;
+    @Column(columnDefinition = "text")
+    private String reviewEvidenceRef;
+    private Instant reviewSubmittedAt;
+    private String reviewSubmittedByName;
+    private String reviewSubmittedByEmail;
+    private Integer reviewSubmittedByUserId;
+    private Instant reviewedAt;
+    private Integer reviewedByUserId;
+    @Column(length = 20)
+    private String reviewDecision;
+    @Column(columnDefinition = "text")
+    private String reviewNotes;
+    private Instant completedAt;
     @Builder.Default
     private Integer daysLate = 0;
     @Builder.Default

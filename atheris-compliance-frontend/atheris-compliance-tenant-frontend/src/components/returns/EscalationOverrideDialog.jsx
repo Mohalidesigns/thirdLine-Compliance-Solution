@@ -144,6 +144,7 @@ function OverrideForm({ initial, saving, onSave, onCancel, onReset, resetting })
       <Grid container spacing={2}>
         <Grid size={{ xs: 3 }}>
           <TextField label="Remind before due" type="number" fullWidth size="small"
+            slotProps={{ htmlInput: { min: 0 } }}
             value={form.reminderStartValue} onChange={(e) => set('reminderStartValue', e.target.value)} />
         </Grid>
         <Grid size={{ xs: 3 }}>
@@ -154,6 +155,7 @@ function OverrideForm({ initial, saving, onSave, onCancel, onReset, resetting })
         </Grid>
         <Grid size={{ xs: 3 }}>
           <TextField label="Repeat every" type="number" fullWidth size="small"
+            slotProps={{ htmlInput: { min: 0 } }}
             value={form.reminderRepeatValue} onChange={(e) => set('reminderRepeatValue', e.target.value)} />
         </Grid>
         <Grid size={{ xs: 3 }}>
@@ -172,6 +174,7 @@ function OverrideForm({ initial, saving, onSave, onCancel, onReset, resetting })
               <Grid size={{ xs: 1 }}><TextField label="Lvl" size="small" fullWidth value={l.levelNo} disabled /></Grid>
               <Grid size={{ xs: 2 }}>
                 <TextField label="After" type="number" size="small" fullWidth value={l.afterValue}
+                  slotProps={{ htmlInput: { min: 0 } }}
                   onChange={(e) => setLevel(i, 'afterValue', e.target.value)} />
               </Grid>
               <Grid size={{ xs: 2 }}>

@@ -16,6 +16,7 @@ import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../components/org/
 import PersonPicker from '../components/common/PersonPicker';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 import NotificationsTab from '../components/settings/NotificationsTab';
+import TemplatesTab from '../components/settings/TemplatesTab';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
@@ -39,9 +40,10 @@ export default function SettingsPage() {
           ...(canManageWorkspace ? [
             { key: 2, label: 'Federal Public Holidays' },
             { key: 3, label: 'System Users' },
-            { key: 4, label: 'Email / SMTP' },
-            { key: 5, label: 'Notifications' },
           ] : []),
+          { key: 4, label: 'Email / SMTP' },
+          { key: 5, label: 'Notifications' },
+          { key: 6, label: 'Email Templates' },
         ]}
       />
 
@@ -49,8 +51,9 @@ export default function SettingsPage() {
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
       {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
       {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
-      {tab === 4 && canManageWorkspace && <SmtpTab />}
-      {tab === 5 && canManageWorkspace && <NotificationsTab />}
+      {tab === 4 && <SmtpTab />}
+      {tab === 5 && <NotificationsTab />}
+      {tab === 6 && <TemplatesTab />}
     </Box>
   );
 }

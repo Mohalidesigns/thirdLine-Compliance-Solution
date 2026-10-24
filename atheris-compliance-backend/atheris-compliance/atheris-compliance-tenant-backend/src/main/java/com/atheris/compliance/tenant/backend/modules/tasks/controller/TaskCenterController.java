@@ -34,8 +34,9 @@ public class TaskCenterController {
     @GetMapping("/stats")
     public ResponseEntity<TaskStatsDto> stats(
             @RequestParam(required = false) String assignee,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer ownerUserId,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.stats(assignee, ownerUserId, u == null ? null : u.getUserId()));
+        return ResponseEntity.ok(service.stats(assignee, category, ownerUserId, u == null ? null : u.getUserId()));
     }
 }

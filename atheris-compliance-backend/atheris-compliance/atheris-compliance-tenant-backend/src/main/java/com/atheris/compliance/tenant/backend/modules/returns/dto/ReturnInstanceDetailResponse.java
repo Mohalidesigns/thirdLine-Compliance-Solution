@@ -36,7 +36,19 @@ public class ReturnInstanceDetailResponse {
     private String returnOwnerName;
     private Integer stageOwnerUserId;
     private LocalDate submittedDate;
+    private Integer submittedByUserId;
     private String submissionEvidenceUrl;
+    private boolean pendingReview;
+    private String reviewEvidenceRef;
+    private String reviewSubmittedByName;
+    private String reviewSubmittedByEmail;
+    private Instant reviewSubmittedAt;
+    private Integer reviewSubmittedByUserId;
+    private String reviewDecision;
+    private String reviewNotes;
+    private Instant reviewedAt;
+    private Integer reviewedByUserId;
+    private Instant completedAt;
     private int daysLate;
     private Integer escalationLevel;
     private Instant escalatedAt;
@@ -60,7 +72,7 @@ public class ReturnInstanceDetailResponse {
 
     private static final List<ReturnStage> STAGE_ORDER =
         List.of(ReturnStage.NOT_STARTED, ReturnStage.DATA_GATHERING, ReturnStage.DRAFT,
-            ReturnStage.REVIEW, ReturnStage.SIGN_OFF, ReturnStage.SUBMITTED);
+            ReturnStage.REVIEW, ReturnStage.COMPLETED);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static ReturnInstanceDetailResponse from(ReturnFilingInstance inst,
@@ -68,7 +80,7 @@ public class ReturnInstanceDetailResponse {
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
         int currentIdx = STAGE_ORDER.indexOf(inst.getCurrentStage());
         ReturnFilingStatus status = inst.getStatus();
-        boolean submitted = ReturnFilingStatus.SUBMITTED.equals(status) || ReturnFilingStatus.SUBMITTED_LATE.equals(status);
+        boolean completed = inst.getCurrentStage() == ReturnStage.COMPLETED;
         List<StageInfo> stages = new ArrayList<>();
         for (int i = 0; i < STAGE_ORDER.size(); i++) {
             ReturnStage rs = STAGE_ORDER.get(i);
@@ -76,7 +88,7 @@ public class ReturnInstanceDetailResponse {
             Map<String, String> data = stageData.getOrDefault(name, new HashMap<>());
             stages.add(StageInfo.builder()
                 .name(name)
-                .completed(data.containsKey("completedAt") || i < currentIdx || submitted)
+                .completed(data.containsKey("completedAt") || i < currentIdx || completed)
                 .completedAt(data.get("completedAt"))
                 .evidenceUrl(data.get("evidenceUrl"))
                 .completedByName(data.get("completedByName"))
@@ -93,7 +105,19 @@ public class ReturnInstanceDetailResponse {
             .filingChannel(inst.getFilingChannel()).returnOwnerName(returnOwnerName)
             .stageOwnerUserId(inst.getStageOwnerUserId())
             .submittedDate(inst.getSubmittedDate())
+            .submittedByUserId(inst.getSubmittedByUserId())
             .submissionEvidenceUrl(inst.getSubmissionEvidenceUrl())
+            .pendingReview(inst.isPendingReview())
+            .reviewEvidenceRef(inst.getReviewEvidenceRef())
+            .reviewSubmittedByName(inst.getReviewSubmittedByName())
+            .reviewSubmittedByEmail(inst.getReviewSubmittedByEmail())
+            .reviewSubmittedAt(inst.getReviewSubmittedAt())
+            .reviewSubmittedByUserId(inst.getReviewSubmittedByUserId())
+            .reviewDecision(inst.getReviewDecision())
+            .reviewNotes(inst.getReviewNotes())
+            .reviewedAt(inst.getReviewedAt())
+            .reviewedByUserId(inst.getReviewedByUserId())
+            .completedAt(inst.getCompletedAt())
             .daysLate(inst.getDaysLate() != null ? inst.getDaysLate() : 0)
             .escalationLevel(inst.getEscalationLevel())
             .escalatedAt(inst.getEscalatedAt())

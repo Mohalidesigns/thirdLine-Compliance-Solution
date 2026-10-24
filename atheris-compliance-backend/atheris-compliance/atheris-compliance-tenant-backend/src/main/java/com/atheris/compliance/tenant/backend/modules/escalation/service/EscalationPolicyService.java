@@ -90,6 +90,7 @@ public class EscalationPolicyService {
             policy.setNotifyOnStart(Boolean.TRUE.equals(req.getNotifyOnStart()));
             policy = policies.save(policy);
             policyLevels.deleteByPolicyId(id);
+            policyLevels.flush();
             writePolicyLevels(id, req.getLevels());
             audit.log(userId, "escalation_policy_updated", "escalation_policy", id,
                 Map.of("name", policy.getName()));
@@ -107,6 +108,7 @@ public class EscalationPolicyService {
             if (Boolean.TRUE.equals(policy.getIsDefault()))
                 throw ApiException.conflict("default_policy", "The default policy cannot be deleted; pick another default first.");
             policyLevels.deleteByPolicyId(id);
+            policyLevels.flush();
             policies.delete(policy);
             audit.log(userId, "escalation_policy_deleted", "escalation_policy", id,
                 Map.of("name", policy.getName()));
@@ -123,11 +125,15 @@ public class EscalationPolicyService {
 
     @Transactional
     public void ensureFrozen(String subjectType, Long subjectId, Long subjectPolicyId) {
+        ensureFrozen(subjectType, subjectId, subjectPolicyId, null);
+    }
+
+    public void ensureFrozen(String subjectType, Long subjectId, Long subjectPolicyId, String frequencyScope) {
         try {
             if (instances.findBySubjectTypeAndSubjectId(subjectType, subjectId).isPresent()) return;
             EscalationPolicy policy = null;
             if (subjectPolicyId != null) policy = policies.findById(subjectPolicyId).orElse(null);
-            if (policy == null) policy = defaultPolicy(subjectType).orElse(null);
+            if (policy == null) policy = defaultPolicy(subjectType, frequencyScope).orElse(null);
             if (policy == null) return;
             EscalationInstance instance = instances.save(EscalationInstance.builder()
                 .subjectType(subjectType).subjectId(subjectId).sourcePolicyId(policy.getPolicyId())
@@ -161,6 +167,7 @@ public class EscalationPolicyService {
             instance.setActive(req.getActive() == null || req.getActive());
             instance = instances.save(instance);
             instanceLevels.deleteByOverrideId(instance.getOverrideId());
+            instanceLevels.flush();
             writeInstanceLevels(instance.getOverrideId(), req.getLevels());
             audit.log(userId, "escalation_instance_updated", subjectType.toLowerCase(Locale.ROOT), subjectId,
                 Map.of("overrideId", instance.getOverrideId()));
@@ -176,6 +183,7 @@ public class EscalationPolicyService {
         try {
             instances.findBySubjectTypeAndSubjectId(subjectType, subjectId).ifPresent(instance -> {
                 instanceLevels.deleteByOverrideId(instance.getOverrideId());
+                instanceLevels.flush();
                 instances.delete(instance);
                 audit.log(userId, "escalation_instance_deleted", subjectType.toLowerCase(Locale.ROOT), subjectId, Map.of());
             });
@@ -200,6 +208,7 @@ public class EscalationPolicyService {
             instance.setActive(true);
             instance = instances.save(instance);
             instanceLevels.deleteByOverrideId(instance.getOverrideId());
+            instanceLevels.flush();
             for (EscalationPolicyLevel l : policyLevels.findByPolicyIdOrderByLevelNoAsc(policy.getPolicyId())) {
                 instanceLevels.save(EscalationInstanceLevel.builder()
                     .overrideId(instance.getOverrideId()).levelNo(l.getLevelNo())
@@ -213,6 +222,51 @@ public class EscalationPolicyService {
             rollback();
             throw rethrow(e);
         }
+    }
+
+    @Transactional
+    public int refreshUntouchedFrozen(String subjectType, List<Long> subjectIds, Long policyId) {
+        EscalationPolicy target = load(policyId);
+        int changed = 0;
+        for (Long subjectId : subjectIds == null ? List.<Long>of() : subjectIds) {
+            EscalationInstance row = instances.findBySubjectTypeAndSubjectId(subjectType, subjectId).orElse(null);
+            if (row == null || !matchesSource(row)) continue;
+            freezeFromPolicy(subjectType, subjectId, target.getPolicyId(), null);
+            changed++;
+        }
+        if (changed > 0) {
+            log.info("[Escalation] re-pinned {} {} filing(s) to policy {}",
+                changed, subjectType, target.getPolicyId());
+        }
+        return changed;
+    }
+
+    private boolean matchesSource(EscalationInstance row) {
+        if (row.getSourcePolicyId() == null) return false;
+        EscalationPolicy source = policies.findById(row.getSourcePolicyId()).orElse(null);
+        if (source == null) return false;
+        if (!Objects.equals(row.getReminderStartValue(), source.getReminderStartValue())
+            || !Objects.equals(normUnit(row.getReminderStartUnit()), normUnit(source.getReminderStartUnit()))
+            || !Objects.equals(row.getReminderRepeatValue(), source.getReminderRepeatValue())
+            || !Objects.equals(normUnit(row.getReminderRepeatUnit()), normUnit(source.getReminderRepeatUnit())))
+            return false;
+        List<EscalationInstanceLevel> rowLevels = instanceLevels.findByOverrideIdOrderByLevelNoAsc(row.getOverrideId());
+        List<EscalationPolicyLevel> sourceLevels = policyLevels.findByPolicyIdOrderByLevelNoAsc(source.getPolicyId());
+        if (rowLevels.size() != sourceLevels.size()) return false;
+        for (int i = 0; i < rowLevels.size(); i++) {
+            EscalationInstanceLevel a = rowLevels.get(i);
+            EscalationPolicyLevel b = sourceLevels.get(i);
+            if (!Objects.equals(a.getLevelNo(), b.getLevelNo())
+                || !Objects.equals(a.getAfterValue(), b.getAfterValue())
+                || !Objects.equals(normUnit(a.getAfterUnit()), normUnit(b.getAfterUnit()))
+                || !Objects.equals(a.getTargetType(), b.getTargetType())
+                || !Objects.equals(a.getTargetRole(), b.getTargetRole())
+                || !Objects.equals(a.getTargetUserId(), b.getTargetUserId())
+                || !Objects.equals(a.getTargetName(), b.getTargetName())
+                || !Objects.equals(a.getTargetEmail(), b.getTargetEmail()))
+                return false;
+        }
+        return true;
     }
 
     public EscalationInstanceDto resolve(String subjectType, Long subjectId, Long subjectPolicyId) {
@@ -239,6 +293,32 @@ public class EscalationPolicyService {
                 && Objects.equals(normScope(p.getFrequencyScope()), scope));
     }
 
+    @Transactional
+    public void refreshSeededDefault(String subjectType, String frequencyScope, Integer legacyStart, Integer legacyRepeat,
+                                     Integer start, String startUnit, Integer repeat, String repeatUnit) {
+        policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsDefault()))
+            .filter(p -> Objects.equals(normScope(p.getFrequencyScope()), normScope(frequencyScope)))
+            .forEach(p -> {
+                boolean windowUnedited = Objects.equals(p.getReminderStartValue(), legacyStart)
+                    && Objects.equals(normUnit(p.getReminderStartUnit()), EscalationConstants.UNIT_DAYS)
+                    && Objects.equals(p.getReminderRepeatValue(), legacyRepeat)
+                    && Objects.equals(normUnit(p.getReminderRepeatUnit()), EscalationConstants.UNIT_DAYS);
+                boolean notifyUnedited = !Boolean.TRUE.equals(p.getNotifyOnStart());
+                if (!windowUnedited && !notifyUnedited) return;
+                if (windowUnedited) {
+                    p.setReminderStartValue(start);
+                    p.setReminderStartUnit(normUnit(startUnit));
+                    p.setReminderRepeatValue(repeat);
+                    p.setReminderRepeatUnit(normUnit(repeatUnit));
+                }
+                p.setNotifyOnStart(true);
+                policies.save(p);
+                log.info("[Escalation] refreshed default {}{} (window={}, notifyOnStart=true)",
+                    subjectType, normScope(frequencyScope) == null ? "" : " " + normScope(frequencyScope), windowUnedited);
+            });
+    }
+
     public Optional<EscalationPolicy> defaultPolicy(String subjectType, String frequencyScope) {
         String scope = normScope(frequencyScope);
         List<EscalationPolicy> actives = policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
@@ -262,12 +342,18 @@ public class EscalationPolicyService {
         String subjectType = req.getSubjectType() == null ? "" : req.getSubjectType().trim().toUpperCase(Locale.ROOT);
         if (!EscalationConstants.SUBJECT_RETURN.equals(subjectType) && !EscalationConstants.SUBJECT_CONTROL.equals(subjectType))
             throw ApiException.badRequest("invalid_subject_type", "subjectType must be RETURN or CONTROL");
+        if (req.getReminderStartValue() != null && req.getReminderStartValue() < 0)
+            throw ApiException.badRequest("invalid_reminder_start", "Remind before cannot be negative");
+        if (req.getReminderRepeatValue() != null && req.getReminderRepeatValue() < 0)
+            throw ApiException.badRequest("invalid_reminder_repeat", "Remind after every cannot be negative");
         List<EscalationLevelRequest> levels = req.getLevels() == null ? List.of() : req.getLevels();
         for (EscalationLevelRequest l : levels) {
             if (l.getLevelNo() == null || l.getLevelNo() < 1 || l.getLevelNo() > EscalationConstants.MAX_LEVEL)
                 throw ApiException.badRequest("invalid_level", "levelNo must be between 1 and " + EscalationConstants.MAX_LEVEL);
             if (l.getTargetType() == null || l.getTargetType().isBlank())
                 throw ApiException.badRequest("invalid_target", "targetType is required for level " + l.getLevelNo());
+            if (l.getAfterValue() != null && l.getAfterValue() < 0)
+                throw ApiException.badRequest("invalid_level_offset", "The wait after the due date cannot be negative");
         }
         return subjectType;
     }

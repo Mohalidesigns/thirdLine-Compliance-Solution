@@ -12,6 +12,8 @@ import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPo
 import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
+import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.*;
@@ -60,6 +62,12 @@ public class ReturnService {
     private final UntouchedInstances untouched;
     private final EscalationPolicyService escalationPolicyService;
     private final NotificationService notifications;
+    private final UserRepository users;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private ReturnUploadLinkService uploadLinkService;
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @PersistenceContext
@@ -301,6 +309,7 @@ public class ReturnService {
         }
         ret.setEscalationPolicyId(policyId);
         returns.save(ret);
+        if (policyId != null) repinFilings(ret, policyId);
         audit.log(userId, "return_escalation_policy_set", "return", returnId,
             Collections.singletonMap("policyId", String.valueOf(policyId)));
         return buildRegisterItem(ret, instances.findByReturnId(returnId), LocalDate.now());
@@ -337,14 +346,7 @@ public class ReturnService {
         try {
             RegulatoryReturn r = returns.findById(returnId)
                 .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
-            List<EscalationLevelRequest> levels = List.of(
-                EscalationLevelRequest.builder().levelNo(1).afterValue(0).afterUnit(EscalationConstants.UNIT_DAYS)
-                    .targetType(EscalationConstants.TARGET_PERSON).targetUserId(req.getEscalateToUserId())
-                    .targetName(req.getEscalateToName()).targetEmail(req.getEscalateToEmail()).build(),
-                EscalationLevelRequest.builder().levelNo(2).afterValue(3).afterUnit(EscalationConstants.UNIT_DAYS)
-                    .targetType(EscalationConstants.TARGET_MANAGER).build(),
-                EscalationLevelRequest.builder().levelNo(3).afterValue(7).afterUnit(EscalationConstants.UNIT_DAYS)
-                    .targetType(EscalationConstants.TARGET_MANAGER_OF_MANAGER).targetRole(AppRole.CCO).build());
+            List<EscalationLevelRequest> levels = buildEscalationLevels(req);
             Integer startVal = req.getReminderStartValue();
             String startUnit = req.getReminderStartUnit();
             if (startVal == null) {
@@ -364,13 +366,14 @@ public class ReturnService {
                 .reminderStartUnit(startUnit)
                 .reminderRepeatValue(req.getReminderRepeatValue())
                 .reminderRepeatUnit(req.getReminderRepeatUnit())
-                .sendLink(true).levels(levels).build();
+                .sendLink(true).notifyOnStart(true).levels(levels).build();
             Long policyId = r.getEscalationPolicyId();
             EscalationPolicyDto dto = policyId == null
                 ? escalationPolicyService.create(policyReq, userId)
                 : escalationPolicyService.update(policyId, policyReq, userId);
             r.setEscalationPolicyId(dto.getPolicyId());
             returns.save(r);
+            repinFilings(r, dto.getPolicyId());
             audit.log(userId, "return_escalation_set", "return", returnId,
                 Collections.singletonMap("policyId", String.valueOf(dto.getPolicyId())));
             return buildRegisterItem(r, instances.findByReturnId(returnId), LocalDate.now());
@@ -378,6 +381,46 @@ public class ReturnService {
             rollback();
             throw e instanceof RuntimeException re ? re : new RuntimeException(e);
         }
+    }
+
+    private void repinFilings(RegulatoryReturn r, Long policyId) {
+        if (policyId == null) return;
+        List<Long> ids = instances.findByReturnId(r.getReturnId()).stream()
+            .map(ReturnFilingInstance::getInstanceId).toList();
+        escalationPolicyService.refreshUntouchedFrozen(EscalationConstants.SUBJECT_RETURN, ids, policyId);
+    }
+
+    private List<EscalationLevelRequest> buildEscalationLevels(UpdateReturnEscalationRequest req) {
+        List<EscalationLevelRequest> provided = req.getLevels();
+        if (provided != null && !provided.isEmpty()) {
+            List<EscalationLevelRequest> out = new ArrayList<>();
+            int levelNo = 1;
+            for (EscalationLevelRequest l : provided) {
+                if (l == null) continue;
+                String type = l.getTargetType() == null || l.getTargetType().isBlank()
+                    ? EscalationConstants.TARGET_MANAGER : l.getTargetType().trim().toUpperCase();
+                boolean role = EscalationConstants.TARGET_ROLE.equals(type) || "CCO".equals(type);
+                if ("CCO".equals(type)) type = EscalationConstants.TARGET_ROLE;
+                out.add(EscalationLevelRequest.builder()
+                    .levelNo(levelNo++)
+                    .afterValue(l.getAfterValue() != null ? l.getAfterValue() : 0)
+                    .afterUnit(unit(l.getAfterUnit()))
+                    .targetType(type)
+                    .targetRole(role ? AppRole.CCO : null)
+                    .targetUserId(role ? null : l.getTargetUserId())
+                    .targetName(role ? null : l.getTargetName())
+                    .targetEmail(role ? null : l.getTargetEmail())
+                    .build());
+            }
+            if (!out.isEmpty()) return out;
+        }
+        return List.of(
+            EscalationLevelRequest.builder().levelNo(1).afterValue(0).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_ASSIGNEE).build(),
+            EscalationLevelRequest.builder().levelNo(2).afterValue(3).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_MANAGER).build(),
+            EscalationLevelRequest.builder().levelNo(3).afterValue(7).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_MANAGER_OF_MANAGER).targetRole(AppRole.CCO).build());
     }
 
     /**
@@ -691,10 +734,17 @@ public class ReturnService {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
-        int idx = STAGES.indexOf(inst.getCurrentStage());
+        ReturnStage from = inst.getCurrentStage();
+        int idx = STAGES.indexOf(from);
         if (idx < 0 || idx >= STAGES.size() - 1)
             throw ApiException.conflict("invalid_transition", "Cannot advance from stage: "
-                + (inst.getCurrentStage() != null ? inst.getCurrentStage().db() : "none"));
+                + (from != null ? from.db() : "none"));
+        if (from == ReturnStage.DATA_GATHERING)
+            throw ApiException.conflict("data_review_required",
+                "Review and accept the submitted data before moving to Draft");
+        if (from == ReturnStage.REVIEW)
+            throw ApiException.conflict("report_review_required",
+                "The CCO must accept or request changes at the Review stage");
         ReturnStage next = STAGES.get(idx + 1);
 
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
@@ -703,7 +753,7 @@ public class ReturnService {
         stageEntry.put("completedByUserId", String.valueOf(userId));
         if (req.getCompletedByName() != null) stageEntry.put("completedByName", req.getCompletedByName());
         if (req.getEvidenceUrl() != null) stageEntry.put("evidenceUrl", req.getEvidenceUrl());
-        stageData.put(inst.getCurrentStage().db(), stageEntry);
+        stageData.put(from.db(), stageEntry);
         try {
             inst.setStageData(MAPPER.writeValueAsString(stageData));
         } catch (Exception e) { throw new IllegalStateException("Failed to serialize stage data", e); }
@@ -711,79 +761,134 @@ public class ReturnService {
         inst.setCurrentStage(next);
         inst.setStatus(ReturnFilingStatus.IN_PROGRESS);
         inst.setStageOwnerUserId(userId);
+        if (next == ReturnStage.REVIEW) {
+            inst.setPendingReview(true);
+            inst.setReviewEvidenceRef(req.getEvidenceUrl());
+            inst.setReviewSubmittedAt(Instant.now());
+            inst.setReviewSubmittedByUserId(userId);
+            inst.setReviewDecision(null);
+            inst.setReviewNotes(null);
+            inst.setReviewedAt(null);
+            inst.setReviewedByUserId(null);
+        }
         instances.save(inst);
         audit.log(userId, "return_stage_advanced", "return_instance", instanceId,
-            Map.of("from", STAGES.get(idx).db(), "to", next.db()));
-        // When a filing reaches Sign-off it is ready for the CCO to submit.
-        if (next == ReturnStage.SIGN_OFF) {
+            Map.of("from", from.db(), "to", next.db()));
+        if (next == ReturnStage.REVIEW) {
             try {
                 notifications.notifyRoleEmailed(AppRole.CCO, NotificationConstants.CATEGORY_RETURNS, NotificationConstants.SEVERITY_MEDIUM,
-                    "Return filing " + inst.getPeriod() + " is ready for sign-off and submission",
-                    "/returns", "Return ready to submit");
+                    "Return filing " + inst.getPeriod() + " is ready for your review",
+                    "/returns", "Return ready for review");
             } catch (Exception e) {
-                log.warn("Sign-off notification failed for instance {}: {}", instanceId, e.getMessage());
+                log.warn("Review notification failed for instance {}: {}", instanceId, e.getMessage());
             }
         }
     }
 
     @Transactional
-    public void submit(Long instanceId, String evidenceUrl, Integer userId) {
+    public void submitFromLink(Long instanceId, String evidenceRef, String submittedByName, String submittedByEmail, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
-        if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
-        if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
-            throw ApiException.conflict("already_submitted", "This return has already been submitted");
-        // The CCO submits only once the analyst has taken the filing through to Sign-off.
-        if (inst.getCurrentStage() != ReturnStage.SIGN_OFF)
-            throw ApiException.conflict("not_ready_to_submit",
-                "A return can only be submitted once it reaches the Sign-off stage");
-        LocalDate today = LocalDate.now();
-        boolean late = today.isAfter(inst.getDueDate());
-        int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
-
-        Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
-        Map<String, String> stageEntry = new HashMap<>();
-        stageEntry.put("completedAt", Instant.now().toString());
-        stageEntry.put("completedByUserId", String.valueOf(userId));
-        if (evidenceUrl != null) stageEntry.put("evidenceUrl", evidenceUrl);
-        stageData.put("Sign-off", stageEntry);
-        try {
-            inst.setStageData(MAPPER.writeValueAsString(stageData));
-        } catch (Exception e) { throw new IllegalStateException("Failed to serialize stage data", e); }
-
-        inst.setCurrentStage(ReturnStage.SUBMITTED);
-        inst.setStatus(late ? ReturnFilingStatus.SUBMITTED_LATE : ReturnFilingStatus.SUBMITTED);
-        inst.setSubmittedDate(today);
-        inst.setSubmittedByUserId(userId);
-        inst.setSubmissionEvidenceUrl(evidenceUrl);
-        inst.setDaysLate(daysLate);
-        inst.setEscalationLevel(0);
-        inst.setEscalatedAt(null);
+        if (inst.getCurrentStage() == ReturnStage.COMPLETED)
+            throw ApiException.conflict("already_completed", "This filing is already completed.");
+        if (inst.getCurrentStage() == ReturnStage.NOT_STARTED) inst.setCurrentStage(ReturnStage.DATA_GATHERING);
+        if (inst.getCurrentStage() != ReturnStage.DATA_GATHERING)
+            throw ApiException.conflict("not_awaiting_data",
+                "Filing data can only be submitted at the Data Gathering stage.");
+        inst.setStatus(ReturnFilingStatus.IN_PROGRESS);
+        inst.setReviewEvidenceRef(evidenceRef);
+        inst.setReviewSubmittedAt(Instant.now());
+        inst.setReviewSubmittedByName(submittedByName);
+        inst.setReviewSubmittedByEmail(submittedByEmail);
+        inst.setReviewSubmittedByUserId(userId);
+        inst.setPendingReview(true);
+        inst.setReviewDecision(null);
+        inst.setReviewNotes(null);
+        inst.setReviewedAt(null);
+        inst.setReviewedByUserId(null);
         instances.save(inst);
-        audit.log(userId, "return_submitted", "return_instance", instanceId,
-            Collections.singletonMap("days_late", daysLate));
+        audit.log(userId, "return_data_submitted", "return_instance", instanceId, Map.of());
     }
 
     @Transactional
-    public void submitFromLink(Long instanceId, String evidenceRef, Integer userId) {
+    public void review(Long instanceId, String decision, String notes, Integer userId) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
-        if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
-            return;
+        ReturnStage stage = inst.getCurrentStage();
+        if (!inst.isPendingReview())
+            throw ApiException.conflict("not_awaiting_review", "This filing is not awaiting review.");
+        boolean accept = decision != null && decision.equalsIgnoreCase("ACCEPT");
+        inst.setReviewedAt(Instant.now());
+        inst.setReviewedByUserId(userId);
+        inst.setReviewNotes(notes);
+        inst.setPendingReview(false);
+        if (stage == ReturnStage.DATA_GATHERING) {
+            if (accept) {
+                inst.setReviewDecision("ACCEPTED");
+                inst.setCurrentStage(ReturnStage.DRAFT);
+            } else {
+                inst.setReviewDecision("REJECTED");
+                String email = inst.getReviewSubmittedByEmail();
+                String name = inst.getReviewSubmittedByName();
+                inst.setReviewEvidenceRef(null);
+                inst.setReviewSubmittedAt(null);
+                inst.setReviewSubmittedByName(null);
+                inst.setReviewSubmittedByEmail(null);
+                inst.setReviewSubmittedByUserId(null);
+                resendDataLink(inst, email, name, userId);
+            }
+        } else if (stage == ReturnStage.REVIEW) {
+            if (accept) {
+                inst.setReviewDecision("ACCEPTED");
+                complete(inst, userId);
+            } else {
+                inst.setReviewDecision("CHANGES_REQUESTED");
+                inst.setCurrentStage(ReturnStage.DRAFT);
+                try {
+                    notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_RETURNS,
+                        NotificationConstants.SEVERITY_MEDIUM,
+                        "Changes requested on " + inst.getPeriod() + " — please revise the draft",
+                        "/returns", "Return changes requested");
+                } catch (Exception e) {
+                    log.warn("Change-request notification failed for instance {}: {}", instanceId, e.getMessage());
+                }
+            }
+        } else {
+            throw ApiException.conflict("not_awaiting_review", "This filing is not awaiting review.");
+        }
+        instances.save(inst);
+        audit.log(userId, "return_reviewed", "return_instance", instanceId,
+            Map.of("stage", stage.db(), "decision", String.valueOf(inst.getReviewDecision())));
+    }
+
+    private void complete(ReturnFilingInstance inst, Integer userId) {
         LocalDate today = LocalDate.now();
         boolean late = inst.getDueDate() != null && today.isAfter(inst.getDueDate());
         int daysLate = late ? (int) ChronoUnit.DAYS.between(inst.getDueDate(), today) : 0;
-        inst.setCurrentStage(ReturnStage.SUBMITTED);
+        inst.setCurrentStage(ReturnStage.COMPLETED);
         inst.setStatus(late ? ReturnFilingStatus.SUBMITTED_LATE : ReturnFilingStatus.SUBMITTED);
         inst.setSubmittedDate(today);
         inst.setSubmittedByUserId(userId);
-        inst.setSubmissionEvidenceUrl(evidenceRef);
+        inst.setSubmissionEvidenceUrl(inst.getReviewEvidenceRef());
         inst.setDaysLate(daysLate);
+        inst.setCompletedAt(Instant.now());
         inst.setEscalationLevel(0);
         inst.setEscalatedAt(null);
-        instances.save(inst);
-        audit.log(userId, "return_submitted_via_link", "return_instance", instanceId,
-            Collections.singletonMap("days_late", daysLate));
+    }
+
+    private static String unit(String u) {
+        return EscalationConstants.UNIT_HOURS.equalsIgnoreCase(u == null ? "" : u)
+            ? EscalationConstants.UNIT_HOURS : EscalationConstants.UNIT_DAYS;
+    }
+
+    private void resendDataLink(ReturnFilingInstance inst, String email, String name, Integer userId) {
+        if (email == null || email.isBlank()) return;
+        try {
+            String raw = uploadLinkService.createFilingLink(inst.getReturnId(), inst.getInstanceId(), email, name, userId);
+            uploadLinkService.emailFilingLink(inst.getReturnId(), email, name, raw);
+        } catch (Exception e) {
+            log.warn("Resend filing link failed for instance {}: {}", inst.getInstanceId(), e.getMessage());
+        }
     }
 
     @Transactional
@@ -807,8 +912,8 @@ public class ReturnService {
             snapshot = reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName();
         if (snapshot == null || snapshot.isBlank()) snapshot = "Unknown";
 
-        // A return must be grounded to a governing act: resolve it and snapshot its name.
-        Act act = resolveAct(req.getActId());
+        // The governing act is optional at create: linkObligations backfills it from the first linked obligation.
+        Act act = req.getActId() != null ? resolveAct(req.getActId()) : null;
 
         // Due rule — DATE (filingDate anchor) or OFFSET (days after period end). Daily/Weekly/Event-driven need none.
         String ruleType = req.getRuleType() == null || req.getRuleType().isBlank()
@@ -840,11 +945,18 @@ public class ReturnService {
             : (req.getResponsiblePerson() != null && !req.getResponsiblePerson().isBlank() ? List.of(req.getResponsiblePerson()) : List.of());
         if (persons.isEmpty()) throw ApiException.badRequest("responsible_person_required",
             "Select at least one responsible person — they receive the filing request and submit the data.");
+        Integer ownerUserId = req.getReturnOwnerUserId();
+        String ownerName = req.getReturnOwnerName();
+        if (ownerUserId == null && ownerName != null && !ownerName.isBlank()) {
+            User owner = users.findByEmail(ownerName)
+                .orElseGet(() -> users.findFirstByFullNameIgnoreCase(ownerName).orElse(null));
+            if (owner != null) ownerUserId = owner.getUserId();
+        }
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
             .tenantRegulatorId(reg != null ? reg.getId() : req.getTenantRegulatorId())
-            .actId(act.getRegulationId())
-            .actName(act.getName())
+            .actId(act != null ? act.getRegulationId() : null)
+            .actName(act != null ? act.getName() : null)
             .returnType(req.getReturnType())
             .frequency(freq != null ? freq.label() : null)
             .frequencyType(freq != null ? freq.name() : ReturnFrequency.MONTHLY.name())
@@ -853,8 +965,8 @@ public class ReturnService {
             .dueDateSource(ruleType != null ? DueRule.SOURCE_USER : null)
             .filingDeadlineOffsetDays(req.getFilingDeadlineOffsetDays())
             .filingChannel(req.getFilingChannel())
-            .returnOwnerUserId(req.getReturnOwnerUserId())
-            .returnOwnerName(req.getReturnOwnerName())
+            .returnOwnerUserId(ownerUserId)
+            .returnOwnerName(ownerName)
             .responsibleUnits(units)
             .responsiblePersons(persons)
             .responsibleUnit(units.isEmpty() ? null : units.get(0))
@@ -1203,7 +1315,7 @@ public class ReturnService {
             .currentStage(ReturnStage.NOT_STARTED)
             .status(ReturnFilingStatus.NOT_STARTED).build());
         escalationPolicyService.ensureFrozen(EscalationConstants.SUBJECT_RETURN, instance.getInstanceId(),
-            ret.getEscalationPolicyId());
+            ret.getEscalationPolicyId(), ret.getFrequencyType());
     }
 
     private enum PeriodUnit { DAY, WEEK, MONTH }

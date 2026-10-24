@@ -27,9 +27,10 @@ const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
 const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 
 // Must match the backend STAGE_ORDER (ReturnInstanceDetailResponse) — includes Not Started.
-const STAGE_NAMES = ['Not Started', 'Data Gathering', 'Draft', 'Review', 'Sign-off', 'Submitted'];
-const SIGN_OFF_IDX = STAGE_NAMES.indexOf('Sign-off');
+const STAGE_NAMES = ['Not Started', 'Data Gathering', 'Draft', 'Review', 'Completed'];
 const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
+const REVIEW_ROLES = ['CCO', 'TENANT_ADMIN'];
+const STATUS_LABEL = { 'Submitted': 'Completed', 'Submitted Late': 'Completed Late' };
 
 const STATUS_TONE = {
   'Not Started': 'gray', 'In Progress': 'blue', 'Submitted': 'green',
@@ -41,7 +42,7 @@ const STATUS_ACCENT = {
 };
 
 function statusBadge(status, label) {
-  return <StatusBadge label={label || status || 'Not Started'} tone={STATUS_TONE[status] || 'gray'} />;
+  return <StatusBadge label={label || STATUS_LABEL[status] || status || 'Not Started'} tone={STATUS_TONE[status] || 'gray'} />;
 }
 function statusAccent(status) { return STATUS_ACCENT[status] || '#2B6CB0'; }
 
@@ -382,11 +383,12 @@ function HistoryTable({ filings, isEventDriven, selectedId, onOpen, loading }) {
 
 /* ───────── Filing panel (one instance) ───────── */
 function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
+  const { user } = useAuth();
+  const canReview = REVIEW_ROLES.includes(user?.role);
   const [advanceOpen, setAdvanceOpen] = useState(false);
-  const [submitOpen, setSubmitOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [escalationOpen, setEscalationOpen] = useState(false);
-  const isSubmitted = detail.status === 'Submitted' || detail.status === 'Submitted Late';
+  const isCompleted = detail.currentStage === 'Completed';
   async function startFiling() {
     setStarting(true);
     try { await api.returns.advance(detail.instanceId, {}); onRefresh(); }
@@ -463,56 +465,85 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
 
       <Section icon={<QueueListIcon />} title="Stages"
         action={detail.currentStage ? <Chip size="small" variant="outlined" label={detail.currentStage} /> : null}>
-        <Stepper activeStep={currentStageIdx} orientation="vertical" sx={{ mb: 2 }}>
+        <Stepper activeStep={currentStageIdx} alternativeLabel sx={{ mb: 2 }}>
           {detail.stages && detail.stages.map((stage, i) => (
             <Step key={i} completed={stage.completed} active={stage.current}>
-              <StepLabel optional={
-                <Box sx={{ mt: 0.5 }}>
-                  {stage.completedAt && (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Completed {formatDate(stage.completedAt)}{stage.completedByName && ` by ${stage.completedByName}`}
-                    </Typography>
-                  )}
-                  {stage.evidenceUrl && (
-                    <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                      <LinkIcon size={14} /> Evidence
-                    </Link>
-                  )}
-                  {stage.current && !isSubmitted && i === 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="contained" onClick={startFiling} disabled={starting}>
-                        {starting ? 'Starting…' : 'Start filing'}
-                      </Button>
-                    </Box>
-                  )}
-                  {stage.current && !isSubmitted && i > 0 && i < SIGN_OFF_IDX && (
-                    <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
-                        Mark complete → {STAGE_NAMES[i + 1]}
-                      </Button>
-                    </Box>
-                  )}
-                  {stage.current && !isSubmitted && i === SIGN_OFF_IDX && (
-                    <Box sx={{ mt: 1 }}>
-                      <Button size="small" variant="contained" color="success" onClick={() => setSubmitOpen(true)}>
-                        Mark as submitted
-                      </Button>
-                    </Box>
-                  )}
-                </Box>
-              }>{stage.name}</StepLabel>
+              <StepLabel>
+                <Typography sx={{
+                  fontSize: '0.8125rem',
+                  fontWeight: i === currentStageIdx ? 700 : 500,
+                  color: i === currentStageIdx ? 'primary.main' : (stage.completed ? 'text.secondary' : 'text.disabled'),
+                }}>{stage.name}</Typography>
+              </StepLabel>
             </Step>
           ))}
         </Stepper>
 
-        {isSubmitted && detail.submissionEvidenceUrl && (
+        {detail.stages?.some((s) => s.completedAt || s.evidenceUrl) && (
+          <Box sx={{ mb: 2 }}>
+            {detail.stages.map((stage, i) => (stage.completedAt || stage.evidenceUrl) ? (
+              <Typography key={i} variant="caption" color="text.secondary" display="block">
+                {stage.name}
+                {stage.completedAt ? `: completed ${formatDate(stage.completedAt)}` : ''}
+                {stage.completedByName ? ` by ${stage.completedByName}` : ''}
+                {stage.evidenceUrl && (
+                  <> · <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
+                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                    <LinkIcon size={14} /> Evidence
+                  </Link></>
+                )}
+              </Typography>
+            ) : null)}
+          </Box>
+        )}
+
+        {!isCompleted && detail.currentStage === 'Not Started' && (
+          <Box sx={{ textAlign: 'center' }}>
+            <Button size="small" variant="contained" onClick={startFiling} disabled={starting}>
+              {starting ? 'Starting…' : 'Start filing'}
+            </Button>
+          </Box>
+        )}
+
+        {detail.currentStage === 'Data Gathering' && (
+          detail.pendingReview ? (
+            <ReviewPanel detail={detail} gate="data" canAct onDone={onRefresh} onSnackbar={onSnackbar} />
+          ) : (
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Waiting for the responsible person to submit the filing data.
+              </Typography>
+            </Box>
+          )
+        )}
+
+        {detail.currentStage === 'Draft' && (
+          <Box sx={{ textAlign: 'center' }}>
+            <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
+              Submit report to CCO → Review
+            </Button>
+          </Box>
+        )}
+
+        {detail.currentStage === 'Review' && (
+          detail.pendingReview && canReview ? (
+            <ReviewPanel detail={detail} gate="report" canAct onDone={onRefresh} onSnackbar={onSnackbar} />
+          ) : (
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Awaiting CCO review.</Typography>
+            </Box>
+          )
+        )}
+
+        {isCompleted && (
           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <CheckCircleIcon size={18} sx={{ color: 'success.main' }} />
-              Submitted {formatDate(detail.submittedDate)}{detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
+              Completed {detail.completedAt ? formatDate(detail.completedAt) : ''}{detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
             </Typography>
-            <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">View submission receipt</Link>
+            {detail.submissionEvidenceUrl && (
+              <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">View evidence</Link>
+            )}
           </Box>
         )}
       </Section>
@@ -526,9 +557,6 @@ function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
       <AdvanceDialog open={advanceOpen} onClose={() => setAdvanceOpen(false)}
         instanceId={detail.instanceId} stageName={detail.currentStage} nextStageName={nextStage}
         onSaved={() => { setAdvanceOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
-      <SubmitDialog open={submitOpen} onClose={() => setSubmitOpen(false)}
-        instanceId={detail.instanceId}
-        onSaved={() => { setSubmitOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
       <EscalationOverrideDialog open={escalationOpen} instanceId={detail.instanceId}
         onClose={() => setEscalationOpen(false)} onSnackbar={onSnackbar} />
     </Box>
@@ -568,30 +596,51 @@ function AdvanceDialog({ open, onClose, instanceId, stageName, nextStageName, on
   );
 }
 
-function SubmitDialog({ open, onClose, instanceId, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ evidenceUrl: '' });
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    setSaving(true);
-    try { await api.returns.submit(instanceId, form); onSaved(); }
-    catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+/* ───────── Review gate (Data Gathering: analyst accepts data → Draft; Review: CCO accepts → Completed) ───────── */
+function ReviewPanel({ detail, gate, canAct, onDone, onSnackbar }) {
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const isData = gate === 'data';
+  if (!canAct) return null;
+
+  const decide = async (decision) => {
+    setBusy(true);
+    try {
+      const fn = isData ? api.returns.dataReview : api.returns.review;
+      await fn(detail.instanceId, { decision, notes });
+      onSnackbar?.(decision === 'ACCEPT'
+        ? (isData ? 'Data accepted — moved to Draft.' : 'Report accepted — filing completed.')
+        : (isData ? 'Data rejected — the link has been re-sent.' : 'Changes requested — moved back to Draft.'));
+      onDone();
+    } catch (e) { onSnackbar?.(e.message); }
+    finally { setBusy(false); }
   };
-  useEffect(() => { if (open) setForm({ evidenceUrl: '' }); }, [open]);
+
+  const ev = detail.reviewEvidenceRef;
+  const evIsUrl = typeof ev === 'string' && /^https?:\/\//i.test(ev);
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Mark as Submitted</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" sx={{ mb: 2 }}>After filing on the regulator portal, upload the submission receipt.</Typography>
-        <TextField label="Submission evidence URL" fullWidth size="small" value={form.evidenceUrl}
-          onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" color="success" onClick={handleSave} disabled={saving}>
-          {saving ? 'Submitting...' : 'Mark as Submitted'}
+    <Box sx={{ textAlign: 'left', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        {isData ? 'Submitted data — review before drafting' : 'Drafted report — review'}
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.5, mb: 1.5 }}>
+        <Field label="Submitted by" value={detail.reviewSubmittedByName || '—'} />
+        <Field label="Submitted at" value={detail.reviewSubmittedAt ? new Date(detail.reviewSubmittedAt).toLocaleString() : '—'} />
+        <Field label="Evidence" value={ev
+          ? (evIsUrl ? <Link href={ev} target="_blank" rel="noopener" variant="body2">Open / download</Link> : ev)
+          : '—'} />
+      </Box>
+      <TextField fullWidth size="small" multiline minRows={2} label="Notes (optional)"
+        value={notes} onChange={(e) => setNotes(e.target.value)} sx={{ mb: 1.5 }} />
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <Button size="small" variant="contained" color="success" disabled={busy} onClick={() => decide('ACCEPT')}>
+          {isData ? 'Accept data → Draft' : 'Accept → Complete'}
         </Button>
-      </DialogActions>
-    </Dialog>
+        <Button size="small" variant="outlined" color="error" disabled={busy} onClick={() => decide('REJECT')}>
+          {isData ? 'Reject & re-send link' : 'Request changes'}
+        </Button>
+      </Box>
+    </Box>
   );
 }
 

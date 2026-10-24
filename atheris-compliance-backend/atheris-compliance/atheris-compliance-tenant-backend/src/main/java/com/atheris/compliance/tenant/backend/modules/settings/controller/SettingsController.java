@@ -43,20 +43,20 @@ public class SettingsController {
     }
 
     @GetMapping("/smtp")
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<SmtpConfigResponse> getSmtp() {
         return ResponseEntity.ok(smtpSettings.get());
     }
 
     @PutMapping("/smtp")
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<SmtpConfigResponse> updateSmtp(@RequestBody SmtpConfigRequest req) {
         smtpSettings.save(req);
         return ResponseEntity.ok(smtpSettings.get());
     }
 
     @PostMapping("/smtp/test")
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<Map<String, Object>> testSmtp(@RequestBody SmtpConfigRequest req) {
         return ResponseEntity.ok(smtpSettings.test(req));
     }
@@ -72,7 +72,7 @@ public class SettingsController {
     }
 
     @PutMapping("/notification-templates/{key}")
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<NotificationTemplateDto> updateTemplate(@PathVariable String key,
                                                                   @RequestBody NotificationTemplateRequest req,
                                                                   @AuthenticationPrincipal User u) {

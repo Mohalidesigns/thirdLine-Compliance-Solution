@@ -17,6 +17,8 @@ public class TaskItemDto {
     private String category;
     private String title;
     private String caption;
+    private String regulator;
+    private String responsiblePerson;
     private String priority;
     private String severity;
     private LocalDate dueDate;

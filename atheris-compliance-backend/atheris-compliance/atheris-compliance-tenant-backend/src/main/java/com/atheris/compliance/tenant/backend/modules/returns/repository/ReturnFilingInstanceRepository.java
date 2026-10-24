@@ -25,6 +25,8 @@ public interface ReturnFilingInstanceRepository extends JpaRepository<ReturnFili
     List<ReturnFilingInstance> findByStatusNotInAndDueDateBetweenOrderByDueDateAsc(List<ReturnFilingStatus> statuses, LocalDate from, LocalDate to);
     long countByReturnIdIn(java.util.Collection<Long> returnIds);
     long countByStatusInAndSubmittedDateGreaterThanEqual(List<ReturnFilingStatus> statuses, LocalDate submittedOnOrAfter);
+    List<ReturnFilingInstance> findByPendingReviewTrueOrderByDueDateAsc();
+    long countByStatusInAndCompletedAtGreaterThanEqual(List<ReturnFilingStatus> statuses, java.time.Instant completedOnOrAfter);
     boolean existsByReturnIdAndPeriod(Long returnId, String period);
     Optional<ReturnFilingInstance> findTopByReturnIdOrderByPeriodDesc(Long returnId);
 }
