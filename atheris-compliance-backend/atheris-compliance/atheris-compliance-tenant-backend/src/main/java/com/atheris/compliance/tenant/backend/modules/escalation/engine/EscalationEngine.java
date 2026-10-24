@@ -73,8 +73,9 @@ public class EscalationEngine {
         }
 
         LocalDateTime approachAt = approachAt(candidate, config);
-        boolean remind = candidate.started()
-            || handlerFor(candidate.subjectType()).map(EscalationSubjectHandler::remindUnstarted).orElse(false);
+        boolean remind = candidate.remindable()
+            && (candidate.started()
+                || handlerFor(candidate.subjectType()).map(EscalationSubjectHandler::remindUnstarted).orElse(false));
         if (remind && approachAt != null && now.isBefore(dueAt) && !now.isBefore(approachAt)) {
             boolean sendLink = Boolean.TRUE.equals(config.getSendLink());
             if (!fired(candidate, EscalationConstants.TRIGGER_APPROACHING, 0)) {

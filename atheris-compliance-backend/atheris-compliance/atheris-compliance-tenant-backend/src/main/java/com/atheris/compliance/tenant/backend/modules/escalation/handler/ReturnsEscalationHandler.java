@@ -61,6 +61,7 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
         if (byId.isEmpty()) return List.of();
 
         Map<String, Person> directory = directory();
+        Set<Long> oldestPerReturn = new HashSet<>();
         List<EscalationCandidate> out = new ArrayList<>();
         for (ReturnFilingInstance instance : found) {
             RegulatoryReturn r = byId.get(instance.getReturnId());
@@ -85,7 +86,8 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
                 extra,
                 r.getFrequencyType(),
                 instance.getCurrentStage() == ReturnStage.DATA_GATHERING,
-                instance.getCurrentStage() != null && instance.getCurrentStage() != ReturnStage.NOT_STARTED));
+                instance.getCurrentStage() != null && instance.getCurrentStage() != ReturnStage.NOT_STARTED,
+                oldestPerReturn.add(r.getReturnId())));
         }
         return out;
     }

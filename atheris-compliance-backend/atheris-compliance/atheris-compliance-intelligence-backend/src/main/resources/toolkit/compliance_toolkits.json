@@ -186863,7 +186863,8 @@
    "description": "CCO must present compliance status report to the Board monthly.",
    "frequency": "Monthly",
    "responsibleUnit": null,
-   "responsiblePerson": "Chief Compliance Officer (CCO)"
+   "responsiblePerson": "Chief Compliance Officer (CCO)",
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "CBN AML/CFT/CPF Regulations 2022",
@@ -186881,7 +186882,8 @@
    "description": "Report all transactions with Politically Exposed Persons to CBN and NFIU.",
    "frequency": "Monthly",
    "responsibleUnit": "Compliance / AML Unit",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "CBN AML/CFT/CPF Regulations 2022",
@@ -186890,7 +186892,8 @@
    "description": "Submit report on AML/CFT/CPF education and training compliance to CBN.",
    "frequency": "Quarterly",
    "responsibleUnit": "HR / Compliance Training Team",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Guidance Note on Politically Exposed Persons (PEP)",
@@ -186899,7 +186902,8 @@
    "description": "The bank must submit monthly reports of all transactions involving Politically Exposed Persons to CBN and NFIU.",
    "frequency": "Monthly",
    "responsibleUnit": "Compliance / AML Unit",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Guidelines on Targeted Financial Sanctions Relating to Proliferation Financing",
@@ -186908,7 +186912,8 @@
    "description": "The bank must submit a quarterly report to the CBN detailing the implementation status of Targeted Financial Sanctions (TFS) in a prescribed format.",
    "frequency": "Quarterly",
    "responsibleUnit": "Compliance / AML / Risk Management",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Guidelines on Targeted Financial Sanctions Related to Terrorism and Terrorism Financing",
@@ -186917,7 +186922,8 @@
    "description": "The bank must submit quarterly reports to the CBN on the status of TFS implementation against terrorism financing, in the format advised by the CBN.",
    "frequency": "Quarterly",
    "responsibleUnit": "Compliance / AML / Risk Management",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Nigerian Deposit Insurance Corporation (NDIC) Act, 2023",
@@ -186926,7 +186932,8 @@
    "description": "The bank must submit monthly reports to NDIC on any frauds, forgeries, or theft that occurred during the month, including a detailed report of each event.",
    "frequency": "Monthly",
    "responsibleUnit": "Internal Audit / Risk / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Exposure Draft of the Revised Consumer Protection Regulations 2.0",
@@ -186935,7 +186942,8 @@
    "description": "Financial Institutions are required to submit quarterly reports detailing the financial literacy programs conducted during the period.",
    "frequency": "Quarterly",
    "responsibleUnit": "Consumer Education / Compliance Unit",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Exposure Draft of the Revised Consumer Protection Regulations 2.0",
@@ -186953,7 +186961,8 @@
    "description": "Include complaints statistics in the bank’s annual report and abridged financial statement using the approved format (Annexure D or as updated by CBN).",
    "frequency": "Annually",
    "responsibleUnit": "Finance / Corporate Communications / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Exposure Draft of the Revised Consumer Protection Regulations 2.0",
@@ -186971,7 +186980,8 @@
    "description": "Include complaints statistics in the institution’s Annual Report and Abridged Financial Statement using CBN-approved or prescribed format.",
    "frequency": "Annually",
    "responsibleUnit": "Corporate Communications / Finance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Issuance of Risk-Based Cybersecurity Framework and Guidelines for Deposit Money Banks and Payment Service Providers",
@@ -187088,7 +187098,8 @@
    "description": "Maintain accurate contributor records to support annual statements sent to employees by FMBN.",
    "frequency": "Continuous / Annual",
    "responsibleUnit": "HR / Records",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Employee Compensation Act, 2010",
@@ -187151,7 +187162,8 @@
    "description": "Employer must submit payroll information for assessment of contribution.",
    "frequency": "Annually or as prescribed",
    "responsibleUnit": "Finance / HR",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Employee Compensation Act, 2010",
@@ -187169,7 +187181,8 @@
    "description": "Mandatory employer contribution to NSITF Compensation Fund.",
    "frequency": "Monthly or as directed",
    "responsibleUnit": "Finance / Payroll / HR",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "National Minimum Wage Act, 2019",
@@ -187187,7 +187200,8 @@
    "description": "Banks must ensure wages remain at or above the national minimum wage after statutory deductions.",
    "frequency": "Monthly",
    "responsibleUnit": "HR / Payroll / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "National Minimum Wage Act, 2019",
@@ -187448,7 +187462,8 @@
    "description": "The results of the DPIA must be included in the organisation’s annual Compliance Audit Report submitted to the Commission.",
    "frequency": "Annually (as part of CAR)",
    "responsibleUnit": "DPO / Compliance / Internal Audit",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Report on the Three-Tiered Know Your Customer (TKYC) Compliance Exercise (2013)",
@@ -187565,7 +187580,8 @@
    "description": "Banks must submit to the CBN an annual report outlining their Internal Capital Adequacy Assessment Process (ICAAP)",
    "frequency": "Annually",
    "responsibleUnit": "Risk Management / Compliance / Board",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Revised Guidelines on Supervisory Review Process of ICAAP",
@@ -187574,7 +187590,8 @@
    "description": "The report should be submitted to the CBN along with relevant board resolutions and senior management reports containing their comments on the ICAAP.",
    "frequency": "Annually (submitted with ICAAP report)",
    "responsibleUnit": "Board Secretariat / Risk Management",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Revised Guidelines on Supervisory Review Process of ICAAP",
@@ -187592,7 +187609,8 @@
    "description": "Submission of capital adequacy position on a stand-alone (solo) basis using prescribed reporting templates.",
    "frequency": "Monthly",
    "responsibleUnit": "Regulatory Reporting / Finance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Guidelines on Regulatory Capital",
@@ -187601,7 +187619,8 @@
    "description": "Submission of capital adequacy position at the consolidated (group) level using prescribed reporting templates.",
    "frequency": "Quarterly",
    "responsibleUnit": "Regulatory Reporting / Finance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Basel III Implementation by DMBs in Nigeria",
@@ -187610,7 +187629,8 @@
    "description": "Monthly regulatory return on Basel III compliance (capital adequacy, buffers, etc.)",
    "frequency": "Monthly",
    "responsibleUnit": "Risk Management / Finance / Regulatory Reporting",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Regulatory Framework for Agent Banking in Nigeria",
@@ -187628,7 +187648,8 @@
    "description": "Inclusion of all activities of agent banking operations in the annual reports and accounts",
    "frequency": "Annually – With submission of annual reports and accounts",
    "responsibleUnit": "Finance / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Shared Agency Network Expansion Fund Initiative: Regulatory Data Rendition Requirements",
@@ -187646,7 +187667,8 @@
    "description": "Submission of returns on agent registration and onboarding status",
    "frequency": "Monthly",
    "responsibleUnit": "Financial Inclusion / Retail Banking / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Framework for Operation of the Shared Agent Network Expansion Facility (SANEF)",
@@ -187655,7 +187677,8 @@
    "description": "Render returns on repayment of facility",
    "frequency": "Quarterly",
    "responsibleUnit": "Finance / Treasury / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Framework for Operation of the Shared Agent Network Expansion Facility (SANEF)",
@@ -187664,7 +187687,8 @@
    "description": "Submission of records of transactions and services onboarded agents conduct",
    "frequency": "Monthly",
    "responsibleUnit": "Operations / E-Banking / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 15 days after month end"
   },
   {
    "act": "Prudential Guidelines for Deposit Money Banks in Nigeria, 2019",
@@ -187853,7 +187877,8 @@
    "description": "Banks must file annual report on all branches/outlets opened, closed, relocated, or rationalized during the year.",
    "frequency": "Annually",
    "responsibleUnit": "Regulatory Reporting / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Revised Assessment Criteria for Approved Persons' Regime for Financial Institutions",
@@ -187880,7 +187905,8 @@
    "description": "Banks must submit periodic reports on their level of compliance with the whistle-blowing guidelines.",
    "frequency": "Quarterly",
    "responsibleUnit": "Compliance Unit",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 30 days after quarter end"
   },
   {
    "act": "Guidelines for whistle-blowing for banks and other financial institutions in Nigeria",
@@ -187889,7 +187915,8 @@
    "description": "The bank’s external auditor must report annually to the CBN on the institution’s compliance with the whistle-blowing guidelines.",
    "frequency": "Annually",
    "responsibleUnit": "External Auditor / Board Audit Committee",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Companies and Allied Matters Act (CAMA) 2020",
@@ -187916,7 +187943,8 @@
    "description": "Commercial banks must file an annual return. Exemption applies in year of incorporation or when AGM is not required.",
    "frequency": "Annually",
    "responsibleUnit": "Company Secretariat / Legal Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Companies and Allied Matters Act (CAMA) 2020",
@@ -187925,7 +187953,8 @@
    "description": "Must include full statutory information: registered office, directors, shareholders, shareholding structure, etc. Format as in Part I & II of the Seventh Schedule.",
    "frequency": "Annually",
    "responsibleUnit": "Company Secretariat",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Companies and Allied Matters Act (CAMA) 2020",
@@ -187943,7 +187972,8 @@
    "description": "Must include: • Balance Sheet• Profit & Loss Statement• Auditor’s Report• Director’s Report",
    "frequency": "With annual return",
    "responsibleUnit": "Finance / Internal Audit / Company Secretariat",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Companies and Allied Matters Act (CAMA) 2020",
@@ -187961,7 +187991,8 @@
    "description": "Submit audited accounts to AGM and audit committee",
    "frequency": "Annually",
    "responsibleUnit": "CFO; External Auditor; Audit Committee",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Banks and Other Financial Institutions Act (BOFIA), 2020",
@@ -188060,7 +188091,8 @@
    "description": "Review Shared Services Agreement annually to reflect economic realities and submit to CBN.",
    "frequency": "Annually",
    "responsibleUnit": "Legal / Compliance",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Guidelines on the Management of Interest Rate Risk in the Banking Book (IRRBB)",
@@ -188087,7 +188119,8 @@
    "description": "Submission of ICAAP report including stress test results, assessment of material exposures, and justification of scenario assumptions.",
    "frequency": "Annually",
    "responsibleUnit": "Risk Management / Finance / ICAAP Team",
-   "responsiblePerson": null
+   "responsiblePerson": null,
+   "deadline": "Within 3 months after year end"
   },
   {
    "act": "Guidelines on Liquidity Coverage Ratio (LCR)",

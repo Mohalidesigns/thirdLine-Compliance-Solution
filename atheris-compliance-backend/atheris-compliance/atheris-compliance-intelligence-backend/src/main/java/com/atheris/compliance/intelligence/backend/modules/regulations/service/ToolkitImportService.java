@@ -343,6 +343,7 @@ public class ToolkitImportService {
             String freq = r.getFrequency();
             String responsibleUnit = r.getResponsibleUnit();
             String responsiblePerson = r.getResponsiblePerson();
+            String deadline = r.getDeadline() != null && !r.getDeadline().isBlank() ? r.getDeadline() : freq;
 
             LocalDate filingDate = parseFilingDate(freq);
 
@@ -356,7 +357,7 @@ public class ToolkitImportService {
                 .responsiblePerson(shorten(responsiblePerson, 255))
                 .frequency(shorten(freq, 255))
                 .frequencyType(classifyFrequency(freq))
-                .deadline(freq)
+                .deadline(deadline)
                 .filingDate(filingDate)
                 .build());
             returnCount++;

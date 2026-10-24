@@ -105,5 +105,6 @@ public class ToolkitSeedDoc {
         private String frequency;
         private String responsibleUnit;
         private String responsiblePerson;
+        private String deadline;
     }
 }

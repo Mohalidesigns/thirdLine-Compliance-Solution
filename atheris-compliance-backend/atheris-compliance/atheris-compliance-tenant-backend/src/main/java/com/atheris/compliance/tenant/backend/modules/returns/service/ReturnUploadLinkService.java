@@ -135,7 +135,8 @@ public class ReturnUploadLinkService {
             boolean editable = ret.getStatus() == RegulatoryReturnStatus.ACTIVE && inst != null
                 && !inst.isPendingReview()
                 && (inst.getCurrentStage() == ReturnStage.NOT_STARTED
-                    || inst.getCurrentStage() == ReturnStage.DATA_GATHERING);
+                    || inst.getCurrentStage() == ReturnStage.DATA_GATHERING)
+                && returnService.isFilingOpenForData(inst.getInstanceId());
             return PublicReturnUploadView.builder()
                 .returnId(ret.getReturnId())
                 .institutionName(p != null ? p.getLegalName() : "Institution")

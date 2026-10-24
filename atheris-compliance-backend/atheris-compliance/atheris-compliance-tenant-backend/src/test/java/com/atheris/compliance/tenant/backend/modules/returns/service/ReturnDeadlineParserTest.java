@@ -53,6 +53,14 @@ class ReturnDeadlineParserTest {
         Monthly, by the 2nd schedule                                   | MONTHLY     | none
         on or before 5th of January, April, July, and October          | MONTHLY     | none
         on or before 5th                                               | QUARTERLY   | none
+        Monthly — Within 15 days after month end                       | MONTHLY     | O 15
+        Quarterly — Within 30 days after quarter end                   | QUARTERLY   | O 30
+        Annually — Within 3 months after year end                      | ANNUAL      | A 3/31
+        Continuous / Annual — Within 3 months after year end           | ANNUAL      | A 3/31
+        With annual return — Within 3 months after year end            | ANNUAL      | A 3/31
+        Monthly or as directed — Within 15 days after month end        | MONTHLY     | O 15
+        Annually (submitted with ICAAP report) — Within 3 months after year end | ANNUAL | A 3/31
+        Within 15 days after period end                                | MONTHLY     | none
         """)
     void parses(String text, ReturnFrequency type, String expected) {
         assertEquals(expected, render(ReturnDeadlineParser.parse(text, type)));

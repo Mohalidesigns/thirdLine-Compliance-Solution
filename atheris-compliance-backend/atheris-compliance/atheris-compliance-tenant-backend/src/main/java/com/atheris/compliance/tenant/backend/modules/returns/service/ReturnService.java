@@ -459,6 +459,23 @@ public class ReturnService {
         };
     }
 
+    @Transactional(readOnly = true)
+    public boolean isFilingOpenForData(Long instanceId) {
+        ReturnFilingInstance inst = instances.findById(instanceId).orElse(null);
+        return inst != null && earlierOpenFiling(inst) == null;
+    }
+
+    private ReturnFilingInstance earlierOpenFiling(ReturnFilingInstance inst) {
+        if (inst.getDueDate() == null) return null;
+        for (ReturnFilingInstance other : instances.findByReturnId(inst.getReturnId())) {
+            if (other.getInstanceId().equals(inst.getInstanceId())) continue;
+            if (other.isPendingReview()) continue;
+            if (isSubmitted(other.getStatus() != null ? other.getStatus().db() : null)) continue;
+            if (other.getDueDate() != null && other.getDueDate().isBefore(inst.getDueDate())) return other;
+        }
+        return null;
+    }
+
     private static boolean isSubmitted(String status) {
         return ReturnFilingStatus.SUBMITTED.db().equalsIgnoreCase(status)
             || ReturnFilingStatus.SUBMITTED_LATE.db().equalsIgnoreCase(status);
@@ -791,6 +808,11 @@ public class ReturnService {
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         if (inst.getCurrentStage() == ReturnStage.COMPLETED)
             throw ApiException.conflict("already_completed", "This filing is already completed.");
+        ReturnFilingInstance earlier = earlierOpenFiling(inst);
+        if (earlier != null)
+            throw ApiException.conflict("previous_period_open",
+                "The earlier filing for period " + earlier.getPeriod()
+                    + " is still open — submit that one first.");
         if (inst.getCurrentStage() == ReturnStage.NOT_STARTED) inst.setCurrentStage(ReturnStage.DATA_GATHERING);
         if (inst.getCurrentStage() != ReturnStage.DATA_GATHERING)
             throw ApiException.conflict("not_awaiting_data",

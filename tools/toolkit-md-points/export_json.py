@@ -482,6 +482,7 @@ def build_model(sections):
             "frequency": get(r, 5),
             "responsibleUnit": get(r, 6),
             "responsiblePerson": get(r, 7),
+            "deadline": get(r, 8),
         })
 
     # ── importCmpControls ──

@@ -119,7 +119,7 @@ public class TaskCenterService {
 
     private List<TaskItemDto> returnsTasks() {
         LocalDate today = LocalDate.now();
-        List<TaskItemDto> out = new ArrayList<>();
+        Map<Long, TaskItemDto> out = new LinkedHashMap<>();
 
         List<ReturnFilingInstance> open = instances.findByStatusNotInAndDueDateBetweenOrderByDueDateAsc(
             List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE),
@@ -143,7 +143,7 @@ public class TaskCenterService {
                 else continue;
                 Integer reviewOwner = stage == ReturnStage.DATA_GATHERING
                     ? (i.getStageOwnerUserId() != null ? i.getStageOwnerUserId() : r.getReturnOwnerUserId()) : null;
-                out.add(TaskItemDto.builder()
+                merge(out, i.getReturnId(), TaskItemDto.builder()
                     .id(i.getInstanceId()).key("return:" + i.getInstanceId())
                     .type(rtype).category(CATEGORY_RETURNS)
                     .title(r.getReturnName()).caption(caption(r, i))
@@ -173,7 +173,7 @@ public class TaskCenterService {
             }
 
             Integer ownerId = i.getStageOwnerUserId() != null ? i.getStageOwnerUserId() : r.getReturnOwnerUserId();
-            out.add(TaskItemDto.builder()
+            merge(out, i.getReturnId(), TaskItemDto.builder()
                 .id(i.getInstanceId()).key("return:" + i.getInstanceId())
                 .type(type).category(CATEGORY_RETURNS)
                 .title(r.getReturnName()).caption(caption(r, i))
@@ -186,7 +186,15 @@ public class TaskCenterService {
                 .build());
         }
 
-        return out;
+        return new ArrayList<>(out.values());
+    }
+
+    private void merge(Map<Long, TaskItemDto> best, Long returnId, TaskItemDto candidate) {
+        TaskItemDto current = best.get(returnId);
+        if (current == null
+            || RANK.getOrDefault(candidate.getPriority(), 9) < RANK.getOrDefault(current.getPriority(), 9)) {
+            best.put(returnId, candidate);
+        }
     }
 
     private List<TaskItemDto> controlsTasks() {
