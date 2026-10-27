@@ -28,8 +28,8 @@ export default function ReturnEscalationPolicyDialog({ open, item, onClose, onSn
       <DialogTitle>Return escalation policy</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          The policy applied to filings created from here on. Existing filings keep the escalation copied
-          when they were generated — edit those from the Filings tab.
+          The policy applied to this return's filings. Saving re-applies it to the filings that still follow
+          the return, and leaves any filing you have overridden individually untouched.
         </Typography>
         {policiesQuery.isPending ? <CircularProgress size={22} /> : (
           <TextField select fullWidth size="small" label="Escalation policy" value={policyId}

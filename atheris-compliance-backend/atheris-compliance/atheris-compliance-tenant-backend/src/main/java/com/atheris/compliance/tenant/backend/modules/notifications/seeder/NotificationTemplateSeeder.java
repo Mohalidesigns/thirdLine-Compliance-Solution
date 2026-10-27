@@ -17,6 +17,13 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
 
     private final NotificationTemplateService templates;
 
+    private static final String FILING_DETAILS = "{{returnName}}\n"
+        + "Act/Obligation: {{actObligation}}\n"
+        + "Regulator: {{regulator}}\n"
+        + "Responsible person: {{responsiblePerson}}\n"
+        + "Due date: {{dueDate}}\n"
+        + "Period: {{period}}\n";
+
     @Override
     public void run(ApplicationArguments args) {
         try {
@@ -45,6 +52,16 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "[L{{level}}] Overdue control test: {{controlName}}",
                 "The test of control \"{{controlName}}\" was due on {{dueDate}} and is {{daysLate}} day(s) overdue. "
                     + "Escalated to level {{level}}.", true);
+            templates.ensure(EscalationConstants.KEY_RETURN_REPORT_REVIEW,
+                "Review required: {{returnName}}", FILING_DETAILS, false);
+            templates.ensure(EscalationConstants.KEY_RETURN_DATA_REVIEW,
+                "Filing data submitted: {{returnName}}", FILING_DETAILS, false);
+            templates.ensure(EscalationConstants.KEY_RETURN_DATA_RECEIPT,
+                "Received: {{returnName}} filing data",
+                FILING_DETAILS + "\nYour submission has been received and is being reviewed.\n", false);
+            templates.ensure(EscalationConstants.KEY_RETURN_CHANGES_REQUESTED,
+                "Changes requested: {{returnName}}",
+                FILING_DETAILS + "\nPlease review the requested changes and resubmit the draft.\n", false);
             log.info("[TemplateSeeder] notification templates ensured");
         } catch (Throwable e) {
             log.error("[TemplateSeeder] failed: {}", e.getMessage(), e);

@@ -36,6 +36,9 @@ public class ReturnInstanceItem {
     private Long eventEvidenceFileId;
     private LocalDate unadjustedDueDate;
     private boolean dueDateAdjusted;
+    @Builder.Default
+    private boolean pendingReview = false;
+    private String reviewDecision;
 
     @Data @Builder
     public static class StageSummary {
@@ -77,6 +80,8 @@ public class ReturnInstanceItem {
             .escalationLevel(inst.getEscalationLevel())
             .escalatedAt(inst.getEscalatedAt())
             .stages(stages).daysLeft(Math.max(0, daysLeft))
-            .isOverdue(isOverdue).build();
+            .isOverdue(isOverdue)
+            .pendingReview(inst.isPendingReview())
+            .reviewDecision(inst.getReviewDecision()).build();
     }
 }

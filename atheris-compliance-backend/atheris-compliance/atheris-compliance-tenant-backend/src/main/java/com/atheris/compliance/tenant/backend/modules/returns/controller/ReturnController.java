@@ -14,6 +14,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
@@ -84,6 +85,17 @@ public class ReturnController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping(value = "/instances/{id}/submit-draft", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnInstanceDetailResponse> submitDraft(
+            @PathVariable Long id,
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal User u) {
+        service.submitDraft(id, files, notes, u.getUserId());
+        return ResponseEntity.ok(service.getDetail(id));
+    }
+
     @PutMapping("/instances/{id}/data-review")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnInstanceDetailResponse> dataReview(
@@ -121,6 +133,12 @@ public class ReturnController {
             @RequestBody UpdateReturnRequest req,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.ok(service.updateBasic(returnId, req, u.getUserId()));
+    }
+
+    @GetMapping("/{returnId}/escalation")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnEscalationResponse> resolveEscalation(@PathVariable Long returnId) {
+        return ResponseEntity.ok(service.resolveEscalation(returnId));
     }
 
     /** Sets the return's escalation contact + reminder cadence (stored on a per-return policy). */

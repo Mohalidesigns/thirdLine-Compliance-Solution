@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   AppSidebar, Squares2x2Icon, GlobeAltIcon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
@@ -16,17 +17,13 @@ export default function Sidebar(props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
-  const [openTasks, setOpenTasks] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => api.tasks.centerStats()
-      .then(s => { if (!cancelled) setOpenTasks(s?.total || 0); })
-      .catch(() => {});
-    load();
-    const t = setInterval(load, 60000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, []);
+  const { data: taskStats } = useQuery({
+    queryKey: ['tasks', 'centerStats'],
+    queryFn: ({ signal }) => api.tasks.centerStats({}, { signal }),
+    refetchInterval: 60000,
+  });
+  const openTasks = taskStats?.total || 0;
 
   useEffect(() => {
     let cancelled = false;

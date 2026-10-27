@@ -69,6 +69,7 @@ export function EvidenceFileList({ sourceType, sourceId, emptyText = 'No evidenc
       {files.map((f) => (
         <Box key={f.fileId} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <EvidenceFileButton file={f} />
+          {f.description ? <Typography variant="caption" color="text.secondary">{f.description}</Typography> : null}
           {f.fileSize ? <Typography variant="caption" color="text.secondary">{formatSize(f.fileSize)}</Typography> : null}
           {f.createdAt ? <Typography variant="caption" color="text.secondary">{new Date(f.createdAt).toLocaleDateString()}</Typography> : null}
         </Box>

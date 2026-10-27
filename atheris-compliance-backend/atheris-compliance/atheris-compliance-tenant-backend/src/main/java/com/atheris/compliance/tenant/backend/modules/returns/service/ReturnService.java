@@ -6,12 +6,16 @@ import com.atheris.compliance.tenant.backend.modules.acts.repository.ActReposito
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationInstanceDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
+import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.*;
@@ -36,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.IsoFields;
@@ -49,6 +54,8 @@ public class ReturnService {
     private static final List<ReturnStage> STAGES = List.of(ReturnStage.values());
     /** Register status filter value for returns with no due rule. */
     public static final String STATUS_DUE_DATE_NEEDED = "Due date needed";
+    private static final String INSTANCE_EVIDENCE_TYPE = "return_instance";
+    private static final String DRAFT_EVIDENCE_PREFIX = "Draft report ";
 
     private final RegulatoryReturnRepository returns;
     private final ReturnFilingInstanceRepository instances;
@@ -63,6 +70,9 @@ public class ReturnService {
     private final EscalationPolicyService escalationPolicyService;
     private final NotificationService notifications;
     private final UserRepository users;
+    private final EvidenceVaultService evidenceVault;
+    private final NotificationTemplateService templates;
+    private final EmailService email;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -70,11 +80,13 @@ public class ReturnService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private static final java.time.format.DateTimeFormatter MAIL_DATE =
+        java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy");
+
     @PersistenceContext
     private EntityManager em;
 
-    @Value("${atheris.returns.instance-lookahead-days:120}")
-    private int lookaheadDays;
+    private static final int PROJECTED_PERIODS = 3;
 
     @Scheduled(fixedDelay = 300000)
     void scheduledMaintenance() {
@@ -341,6 +353,33 @@ public class ReturnService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public ReturnEscalationResponse resolveEscalation(Long returnId) {
+        RegulatoryReturn r = returns.findById(returnId)
+            .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+        EscalationInstanceDto config = escalationPolicyService.resolve(EscalationConstants.SUBJECT_RETURN, null,
+            r.getEscalationPolicyId(), r.getFrequencyType());
+        if (config == null) {
+            return ReturnEscalationResponse.builder().active(false).build();
+        }
+        EscalationPolicyDto policy = config.getSourcePolicyId() == null ? null
+            : escalationPolicyService.get(config.getSourcePolicyId());
+        return ReturnEscalationResponse.builder()
+            .policyId(config.getSourcePolicyId())
+            .policyName(policy == null ? null : policy.getName())
+            .frequencyScope(policy == null ? null : policy.getFrequencyScope())
+            .isDefault(policy == null ? null : policy.getIsDefault())
+            .active(config.getActive())
+            .reminderStartValue(config.getReminderStartValue())
+            .reminderStartUnit(config.getReminderStartUnit())
+            .reminderRepeatValue(config.getReminderRepeatValue())
+            .reminderRepeatUnit(config.getReminderRepeatUnit())
+            .sendLink(config.getSendLink())
+            .notifyOnStart(config.getNotifyOnStart())
+            .levels(config.getLevels())
+            .build();
+    }
+
     @Transactional
     public ReturnRegisterItem updateEscalation(Long returnId, UpdateReturnEscalationRequest req, Integer userId) {
         try {
@@ -524,6 +563,8 @@ public class ReturnService {
             .responsiblePerson(r.getResponsiblePerson())
             .responsibleUnits(r.getResponsibleUnits())
             .responsiblePersons(r.getResponsiblePersons())
+            .returnOwnerName(r.getReturnOwnerName())
+            .filingChannel(r.getFilingChannel())
             .escalationPolicyId(r.getEscalationPolicyId())
             .dueDateNeeded(DueRule.dueDateNeeded(r))
             .dueRuleType(rule != null ? rule.kind().name() : null)
@@ -544,7 +585,7 @@ public class ReturnService {
                 && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null)).count());
 
         if (insts.isEmpty()) {
-            return b.upcomingInstances(List.of()).totalInstances(0).overdueCount(0).hasOverdue(false).build();
+            return b.projectedInstances(projectedPeriods(r, insts)).totalInstances(0).overdueCount(0).hasOverdue(false).build();
         }
 
         boolean eventDriven = ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY)
@@ -558,42 +599,23 @@ public class ReturnService {
             long eventOverdue = insts.stream().filter(i -> i.getTriggerDate() != null
                 && !isSubmitted(i.getStatus() != null ? i.getStatus().db() : null)
                 && i.getDueDate() != null && i.getDueDate().isBefore(now)).count();
-            if (currentEvent == null) return b.upcomingInstances(List.of()).totalInstances(insts.size())
+            if (currentEvent == null) return b.projectedInstances(List.of()).totalInstances(insts.size())
                 .overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
             return b.currentPeriod(currentEvent.getTriggerDate().toString()).currentDueDate(currentEvent.getDueDate())
                 .deadline(deadlineOf(r, currentEvent.getDueDate()))
                 .currentStatus(currentEvent.getStatus() != null ? currentEvent.getStatus().db() : null)
                 .currentStage(currentEvent.getCurrentStage() != null ? currentEvent.getCurrentStage().db() : null)
-                .currentInstanceId(currentEvent.getInstanceId()).upcomingInstances(List.of())
+                .currentInstanceId(currentEvent.getInstanceId()).projectedInstances(List.of())
                 .totalInstances(insts.size()).overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
         }
 
-        ReturnFilingInstance current = null;
-        for (ReturnFilingInstance i : insts) {
-            boolean submitted = ReturnFilingStatus.SUBMITTED.equals(i.getStatus())
-                || ReturnFilingStatus.SUBMITTED_LATE.equals(i.getStatus());
-            if (!submitted && i.getDueDate() != null && !i.getDueDate().isBefore(now)) {
-                if (current == null || i.getDueDate().isBefore(current.getDueDate())) current = i;
-            }
-        }
-        if (current == null) {
-            current = insts.stream()
-                .max((a, c) -> {
-                    if (a.getDueDate() == null) return -1;
-                    if (c.getDueDate() == null) return 1;
-                    return a.getDueDate().compareTo(c.getDueDate());
-                }).orElse(null);
-        }
+        ReturnFilingInstance current = insts.stream()
+            .filter(ReturnService::isOpen)
+            .min(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
+            .orElseGet(() -> insts.stream()
+                .max(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null));
         if (current == null) return null;
-        final ReturnFilingInstance currentInst = current;
-
-        List<ReturnFilingInstance> upcoming = insts.stream()
-            .filter(i -> i.getDueDate() != null
-                && currentInst.getDueDate() != null
-                && i.getDueDate().isAfter(currentInst.getDueDate()))
-            .sorted(Comparator.comparing(ReturnFilingInstance::getDueDate))
-            .limit(5)
-            .toList();
 
         long overdueCount = insts.stream().filter(i ->
             !ReturnFilingStatus.SUBMITTED.equals(i.getStatus()) &&
@@ -607,13 +629,7 @@ public class ReturnService {
             .currentStatus(current.getStatus() != null ? current.getStatus().db() : null)
             .currentStage(current.getCurrentStage() != null ? current.getCurrentStage().db() : null)
             .currentInstanceId(current.getInstanceId())
-            .upcomingInstances(upcoming.stream().map(i -> ReturnRegisterItem.InstanceSummary.builder()
-                .instanceId(i.getInstanceId())
-                .period(i.getPeriod())
-                .dueDate(i.getDueDate())
-                .status(i.getStatus() != null ? i.getStatus().db() : null)
-                .stage(i.getCurrentStage() != null ? i.getCurrentStage().db() : null)
-                .build()).toList())
+            .projectedInstances(projectedPeriods(r, insts))
             .totalInstances(insts.size())
             .overdueCount((int) overdueCount)
             .hasOverdue(overdueCount > 0)
@@ -759,6 +775,9 @@ public class ReturnService {
         if (from == ReturnStage.DATA_GATHERING)
             throw ApiException.conflict("data_review_required",
                 "Review and accept the submitted data before moving to Draft");
+        if (from == ReturnStage.DRAFT)
+            throw ApiException.conflict("draft_upload_required",
+                "Attach the drafted report to send it to the CCO for review");
         if (from == ReturnStage.REVIEW)
             throw ApiException.conflict("report_review_required",
                 "The CCO must accept or request changes at the Review stage");
@@ -778,28 +797,153 @@ public class ReturnService {
         inst.setCurrentStage(next);
         inst.setStatus(ReturnFilingStatus.IN_PROGRESS);
         inst.setStageOwnerUserId(userId);
-        if (next == ReturnStage.REVIEW) {
-            inst.setPendingReview(true);
-            inst.setReviewEvidenceRef(req.getEvidenceUrl());
-            inst.setReviewSubmittedAt(Instant.now());
-            inst.setReviewSubmittedByUserId(userId);
-            inst.setReviewDecision(null);
-            inst.setReviewNotes(null);
-            inst.setReviewedAt(null);
-            inst.setReviewedByUserId(null);
-        }
         instances.save(inst);
         audit.log(userId, "return_stage_advanced", "return_instance", instanceId,
             Map.of("from", from.db(), "to", next.db()));
-        if (next == ReturnStage.REVIEW) {
-            try {
-                notifications.notifyRoleEmailed(AppRole.CCO, NotificationConstants.CATEGORY_RETURNS, NotificationConstants.SEVERITY_MEDIUM,
-                    "Return filing " + inst.getPeriod() + " is ready for your review",
-                    "/returns", "Return ready for review");
-            } catch (Exception e) {
-                log.warn("Review notification failed for instance {}: {}", instanceId, e.getMessage());
+    }
+
+    @Transactional
+    public void submitDraft(Long instanceId, List<MultipartFile> files, String notes, Integer userId) {
+        try {
+            ReturnFilingInstance inst = instances.findById(instanceId)
+                .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+            if (inst.getCurrentStage() != ReturnStage.DRAFT)
+                throw ApiException.conflict("invalid_transition",
+                    "The drafted report can only be submitted from the Draft stage.");
+            List<MultipartFile> attached = files == null ? List.of()
+                : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+            if (attached.isEmpty())
+                throw ApiException.conflict("draft_evidence_required",
+                    "Attach the drafted report before sending it to the CCO.");
+            int version = draftFileCount(instanceId) + 1;
+            String reference = DRAFT_EVIDENCE_PREFIX + inst.getPeriod() + " (v" + version + ")";
+            for (MultipartFile file : attached) {
+                evidenceVault.upload(file, INSTANCE_EVIDENCE_TYPE, instanceId, reference, userId);
             }
+            if (notes != null && !notes.isBlank()) inst.setNotes(notes.trim());
+            advanceToReview(inst, userId, reference);
+        } catch (Throwable e) {
+            log.error("Submitting the draft for instance {} failed: {}", instanceId, e.getMessage(), e);
+            try { em.clear(); } catch (Throwable ignored) {}
+            try { TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); } catch (Throwable ignored) {}
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
         }
+    }
+
+    private int draftFileCount(Long instanceId) {
+        return (int) evidenceVault.listBySource(INSTANCE_EVIDENCE_TYPE, instanceId).stream()
+            .filter(f -> f.getDescription() != null && f.getDescription().startsWith(DRAFT_EVIDENCE_PREFIX))
+            .count();
+    }
+
+    private void advanceToReview(ReturnFilingInstance inst, Integer userId, String evidenceRef) {
+        Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
+        Map<String, String> stageEntry = new HashMap<>();
+        stageEntry.put("completedAt", Instant.now().toString());
+        stageEntry.put("completedByUserId", String.valueOf(userId));
+        stageData.put(ReturnStage.DRAFT.db(), stageEntry);
+        try {
+            inst.setStageData(MAPPER.writeValueAsString(stageData));
+        } catch (Exception e) { throw new IllegalStateException("Failed to serialize stage data", e); }
+        String submitter = users.findById(userId).map(User::getFullName).orElse(null);
+        inst.setCurrentStage(ReturnStage.REVIEW);
+        inst.setStatus(ReturnFilingStatus.IN_PROGRESS);
+        inst.setStageOwnerUserId(userId);
+        inst.setPendingReview(true);
+        inst.setReviewEvidenceRef(evidenceRef);
+        inst.setReviewSubmittedAt(Instant.now());
+        inst.setReviewSubmittedByName(submitter);
+        inst.setReviewSubmittedByEmail(null);
+        inst.setReviewSubmittedByUserId(userId);
+        inst.setReviewDecision(null);
+        inst.setReviewNotes(null);
+        inst.setReviewedAt(null);
+        inst.setReviewedByUserId(null);
+        instances.save(inst);
+        audit.log(userId, "return_stage_advanced", "return_instance", inst.getInstanceId(),
+            Map.of("from", ReturnStage.DRAFT.db(), "to", ReturnStage.REVIEW.db()));
+        RegulatoryReturn ret = returns.findById(inst.getReturnId()).orElse(null);
+        String link = filingMailLink(inst, "report");
+        notifications.notifyRole(AppRole.CCO, NotificationConstants.CATEGORY_RETURNS,
+            NotificationConstants.SEVERITY_MEDIUM, filingMailSummary(inst, ret, "Review report"), link);
+        if (ret != null) {
+            Map<String, String> vars = filingMailVars(ret, inst);
+            sendFilingMail(EscalationConstants.KEY_RETURN_REPORT_REVIEW,
+                "Review required: " + ret.getReturnName(), vars, roleEmails(AppRole.CCO),
+                ownerCc(ret, roleEmails(AppRole.CCO)), link);
+        }
+    }
+
+    private String filingMailLink(ReturnFilingInstance inst, String gate) {
+        return "/returns/" + inst.getReturnId() + "?instanceId=" + inst.getInstanceId() + "&review=" + gate;
+    }
+
+    private String filingMailSummary(ReturnFilingInstance inst, RegulatoryReturn ret, String label) {
+        String name = ret != null && ret.getReturnName() != null ? ret.getReturnName() : ("Filing " + inst.getPeriod());
+        return label + ": " + name;
+    }
+
+    private Map<String, String> filingMailVars(RegulatoryReturn ret, ReturnFilingInstance inst) {
+        Map<String, String> vars = new HashMap<>();
+        vars.put("returnName", blankToEmpty(ret.getReturnName()));
+        vars.put("actObligation", blankToEmpty(firstNonBlank(ret.getActName(), obligationFallbackTitle(ret))));
+        vars.put("regulator", blankToEmpty(ret.getFilingRegulator()));
+        vars.put("responsiblePerson", blankToEmpty(responsibleLabel(ret)));
+        vars.put("dueDate", inst.getDueDate() == null ? "" : MAIL_DATE.format(inst.getDueDate()));
+        vars.put("period", blankToEmpty(inst.getPeriod()));
+        return vars;
+    }
+
+    private static String blankToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String responsibleLabel(RegulatoryReturn ret) {
+        List<String> persons = ret.getResponsiblePersons() == null ? List.of() : ret.getResponsiblePersons();
+        if (!persons.isEmpty()) return String.join(", ", persons);
+        return ret.getResponsiblePerson();
+    }
+
+    private List<String> roleEmails(String role) {
+        return users.findByRole(role).stream()
+            .filter(u -> !Boolean.FALSE.equals(u.getIsActive()))
+            .map(User::getEmail)
+            .filter(e -> e != null && !e.isBlank())
+            .toList();
+    }
+
+    private String ownerEmail(RegulatoryReturn ret) {
+        if (ret == null || ret.getReturnOwnerUserId() == null) return null;
+        return users.findById(ret.getReturnOwnerUserId()).map(User::getEmail)
+            .filter(e -> e != null && !e.isBlank()).orElse(null);
+    }
+
+    private List<String> ownerCc(RegulatoryReturn ret, List<String> to) {
+        String owner = ownerEmail(ret);
+        if (owner == null) return List.of();
+        if (to != null && to.stream().anyMatch(e -> e.equalsIgnoreCase(owner))) return List.of();
+        return List.of(owner);
+    }
+
+    private void sendFilingMail(String templateKey, String fallbackSubject, Map<String, String> vars,
+                                List<String> to, List<String> cc, String link) {
+        if (to == null || to.isEmpty()) return;
+        NotificationTemplateService.RenderedEmail rendered = templates.render(templateKey, vars);
+        String subject = rendered.subject() != null ? rendered.subject() : fallbackSubject;
+        String body = rendered.body() != null ? rendered.body() : fallbackSubject;
+        String absoluteLink = link == null ? null : email.baseUrl() + link;
+        for (String recipient : to) {
+            email.send(recipient, cc, subject, body, absoluteLink);
+        }
+    }
+
+    private List<String> analystRecipients(ReturnFilingInstance inst) {
+        if (inst.getStageOwnerUserId() != null) {
+            List<String> byUser = users.findById(inst.getStageOwnerUserId()).map(User::getEmail)
+                .filter(e -> e != null && !e.isBlank()).map(e -> List.of(e)).orElse(List.of());
+            if (!byUser.isEmpty()) return byUser;
+        }
+        return roleEmails(AppRole.ANALYST);
     }
 
     @Transactional
@@ -830,6 +974,27 @@ public class ReturnService {
         inst.setReviewedByUserId(null);
         instances.save(inst);
         audit.log(userId, "return_data_submitted", "return_instance", instanceId, Map.of());
+        RegulatoryReturn ret = returns.findById(inst.getReturnId()).orElse(null);
+        String link = filingMailLink(inst, "data");
+        String summary = filingMailSummary(inst, ret, "Review data");
+        if (inst.getStageOwnerUserId() != null) {
+            notifications.notifyUser(inst.getStageOwnerUserId(), NotificationConstants.CATEGORY_RETURNS,
+                NotificationConstants.SEVERITY_MEDIUM, summary, link);
+        } else {
+            notifications.notifyRole(AppRole.ANALYST, NotificationConstants.CATEGORY_RETURNS,
+                NotificationConstants.SEVERITY_MEDIUM, summary, link);
+        }
+        if (ret != null) {
+            Map<String, String> vars = filingMailVars(ret, inst);
+            List<String> to = analystRecipients(inst);
+            sendFilingMail(EscalationConstants.KEY_RETURN_DATA_REVIEW,
+                "Filing data submitted: " + ret.getReturnName(), vars, to, ownerCc(ret, to), link);
+            if (inst.getReviewSubmittedByEmail() != null && !inst.getReviewSubmittedByEmail().isBlank()) {
+                sendFilingMail(EscalationConstants.KEY_RETURN_DATA_RECEIPT,
+                    "Received: " + ret.getReturnName() + " filing data", vars,
+                    List.of(inst.getReviewSubmittedByEmail()), List.of(), null);
+            }
+        }
     }
 
     @Transactional
@@ -866,19 +1031,22 @@ public class ReturnService {
             } else {
                 inst.setReviewDecision("CHANGES_REQUESTED");
                 inst.setCurrentStage(ReturnStage.DRAFT);
-                try {
-                    notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_RETURNS,
-                        NotificationConstants.SEVERITY_MEDIUM,
-                        "Changes requested on " + inst.getPeriod() + " — please revise the draft",
-                        "/returns", "Return changes requested");
-                } catch (Exception e) {
-                    log.warn("Change-request notification failed for instance {}: {}", instanceId, e.getMessage());
+                RegulatoryReturn ret = returns.findById(inst.getReturnId()).orElse(null);
+                String link = "/returns/" + inst.getReturnId() + "?instanceId=" + inst.getInstanceId();
+                notifications.notifyRole(AppRole.ANALYST, NotificationConstants.CATEGORY_RETURNS,
+                    NotificationConstants.SEVERITY_MEDIUM, filingMailSummary(inst, ret, "Changes requested"), link);
+                if (ret != null) {
+                    List<String> to = roleEmails(AppRole.ANALYST);
+                    sendFilingMail(EscalationConstants.KEY_RETURN_CHANGES_REQUESTED,
+                        "Changes requested: " + ret.getReturnName(), filingMailVars(ret, inst), to,
+                        ownerCc(ret, to), link);
                 }
             }
         } else {
             throw ApiException.conflict("not_awaiting_review", "This filing is not awaiting review.");
         }
         instances.save(inst);
+        if (inst.getCurrentStage() == ReturnStage.COMPLETED) rollForward(inst.getReturnId());
         audit.log(userId, "return_reviewed", "return_instance", instanceId,
             Map.of("stage", stage.db(), "decision", String.valueOf(inst.getReviewDecision())));
     }
@@ -1141,10 +1309,26 @@ public class ReturnService {
      */
     private String obligationFallbackTitle(RegulatoryReturn r) {
         if (r.getActName() != null && !r.getActName().isBlank()) return null;
-        return obligations.findLinkedObligationDetails(r.getReturnId()).stream()
-            .map(ObligationRepository.LinkedObligationRow::getTitle)
-            .filter(t -> t != null && !t.isBlank())
-            .findFirst().orElse(null);
+        for (ObligationRepository.LinkedObligationRow o : obligations.findLinkedObligationDetails(r.getReturnId())) {
+            String label = firstNonBlank(o.getActName(), o.getTitle(), o.getName(),
+                truncate(o.getPlainEnglishStatement(), 120));
+            if (label != null) return label;
+            if (o.getObligationId() != null) return "Obligation #" + o.getObligationId();
+        }
+        return null;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) return v.trim();
+        }
+        return null;
+    }
+
+    private static String truncate(String text, int max) {
+        if (text == null || text.isBlank()) return null;
+        String t = text.trim();
+        return t.length() <= max ? t : t.substring(0, max - 1).trim() + "…";
     }
 
     /** Hard-deletes a return and its periods, links and upload links. Blocked once any period has work on it. */
@@ -1195,136 +1379,49 @@ public class ReturnService {
         }
     }
 
-    /**
-     * Idempotently generates filing instances up to the lookahead horizon; existing periods are never
-     * duplicated (dedupe on return + period). Event-driven returns get none. A Monthly-or-longer return with
-     * no due rule gets none either ("Due date needed"). A return WITH a rule is always generated
-     * deterministically from the rule starting today — never continued from its latest instance, which would
-     * carry dates over from a previous rule:
-     * <ul>
-     *   <li>offset rule ({@code due_days_after_period_end}): see {@link #populateOffset};</li>
-     *   <li>date rule ({@code filing_date} anchor): see {@link #populateAnchored}.</li>
-     * </ul>
-     * Only rule-less Daily / Weekly returns continue from their latest instance (else start today).
-     * Runs in the caller's transaction (none for the scheduler, so each save commits on its own).
-     */
     public void ensureInstances(RegulatoryReturn ret) {
         boolean hasPerson = (ret.getResponsiblePersons() != null && !ret.getResponsiblePersons().isEmpty())
             || (ret.getResponsiblePerson() != null && !ret.getResponsiblePerson().isBlank());
         if (!hasPerson) return;
-        PeriodStep step = stepForType(ret.getFrequencyType());
-        if (step == null) return; // EVENT_DRIVEN — no instances
+        ReturnPeriods.Step step = ReturnPeriods.stepFor(ret.getFrequencyType());
+        if (step == null) return;
         DueRule rule = DueRule.of(ret);
-        if (step.unit() == PeriodUnit.MONTH && rule == null) return; // due date needed — nothing to generate
-        LocalDate today = LocalDate.now();
-        LocalDate horizon = today.plusDays(Math.max(lookaheadDays, 1));
-        Set<String> existing = instances.findByReturnId(ret.getReturnId()).stream()
-            .map(ReturnFilingInstance::getPeriod).filter(Objects::nonNull)
-            .collect(Collectors.toCollection(HashSet::new));
+        if (step.unit() == ReturnPeriods.Unit.MONTH && rule == null) return;
 
-        if (rule != null && rule.kind() == DueRule.Kind.OFFSET && step.unit() == PeriodUnit.MONTH) {
-            populateOffset(ret, step.amount(), rule.daysAfterPeriodEnd(), today, horizon, existing);
-        } else if (rule != null && rule.kind() == DueRule.Kind.DATE) {
-            populateAnchored(ret, rule.firstDueDate(), step, today, horizon, existing);
-        } else {
-            Optional<ReturnFilingInstance> latest = instances.findTopByReturnIdOrderByPeriodDesc(ret.getReturnId());
-            LocalDate start = latest.map(l -> advance(l.getDueDate(), step)).orElse(today);
-            populate(ret, start, step, today, horizon, 0, existing);
-        }
+        List<ReturnFilingInstance> existing = instances.findByReturnId(ret.getReturnId());
+        if (existing.stream().anyMatch(ReturnService::isOpen)) return;
+        Set<String> seen = existing.stream().map(ReturnFilingInstance::getPeriod)
+            .filter(Objects::nonNull).collect(Collectors.toCollection(HashSet::new));
+
+        ReturnPeriods.Occurrence occ = ReturnPeriods.next(ret, step, rule,
+            latestDueDate(existing), LocalDate.now());
+        materializeAt(ret, occ.period(), occ.due(), seen);
     }
 
-    /**
-     * Offset rule: calendar-aligned periods (every month end; quarters ending Mar/Jun/Sep/Dec; half-years
-     * Jun/Dec; years Dec), each due its period end + {@code days}. First instance = the earliest period whose
-     * due date is today or later, created even beyond the horizon; later ones follow up to the horizon. The
-     * period label is the month of the due date, as for every other rule kind.
-     */
-    private void populateOffset(RegulatoryReturn ret, int stepMonths, int days, LocalDate today,
-                                LocalDate horizon, Set<String> existing) {
-        // Earliest period end P with P + days >= today, i.e. P >= today - days, aligned up to a cycle boundary.
-        YearMonth ym = YearMonth.from(today.minusDays(days));
-        while (ym.getMonthValue() % stepMonths != 0) ym = ym.plusMonths(1);
-        for (int n = 0; n < 400; n++) {
-            LocalDate due = ym.atEndOfMonth().plusDays(days);
-            if (n > 0 && due.isAfter(horizon)) break;
-            materializeAt(ret, YearMonth.from(due).toString(), due, existing);
-            ym = ym.plusMonths(stepMonths);
-        }
+    private static boolean isOpen(ReturnFilingInstance instance) {
+        ReturnFilingStatus st = instance.getStatus();
+        return st != ReturnFilingStatus.SUBMITTED && st != ReturnFilingStatus.SUBMITTED_LATE;
     }
 
-    /**
-     * First instance = the earliest cycle date (anchor + k steps, k >= 0) on or after today, created even
-     * when it lies beyond the horizon (an Annual return due next March must still appear in the register).
-     * Later instances follow up to the horizon. Every date is computed from the original anchor, so
-     * month-end clamping never drifts (31 Jan → 28 Feb → 31 Mar).
-     */
-    private void populateAnchored(RegulatoryReturn ret, LocalDate anchor, PeriodStep step,
-                                  LocalDate today, LocalDate horizon, Set<String> existing) {
-        long k = anchoredFirstIndex(anchor, step, today);
-        materialize(ret, nthCycleDate(anchor, step, k), step, existing);
-        for (long n = k + 1; n <= k + 400; n++) {
-            LocalDate d = nthCycleDate(anchor, step, n);
-            if (d.isAfter(horizon)) break;
-            materialize(ret, d, step, existing);
-        }
+    private static LocalDate latestDueDate(List<ReturnFilingInstance> existing) {
+        return existing.stream().map(ReturnFilingInstance::getDueDate).filter(Objects::nonNull)
+            .max(Comparator.naturalOrder()).orElse(null);
     }
 
-    /** Smallest k >= 0 with {@code nthCycleDate(anchor, step, k) >= today}. */
-    private long anchoredFirstIndex(LocalDate anchor, PeriodStep step, LocalDate today) {
-        if (!anchor.isBefore(today)) return 0;
-        long stepDays = switch (step.unit()) {
-            case DAY -> step.amount();
-            case WEEK -> 7L * step.amount();
-            case MONTH -> 0;
-        };
-        if (stepDays > 0) {
-            long days = ChronoUnit.DAYS.between(anchor, today);
-            return (days + stepDays - 1) / stepDays; // round up
-        }
-        long k = Math.max(1, ChronoUnit.MONTHS.between(anchor, today) / step.amount());
-        while (nthCycleDate(anchor, step, k).isBefore(today)) k++;
-        return k;
+    private List<ReturnRegisterItem.ProjectedPeriod> projectedPeriods(RegulatoryReturn ret,
+                                                                      List<ReturnFilingInstance> insts) {
+        ReturnPeriods.Step step = ReturnPeriods.stepFor(ret.getFrequencyType());
+        DueRule rule = DueRule.of(ret);
+        if (step == null || (step.unit() == ReturnPeriods.Unit.MONTH && rule == null)) return List.of();
+        return ReturnPeriods.project(ret, step, rule, latestDueDate(insts), LocalDate.now(), PROJECTED_PERIODS).stream()
+            .map(o -> ReturnRegisterItem.ProjectedPeriod.builder().period(o.period()).dueDate(o.due()).build())
+            .toList();
     }
 
-    /** anchor + n steps; months are added from the anchor in one go (plusMonths clamps to month length). */
-    private LocalDate nthCycleDate(LocalDate anchor, PeriodStep step, long n) {
-        return switch (step.unit()) {
-            case DAY   -> anchor.plusDays(n * step.amount());
-            case WEEK  -> anchor.plusWeeks(n * step.amount());
-            case MONTH -> anchor.plusMonths(n * step.amount());
-        };
-    }
-
-    private void populate(RegulatoryReturn ret, LocalDate cursor, PeriodStep step,
-                          LocalDate earliest, LocalDate horizon, int depth, Set<String> existing) {
-        if (depth > 365 || cursor.isAfter(horizon)) return;
-        if (!cursor.isBefore(earliest)) {
-            materialize(ret, cursor, step, existing);
-        }
-        populate(ret, advance(cursor, step), step, earliest, horizon, depth + 1, existing);
-    }
-
-    private void materialize(RegulatoryReturn ret, LocalDate cursor, PeriodStep step, Set<String> existing) {
-        String period;
-        LocalDate due;
-
-        if (step.unit() == PeriodUnit.DAY) {
-            period = cursor.toString(); // "2026-09-25"
-            due = cursor;
-        } else if (step.unit() == PeriodUnit.WEEK) {
-            int week = cursor.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
-            int weekYear = cursor.get(IsoFields.WEEK_BASED_YEAR);
-            period = weekYear + "-W" + String.format("%02d", week); // "2026-W38"
-            due = cursor;
-        } else {
-            // Monthly / Quarterly / Semi-Annual / Annual / Biennial: only reached with a date anchor.
-            period = YearMonth.from(cursor).toString(); // "2026-09"
-            int day = ret.getFilingDate() != null
-                ? Math.min(ret.getFilingDate().getDayOfMonth(), cursor.lengthOfMonth())
-                : cursor.getDayOfMonth();
-            due = cursor.withDayOfMonth(day);
-        }
-        materializeAt(ret, period, due, existing);
+    private void rollForward(Long returnId) {
+        returns.findById(returnId).ifPresent(r -> {
+            if (r.getStatus() == RegulatoryReturnStatus.ACTIVE) ensureInstances(r);
+        });
     }
 
     private void materializeAt(RegulatoryReturn ret, String period, LocalDate due, Set<String> existing) {
@@ -1338,31 +1435,6 @@ public class ReturnService {
             .status(ReturnFilingStatus.NOT_STARTED).build());
         escalationPolicyService.ensureFrozen(EscalationConstants.SUBJECT_RETURN, instance.getInstanceId(),
             ret.getEscalationPolicyId(), ret.getFrequencyType());
-    }
-
-    private enum PeriodUnit { DAY, WEEK, MONTH }
-    private record PeriodStep(PeriodUnit unit, int amount) {}
-
-    private PeriodStep stepForType(String frequencyType) {
-        if (frequencyType == null) return new PeriodStep(PeriodUnit.MONTH, 1);
-        return switch (frequencyType) {
-            case "DAILY"       -> new PeriodStep(PeriodUnit.DAY, 1);
-            case "WEEKLY"      -> new PeriodStep(PeriodUnit.WEEK, 1);
-            case "QUARTERLY"   -> new PeriodStep(PeriodUnit.MONTH, 3);
-            case "SEMI_ANNUAL" -> new PeriodStep(PeriodUnit.MONTH, 6);
-            case "ANNUAL"      -> new PeriodStep(PeriodUnit.MONTH, 12);
-            case "BIENNIAL"    -> new PeriodStep(PeriodUnit.MONTH, 24);
-            case "EVENT_DRIVEN" -> null;
-            default            -> new PeriodStep(PeriodUnit.MONTH, 1);
-        };
-    }
-
-    private LocalDate advance(LocalDate date, PeriodStep step) {
-        return switch (step.unit()) {
-            case DAY   -> date.plusDays(step.amount());
-            case WEEK  -> date.plusWeeks(step.amount());
-            case MONTH -> date.plusMonths(step.amount());
-        };
     }
 
     /** Blank → null; otherwise a canonical label/alias or recognisable free text, else 400. */

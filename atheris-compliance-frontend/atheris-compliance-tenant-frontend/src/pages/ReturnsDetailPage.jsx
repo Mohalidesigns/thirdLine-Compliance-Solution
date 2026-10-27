@@ -1,85 +1,46 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, Tooltip, Snackbar, Alert as MuiAlert, Link, Grid, Skeleton,
-  Stepper, Step, StepLabel, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab,
+  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Tooltip,
+  Snackbar, Alert as MuiAlert, Tabs, Tab, TextField,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
-  PageHeader, StatusBadge, RiskBadge, TL,
-  ArrowPathIcon, ClockIcon, CheckCircleIcon, LinkIcon, CalendarIcon, CalendarDaysIcon,
-  ClipboardDocumentListIcon, ExclamationTriangleIcon, ExclamationCircleIcon,
-  PencilSquareIcon, QueueListIcon, DocumentTextIcon,
+  PageHeader, ArrowPathIcon, CalendarDaysIcon, CalendarIcon, PencilSquareIcon, LinkIcon,
 } from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EditScheduleDialog from '../components/modals/EditScheduleDialog';
-import EscalationOverrideDialog from '../components/returns/EscalationOverrideDialog';
 import ReturnEscalationPolicyDialog from '../components/returns/ReturnEscalationPolicyDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
+import ReturnDetailsCard from '../components/returns/ReturnDetailsCard';
+import ReturnFilingPanel from '../components/returns/ReturnFilingPanel';
+import ReturnHistoryTable from '../components/returns/ReturnHistoryTable';
 import PersonPicker from '../components/common/PersonPicker';
-import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
+import {
+  statusBadge, isEventDriven, formatDate, needsAction, isCompletedStatus, SCHEDULE_ROLES, EVENT_ROLES,
+} from '../components/returns/returnCommon';
 
-const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
-const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
-
-// Must match the backend STAGE_ORDER (ReturnInstanceDetailResponse) — includes Not Started.
-const STAGE_NAMES = ['Not Started', 'Data Gathering', 'Draft', 'Review', 'Completed'];
-const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
-const REVIEW_ROLES = ['CCO', 'TENANT_ADMIN'];
-const STATUS_LABEL = { 'Submitted': 'Completed', 'Submitted Late': 'Completed Late' };
-
-const STATUS_TONE = {
-  'Not Started': 'gray', 'In Progress': 'blue', 'Submitted': 'green',
-  'Submitted Late': 'orange', 'Overdue': 'red',
-};
-const STATUS_ACCENT = {
-  'Not Started': '#718096', 'In Progress': '#3182CE', 'Submitted': '#2D7D46',
-  'Submitted Late': '#DD6B20', 'Overdue': '#E53E3E',
-};
-
-function statusBadge(status, label) {
-  return <StatusBadge label={label || STATUS_LABEL[status] || status || 'Not Started'} tone={STATUS_TONE[status] || 'gray'} />;
-}
-function statusAccent(status) { return STATUS_ACCENT[status] || '#2B6CB0'; }
-
-function formatDate(d) {
-  if (!d) return '—';
-  const date = new Date(d);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-function isEventDriven(item) {
-  const type = (item?.frequencyType || '').toLowerCase().replace(/[\s_-]/g, '');
-  if (type === 'eventdriven') return true;
-  const f = (item?.frequency || '').toLowerCase().replace(/[\s_-]/g, '');
-  return f === 'eventdriven' || f === 'onevent';
-}
-function noPeriodLabel(item) {
-  return isEventDriven(item) ? 'On event' : 'No scheduled period';
-}
-function responsibleUnits(item) {
-  if (item?.responsibleUnits?.length) return item.responsibleUnits;
-  return item?.responsibleUnit ? [item.responsibleUnit] : [];
-}
-function responsiblePersons(item) {
-  if (item?.responsiblePersons?.length) return item.responsiblePersons;
-  return item?.responsiblePerson ? [item.responsiblePerson] : [];
-}
+const TAB_NAMES = ['filings', 'history'];
 
 export default function ReturnsDetailPage() {
   const { returnId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const canEditSchedule = SCHEDULE_ROLES.includes(user?.role);
   const canRecordEvent = EVENT_ROLES.includes(user?.role);
 
-  const [tab, setTab] = useState(0);
-  const [selectedInstanceId, setSelectedInstanceId] = useState(null);
+  const tabParam = searchParams.get('tab');
+  const instanceParam = searchParams.get('instanceId');
+  const reviewParam = searchParams.get('review');
+
+  const [tab, setTab] = useState(() => (TAB_NAMES.includes(tabParam) ? TAB_NAMES.indexOf(tabParam) : 0));
+  const [selectedInstanceId, setSelectedInstanceId] = useState(instanceParam ? Number(instanceParam) : null);
+  const [highlightReview, setHighlightReview] = useState(!!reviewParam);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [eventSetupOpen, setEventSetupOpen] = useState(false);
   const [recordEventOpen, setRecordEventOpen] = useState(false);
@@ -99,23 +60,14 @@ export default function ReturnsDetailPage() {
     queryKey: ['returns', 'obligations', String(returnId)],
     queryFn: ({ signal }) => api.returns.linkedObligations(returnId, { signal }),
   });
-
-  const item = itemQuery.data;
-  const filings = filingsQuery.data?.content || [];
-  // History shows only instances actually recorded on the system — past/current periods and
-  // anything already worked on — never the forward-looking generated schedule.
-  const now = Date.now();
-  const recordedFilings = filings.filter((f) => {
-    if (f.triggerDate) return true;
-    if (f.isOverdue) return true;
-    if ((f.status && f.status !== 'Not Started') || (f.currentStage && f.currentStage !== 'Not Started')) return true;
-    if (!f.dueDate) return true;
-    return new Date(f.dueDate).getTime() <= now;
+  const escalationQuery = useQuery({
+    queryKey: ['returns', 'escalation', String(returnId)],
+    queryFn: ({ signal }) => api.returns.escalation(returnId, { signal }),
   });
 
-  useEffect(() => {
-    if (selectedInstanceId == null && item?.currentInstanceId != null) setSelectedInstanceId(item.currentInstanceId);
-  }, [item?.currentInstanceId, selectedInstanceId]);
+  const item = itemQuery.data;
+  const escalation = escalationQuery.data;
+  const filings = filingsQuery.data?.content || [];
 
   const instanceQuery = useQuery({
     queryKey: ['returns', 'detail', String(selectedInstanceId)],
@@ -123,15 +75,68 @@ export default function ReturnsDetailPage() {
     enabled: selectedInstanceId != null,
   });
 
+  // Deep link: a task opens the filing it points at, on the Filings tab.
+  useEffect(() => {
+    if (instanceParam) {
+      const id = Number(instanceParam);
+      if (!Number.isNaN(id) && id !== selectedInstanceId) setSelectedInstanceId(id);
+      setTab(0);
+      setHighlightReview(!!reviewParam);
+    }
+  }, [instanceParam, reviewParam, selectedInstanceId]);
+
+  // Default selection: a filing awaiting review comes first (someone is waiting on us), else the
+  // return's current period.
+  const defaultInstanceId = useMemo(() => {
+    const awaiting = filings.find((f) => f.pendingReview);
+    return awaiting?.instanceId ?? item?.currentInstanceId ?? null;
+  }, [filings, item?.currentInstanceId]);
+
+  useEffect(() => {
+    if (selectedInstanceId == null && !instanceParam && defaultInstanceId != null) {
+      setSelectedInstanceId(defaultInstanceId);
+    }
+  }, [defaultInstanceId, selectedInstanceId, instanceParam]);
+
+  const writeParams = useCallback(({ tabIdx, instanceId, keepReview }) => {
+    const next = new URLSearchParams();
+    if (tabIdx === 1) next.set('tab', 'history');
+    if (instanceId != null) next.set('instanceId', String(instanceId));
+    if (keepReview && reviewParam) next.set('review', reviewParam);
+    setSearchParams(next, { replace: true });
+  }, [reviewParam, setSearchParams]);
+
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ['returns'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   }
+
   function openFiling(instanceId) {
     if (instanceId == null) return;
     setSelectedInstanceId(instanceId);
-    setTab(1);
+    setHighlightReview(false);
+    setTab(0);
+    writeParams({ tabIdx: 0, instanceId });
   }
+
+  // History is the closed record: filings the CCO has accepted (completed). Anything still in flight —
+  // open, awaiting review, rejected back to Draft — lives in the Filings tab.
+  const closedFilings = useMemo(() => filings.filter((f) => isCompletedStatus(f.status)), [filings]);
+
+  // Period switcher: the filing the user must act on first, then the other periods needing action.
+  const actionPeriods = useMemo(() => {
+    const flagged = filings.filter((f) => needsAction(f, escalation));
+    const ordered = [...flagged].sort((a, b) => {
+      if (a.instanceId === item?.currentInstanceId) return -1;
+      if (b.instanceId === item?.currentInstanceId) return 1;
+      return (a.dueDate || '').localeCompare(b.dueDate || '');
+    });
+    return ordered.map((f) => ({
+      instanceId: f.instanceId,
+      label: `${f.triggerDate ? `Event ${formatDate(f.triggerDate)}` : (f.period || 'No period')}`
+        + ` · due ${formatDate(f.dueDate)} · ${f.pendingReview ? 'awaiting review' : (f.currentStage || 'Not started')}`,
+    }));
+  }, [filings, escalation, item?.currentInstanceId]);
 
   if (itemQuery.isPending) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
@@ -147,6 +152,7 @@ export default function ReturnsDetailPage() {
 
   const detail = instanceQuery.data;
   const obligations = obligationsQuery.data || [];
+  const eventDriven = isEventDriven(item);
 
   return (
     <Box>
@@ -156,7 +162,7 @@ export default function ReturnsDetailPage() {
           <>
             {item.actName || 'No act recorded'}
             {item.filingRegulator && ` · ${item.filingRegulator}`}
-            {(item.frequency || item.frequencyType) && ` · ${isEventDriven(item) ? 'On event' : item.frequency}`}
+            {(item.frequency || item.frequencyType) && ` · ${eventDriven ? 'On event' : item.frequency}`}
           </>
         )}
         onBack={() => navigate('/returns')}
@@ -164,126 +170,57 @@ export default function ReturnsDetailPage() {
         actions={(
           <>
             <Tooltip title="Refresh"><IconButton onClick={refresh}><ArrowPathIcon size={18} /></IconButton></Tooltip>
-            {canEditSchedule && !isEventDriven(item) && (
+            {canEditSchedule && !eventDriven && (
               <Button variant="outlined" startIcon={<CalendarDaysIcon size={16} />} onClick={() => setScheduleOpen(true)}>
                 Edit schedule
               </Button>
             )}
-            {canEditSchedule && isEventDriven(item) && (
+            {canEditSchedule && eventDriven && (
               <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={() => setEventSetupOpen(true)}>
                 {item.eventTriggerConfigured ? 'Edit trigger' : 'Configure trigger'}
               </Button>
             )}
-            {canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured && (
+            {canRecordEvent && eventDriven && item.eventTriggerConfigured && (
               <Button variant="contained" startIcon={<CalendarIcon size={16} />} onClick={() => setRecordEventOpen(true)}>
                 Record event
               </Button>
             )}
-            {canRecordEvent && isEventDriven(item) && item.eventTriggerConfigured && (
+            {canRecordEvent && eventDriven && item.eventTriggerConfigured && (
               <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setSendLinkOpen(true)}>
                 Send link
-              </Button>
-            )}
-            {canEditSchedule && (
-              <Button variant="outlined" onClick={() => setPolicyOpen(true)}>
-                Escalation policy
               </Button>
             )}
           </>
         )}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {item.currentStatus && statusBadge(item.currentStatus)}
-          <Chip size="small" variant="outlined" label={isEventDriven(item) ? 'On event' : (item.frequency || item.frequencyType || 'Ad hoc')} />
+          {item.currentStatus && statusBadge(item.hasOverdue ? 'Overdue' : item.currentStatus)}
+          <Chip size="small" variant="outlined" label={eventDriven ? 'On event' : (item.frequency || item.frequencyType || 'Ad hoc')} />
           {item.filingRegulator && <Chip size="small" variant="outlined" label={item.filingRegulator} />}
-          {(item.linkedObligationCount ?? 0) === 0 && (
-            <Tooltip title="Not linked to any obligation"><span><StatusBadge label="No obligations" tone="amber" /></span></Tooltip>
-          )}
         </Box>
       </PageHeader>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="Details" />
-        <Tab label={`Filings${recordedFilings.length ? ` (${recordedFilings.length})` : ''}`} />
-        <Tab label="History" />
+      <ReturnDetailsCard
+        item={item}
+        obligations={obligations}
+        obligationsLoading={obligationsQuery.isPending}
+        escalation={escalation}
+        escalationLoading={escalationQuery.isPending}
+        onEditEscalation={() => setPolicyOpen(true)}
+      />
+
+      <Tabs value={tab} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+        onChange={(_, v) => { setTab(v); writeParams({ tabIdx: v, instanceId: selectedInstanceId, keepReview: true }); }}>
+        <Tab label={`Filings${actionPeriods.length ? ` (${actionPeriods.length})` : ''}`} />
+        <Tab label={`History${closedFilings.length ? ` (${closedFilings.length})` : ''}`} />
       </Tabs>
 
-      {/* ── Details (schedule + obligations) ── */}
       {tab === 0 && (
-        <>
-          <Section icon={<CalendarIcon />} title="Schedule">
-            <FieldGrid min={160}>
-              <Field label="Act" value={item.actName} />
-              <Field label="Regulator" value={item.filingRegulator} />
-              <Field label="Frequency" value={isEventDriven(item) ? 'On event' : (item.frequency || item.frequencyType)} />
-              <Field label="Due rule" value={dueRuleText(item)} />
-              <Field label="Start preparing" value={item.prepDays != null ? `${item.prepDays} day(s) before due` : '—'} />
-              <Field label="Responsible units">
-                {responsibleUnits(item).length
-                  ? responsibleUnits(item).map((u) => <Chip key={u} size="small" variant="outlined" label={u} sx={{ mr: 0.5, mb: 0.5 }} />)
-                  : <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>—</Typography>}
-              </Field>
-              <Field label="Responsible persons">
-                {responsiblePersons(item).length
-                  ? responsiblePersons(item).map((p) => <Chip key={p} size="small" variant="outlined" label={p} sx={{ mr: 0.5, mb: 0.5 }} />)
-                  : <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>—</Typography>}
-              </Field>
-              {item.deadlineText && <Field label="Regulator wording" value={item.deadlineText} />}
-            </FieldGrid>
-          </Section>
-
-          {isEventDriven(item) && (
-            <Section icon={<CalendarIcon />} title="Event trigger">
-              <FieldGrid min={160}>
-                <Field label="Trigger" value={item.eventTriggerLabel} />
-                <Field label="Deadline mode" value={item.eventDeadlineMode} />
-                <Field label="Deadline" value={item.eventDeadlineDays != null ? `${item.eventDeadlineDays} ${item.eventDeadlineUnit?.toLowerCase() || ''} day(s)` : '—'} />
-              </FieldGrid>
-            </Section>
-          )}
-
-          <Section icon={<LinkIcon />} title={`Linked obligations (${obligations.length})`}>
-            {obligations.length === 0 ? (
-              <Alert severity="warning">This return is not linked to any obligation — its filing has no documented duty behind it.</Alert>
-            ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Obligation</TableCell>
-                      <TableCell sx={{ width: 120 }}>Section</TableCell>
-                      <TableCell sx={{ width: 140 }}>Area</TableCell>
-                      <TableCell sx={{ width: 110 }}>Risk</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {obligations.map((o, i) => (
-                      <TableRow key={o.obligationId ?? i} hover sx={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/obligations/${o.obligationId}`)}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>{o.title || o.name || `Obligation #${o.obligationId}`}</Typography>
-                          {o.plainEnglishStatement && <Typography variant="caption" color="text.secondary" display="block">{o.plainEnglishStatement}</Typography>}
-                        </TableCell>
-                        <TableCell>{o.sectionReference ? <Chip size="small" variant="outlined" label={o.sectionReference} sx={{ fontFamily: 'Roboto Mono, monospace', fontSize: '0.7rem' }} /> : '—'}</TableCell>
-                        <TableCell>{o.areaOfFocus || '—'}</TableCell>
-                        <TableCell><RiskBadge value={o.inherentRiskRating} /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Section>
-        </>
-      )}
-
-      {/* ── Filings (selected current instance) ── */}
-      {tab === 1 && (
         instanceQuery.isPending && selectedInstanceId != null ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>
         ) : selectedInstanceId == null ? (
           <Alert severity="info">
-            {isEventDriven(item)
+            {eventDriven
               ? 'No filing yet. Configure the trigger and record an event to create one.'
               : item.dueDateNeeded
                 ? 'This return needs a due date before periods can be scheduled.'
@@ -292,15 +229,15 @@ export default function ReturnsDetailPage() {
         ) : instanceQuery.error ? (
           <Alert severity="error">{instanceQuery.error.message || 'Failed to load the filing.'}</Alert>
         ) : detail ? (
-          <FilingPanel detail={detail} onRefresh={refresh} onSnackbar={setSnackbar}
-            noPeriodLabel={noPeriodLabel} />
+          <ReturnFilingPanel detail={detail} item={item} periods={actionPeriods}
+            onSelectPeriod={openFiling} onRefresh={refresh} onSnackbar={setSnackbar}
+            highlight={highlightReview} />
         ) : null
       )}
 
-      {/* ── History (recorded periods only) ── */}
-      {tab === 2 && (
-        <HistoryTable filings={recordedFilings} isEventDriven={isEventDriven(item)}
-          selectedId={selectedInstanceId} onOpen={openFiling} loading={filingsQuery.isPending} />
+      {tab === 1 && (
+        <ReturnHistoryTable filings={closedFilings} selectedId={selectedInstanceId}
+          onOpen={openFiling} loading={filingsQuery.isPending} />
       )}
 
       {canEditSchedule && (
@@ -319,327 +256,12 @@ export default function ReturnsDetailPage() {
       <SendUploadLinkDialog open={sendLinkOpen} item={item}
         onClose={() => setSendLinkOpen(false)} onSnackbar={setSnackbar} />
       {policyOpen && <ReturnEscalationPolicyDialog open item={item} onClose={() => setPolicyOpen(false)}
-        onSnackbar={setSnackbar} onSaved={() => setSnackbar('Escalation policy saved.')} />}
+        onSnackbar={setSnackbar} onSaved={() => { setSnackbar('Escalation policy saved.'); refresh(); }} />}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
       </Snackbar>
-    </Box>
-  );
-}
-
-function dueRuleText(item) {
-  if (item.dueDateNeeded) return 'Due date needed';
-  if (item.dueRuleType === 'OFFSET') return `${item.daysAfterPeriodEnd} day(s) after period end`;
-  if (item.dueRuleType === 'DATE' && item.firstDueDate) return `Fixed — first ${formatDate(item.firstDueDate)}`;
-  if (isEventDriven(item)) return 'On event (no schedule)';
-  return '—';
-}
-
-/* ───────── History table ───────── */
-function HistoryTable({ filings, isEventDriven, selectedId, onOpen, loading }) {
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>;
-  if (!filings.length) return <Alert severity="info">No filing periods yet.</Alert>;
-  return (
-    <TableContainer component={Paper}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Period</TableCell>
-            <TableCell>Due date</TableCell>
-            <TableCell>Stage</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell sx={{ width: 90 }} />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filings.map((f) => {
-            const st = f.isOverdue && f.status !== 'Submitted' && f.status !== 'Submitted Late' ? 'Overdue' : f.status;
-            return (
-              <TableRow key={f.instanceId} hover selected={f.instanceId === selectedId}
-                sx={{ cursor: 'pointer', bgcolor: f.isOverdue ? '#FFF5F5' : 'inherit' }}
-                onClick={() => onOpen(f.instanceId)}>
-                <TableCell>
-                  {f.triggerDate ? `Event · ${formatDate(f.triggerDate)}` : (f.period || '—')}
-                </TableCell>
-                <TableCell>
-                  {formatDate(f.dueDate)}
-                  {f.dueDateAdjusted && <Tooltip title="Moved to the next working day"><span><StatusBadge label="Adjusted" tone="gray" sx={{ ml: 1 }} /></span></Tooltip>}
-                </TableCell>
-                <TableCell>{f.currentStage || '—'}</TableCell>
-                <TableCell>{statusBadge(st)}</TableCell>
-                <TableCell>
-                  <Button size="small" onClick={(e) => { e.stopPropagation(); onOpen(f.instanceId); }}>Open</Button>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-}
-
-/* ───────── Filing panel (one instance) ───────── */
-function FilingPanel({ detail, onRefresh, onSnackbar, noPeriodLabel }) {
-  const { user } = useAuth();
-  const canReview = REVIEW_ROLES.includes(user?.role);
-  const [advanceOpen, setAdvanceOpen] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [escalationOpen, setEscalationOpen] = useState(false);
-  const isCompleted = detail.currentStage === 'Completed';
-  async function startFiling() {
-    setStarting(true);
-    try { await api.returns.advance(detail.instanceId, {}); onRefresh(); }
-    catch (e) { onSnackbar(e.message); }
-    finally { setStarting(false); }
-  }
-  const currentStageIdx = (detail.stages || []).findIndex(s => s.current) >= 0
-    ? (detail.stages || []).findIndex(s => s.current)
-    : STAGE_NAMES.indexOf(detail.currentStage);
-  const nextStage = currentStageIdx >= 0 && currentStageIdx < STAGE_NAMES.length - 1
-    ? STAGE_NAMES[currentStageIdx + 1] : null;
-
-  return (
-    <Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<CalendarDaysIcon />} label="Due Date"
-          value={detail.dueDate ? formatDate(detail.dueDate) : noPeriodLabel(detail)} />
-        <StatTile icon={<CheckCircleIcon />} label="Status" accent={statusAccent(detail.status)}
-          chip={statusBadge(detail.status)} />
-        <StatTile icon={<ClockIcon />} label="Days Late"
-          value={detail.daysLate > 0 ? `${detail.daysLate}` : '—'}
-          accent={detail.daysLate > 0 ? '#E53E3E' : '#2D7D46'} />
-        <StatTile icon={<ExclamationCircleIcon />} label="Escalation"
-          value={detail.escalationLevel > 0 ? `Level ${detail.escalationLevel}` : 'None'}
-          accent={detail.escalationLevel > 0 ? '#E53E3E' : '#2B6CB0'} />
-      </Box>
-
-      <Section icon={<CalendarIcon />} title="Filing"
-        action={(
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {detail.currentStage && <Chip size="small" variant="outlined" label={detail.currentStage} />}
-            <Button size="small" variant="outlined" onClick={() => setEscalationOpen(true)}>Escalation</Button>
-          </Box>
-        )}>
-        <FieldGrid min={160}>
-          <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'On event' : '—')} />
-          <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
-          <Field label="Prep Start" value={detail.prepStartDate ? formatDate(detail.prepStartDate) : '—'} />
-          <Field label="Filing Channel" value={detail.filingChannel} />
-          <Field label="Return Owner" value={detail.returnOwnerName} />
-          {detail.deadlineText && <Field label="Regulator Wording" value={detail.deadlineText} />}
-        </FieldGrid>
-      </Section>
-
-      {(detail.eventTriggerDate || detail.eventTriggerLabel) && (
-        <Section icon={<CalendarIcon />} title="Event Trigger">
-          <FieldGrid min={160}>
-            <Field label="Trigger" value={detail.eventTriggerLabel} />
-            <Field label="Trigger Date" value={detail.eventTriggerDate ? formatDate(detail.eventTriggerDate) : '—'} />
-            <Field label="Reference" value={detail.eventReference} />
-            <Field label="Base Deadline" value={detail.eventUnadjustedDueDate ? formatDate(detail.eventUnadjustedDueDate) : '—'} />
-            <Field label="Adjusted">
-              {detail.eventDueDateAdjusted
-                ? <StatusBadge label="Moved to next working day" tone="gray" />
-                : <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>No</Typography>}
-            </Field>
-            {detail.eventEvidenceFileId && (
-              <Field label="Evidence"><EvidenceFileButton fileId={detail.eventEvidenceFileId} /></Field>
-            )}
-          </FieldGrid>
-        </Section>
-      )}
-
-      {detail.escalationLevel > 0 && (
-        <Section icon={<ExclamationTriangleIcon />} title="Escalation">
-          <Alert severity="error">
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Escalated · Level {detail.escalationLevel} · {ESCALATION_ROLE[detail.escalationLevel] || 'Management'}
-            </Typography>
-            {detail.escalatedAt && <Typography variant="caption">Escalated since {formatDate(detail.escalatedAt)}</Typography>}
-          </Alert>
-        </Section>
-      )}
-
-      <Section icon={<QueueListIcon />} title="Stages"
-        action={detail.currentStage ? <Chip size="small" variant="outlined" label={detail.currentStage} /> : null}>
-        <Stepper activeStep={currentStageIdx} alternativeLabel sx={{ mb: 2 }}>
-          {detail.stages && detail.stages.map((stage, i) => (
-            <Step key={i} completed={stage.completed} active={stage.current}>
-              <StepLabel>
-                <Typography sx={{
-                  fontSize: '0.8125rem',
-                  fontWeight: i === currentStageIdx ? 700 : 500,
-                  color: i === currentStageIdx ? 'primary.main' : (stage.completed ? 'text.secondary' : 'text.disabled'),
-                }}>{stage.name}</Typography>
-              </StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {detail.stages?.some((s) => s.completedAt || s.evidenceUrl) && (
-          <Box sx={{ mb: 2 }}>
-            {detail.stages.map((stage, i) => (stage.completedAt || stage.evidenceUrl) ? (
-              <Typography key={i} variant="caption" color="text.secondary" display="block">
-                {stage.name}
-                {stage.completedAt ? `: completed ${formatDate(stage.completedAt)}` : ''}
-                {stage.completedByName ? ` by ${stage.completedByName}` : ''}
-                {stage.evidenceUrl && (
-                  <> · <Link href={stage.evidenceUrl} target="_blank" rel="noopener" variant="caption"
-                    sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                    <LinkIcon size={14} /> Evidence
-                  </Link></>
-                )}
-              </Typography>
-            ) : null)}
-          </Box>
-        )}
-
-        {!isCompleted && detail.currentStage === 'Not Started' && (
-          <Box sx={{ textAlign: 'center' }}>
-            <Button size="small" variant="contained" onClick={startFiling} disabled={starting}>
-              {starting ? 'Starting…' : 'Start filing'}
-            </Button>
-          </Box>
-        )}
-
-        {detail.currentStage === 'Data Gathering' && (
-          detail.pendingReview ? (
-            <ReviewPanel detail={detail} gate="data" canAct onDone={onRefresh} onSnackbar={onSnackbar} />
-          ) : (
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Waiting for the responsible person to submit the filing data.
-              </Typography>
-            </Box>
-          )
-        )}
-
-        {detail.currentStage === 'Draft' && (
-          <Box sx={{ textAlign: 'center' }}>
-            <Button size="small" variant="outlined" onClick={() => setAdvanceOpen(true)}>
-              Submit report to CCO → Review
-            </Button>
-          </Box>
-        )}
-
-        {detail.currentStage === 'Review' && (
-          detail.pendingReview && canReview ? (
-            <ReviewPanel detail={detail} gate="report" canAct onDone={onRefresh} onSnackbar={onSnackbar} />
-          ) : (
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">Awaiting CCO review.</Typography>
-            </Box>
-          )
-        )}
-
-        {isCompleted && (
-          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'success.50', borderRadius: 1 }}>
-            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CheckCircleIcon size={18} sx={{ color: 'success.main' }} />
-              Completed {detail.completedAt ? formatDate(detail.completedAt) : ''}{detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
-            </Typography>
-            {detail.submissionEvidenceUrl && (
-              <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">View evidence</Link>
-            )}
-          </Box>
-        )}
-      </Section>
-
-      {detail.notes && (
-        <Section icon={<DocumentTextIcon />} title="Notes">
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '0.85rem' }}>{detail.notes}</Typography>
-        </Section>
-      )}
-
-      <AdvanceDialog open={advanceOpen} onClose={() => setAdvanceOpen(false)}
-        instanceId={detail.instanceId} stageName={detail.currentStage} nextStageName={nextStage}
-        onSaved={() => { setAdvanceOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
-      <EscalationOverrideDialog open={escalationOpen} instanceId={detail.instanceId}
-        onClose={() => setEscalationOpen(false)} onSnackbar={onSnackbar} />
-    </Box>
-  );
-}
-
-function AdvanceDialog({ open, onClose, instanceId, stageName, nextStageName, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ evidenceUrl: '', completedByName: '' });
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    setSaving(true);
-    try { await api.returns.advance(instanceId, form); onSaved(); }
-    catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
-  };
-  useEffect(() => { if (open) setForm({ evidenceUrl: '', completedByName: '' }); }, [open]);
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Advance Stage</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          Mark "{stageName}" complete and advance to "{nextStageName}"
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12 }}><TextField label="Evidence URL (optional)" fullWidth size="small" value={form.evidenceUrl}
-            onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Completed by name" fullWidth size="small" value={form.completedByName}
-            onChange={e => setForm(f => ({ ...f, completedByName: e.target.value }))} /></Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? 'Advancing...' : `Advance to ${nextStageName}`}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-/* ───────── Review gate (Data Gathering: analyst accepts data → Draft; Review: CCO accepts → Completed) ───────── */
-function ReviewPanel({ detail, gate, canAct, onDone, onSnackbar }) {
-  const [notes, setNotes] = useState('');
-  const [busy, setBusy] = useState(false);
-  const isData = gate === 'data';
-  if (!canAct) return null;
-
-  const decide = async (decision) => {
-    setBusy(true);
-    try {
-      const fn = isData ? api.returns.dataReview : api.returns.review;
-      await fn(detail.instanceId, { decision, notes });
-      onSnackbar?.(decision === 'ACCEPT'
-        ? (isData ? 'Data accepted — moved to Draft.' : 'Report accepted — filing completed.')
-        : (isData ? 'Data rejected — the link has been re-sent.' : 'Changes requested — moved back to Draft.'));
-      onDone();
-    } catch (e) { onSnackbar?.(e.message); }
-    finally { setBusy(false); }
-  };
-
-  const ev = detail.reviewEvidenceRef;
-  const evIsUrl = typeof ev === 'string' && /^https?:\/\//i.test(ev);
-  return (
-    <Box sx={{ textAlign: 'left', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        {isData ? 'Submitted data — review before drafting' : 'Drafted report — review'}
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.5, mb: 1.5 }}>
-        <Field label="Submitted by" value={detail.reviewSubmittedByName || '—'} />
-        <Field label="Submitted at" value={detail.reviewSubmittedAt ? new Date(detail.reviewSubmittedAt).toLocaleString() : '—'} />
-        <Field label="Evidence" value={ev
-          ? (evIsUrl ? <Link href={ev} target="_blank" rel="noopener" variant="body2">Open / download</Link> : ev)
-          : '—'} />
-      </Box>
-      <TextField fullWidth size="small" multiline minRows={2} label="Notes (optional)"
-        value={notes} onChange={(e) => setNotes(e.target.value)} sx={{ mb: 1.5 }} />
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <Button size="small" variant="contained" color="success" disabled={busy} onClick={() => decide('ACCEPT')}>
-          {isData ? 'Accept data → Draft' : 'Accept → Complete'}
-        </Button>
-        <Button size="small" variant="outlined" color="error" disabled={busy} onClick={() => decide('REJECT')}>
-          {isData ? 'Reject & re-send link' : 'Request changes'}
-        </Button>
-      </Box>
     </Box>
   );
 }
@@ -683,7 +305,7 @@ function SendUploadLinkDialog({ open, item, onClose, onSnackbar }) {
           value={email} onChange={(v) => setEmail(v || '')} disabled={!!link} />
         {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         {link && (
-          <TextField fullWidth size="small" label="Link" value={link} onFocus={e => e.target.select()}
+          <TextField fullWidth size="small" label="Link" value={link} onFocus={(e) => e.target.select()}
             slotProps={{ input: { readOnly: true } }} sx={{ mt: 2 }} />
         )}
       </DialogContent>
@@ -695,20 +317,4 @@ function SendUploadLinkDialog({ open, item, onClose, onSnackbar }) {
       </DialogActions>
     </Dialog>
   );
-}
-
-function EvidenceFileButton({ fileId }) {
-  const query = useQuery({ queryKey: ['evidence', String(fileId)], queryFn: ({ signal }) => api.evidence.detail(fileId, { signal }) });
-  const [error, setError] = useState('');
-  async function download() {
-    setError('');
-    try {
-      const file = await api.evidence.download(fileId);
-      const url = URL.createObjectURL(file.blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = file.name; link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) { setError(e.message || 'Evidence download failed'); }
-  }
-  return <Tooltip title={error || query.data?.originalName || 'Download trigger evidence'}><Button size="small" onClick={download} disabled={query.isPending || query.isError}>{query.isPending ? 'Loading…' : 'Evidence file'}</Button></Tooltip>;
 }

@@ -28,7 +28,7 @@ public class TaskCenterController {
             @AuthenticationPrincipal User u,
             Pageable p) {
         return ResponseEntity.ok(service.page(assignee, category, priority, q, ownerUserId,
-            u == null ? null : u.getUserId(), p));
+            u == null ? null : u.getUserId(), u == null ? null : u.getRole(), p));
     }
 
     @GetMapping("/stats")
@@ -37,6 +37,7 @@ public class TaskCenterController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer ownerUserId,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.stats(assignee, category, ownerUserId, u == null ? null : u.getUserId()));
+        return ResponseEntity.ok(service.stats(assignee, category, ownerUserId, u == null ? null : u.getUserId(),
+            u == null ? null : u.getRole()));
     }
 }

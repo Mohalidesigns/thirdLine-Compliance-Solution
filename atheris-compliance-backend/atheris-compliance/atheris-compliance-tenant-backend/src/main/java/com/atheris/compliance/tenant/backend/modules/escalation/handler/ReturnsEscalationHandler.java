@@ -85,7 +85,8 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
                 NotificationConstants.CATEGORY_RETURNS,
                 extra,
                 r.getFrequencyType(),
-                instance.getCurrentStage() == ReturnStage.DATA_GATHERING,
+                instance.getCurrentStage() == ReturnStage.DATA_GATHERING
+                    || instance.getCurrentStage() == ReturnStage.NOT_STARTED,
                 instance.getCurrentStage() != null && instance.getCurrentStage() != ReturnStage.NOT_STARTED,
                 oldestPerReturn.add(r.getReturnId())));
         }

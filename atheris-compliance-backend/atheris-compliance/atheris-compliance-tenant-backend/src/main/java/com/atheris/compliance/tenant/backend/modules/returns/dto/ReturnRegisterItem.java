@@ -27,13 +27,15 @@ public class ReturnRegisterItem {
     private String responsiblePerson;
     private List<String> responsibleUnits;
     private List<String> responsiblePersons;
+    private String returnOwnerName;
+    private String filingChannel;
     private Long escalationPolicyId;
     private String currentPeriod;
     private LocalDate currentDueDate;
     private String currentStatus;
     private String currentStage;
     private Long currentInstanceId;
-    private List<InstanceSummary> upcomingInstances;
+    private List<ProjectedPeriod> projectedInstances;
     private int totalInstances;
     private int overdueCount;
     private boolean hasOverdue;
@@ -59,11 +61,8 @@ public class ReturnRegisterItem {
     private long eventOverdueCount;
 
     @Data @Builder
-    public static class InstanceSummary {
-        private Long instanceId;
+    public static class ProjectedPeriod {
         private String period;
         private LocalDate dueDate;
-        private String status;
-        private String stage;
     }
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,7 @@ public class EscalationDeliveryService {
         String internalLink = candidate.linkBase() + candidate.linkSubjectId();
         String emailLink = publicLink != null && !publicLink.isBlank() ? publicLink : internalLink;
         String absoluteLink = email.baseUrl() + emailLink;
-        List<String> cc = owner != null && owner.hasEmail() ? List.of(owner.email()) : List.of();
+        List<String> cc = ccTargets(candidate, owner);
 
         for (EscalationTarget target : targets) {
             Map<String, String> vars = new HashMap<>(baseVars);
@@ -43,7 +44,8 @@ public class EscalationDeliveryService {
             String body = rendered.body() != null ? rendered.body() : summary;
 
             if (target.role() != null) {
-                notifications.notifyRoleEmailed(target.role(), candidate.category(), severity, summary, internalLink, subject);
+                notifications.notifyRoleEmailed(target.role(), candidate.category(), severity, summary, internalLink,
+                    subject, body, cc);
                 continue;
             }
             if (target.userId() != null) {
@@ -54,6 +56,16 @@ public class EscalationDeliveryService {
                 email.send(to, cc, subject, body, absoluteLink);
             }
         }
+    }
+
+    List<String> ccTargets(EscalationCandidate candidate, Person owner) {
+        List<String> cc = new ArrayList<>();
+        if (owner != null && owner.hasEmail()) cc.add(owner.email());
+        List<Person> assignees = candidate.assignees() == null ? List.of() : candidate.assignees();
+        for (Person p : assignees) {
+            if (p.hasEmail()) cc.add(p.email());
+        }
+        return cc;
     }
 
     private String displayName(EscalationTarget target) {

@@ -71,13 +71,26 @@ public class NotificationService {
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject) {
+        notifyRoleEmailed(role, category, severity, summary, link, subject, null);
+    }
+
+    @Transactional
+    public void notifyRoleEmailed(String role, String category, String severity,
+                                  String summary, String link, String subject, String emailBody) {
+        notifyRoleEmailed(role, category, severity, summary, link, subject, emailBody, null);
+    }
+
+    @Transactional
+    public void notifyRoleEmailed(String role, String category, String severity,
+                                  String summary, String link, String subject, String emailBody, List<String> cc) {
         notifyRole(role, category, severity, summary, link);
+        String body = emailBody != null && !emailBody.isBlank() ? emailBody : summary;
         List<User> holders = users.findByRole(role);
         for (User u : holders) {
             if (Boolean.FALSE.equals(u.getIsActive())) {
                 continue;
             }
-            email.send(u.getEmail(), subject, summary, absolute(link));
+            email.send(u.getEmail(), cc, subject, body, absolute(link));
         }
     }
 

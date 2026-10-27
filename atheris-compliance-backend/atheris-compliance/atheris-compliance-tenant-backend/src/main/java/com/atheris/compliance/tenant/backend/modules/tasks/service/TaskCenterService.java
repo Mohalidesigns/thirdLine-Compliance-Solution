@@ -23,6 +23,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.repository.Regulato
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
 import com.atheris.compliance.tenant.backend.modules.tasks.dto.TaskItemDto;
 import com.atheris.compliance.tenant.backend.modules.tasks.dto.TaskStatsDto;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import lombok.RequiredArgsConstructor;
@@ -66,8 +67,8 @@ public class TaskCenterService {
 
     @Transactional(readOnly = true)
     public Page<TaskItemDto> page(String assignee, String category, String priority, String q,
-                                  Integer ownerUserId, Integer currentUserId, Pageable pageable) {
-        List<TaskItemDto> all = build(assignee, category, priority, q, ownerUserId, currentUserId);
+                                  Integer ownerUserId, Integer currentUserId, String currentUserRole, Pageable pageable) {
+        List<TaskItemDto> all = build(assignee, category, priority, q, ownerUserId, currentUserId, currentUserRole);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<TaskItemDto> slice = start >= all.size() ? List.of() : all.subList(start, end);
@@ -76,7 +77,7 @@ public class TaskCenterService {
 
     @Transactional(readOnly = true)
     public List<TaskItemDto> build(String assignee, String category, String priority, String q,
-                                   Integer ownerUserId, Integer currentUserId) {
+                                   Integer ownerUserId, Integer currentUserId, String currentUserRole) {
         List<TaskItemDto> all = new ArrayList<>();
         all.addAll(returnsTasks());
         all.addAll(controlsTasks());
@@ -84,7 +85,7 @@ public class TaskCenterService {
         all.addAll(obligationsTasks());
         boolean mine = !"all".equalsIgnoreCase(assignee == null || assignee.isBlank() ? "me" : assignee);
         return all.stream()
-            .filter(t -> !mine || (t.getOwnerUserId() != null && t.getOwnerUserId().equals(currentUserId)))
+            .filter(t -> !mine || (t.getOwnerUserId() != null && t.getOwnerUserId().equals(currentUserId)) || actionableByRole(t, currentUserRole))
             .filter(t -> category == null || category.isBlank() || category.equalsIgnoreCase(t.getCategory()))
             .filter(t -> priority == null || priority.isBlank() || priority.equalsIgnoreCase(t.getPriority()))
             .filter(t -> ownerUserId == null || ownerUserId.equals(t.getOwnerUserId()))
@@ -95,9 +96,15 @@ public class TaskCenterService {
             .toList();
     }
 
+    private static boolean actionableByRole(TaskItemDto task, String role) {
+        if (task == null || role == null || task.getOwnerUserId() != null) return false;
+        return "RETURN_REPORT_REVIEW".equals(task.getType())
+            && (AppRole.CCO.equals(role) || AppRole.TENANT_ADMIN.equals(role));
+    }
+
     @Transactional(readOnly = true)
-    public TaskStatsDto stats(String assignee, String category, Integer ownerUserId, Integer currentUserId) {
-        List<TaskItemDto> all = build(assignee, null, null, null, ownerUserId, currentUserId);
+    public TaskStatsDto stats(String assignee, String category, Integer ownerUserId, Integer currentUserId, String currentUserRole) {
+        List<TaskItemDto> all = build(assignee, null, null, null, ownerUserId, currentUserId, currentUserRole);
         List<TaskItemDto> scoped = category == null || category.isBlank() ? all
             : all.stream().filter(t -> category.equalsIgnoreCase(t.getCategory())).toList();
         LocalDate today = LocalDate.now();
@@ -151,7 +158,9 @@ public class TaskCenterService {
                     .priority("HIGH").dueDate(i.getDueDate()).daysRemaining((int) days)
                     .ownerName(r.getReturnOwnerName()).ownerUserId(reviewOwner)
                     .stage(stage.db())
-                    .linkPath("/returns/" + r.getReturnId()).actionLabel(rlabel).actionType("OPEN")
+                    .linkPath("/returns/" + r.getReturnId() + "?instanceId=" + i.getInstanceId()
+                        + "&review=" + (stage == ReturnStage.DATA_GATHERING ? "data" : "report"))
+                    .actionLabel(rlabel).actionType("OPEN")
                     .sourceRef(Map.of("returnId", r.getReturnId(), "instanceId", i.getInstanceId()))
                     .build());
                 continue;
@@ -181,7 +190,8 @@ public class TaskCenterService {
                 .priority(priority).dueDate(i.getDueDate()).daysRemaining((int) days)
                 .ownerName(r.getReturnOwnerName()).ownerUserId(ownerId)
                 .stage(stage == null ? null : stage.db()).escalationLevel(i.getEscalationLevel())
-                .linkPath("/returns/" + r.getReturnId()).actionLabel(label).actionType(action)
+                .linkPath("/returns/" + r.getReturnId() + "?instanceId=" + i.getInstanceId())
+                .actionLabel(label).actionType(action)
                 .sourceRef(Map.of("returnId", r.getReturnId(), "instanceId", i.getInstanceId()))
                 .build());
         }
@@ -191,10 +201,13 @@ public class TaskCenterService {
 
     private void merge(Map<Long, TaskItemDto> best, Long returnId, TaskItemDto candidate) {
         TaskItemDto current = best.get(returnId);
-        if (current == null
-            || RANK.getOrDefault(candidate.getPriority(), 9) < RANK.getOrDefault(current.getPriority(), 9)) {
-            best.put(returnId, candidate);
-        }
+        if (current == null || score(candidate) < score(current)) best.put(returnId, candidate);
+    }
+
+    private static int score(TaskItemDto task) {
+        int rank = RANK.getOrDefault(task.getPriority(), 9);
+        boolean reviewGate = task.getType() != null && task.getType().endsWith("_REVIEW");
+        return rank * 10 + (reviewGate ? 0 : 1);
     }
 
     private List<TaskItemDto> controlsTasks() {

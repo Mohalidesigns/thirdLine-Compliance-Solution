@@ -466,8 +466,11 @@ export const api = {
     stats: (opts = {}) => request('/returns/stats', { signal: opts.signal }),
     // One return's register row by id (the returns details page).
     get: (returnId, opts = {}) => request(`/returns/${returnId}`, { signal: opts.signal }),
+    escalation: (returnId, opts = {}) => request(`/returns/${returnId}/escalation`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/returns/instances/${id}/detail`, { signal: opts.signal }),
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
+    // Attach the drafted report and send it to the CCO (Draft -> Review). Multipart: >=1 file + optional notes.
+    submitDraft: (id, formData) => rawRequest(`/returns/instances/${id}/submit-draft`, { method: 'PUT', body: formData }),
     // Review the data submitted by the responsible person at Data Gathering (analyst). ACCEPT → Draft; REJECT → re-send link.
     dataReview: (id, data) => request(`/returns/instances/${id}/data-review`, { method: 'PUT', body: JSON.stringify(data) }),
     // Review the drafted report at the Review stage (CCO). ACCEPT → Completed; REJECT → request changes (back to Draft).

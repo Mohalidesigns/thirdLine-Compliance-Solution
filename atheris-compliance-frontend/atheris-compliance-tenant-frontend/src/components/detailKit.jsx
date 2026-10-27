@@ -48,7 +48,7 @@ export function Field({ label, value, mono, children }) {
       <Typography component="span" sx={LABEL_SX}>{label}</Typography>
       <Box sx={{ mt: 0.5 }}>
         {children || (
-          <Typography sx={{
+          <Typography component="div" sx={{
             fontSize: mono ? '0.75rem' : '0.875rem', lineHeight: '1.25rem', color: mono ? TL.gray500 : TL.gray700,
             wordBreak: 'break-word', fontFamily: mono ? TL.mono : undefined,
           }}>

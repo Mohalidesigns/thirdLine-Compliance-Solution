@@ -410,12 +410,15 @@ public class EscalationPolicyService {
     }
 
     private EscalationInstanceDto toInstanceDto(EscalationInstance i) {
+        EscalationPolicy source = i.getSourcePolicyId() == null ? null
+            : policies.findById(i.getSourcePolicyId()).orElse(null);
         return EscalationInstanceDto.builder()
             .overrideId(i.getOverrideId()).subjectType(i.getSubjectType()).subjectId(i.getSubjectId())
             .sourcePolicyId(i.getSourcePolicyId())
             .reminderStartValue(i.getReminderStartValue()).reminderStartUnit(i.getReminderStartUnit())
             .reminderRepeatValue(i.getReminderRepeatValue()).reminderRepeatUnit(i.getReminderRepeatUnit())
             .sendLink(i.getSendLink()).active(i.getActive())
+            .notifyOnStart(source == null ? null : source.getNotifyOnStart())
             .levels(instanceLevels.findByOverrideIdOrderByLevelNoAsc(i.getOverrideId()).stream().map(this::toLevelDto).toList())
             .build();
     }
