@@ -129,7 +129,6 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
                 ? `${escalation.reminderRepeatValue} ${(escalation.reminderRepeatUnit || '').toLowerCase()}`
                 : '—'} />
               <Field label="Filing link in emails" value={escalation.sendLink ? 'Yes' : 'No'} />
-              <Field label="Notify when started" value={escalation.notifyOnStart ? 'Yes' : 'No'} />
             </FieldGrid>
             <Box sx={{ mt: 2 }}>
               <Typography variant="overline" color="text.secondary">Ladder (after the due date)</Typography>

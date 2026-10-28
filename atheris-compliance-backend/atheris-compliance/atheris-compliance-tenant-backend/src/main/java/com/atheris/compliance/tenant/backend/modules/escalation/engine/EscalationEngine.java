@@ -66,12 +66,6 @@ public class EscalationEngine {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime dueAt = candidate.dueAt();
 
-        if (Boolean.TRUE.equals(config.getNotifyOnStart())
-            && Boolean.TRUE.equals(candidate.gatheringReady())
-            && !fired(candidate, EscalationConstants.TRIGGER_GATHERING, 0)) {
-            fire(candidate, null, EscalationConstants.TRIGGER_GATHERING, 0, now, Boolean.TRUE.equals(config.getSendLink()));
-        }
-
         LocalDateTime approachAt = approachAt(candidate, config);
         boolean remind = candidate.remindable()
             && (candidate.started()
@@ -166,7 +160,6 @@ public class EscalationEngine {
     }
 
     private String templateKey(EscalationCandidate candidate, String trigger) {
-        if (EscalationConstants.TRIGGER_GATHERING.equals(trigger)) return EscalationConstants.KEY_RETURN_GATHERING;
         boolean control = EscalationConstants.SUBJECT_CONTROL.equals(candidate.subjectType());
         if (EscalationConstants.TRIGGER_OVERDUE.equals(trigger)) {
             return control ? EscalationConstants.KEY_CONTROL_OVERDUE : EscalationConstants.KEY_RETURN_OVERDUE;

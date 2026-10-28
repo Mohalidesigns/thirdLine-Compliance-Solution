@@ -18,15 +18,14 @@ public record EscalationCandidate(
     String category,
     Map<String, String> extraVars,
     String frequencyScope,
-    Boolean gatheringReady,
     boolean started,
     boolean remindable
 ) {
     public EscalationCandidate(String subjectType, Long subjectId, String subjectLabel, Long subjectPolicyId,
                                List<Person> assignees, Person owner, LocalDateTime dueAt, LocalDateTime approachAt,
                                Long linkSubjectId, String linkBase, String category, Map<String, String> extraVars,
-                               String frequencyScope, Boolean gatheringReady, boolean started) {
+                               String frequencyScope, boolean started) {
         this(subjectType, subjectId, subjectLabel, subjectPolicyId, assignees, owner, dueAt, approachAt,
-            linkSubjectId, linkBase, category, extraVars, frequencyScope, gatheringReady, started, true);
+            linkSubjectId, linkBase, category, extraVars, frequencyScope, started, true);
     }
 }

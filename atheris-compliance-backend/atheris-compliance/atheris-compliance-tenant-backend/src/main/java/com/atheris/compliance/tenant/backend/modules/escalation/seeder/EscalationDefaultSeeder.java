@@ -28,7 +28,7 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
             seed(EscalationConstants.SUBJECT_RETURN, null, "Standard Return Escalation",
                 10, 2, true, true, standardLevels(0, 3, 7));
             seed(EscalationConstants.SUBJECT_RETURN, "DAILY", "Daily Return Escalation",
-                12, 12, true, true, standardLevels(0, 1, 2), EscalationConstants.UNIT_HOURS, 0, 1);
+                12, 12, true, true, standardLevels(1, 2, 3), EscalationConstants.UNIT_HOURS, 0, 1);
             seed(EscalationConstants.SUBJECT_RETURN, "WEEKLY", "Weekly Return Escalation",
                 2, 1, true, true, standardLevels(0, 2, 4));
             seed(EscalationConstants.SUBJECT_RETURN, "MONTHLY", "Monthly Return Escalation",

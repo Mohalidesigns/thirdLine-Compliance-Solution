@@ -53,7 +53,7 @@ public class EmailService {
         }
 
         String full = link != null && !link.isBlank() ? body + "\n\n" + link + "\n" : body;
-        String text = full + "\n— The Atheris Platform";
+        String text = full + "\n— Verity Compliance Platform";
 
         SmtpSettingsService.Outbound outbound = resolveOutbound();
         if (outbound == null) {

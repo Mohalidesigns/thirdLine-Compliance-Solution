@@ -36,7 +36,6 @@ function defaultLevels() {
 function emptyPolicy() {
   return {
     name: '', subjectType: 'RETURN', isDefault: false, isActive: true, sendLink: true,
-    notifyOnStart: false,
     reminderStartValue: 10, reminderStartUnit: 'DAYS',
     reminderRepeatValue: 2, reminderRepeatUnit: 'DAYS',
     levels: defaultLevels(),
@@ -231,8 +230,6 @@ function PolicyDialog({ value, saving, onClose, onSave }) {
               label="Default policy for this type" />
             <FormControlLabel control={<Checkbox checked={!!form.sendLink} onChange={e => set('sendLink', e.target.checked)} />}
               label="Include a filing link in reminders" />
-            <FormControlLabel control={<Checkbox checked={!!form.notifyOnStart} onChange={e => set('notifyOnStart', e.target.checked)} />}
-              label="Email the responsible person when the filing starts (data gathering)" />
             <FormControlLabel control={<Checkbox checked={form.isActive !== false} onChange={e => set('isActive', e.target.checked)} />}
               label="Active" />
           </Grid>

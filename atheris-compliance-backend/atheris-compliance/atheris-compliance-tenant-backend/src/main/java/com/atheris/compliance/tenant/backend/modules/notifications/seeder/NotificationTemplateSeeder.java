@@ -17,6 +17,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
 
     private final NotificationTemplateService templates;
 
+    private static final String ESCALATION_DETAILS = "Act/Obligation: {{actObligation}}\n"
+        + "Regulator: {{regulator}}\n"
+        + "Responsible person: {{responsiblePerson}}";
+
     private static final String FILING_DETAILS = "{{returnName}}\n"
         + "Act/Obligation: {{actObligation}}\n"
         + "Regulator: {{regulator}}\n"
@@ -29,21 +33,16 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
         try {
             templates.ensure(EscalationConstants.KEY_RETURN_APPROACHING,
                 "Upcoming filing: {{returnName}}",
-                "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due on {{dueDate}}, {{daysLeft}} day(s) away. "
-                    + "Please start gathering the data and submit the filing.\n\nRegulator: {{regulator}}\nAct: {{actName}}", true);
+                "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due on {{dueDate}}, {{daysLeft}} day(s) away "
+                    + "— please prepare and submit the filing.\n\n" + ESCALATION_DETAILS, true);
             templates.ensure(EscalationConstants.KEY_RETURN_REMINDER,
                 "Reminder: {{returnName}} due {{dueDate}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that {{returnName}} ({{period}}) is still due on {{dueDate}} "
-                    + "({{daysLeft}} day(s) left). Please submit to avoid escalation.", true);
+                    + "({{daysLeft}} day(s) left) — please submit to avoid escalation.\n\n" + ESCALATION_DETAILS, true);
             templates.ensure(EscalationConstants.KEY_RETURN_OVERDUE,
                 "[L{{level}}] Overdue filing: {{returnName}}",
-                "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue. "
-                    + "Escalated to level {{level}}.", true);
-            templates.ensure(EscalationConstants.KEY_RETURN_GATHERING,
-                "Action required: prepare {{returnName}}",
-                "Hi {{recipientName}},\n\nPlease prepare the filing for {{returnName}} ({{period}}), due on {{dueDate}}. "
-                    + "Share the data with the compliance team using the link below.\n\n"
-                    + "Regulator: {{regulator}}\nAct: {{actName}}", true);
+                "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
+                    + ESCALATION_DETAILS + "\nEscalated to level {{level}}.", true);
             templates.ensure(EscalationConstants.KEY_CONTROL_APPROACHING,
                 "Upcoming control test: {{controlName}}",
                 "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}}, "
