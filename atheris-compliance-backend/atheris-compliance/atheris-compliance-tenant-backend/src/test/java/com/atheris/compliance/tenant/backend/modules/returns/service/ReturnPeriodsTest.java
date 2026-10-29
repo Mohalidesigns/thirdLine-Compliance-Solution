@@ -94,4 +94,39 @@ class ReturnPeriodsTest {
     void eventDrivenReturnsHaveNoStep() {
         assertEquals(null, ReturnPeriods.stepFor("EVENT_DRIVEN"));
     }
+
+    @Test
+    void userAnchorInThePastIsHonouredSoTheMissedPeriodShows() {
+        RegulatoryReturn r = explicit(ret("DAILY", LocalDate.of(2026, 10, 24), null));
+        ReturnPeriods.Occurrence first = next(r, null);
+        assertEquals(LocalDate.of(2026, 10, 24), first.due());
+        assertEquals("2026-10-24", first.period());
+        assertEquals(LocalDate.of(2026, 10, 25), next(r, first.due()).due());
+        assertTrue(first.due().isBefore(TODAY));
+    }
+
+    @Test
+    void userMonthlyAnchorInThePastKeepsItsOwnMonthAndDay() {
+        RegulatoryReturn r = explicit(ret("MONTHLY", LocalDate.of(2026, 8, 10), null));
+        ReturnPeriods.Occurrence first = next(r, null);
+        assertEquals(LocalDate.of(2026, 8, 10), first.due());
+        assertEquals("2026-08", first.period());
+        assertEquals(LocalDate.of(2026, 9, 10), next(r, first.due()).due());
+    }
+
+    @Test
+    void platformAnchorInThePastStillRollsForwardToToday() {
+        RegulatoryReturn r = ret("DAILY", LocalDate.of(2026, 10, 24), null);
+        r.setDueDateSource(DueRule.SOURCE_PLATFORM_TEXT);
+        assertEquals(TODAY, next(r, null).due());
+
+        RegulatoryReturn monthly = ret("MONTHLY", LocalDate.of(2026, 8, 10), null);
+        monthly.setDueDateSource(DueRule.SOURCE_PLATFORM_TEXT);
+        assertEquals(LocalDate.of(2026, 11, 10), next(monthly, null).due());
+    }
+
+    private static RegulatoryReturn explicit(RegulatoryReturn r) {
+        r.setDueDateSource(DueRule.SOURCE_USER);
+        return r;
+    }
 }

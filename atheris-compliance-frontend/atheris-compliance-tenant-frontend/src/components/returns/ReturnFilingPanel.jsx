@@ -136,7 +136,7 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
         {detail.currentStage === NOT_STARTED ? (
           <Box sx={{ textAlign: 'center', py: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              This filing has not been started. Start it to hand the data request to the responsible person.
+              This filing has not been started. Starting it opens Data Gathering so the responsible person can submit.
             </Typography>
             <Button size="small" variant="contained" onClick={startFiling} disabled={starting}>
               {starting ? 'Starting…' : 'Start filing'}

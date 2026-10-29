@@ -5,7 +5,8 @@ import { StatusBadge } from 'shared';
 export const WORKFLOW_STAGES = ['Data Gathering', 'Draft', 'Review', 'Completed'];
 export const NOT_STARTED = 'Not Started';
 
-export const SCHEDULE_ROLES = ['CCO', 'TENANT_ADMIN'];
+export const SCHEDULE_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
+export const EDIT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 export const EVENT_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 export const REVIEW_ROLES = ['CCO', 'TENANT_ADMIN'];
 

@@ -35,7 +35,7 @@ function defaultLevels() {
 
 function emptyPolicy() {
   return {
-    name: '', subjectType: 'RETURN', isDefault: false, isActive: true, sendLink: true,
+    name: '', subjectType: 'RETURN', isDefault: true, isActive: true, sendLink: true,
     reminderStartValue: 10, reminderStartUnit: 'DAYS',
     reminderRepeatValue: 2, reminderRepeatUnit: 'DAYS',
     levels: defaultLevels(),
@@ -48,8 +48,8 @@ export default function NotificationsTab() {
   const [error, setError] = useState('');
 
   const policiesQuery = useQuery({
-    queryKey: ['escalation', 'policies'],
-    queryFn: ({ signal }) => api.escalation.policies(null),
+    queryKey: ['escalation', 'policies', 'templates'],
+    queryFn: ({ signal }) => api.escalation.policies(null, { defaultsOnly: true }, { signal }),
   });
 
   const savePolicy = useMutation({
@@ -68,10 +68,14 @@ export default function NotificationsTab() {
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-      <DataCard title="Escalation policies"
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Reusable frequency templates (Daily, Weekly, Monthly …) applied to any return of that frequency, or to a return
+        that has no policy of its own. A single return's escalation is edited on that return's page.
+      </Typography>
+      <DataCard title="Escalation templates"
         actions={(
           <Button size="small" variant="contained" startIcon={<PlusIcon size={16} />}
-            onClick={() => setPolicyEdit(emptyPolicy())}>New policy</Button>
+            onClick={() => setPolicyEdit(emptyPolicy())}>New template</Button>
         )}>
         {policiesQuery.isPending ? <CircularProgress size={22} /> : (
           <TableContainer>

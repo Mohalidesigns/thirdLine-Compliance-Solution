@@ -45,8 +45,9 @@ final class ReturnPeriods {
         }
         LocalDate cursor;
         if (rule != null && rule.kind() == DueRule.Kind.DATE) {
+            boolean explicit = DueRule.SOURCE_USER.equals(ret.getDueDateSource());
             long k = lastDue == null
-                ? firstCycleIndex(rule.firstDueDate(), step, today)
+                ? (explicit ? 0 : firstCycleIndex(rule.firstDueDate(), step, today))
                 : cycleIndex(rule.firstDueDate(), step, lastDue) + 1;
             cursor = nthCycleDate(rule.firstDueDate(), step, k);
         } else {

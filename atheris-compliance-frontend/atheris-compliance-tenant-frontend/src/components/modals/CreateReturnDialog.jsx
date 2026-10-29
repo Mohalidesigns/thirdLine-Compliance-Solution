@@ -31,7 +31,7 @@ const EVENT_DRIVEN = 'On event';
 // Recurring frequencies that need a due rule; without one the return gets no periods.
 const NEEDS_DUE_DATE = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial'];
 // Frequencies whose deadline can be expressed as "N days after the reporting period ends".
-const OFFSET_FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
+const OFFSET_FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 const PERIOD_NOUN = { Monthly: 'month', Quarterly: 'quarter', 'Semi-Annual': 'half-year', Annual: 'year', Biennial: 'two-year' };
 const CYCLE_NOUN = { Daily: 'day', Weekly: 'week', Monthly: 'month', Quarterly: 'quarter', 'Semi-Annual': 'half-year', Annual: 'year', Biennial: 'two years' };
 const offsetSupported = (freq) => OFFSET_FREQUENCIES.includes(freq);
@@ -47,7 +47,7 @@ function Field({ label, children, sx }) {
   );
 }
 
-export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar }) {
+export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar, obligationContext }) {
   const { user } = useAuth();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
@@ -87,17 +87,30 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
 
   useEffect(() => {
     if (open) {
-      setForm({ ...EMPTY, ownerEmail: user?.email || '', ownerName: user?.fullName || '', ownerUserId: user?.userId ?? '' });
+      setForm({
+        ...EMPTY,
+        linkedObligationIds: obligationContext?.obligationId ? [obligationContext.obligationId] : [],
+        tenantRegulatorId: obligationContext?.tenantRegulatorId ? String(obligationContext.tenantRegulatorId) : '',
+        ownerEmail: user?.email || '', ownerName: user?.fullName || '', ownerUserId: user?.userId ?? '',
+      });
       setError(''); setExtraRegulators([]); setLevel2Shown(false);
     }
-  }, [open, user]);
+  }, [open, user, obligationContext]);
+
+  useEffect(() => {
+    if (!open || !obligationContext?.tenantRegulatorId || form.filingRegulator) return;
+    const match = regulators.find(r => String(r.id) === String(obligationContext.tenantRegulatorId));
+    if (match) setForm(f => ({ ...f, filingRegulator: match.abbreviation || match.name || '' }));
+  }, [open, regulators, obligationContext, form.filingRegulator]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const ownerValue = form.ownerEmail ? { email: form.ownerEmail, fullName: form.ownerName, userId: form.ownerUserId || null } : null;
+  const groundedByObligation = !!obligationContext;
+  const grounded = !!form.actId || (form.linkedObligationIds || []).length > 0 || groundedByObligation;
 
   const handleSave = async () => {
     if (!form.returnName.trim()) { setError('Return name is required'); return; }
-    if (!form.actId && !(form.linkedObligationIds || []).length) {
+    if (!grounded) {
       setError('Ground this return to an Act, or link at least one obligation');
       return;
     }
@@ -191,6 +204,15 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
           <TextField fullWidth size="small" required value={form.returnName}
             onChange={e => set('returnName', e.target.value)} />
         </Field>
+        {groundedByObligation ? (
+          <Field label="Grounding">
+            <Typography variant="body2" color="text.secondary">
+              {obligationContext.name
+                ? `Linked to the obligation “${obligationContext.name}”`
+                : 'Linked to the obligation you are creating'}
+            </Typography>
+          </Field>
+        ) : (
         <Field label="Grounding — link obligations, or pick an act below">
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Button size="small" variant="outlined" startIcon={<LinkIcon size={16} />}
@@ -204,6 +226,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             ))}
           </Box>
         </Field>
+        )}
         <Field label="Act">
           <Autocomplete size="small" options={acts}
             getOptionLabel={(o) => o.name || ''}
@@ -211,8 +234,8 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             value={acts.find(a => String(a.regulationId) === String(form.actId)) || null}
             onChange={(_, val) => set('actId', val ? String(val.regulationId) : '')}
             renderInput={(params) => (
-              <TextField {...params} size="small" placeholder="Search act"
-                error={!form.actId && !(form.linkedObligationIds || []).length} />
+              <TextField {...params} size="small" placeholder="Search act" error={!grounded}
+                helperText={groundedByObligation ? 'Optional — this return is grounded by the obligation' : undefined} />
             )} />
         </Field>
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -220,7 +243,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
             <Autocomplete size="small" freeSolo clearOnEscape
               options={regulators}
               getOptionLabel={(o) => (typeof o === 'string' ? o : (o.abbreviation || o.name))}
-              value={regulators.find(r => r.id === form.tenantRegulatorId) || form.filingRegulator || null}
+              value={regulators.find(r => String(r.id) === String(form.tenantRegulatorId)) || form.filingRegulator || null}
               onChange={(_, val) => {
                 if (typeof val === 'string') {
                   set('filingRegulator', val);
@@ -415,7 +438,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar 
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave}
-          disabled={saving || !form.returnName || (!form.actId && !(form.linkedObligationIds || []).length)}>
+          disabled={saving || !form.returnName || !grounded}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create Return'}
         </Button>
       </DialogActions>

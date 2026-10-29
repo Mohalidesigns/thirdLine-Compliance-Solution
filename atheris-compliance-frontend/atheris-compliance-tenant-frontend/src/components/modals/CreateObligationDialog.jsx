@@ -206,6 +206,11 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       {pickerOpen && <LinkControlsPicker open onClose={() => setPickerOpen(false)}
         initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />}
       {returnPickerOpen && <ReturnPicker open onClose={() => setReturnPickerOpen(false)}
+        obligationContext={{
+          obligationId: editing && initial ? initial.obligationId : null,
+          name: form.name,
+          tenantRegulatorId: form.tenantRegulatorId || null,
+        }}
         initialIds={form.linkedReturnIds} onSave={ids => set('linkedReturnIds', ids)} />}
       {regulatorAddOpen && <RegulatorFormDialog open onClose={() => setRegulatorAddOpen(false)} onSaved={addRegulator} />}
     </>

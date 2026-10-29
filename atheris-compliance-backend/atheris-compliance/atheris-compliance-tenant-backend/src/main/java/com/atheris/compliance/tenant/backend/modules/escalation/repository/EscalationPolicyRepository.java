@@ -10,4 +10,5 @@ import java.util.List;
 public interface EscalationPolicyRepository extends JpaRepository<EscalationPolicy, Long> {
     List<EscalationPolicy> findBySubjectTypeOrderByNameAsc(String subjectType);
     List<EscalationPolicy> findAllByOrderBySubjectTypeAscNameAsc();
+    List<EscalationPolicy> findByIsDefaultTrueOrderBySubjectTypeAscNameAsc();
 }

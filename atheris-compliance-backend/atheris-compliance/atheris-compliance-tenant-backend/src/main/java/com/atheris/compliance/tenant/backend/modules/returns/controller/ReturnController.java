@@ -153,7 +153,7 @@ public class ReturnController {
 
     /** Sets the frequency and due-date rule; regenerates untouched periods. Returns the updated register row. */
     @PutMapping("/{returnId}/schedule")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> updateSchedule(
             @PathVariable Long returnId,
             @RequestBody UpdateScheduleRequest req,
@@ -171,7 +171,7 @@ public class ReturnController {
     }
 
     @PutMapping("/{returnId}/event-trigger")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnRegisterItem> configureEventTrigger(
             @PathVariable Long returnId,
             @Valid @RequestBody ConfigureEventTriggerRequest req,
@@ -220,7 +220,14 @@ public class ReturnController {
         return ResponseEntity.ok().build();
     }
 
-    /** Deletes a return and its periods/links. Blocked once any filing period has work on it. */
+    @PostMapping("/{returnId}/send-filing-link")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<FilingLinkSentResponse> sendFilingLink(
+            @PathVariable Long returnId,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.sendFilingLink(returnId, u.getUserId()));
+    }
+
     @DeleteMapping("/{returnId}")
     @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> delete(@PathVariable Long returnId, @AuthenticationPrincipal User u) {

@@ -510,6 +510,8 @@ export const api = {
     // One-off return schedule repair (TENANT_ADMIN only): GET is a dry run, POST applies it.
     frequencyRepairPreview: (opts = {}) => request('/returns/frequency-repair', { signal: opts.signal }),
     frequencyRepairApply: () => request('/returns/frequency-repair', { method: 'POST' }),
+    // Email the responsible person the current period's filing link (same link the reminders use).
+    sendFilingLink: (returnId) => request(`/returns/${returnId}/send-filing-link`, { method: 'POST' }),
     // Create (and email) a public, account-less event-filing upload link for an event-driven return.
     createUploadLink: (returnId, body = {}) => request(`/returns/${returnId}/upload-link`, {
       method: 'POST', body: JSON.stringify(body),
@@ -635,7 +637,13 @@ export const api = {
     },
   },
   escalation: {
-    policies: (subjectType) => request(`/escalation/policies${subjectType ? `?subjectType=${subjectType}` : ''}`),
+    policies: (subjectType, { defaultsOnly = false } = {}, opts = {}) => {
+      const params = new URLSearchParams();
+      if (subjectType) params.set('subjectType', subjectType);
+      if (defaultsOnly) params.set('defaultsOnly', 'true');
+      const qs = params.toString();
+      return request(`/escalation/policies${qs ? `?${qs}` : ''}`, { signal: opts.signal });
+    },
     policy: (id) => request(`/escalation/policies/${id}`),
     createPolicy: (data) => request('/escalation/policies', { method: 'POST', body: JSON.stringify(data) }),
     updatePolicy: (id, data) => request(`/escalation/policies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

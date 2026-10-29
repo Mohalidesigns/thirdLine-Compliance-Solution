@@ -9,7 +9,7 @@ import { MagnifyingGlassIcon, PlusIcon } from 'shared';
 import { api } from '../../services/api';
 import CreateReturnDialog from './CreateReturnDialog';
 
-export default function ReturnPicker({ open, onClose, initialIds = [], onSave }) {
+export default function ReturnPicker({ open, onClose, initialIds = [], onSave, obligationContext }) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
@@ -117,7 +117,8 @@ export default function ReturnPicker({ open, onClose, initialIds = [], onSave })
         </DialogActions>
       </Dialog>
 
-      {createOpen && <CreateReturnDialog open onClose={() => setCreateOpen(false)} onSaved={handleCreated} />}
+      {createOpen && <CreateReturnDialog open obligationContext={obligationContext}
+        onClose={() => setCreateOpen(false)} onSaved={handleCreated} />}
     </>
   );
 }

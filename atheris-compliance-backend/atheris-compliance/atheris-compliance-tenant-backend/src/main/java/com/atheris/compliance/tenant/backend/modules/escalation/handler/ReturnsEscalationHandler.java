@@ -4,7 +4,6 @@ import com.atheris.compliance.tenant.backend.modules.escalation.engine.Escalatio
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationSubjectHandler;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.Person;
 import com.atheris.compliance.tenant.backend.modules.ldap.service.LdapAuthService;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
@@ -14,6 +13,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFiling
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnStage;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnFilingDetails;
 import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnUploadLinkService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
@@ -39,8 +39,8 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
     private final UserRepository users;
     private final OwnerRepository owners;
     private final ReturnUploadLinkService uploadLinks;
+    private final ReturnFilingDetails details;
     private final LdapAuthService ldap;
-    private final ObligationRepository obligations;
 
     @Override
     public String subjectType() {
@@ -69,12 +69,7 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             RegulatoryReturn r = byId.get(instance.getReturnId());
             if (r == null || instance.getDueDate() == null) continue;
             if (instance.isPendingReview()) continue;
-            Map<String, String> extra = new HashMap<>();
-            extra.put("period", instance.getPeriod() == null ? "" : instance.getPeriod());
-            extra.put("regulator", r.getFilingRegulator() == null ? "" : r.getFilingRegulator());
-            extra.put("actName", r.getActName() == null ? "" : r.getActName());
-            extra.put("actObligation", actOrObligation(r));
-            extra.put("responsiblePerson", responsibleLabel(r));
+            Map<String, String> extra = details.detailVars(r, instance);
             out.add(new EscalationCandidate(
                 EscalationConstants.SUBJECT_RETURN,
                 instance.getInstanceId(),
@@ -149,36 +144,6 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             if (u != null) return new Person(u.getFullName(), u.getEmail(), u.getUserId());
         }
         return r.getReturnOwnerName() == null ? null : new Person(r.getReturnOwnerName(), null, null);
-    }
-
-    private String actOrObligation(RegulatoryReturn r) {
-        if (r.getActName() != null && !r.getActName().isBlank()) return r.getActName().trim();
-        for (ObligationRepository.LinkedObligationRow o : obligations.findLinkedObligationDetails(r.getReturnId())) {
-            String label = firstNonBlank(o.getActName(), o.getTitle(), o.getName(),
-                truncate(o.getPlainEnglishStatement(), 120));
-            if (label != null) return label;
-            if (o.getObligationId() != null) return "Obligation #" + o.getObligationId();
-        }
-        return "";
-    }
-
-    private static String responsibleLabel(RegulatoryReturn r) {
-        List<String> persons = r.getResponsiblePersons() == null ? List.of() : r.getResponsiblePersons();
-        if (!persons.isEmpty()) return String.join(", ", persons);
-        return r.getResponsiblePerson() == null ? "" : r.getResponsiblePerson();
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String v : values) {
-            if (v != null && !v.isBlank()) return v.trim();
-        }
-        return null;
-    }
-
-    private static String truncate(String text, int max) {
-        if (text == null || text.isBlank()) return null;
-        String t = text.trim();
-        return t.length() <= max ? t : t.substring(0, max - 1).trim() + "\u2026";
     }
 
     private Map<String, Person> directory() {

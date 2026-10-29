@@ -24,8 +24,9 @@ public class EscalationController {
     private final EscalationPolicyService service;
 
     @GetMapping("/policies")
-    public ResponseEntity<List<EscalationPolicyDto>> list(@RequestParam(required = false) String subjectType) {
-        return ResponseEntity.ok(service.list(subjectType));
+    public ResponseEntity<List<EscalationPolicyDto>> list(@RequestParam(required = false) String subjectType,
+                                                          @RequestParam(required = false) Boolean defaultsOnly) {
+        return ResponseEntity.ok(service.list(subjectType, Boolean.TRUE.equals(defaultsOnly)));
     }
 
     @GetMapping("/policies/{id}")

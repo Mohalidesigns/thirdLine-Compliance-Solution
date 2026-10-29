@@ -35,6 +35,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "Upcoming filing: {{returnName}}",
                 "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due on {{dueDate}}, {{daysLeft}} day(s) away "
                     + "— please prepare and submit the filing.\n\n" + ESCALATION_DETAILS, true);
+            templates.ensure(EscalationConstants.KEY_RETURN_FILING_REQUEST,
+                "Action required: filing data for {{returnName}}",
+                "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due on {{dueDate}}{{timing}} "
+                    + "— please prepare and submit the filing.\n\n" + ESCALATION_DETAILS, true);
             templates.ensure(EscalationConstants.KEY_RETURN_REMINDER,
                 "Reminder: {{returnName}} due {{dueDate}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that {{returnName}} ({{period}}) is still due on {{dueDate}} "

@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.acts.repository.ActReposito
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.org.service.PersonDirectoryService;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationInstanceDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
@@ -73,6 +74,7 @@ public class ReturnService {
     private final EvidenceVaultService evidenceVault;
     private final NotificationTemplateService templates;
     private final EmailService email;
+    private final PersonDirectoryService personDirectory;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -609,12 +611,7 @@ public class ReturnService {
                 .totalInstances(insts.size()).overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
         }
 
-        ReturnFilingInstance current = insts.stream()
-            .filter(ReturnService::isOpen)
-            .min(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
-            .orElseGet(() -> insts.stream()
-                .max(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
-                .orElse(null));
+        ReturnFilingInstance current = currentInstance(insts);
         if (current == null) return null;
 
         long overdueCount = insts.stream().filter(i ->
@@ -800,6 +797,66 @@ public class ReturnService {
         instances.save(inst);
         audit.log(userId, "return_stage_advanced", "return_instance", instanceId,
             Map.of("from", from.db(), "to", next.db()));
+        if (from == ReturnStage.NOT_STARTED && next == ReturnStage.DATA_GATHERING) {
+            try {
+                RegulatoryReturn started = returns.findById(inst.getReturnId()).orElse(null);
+                if (started != null) sendFilingRequest(started, inst, userId);
+            } catch (Throwable e) {
+                log.warn("Filing link mail failed for instance {}: {}", instanceId, e.getMessage());
+            }
+        }
+    }
+
+    @Transactional
+    public FilingLinkSentResponse sendFilingLink(Long returnId, Integer userId) {
+        try {
+            RegulatoryReturn ret = returns.findById(returnId)
+                .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
+            if (ret.getStatus() != RegulatoryReturnStatus.ACTIVE)
+                throw ApiException.conflict("return_inactive", "This return is inactive.");
+            ReturnFilingInstance inst = currentInstance(instances.findByReturnId(returnId));
+            if (inst == null)
+                throw ApiException.conflict("no_open_period", "This return has no open filing period to link to.");
+            FilingLinkSentResponse sent = sendFilingRequest(ret, inst, userId);
+            if (sent == null)
+                throw ApiException.conflict("no_recipient",
+                    "No responsible person with a known email — add one before sending the link.");
+            audit.log(userId, "return_filing_link_sent", "return", returnId,
+                Map.of("instanceId", String.valueOf(inst.getInstanceId())));
+            return sent;
+        } catch (RuntimeException e) {
+            rollback();
+            throw e;
+        }
+    }
+
+    private FilingLinkSentResponse sendFilingRequest(RegulatoryReturn ret, ReturnFilingInstance inst, Integer userId) {
+        List<String> names = ret.getResponsiblePersons() == null || ret.getResponsiblePersons().isEmpty()
+            ? (ret.getResponsiblePerson() == null ? List.of() : List.of(ret.getResponsiblePerson()))
+            : ret.getResponsiblePersons();
+        List<PersonDirectoryService.Entry> people = personDirectory.resolve(names);
+        if (people.isEmpty()) {
+            log.warn("No responsible person with a known email on return {} — filing link not sent", ret.getReturnId());
+            return null;
+        }
+        String raw = uploadLinkService.createFilingLink(ret.getReturnId(), inst.getInstanceId(),
+            people.get(0).email(), people.get(0).name(), userId);
+        List<String> cc = new ArrayList<>();
+        String owner = ownerEmail(ret);
+        if (owner != null) cc.add(owner);
+        ReturnUploadLinkService.FilingMail mail = null;
+        for (PersonDirectoryService.Entry person : people) {
+            ReturnUploadLinkService.FilingMail sent =
+                uploadLinkService.sendFilingRequest(ret, inst, person.email(), cc, person.name(), raw);
+            if (mail == null) mail = sent;
+        }
+        return FilingLinkSentResponse.builder()
+            .path(uploadLinkService.uploadPath(raw))
+            .recipients(people.stream().map(PersonDirectoryService.Entry::email).toList())
+            .cc(cc)
+            .subject(mail == null ? null : mail.subject())
+            .body(mail == null ? null : mail.body())
+            .build();
     }
 
     @Transactional
@@ -1388,7 +1445,7 @@ public class ReturnService {
         DueRule rule = DueRule.of(ret);
         if (step.unit() == ReturnPeriods.Unit.MONTH && rule == null) return;
 
-        List<ReturnFilingInstance> existing = instances.findByReturnId(ret.getReturnId());
+        List<ReturnFilingInstance> existing = reconcileFirstDueDate(ret, step, rule);
         if (existing.stream().anyMatch(ReturnService::isOpen)) return;
         Set<String> seen = existing.stream().map(ReturnFilingInstance::getPeriod)
             .filter(Objects::nonNull).collect(Collectors.toCollection(HashSet::new));
@@ -1396,6 +1453,32 @@ public class ReturnService {
         ReturnPeriods.Occurrence occ = ReturnPeriods.next(ret, step, rule,
             latestDueDate(existing), LocalDate.now());
         materializeAt(ret, occ.period(), occ.due(), seen);
+    }
+
+    private List<ReturnFilingInstance> reconcileFirstDueDate(RegulatoryReturn ret, ReturnPeriods.Step step, DueRule rule) {
+        List<ReturnFilingInstance> existing = instances.findByReturnId(ret.getReturnId());
+        if (rule == null || rule.kind() != DueRule.Kind.DATE
+                || !DueRule.SOURCE_USER.equals(ret.getDueDateSource()) || existing.isEmpty()) return existing;
+        String anchorPeriod = ReturnPeriods.labelOf(rule.firstDueDate(), step);
+        if (existing.stream().anyMatch(i -> anchorPeriod.equals(i.getPeriod()))) return existing;
+        List<ReturnFilingInstance> removable = untouched.removable(existing);
+        if (removable.size() != existing.size()) return existing;
+        instances.deleteAll(removable);
+        instances.flush();
+        log.info("Return {} periods rebuilt to its first due date {} ({} stale period(s) removed)",
+            ret.getReturnId(), rule.firstDueDate(), removable.size());
+        audit.log(null, "return_periods_reconciled", "return", ret.getReturnId(),
+            Map.of("firstDueDate", rule.firstDueDate().toString(), "removed", String.valueOf(removable.size())));
+        return instances.findByReturnId(ret.getReturnId());
+    }
+
+    private static ReturnFilingInstance currentInstance(List<ReturnFilingInstance> insts) {
+        return insts.stream()
+            .filter(ReturnService::isOpen)
+            .min(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
+            .orElseGet(() -> insts.stream()
+                .max(Comparator.comparing(ReturnFilingInstance::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null));
     }
 
     private static boolean isOpen(ReturnFilingInstance instance) {

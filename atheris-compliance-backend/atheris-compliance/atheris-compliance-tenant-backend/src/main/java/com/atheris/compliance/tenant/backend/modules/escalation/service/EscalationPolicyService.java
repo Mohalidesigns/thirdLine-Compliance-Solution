@@ -31,10 +31,18 @@ public class EscalationPolicyService {
     private EntityManager em;
 
     public List<EscalationPolicyDto> list(String subjectType) {
-        List<EscalationPolicy> list = subjectType == null || subjectType.isBlank()
-            ? policies.findAllByOrderBySubjectTypeAscNameAsc()
-            : policies.findBySubjectTypeOrderByNameAsc(subjectType.toUpperCase(Locale.ROOT));
-        return list.stream().map(this::toDto).toList();
+        return list(subjectType, false);
+    }
+
+    public List<EscalationPolicyDto> list(String subjectType, boolean defaultsOnly) {
+        String scope = subjectType == null || subjectType.isBlank() ? null : subjectType.toUpperCase(Locale.ROOT);
+        List<EscalationPolicy> list = defaultsOnly
+            ? policies.findByIsDefaultTrueOrderBySubjectTypeAscNameAsc()
+            : (scope == null ? policies.findAllByOrderBySubjectTypeAscNameAsc()
+                             : policies.findBySubjectTypeOrderByNameAsc(scope));
+        return list.stream()
+            .filter(p -> scope == null || scope.equalsIgnoreCase(p.getSubjectType()))
+            .map(this::toDto).toList();
     }
 
     public EscalationPolicyDto get(Long id) {

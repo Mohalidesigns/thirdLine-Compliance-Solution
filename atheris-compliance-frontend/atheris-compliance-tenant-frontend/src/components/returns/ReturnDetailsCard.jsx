@@ -21,7 +21,7 @@ function Chips({ values }) {
   );
 }
 
-export default function ReturnDetailsCard({ item, obligations, obligationsLoading, escalation, escalationLoading, onEditEscalation }) {
+export default function ReturnDetailsCard({ item, obligations, obligationsLoading, escalation, escalationLoading }) {
   const navigate = useNavigate();
   const [showObligations, setShowObligations] = useState(false);
   const ladder = escalationLadder(escalation?.levels);
@@ -31,9 +31,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
   return (
     <Box>
       <Section icon={<ClipboardDocumentListIcon />} title="Return details"
-        action={(
-          <Button size="small" variant="outlined" onClick={onEditEscalation}>Escalation policy</Button>
-        )}>
+        >
         <FieldGrid min={180}>
           <Field label="Act" value={item.actName || 'No act recorded'} />
           <Field label="Regulator" value={item.filingRegulator} />
@@ -104,10 +102,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
         </Section>
       )}
 
-      <Section icon={<ExclamationTriangleIcon />} title="Escalation"
-        action={(
-          <Button size="small" variant="outlined" onClick={onEditEscalation}>Change policy</Button>
-        )}>
+      <Section icon={<ExclamationTriangleIcon />} title="Escalation">
         {escalationLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={22} /></Box>
         ) : !escalation || escalation.policyId == null ? (

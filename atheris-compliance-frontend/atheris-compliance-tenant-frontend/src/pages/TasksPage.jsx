@@ -65,7 +65,7 @@ export default function TasksPage() {
     mutationFn: (instanceId) => api.returns.advance(instanceId, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] });
-      setSnackbar('Filing started — the responsible person will be notified.');
+      setSnackbar('Filing started — the responsible person can submit the data now.');
     },
     onError: (e) => setSnackbar(e.message || 'Could not start the filing.'),
   });

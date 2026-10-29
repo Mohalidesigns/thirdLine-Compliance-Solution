@@ -70,6 +70,11 @@ atheris:
     from: ${EMAIL_FROM:noreply@atheris.com}
     # Base URL used to build click-through links in emails (the remediation page).
     base-url: ${BASE_URL:http://localhost:5174}
+  # Filing links let a responsible person submit without an account. One stable link per filing
+  # period, derived from the filing id and this secret; it stays valid while the period is open.
+  returns:
+    upload-link-expiry-days: ${UPLOAD_LINK_EXPIRY_DAYS:30}
+    upload-link-secret: ${UPLOAD_LINK_SECRET:${ENCRYPTION_KEY:atheris-dev-upload-link-secret}}
   # Remediation links let an owner submit evidence without an account.
   remediation:
     link-expiry-grace-days: ${REMEDIATION_LINK_GRACE_DAYS:7}

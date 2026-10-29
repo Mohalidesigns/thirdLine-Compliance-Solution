@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Tooltip,
   Snackbar, Alert as MuiAlert, Tabs, Tab, TextField,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
-  PageHeader, ArrowPathIcon, CalendarDaysIcon, CalendarIcon, PencilSquareIcon, LinkIcon,
+  PageHeader, ArrowPathIcon, CalendarIcon, PencilSquareIcon, LinkIcon,
 } from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import EditScheduleDialog from '../components/modals/EditScheduleDialog';
-import ReturnEscalationPolicyDialog from '../components/returns/ReturnEscalationPolicyDialog';
+import ReturnEditDialog from '../components/returns/ReturnEditDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
 import RecordReturnEventDialog from '../components/modals/RecordReturnEventDialog';
 import ReturnDetailsCard from '../components/returns/ReturnDetailsCard';
@@ -20,7 +19,7 @@ import ReturnFilingPanel from '../components/returns/ReturnFilingPanel';
 import ReturnHistoryTable from '../components/returns/ReturnHistoryTable';
 import PersonPicker from '../components/common/PersonPicker';
 import {
-  statusBadge, isEventDriven, formatDate, needsAction, isCompletedStatus, SCHEDULE_ROLES, EVENT_ROLES,
+  statusBadge, isEventDriven, formatDate, needsAction, isCompletedStatus, SCHEDULE_ROLES, EDIT_ROLES, EVENT_ROLES,
 } from '../components/returns/returnCommon';
 
 const TAB_NAMES = ['filings', 'history'];
@@ -32,6 +31,7 @@ export default function ReturnsDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const canEditSchedule = SCHEDULE_ROLES.includes(user?.role);
+  const canEditFiling = EDIT_ROLES.includes(user?.role);
   const canRecordEvent = EVENT_ROLES.includes(user?.role);
 
   const tabParam = searchParams.get('tab');
@@ -41,11 +41,11 @@ export default function ReturnsDetailPage() {
   const [tab, setTab] = useState(() => (TAB_NAMES.includes(tabParam) ? TAB_NAMES.indexOf(tabParam) : 0));
   const [selectedInstanceId, setSelectedInstanceId] = useState(instanceParam ? Number(instanceParam) : null);
   const [highlightReview, setHighlightReview] = useState(!!reviewParam);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [filingLinkOpen, setFilingLinkOpen] = useState(false);
   const [eventSetupOpen, setEventSetupOpen] = useState(false);
   const [recordEventOpen, setRecordEventOpen] = useState(false);
   const [sendLinkOpen, setSendLinkOpen] = useState(false);
-  const [policyOpen, setPolicyOpen] = useState(false);
   const [snackbar, setSnackbar] = useState('');
 
   const itemQuery = useQuery({
@@ -170,9 +170,14 @@ export default function ReturnsDetailPage() {
         actions={(
           <>
             <Tooltip title="Refresh"><IconButton onClick={refresh}><ArrowPathIcon size={18} /></IconButton></Tooltip>
-            {canEditSchedule && !eventDriven && (
-              <Button variant="outlined" startIcon={<CalendarDaysIcon size={16} />} onClick={() => setScheduleOpen(true)}>
-                Edit schedule
+            {canEditFiling && !eventDriven && (
+              <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+            )}
+            {canEditFiling && !eventDriven && item?.currentInstanceId && (
+              <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setFilingLinkOpen(true)}>
+                Send link
               </Button>
             )}
             {canEditSchedule && eventDriven && (
@@ -206,7 +211,6 @@ export default function ReturnsDetailPage() {
         obligationsLoading={obligationsQuery.isPending}
         escalation={escalation}
         escalationLoading={escalationQuery.isPending}
-        onEditEscalation={() => setPolicyOpen(true)}
       />
 
       <Tabs value={tab} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
@@ -241,11 +245,6 @@ export default function ReturnsDetailPage() {
       )}
 
       {canEditSchedule && (
-        <EditScheduleDialog open={scheduleOpen} item={item}
-          onClose={() => setScheduleOpen(false)}
-          onSaved={() => { setScheduleOpen(false); setSnackbar('Schedule saved.'); refresh(); }} />
-      )}
-      {canEditSchedule && (
         <EventTriggerSetupDialog open={eventSetupOpen} item={item}
           onClose={() => setEventSetupOpen(false)}
           onSaved={(instance) => { setEventSetupOpen(false); setSnackbar('Event trigger saved.'); refresh(); if (instance?.instanceId) openFiling(instance.instanceId); }} />
@@ -255,14 +254,81 @@ export default function ReturnsDetailPage() {
         onSaved={(instance) => { setRecordEventOpen(false); setSnackbar('Event filing created.'); refresh(); if (instance?.instanceId) openFiling(instance.instanceId); }} />
       <SendUploadLinkDialog open={sendLinkOpen} item={item}
         onClose={() => setSendLinkOpen(false)} onSnackbar={setSnackbar} />
-      {policyOpen && <ReturnEscalationPolicyDialog open item={item} onClose={() => setPolicyOpen(false)}
-        onSnackbar={setSnackbar} onSaved={() => { setSnackbar('Escalation policy saved.'); refresh(); }} />}
+      {filingLinkOpen && <SendFilingLinkDialog open item={item} onClose={() => setFilingLinkOpen(false)}
+        onSnackbar={setSnackbar} />}
+      {editOpen && <ReturnEditDialog open item={item} canEditSchedule={canEditSchedule}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setSnackbar('Return saved.'); refresh(); }} onSnackbar={setSnackbar} />}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <MuiAlert severity="success" variant="filled" onClose={() => setSnackbar('')}>{snackbar}</MuiAlert>
       </Snackbar>
     </Box>
+  );
+}
+
+/* ───────── Send the filing link to the responsible person ───────── */
+function SendFilingLinkDialog({ open, item, onClose, onSnackbar }) {
+  const [copied, setCopied] = useState(false);
+  const qc = useQueryClient();
+  const send = useMutation({
+    mutationFn: () => api.returns.sendFilingLink(item.returnId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['returns'] });
+      onSnackbar?.('Filing link sent.');
+    },
+  });
+  const { reset } = send;
+
+  useEffect(() => { if (open) { setCopied(false); reset(); } }, [open, reset]);
+
+  if (!item) return null;
+
+  const link = send.data?.path ? `${window.location.origin}${send.data.path}` : '';
+  const recipients = send.data?.recipients || [];
+  const cc = send.data?.cc || [];
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); }
+    catch { onSnackbar?.('Copy failed — select the link manually.'); }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Send the filing link</DialogTitle>
+      <DialogContent>
+        {send.isError && <Alert severity="error" sx={{ mb: 2 }}>{send.error.message}</Alert>}
+        {link && (
+          <>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" color="text.secondary">To</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>{recipients.join(', ')}</Typography>
+              {cc.length > 0 && (
+                <>
+                  <Typography variant="caption" color="text.secondary">Cc</Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>{cc.join(', ')}</Typography>
+                </>
+              )}
+              <Typography variant="caption" color="text.secondary">Subject</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>{send.data.subject}</Typography>
+              <Typography variant="caption" color="text.secondary">Message</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{send.data.body}</Typography>
+            </Box>
+            <TextField fullWidth size="small" label="Link" value={link} onFocus={(e) => e.target.select()}
+              slotProps={{ input: { readOnly: true } }} sx={{ mt: 2 }} />
+          </>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+        {link
+          ? <Button variant="contained" onClick={copy}>{copied ? 'Copied' : 'Copy link'}</Button>
+          : <Button variant="contained" onClick={() => send.mutate()} disabled={send.isPending}>
+              {send.isPending ? 'Sending…' : 'Send link'}
+            </Button>}
+      </DialogActions>
+    </Dialog>
   );
 }
 

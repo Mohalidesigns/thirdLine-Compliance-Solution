@@ -42,6 +42,11 @@ public class EmailService {
         return baseUrl;
     }
 
+    public String compose(String body, String link) {
+        String full = link != null && !link.isBlank() ? body + "\n\n" + link + "\n" : body;
+        return full + "\n— Verity Compliance Platform";
+    }
+
     public void send(String to, String subject, String body, String link) {
         send(to, null, subject, body, link);
     }
@@ -52,8 +57,7 @@ public class EmailService {
             return;
         }
 
-        String full = link != null && !link.isBlank() ? body + "\n\n" + link + "\n" : body;
-        String text = full + "\n— Verity Compliance Platform";
+        String text = compose(body, link);
 
         SmtpSettingsService.Outbound outbound = resolveOutbound();
         if (outbound == null) {

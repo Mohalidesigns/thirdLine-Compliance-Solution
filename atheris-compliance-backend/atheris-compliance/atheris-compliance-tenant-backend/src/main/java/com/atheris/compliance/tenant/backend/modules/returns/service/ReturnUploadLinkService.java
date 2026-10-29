@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.returns.service;
 
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.PublicReturnUploadView;
 import com.atheris.compliance.tenant.backend.modules.returns.dto.RecordReturnEventRequest;
@@ -18,6 +19,7 @@ import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnUp
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -51,9 +55,14 @@ public class ReturnUploadLinkService {
     private final UserRepository users;
     private final EmailService email;
     private final TenantIdentityService tenantIdentity;
+    private final NotificationTemplateService templates;
+    private final ReturnFilingDetails details;
 
     @Value("${atheris.returns.upload-link-expiry-days:30}")
     private int expiryDays;
+
+    @Value("${atheris.returns.upload-link-secret:${ENCRYPTION_KEY:atheris-dev-upload-link-secret}}")
+    private String linkSecret;
 
     @Transactional
     public String createLink(Long returnId, String recipientEmail, String recipientName, Integer userId) {
@@ -81,7 +90,7 @@ public class ReturnUploadLinkService {
         return raw;
     }
 
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public String createFilingLink(Long returnId, Long instanceId, String recipientEmail, String recipientName, Integer userId) {
         RegulatoryReturn ret = returns.findById(returnId)
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
@@ -91,18 +100,60 @@ public class ReturnUploadLinkService {
             .orElseThrow(() -> ApiException.notFound("Filing not found: " + instanceId));
         if (!returnId.equals(inst.getReturnId()))
             throw ApiException.badRequest("invalid_filing", "Filing does not belong to this return.");
-        String raw = randomToken();
-        links.save(ReturnUploadLink.builder()
-            .tokenHash(sha256(raw))
-            .returnId(returnId)
-            .instanceId(instanceId)
-            .recipientEmail(recipientEmail)
-            .recipientName(recipientName)
-            .expiresAt(LocalDate.now().plusDays(expiryDays).atStartOfDay(ZoneOffset.UTC).toInstant())
-            .createdByUserId(userId)
-            .build());
+        String raw = FilingLinkTokens.token(linkSecret, instanceId);
+        String hash = sha256(raw);
+        Instant expiresAt = filingExpiry(inst);
+        ReturnUploadLink link = links.findByTokenHash(hash).orElse(null);
+        if (link == null) {
+            links.save(ReturnUploadLink.builder()
+                .tokenHash(hash)
+                .returnId(returnId)
+                .instanceId(instanceId)
+                .recipientEmail(recipientEmail)
+                .recipientName(recipientName)
+                .expiresAt(expiresAt)
+                .createdByUserId(userId)
+                .build());
+        } else {
+            if (recipientEmail != null && !recipientEmail.isBlank()) link.setRecipientEmail(recipientEmail);
+            if (recipientName != null && !recipientName.isBlank()) link.setRecipientName(recipientName);
+            link.setRevokedAt(null);
+            if (link.getExpiresAt() == null || link.getExpiresAt().isBefore(expiresAt)) link.setExpiresAt(expiresAt);
+            links.save(link);
+        }
         return raw;
     }
+
+    private Instant filingExpiry(ReturnFilingInstance inst) {
+        LocalDate base = inst.getDueDate() != null && inst.getDueDate().isAfter(LocalDate.now())
+            ? inst.getDueDate() : LocalDate.now();
+        return base.plusDays(expiryDays).atStartOfDay(ZoneOffset.UTC).toInstant();
+    }
+
+    public FilingMail sendFilingRequest(RegulatoryReturn ret, ReturnFilingInstance inst, String to,
+                                        List<String> cc, String name, String rawToken) {
+        Map<String, String> vars = details.messageVars(ret, inst, name);
+        NotificationTemplateService.RenderedEmail rendered =
+            templates.render(EscalationConstants.KEY_RETURN_FILING_REQUEST, vars);
+        String subject = rendered.subject() != null ? rendered.subject()
+            : "Action required: filing data for " + ret.getReturnName();
+        String body = rendered.body() != null ? rendered.body() : fallbackFilingBody(ret, name);
+        String url = uploadUrl(rawToken);
+        if (to != null && !to.isBlank()) email.send(to, cc, subject, body, url);
+        return new FilingMail(subject, email.compose(body, url));
+    }
+
+    private static String fallbackFilingBody(RegulatoryReturn ret, String name) {
+        StringBuilder body = new StringBuilder();
+        if (name != null && !name.isBlank()) body.append("Hi ").append(name).append(",\n\n");
+        body.append("Please prepare and submit the filing data for \"")
+            .append(ret.getReturnName()).append("\" using the link below.\n");
+        if (ret.getFilingRegulator() != null && !ret.getFilingRegulator().isBlank())
+            body.append("\nRegulator: ").append(ret.getFilingRegulator()).append("\n");
+        return body.toString();
+    }
+
+    public record FilingMail(String subject, String body) {}
 
     public void emailFilingLink(Long returnId, String to, String name, String rawToken) {
         if (to == null || to.isBlank()) return;
