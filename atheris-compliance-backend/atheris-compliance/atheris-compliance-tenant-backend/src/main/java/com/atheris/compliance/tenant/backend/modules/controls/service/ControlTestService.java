@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequest;
@@ -101,6 +102,14 @@ public class ControlTestService {
                 "Control test " + req.getResult().toLowerCase() + ": "
                     + safeName(control) + " — a finding has been raised",
                 "/controls", "Control test failed — action required");
+        }
+
+        // Maker/checker: the test needs a review by someone other than the tester.
+        String reviewSummary = "Control test (" + req.getResult().toLowerCase() + ") on " + safeName(control)
+            + " by " + tester.getFullName() + " is waiting for your review";
+        for (String role : List.of(AppRole.ANALYST, AppRole.CCO)) {
+            notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
+                reviewSummary, "/controls", "Review needed: control test on " + safeName(control), tester.getUserId());
         }
 
         audit.log(tester.getUserId(), "control_test_recorded", "control", controlId.longValue(),

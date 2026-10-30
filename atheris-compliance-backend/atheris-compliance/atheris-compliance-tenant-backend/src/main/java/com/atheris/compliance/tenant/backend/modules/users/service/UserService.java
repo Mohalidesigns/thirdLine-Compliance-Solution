@@ -31,20 +31,25 @@ public class UserService {
     private final LdapAuthService ldapAuth;
 
     public List<UserDto> findAll() {
-        return findAll(null);
+        return findAll(null, false);
     }
 
-    /** Active users, optionally narrowed to those whose name, email or job title contains {@code q}. */
     public List<UserDto> findAll(String q) {
-        List<User> active = users.findByIsActiveTrue();
-        if (q == null || q.isBlank()) {
-            return active.stream().map(this::toDto).toList();
-        }
-        String needle = q.trim().toLowerCase();
-        return active.stream()
-            .filter(u -> contains(u.getEmail(), needle)
-                || contains(u.getFullName(), needle)
-                || contains(u.getJobTitle(), needle))
+        return findAll(q, false);
+    }
+
+    /**
+     * Users, optionally narrowed to those whose name, email or job title contains {@code q}.
+     * Settings asks for inactive users too (deactivated, pending invites) so they can be reactivated.
+     */
+    public List<UserDto> findAll(String q, boolean includeInactive) {
+        List<User> pool = includeInactive ? users.findAll() : users.findByIsActiveTrue();
+        String needle = q == null ? "" : q.trim().toLowerCase();
+        return pool.stream()
+            .filter(u -> needle.isEmpty() || contains(u.getEmail(), needle)
+                || contains(u.getFullName(), needle) || contains(u.getJobTitle(), needle))
+            .sorted(java.util.Comparator.comparing((User u) -> !Boolean.TRUE.equals(u.getIsActive()))
+                .thenComparing(u -> u.getFullName() == null ? "" : u.getFullName(), String.CASE_INSENSITIVE_ORDER))
             .map(this::toDto)
             .toList();
     }
@@ -111,9 +116,13 @@ public class UserService {
     }
 
     @Transactional
-    public void deactivate(Integer userId) {
+    public void deactivate(Integer userId, Integer actorUserId) {
         User user = users.findById(userId)
             .orElseThrow(() -> ApiException.notFound("User not found: " + userId));
+        if (userId.equals(actorUserId))
+            throw ApiException.conflict("cannot_deactivate_self", "You cannot deactivate your own account");
+        if (AppRole.TENANT_ADMIN.equals(user.getRole()) && Boolean.TRUE.equals(user.getIsActive()) && activeAdmins() <= 1)
+            throw ApiException.conflict("last_admin", "This is the last active tenant admin — make someone else an admin first");
         user.setIsActive(false);
         users.save(user);
         refreshTokens.findByUserIdAndIsRevokedFalse(userId).forEach(rt -> {
@@ -137,8 +146,15 @@ public class UserService {
         User u = users.findById(id)
             .orElseThrow(() -> ApiException.notFound("User not found: " + id));
         if (role == null || !AppRole.ALL.contains(role)) throw ApiException.badRequest("Invalid role: " + role);
+        if (AppRole.TENANT_ADMIN.equals(u.getRole()) && !AppRole.TENANT_ADMIN.equals(role)
+                && Boolean.TRUE.equals(u.getIsActive()) && activeAdmins() <= 1)
+            throw ApiException.conflict("last_admin", "This is the last active tenant admin — make someone else an admin first");
         u.setRole(role);
         return toDto(users.save(u));
+    }
+
+    private long activeAdmins() {
+        return users.findByRoleAndIsActiveTrue(AppRole.TENANT_ADMIN).size();
     }
 
     /** Set (or clear) a user's manager — the escalation target for level-2 notifications. */

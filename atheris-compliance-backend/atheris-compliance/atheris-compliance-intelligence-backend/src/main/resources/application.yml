@@ -39,8 +39,10 @@ spring:
     username: ${SMTP_USER:}
     password: ${SMTP_PASSWORD:}
     properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      # Implicit TLS (port 465): SMTP_SSL=true and SMTP_STARTTLS=false.
+      mail.smtp.ssl.enable: ${SMTP_SSL:false}
   servlet:
     multipart:
       max-file-size: 50MB

@@ -29,6 +29,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final LdapAuthService ldapAuth;
+    private final com.atheris.compliance.tenant.backend.modules.audit.service.AuditService audit;
 
     private static final int INVITE_EXPIRY_HOURS = 72;
     private static final int RESET_EXPIRY_HOURS = 1;
@@ -111,6 +112,9 @@ public class AuthService {
         user.setLastLoginAt(Instant.now());
         user.setLastLoginIp(req.getIpAddress());
         users.save(user);
+        java.util.Map<String, Object> details = new java.util.HashMap<>();
+        if (req.getIpAddress() != null) details.put("ip", req.getIpAddress());
+        audit.log(user.getUserId(), "user_signed_in", "user", user.getUserId().longValue(), details);
 
         return issueTokens(user, req.getDeviceName(), req.getIpAddress());
     }
@@ -153,6 +157,8 @@ public class AuthService {
             user.setFailedLoginAttempts(previous + 1);
         }
         users.save(user);
+        audit.log(user.getUserId(), "sign_in_failed", "user", user.getUserId().longValue(),
+            java.util.Map.of("locked", user.getLockedUntil() != null));
     }
 
     @Transactional

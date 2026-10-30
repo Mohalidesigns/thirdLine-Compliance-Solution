@@ -55,8 +55,7 @@ public class ControlService {
         long total = repo.count();
         long active = repo.countByStatus("Active");
         long highRisk = repo.countByResidualRisk("High");
-        Set<Integer> overdueTaskControlIds = new HashSet<>(repo.findControlIdsWithOverdueTasks(LocalDate.now()));
-        long testsDue = overdueTaskControlIds.size();
+        long testsDue = ControlTaskRules.testsDue(taskRepo.findAll(), LocalDate.now());
         List<String> themes = repo.findDistinctThemes();
         List<String> owners = repo.findDistinctOwners();
         List<String> acts = repo.findDistinctActNames();
@@ -195,9 +194,13 @@ public class ControlService {
         List<ControlDetailResponse.LinkedObligation> obligations = Collections.emptyList();
         if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isEmpty()) {
             List<Long> distinctIds = c.getLinkedObligationIds().stream().distinct().toList();
+            // one query for all linked obligations (was one findById per id)
+            Map<Long, com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation> byId =
+                obligationRepo.findAllById(distinctIds).stream().collect(Collectors.toMap(
+                    com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation::getObligationId, o -> o));
             obligations = distinctIds.stream()
                 .map(oid -> {
-                    var o = obligationRepo.findById(oid).orElse(null);
+                    var o = byId.get(oid);
                     if (o == null) {
                         return null;
                     }

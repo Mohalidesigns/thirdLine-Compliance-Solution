@@ -47,7 +47,7 @@ export default function SettingsPage() {
         ]}
       />
 
-      {tab === 0 && <GeneralTab />}
+      {tab === 0 && <GeneralTab canEdit={isAdmin || user?.role === 'CCO'} />}
       {tab === 1 && <OrganizationTab isAdmin={isAdmin} />}
       {tab === 2 && canManageWorkspace && <FederalHolidaysTab />}
       {tab === 3 && canManageWorkspace && <SystemUsersTab isAdmin={isAdmin} />}
@@ -94,7 +94,7 @@ function SmtpTab() {
 
 /* ------------------------------------------------------------------ General */
 
-function GeneralTab() {
+function GeneralTab({ canEdit }) {
   const [interval, setInterval] = useState(5);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,9 +141,11 @@ function GeneralTab() {
             sx={{ mb: 2 }}
             helperText="Minimum: 1 minute, Maximum: 1440 minutes (24 hours)"
           />
-          <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save Interval'}
-          </Button>
+          {canEdit && (
+            <Button variant="contained" onClick={handleSave} disabled={saving}>
+              {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save Interval'}
+            </Button>
+          )}
       </DataCard>
 
       <DataCard title="Account" subtitle="Manage your account settings" sx={{ maxWidth: 600 }}>
@@ -367,7 +369,7 @@ function OrganizationTab({ isAdmin }) {
             subheader={
               <Typography sx={{ fontSize: '0.75rem', color: TL.gray500 }}>
                 {dept.department.teamCount ?? dept.teams.length} team(s) ·
-                {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, 0)} owner(s)
+                {dept.department.ownerCount ?? dept.teams.reduce((s, t) => s + t.owners.length, (dept.owners || []).length)} owner(s)
                 {dept.department.headOwnerName ? ` · Head: ${dept.department.headOwnerName}` : ''}
               </Typography>
             }
@@ -381,6 +383,33 @@ function OrganizationTab({ isAdmin }) {
             )}
           />
           <CardContent sx={{ pt: 0 }}>
+            {(dept.owners || []).length > 0 && (
+              <Box sx={{ pl: 4, mb: 2 }}>
+                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: TL.gray500, textTransform: 'uppercase', mb: 0.5 }}>
+                  Department owners (no team)
+                </Typography>
+                {dept.owners.map(owner => (
+                  <Box key={owner.ownerId} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
+                    <UserCircleIcon size={16} sx={{ color: TL.gray400 }} />
+                    <Typography sx={{ fontSize: '0.875rem', color: TL.gray700 }}>{owner.fullName}</Typography>
+                    {owner.jobTitle && <Typography variant="caption" color="text.secondary">· {owner.jobTitle}</Typography>}
+                    {owner.email && <Typography variant="caption" color="text.secondary">· {owner.email}</Typography>}
+                    {owner.isActive === false && <StateBadge value="Inactive" />}
+                    {isAdmin && (
+                      <Box sx={{ ml: 'auto' }}>
+                        <IconButton size="small" aria-label={`Edit owner ${owner.fullName}`}
+                          onClick={() => setOwnerModal({ owner, departmentId: dept.department.departmentId })}>
+                          <PencilSquareIcon size={16} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDelete(() => api.org.deleteOwner(owner.ownerId), 'Owner')}>
+                          <TrashIcon size={16} />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            )}
             {dept.teams.map(team => (
               <Box key={team.team.teamId} sx={{ pl: 4, mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -676,6 +705,7 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError, isAdmin }) {
 /* ------------------------------------------------------------- System Users */
 
 function SystemUsersTab({ isAdmin }) {
+  const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -683,7 +713,8 @@ function SystemUsersTab({ isAdmin }) {
 
   const load = useCallback(() => {
     setLoading(true);
-    api.users.list()
+    // deactivated users and pending invites are listed too, so an admin can see and reactivate them
+    api.users.list(undefined, { includeInactive: true })
       .then(setUsers)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -774,7 +805,7 @@ function SystemUsersTab({ isAdmin }) {
                     <StateBadge value={u.isActive ? (u.inviteStatus === 'pending' ? 'Pending' : 'Active') : 'Inactive'} />
                   </TableCell>
                   <TableCell align="right">
-                    {isAdmin && (
+                    {isAdmin && u.userId !== me?.userId && (
                       <Tooltip title={u.isActive ? 'Deactivate' : 'Reactivate'}>
                         <Button size="small" color={u.isActive ? 'error' : 'primary'} onClick={() => handleToggleActive(u)}>
                           {u.isActive ? 'Deactivate' : 'Reactivate'}

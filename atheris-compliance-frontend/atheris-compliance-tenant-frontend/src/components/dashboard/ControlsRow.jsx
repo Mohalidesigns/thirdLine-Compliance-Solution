@@ -74,7 +74,7 @@ export default function ControlsRow({ metrics = {} }) {
         <Tooltip arrow title="Tested controls whose latest test passed (passing ÷ tested)">
           <Box sx={{ textAlign: 'center' }}>
             <RingProgress value={effectiveness} color={effectColor} />
-            <Typography sx={{ mt: 0.75, fontSize: '0.75rem', color: TL.gray500 }}>Effectiveness</Typography>
+            <Typography sx={{ mt: 0.75, fontSize: '0.75rem', color: TL.gray500 }}>Effectiveness (of tested)</Typography>
           </Box>
         </Tooltip>
         <Tooltip arrow title="Controls with at least one test result (tested ÷ total)">

@@ -29,6 +29,15 @@ public class AuditService {
         return log(actorUserId, action, subjectType, subjectId, null, afterData, null);
     }
 
+    /** Audits as the signed-in user (for services that are not handed the user). */
+    public AuditEvent logCurrentUser(String action, String subjectType, Long subjectId, Map<String, Object> afterData) {
+        Integer actor = null;
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.atheris.compliance.tenant.backend.modules.users.entity.User u)
+            actor = u.getUserId();
+        return log(actor, action, subjectType, subjectId, afterData);
+    }
+
     public AuditEvent log(Integer actorUserId, String action, String subjectType, Long subjectId,
                           Object before, Object after, String evidenceUrl) {
         try {

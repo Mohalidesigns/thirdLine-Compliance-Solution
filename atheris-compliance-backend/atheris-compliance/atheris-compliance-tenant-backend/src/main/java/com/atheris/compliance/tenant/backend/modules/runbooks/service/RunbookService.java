@@ -1,6 +1,8 @@
 package com.atheris.compliance.tenant.backend.modules.runbooks.service;
 
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
+import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
@@ -57,6 +59,7 @@ public class RunbookService {
     private final ControlRepository controls;
     private final UserRepository users;
     private final AuditService audit;
+    private final NotificationService notifications;
     private final ObjectMapper mapper;
 
     // ── reads ───────────────────────────────────────────────────────────────
@@ -510,6 +513,14 @@ public class RunbookService {
             runbooks.save(rb);
         }
         audit.log(user.getUserId(), "runbook_submitted", SUBJECT_RUNBOOK, runbookId, Map.of("version", v.getVersionNumber()));
+        String summary = "Runbook " + rb.getRunbookCode() + " v" + v.getVersionNumber() + " (" + rb.getTitle()
+            + ") is waiting for your approval";
+        String subject = "Approval needed: runbook " + rb.getRunbookCode() + " v" + v.getVersionNumber();
+        // Approvers are CCO and TENANT_ADMIN (RunbookRoles.APPROVERS); the author can't approve their own version.
+        for (String role : List.of(AppRole.CCO, AppRole.TENANT_ADMIN)) {
+            notifications.notifyRoleEmailed(role, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
+                summary, "/runbooks/approvals", subject, user.getUserId());
+        }
         return tree.load(v);
     }
 

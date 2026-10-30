@@ -109,7 +109,7 @@ public class RunbookExecutionService {
             .completedPass30d(closed30.stream().filter(e -> EX_COMPLETED_PASS.equals(e.getStatus())).count())
             .completedFail30d(closed30.stream().filter(e -> EX_COMPLETED_FAIL.equals(e.getStatus())).count())
             .aborted30d(closed30.stream().filter(e -> EX_ABORTED.equals(e.getStatus())).count())
-            .openEscalations(execEscalations.countByAcknowledgedAtIsNull())
+            .openEscalations(openEscalationCount())
             .byStatus(byStatus).build();
     }
 
@@ -218,6 +218,7 @@ public class RunbookExecutionService {
         }
         RunbookStepExecution s = findStep(execId, stepExecId);
         requireWorkable(e, s);
+        requireStepActor(e, s, stepDefs(e.getVersionId()), user);
         if (!ST_PENDING.equals(s.getStatus())) throw ApiException.conflict("The step is already " + s.getStatus());
         List<RunbookStepExecution> all = stepExecs.findByExecutionIdOrderBySortOrderAsc(execId);
         boolean rollback = s.getRollbackId() != null;
@@ -249,6 +250,7 @@ public class RunbookExecutionService {
         requireWorkable(e, s);
         if (!ST_IN_PROGRESS.equals(s.getStatus())) throw ApiException.conflict("Start the step before passing it");
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepActor(e, s, defs, user);
         List<RunbookStepEvidenceReq> missing = missingMandatory(s, defs, evidence.findByStepExecIdOrderByCapturedAtAsc(stepExecId));
         if (!missing.isEmpty()) {
             throw ApiException.conflict("evidence_required", "Capture the mandatory evidence first: "
@@ -263,10 +265,11 @@ public class RunbookExecutionService {
             stepExecs.save(s);
             audit.log(user.getUserId(), "step_pass_requested", SUBJECT_EXECUTION, execId,
                 Map.of("stepExecId", stepExecId, "stepCode", String.valueOf(def.getStepCode())));
-            notifications.notifyRole(def.getAssignedRole() != null && EXECUTOR_ROLES.contains(def.getAssignedRole())
+            notifications.notifyRoleEmailed(def.getAssignedRole() != null && EXECUTOR_ROLES.contains(def.getAssignedRole())
                     ? def.getAssignedRole() : AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
                 "Dual-control verification needed on " + e.getExecutionRef() + " step " + def.getStepCode(),
-                "/runbooks/executions/" + execId);
+                "/runbooks/executions/" + execId,
+                "Verification needed: " + e.getExecutionRef() + " step " + def.getStepCode(), user.getUserId());
         } else {
             s.setStatus(ST_PASSED);
             s.setCompletedAt(Instant.now());
@@ -325,6 +328,7 @@ public class RunbookExecutionService {
 
         Runbook rb = runbookService.find(e.getRunbookId());
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepActor(e, s, defs, user);
         RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
         String code = stepCode(s, defs);
         s.setStatus(ST_FAILED);
@@ -373,6 +377,7 @@ public class RunbookExecutionService {
             throw ApiException.conflict("The step can no longer be skipped");
         }
         StepDefs defs = stepDefs(e.getVersionId());
+        requireStepActor(e, s, defs, user);
         RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
         if (def != null && !Boolean.TRUE.equals(def.getAllowSkip())) throw ApiException.conflict("This step does not allow skipping");
         if (req.getReason() == null || req.getReason().trim().length() < 10) {
@@ -413,10 +418,19 @@ public class RunbookExecutionService {
             req = defs.reqs.getOrDefault(s.getStepId(), List.of()).stream().filter(r -> r.getReqId().equals(reqId)).findFirst()
                 .orElseThrow(() -> ApiException.badRequest("The evidence requirement does not belong to this step"));
         }
+        requireStepActor(e, s, defs, user);
         String type = evidenceType != null ? evidenceType : req != null ? req.getEvidenceType()
             : notBlank(attestationText) ? "ATTESTATION" : notBlank(externalRef) ? "TICKET_REF"
             : notBlank(pastedOutput) ? "QUERY_OUTPUT" : "DOCUMENT";
         if (!EVIDENCE_TYPES.contains(type)) throw ApiException.badRequest("Invalid evidence type: " + type);
+        if (req != null) {
+            boolean hasFile = file != null && !file.isEmpty();
+            String fname = hasFile && file.getOriginalFilename() != null ? file.getOriginalFilename() : "";
+            String fext = fname.contains(".") ? fname.substring(fname.lastIndexOf('.') + 1).toLowerCase() : "";
+            String mismatch = evidenceMismatch(req.getEvidenceType(), req.getAcceptedMime(), fext,
+                hasFile ? file.getContentType() : null, hasFile, notBlank(pastedOutput), notBlank(externalRef), notBlank(attestationText));
+            if (mismatch != null) throw ApiException.badRequest("evidence_type_mismatch", mismatch + " (" + req.getLabel() + ")");
+        }
 
         Long fileId = null;
         String sha;
@@ -493,6 +507,7 @@ public class RunbookExecutionService {
     public ExecutionDetailDto pause(Long execId, String reason, User user) {
         requireExecutor(user);
         RunbookExecution e = find(execId);
+        requireRunControl(e, user);
         if (!WORKABLE_EXECUTION_STATUSES.contains(e.getStatus())) throw ApiException.conflict("Only a running execution can be paused");
         e.setStatusBeforePause(e.getStatus());
         e.setStatus(EX_PAUSED);
@@ -505,6 +520,7 @@ public class RunbookExecutionService {
     public ExecutionDetailDto resume(Long execId, User user) {
         requireExecutor(user);
         RunbookExecution e = find(execId);
+        requireRunControl(e, user);
         if (!EX_PAUSED.equals(e.getStatus()) && !EX_ESCALATED.equals(e.getStatus())) {
             throw ApiException.conflict("Only a paused or escalated execution can be resumed");
         }
@@ -523,6 +539,7 @@ public class RunbookExecutionService {
     public ExecutionDetailDto abort(Long execId, String reason, User user) {
         requireExecutor(user);
         RunbookExecution e = find(execId);
+        requireRunControl(e, user);
         if (CLOSED_EXECUTION_STATUSES.contains(e.getStatus()) || EX_PENDING_SIGNOFF.equals(e.getStatus())) {
             throw ApiException.conflict("The execution is already finished");
         }
@@ -534,6 +551,7 @@ public class RunbookExecutionService {
         e.setCompletedAt(now);
         e.setClosedAt(now);
         executions.save(e);
+        closeOpenEscalations(e, user.getUserId(), "Closed with the execution (aborted)");
         audit.log(user.getUserId(), "execution_aborted", SUBJECT_EXECUTION, execId, Map.of("reason", reason.trim()));
         return detail(e);
     }
@@ -575,6 +593,7 @@ public class RunbookExecutionService {
     public ExecutionDetailDto rollback(Long execId, String reason, User user) {
         requireExecutor(user);
         RunbookExecution e = find(execId);
+        requireRunControl(e, user);
         if (!Set.of(EX_IN_PROGRESS, EX_ESCALATED, EX_PAUSED).contains(e.getStatus())) {
             throw ApiException.conflict("Rollback can only be triggered on a running, paused or escalated execution");
         }
@@ -646,6 +665,27 @@ public class RunbookExecutionService {
         return detail(e);
     }
 
+    /** A finished run leaves no escalation open (they used to keep counting as "open escalations"). */
+    private void closeOpenEscalations(RunbookExecution e, Integer userId, String note) {
+        List<RunbookExecutionEscalation> open = execEscalations.findByExecutionIdAndAcknowledgedAtIsNull(e.getExecutionId());
+        if (open.isEmpty()) return;
+        Instant now = Instant.now();
+        for (RunbookExecutionEscalation esc : open) {
+            esc.setAcknowledgedAt(now);
+            esc.setAcknowledgedByUserId(userId);
+            esc.setNotes(esc.getNotes() == null ? note : esc.getNotes() + " · " + note);
+        }
+        execEscalations.saveAll(open);
+    }
+
+    /** Open escalations of runs that are still going (closed runs' leftovers don't count). */
+    long openEscalationCount() {
+        List<Long> closed = executions.findByStatusIn(CLOSED_EXECUTION_STATUSES).stream()
+            .map(RunbookExecution::getExecutionId).toList();
+        return closed.isEmpty() ? execEscalations.countByAcknowledgedAtIsNull()
+            : execEscalations.countByAcknowledgedAtIsNullAndExecutionIdNotIn(closed);
+    }
+
     /** CCO acceptance closes the run and feeds the linked controls' test history (spec §8.6). */
     private void close(RunbookExecution e, User signer) {
         Instant now = Instant.now();
@@ -653,6 +693,7 @@ public class RunbookExecutionService {
         e.setStatus(pass ? EX_COMPLETED_PASS : EX_COMPLETED_FAIL);
         e.setClosedAt(now);
         executions.save(e);
+        closeOpenEscalations(e, signer.getUserId(), "Closed with the execution (signed off)");
         Runbook rb = runbookService.find(e.getRunbookId());
         List<Integer> controlIds = rb.getLinkedControlIds().stream().map(Long::intValue).toList();
         if (!controlIds.isEmpty()) {
@@ -716,9 +757,10 @@ public class RunbookExecutionService {
         e.setStatus(EX_PENDING_SIGNOFF);
         executions.save(e);
         audit.log(null, "execution_completed", SUBJECT_EXECUTION, e.getExecutionId(), Map.of("outcome", outcome));
-        notifications.notifyRole(AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
+        notifications.notifyRoleEmailed(AppRole.CCO, NOTIFICATION_CATEGORY, NotificationConstants.SEVERITY_MEDIUM,
             "Runbook execution " + e.getExecutionRef() + " is ready for sign-off (" + outcome + ")",
-            "/runbooks/executions/" + e.getExecutionId() + "/summary");
+            "/runbooks/executions/" + e.getExecutionId() + "/summary",
+            "Sign-off needed: " + e.getExecutionRef());
     }
 
     private List<RunbookStepExecution> recount(RunbookExecution e) {
@@ -743,6 +785,78 @@ public class RunbookExecutionService {
                 default -> "The execution is " + e.getStatus();
             });
         }
+    }
+
+    /**
+     * A step assigned to an application role (ANALYST, CCO, IT_OPS, TENANT_ADMIN) may only be worked
+     * by a user holding that role — a CCO may also perform Analyst steps. Roles the tenant has no
+     * user role for (CISO, DPO, …) are descriptive and open to any executor. Rollback steps follow
+     * the same rule through their own definition when they carry one.
+     */
+    private static void requireStepActor(RunbookExecution e, RunbookStepExecution s, StepDefs defs, User u) {
+        RunbookStep def = s.getStepId() != null ? defs.steps.get(s.getStepId()) : null;
+        String required = def != null ? def.getAssignedRole() : null;
+        if (!roleMayPerform(required, u.getRole())) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "step_role_required",
+                "This step is assigned to the " + required + " role");
+        }
+        // A step not assigned to an app role belongs to the run's operator (or a CCO / tenant admin
+        // standing in) — another user cannot work someone else's run.
+        if (!isAppRole(required) && !mayActForOperator(e, u)) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "not_operator",
+                "Only the operator of this run (or a CCO) can work this step");
+        }
+    }
+
+    /** Pause / resume / roll back / abort: the operator, or a CCO or tenant admin. */
+    private static void requireRunControl(RunbookExecution e, User u) {
+        if (!mayActForOperator(e, u)) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "not_operator",
+                "Only the operator of this run (or a CCO) can pause, roll back or abort it");
+        }
+    }
+
+    static boolean mayActForOperator(RunbookExecution e, User u) {
+        return (e.getOperatorUserId() != null && e.getOperatorUserId().equals(u.getUserId()))
+            || AppRole.CCO.equals(u.getRole()) || AppRole.TENANT_ADMIN.equals(u.getRole());
+    }
+
+    static boolean isAppRole(String role) {
+        return role != null && !role.isBlank() && EXECUTOR_ROLES.contains(role.trim().toUpperCase(java.util.Locale.ROOT));
+    }
+
+    /**
+     * Whether an evidence payload fits the requirement it is captured against: a screenshot must be
+     * an image (or PDF), a log/query/config export a text-type file, an attestation the attestation
+     * text, a ticket the external reference. A requirement's own accepted MIME list wins.
+     */
+    static String evidenceMismatch(String type, List<String> acceptedMime, String ext, String mime,
+                                   boolean file, boolean pasted, boolean externalRef, boolean attestation) {
+        if (file && acceptedMime != null && !acceptedMime.isEmpty()) {
+            return mime != null && acceptedMime.stream().anyMatch(m -> mime.equalsIgnoreCase(m.trim()))
+                ? null : "This evidence must be one of: " + String.join(", ", acceptedMime);
+        }
+        Set<String> images = Set.of("png", "jpg", "jpeg", "gif", "webp", "pdf");
+        Set<String> text = Set.of("txt", "log", "csv", "json", "xml", "yaml", "yml", "cfg", "conf", "md", "html", "xlsx", "xls", "zip");
+        return switch (type == null ? "" : type) {
+            case "SCREENSHOT" -> file && images.contains(ext) ? null : "A screenshot must be an image or PDF file";
+            case "SIGNED_FORM" -> file && Set.of("pdf", "png", "jpg", "jpeg").contains(ext) ? null : "A signed form must be a PDF or image file";
+            case "EMAIL" -> file && Set.of("eml", "msg", "pdf").contains(ext) ? null : "An email must be an .eml, .msg or PDF file";
+            case "LOG_FILE", "CONFIG_EXPORT" -> (file && text.contains(ext)) || pasted ? null
+                : "A log or configuration export must be a text-type file or pasted output";
+            case "QUERY_OUTPUT" -> (file && text.contains(ext)) || pasted ? null : "Query output must be pasted or a text-type file";
+            case "ATTESTATION" -> attestation ? null : "This requirement is an attestation — enter the attestation text";
+            case "TICKET_REF" -> externalRef ? null : "This requirement is a ticket — give its reference";
+            default -> null;
+        };
+    }
+
+    static boolean roleMayPerform(String required, String userRole) {
+        if (required == null || required.isBlank()) return true;
+        String r = required.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!EXECUTOR_ROLES.contains(r)) return true;
+        if (r.equals(userRole)) return true;
+        return AppRole.ANALYST.equals(r) && AppRole.CCO.equals(userRole);
     }
 
     private static void requireExecutor(User u) {

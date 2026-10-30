@@ -760,7 +760,7 @@ public class ReturnService {
     }
 
     @Transactional
-    public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId) {
+    public void advanceStage(Long instanceId, AdvanceStageRequest req, Integer userId, String userName) {
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
         if (inst.getDueDate() == null) throw ApiException.conflict("due_date_missing", "This filing instance has no due date.");
@@ -781,10 +781,17 @@ public class ReturnService {
         ReturnStage next = STAGES.get(idx + 1);
 
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
+        // Maker/checker: whoever prepared the filing (Data Gathering / Draft) cannot also review it.
+        if (inst.getCurrentStage() == ReturnStage.REVIEW && preparers(stageData).contains(String.valueOf(userId)))
+            throw ApiException.conflict("segregation_of_duties",
+                "You prepared this filing, so a different user must complete the review.");
         Map<String, String> stageEntry = new HashMap<>();
         stageEntry.put("completedAt", Instant.now().toString());
         stageEntry.put("completedByUserId", String.valueOf(userId));
-        if (req.getCompletedByName() != null) stageEntry.put("completedByName", req.getCompletedByName());
+        // who completed the stage is always recorded — the signed-in user unless a name was typed
+        String completedBy = req.getCompletedByName() != null && !req.getCompletedByName().isBlank()
+            ? req.getCompletedByName().trim() : userName;
+        if (completedBy != null) stageEntry.put("completedByName", completedBy);
         if (req.getEvidenceUrl() != null) stageEntry.put("evidenceUrl", req.getEvidenceUrl());
         stageData.put(from.db(), stageEntry);
         try {
@@ -1587,6 +1594,16 @@ public class ReturnService {
                 .orElse(null);
         }
         return null;
+    }
+
+    /** Users (ids as stored in stage data) who completed the preparation stages of a filing. */
+    static Set<String> preparers(Map<String, Map<String, String>> stageData) {
+        Set<String> out = new HashSet<>();
+        for (ReturnStage st : List.of(ReturnStage.DATA_GATHERING, ReturnStage.DRAFT)) {
+            Map<String, String> e = stageData.get(st.db());
+            if (e != null && e.get("completedByUserId") != null) out.add(e.get("completedByUserId"));
+        }
+        return out;
     }
 
     private Map<String, Map<String, String>> parseStageData(String json) {

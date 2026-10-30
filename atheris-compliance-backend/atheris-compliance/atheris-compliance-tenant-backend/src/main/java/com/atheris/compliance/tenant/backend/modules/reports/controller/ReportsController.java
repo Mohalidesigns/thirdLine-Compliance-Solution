@@ -52,8 +52,8 @@ public class ReportsController {
 
     @GetMapping("/{id}/download")
     @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
-    public ResponseEntity<byte[]> download(@PathVariable Long id) {
-        byte[] pdf = service.download(id);
+    public ResponseEntity<byte[]> download(@PathVariable Long id, @AuthenticationPrincipal User u) {
+        byte[] pdf = service.download(id, u);
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + service.fileNameFor(id) + "\"")
             .contentType(MediaType.APPLICATION_PDF)
@@ -69,7 +69,8 @@ public class ReportsController {
     }
 
     @PostMapping("/{id}/sign-off")
-    @PreAuthorize("hasRole('" + AppRole.CCO + "')")
+    // CCO or tenant admin (e.g. the board secretary) — never the person who generated it (see service)
+    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<BoardPackDto> signOff(
             @PathVariable Long id,
             @RequestBody(required = false) SignOffRequest req,

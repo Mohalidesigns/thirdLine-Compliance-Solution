@@ -20,6 +20,7 @@ public class BoardPackDto {
     private Double complianceScore;
     private String fileName;
     private String fileSha256;
+    private Integer generatedByUserId;
     private String generatedByName;
     private Instant generatedAt;
     private String signedOffByName;

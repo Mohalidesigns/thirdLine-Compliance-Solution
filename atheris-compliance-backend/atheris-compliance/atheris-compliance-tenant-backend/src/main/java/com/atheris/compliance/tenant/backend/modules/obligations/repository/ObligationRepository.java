@@ -13,6 +13,7 @@ public interface ObligationRepository extends JpaRepository<Obligation, Long> {
     java.util.Optional<Obligation> findFirstByObligationNumberNotNullOrderByObligationNumberDesc();
     List<Obligation> findByInstrumentId(Long instrumentId);
     List<Obligation> findBySource(String source);
+    List<Obligation> findByTenantRegulatorIdIsNull();
     long countByInstrumentId(Long instrumentId);
     long countByTenantRegulatorId(Long tenantRegulatorId);
 

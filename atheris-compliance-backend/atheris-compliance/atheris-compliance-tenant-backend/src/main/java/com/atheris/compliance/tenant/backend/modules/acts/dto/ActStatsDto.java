@@ -12,6 +12,8 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ActStatsDto {
     private long totalActs;
+    /** Acts whose instrument has obligations in this tenant's register. */
+    private long actsInRegister;
     @Builder.Default private Map<String, Long> byRegulator = new LinkedHashMap<>();
     @Builder.Default private List<String> regulators = List.of();
 }

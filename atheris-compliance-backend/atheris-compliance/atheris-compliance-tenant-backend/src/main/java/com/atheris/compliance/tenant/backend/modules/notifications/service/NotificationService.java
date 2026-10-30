@@ -71,23 +71,37 @@ public class NotificationService {
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject) {
-        notifyRoleEmailed(role, category, severity, summary, link, subject, null);
+        notifyRoleEmailed(role, category, severity, summary, link, subject, (String) null, null, null);
+    }
+
+    @Transactional
+    public void notifyRoleEmailed(String role, String category, String severity,
+                                  String summary, String link, String subject, Integer excludeUserId) {
+        notifyRoleEmailed(role, category, severity, summary, link, subject, null, null, excludeUserId);
     }
 
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject, String emailBody) {
-        notifyRoleEmailed(role, category, severity, summary, link, subject, emailBody, null);
+        notifyRoleEmailed(role, category, severity, summary, link, subject, emailBody, null, null);
     }
 
     @Transactional
     public void notifyRoleEmailed(String role, String category, String severity,
                                   String summary, String link, String subject, String emailBody, List<String> cc) {
+        notifyRoleEmailed(role, category, severity, summary, link, subject, emailBody, cc, null);
+    }
+
+    @Transactional
+    public void notifyRoleEmailed(String role, String category, String severity,
+                                  String summary, String link, String subject, String emailBody, List<String> cc,
+                                  Integer excludeUserId) {
         notifyRole(role, category, severity, summary, link);
         String body = emailBody != null && !emailBody.isBlank() ? emailBody : summary;
         List<User> holders = users.findByRole(role);
         for (User u : holders) {
-            if (Boolean.FALSE.equals(u.getIsActive())) {
+            if (Boolean.FALSE.equals(u.getIsActive())
+                || (excludeUserId != null && excludeUserId.equals(u.getUserId()))) {
                 continue;
             }
             email.send(u.getEmail(), cc, subject, body, absolute(link));

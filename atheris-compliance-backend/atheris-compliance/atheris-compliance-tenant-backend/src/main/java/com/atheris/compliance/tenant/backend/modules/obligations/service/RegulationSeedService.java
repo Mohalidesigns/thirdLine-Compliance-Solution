@@ -27,6 +27,7 @@ import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.Te
 import com.atheris.compliance.tenant.backend.shared.platform.client.PlatformApiClient;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformRegulationSeed;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnRegulatorRepairService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -152,6 +153,7 @@ public class RegulationSeedService {
                     .sectionReference(o.getSpecificSectionReference())
                     .actName(bundle.getRegulationName())
                     .regulationId(bundle.getRegulationId())
+                    .tenantRegulatorId(reg != null ? reg.getId() : null)
                     // one vocabulary with the universe: inherit the instrument's area
                     .areaOfFocus(AreasOfFocus.forObligation(
                         bundle.getCanonicalInstrument().getAreaOfFocus(), o.getAreaOfFocus()))
@@ -194,9 +196,9 @@ public class RegulationSeedService {
                 if (r.getTitle() == null || r.getTitle().isBlank()) continue;
                 Long regId = reg != null ? reg.getId() : null;
                 if (returns.existsByReturnNameAndTenantRegulatorId(r.getTitle(), regId)) continue;
-                String label = r.getResponsibleUnit() != null && !r.getResponsibleUnit().isBlank()
-                    ? r.getResponsibleUnit()
-                    : (reg != null ? (reg.getAbbreviation() != null ? reg.getAbbreviation() : reg.getName()) : null);
+                // The filing regulator is the regulator itself — never the responsible unit, which is
+                // the department/desk inside it and is stored separately below.
+                String label = ReturnRegulatorRepairService.regulatorLabel(reg);
                 // Same type logic as the frequency repair, so a fresh tenant is never flagged by it.
                 ReturnFrequency freqType = ReturnDeadlineParser.platformType(r).orElse(ReturnFrequency.MONTHLY);
                 // Due rule from the platform's deadline wording; none → "Due date needed". The platform's
@@ -261,29 +263,16 @@ public class RegulationSeedService {
         // Maps each obligation -> the control IDs created in this bundle that link to it.
         Map<Long, List<Integer>> controlsByObligation = new HashMap<>();
         if (bundle.getControls() != null) {
+            // A control covers the obligation(s) of the toolkit row it came from — the platform's
+            // links, translated to this tenant's obligation ids. (It used to attach to every obligation
+            // of the act, and to keep the platform's ids untranslated.)
+            Map<Long, Long> platformToTenant = SeedLinks.platformToTenant(bundle.getObligations(),
+                createdObligations.isEmpty() ? obligationRepo.findByInstrumentId(instrumentId) : createdObligations);
             for (PlatformRegulationSeed.ControlItem c : bundle.getControls()) {
                 if (c.getControlNumber() == null || c.getControlNumber().isBlank()) continue;
                 if (controlRepo.existsByControlNumber(c.getControlNumber())) continue;
 
-                // Controls belong to the bundle's regulation, so they attach to ALL obligations of that
-                // instrument (the toolkit links controls at the act_id/regulation level). This guarantees every
-                // obligation carries its regulation's controls + additional controls.
-                List<Long> linkedIds = createdObligations.isEmpty()
-                    ? obligationRepo.findByInstrumentId(instrumentId).stream()
-                        .map(Obligation::getObligationId)
-                        .toList()
-                    : createdObligations.stream()
-                        .map(Obligation::getObligationId)
-                        .toList();
-                // Union in any platform-supplied explicit links (a subset of the same instrument).
-                if (c.getLinkedObligationIds() != null && !c.getLinkedObligationIds().isBlank()) {
-                    java.util.Set<Long> merged = new java.util.LinkedHashSet<>(linkedIds);
-                    java.util.Arrays.stream(c.getLinkedObligationIds().split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .forEach(s -> merged.add(Long.parseLong(s)));
-                    linkedIds = new ArrayList<>(merged);
-                }
+                List<Long> linkedIds = SeedLinks.translate(c.getLinkedObligationIds(), platformToTenant);
 
                 Control saved = controlRepo.save(Control.builder()
                     .controlNumber(c.getControlNumber())
@@ -299,7 +288,9 @@ public class RegulationSeedService {
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))
                     .testFrequencyDays(ControlSchedule.daysForFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel())))
                     .inherentRisk(c.getRiskLevel())
-                    .residualRisk(c.getRiskLevel())
+                    // the toolkit's residual (likelihood × impact after controls), not a copy of inherent
+                    .residualRisk(c.getResidualRiskRating() != null && !c.getResidualRiskRating().isBlank()
+                        ? c.getResidualRiskRating() : c.getRiskLevel())
                     .residualLikelihood(c.getResidualLikelihood())
                     .residualImpact(c.getResidualImpact())
                     .residualRiskRating(c.getResidualRiskRating())

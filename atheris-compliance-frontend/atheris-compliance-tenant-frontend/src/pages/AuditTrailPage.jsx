@@ -8,6 +8,7 @@ import {
   PageHeader, FilterBar, FilterField, StatusBadge, TL,
   ShieldCheckIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClockIcon, LinkIcon,
 } from 'shared';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 
 export default function AuditTrailPage() {
@@ -34,6 +35,13 @@ export default function AuditTrailPage() {
   }, [page, rowsPerPage, filters]);
 
   useEffect(() => { loadList(); }, [loadList]);
+
+  // Actor filter by name rather than a numeric user id.
+  const { data: actors } = useQuery({
+    queryKey: ['audit', 'actors'],
+    queryFn: ({ signal }) => api.runbooks.assignees({ signal }),
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     api.audit.verify().then(res => setChainStatus(res))
@@ -88,9 +96,12 @@ export default function AuditTrailPage() {
           <TextField size="small" type="number"
             value={filters.subjectId} onChange={e => { setFilters(f => ({ ...f, subjectId: e.target.value })); setPage(0); }} />
         </FilterField>
-        <FilterField label="Actor User ID" minWidth={130}>
-          <TextField size="small" type="number"
-            value={filters.actorUserId} onChange={e => { setFilters(f => ({ ...f, actorUserId: e.target.value })); setPage(0); }} />
+        <FilterField label="Actor" minWidth={170}>
+          <TextField select size="small"
+            value={filters.actorUserId} onChange={e => { setFilters(f => ({ ...f, actorUserId: e.target.value })); setPage(0); }}>
+            <MenuItem value="">Anyone</MenuItem>
+            {(actors || []).map(u => <MenuItem key={u.userId} value={String(u.userId)}>{u.fullName}</MenuItem>)}
+          </TextField>
         </FilterField>
         <FilterField label="From" minWidth={150}>
           <TextField type="date" size="small"
@@ -132,7 +143,7 @@ export default function AuditTrailPage() {
                           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                         })}
                       </TableCell>
-                      <TableCell>User {row.actorUserId || '-'}</TableCell>
+                      <TableCell>{row.actorName || (row.actorUserId ? `User ${row.actorUserId}` : 'System')}</TableCell>
                       <TableCell>{row.actionDescription || row.action}</TableCell>
                       <TableCell>
                         {row.subjectType && (

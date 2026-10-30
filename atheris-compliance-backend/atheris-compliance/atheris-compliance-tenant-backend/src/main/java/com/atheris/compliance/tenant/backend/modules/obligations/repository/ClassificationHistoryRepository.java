@@ -10,4 +10,5 @@ import java.util.List;
 public interface ClassificationHistoryRepository extends JpaRepository<ClassificationHistory, Long>, JpaSpecificationExecutor<ClassificationHistory> {
     List<ClassificationHistory> findByInstrumentIdOrderByChangedAtDesc(Long instrumentId);
     List<ClassificationHistory> findByObligationIdOrderByChangedAtDesc(Long obligationId);
+    List<ClassificationHistory> findByObligationIdIn(java.util.Collection<Long> obligationIds);
 }

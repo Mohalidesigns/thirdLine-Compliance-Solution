@@ -29,7 +29,8 @@ public class OrgController {
     }
 
     @PostMapping("/departments")
-    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
+    // CCO too: quick-added from the Add Owner dialog (see createOwner).
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<DepartmentDto> createDepartment(@Valid @RequestBody DepartmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createDepartment(request));
     }
@@ -55,7 +56,8 @@ public class OrgController {
     }
 
     @PostMapping("/teams")
-    @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
+    // CCO too: quick-added from the Add Owner dialog (see createOwner).
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
     public ResponseEntity<TeamDto> createTeam(@Valid @RequestBody TeamRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createTeam(request));
     }
@@ -83,6 +85,7 @@ public class OrgController {
     }
 
     @PostMapping("/owners")
+    // CCO and analysts assign findings/obligations to owners, so they can add them. Edit/delete stay admin-only.
     @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<OwnerDto> createOwner(@Valid @RequestBody OwnerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createOwner(request));

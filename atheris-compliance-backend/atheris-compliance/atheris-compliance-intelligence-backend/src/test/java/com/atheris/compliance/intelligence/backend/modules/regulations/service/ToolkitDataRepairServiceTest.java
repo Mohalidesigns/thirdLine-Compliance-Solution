@@ -7,6 +7,7 @@ import com.atheris.compliance.intelligence.backend.modules.obligations.repositor
 import com.atheris.compliance.intelligence.backend.modules.regulations.dto.seed.ToolkitSeedDoc;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
@@ -22,9 +23,10 @@ class ToolkitDataRepairServiceTest {
     private final InstrumentRepository instruments = mock(InstrumentRepository.class);
     private final ObligationMappingRepository obligations = mock(ObligationMappingRepository.class);
     private final ComplianceControlRepository controls = mock(ComplianceControlRepository.class);
+    private final RegulatoryReturnRepository returns = mock(RegulatoryReturnRepository.class);
     private Map<String, List<ToolkitSeedDoc.ObligationRow>> seed = Map.of();
     private final ToolkitDataRepairService service =
-        new ToolkitDataRepairService(instruments, obligations, controls, new ObjectMapper()) {
+        new ToolkitDataRepairService(instruments, obligations, controls, returns, new ObjectMapper()) {
             @Override
             Map<String, List<ToolkitSeedDoc.ObligationRow>> seedSections() { return seed; }
         };

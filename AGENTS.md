@@ -363,6 +363,27 @@ Harmonization (tenant pages, intel explorers, dashboards, skill) is DONE — see
 - **Escalation**: no per-control policy override UI (column exists, entity field does not); no manual "Send link" for periodic returns; `PersonPicker` owner-mode still creates owners on directory pick.
 - Near-duplicate seeded act names (e.g. "Consumer Protection Framework" vs "CBN Consumer Protection Framework") split Risk by Act rows.
 
+## Done — Tenant E2E High findings (`bugfix/tenant-e2e-high-findings`)
+
+16 of the 17 High findings in `E2E_FINDINGS_2026-10-19.md` are fixed (see its "Fix log"); Q1 is config only (`OPENROUTER_API_KEY`).
+- **Duplicates / control links (O1/O2/C2):** shared `atheris-compliance-common` `obligations/ObligationKey` (title + label-less section + verbatim text). Intel import dedups on it with the `crmp` sheet last; `ToolkitDataRepairService` removes old duplicates and `relinkControls` links each control to the obligation of the toolkit row it came from. The seed DTO carries the platform `obligationId`; the tenant seed translates ids via `SeedLinks`. Tenant `SeedLinkRepairService` (run by `SeedDataRepairService`) merges duplicates, moving every reference first, and rebuilds links. After the merge with origin/main, the obligation side is the source of links and `ObligationService.syncControlLinks` mirrors it onto the control (control create/edit no longer link); the classify path mirrors too.
+- **Med/Low pass:** 44 more findings fixed (fix log in the findings file). New shared pieces: `ControlTaskRules` (one "tests due" rule), `AuditService.logCurrentUser` (audit without a user parameter), tenant `utils/roles.js` (`isReadOnly` hides write actions for Auditor/IT_OPS), `homeFor(role)` in `AppRoutes` (IT_OPS lands on Runbook Executions). Return filing stages are `Not Started → Data Gathering → Draft → Review → Sign-off → Submitted` in both backend and UI.
+- **Gotcha:** the intel launch config runs `spring-boot:run` from the intel module, so it uses the *installed* common jar. After changing `atheris-compliance-common`, run `mvn install -pl atheris-compliance-common -DskipTests` or intel fails with `NoClassDefFoundError`.
+- **Auth:** tenant `api.js` refresh is single-flight (concurrent 401s share one `/auth/refresh`).
+- **Uploads (intel):** `UploadClassificationHandler` runs classification in its own `TransactionTemplate`, so FAILED is always saved. `StaleUploadRecovery` fails uploads stuck >30 min, and re-uploading a FAILED PDF retries it.
+- **Email (tenant):** STARTTLS is on by default. `EmailService.send` returns an `Outcome`, and the remediation-link API and dialog report `emailStatus` instead of always saying "emailed".
+- **Returns:**
+  - the rendition grid buckets by due month (daily/weekly periods are aggregated per cell, e.g. `OD 5/17`);
+  - escalation days late are computed from the due date for open periods;
+  - `filingRegulator` is now the regulator; the seed is fixed and `ReturnRegulatorRepairService` repairs existing rows;
+  - maker/checker: whoever completed Data Gathering or Draft can't complete Review or submit (409 `segregation_of_duties`).
+- **Regulators:** obligations carry `tenantRegulatorId` (seed + review save); `SeedDataRepairService.linkRegulators` backfills existing rows.
+- **Heatmap:** bands via `ObligationClassification.inherentBand`/`RiskBands`, the same rule as the Risk Profile panel; axes are ordered by level.
+- **Instruments page:** KPIs, filters, sort and paging come from `/subscriptions/instruments/universe` (+ `universe-stats`). The universe sort accepts `obligationCount`.
+- **Runbooks:** a step's `assignedRole` is enforced when the role is an app role (CCO may do ANALYST steps; CISO/DPO stay open).
+- **Org:** the CCO may create owners, departments and teams; Add Owner can prefill from a system user.
+- **Evidence:** user uploads validate the source type and that the linked record exists (`uploadLinked`).
+
 ## Done — Dashboard Consistency (tenant `/dashboard`) — `bugfix/dashboard-consistency`
 
 Every widget now adds up and agrees with the others; `DashboardConsistencyTest` cross-checks the totals.

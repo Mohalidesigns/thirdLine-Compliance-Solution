@@ -64,7 +64,7 @@ export default function LoginForm() {
         display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between',
         width: { md: '44%', lg: '40%' }, bgcolor: TL.primary, color: '#FFFFFF', p: 6,
       }}>
-        <Box component="img" src="/Verity/verity-logo-dark.png" alt={BRAND.NAME}
+        <Box component="img" src="/atheris-verity/verity-logo-on-black.svg" alt={BRAND.NAME}
           sx={{ height: 52, width: 'auto', alignSelf: 'flex-start' }} />
 
         <Box sx={{ maxWidth: 420 }}>
@@ -99,7 +99,7 @@ export default function LoginForm() {
           borderRadius: '12px', boxShadow: TL.cardShadow, p: { xs: 3, sm: 4 },
         }}>
           <Box sx={{ mb: 3 }}>
-            <Box component="img" src="/Verity/verity-logo-light.png" alt={BRAND.NAME}
+            <Box component="img" src="/atheris-verity/verity-logo-on-white.svg" alt={BRAND.NAME}
               sx={{ display: { xs: 'block', md: 'none' }, height: 40, width: 'auto', mb: 2 }} />
             <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: TL.textPrimary, lineHeight: '2rem' }}>
               Sign in

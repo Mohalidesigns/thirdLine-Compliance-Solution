@@ -76,9 +76,8 @@ public class ComplianceMetricsService {
     private static final Set<String> HIGH_RISK = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
     private static final Set<String> OPEN_FINDING_STATUS = Set.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
     private static final Set<String> HIGH_SEVERITY = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
-    private static final Set<String> OPEN_TASK_STATUS = Set.of(
-        WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS, WorkflowStatus.TASK_OVERDUE);
-    private static final int TESTS_DUE_WINDOW_DAYS = 30;
+    private static final Set<String> OPEN_TASK_STATUS =
+        com.atheris.compliance.tenant.backend.modules.controls.service.ControlTaskRules.OPEN_TASK_STATUS;
 
     static final String C_COVERAGE = "controlCoverage";
     static final String C_EFFECTIVENESS = "controlTests";   // weight key kept for stored tenant weights
@@ -151,8 +150,7 @@ public class ComplianceMetricsService {
         List<ControlTask> openTasks = controlTasks.findAll().stream()
             .filter(t -> OPEN_TASK_STATUS.contains(t.getStatus()) && t.getDueDate() != null)
             .toList();
-        int testsDue = (int) openTasks.stream()
-            .filter(t -> !t.getDueDate().isAfter(todayDate.plusDays(TESTS_DUE_WINDOW_DAYS))).count();
+        int testsDue = com.atheris.compliance.tenant.backend.modules.controls.service.ControlTaskRules.testsDue(openTasks, todayDate);
         int testsOverdue = (int) openTasks.stream().filter(t -> t.getDueDate().isBefore(todayDate)).count();
 
         // ── Returns ──

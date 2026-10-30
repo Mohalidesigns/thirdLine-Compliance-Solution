@@ -83,12 +83,17 @@ public class AiConfig {
         if (fallbackBaseUrl == null || fallbackBaseUrl.isBlank()) {
             return withModel(openAiChatModel, null, fallbackModelName);
         }
+        // A separate provider without a key can't be built (OpenAiApi asserts on it) and used to stop
+        // the whole backend from starting; share the primary's provider instead.
+        if (fallbackApiKey == null || fallbackApiKey.isBlank()) {
+            log.warn("[AiConfig] AI_FALLBACK_API_KEY is not set — fallback model {} uses the primary provider instead of {}",
+                fallbackModelName, fallbackBaseUrl);
+            return withModel(openAiChatModel, null, fallbackModelName);
+        }
         OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
             .baseUrl(fallbackBaseUrl)
             .restClientBuilder(tolerantRestClient(restClientBuilder));
-        if (fallbackApiKey != null && !fallbackApiKey.isBlank()) {
-            apiBuilder.apiKey(fallbackApiKey);
-        }
+        apiBuilder.apiKey(fallbackApiKey);
         log.info("[AiConfig] Fallback model {} via {} (separate provider)", fallbackModelName, fallbackBaseUrl);
         return withModel(openAiChatModel, apiBuilder.build(), fallbackModelName);
     }

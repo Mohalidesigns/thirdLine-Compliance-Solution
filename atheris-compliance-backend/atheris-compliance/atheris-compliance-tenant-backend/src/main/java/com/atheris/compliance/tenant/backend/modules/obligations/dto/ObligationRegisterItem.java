@@ -43,6 +43,9 @@ public class ObligationRegisterItem {
     private String impactRating;
     private String likelihoodRating;
     private String assignedOwnerName;
+    /** Org owner actually assigned (null when the name is only the seeded "responsible party" text). */
+    private Integer assignedOwnerId;
+    private Integer assignedOwnerUserId;
     private String controlOwner;
     private String assignedDepartment;
     private String status;

@@ -133,20 +133,18 @@ public class InstrumentsService {
             .filter(s -> matches(s.getStatus(), status))
             .filter(s -> needle.isEmpty()
                 || contains(s.getSourceTitle(), needle) || contains(s.getSourceReferenceNumber(), needle))
-            .sorted(universeOrder(pageable.getSort()))
             .toList();
+        // Sorting by obligation count needs every row's count; one grouped query either way.
+        Map<Long, Integer> allCounts = pageable.getSort().getOrderFor("obligationCount") == null
+            ? Map.of() : obligationCounts(rows.stream().map(PlatformInstrumentSummary::getInstrumentId).toList());
+        rows = rows.stream().sorted(universeOrder(pageable.getSort(), allCounts)).toList();
 
         int from = (int) Math.min(pageable.getOffset(), rows.size());
         int to = Math.min(from + pageable.getPageSize(), rows.size());
         List<PlatformInstrumentSummary> slice = rows.subList(from, to);
 
-        Map<Long, Integer> countMap = new java.util.HashMap<>();
-        List<Long> ids = slice.stream().map(PlatformInstrumentSummary::getInstrumentId).toList();
-        if (!ids.isEmpty()) {
-            for (Object[] row : obligationRepo.countByInstrumentIdIn(ids)) {
-                countMap.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
-            }
-        }
+        Map<Long, Integer> countMap = !allCounts.isEmpty() ? allCounts
+            : obligationCounts(slice.stream().map(PlatformInstrumentSummary::getInstrumentId).toList());
 
         List<UniverseInstrumentItem> items = slice.stream().map(s -> UniverseInstrumentItem.builder()
             .instrumentId(s.getInstrumentId())
@@ -165,11 +163,20 @@ public class InstrumentsService {
         return new PageImpl<>(items, pageable, rows.size());
     }
 
+    private Map<Long, Integer> obligationCounts(List<Long> ids) {
+        Map<Long, Integer> countMap = new java.util.HashMap<>();
+        if (ids.isEmpty()) return countMap;
+        for (Object[] row : obligationRepo.countByInstrumentIdIn(ids)) {
+            countMap.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
+        }
+        return countMap;
+    }
+
     private static final Map<String, Integer> RISK_RANK = Map.of(
         "critical", 0, "very high", 1, "high", 2, "moderate", 3, "medium", 3, "low", 4, "very low", 5);
 
     /** Whitelisted sorts (unknown properties are ignored); default newest issued first, then title. */
-    private static Comparator<PlatformInstrumentSummary> universeOrder(Sort sort) {
+    private static Comparator<PlatformInstrumentSummary> universeOrder(Sort sort, Map<Long, Integer> counts) {
         Comparator<PlatformInstrumentSummary> byTitle = Comparator.comparing(
             s -> s.getSourceTitle() == null ? "" : s.getSourceTitle().toLowerCase());
         Comparator<PlatformInstrumentSummary> order = null;
@@ -184,6 +191,8 @@ public class InstrumentsService {
                     s -> s.getAreaOfFocus() == null ? "" : s.getAreaOfFocus().toLowerCase());
                 case "dateIssued" -> Comparator.comparing(PlatformInstrumentSummary::getDateIssued,
                     Comparator.nullsFirst(Comparator.naturalOrder()));
+                case "obligationCount" -> Comparator.comparing(
+                    s -> counts.getOrDefault(s.getInstrumentId(), 0));
                 default -> null;
             };
             if (c == null) continue;

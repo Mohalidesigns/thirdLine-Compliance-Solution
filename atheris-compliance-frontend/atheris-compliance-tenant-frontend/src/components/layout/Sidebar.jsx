@@ -5,11 +5,12 @@ import {
   AppSidebar, Squares2x2Icon, GlobeAltIcon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
   BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
-  QueueListIcon,
+  CloudArrowUpIcon, QueueListIcon,
 } from 'shared';
-import verityLogoDark from '../../Verity/verity-logo-dark.png';
-import verityMark from '../../Verity/verity-mark.png';
+import verityLogoDark from '../../atheris-verity/verity-logo-on-black.svg';
+import verityMark from '../../atheris-verity/verity-mark-on-black.svg';
 import { api } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const BRAND = { name: 'Verity Compliance', tagline: 'Compliance Portal', logo: verityLogoDark, mark: verityMark };
 
@@ -17,6 +18,7 @@ export default function Sidebar(props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
+  const { user } = useAuth();
 
   const { data: taskStats } = useQuery({
     queryKey: ['tasks', 'centerStats'],
@@ -41,6 +43,8 @@ export default function Sidebar(props) {
       { text: 'Tasks', path: '/tasks', icon: <QueueListIcon />, badge: openTasks },
       { text: 'Rendition & Coverage', path: '/dashboard/v2', icon: <PresentationChartBarIcon /> },
       { text: 'Review Inbox', path: '/review', icon: <InboxArrowDownIcon />, badge: pendingCount },
+      // uploaded documents feed the Review Inbox (this page had no sidebar entry)
+      { text: 'Uploads', path: '/uploads', icon: <CloudArrowUpIcon /> },
     ] },
     { key: 'registers', items: [
       { text: 'Compliance Universe', path: '/universe', icon: <GlobeAltIcon /> },
@@ -61,10 +65,19 @@ export default function Sidebar(props) {
     ] },
   ];
 
+  // IT Ops executes runbooks and captures evidence only — show just what it can use.
+  const itOps = user?.role === 'IT_OPS';
+  const visibleSections = itOps
+    ? [{ key: 'ops', items: [
+        { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
+        { text: 'Evidence Vault', path: '/evidence', icon: <FolderOpenIcon /> },
+      ] }]
+    : sections;
+
   return (
     <AppSidebar
       brand={BRAND}
-      sections={sections}
+      sections={visibleSections}
       footerItems={[{ text: 'Settings', path: '/settings', icon: <Cog6ToothIcon /> }]}
       activePath={location.pathname}
       onNavigate={(path) => { navigate(path); props.onClose?.(); }}

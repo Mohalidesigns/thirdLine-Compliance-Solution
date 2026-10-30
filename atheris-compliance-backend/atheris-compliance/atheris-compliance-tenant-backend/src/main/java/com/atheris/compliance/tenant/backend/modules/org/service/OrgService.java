@@ -25,6 +25,7 @@ public class OrgService {
     private final DepartmentRepository departments;
     private final TeamRepository teams;
     private final OwnerRepository owners;
+    private final com.atheris.compliance.tenant.backend.modules.audit.service.AuditService audit;
     private final ExecutorService virtualThreadExecutor;
 
     // ---------------------------------------------------------------- departments
@@ -288,6 +289,8 @@ public class OrgService {
             .userId(request.getUserId())
             .isActive(request.getIsActive() == null || request.getIsActive())
             .build());
+        audit.logCurrentUser("owner_created", "owner", saved.getOwnerId().longValue(),
+            java.util.Map.of("fullName", saved.getFullName()));
 
         List<Team> allTeams = teams.findAll();
         List<Department> allDepartments = departments.findAll();
@@ -374,6 +377,11 @@ public class OrgService {
             .map(CompletableFuture::join)
             .toList();
 
+        List<OwnerDto> departmentOwners = owners.findByDepartmentIdOrderByFullNameAsc(department.getDepartmentId()).stream()
+            .filter(owner -> owner.getTeamId() == null)
+            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .toList();
+
         return OrgTreeResponse.DepartmentNode.builder()
             .department(DepartmentDto.builder()
                 .departmentId(department.getDepartmentId())
@@ -383,6 +391,7 @@ public class OrgService {
                 .isActive(department.getIsActive())
                 .build())
             .teams(teamNodes)
+            .owners(departmentOwners)
             .build();
     }
 

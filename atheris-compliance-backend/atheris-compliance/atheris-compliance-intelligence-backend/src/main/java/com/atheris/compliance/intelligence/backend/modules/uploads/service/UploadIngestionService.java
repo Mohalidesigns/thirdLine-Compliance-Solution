@@ -60,6 +60,22 @@ public class UploadIngestionService {
         }
 
         var existing = repo.findBySha256Hash(sha256Hash);
+        if (existing.isPresent() && existing.get().getStatus() == UploadStatus.FAILED) {
+            // A failed upload may be retried: re-run the pipeline on the stored file instead of
+            // rejecting the same PDF as a duplicate forever.
+            UploadRecord retry = existing.get();
+            retry.setTitle(title);
+            if (regulatorId != null) retry.setRegulatorId(regulatorId);
+            if (documentType != null) retry.setDocumentType(documentType);
+            retry.setUserId(userId);
+            retry.setTenantId(tenantId);
+            retry.setStatus(UploadStatus.PENDING);
+            retry.setErrorMessage(null);
+            retry = repo.save(retry);
+            events.publishEvent(new DocumentUploadedEvent(retry.getId()));
+            log.info("[UploadIngestion] Retrying failed upload record {} — title={}", retry.getId(), title);
+            return retry;
+        }
         if (existing.isPresent()) {
             log.warn("Duplicate upload detected (hash={}): {}", sha256Hash, title);
             throw new DuplicateUploadException(sha256Hash, title);

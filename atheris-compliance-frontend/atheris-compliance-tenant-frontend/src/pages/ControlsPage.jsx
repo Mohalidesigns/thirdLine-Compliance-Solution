@@ -21,6 +21,7 @@ import OwnerPicker from '../components/org/OwnerPicker';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
+import { isReadOnly } from '../utils/roles';
 
 function formatDate(d) {
   if (!d) return '-';
@@ -83,6 +84,8 @@ const COLUMNS = [
 ];
 
 export default function ControlsPage() {
+  const { user: currentUser } = useAuth();
+  const readOnly = isReadOnly(currentUser?.role);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -199,7 +202,7 @@ export default function ControlsPage() {
   const kpis = [
     { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, tone: 'blue', icon: <ShieldCheckIcon />,
       breakdown: stats?.byStatus, drill: (label) => setStatusFilter(label) },
-    { key: 'testsDue', label: 'Tests Due', value: stats?.testsDue ?? 0, tone: 'orange', icon: <ClockIcon />,
+    { key: 'testsDue', label: 'Tests Due (30 days)', value: stats?.testsDue ?? 0, tone: 'orange', icon: <ClockIcon />,
       breakdown: stats?.byTheme, drill: (label) => setThemeFilter(label) },
     { key: 'failing', label: 'Failing Controls', value: stats?.failingControls ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
       breakdown: stats?.byRiskLevel, drill: (label) => setRiskFilter(label) },
@@ -278,12 +281,16 @@ export default function ControlsPage() {
             <Tooltip title="Refresh">
               <IconButton onClick={refreshAll}><ArrowPathIcon size={18} /></IconButton>
             </Tooltip>
-            <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
-              Import
-            </Button>
-            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
-              New Control
-            </Button>
+            {!readOnly && (
+              <>
+                <Button variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} onClick={() => setImportOpen(true)}>
+                  Import
+                </Button>
+                <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
+                  New Control
+                </Button>
+              </>
+            )}
           </>
         )}
       />

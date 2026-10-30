@@ -44,6 +44,8 @@ public class InternalRegulationSeed {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ObligationItem {
+        /** Platform obligation id — controls' {@code linkedObligationIds} refer to it; the tenant maps it to its own row. */
+        private Long obligationId;
         private Integer obligationNumber;
         private String title;
         private String description;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,6 +17,7 @@ import { api } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
+import { isReadOnly } from '../utils/roles';
 import EntityPicker from '../components/modals/EntityPicker';
 import GapControlDialog from '../components/modals/GapControlDialog';
 import RecordTestDialog from '../components/modals/RecordTestDialog';
@@ -30,6 +31,9 @@ const STATUS_ORDER = ['Open', 'In Remediation', 'Remediated', 'Closed'];
 const IMPORT_ROLES = ['CCO', 'TENANT_ADMIN'];
 const LINK_ROLES = ['ANALYST', 'CCO', 'TENANT_ADMIN'];
 const SUBMIT_ROLES = ['ANALYST', 'TENANT_ADMIN'];
+
+// Same date style as the rest of the app ("20 Oct 2026").
+const DATE_FMT = { day: '2-digit', month: 'short', year: 'numeric' };
 
 export default function FindingsPage() {
   const [view, setView] = useState('list');
@@ -135,7 +139,7 @@ export default function FindingsPage() {
     return (
       <DetailView
         detail={detail}
-        onBack={() => { setView('list'); setDetail(null); setDetailId(null); }}
+        onBack={() => { setView('list'); setDetail(null); setDetailId(null); loadList(); }}
         onRefresh={() => { loadDetail(detailId); loadList(); loadStats(); refreshRelated(); }}
         onAssign={() => setAssignOpen(true)}
         onRemediate={() => setRemediateOpen(true)}
@@ -163,9 +167,11 @@ export default function FindingsPage() {
                 Import
               </Button>
             )}
-            <Button variant="contained" color="error" startIcon={<PlusIcon size={16} />} onClick={() => setRaiseOpen(true)}>
-              Raise Finding
-            </Button>
+            {!isReadOnly(user?.role) && (
+              <Button variant="contained" color="error" startIcon={<PlusIcon size={16} />} onClick={() => setRaiseOpen(true)}>
+                Raise Finding
+              </Button>
+            )}
           </>
         )}
       />
@@ -242,7 +248,7 @@ export default function FindingsPage() {
                           <Typography variant="body2" color={isOverdue ? 'error.main' : 'text.primary'}
                             sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
                             {isOverdue && <ClockIcon size={14} />}
-                            {deadline ? deadline.toLocaleDateString() : '-'}
+                            {deadline ? deadline.toLocaleDateString('en-GB', DATE_FMT) : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -416,7 +422,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             SLA: {detail.slaDays} days
             {isOverdue ? ' · OVERDUE' : ` · ${detail.slaRemainingDays} days remaining`}
           </Typography>
-          <Typography variant="body2" color="text.secondary">Deadline: {deadline.toLocaleDateString()}</Typography>
+          <Typography variant="body2" color="text.secondary">Deadline: {deadline.toLocaleDateString('en-GB', DATE_FMT)}</Typography>
         </Paper>
       )}
 
@@ -504,13 +510,14 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             {detail.externalReference && <DetailRow label="Reference" value={detail.externalReference} />}
             <DetailRow label="Type" value={detail.findingType} />
             <DetailRow label="Trigger" value={detail.triggerReason} />
-            <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString() : '-'} />
+            {detail.rootCause && <DetailRow label="Root cause" value={detail.rootCause} />}
+            <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString('en-GB', DATE_FMT) : '-'} />
             <Box sx={{ borderTop: `1px solid ${TL.gray100}`, my: 2 }} />
             <Typography component="span" sx={SECTION_LABEL_SX}>Remediation</Typography>
             <DetailRow label="Owner" value={detail.assignedToName || 'Unassigned'} />
-            <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString() : '-'} />
+            <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString('en-GB', DATE_FMT) : '-'} />
             {detail.remediationSubmittedAt && (
-              <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString()} />
+              <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString('en-GB', DATE_FMT)} />
             )}
             {detail.remediationSubmittedViaLink && (
               <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Owner'} (via link)`} />
@@ -523,14 +530,14 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             </Box>
             {detail.reviewNotes && <DetailRow label="Review note" value={detail.reviewNotes} />}
             {detail.signedOffAt && (
-              <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString()} />
+              <DetailRow label="Signed off" value={new Date(detail.signedOffAt).toLocaleDateString('en-GB', DATE_FMT)} />
             )}
           </DataCard>
         </Grid>
       </Grid>
 
       <AssignDialog open={assignOpen} onClose={() => setAssignOpen(false)}
-        findingId={detail.findingId} onSaved={() => { setAssignOpen(false); onRefresh(); }}
+        findingId={detail.findingId} finding={detail} onSaved={() => { setAssignOpen(false); onRefresh(); }}
         onSnackbar={onSnackbar} />
 
       <RemediateDialog open={remediateOpen} onClose={() => setRemediateOpen(false)}
@@ -714,20 +721,36 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
 }
 
 /* ---------- Assign Dialog ---------- */
-function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
-  const [form, setForm] = useState({ assignedToOwnerId: null, remediationDeadline: '' });
+function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }) {
+  const [form, setForm] = useState({ assignedToOwnerId: null, remediationDeadline: '', deadlineJustification: '' });
   const [saving, setSaving] = useState(false);
+  // SLA deadline = raised date + SLA days; going past it needs a recorded reason (server-enforced too).
+  const slaDeadline = useMemo(() => {
+    if (!finding?.createdAt || finding?.slaDays == null) return null;
+    const d = new Date(finding.createdAt);
+    d.setDate(d.getDate() + finding.slaDays);
+    return d.toISOString().slice(0, 10);
+  }, [finding]);
+  const beyondSla = !!(slaDeadline && form.remediationDeadline && form.remediationDeadline > slaDeadline);
+  const justificationOk = !beyondSla || form.deadlineJustification.trim().length >= 10;
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.findings.assign(findingId, {
         assignedToOwnerId: form.assignedToOwnerId,
         remediationDeadline: form.remediationDeadline,
+        deadlineJustification: beyondSla ? form.deadlineJustification.trim() : undefined,
       });
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
-  useEffect(() => { if (open) setForm({ assignedToOwnerId: null, remediationDeadline: '' }); }, [open]);
+  useEffect(() => {
+    if (open) setForm({
+      assignedToOwnerId: finding?.assignedToOwnerId ?? null,
+      remediationDeadline: finding?.remediationDeadline ? String(finding.remediationDeadline).slice(0, 10) : (slaDeadline || ''),
+      deadlineJustification: '',
+    });
+  }, [open, finding, slaDeadline]);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Assign Finding</DialogTitle>
@@ -740,13 +763,23 @@ function AssignDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
           <Grid size={{ xs: 12 }}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
               InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
+              helperText={slaDeadline ? `SLA deadline: ${new Date(slaDeadline).toLocaleDateString('en-GB', DATE_FMT)}` : undefined}
               onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} />
           </Grid>
+          {beyondSla && (
+            <Grid size={{ xs: 12 }}>
+              <TextField label="Reason for extending past the SLA" fullWidth size="small" required multiline minRows={2}
+                value={form.deadlineJustification}
+                helperText="At least 10 characters — recorded in the audit trail"
+                onChange={e => setForm(f => ({ ...f, deadlineJustification: e.target.value }))} />
+            </Grid>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.assignedToOwnerId || !form.remediationDeadline}>
+        <Button variant="contained" onClick={handleSave}
+          disabled={saving || !form.assignedToOwnerId || !form.remediationDeadline || !justificationOk}>
           {saving ? 'Assigning...' : 'Assign'}
         </Button>
       </DialogActions>
@@ -878,16 +911,37 @@ function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar })
 }
 
 /* ---------- Remediation Link Dialog ---------- */
+// Only claim the link was emailed when the server says the send succeeded.
+function EmailStatusNote({ status, to }) {
+  if (status === 'SENT') {
+    return <Alert severity="success" sx={{ mb: 2 }}>Emailed to {to}.</Alert>;
+  }
+  const reason = {
+    DISABLED: 'Email is not configured for this workspace',
+    NO_RECIPIENT: 'The owner has no email address on file',
+    FAILED: 'The email could not be sent',
+  }[status] || 'The link was not emailed';
+  return (
+    <Alert severity="warning" sx={{ mb: 2 }}>
+      {reason} — copy the link below and send it to the owner yourself.
+    </Alert>
+  );
+}
+
 function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
   const [link, setLink] = useState(null);
+  const [email, setEmail] = useState(null);   // { status, to } — whether the owner was really emailed
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setLink(null); setCopied(false); setLoading(true);
+    setLink(null); setEmail(null); setCopied(false); setLoading(true);
     api.findings.remediationLink(findingId)
-      .then((res) => setLink(res.path ? `${window.location.origin}${res.path}` : res.url))
+      .then((res) => {
+        setLink(res.path ? `${window.location.origin}${res.path}` : res.url);
+        setEmail({ status: res.emailStatus, to: res.ownerEmail });
+      })
       .catch((e) => onSnackbar(e.message))
       .finally(() => setLoading(false));
   }, [open, findingId]);
@@ -905,8 +959,9 @@ function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Send this to the owner so they can submit remediation evidence themselves — no account
-          needed. It has been emailed to the owner's address on file.
+          needed.
         </Typography>
+        {link && email && <EmailStatusNote status={email.status} to={email.to} />}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} /></Box>
         ) : link ? (

@@ -66,8 +66,11 @@ public class RemediationLinkService {
     @Value("${atheris.remediation.max-files:5}")
     private int maxFiles;
 
+    /** The raw token (shown once) and whether the owner was actually emailed. */
+    public record CreatedLink(String token, EmailService.Outcome emailOutcome, String ownerEmail) {}
+
     @Transactional
-    public String createLink(Long findingId, Integer userId) {
+    public CreatedLink createLink(Long findingId, Integer userId) {
         Finding f = findings.findById(findingId)
             .orElseThrow(() -> ApiException.notFound("Finding not found: " + findingId));
         if (WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
@@ -88,14 +91,15 @@ public class RemediationLinkService {
         links.save(link);
         audit.log(userId, "remediation_link_created", "finding", findingId, Map.of());
         // Email the link straight to the owner (they need no account).
+        EmailService.Outcome outcome = EmailService.Outcome.NO_RECIPIENT;
         if (ownerEmail != null) {
-            email.send(ownerEmail, "Action required: remediation for finding #" + findingId,
+            outcome = email.send(ownerEmail, "Action required: remediation for finding #" + findingId,
                 "You have been asked to provide remediation evidence for finding #" + findingId
                     + " (" + f.getSeverity() + ").\n"
                     + (f.getRemediationDeadline() != null ? "\nDeadline: " + f.getRemediationDeadline() + "\n" : ""),
                 remediationUrl(raw));
         }
-        return raw;
+        return new CreatedLink(raw, outcome, ownerEmail);
     }
 
     /**

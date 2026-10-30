@@ -44,6 +44,8 @@ public class PlatformRegulationSeed {
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ObligationItem {
+        /** Platform obligation id — what a control's {@code linkedObligationIds} refer to. */
+        private Long obligationId;
         private Integer obligationNumber;
         private String title;
         private String description;

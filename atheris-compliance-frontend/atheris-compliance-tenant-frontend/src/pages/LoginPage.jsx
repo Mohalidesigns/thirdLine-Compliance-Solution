@@ -8,8 +8,8 @@ import { VisibilityOff } from '@mui/icons-material';
 import {
   TL, EyeIcon, EnvelopeIcon, LockClosedIcon, ScaleIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
 } from 'shared';
-import verityLogoDark from '../Verity/verity-logo-dark.png';
-import verityLogoLight from '../Verity/verity-logo-light.png';
+import verityLogoDark from '../atheris-verity/verity-logo-on-black.svg';
+import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -35,7 +35,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true }); // the index route sends each role to its landing page
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

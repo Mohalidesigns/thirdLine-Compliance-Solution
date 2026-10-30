@@ -21,8 +21,9 @@ public class ActController {
     public ResponseEntity<Page<ActListItem>> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String regulator,
+            @RequestParam(required = false) Boolean inRegister,
             Pageable p) {
-        return ResponseEntity.ok(service.list(q, regulator, p));
+        return ResponseEntity.ok(service.list(q, regulator, inRegister, p));
     }
 
     @GetMapping("/stats")

@@ -34,8 +34,9 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
-    public ResponseEntity<List<UserDto>> list(@RequestParam(required = false) String q) {
-        return ResponseEntity.ok(service.findAll(q));
+    public ResponseEntity<List<UserDto>> list(@RequestParam(required = false) String q,
+                                              @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(service.findAll(q, includeInactive));
     }
 
     @PostMapping("/invite")
@@ -56,8 +57,8 @@ public class UserController {
 
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('" + AppRole.TENANT_ADMIN + "')")
-    public ResponseEntity<Void> deactivate(@PathVariable Integer id) {
-        service.deactivate(id);
+    public ResponseEntity<Void> deactivate(@PathVariable Integer id, @AuthenticationPrincipal User u) {
+        service.deactivate(id, u.getUserId());
         return ResponseEntity.noContent().build();
     }
 

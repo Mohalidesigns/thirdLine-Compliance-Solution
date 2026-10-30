@@ -169,7 +169,7 @@ public class RunbookFrameworkService {
         return RunbookDashboardDto.builder()
             .upcoming7d((long) upcoming.size())
             .overdue(active.stream().filter(RunbookViews::isOverdue).count())
-            .openEscalations(escalations.countByAcknowledgedAtIsNull())
+            .openEscalations(openEscalations())
             .reviewBacklog((long) reviewSchedules.findByNextReviewAtLessThanEqual(today).size())
             .pendingApprovals((long) versions.findByStatusOrderBySubmittedAtAsc(V_IN_REVIEW).size())
             .activeExecutions((long) active.size())
@@ -177,5 +177,13 @@ public class RunbookFrameworkService {
                 .runbookId(s.getRunbookId()).runbookCode(rbs.get(s.getRunbookId()).getRunbookCode())
                 .title(rbs.get(s.getRunbookId()).getTitle()).nextRunAt(s.getNextRunAt()).build()).toList())
             .build();
+    }
+
+    /** Open escalations of runs still in progress — those of closed runs are not open any more. */
+    private long openEscalations() {
+        List<Long> closed = executions.findByStatusIn(CLOSED_EXECUTION_STATUSES).stream()
+            .map(RunbookExecution::getExecutionId).toList();
+        return closed.isEmpty() ? escalations.countByAcknowledgedAtIsNull()
+            : escalations.countByAcknowledgedAtIsNullAndExecutionIdNotIn(closed);
     }
 }

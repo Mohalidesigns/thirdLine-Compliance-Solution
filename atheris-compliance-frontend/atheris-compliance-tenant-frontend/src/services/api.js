@@ -82,26 +82,39 @@ const STORAGE_KEY_REFRESH = 'atheris_tenant_refresh_token';
 const STORAGE_KEY_USER = 'atheris_tenant_user';
 const FORBIDDEN_MESSAGE = 'You do not have permission to perform this action.';
 
-async function doRefresh() {
-  if (!authRefreshToken) return null;
-  try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: authRefreshToken }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    authToken = data.accessToken;
-    authRefreshToken = data.refreshToken;
+// The refresh token rotates on every use, so concurrent 401s must share ONE refresh call:
+// a second POST /auth/refresh with the already-rotated token answers 401 and would log the
+// user out. `usedToken` is the access token the failed request carried — if another refresh
+// has replaced it meanwhile, just retry with the current one.
+let refreshInFlight = null;
+
+function doRefresh(usedToken) {
+  if (usedToken && authToken && usedToken !== authToken) return Promise.resolve(authToken);
+  if (refreshInFlight) return refreshInFlight;
+  if (!authRefreshToken) return Promise.resolve(null);
+  refreshInFlight = (async () => {
     try {
-      localStorage.setItem(STORAGE_KEY_TOKEN, data.accessToken);
-      localStorage.setItem(STORAGE_KEY_REFRESH, data.refreshToken);
-    } catch {}
-    return data.accessToken;
-  } catch {
-    return null;
-  }
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: authRefreshToken }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      authToken = data.accessToken;
+      authRefreshToken = data.refreshToken;
+      try {
+        localStorage.setItem(STORAGE_KEY_TOKEN, data.accessToken);
+        localStorage.setItem(STORAGE_KEY_REFRESH, data.refreshToken);
+      } catch {}
+      return data.accessToken;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 function clearAuth() {
@@ -117,7 +130,8 @@ function clearAuth() {
 async function request(path, options = {}) {
   const { headers: optHeaders, signal, ...rest } = options;
   const headers = { 'Content-Type': 'application/json', ...optHeaders };
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const usedToken = authToken;
+  if (usedToken) headers['Authorization'] = `Bearer ${usedToken}`;
 
   let res;
   try {
@@ -133,8 +147,8 @@ async function request(path, options = {}) {
   // denial — a role the user lacks, or license_blocked from LicenseFilter — and must
   // surface as an error, not log the user out.
   if (res.status === 401 && !path.startsWith('/auth/')) {
-    if (authRefreshToken) {
-      const refreshed = await doRefresh();
+    if (authRefreshToken || refreshInFlight) {
+      const refreshed = await doRefresh(usedToken);
       if (refreshed) {
         headers['Authorization'] = `Bearer ${refreshed}`;
         try {
@@ -201,9 +215,11 @@ function sessionExpired() {
 // `responseType: 'blob'` resolves to { blob, name } (name from Content-Disposition);
 // otherwise the JSON body. Failures surface the server's {message}/{error}.
 async function rawRequest(path, { responseType = 'json', fallbackName = 'download.bin', ...options } = {}) {
+  let usedToken = null;
   const send = () => {
     const headers = { ...(options.headers || {}) };
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    usedToken = authToken;
+    if (usedToken) headers['Authorization'] = `Bearer ${usedToken}`;
     return fetch(`${API_BASE}${path}`, { ...options, headers });
   };
 
@@ -211,8 +227,8 @@ async function rawRequest(path, { responseType = 'json', fallbackName = 'downloa
   try {
     res = await send();
     if (res.status === 401 && !path.startsWith('/auth/')) {
-      if (!authRefreshToken) sessionExpired();
-      const refreshed = await doRefresh();
+      if (!authRefreshToken && !refreshInFlight) sessionExpired();
+      const refreshed = await doRefresh(usedToken);
       if (!refreshed) sessionExpired();
       res = await send();
     }
@@ -841,7 +857,14 @@ export const api = {
   },
   users: {
     me: () => request('/users/me'),
-    list: (q) => request(`/users${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+    // q narrows by name/email/job title; includeInactive also returns deactivated users (Settings)
+    list: (q, opts = {}) => {
+      const qs = new URLSearchParams();
+      if (q) qs.set('q', q);
+      if (opts.includeInactive) qs.set('includeInactive', 'true');
+      const s = qs.toString();
+      return request(`/users${s ? '?' + s : ''}`);
+    },
     invite: (data) => request('/users/invite', {
       method: 'POST', body: JSON.stringify(data),
     }),

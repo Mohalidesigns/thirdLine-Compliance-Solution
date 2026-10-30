@@ -28,6 +28,9 @@ export function PreflightDialog({ execution, onSubmit, onLeave, readOnly }) {
       subtitle={`${execution?.executionRef || ''} · ${execution?.runbookCode || ''} ${execution?.runbookTitle || ''}`}
       blocking
       onClose={onLeave}
+      // stay in the console: once pre-flight is recorded the console stops rendering this dialog
+      // (closing it here would run onLeave and drop the user back on the executions list)
+      keepOpen
       confirmLabel="Confirm & start execution"
       disabled={readOnly || missing > 0 || !attested}
       hideConfirm={readOnly}

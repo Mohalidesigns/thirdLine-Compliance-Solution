@@ -42,19 +42,22 @@ public class EmailService {
         return baseUrl;
     }
 
+    /** What happened to a send — callers that tell the user "emailed" must check for {@code SENT}. */
+    public enum Outcome { SENT, DISABLED, NO_RECIPIENT, FAILED }
+
     public String compose(String body, String link) {
         String full = link != null && !link.isBlank() ? body + "\n\n" + link + "\n" : body;
         return full + "\n— Verity Compliance Platform";
     }
 
-    public void send(String to, String subject, String body, String link) {
-        send(to, null, subject, body, link);
+    public Outcome send(String to, String subject, String body, String link) {
+        return send(to, null, subject, body, link);
     }
 
-    public void send(String to, List<String> cc, String subject, String body, String link) {
+    public Outcome send(String to, List<String> cc, String subject, String body, String link) {
         if (to == null || to.isBlank()) {
             log.warn("[email-skip] no recipient for subject={}", subject);
-            return;
+            return Outcome.NO_RECIPIENT;
         }
 
         String text = compose(body, link);
@@ -62,7 +65,7 @@ public class EmailService {
         SmtpSettingsService.Outbound outbound = resolveOutbound();
         if (outbound == null) {
             log.info("[email-skipped] to={} subject={}", to, subject);
-            return;
+            return Outcome.DISABLED;
         }
 
         String from = outbound.from() != null && !outbound.from().isBlank() ? outbound.from() : fallbackFrom;
@@ -81,8 +84,10 @@ public class EmailService {
             helper.setText(text, false);
             outbound.sender().send(message);
             log.info("[email-sent] to={} cc={} subject={}", to, cc, subject);
+            return Outcome.SENT;
         } catch (Exception e) {
             log.error("[email-failed] to={} subject={} error={}", to, subject, e.getMessage());
+            return Outcome.FAILED;
         }
     }
 

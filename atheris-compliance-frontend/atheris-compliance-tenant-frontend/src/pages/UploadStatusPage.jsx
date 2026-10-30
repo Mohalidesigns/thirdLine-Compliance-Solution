@@ -60,6 +60,11 @@ export default function UploadStatusPage() {
                   <TableCell>{u.regulatorName || '-'}</TableCell>
                   <TableCell>
                     <StateBadge value={u.status} />
+                    {u.status === 'failed' && u.errorMessage && (
+                      <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5, maxWidth: 320 }}>
+                        {u.errorMessage}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     {u.instrumentId ? (

@@ -15,6 +15,7 @@ import {
 } from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { isReadOnly } from '../utils/roles';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import ReturnRepairDialog from '../components/modals/ReturnRepairDialog';
@@ -142,7 +143,7 @@ export default function ReturnsPage() {
 
   const KPI_STATUS = { overdue: 'Overdue', inProgress: 'In Progress', submitted: 'Submitted' };
   const kpis = [
-    { key: 'total', label: 'Total Returns', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
+    { key: 'total', label: 'Filing Periods', value: stats?.total ?? 0, tone: 'blue', icon: <ClipboardDocumentListIcon /> },
     { key: 'overdue', label: 'Overdue', value: stats?.overdue ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'inProgress', label: 'In Progress', value: stats?.inProgress ?? 0, tone: 'orange', icon: <PresentationChartLineIcon /> },
     { key: 'submitted', label: 'Submitted', value: stats?.submitted ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
@@ -169,9 +170,11 @@ export default function ReturnsPage() {
                 Import
               </Button>
             )}
-            <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
-              Add Return
-            </Button>
+            {!isReadOnly(user?.role) && (
+              <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setCreateOpen(true)}>
+                Add Return
+              </Button>
+            )}
           </>
         )}
       />
