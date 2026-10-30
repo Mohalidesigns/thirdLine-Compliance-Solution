@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TextField, Autocomplete, Box, CircularProgress, Typography, Chip } from '@mui/material';
 import { api } from '../../services/api';
@@ -32,7 +32,14 @@ export default function MultiPersonPicker({ value = [], onChange, label = 'Peopl
     placeholderData: (prev) => prev,
   });
 
-  const options = optionsQuery.data || [];
+  const options = useMemo(() => {
+    const fromQuery = optionsQuery.data || [];
+    const selected = (value || []).filter(v => v && typeof v !== 'string');
+    const missing = selected.filter(s => !fromQuery.some(
+      o => (o.email || '').toLowerCase() === (s.email || '').toLowerCase()
+        && (o.fullName || '') === (s.fullName || '')));
+    return [...missing, ...fromQuery];
+  }, [optionsQuery.data, value]);
   const loading = ldapEnabled == null || optionsQuery.isFetching;
 
   return (

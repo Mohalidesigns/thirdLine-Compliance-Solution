@@ -4,6 +4,7 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   Divider, FormControlLabel, MenuItem, Radio, RadioGroup, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
+import MultiPersonPicker from '../common/MultiPersonPicker';
 import PersonPicker from '../common/PersonPicker';
 import { api } from '../../services/api';
 
@@ -17,6 +18,9 @@ const TYPE_TO_LABEL = {
 const UNITS = [{ value: 'DAYS', label: 'Days' }, { value: 'HOURS', label: 'Hours' }];
 const MAX_LEVELS = 3;
 const CUSTOM = 'CUSTOM';
+const SCHEDULE_TAB = 0;
+const ESCALATION_TAB = 1;
+const RESPONSIBILITY_TAB = 2;
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[\s_-]/g, '');
 
@@ -73,6 +77,30 @@ function scheduleBody(form) {
   };
 }
 
+function toPersonObjects(names) {
+  return (names || [])
+    .map(n => (typeof n === 'string' ? { email: '', fullName: n } : n))
+    .filter(p => p && (p.fullName || p.email));
+}
+
+function initialResponsibility(item) {
+  const names = item?.responsiblePersons?.length
+    ? item.responsiblePersons
+    : (item?.responsiblePerson ? [item.responsiblePerson] : []);
+  return { persons: toPersonObjects(names) };
+}
+
+function responsibilityBody(people, owner) {
+  const body = {
+    responsiblePersons: (people.persons || []).map(p => p.fullName || p.email).filter(Boolean),
+  };
+  if (owner?.userId) {
+    body.returnOwnerUserId = Number(owner.userId);
+    body.returnOwnerName = owner.fullName || owner.email || null;
+  }
+  return body;
+}
+
 function toEscalationForm(escalation) {
   const levels = escalation?.levels?.length
     ? escalation.levels
@@ -109,12 +137,20 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
   const queryClient = useQueryClient();
   const [tab, setTab] = useState(canEditSchedule ? 0 : 1);
   const [schedule, setSchedule] = useState(() => initialSchedule(item));
+  const [people, setPeople] = useState(() => initialResponsibility(item));
+  const [owner, setOwner] = useState(null);
   const [escalation, setEscalation] = useState(null);
   const [policyChoice, setPolicyChoice] = useState(CUSTOM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const returnId = item?.returnId;
+
+  const usersQuery = useQuery({
+    queryKey: ['users', 'active'],
+    queryFn: () => api.users.list(''),
+    enabled: open,
+  });
 
   const templatesQuery = useQuery({
     queryKey: ['escalation', 'policies', 'RETURN', 'templates'],
@@ -133,8 +169,16 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
     if (!open) return;
     setTab(canEditSchedule ? 0 : 1);
     setSchedule(initialSchedule(item));
+    setPeople(initialResponsibility(item));
     setError('');
   }, [open, item, canEditSchedule]);
+
+  useEffect(() => {
+    if (!open) return;
+    const match = (usersQuery.data || [])
+      .find(u => String(u.userId) === String(item?.returnOwnerUserId));
+    setOwner(match ? { email: match.email, fullName: match.fullName, userId: match.userId } : null);
+  }, [open, item?.returnOwnerUserId, usersQuery.data]);
 
   useEffect(() => {
     if (!open || !escalationQuery.data) return;
@@ -162,6 +206,17 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
       const msg = validateSchedule(schedule);
       if (msg) { setError(msg); setTab(0); return; }
     }
+    const peopleBody = responsibilityBody(people, owner);
+    const peopleBefore = responsibilityBody(initialResponsibility(item),
+      item?.returnOwnerUserId
+        ? { userId: item.returnOwnerUserId, fullName: item.returnOwnerName || '' }
+        : null);
+    const peopleChanged = JSON.stringify(peopleBody) !== JSON.stringify(peopleBefore);
+    if (peopleChanged && !peopleBody.responsiblePersons.length) {
+      setError('Select at least one responsible person.');
+      setTab(RESPONSIBILITY_TAB);
+      return;
+    }
     setSaving(true);
     try {
       if (canEditSchedule) {
@@ -170,6 +225,9 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
         if (JSON.stringify(body) !== JSON.stringify(before)) {
           await api.returns.updateSchedule(returnId, body);
         }
+      }
+      if (peopleChanged) {
+        await api.returns.update(returnId, peopleBody);
       }
       if (policyChoice === CUSTOM) {
         if (!escalation) throw new Error('Escalation values are still loading.');
@@ -204,10 +262,11 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Tab label="Schedule" />
             <Tab label="Escalation" />
+            <Tab label="Responsibility" />
           </Tabs>
         )}
 
-        {(canEditSchedule && tab === 0) ? (
+        {canEditSchedule && tab === SCHEDULE_TAB && (
           <>
             <TextField select fullWidth size="small" label="Frequency" value={schedule.frequency}
               onChange={e => setS('frequency', e.target.value)} sx={{ mb: 2 }}>
@@ -251,7 +310,9 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
               value={schedule.prepDays} onChange={e => setS('prepDays', e.target.value)}
               helperText="How many days before the due date the responsible person should start." />
           </>
-        ) : (
+        )}
+
+        {canEditSchedule && tab === ESCALATION_TAB && (
           <>
             <TextField select fullWidth size="small" label="Escalation policy" value={policyChoice}
               onChange={e => setPolicyChoice(e.target.value)} sx={{ mb: 2 }}>
@@ -332,6 +393,21 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                 </Typography>
               </>
             )}
+          </>
+        )}
+
+        {canEditSchedule && tab === RESPONSIBILITY_TAB && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              The responsible person receives the filing request and submits the data; the owner is copied
+              and sees the return in their work queue.
+            </Typography>
+            <Box sx={{ mb: 2 }}>
+              <MultiPersonPicker label="Responsible person" value={people.persons}
+                onChange={(list) => setPeople({ persons: list })} />
+            </Box>
+            <PersonPicker mode="user" label="Owner" value={owner} onChange={setOwner}
+              helperText="Directory users can be responsible persons; the owner must be a platform user." />
           </>
         )}
       </DialogContent>

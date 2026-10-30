@@ -975,6 +975,19 @@ public class ReturnService {
             .filter(e -> e != null && !e.isBlank()).orElse(null);
     }
 
+    private List<String> responsibleCc(RegulatoryReturn ret, List<String> to) {
+        if (ret == null) return List.of();
+        List<String> names = ret.getResponsiblePersons() == null || ret.getResponsiblePersons().isEmpty()
+            ? (ret.getResponsiblePerson() == null || ret.getResponsiblePerson().isBlank()
+                ? List.of() : List.of(ret.getResponsiblePerson()))
+            : ret.getResponsiblePersons();
+        return personDirectory.resolve(names).stream()
+            .map(PersonDirectoryService.Entry::email)
+            .filter(e -> e != null && !e.isBlank())
+            .filter(e -> to == null || to.stream().noneMatch(t -> t.equalsIgnoreCase(e)))
+            .distinct().toList();
+    }
+
     private List<String> ownerCc(RegulatoryReturn ret, List<String> to) {
         String owner = ownerEmail(ret);
         if (owner == null) return List.of();
@@ -1047,9 +1060,10 @@ public class ReturnService {
             sendFilingMail(EscalationConstants.KEY_RETURN_DATA_REVIEW,
                 "Filing data submitted: " + ret.getReturnName(), vars, to, ownerCc(ret, to), link);
             if (inst.getReviewSubmittedByEmail() != null && !inst.getReviewSubmittedByEmail().isBlank()) {
+                List<String> receiptTo = List.of(inst.getReviewSubmittedByEmail());
                 sendFilingMail(EscalationConstants.KEY_RETURN_DATA_RECEIPT,
                     "Received: " + ret.getReturnName() + " filing data", vars,
-                    List.of(inst.getReviewSubmittedByEmail()), List.of(), null);
+                    receiptTo, responsibleCc(ret, receiptTo), null);
             }
         }
     }
