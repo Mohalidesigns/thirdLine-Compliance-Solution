@@ -167,7 +167,7 @@ public class EscalationEngine {
         if (EscalationConstants.TRIGGER_APPROACHING.equals(trigger)) {
             return control ? EscalationConstants.KEY_CONTROL_APPROACHING : EscalationConstants.KEY_RETURN_APPROACHING;
         }
-        return control ? EscalationConstants.KEY_CONTROL_APPROACHING : EscalationConstants.KEY_RETURN_REMINDER;
+        return control ? EscalationConstants.KEY_CONTROL_REMINDER : EscalationConstants.KEY_RETURN_REMINDER;
     }
 
     private Map<String, String> baseVars(EscalationCandidate candidate, String trigger, int level) {
@@ -175,7 +175,7 @@ public class EscalationEngine {
         String label = candidate.subjectLabel();
         vars.put("subject", label);
         vars.put("returnName", label);
-        vars.put("controlName", label);
+        vars.putIfAbsent("controlName", label);
         vars.put("dueDate", candidate.dueAt().toLocalDate().toString());
         vars.put("level", String.valueOf(level));
         vars.put("daysLeft", String.valueOf(Math.max(0, ChronoUnit.DAYS.between(LocalDate.now(), candidate.dueAt().toLocalDate()))));

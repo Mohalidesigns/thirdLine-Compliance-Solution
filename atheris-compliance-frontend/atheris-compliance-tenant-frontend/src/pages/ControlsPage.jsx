@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -18,6 +18,7 @@ import {
 } from 'shared';
 import { useAuth } from '../contexts/AuthContext';
 import OwnerPicker from '../components/org/OwnerPicker';
+import ControlEditDialog from '../components/controls/ControlEditDialog';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
@@ -73,13 +74,21 @@ const COLUMNS = [
       ? <Typography variant="body2">{c.frequency}</Typography>
       : <Typography variant="body2" color="text.secondary">Not set</Typography>
   ) },
-  { id: 'ownerName', label: 'Owner', minWidth: 140, sortable: true, sortField: 'ownerName', render: (c) => (
-    (c.ownerName || c.controlOwnerName)
-      ? <Tooltip title={c.ownerName || c.controlOwnerName}>
-          <Typography variant="body2" sx={{ maxWidth: 150, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ownerName || c.controlOwnerName}</Typography>
-        </Tooltip>
-      : <Typography variant="body2" color="text.secondary">Unassigned</Typography>
+  { id: 'testerName', label: 'Responsible person', minWidth: 170, render: (c) => (
+    c.testerName
+      ? <>
+          <Tooltip title={c.testerName}>
+            <Typography variant="body2" sx={{ maxWidth: 170, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.testerName}</Typography>
+          </Tooltip>
+          {(c.controlOwnerName || c.ownerName) && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 170,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Owner: {c.controlOwnerName || c.ownerName}
+            </Typography>
+          )}
+        </>
+      : <StatusBadge label="No tester" tone="amber" />
   ) },
 ];
 
@@ -385,6 +394,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
   const { user } = useAuth();
   const canReview = ['ANALYST', 'CCO', 'TENANT_ADMIN'].includes(user?.role);
   const [reviewTarget, setReviewTarget] = useState(null);
+  const [testLinkOpen, setTestLinkOpen] = useState(false);
   const obligations = detail.linkedObligations || [];
   const testHistory = detail.testHistory || [];
   const findings = detail.findings || [];
@@ -397,6 +407,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         actions={(
           <>
             <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={onEdit}>Edit</Button>
+            <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setTestLinkOpen(true)}>Send link</Button>
             <Button variant="contained" startIcon={<ClipboardDocumentCheckIcon size={16} />} onClick={onRecordTest}>Record Test</Button>
           </>
         )}
@@ -623,6 +634,8 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
 
           <Section icon={<UserCircleIcon />} title="Ownership">
             <FieldGrid min={130}>
+              <Field label="Responsible person (tester)"
+                value={detail.testerName || 'Not set — set it to send the test link'} />
               <Field label="Control Owner" value={detail.controlOwnerName || detail.ownerName || 'Unassigned'} />
               {detail.ownerName && detail.controlOwnerName && detail.ownerName !== detail.controlOwnerName && (
                 <Field label="Owner" value={detail.ownerName} />
@@ -641,8 +654,12 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         </Box>
       </Box>
 
-      <EditDialog open={editOpen} onClose={() => setEditOpen(false)} control={detail}
-        onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
+      <ControlEditDialog open={editOpen} control={detail}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setEditOpen(false); onRefresh(); }} onSnackbar={onSnackbar} />
+
+      {testLinkOpen && <SendTestLinkDialog open control={detail}
+        onClose={() => setTestLinkOpen(false)} onSnackbar={onSnackbar} />}
       <RecordTestDialog open={recordTestOpen} onClose={() => setRecordTestOpen(false)} controlId={detail.controlId}
         controlOwnerId={detail.controlOwnerId}
         onSaved={() => { setRecordTestOpen(false); onRefresh(); }} onSnackbar={onSnackbar} saving={saving} setSaving={setSaving} />
@@ -710,58 +727,62 @@ function TestReviewDialog({ open, test, controlId, onClose, onSaved, onSnackbar,
   );
 }
 
-/* ───────── Edit Dialog ───────── */
-function EditDialog({ open, onClose, control, onSaved, onSnackbar, saving, setSaving }) {
-  const [form, setForm] = useState({});
-  useEffect(() => {
-    if (control) setForm({
-      name: control.name || '', description: control.description || '', whatItDoes: control.whatItDoes || '',
-      howTested: control.howTested || '', controlOwnerId: control.controlOwnerId ?? null,
-      testFrequency: control.testFrequency || '', testFrequencyDays: control.testFrequencyDays?.toString() || '',
-      inherentRisk: control.inherentRisk || '',
-    });
-  }, [control]);
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const body = { ...form };
-      if (!body.controlOwnerId) body.controlOwnerId = null;
-      if (body.testFrequencyDays) body.testFrequencyDays = parseInt(body.testFrequencyDays, 10);
-      await api.controls.update(control.controlId, body);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+/* ───────── Send the test link to the responsible person ───────── */
+function SendTestLinkDialog({ open, control, onClose, onSnackbar }) {
+  const queryClient = useQueryClient();
+  const [copied, setCopied] = useState(false);
+  const send = useMutation({
+    mutationFn: () => api.controls.sendTestLink(control.controlId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['controls'] }),
+  });
+  const { reset } = send;
+
+  useEffect(() => { if (open) { setCopied(false); reset(); } }, [open, reset]);
+
+  if (!control) return null;
+
+  const link = send.data?.path ? `${window.location.origin}${send.data.path}` : '';
+  const recipients = send.data?.recipients || [];
+  const cc = send.data?.cc || [];
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); }
+    catch { onSnackbar?.('Copy failed — select the link manually.'); }
   };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Edit Control — {control?.name}</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Send the test link</DialogTitle>
       <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid size={{ xs: 12 }}><TextField label="Name" fullWidth size="small" value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Description" fullWidth size="small" multiline minRows={2} value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="What it does" fullWidth size="small" multiline minRows={2} value={form.whatItDoes}
-            onChange={e => setForm(f => ({ ...f, whatItDoes: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="How it's tested" fullWidth size="small" multiline minRows={2} value={form.howTested}
-            onChange={e => setForm(f => ({ ...f, howTested: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 8 }}><OwnerPicker value={form.controlOwnerId} onChange={id => setForm(f => ({ ...f, controlOwnerId: id }))} label="Owner" /></Grid>
-          <Grid size={{ xs: 4 }}>
-            <TextField select label="Test Frequency" fullWidth size="small" value={form.testFrequency}
-              onChange={e => setForm(f => ({ ...f, testFrequency: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Monthly">Monthly</MenuItem>
-              <MenuItem value="Quarterly">Quarterly</MenuItem>
-              <MenuItem value="Semi-Annual">Semi-Annual</MenuItem>
-              <MenuItem value="Annual">Annual</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 4 }}><TextField label="Frequency Days" fullWidth size="small" type="number" value={form.testFrequencyDays}
-            onChange={e => setForm(f => ({ ...f, testFrequencyDays: e.target.value }))} /></Grid>
-        </Grid>
+        {send.isError && <Alert severity="error" sx={{ mb: 2 }}>{send.error.message}</Alert>}
+        {link && (
+          <>
+            <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2, bgcolor: 'action.hover' }}>
+              <Typography variant="caption" color="text.secondary">To</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>{recipients.join(', ')}</Typography>
+              {cc.length > 0 && (
+                <>
+                  <Typography variant="caption" color="text.secondary">Cc</Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>{cc.join(', ')}</Typography>
+                </>
+              )}
+              <Typography variant="caption" color="text.secondary">Subject</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>{send.data.subject}</Typography>
+              <Typography variant="caption" color="text.secondary">Message</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{send.data.body}</Typography>
+            </Box>
+            <TextField fullWidth size="small" label="Link" value={link} onFocus={(e) => e.target.select()}
+              slotProps={{ input: { readOnly: true } }} sx={{ mt: 2 }} />
+          </>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+        <Button onClick={onClose}>Close</Button>
+        {link
+          ? <Button variant="contained" onClick={copy}>{copied ? 'Copied' : 'Copy link'}</Button>
+          : <Button variant="contained" onClick={() => send.mutate()} disabled={send.isPending}>
+              {send.isPending ? 'Sending…' : 'Send link'}
+            </Button>}
       </DialogActions>
     </Dialog>
   );

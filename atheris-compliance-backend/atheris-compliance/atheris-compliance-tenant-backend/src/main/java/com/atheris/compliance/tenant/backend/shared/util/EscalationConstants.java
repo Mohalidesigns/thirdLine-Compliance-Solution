@@ -29,7 +29,12 @@ public final class EscalationConstants {
     public static final String KEY_RETURN_FILING_REQUEST = "return.filing.request";
     public static final String KEY_RETURN_OVERDUE = "return.filing.overdue";
     public static final String KEY_CONTROL_APPROACHING = "control.test.approaching";
+    public static final String KEY_CONTROL_REMINDER = "control.test.reminder";
+    public static final String KEY_CONTROL_REQUEST = "control.test.request";
     public static final String KEY_CONTROL_OVERDUE = "control.test.overdue";
+    public static final String KEY_CONTROL_DATA_REVIEW = "control.test.data_review";
+    public static final String KEY_CONTROL_DATA_RECEIPT = "control.test.data_receipt";
+    public static final String KEY_CONTROL_CHANGES_REQUESTED = "control.test.changes_requested";
 
     public static final String KEY_RETURN_REPORT_REVIEW = "return.filing.report_review";
     public static final String KEY_RETURN_DATA_REVIEW = "return.filing.data_review";

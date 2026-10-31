@@ -8,7 +8,7 @@ import OwnerPicker from '../org/OwnerPicker';
 
 const EMPTY = {
   name: '', description: '', controlType: '', inherentRisk: '',
-  whatItDoes: '', howTested: '', controlOwnerId: null, testFrequency: '',
+  whatItDoes: '', howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
 };
 
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
@@ -44,6 +44,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
     try {
       const body = { ...form };
       if (!body.controlOwnerId) body.controlOwnerId = null;
+      if (!body.testerOwnerId) body.testerOwnerId = null;
       const created = await api.controls.create(body);
       if (obligationId && created?.controlId) {
         await api.obligations.linkControls(obligationId, {
@@ -102,10 +103,15 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Ownership & schedule</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '5fr 3fr', gap: 2 }}>
-            <Field label="Owner" sx={{ mb: 0 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+            <Field label="Owner (analyst)" sx={{ mb: 0 }}>
               <OwnerPicker value={form.controlOwnerId} onChange={id => set('controlOwnerId', id)} label="Compliance owner" />
             </Field>
+            <Field label="Responsible person (tester)" sx={{ mb: 0 }}>
+              <OwnerPicker value={form.testerOwnerId} onChange={id => set('testerOwnerId', id)} label="Who performs the test" />
+            </Field>
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <Field label="Test frequency" sx={{ mb: 0 }}>
               <TextField select fullWidth size="small" value={form.testFrequency} onChange={e => set('testFrequency', e.target.value)}>
                 <MenuItem value=""><em>Select frequency</em></MenuItem>

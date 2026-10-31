@@ -35,6 +35,33 @@ export const publicApi = {
     }
     return res.json();
   },
+  // Public control-test submission — no login; the token is the credential.
+  async controlTestView(token) {
+    const res = await fetch(`${API_BASE}/public/control-test/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This test link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  async controlTestSubmit(token, { testDate, result, notes, failureDetails, file }) {
+    const form = new FormData();
+    if (testDate) form.append('testDate', testDate);
+    form.append('result', result);
+    if (notes) form.append('notes', notes);
+    if (failureDetails) form.append('failureDetails', failureDetails);
+    if (file) form.append('file', file);
+    const res = await fetch(`${API_BASE}/public/control-test/${encodeURIComponent(token)}`, {
+      method: 'POST', body: form,
+    });
+    if (!res.ok) {
+      let message = 'Submission failed.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
   // Public return event-filing upload — also no login; the token is the credential.
   async returnUploadView(token) {
     const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`);
@@ -457,6 +484,8 @@ export const api = {
       method: 'PUT', body: JSON.stringify({ decision, notes }),
     }),
     tasks: (id, opts = {}) => request(`/controls/${id}/tasks`, { signal: opts.signal }),
+    // Email the control's responsible person (tester) the deterministic link to record the test result.
+    sendTestLink: (id) => request(`/controls/${id}/send-test-link`, { method: 'POST' }),
     pendingReviewTests: (opts = {}) => request('/tests/pending-review', { signal: opts.signal }),
   },
   tasks: {

@@ -11,6 +11,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -166,6 +167,10 @@ public class ControlService {
             .controlSummary(c.getName())
             .theme(c.getTheme())
             .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
+            .escalationPolicyId(c.getEscalationPolicyId())
             .ownerName(c.getOwnerName())
             .controlType(c.getControlType())
             .residualRisk(c.getResidualRisk())
@@ -265,6 +270,9 @@ public class ControlService {
             .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
             .ownerName(c.getOwnerName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
@@ -344,6 +352,10 @@ public class ControlService {
             .howTested(req.getHowTested())
             .controlOwnerId(req.getControlOwnerId())
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
+            .testerOwnerId(req.getTesterOwnerId())
+            .testerUserId(resolveTesterUserId(req.getTesterOwnerId()))
+            .testerName(resolveOwnerName(req.getTesterOwnerId()))
+            .escalationPolicyId(req.getEscalationPolicyId())
             .testFrequency(req.getTestFrequency())
             .testFrequencyDays(req.getTestFrequencyDays())
             .linkedObligationIds(new ArrayList<>())
@@ -379,6 +391,14 @@ public class ControlService {
             c.setControlOwnerId(req.getControlOwnerId());
             c.setControlOwnerName(resolveOwnerName(req.getControlOwnerId()));
         }
+        if (req.getTesterOwnerId() != null) {
+            c.setTesterOwnerId(req.getTesterOwnerId());
+            c.setTesterUserId(resolveTesterUserId(req.getTesterOwnerId()));
+            c.setTesterName(resolveOwnerName(req.getTesterOwnerId()));
+        }
+        if (req.getEscalationPolicyId() != null) {
+            c.setEscalationPolicyId(req.getEscalationPolicyId());
+        }
         if (req.getTestFrequency() != null) {
             c.setTestFrequency(req.getTestFrequency());
         }
@@ -397,6 +417,8 @@ public class ControlService {
             .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
         if (!hasOpenTask && saved.getTestFrequencyDays() != null) {
             testService.scheduleNextTest(saved);
+        } else {
+            testService.reassignOpenTasks(saved);
         }
         return toDto(saved);
     }
@@ -408,6 +430,13 @@ public class ControlService {
         return ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
             .getFullName();
+    }
+
+    private Integer resolveTesterUserId(Integer ownerId) {
+        if (ownerId == null) {
+            return null;
+        }
+        return ownerRepo.findById(ownerId).map(Owner::getUserId).orElse(null);
     }
 
     private String nextControlNumber() {
@@ -449,6 +478,9 @@ public class ControlService {
             .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
             .linkedObligationIds(c.getLinkedObligationIds())

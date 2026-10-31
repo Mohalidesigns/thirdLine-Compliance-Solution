@@ -33,6 +33,10 @@ public class Control {
     private Integer controlOwnerUserId;
     private String controlOwnerName;
     private Integer controlOwnerId;
+    private Integer testerOwnerId;
+    private Integer testerUserId;
+    private String testerName;
+    private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
     @JdbcTypeCode(SqlTypes.JSON)

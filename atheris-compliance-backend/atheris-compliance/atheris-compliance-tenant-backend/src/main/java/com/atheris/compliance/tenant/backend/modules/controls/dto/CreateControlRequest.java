@@ -14,6 +14,8 @@ public class CreateControlRequest {
     private String whatItDoes;
     private String howTested;
     private Integer controlOwnerId;
+    private Integer testerOwnerId;
+    private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
     private List<Long> linkedObligationIds;

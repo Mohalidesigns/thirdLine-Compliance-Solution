@@ -19,6 +19,10 @@ public class ControlDto {
     private Integer controlOwnerUserId;
     private Integer controlOwnerId;
     private String controlOwnerName;
+    private Integer testerOwnerId;
+    private Integer testerUserId;
+    private String testerName;
+    private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
     private List<Long> linkedObligationIds;

@@ -13,6 +13,10 @@ public class ControlRegisterItem {
     private String controlSummary;
     private String theme;
     private String controlOwnerName;
+    private Integer testerOwnerId;
+    private Integer testerUserId;
+    private String testerName;
+    private Long escalationPolicyId;
     private String ownerName;
     private String controlType;
     private String residualRisk;
