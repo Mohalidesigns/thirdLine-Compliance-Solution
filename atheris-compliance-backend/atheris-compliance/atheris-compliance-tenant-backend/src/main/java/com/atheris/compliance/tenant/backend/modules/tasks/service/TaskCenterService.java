@@ -96,10 +96,16 @@ public class TaskCenterService {
             .toList();
     }
 
+    private static final Set<String> ROLE_ACTIONABLE = Set.of(
+        "RETURN_REPORT_REVIEW", "CONTROL_TEST_ASSIGN", "CONTROL_TEST_AWAITING_REVIEW",
+        "FINDING_UNASSIGNED", "FINDING_AWAITING_REVIEW", "OBLIGATION_NO_CONTROL");
+
     private static boolean actionableByRole(TaskItemDto task, String role) {
         if (task == null || role == null || task.getOwnerUserId() != null) return false;
-        return "RETURN_REPORT_REVIEW".equals(task.getType())
-            && (AppRole.CCO.equals(role) || AppRole.TENANT_ADMIN.equals(role));
+        if (!AppRole.ANALYST.equals(role) && !AppRole.CCO.equals(role) && !AppRole.TENANT_ADMIN.equals(role)) {
+            return false;
+        }
+        return ROLE_ACTIONABLE.contains(task.getType());
     }
 
     @Transactional(readOnly = true)
@@ -108,11 +114,15 @@ public class TaskCenterService {
         List<TaskItemDto> scoped = category == null || category.isBlank() ? all
             : all.stream().filter(t -> category.equalsIgnoreCase(t.getCategory())).toList();
         LocalDate today = LocalDate.now();
+        java.time.Instant cutoff = java.time.Instant.now().minus(7, ChronoUnit.DAYS);
         long completed = instances.countByStatusInAndCompletedAtGreaterThanEqual(
-            List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE),
-            java.time.Instant.now().minus(7, ChronoUnit.DAYS));
+                List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE), cutoff)
+            + findings.countByClosedAtGreaterThanEqual(cutoff)
+            + testResults.countByReviewedAtGreaterThanEqual(cutoff);
+        long backlog = build("all", null, null, null, null, null, null).size();
         return TaskStatsDto.builder()
             .total(scoped.size())
+            .backlog(backlog)
             .overdue(scoped.stream().filter(t -> "OVERDUE".equals(t.getPriority())).count())
             .dueToday(scoped.stream().filter(t -> t.getDueDate() != null && t.getDueDate().isEqual(today)).count())
             .dueThisWeek(scoped.stream().filter(t -> t.getDueDate() != null
@@ -234,6 +244,10 @@ public class TaskCenterService {
                 continue;
             }
             Control c = byId.get(t.getControlId());
+            boolean noTester = c != null && c.getTesterOwnerId() == null && c.getTesterUserId() == null;
+            String actionType = noTester ? "ASSIGN" : "OPEN";
+            String actionLabel = noTester ? "Assign tester" : label;
+            if (noTester) type = "CONTROL_TEST_ASSIGN";
             Integer ownerId = t.getAssignedToUserId() != null ? t.getAssignedToUserId()
                 : (c == null ? null : c.getControlOwnerUserId());
             String ownerName = t.getAssignedToName() != null && !t.getAssignedToName().isBlank()
@@ -247,7 +261,7 @@ public class TaskCenterService {
                 .priority(priority).dueDate(t.getDueDate()).daysRemaining((int) days)
                 .ownerName(ownerName).ownerUserId(ownerId)
                 .stage(t.getStatus()).escalationLevel(t.getEscalationLevel())
-                .linkPath("/controls?controlId=" + t.getControlId()).actionLabel(label).actionType("OPEN")
+                .linkPath("/controls?controlId=" + t.getControlId()).actionLabel(actionLabel).actionType(actionType)
                 .sourceRef(Map.of("controlId", t.getControlId(), "taskId", t.getTaskId()))
                 .build());
         }
@@ -338,9 +352,11 @@ public class TaskCenterService {
                 .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(f.getAssignedToName())
                 .priority(priority).dueDate(dl).daysRemaining(dl == null ? null : (int) days)
-                .ownerName(f.getAssignedToName()).ownerUserId(f.getAssignedToUserId())
+                .ownerName(f.getAssignedToName())
+                .ownerUserId("FINDING_AWAITING_REVIEW".equals(type) ? null : f.getAssignedToUserId())
                 .stage(f.getStatus()).severity(f.getSeverity())
-                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label).actionType("OPEN")
+                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label)
+                .actionType("FINDING_UNASSIGNED".equals(type) ? "ASSIGN" : "OPEN")
                 .sourceRef(Map.of("findingId", f.getFindingId()))
                 .build());
         }

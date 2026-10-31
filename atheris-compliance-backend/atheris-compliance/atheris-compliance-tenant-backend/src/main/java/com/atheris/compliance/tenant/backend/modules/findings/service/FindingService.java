@@ -228,10 +228,11 @@ public class FindingService {
     @Transactional
     public Finding assign(Long id, RaiseRemediationRequest req, Integer userId) {
         Finding f = findById(id);
-        LocalDate deadline = req.getRemediationDeadline();
+        LocalDate slaDeadline = slaDeadline(f);
+        LocalDate deadline = req.getRemediationDeadline() != null ? req.getRemediationDeadline()
+            : (slaDeadline != null ? slaDeadline : LocalDate.now().plusDays(30));
         if (deadline.isBefore(LocalDate.now()))
             throw ApiException.badRequest("deadline_in_past", "The remediation deadline cannot be in the past");
-        LocalDate slaDeadline = slaDeadline(f);
         String justification = req.getDeadlineJustification() == null ? null : req.getDeadlineJustification().trim();
         boolean beyondSla = slaDeadline != null && deadline.isAfter(slaDeadline);
         if (beyondSla && (justification == null || justification.length() < 10))

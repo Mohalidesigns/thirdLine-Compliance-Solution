@@ -72,6 +72,15 @@ public class ControlController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, u.getUserId()));
     }
 
+    @PutMapping("/{id}/tester")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlDto> assignTester(
+            @PathVariable Integer id,
+            @RequestBody AssignTesterRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.assignTester(id, req.getTesterOwnerId(), u.getUserId()));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlDto> update(

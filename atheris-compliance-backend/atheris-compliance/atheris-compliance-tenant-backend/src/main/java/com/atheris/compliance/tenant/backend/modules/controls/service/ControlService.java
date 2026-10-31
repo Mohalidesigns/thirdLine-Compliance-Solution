@@ -423,6 +423,20 @@ public class ControlService {
         return toDto(saved);
     }
 
+    @Transactional
+    public ControlDto assignTester(Integer id, Integer testerOwnerId, Integer userId) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        c.setTesterOwnerId(testerOwnerId);
+        c.setTesterUserId(resolveTesterUserId(testerOwnerId));
+        c.setTesterName(resolveOwnerName(testerOwnerId));
+        audit.log(userId, "control_tester_assigned", "control", id.longValue(),
+            testerOwnerId == null ? Map.of("tester", "none") : Map.of("testerOwnerId", testerOwnerId));
+        Control saved = repo.save(c);
+        testService.reassignOpenTasks(saved);
+        return toDto(saved);
+    }
+
     private String resolveOwnerName(Integer ownerId) {
         if (ownerId == null) {
             return null;

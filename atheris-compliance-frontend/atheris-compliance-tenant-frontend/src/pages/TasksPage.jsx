@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Button, Chip, Stack, Typography, Snackbar, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
@@ -8,6 +8,8 @@ import {
   ClockIcon, ExclamationTriangleIcon, CheckCircleIcon, InboxIcon,
 } from 'shared';
 import MultiPersonPicker from '../components/common/MultiPersonPicker';
+import OwnerPicker from '../components/org/OwnerPicker';
+import TextField from '@mui/material/TextField';
 import { api } from '../services/api';
 
 const opt = (values) => values.map((v) => ({ value: v, label: v }));
@@ -37,9 +39,20 @@ function relText(t) {
 export default function TasksPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [assignee, setAssignee] = useState('all');
-  const [category, setCategory] = useState('RETURNS');
-  const [priority, setPriority] = useState('');
+  const [sp, setSp] = useSearchParams();
+  const assignee = sp.get('assignee') || 'me';
+  const category = sp.get('category') || 'RETURNS';
+  const priority = sp.get('priority') || '';
+  const setFilter = (patch) => {
+    const next = new URLSearchParams(sp);
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === '') next.delete(k); else next.set(k, v);
+    });
+    setSp(next, { replace: true });
+  };
+  const setAssignee = (v) => { setFilter({ assignee: v }); setPage(0); };
+  const setCategory = (v) => { setFilter({ category: v }); setKpi(null); setPage(0); };
+  const setPriority = (v) => { setFilter({ priority: v }); setPage(0); };
   const [q, setQ] = useState('');
   const [kpi, setKpi] = useState(null);
   const [page, setPage] = useState(0);
@@ -69,14 +82,25 @@ export default function TasksPage() {
     },
     onError: (e) => setSnackbar(e.message || 'Could not start the filing.'),
   });
+  const assignDone = (msg) => {
+    qc.invalidateQueries({ queryKey: ['tasks'] });
+    setAssignFor(null);
+    setSnackbar(msg);
+  };
   const assignMut = useMutation({
-    mutationFn: ({ returnId, persons }) => api.returns.update(returnId, { responsiblePersons: persons }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] });
-      setAssignFor(null);
-      setSnackbar('Responsible person set — filings will now generate.');
+    mutationFn: ({ task, persons, ownerId }) => {
+      if (task.category === 'CONTROLS') return api.controls.assignTester(task.sourceRef.controlId, ownerId);
+      if (task.category === 'FINDINGS') {
+        return api.findings.assign(task.sourceRef.findingId, {
+          assignedToOwnerId: ownerId, remediationDeadline: undefined,
+        });
+      }
+      return api.returns.update(task.sourceRef.returnId, { responsiblePersons: persons });
     },
-    onError: (e) => setSnackbar(e.message || 'Could not assign the responsible person.'),
+    onSuccess: (_r, vars) => assignDone(vars.task.category === 'CONTROLS'
+      ? 'Tester set — the test task is now assigned to them.'
+      : 'Responsible person set — the finding/deadline has been updated.'),
+    onError: (e) => setSnackbar(e.message || 'Could not assign.'),
   });
 
   const rows = data?.content || [];
@@ -138,15 +162,15 @@ export default function TasksPage() {
         actions={(
           <Stack direction="row" spacing={1} alignItems="center">
             <Button variant={assignee === 'me' ? 'contained' : 'outlined'} size="small"
-              onClick={() => { setAssignee('me'); setPage(0); }}>My work</Button>
+              onClick={() => setAssignee('me')}>My work</Button>
             <Button variant={assignee === 'all' ? 'contained' : 'outlined'} size="small"
-              onClick={() => { setAssignee('all'); setPage(0); }}>Whole organisation</Button>
+              onClick={() => setAssignee('all')}>Whole organisation</Button>
             <Button variant="outlined" size="small" onClick={() => refetch()}>Refresh</Button>
           </Stack>
         )}
       />
 
-      <SectionTabs tabs={tabs} value={category} onChange={(v) => { setCategory(v); setKpi(null); setPage(0); }} sx={{ mb: 2 }} />
+      <SectionTabs tabs={tabs} value={category} onChange={setCategory} sx={{ mb: 2 }} />
 
       <KpiCards items={kpis.map((k) => ({ ...k, active: kpi === k.key }))}
         onSelect={(key) => { setKpi((v) => (v === key ? null : key)); setPage(0); }} columns={5} />
@@ -154,7 +178,7 @@ export default function TasksPage() {
       <FilterBar
         search={{ value: q, onChange: (v) => { setQ(v); setPage(0); }, placeholder: 'Search task, regulator, or owner…' }}
         filters={[
-          { key: 'priority', label: 'Priority', value: priority, onChange: (v) => { setPriority(v); setPage(0); },
+          { key: 'priority', label: 'Priority', value: priority, onChange: setPriority,
             options: opt(PRIORITIES), allLabel: 'All', minWidth: 150 },
         ]}
         showClear={!!(q || priority || kpi)}
@@ -197,7 +221,7 @@ export default function TasksPage() {
       {assignFor && (
         <AssignDialog task={assignFor} saving={assignMut.isPending}
           onClose={() => setAssignFor(null)}
-          onSave={(persons) => assignMut.mutate({ returnId: assignFor.sourceRef?.returnId, persons })} />
+          onSave={(payload) => assignMut.mutate({ task: assignFor, ...payload })} />
       )}
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar('')}
@@ -210,19 +234,36 @@ export default function TasksPage() {
 
 function AssignDialog({ task, saving, onClose, onSave }) {
   const [persons, setPersons] = useState([]);
+  const [ownerId, setOwnerId] = useState(null);
+  const isReturns = task.category === 'RETURNS';
+  const isControls = task.category === 'CONTROLS';
+  const title = isControls ? 'Assign tester' : 'Assign responsible person';
+  const blurb = isControls
+    ? `${task.title} — the tester is the person responsible for running this control test.`
+    : isReturns
+      ? `${task.title} — the responsible person receives the filing request and submits the data.`
+      : `${task.title} — the responsible person is asked to remediate and submit the evidence.`;
+  const ready = isReturns ? persons.length > 0 : ownerId != null;
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Assign responsible person</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {task.title} — the responsible person receives the filing request and submits the data.
-        </Typography>
-        <MultiPersonPicker label="Responsible person(s)" value={persons} onChange={setPersons} />
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{blurb}</Typography>
+        {isReturns
+          ? <MultiPersonPicker label="Responsible person(s)" value={persons} onChange={setPersons} />
+          : <OwnerPicker value={ownerId} onChange={setOwnerId} label="Responsible person" />}
+        {!isReturns && !isControls && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            The remediation deadline defaults to the finding&apos;s SLA.
+          </Typography>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={saving || !persons.length}
-          onClick={() => onSave((persons || []).map((p) => p.fullName || p.email).filter(Boolean))}>
+        <Button variant="contained" disabled={saving || !ready}
+          onClick={() => onSave(isReturns
+            ? { persons: (persons || []).map((p) => p.fullName || p.email).filter(Boolean) }
+            : { ownerId })}>
           {saving ? 'Saving…' : 'Assign'}
         </Button>
       </DialogActions>

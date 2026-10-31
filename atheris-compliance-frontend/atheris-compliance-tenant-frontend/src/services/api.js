@@ -478,6 +478,9 @@ export const api = {
     get: (id) => request(`/controls/${id}`),
     create: (data) => request('/controls', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => request(`/controls/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    assignTester: (id, testerOwnerId) => request(`/controls/${id}/tester`, {
+      method: 'PUT', body: JSON.stringify({ testerOwnerId }),
+    }),
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
     tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
     reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {

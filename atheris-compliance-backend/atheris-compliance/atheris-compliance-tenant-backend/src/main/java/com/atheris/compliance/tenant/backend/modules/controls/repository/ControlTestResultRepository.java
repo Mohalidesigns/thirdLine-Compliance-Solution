@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTest
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -15,6 +16,7 @@ public interface ControlTestResultRepository extends JpaRepository<ControlTestRe
     List<ControlTestResult> findByControlIdInOrderByTestDateDesc(Collection<Integer> controlIds);
     Optional<ControlTestResult> findTopByControlIdOrderByTestDateDesc(Integer controlId);
     List<ControlTestResult> findByReviewStatus(String reviewStatus);
+    long countByReviewedAtGreaterThanEqual(Instant cutoff);
     List<ControlTestResult> findByRemediationRequiredTrueAndRemediationDeadlineBefore(LocalDate today);
     List<ControlTestResult> findAllByOrderByTestDateDesc();
 }

@@ -15,6 +15,7 @@ public class TaskStatsDto {
     private long dueToday;
     private long dueThisWeek;
     private long unassigned;
+    private long backlog;
     private long completedLast7d;
     @Builder.Default
     private Map<String, Long> byCategory = Map.of();
