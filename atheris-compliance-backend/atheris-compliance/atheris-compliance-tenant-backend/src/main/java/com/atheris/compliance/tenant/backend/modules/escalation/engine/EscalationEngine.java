@@ -160,20 +160,28 @@ public class EscalationEngine {
     }
 
     private String templateKey(EscalationCandidate candidate, String trigger) {
-        boolean control = EscalationConstants.SUBJECT_CONTROL.equals(candidate.subjectType());
+        String subject = candidate.subjectType();
+        boolean finding = EscalationConstants.SUBJECT_FINDING.equals(subject);
+        boolean control = EscalationConstants.SUBJECT_CONTROL.equals(subject);
         if (EscalationConstants.TRIGGER_OVERDUE.equals(trigger)) {
-            return control ? EscalationConstants.KEY_CONTROL_OVERDUE : EscalationConstants.KEY_RETURN_OVERDUE;
+            return finding ? EscalationConstants.KEY_FINDING_OVERDUE
+                : control ? EscalationConstants.KEY_CONTROL_OVERDUE : EscalationConstants.KEY_RETURN_OVERDUE;
         }
         if (EscalationConstants.TRIGGER_APPROACHING.equals(trigger)) {
-            return control ? EscalationConstants.KEY_CONTROL_APPROACHING : EscalationConstants.KEY_RETURN_APPROACHING;
+            return finding ? EscalationConstants.KEY_FINDING_APPROACHING
+                : control ? EscalationConstants.KEY_CONTROL_APPROACHING : EscalationConstants.KEY_RETURN_APPROACHING;
         }
-        return control ? EscalationConstants.KEY_CONTROL_REMINDER : EscalationConstants.KEY_RETURN_REMINDER;
+        return finding ? EscalationConstants.KEY_FINDING_REMINDER
+            : control ? EscalationConstants.KEY_CONTROL_REMINDER : EscalationConstants.KEY_RETURN_REMINDER;
     }
 
     private Map<String, String> baseVars(EscalationCandidate candidate, String trigger, int level) {
         Map<String, String> vars = new HashMap<>(candidate.extraVars());
         String label = candidate.subjectLabel();
         vars.put("subject", label);
+        if (candidate.dueAt() != null) {
+            vars.putIfAbsent("remediationDeadline", candidate.dueAt().toLocalDate().toString());
+        }
         vars.put("returnName", label);
         vars.putIfAbsent("controlName", label);
         vars.put("dueDate", candidate.dueAt().toLocalDate().toString());

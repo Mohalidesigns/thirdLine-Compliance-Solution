@@ -11,6 +11,7 @@ import com.atheris.compliance.tenant.backend.modules.escalation.engine.Escalatio
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.Person;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
@@ -57,6 +58,7 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
         for (ControlTask t : open) {
             if (t.getDueDate() == null) continue;
             Control c = byId.get(t.getControlId());
+            if (!hasResponsiblePerson(t, c)) continue;
             Map<String, String> extra = new HashMap<>();
             extra.put("controlNumber", t.getControlNumber() == null ? "" : t.getControlNumber());
             extra.put("controlName", c != null && c.getName() != null ? c.getName()
@@ -70,7 +72,7 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 EscalationConstants.SUBJECT_CONTROL,
                 t.getTaskId(),
                 label(t),
-                null,
+                c == null ? null : c.getEscalationPolicyId(),
                 assignees(t, c),
                 owner(c),
                 t.getDueDate().atStartOfDay(),
@@ -79,7 +81,7 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 "/controls?controlId=",
                 NotificationConstants.CATEGORY_CONTROLS,
                 extra,
-                null,
+                ControlSchedule.scope(c == null ? null : c.getTestFrequency()),
                 true));
         }
         return out;
@@ -93,6 +95,12 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
             task.setEscalatedAt(Instant.now());
             tasks.save(task);
         });
+    }
+
+    private boolean hasResponsiblePerson(ControlTask t, Control c) {
+        if (t.getAssignedToUserId() != null) return true;
+        if (c == null) return false;
+        return testLinks.testerEmail(c) != null || c.getTesterUserId() != null;
     }
 
     private List<Person> assignees(ControlTask t, Control c) {

@@ -11,6 +11,7 @@ import { api } from '../../services/api';
 const SUBJECT_TYPES = [
   { value: 'RETURN', label: 'Returns' },
   { value: 'CONTROL', label: 'Controls' },
+  { value: 'FINDING', label: 'Findings' },
 ];
 const UNITS = [
   { value: 'DAYS', label: 'Days' },

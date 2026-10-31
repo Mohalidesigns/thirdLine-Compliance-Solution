@@ -7,7 +7,9 @@ import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFil
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
+import com.atheris.compliance.tenant.backend.modules.findings.service.FindingDetails;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
@@ -17,6 +19,8 @@ import com.atheris.compliance.tenant.backend.modules.remediation.repository.Reme
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
+import com.atheris.compliance.tenant.backend.shared.util.LinkTokens;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
@@ -29,10 +33,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Base64;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +46,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class RemediationLinkService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
     private static final Set<String> ALLOWED_TYPES = Set.of(
         "application/pdf", "image/png", "image/jpeg",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -58,6 +60,8 @@ public class RemediationLinkService {
     private final AuditService audit;
     private final EmailService email;
     private final TenantIdentityService tenantIdentity;
+    private final NotificationTemplateService templates;
+    private final FindingDetails details;
 
     @Value("${atheris.remediation.link-expiry-grace-days:7}")
     private int graceDays;
@@ -65,6 +69,8 @@ public class RemediationLinkService {
     private int maxFileMb;
     @Value("${atheris.remediation.max-files:5}")
     private int maxFiles;
+    @Value("${atheris.remediation.link-secret:${ENCRYPTION_KEY:atheris-dev-remediation-link-secret}}")
+    private String linkSecret;
 
     /** The raw token (shown once) and whether the owner was actually emailed. */
     public record CreatedLink(String token, EmailService.Outcome emailOutcome, String ownerEmail) {}
@@ -77,29 +83,63 @@ public class RemediationLinkService {
             throw ApiException.conflict("finding_closed", "This finding is already closed");
         }
 
-        String raw = randomToken();
-        LocalDate base = f.getRemediationDeadline() != null ? f.getRemediationDeadline() : LocalDate.now();
-        String ownerEmail = ownerEmail(f);
-        RemediationLink link = RemediationLink.builder()
-            .tokenHash(sha256(raw))
-            .findingId(findingId)
-            .ownerId(f.getAssignedToOwnerId())
-            .ownerEmail(ownerEmail)
-            .expiresAt(base.plusDays(graceDays).atStartOfDay(java.time.ZoneOffset.UTC).toInstant())
-            .createdByUserId(userId)
-            .build();
-        links.save(link);
+        String raw = tokenFor(findingId);
+        ensureLink(f, raw, ownerEmailOf(f), userId);
         audit.log(userId, "remediation_link_created", "finding", findingId, Map.of());
-        // Email the link straight to the owner (they need no account).
-        EmailService.Outcome outcome = EmailService.Outcome.NO_RECIPIENT;
-        if (ownerEmail != null) {
-            outcome = email.send(ownerEmail, "Action required: remediation for finding #" + findingId,
-                "You have been asked to provide remediation evidence for finding #" + findingId
-                    + " (" + f.getSeverity() + ").\n"
-                    + (f.getRemediationDeadline() != null ? "\nDeadline: " + f.getRemediationDeadline() + "\n" : ""),
-                remediationUrl(raw));
+        EmailService.Outcome outcome = sendRaisedMail(f, ownerEmailOf(f), raw);
+        return new CreatedLink(raw, outcome, ownerEmailOf(f));
+    }
+
+    @Transactional
+    public EmailService.Outcome sendChangesRequested(Long findingId, String notes) {
+        Finding f = findings.findById(findingId).orElse(null);
+        if (f == null) return EmailService.Outcome.NO_RECIPIENT;
+        String raw = tokenFor(findingId);
+        String ownerEmail = ownerEmailOf(f);
+        ensureLink(f, raw, ownerEmail, null);
+        if (ownerEmail == null) return EmailService.Outcome.NO_RECIPIENT;
+        Map<String, String> vars = details.messageVars(f, f.getAssignedToName());
+        details.putReviewNotes(vars, notes);
+        NotificationTemplateService.RenderedEmail rendered =
+            templates.render(EscalationConstants.KEY_FINDING_CHANGES_REQUESTED, vars);
+        String subject = rendered.subject() != null ? rendered.subject()
+            : "Changes requested: finding #" + findingId + " remediation";
+        String body = rendered.body() != null ? rendered.body()
+            : "The remediation for finding #" + findingId + " needs more work: " + notes;
+        return email.send(ownerEmail, subject, body, remediationUrl(raw));
+    }
+
+    public String ensureLinkPath(Long findingId) {
+        Finding f = findings.findById(findingId).orElse(null);
+        if (f == null || WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) return null;
+        String raw = tokenFor(findingId);
+        ensureLink(f, raw, ownerEmailOf(f), null);
+        return remediationPath(raw);
+    }
+
+    private RemediationLink ensureLink(Finding f, String raw, String ownerEmail, Integer userId) {
+        String hash = LinkTokens.sha256(raw);
+        LocalDate base = f.getRemediationDeadline() != null && f.getRemediationDeadline().isAfter(LocalDate.now())
+            ? f.getRemediationDeadline() : LocalDate.now();
+        Instant expiresAt = base.plusDays(graceDays).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        RemediationLink link = links.findByTokenHash(hash).orElse(null);
+        if (link == null) {
+            link = RemediationLink.builder()
+                .tokenHash(hash)
+                .findingId(f.getFindingId())
+                .ownerId(f.getAssignedToOwnerId())
+                .ownerEmail(ownerEmail)
+                .expiresAt(expiresAt)
+                .createdByUserId(userId)
+                .build();
+        } else {
+            if (f.getAssignedToOwnerId() != null) link.setOwnerId(f.getAssignedToOwnerId());
+            if (ownerEmail != null) link.setOwnerEmail(ownerEmail);
+            link.setRevokedAt(null);
+            if (link.getExpiresAt() == null || link.getExpiresAt().isBefore(expiresAt)) link.setExpiresAt(expiresAt);
         }
-        return new CreatedLink(raw, outcome, ownerEmail);
+        links.save(link);
+        return link;
     }
 
     /**
@@ -203,9 +243,17 @@ public class RemediationLinkService {
 
         audit.log(null, "remediation_submitted_via_link", "finding", f.getFindingId(),
             Map.of("email", link.getOwnerEmail() == null ? "" : link.getOwnerEmail()));
-        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS, WorkflowStatus.RISK_MEDIUM,
-            "Finding #" + f.getFindingId() + " remediation submitted via link — awaiting review",
-            "/findings", "Remediation submitted — review required");
+        String summary = "Finding #" + f.getFindingId() + " remediation submitted via link — awaiting review";
+        Map<String, String> vars = details.messageVars(f, f.getAssignedToName());
+        NotificationTemplateService.RenderedEmail rendered =
+            templates.render(EscalationConstants.KEY_FINDING_DATA_REVIEW, vars);
+        String subject = rendered.subject() != null ? rendered.subject()
+            : "Remediation submitted: finding #" + f.getFindingId();
+        String body = rendered.body() != null ? rendered.body() : summary;
+        List<String> cc = new ArrayList<>();
+        if (link.getOwnerEmail() != null) cc.add(link.getOwnerEmail());
+        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS,
+            WorkflowStatus.RISK_MEDIUM, summary, "/findings", subject, body, cc);
     }
 
     private RemediationLink resolve(String rawToken) {
@@ -220,6 +268,10 @@ public class RemediationLinkService {
         return link;
     }
 
+    private String ownerEmailOf(Finding f) {
+        return ownerEmail(f);
+    }
+
     private String ownerEmail(Finding f) {
         if (f.getAssignedToOwnerId() == null) {
             return null;
@@ -228,10 +280,20 @@ public class RemediationLinkService {
             .map(Owner::getEmail).filter(e -> e != null && !e.isBlank()).orElse(null);
     }
 
-    private static String randomToken() {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    private EmailService.Outcome sendRaisedMail(Finding f, String ownerEmail, String rawToken) {
+        if (ownerEmail == null) return EmailService.Outcome.NO_RECIPIENT;
+        Map<String, String> vars = details.messageVars(f, f.getAssignedToName());
+        NotificationTemplateService.RenderedEmail rendered =
+            templates.render(EscalationConstants.KEY_FINDING_RAISED, vars);
+        String subject = rendered.subject() != null ? rendered.subject()
+            : "Action required: remediation for finding #" + f.getFindingId();
+        String body = rendered.body() != null ? rendered.body()
+            : "Finding #" + f.getFindingId() + " (" + f.getSeverity() + ") needs remediation.";
+        return email.send(ownerEmail, subject, body, remediationUrl(rawToken));
+    }
+
+    private String tokenFor(Long findingId) {
+        return LinkTokens.token(linkSecret, "finding-remediation", findingId);
     }
 
     private static String sha256(String s) {

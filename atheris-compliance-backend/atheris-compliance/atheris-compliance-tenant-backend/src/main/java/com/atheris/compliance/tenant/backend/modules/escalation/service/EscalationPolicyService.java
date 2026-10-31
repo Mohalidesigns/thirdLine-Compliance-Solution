@@ -304,6 +304,11 @@ public class EscalationPolicyService {
     @Transactional
     public void refreshSeededDefault(String subjectType, String frequencyScope, Integer legacyStart, Integer legacyRepeat,
                                      Integer start, String startUnit, Integer repeat, String repeatUnit) {
+        refreshSeededDefault(subjectType, frequencyScope, legacyStart, legacyRepeat, start, startUnit, repeat, repeatUnit, true);
+    }
+
+    public void refreshSeededDefault(String subjectType, String frequencyScope, Integer legacyStart, Integer legacyRepeat,
+                                     Integer start, String startUnit, Integer repeat, String repeatUnit, boolean sendLink) {
         policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
             .filter(p -> Boolean.TRUE.equals(p.getIsDefault()))
             .filter(p -> Objects.equals(normScope(p.getFrequencyScope()), normScope(frequencyScope)))
@@ -313,7 +318,8 @@ public class EscalationPolicyService {
                     && Objects.equals(p.getReminderRepeatValue(), legacyRepeat)
                     && Objects.equals(normUnit(p.getReminderRepeatUnit()), EscalationConstants.UNIT_DAYS);
                 boolean notifyUnedited = !Boolean.TRUE.equals(p.getNotifyOnStart());
-                if (!windowUnedited && !notifyUnedited) return;
+                boolean linkUnedited = !Boolean.TRUE.equals(p.getSendLink());
+                if (!windowUnedited && !notifyUnedited && !linkUnedited) return;
                 if (windowUnedited) {
                     p.setReminderStartValue(start);
                     p.setReminderStartUnit(normUnit(startUnit));
@@ -321,6 +327,7 @@ public class EscalationPolicyService {
                     p.setReminderRepeatUnit(normUnit(repeatUnit));
                 }
                 p.setNotifyOnStart(true);
+                if (linkUnedited && sendLink) p.setSendLink(true);
                 policies.save(p);
                 log.info("[Escalation] refreshed default {}{} (window={}, notifyOnStart=true)",
                     subjectType, normScope(frequencyScope) == null ? "" : " " + normScope(frequencyScope), windowUnedited);
@@ -348,8 +355,10 @@ public class EscalationPolicyService {
         if (req == null || req.getName() == null || req.getName().isBlank())
             throw ApiException.badRequest("invalid_policy", "Policy name is required");
         String subjectType = req.getSubjectType() == null ? "" : req.getSubjectType().trim().toUpperCase(Locale.ROOT);
-        if (!EscalationConstants.SUBJECT_RETURN.equals(subjectType) && !EscalationConstants.SUBJECT_CONTROL.equals(subjectType))
-            throw ApiException.badRequest("invalid_subject_type", "subjectType must be RETURN or CONTROL");
+        if (!EscalationConstants.SUBJECT_RETURN.equals(subjectType)
+            && !EscalationConstants.SUBJECT_CONTROL.equals(subjectType)
+            && !EscalationConstants.SUBJECT_FINDING.equals(subjectType))
+            throw ApiException.badRequest("invalid_subject_type", "subjectType must be RETURN, CONTROL or FINDING");
         if (req.getReminderStartValue() != null && req.getReminderStartValue() < 0)
             throw ApiException.badRequest("invalid_reminder_start", "Remind before cannot be negative");
         if (req.getReminderRepeatValue() != null && req.getReminderRepeatValue() < 0)

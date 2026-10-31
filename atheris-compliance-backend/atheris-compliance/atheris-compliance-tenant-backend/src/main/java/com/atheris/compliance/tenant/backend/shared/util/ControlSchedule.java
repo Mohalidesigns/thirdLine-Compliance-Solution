@@ -41,6 +41,20 @@ public final class ControlSchedule {
         return null;
     }
 
+    /** Escalation policy frequency scope for a control-test frequency label, or null when unrecognised. */
+    public static String scope(String frequency) {
+        if (frequency == null || frequency.isBlank()) return null;
+        String f = frequency.trim().toLowerCase();
+        if (f.contains("quarter")) return "QUARTERLY";
+        if (f.contains("semi") || f.contains("half") || f.contains("biannual")) return "SEMI_ANNUAL";
+        if (f.contains("bienn") || f.contains("two year") || f.contains("2 year")) return "BIENNIAL";
+        if (f.contains("annual") || f.contains("year")) return "ANNUAL";
+        if (f.contains("month")) return "MONTHLY";
+        if (f.contains("week")) return "WEEKLY";
+        if (f.contains("day")) return "DAILY";
+        return null;
+    }
+
     /** Risk-tiered default cadence, applied when a control has no frequency of its own. */
     public static String frequencyForRisk(String riskLevel) {
         if (riskLevel == null || riskLevel.isBlank()) {

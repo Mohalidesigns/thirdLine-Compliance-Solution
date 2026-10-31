@@ -6,6 +6,7 @@ public final class EscalationConstants {
 
     public static final String SUBJECT_RETURN = "RETURN";
     public static final String SUBJECT_CONTROL = "CONTROL";
+    public static final String SUBJECT_FINDING = "FINDING";
 
     public static final String TARGET_ASSIGNEE = "ASSIGNEE";
     public static final String TARGET_MANAGER = "MANAGER";
@@ -35,6 +36,14 @@ public final class EscalationConstants {
     public static final String KEY_CONTROL_DATA_REVIEW = "control.test.data_review";
     public static final String KEY_CONTROL_DATA_RECEIPT = "control.test.data_receipt";
     public static final String KEY_CONTROL_CHANGES_REQUESTED = "control.test.changes_requested";
+
+    public static final String KEY_FINDING_RAISED = "finding.remediation.raised";
+    public static final String KEY_FINDING_APPROACHING = "finding.remediation.approaching";
+    public static final String KEY_FINDING_REMINDER = "finding.remediation.reminder";
+    public static final String KEY_FINDING_OVERDUE = "finding.remediation.overdue";
+    public static final String KEY_FINDING_DATA_REVIEW = "finding.remediation.submitted";
+    public static final String KEY_FINDING_RECEIPT = "finding.remediation.receipt";
+    public static final String KEY_FINDING_CHANGES_REQUESTED = "finding.remediation.changes_requested";
 
     public static final String KEY_RETURN_REPORT_REVIEW = "return.filing.report_review";
     public static final String KEY_RETURN_DATA_REVIEW = "return.filing.data_review";

@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.findings.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
@@ -16,6 +17,9 @@ import com.atheris.compliance.tenant.backend.modules.findings.repository.Finding
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
+import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
+import com.atheris.compliance.tenant.backend.modules.remediation.service.RemediationLinkService;
+import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
@@ -46,6 +50,10 @@ public class FindingService {
     private final ObligationRepository obligationRepo;
     private final AuditService audit;
     private final NotificationService notifications;
+    private final NotificationTemplateService templates;
+    private final FindingDetails findingDetails;
+    private final RemediationLinkService remediationLinks;
+    private final EmailService email;
     private final EvidenceVaultService evidence;
 
     private static final Set<String> ALLOWED_EVIDENCE_TYPES = Set.of(
@@ -307,12 +315,12 @@ public class FindingService {
             String summary = "Finding #" + f.getFindingId() + " (" + f.getSeverity() + ") needs remediation"
                 + (f.getRemediationDeadline() != null ? " by " + f.getRemediationDeadline() : "");
             if (o.getUserId() != null) {
-                notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_HIGH,
-                    summary, "/findings", "Action required: finding remediation");
-            } else {
-                // No login — email the owner directly; the analyst will share the remediation link.
-                log.info("Finding {} assigned to owner {} with no user login (email {})",
-                    f.getFindingId(), o.getOwnerId(), o.getEmail());
+                notifications.notifyUser(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS,
+                    NotificationConstants.SEVERITY_HIGH, summary, "/findings");
+            }
+            // The owner is emailed the details + the deterministic remediation link (no account needed).
+            if (f.getStatus() == null || !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus())) {
+                remediationLinks.createLink(f.getFindingId(), null);
             }
         });
     }
@@ -353,13 +361,23 @@ public class FindingService {
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
 
-        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
-            "Finding #" + id + " remediation submitted — awaiting your review",
-            "/findings", "Remediation submitted — review required");
+        Map<String, String> vars = findingDetails.messageVars(f, f.getAssignedToName());
+        NotificationTemplateService.RenderedEmail rendered =
+            templates.render(EscalationConstants.KEY_FINDING_DATA_REVIEW, vars);
+        String summary = "Finding #" + id + " remediation submitted — awaiting your review";
+        List<String> cc = new ArrayList<>();
+        if (f.getAssignedToOwnerId() != null) {
+            ownerRepo.findById(f.getAssignedToOwnerId())
+                .map(o -> o.getEmail()).filter(e -> e != null && !e.isBlank()).ifPresent(cc::add);
+        }
+        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS,
+            NotificationConstants.SEVERITY_MEDIUM, summary, "/findings",
+            rendered.subject() != null ? rendered.subject() : "Remediation submitted — review required",
+            rendered.body() != null ? rendered.body() : summary, cc);
         return repo.save(f);
     }
 
-        @Transactional
+    @Transactional
     public Finding closeGapFinding(Long id, User reviewer) {
         Finding f = findById(id);
         if (!WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType())) {
@@ -424,6 +442,7 @@ public class FindingService {
             f.setSignedOffAt(Instant.now());
             reEvaluateControlResidualRisk(f);
             audit.log(reviewer.getUserId(), "finding_signed_off", "finding", id, Map.of());
+            sendReceipt(f);
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
             if (notes == null || notes.isBlank()) {
                 throw ApiException.badRequest("A reason is required when rejecting remediation");
@@ -431,16 +450,18 @@ public class FindingService {
             f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
             f.setReviewNotes(notes);
             audit.log(reviewer.getUserId(), "finding_rejected", "finding", id, Map.of("reason", notes));
-            // Tell the owner it needs more work; their link still works.
+            // Tell the owner (with the same link re-issued) that more work is needed.
             if (f.getAssignedToOwnerId() != null) {
                 ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
                     if (o.getUserId() != null) {
-                        notifications.notifyUserEmailed(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS, NotificationConstants.SEVERITY_MEDIUM,
+                        notifications.notifyUser(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS,
+                            NotificationConstants.SEVERITY_MEDIUM,
                             "Remediation for finding #" + id + " was rejected: " + notes,
-                            "/findings", "Remediation rejected — action required");
+                            "/findings");
                     }
                 });
             }
+            remediationLinks.sendChangesRequested(id, notes);
         } else {
             throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
@@ -448,7 +469,24 @@ public class FindingService {
         return repo.save(f);
     }
 
-        private void reEvaluateControlResidualRisk(Finding f) {
+    private void sendReceipt(Finding f) {
+        if (f.getAssignedToOwnerId() == null) return;
+        ownerRepo.findById(f.getAssignedToOwnerId()).ifPresent(o -> {
+            if (o.getEmail() == null || o.getEmail().isBlank()) return;
+            Map<String, String> vars = findingDetails.messageVars(f, o.getFullName());
+            NotificationTemplateService.RenderedEmail rendered =
+                templates.render(EscalationConstants.KEY_FINDING_RECEIPT, vars);
+            if (rendered.subject() == null || rendered.body() == null) return;
+            if (o.getUserId() != null) {
+                notifications.notifyUser(o.getUserId(), NotificationConstants.CATEGORY_FINDINGS,
+                    NotificationConstants.SEVERITY_LOW,
+                    "Remediation for finding #" + f.getFindingId() + " accepted and closed", "/findings");
+            }
+            email.send(o.getEmail(), rendered.subject(), rendered.body(), null);
+        });
+    }
+
+    private void reEvaluateControlResidualRisk(Finding f) {
         if (f.getLinkedControlId() == null) {
             return;
         }
@@ -468,7 +506,7 @@ public class FindingService {
         });
     }
 
-        private boolean gapResolved(Finding f) {
+    private boolean gapResolved(Finding f) {
         if (f.getLinkedObligationId() == null) {
             return false;
         }

@@ -42,10 +42,21 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
             seed(EscalationConstants.SUBJECT_RETURN, "BIENNIAL", "Biennial Return Escalation",
                 30, 7, true, true, standardLevels(0, 7, 14));
             seed(EscalationConstants.SUBJECT_CONTROL, null, "Standard Control Test Escalation",
-                5, 2, false, false, List.of(
-                    level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
-                    level(2, 2, EscalationConstants.TARGET_MANAGER, null),
-                    level(3, 5, EscalationConstants.TARGET_ROLE, AppRole.CCO)));
+                5, 2, true, true, controlLevels());
+            seed(EscalationConstants.SUBJECT_CONTROL, "MONTHLY", "Monthly Control Test Escalation",
+                10, 2, true, true, controlLevels());
+            seed(EscalationConstants.SUBJECT_CONTROL, "QUARTERLY", "Quarterly Control Test Escalation",
+                15, 3, true, true, controlLevels());
+            seed(EscalationConstants.SUBJECT_CONTROL, "SEMI_ANNUAL", "Semi-Annual Control Test Escalation",
+                21, 5, true, true, controlLevels());
+            seed(EscalationConstants.SUBJECT_CONTROL, "ANNUAL", "Annual Control Test Escalation",
+                30, 7, true, true, controlLevels());
+            seed(EscalationConstants.SUBJECT_FINDING, null, "Standard Finding Escalation",
+                7, 2, true, true, findingLevels());
+            seed(EscalationConstants.SUBJECT_FINDING, "CRITICAL", "Critical Finding Escalation",
+                3, 1, true, true, findingLevels());
+            seed(EscalationConstants.SUBJECT_FINDING, "HIGH", "High Finding Escalation",
+                5, 2, true, true, findingLevels());
         } catch (Throwable e) {
             log.error("[EscalationSeeder] failed: {}", e.getMessage(), e);
         }
@@ -63,7 +74,7 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
         if (policies.hasDefaultExact(subjectType, frequencyScope)) {
             if (notifyOnStart) {
                 policies.refreshSeededDefault(subjectType, frequencyScope, legacyStartValue, legacyRepeatValue,
-                    startValue, unit, repeatValue, unit);
+                    startValue, unit, repeatValue, unit, sendLink);
             }
             return;
         }
@@ -74,6 +85,20 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
             .sendLink(sendLink).notifyOnStart(notifyOnStart).levels(levels).build(), null);
         log.info("[EscalationSeeder] created default {}{} escalation policy",
             subjectType, frequencyScope == null ? "" : " " + frequencyScope);
+    }
+
+    private static List<EscalationLevelRequest> findingLevels() {
+        return List.of(
+            level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
+            level(2, 3, EscalationConstants.TARGET_MANAGER, null),
+            level(3, 7, EscalationConstants.TARGET_ROLE, AppRole.CCO));
+    }
+
+    private static List<EscalationLevelRequest> controlLevels() {
+        return List.of(
+            level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
+            level(2, 2, EscalationConstants.TARGET_MANAGER, null),
+            level(3, 5, EscalationConstants.TARGET_ROLE, AppRole.CCO));
     }
 
     private static List<EscalationLevelRequest> standardLevels(int l1, int l2, int l3) {
