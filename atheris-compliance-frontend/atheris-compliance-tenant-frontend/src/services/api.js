@@ -718,6 +718,10 @@ export const api = {
     updateRiskMatrix: (data) => request('/settings/risk-matrix', {
       method: 'PUT', body: JSON.stringify(data),
     }),
+    taskCentre: (opts = {}) => request('/settings/task-centre', { signal: opts.signal }),
+    saveTaskCentre: (data) => request('/settings/task-centre', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
     smtp: () => request('/settings/smtp'),
     saveSmtp: (data) => request('/settings/smtp', { method: 'PUT', body: JSON.stringify(data) }),
     testSmtp: (data) => request('/settings/smtp/test', { method: 'POST', body: JSON.stringify(data) }),

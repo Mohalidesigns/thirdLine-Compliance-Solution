@@ -20,6 +20,7 @@ const CATEGORIES = [
   { key: 'FINDINGS', label: 'Findings' },
   { key: 'OBLIGATIONS', label: 'Obligations' },
 ];
+const CATEGORY_ORDER = CATEGORIES.map((c) => c.key);
 const priorityChip = {
   OVERDUE: { label: 'Overdue', color: 'error' },
   HIGH: { label: 'High', color: 'warning' },
@@ -41,7 +42,7 @@ export default function TasksPage() {
   const qc = useQueryClient();
   const [sp, setSp] = useSearchParams();
   const assignee = sp.get('assignee') || 'me';
-  const category = sp.get('category') || 'RETURNS';
+  const categoryParam = sp.get('category');
   const priority = sp.get('priority') || '';
   const setFilter = (patch) => {
     const next = new URLSearchParams(sp);
@@ -59,6 +60,15 @@ export default function TasksPage() {
   const [size, setSize] = useState(20);
   const [snackbar, setSnackbar] = useState('');
   const [assignFor, setAssignFor] = useState(null);
+
+  const { data: allStats } = useQuery({
+    queryKey: ['tasks', 'center-stats-all', assignee],
+    queryFn: ({ signal }) => api.tasks.centerStats({ assignee }, { signal }),
+  });
+  const byCategory = allStats?.byCategory || {};
+  const category = categoryParam
+    || CATEGORY_ORDER.find((k) => (byCategory[k] ?? 0) > 0)
+    || 'CONTROLS';
 
   const params = { assignee, category, page, size };
   if (priority) params.priority = priority;
@@ -105,7 +115,6 @@ export default function TasksPage() {
 
   const rows = data?.content || [];
   const total = data?.totalElements || 0;
-  const byCategory = stats?.byCategory || {};
 
   const tabs = CATEGORIES.map((c) => ({ ...c, count: byCategory[c.key] ?? 0 }));
 
@@ -152,7 +161,14 @@ export default function TasksPage() {
       ),
     },
     { id: 'responsible', label: 'Responsible', minWidth: 180, render: (t) => (
-      <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography>
+      <>
+        <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography>
+        {t.department && (
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+            {t.department}
+          </Typography>
+        )}
+      </>
     ) },
   ];
 

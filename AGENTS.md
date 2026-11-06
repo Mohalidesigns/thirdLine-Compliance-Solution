@@ -140,6 +140,22 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Task Centre: cadence window, sensible default tab, unit on rows (Commit B) — `feature/controls-testing-workflow`
+- **Control tests now use each control's own cadence, not a flat 30 days.** `TaskCenterService.withinControlHorizon(days, control, override)` surfaces a pending/overdue test when `daysToDue <= control.testFrequencyDays` (falling back to `ControlSchedule.daysForFrequency(frequency)`, then 30). A freshly created monthly/quarterly/annual control is therefore always visible on Tasks; overdue tests always show.
+- **Configurable override** — new `atheris`-level setting stored on `tenant_polling_config.task_control_horizon_days` (**tenant V50**): `GET/PUT /api/v1/settings/task-centre` (`TaskCentreConfigRequest/Response`; `0` = use each control's cadence, `N` = flat horizon). Folded into **Settings → Notifications** as a "Task Centre" card (`api.settings.taskCentre/saveTaskCentre`).
+- **Tasks page opens on the tab that has work** (`TasksPage.jsx`): `?category=` still wins; otherwise the first of Controls/Returns/Findings/Obligations with `stats.byCategory > 0`; a second `centerStats({assignee})` call supplies the full per-category counts so the KPI strip stays scoped to the selected tab.
+- **Unit on the row** — `TaskItemDto.department` (new) resolves the responsible person's `Owner.departmentId` → department name for controls (via `controlOwnerId`), findings (via `assignedToOwnerId`) and obligations (via the classification's `assignedDepartmentId`); rendered as a caption under the person on the Tasks table.
+- **Verify:** tenant compiles, **186 tests green** (new `TaskCenterWindowTest`), tenant FE builds, tenant booted clean applying **V50** (`err.log` empty). **Browser pass owed.**
+
+
+### Task Centre fixes: cadence window, sensible default tab, unit on rows (Commit B) — `feature/controls-testing-workflow`
+- **Control tests now use each control's own cadence, not a flat 30 days.** `TaskCenterService.withinControlHorizon(days, control, override)` surfaces a pending/overdue test when `daysToDue <= control.testFrequencyDays` (falling back to `ControlSchedule.daysForFrequency(frequency)`, then 30). A freshly created monthly/quarterly/annual control is therefore always visible on Tasks; overdue tests always show.
+- **Configurable override** — new `atheris`-level setting stored on `tenant_polling_config.task_control_horizon_days` (**tenant V50**): `GET/PUT /api/v1/settings/task-centre` (`TaskCentreConfigRequest/Response`; `0` = use each control's cadence, `N` = flat horizon). Folded into **Settings → Notifications** as a "Task Centre" card (`api.settings.taskCentre/saveTaskCentre`).
+- **Tasks page opens on the tab that has work** (`TasksPage.jsx`): `?category=` still wins; otherwise the first of Controls/Returns/Findings/Obligations with `stats.byCategory > 0`; a second `centerStats({assignee})` call supplies the full per-category counts so the KPI strip stays scoped to the selected tab.
+- **Unit on the row** — `TaskItemDto.department` (new) resolves the responsible person's `Owner.departmentId` → department name for controls (via `controlOwnerId`), findings (via `assignedToOwnerId`) and obligations (via the classification's `assignedDepartmentId`); rendered as a caption under the person on the Tasks table.
+- **Verify:** tenant compiles, **186 tests green** (new `TaskCenterWindowTest`), tenant FE builds, tenant booted clean applying **V50** (`err.log` empty). **Browser pass owed.**
+
+
 ### Role clarity & risk-owner visibility (Commit A) — `feature/controls-testing-workflow`
 Names the people model explicitly and carries the accountable team on the mail. No schema change.
 - **Vocabulary (labels only, no column renames):** `controls.control_owner_id` = **Control owner** (manages the control, 2nd line); `controls.tester_owner_id` = **Tester** (runs the test — deliberately not the owner); `obligation_classifications.assigned_owner_id` = **Risk owner** (1st-line accountable team); `findings.assigned_to_owner_id` = **Remediation owner**; returns `responsible_persons` = **Filer**(s); `departments.head_owner_id` = **Department head**. Renamed across `CreateControlDialog`, `ControlEditDialog`, `ReturnEditDialog`/`ReturnDetailsCard`, `FindingsPage`, `TasksPage`, the public pages and `OwnerModal`.
