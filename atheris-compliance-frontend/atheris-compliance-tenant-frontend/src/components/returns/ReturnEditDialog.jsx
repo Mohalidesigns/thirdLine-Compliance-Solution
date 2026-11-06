@@ -403,10 +403,10 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
               and sees the return in their work queue.
             </Typography>
             <Box sx={{ mb: 2 }}>
-              <MultiPersonPicker label="Responsible person" value={people.persons}
+              <MultiPersonPicker label="Filer" value={people.persons}
                 onChange={(list) => setPeople({ persons: list })} />
             </Box>
-            <PersonPicker mode="user" label="Owner" value={owner} onChange={setOwner}
+            <PersonPicker mode="user" label="Return owner" value={owner} onChange={setOwner}
               helperText="Directory users can be responsible persons; the owner must be a platform user." />
           </>
         )}

@@ -151,7 +151,9 @@ export default function TasksPage() {
         t.regulator ? <Chip size="small" variant="outlined" label={t.regulator} /> : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
-    { id: 'responsible', label: 'Responsible person', minWidth: 180, render: (t) => <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography> },
+    { id: 'responsible', label: 'Responsible', minWidth: 180, render: (t) => (
+      <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography>
+    ) },
   ];
 
   return (
@@ -237,12 +239,12 @@ function AssignDialog({ task, saving, onClose, onSave }) {
   const [ownerId, setOwnerId] = useState(null);
   const isReturns = task.category === 'RETURNS';
   const isControls = task.category === 'CONTROLS';
-  const title = isControls ? 'Assign tester' : 'Assign responsible person';
+  const title = isControls ? 'Assign tester' : isReturns ? 'Assign filer' : 'Assign remediation owner';
   const blurb = isControls
     ? `${task.title} — the tester is the person responsible for running this control test.`
     : isReturns
-      ? `${task.title} — the responsible person receives the filing request and submits the data.`
-      : `${task.title} — the responsible person is asked to remediate and submit the evidence.`;
+      ? `${task.title} — the filer receives the filing request and submits the data.`
+      : `${task.title} — the remediation owner is asked to remediate and submit the evidence.`;
   const ready = isReturns ? persons.length > 0 : ownerId != null;
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
@@ -250,8 +252,10 @@ function AssignDialog({ task, saving, onClose, onSave }) {
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{blurb}</Typography>
         {isReturns
-          ? <MultiPersonPicker label="Responsible person(s)" value={persons} onChange={setPersons} />
-          : <OwnerPicker value={ownerId} onChange={setOwnerId} label="Responsible person" />}
+          ? <MultiPersonPicker label="Filer(s)" value={persons} onChange={setPersons} />
+          : isControls
+            ? <OwnerPicker value={ownerId} onChange={setOwnerId} label="Tester" />
+            : <OwnerPicker value={ownerId} onChange={setOwnerId} label="Remediation owner" />}
         {!isReturns && !isControls && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
             The remediation deadline defaults to the finding&apos;s SLA.

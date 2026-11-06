@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.controls.service;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequest;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
@@ -212,10 +213,12 @@ public class ControlTestService {
 
     @Transactional
     public void scheduleNextTest(Control control) {
-        if (control.getTestFrequencyDays() == null) {
+        Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
+            : ControlSchedule.daysForFrequency(control.getTestFrequency());
+        if (days == null) {
             return;
         }
-        LocalDate nextDue = LocalDate.now().plus(control.getTestFrequencyDays(), ChronoUnit.DAYS);
+        LocalDate nextDue = LocalDate.now().plus(days, ChronoUnit.DAYS);
         taskRepo.save(ControlTask.builder()
             .controlId(control.getControlId())
             .controlNumber(control.getControlNumber())

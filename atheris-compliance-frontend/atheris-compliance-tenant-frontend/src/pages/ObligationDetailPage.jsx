@@ -8,7 +8,7 @@ import {
   DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
   controlColumns, returnColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
-  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon,
+  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon,
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -16,6 +16,7 @@ import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
+import OwnerModal from '../components/modals/OwnerModal';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
 
@@ -203,6 +204,10 @@ export default function ObligationDetailPage() {
         description={selected.plainEnglishStatement}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Button size="small" variant="outlined" startIcon={<UserCircleIcon size={16} />}
+              onClick={() => setActiveModal('owner')}>
+              {selected.assignedOwnerName ? 'Risk owner' : 'Assign Risk owner'}
+            </Button>
             <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
               onClick={() => setActiveModal('risk')}>Assess Risk</Button>
             <Button size="small" variant="outlined" startIcon={<ShieldCheckIcon size={16} />}
@@ -271,6 +276,10 @@ export default function ObligationDetailPage() {
         ) : undefined}
       />
 
+      <OwnerModal open={activeModal === 'owner'} onClose={() => setActiveModal(null)}
+        obligationId={obligationId}
+        initial={{ assignedOwnerId: selected.assignedOwnerId }}
+        onSaved={onSaved('Risk owner updated')} onError={notify} />
       <RiskAssessmentModal open={activeModal === 'risk'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Risk assessment saved')} onError={notify} />
       <LinkControlsModal open={activeModal === 'controls'} onClose={() => setActiveModal(null)}

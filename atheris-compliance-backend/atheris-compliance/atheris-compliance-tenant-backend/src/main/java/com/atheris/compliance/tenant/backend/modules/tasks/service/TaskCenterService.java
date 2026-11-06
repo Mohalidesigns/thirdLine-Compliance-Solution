@@ -390,7 +390,7 @@ public class TaskCenterService {
                 .priority(high ? "HIGH" : "MEDIUM").dueDate(null).daysRemaining(null)
                 .ownerName(c.getAssignedOwnerName()).ownerUserId(c.getAssignedOwnerUserId())
                 .stage(risk)
-                .linkPath("/obligations?noControl=true").actionLabel("Link control").actionType("OPEN")
+                .linkPath("/obligations/" + o.getObligationId()).actionLabel("Link control").actionType("OPEN")
                 .sourceRef(Map.of("obligationId", o.getObligationId()))
                 .build());
         }

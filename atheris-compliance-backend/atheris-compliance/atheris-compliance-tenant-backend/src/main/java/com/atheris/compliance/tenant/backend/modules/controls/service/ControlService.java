@@ -1,6 +1,9 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.*;
@@ -9,6 +12,11 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
+import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
@@ -36,6 +44,7 @@ public class ControlService {
     private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
+    private final EscalationPolicyService escalationPolicyService;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
@@ -357,7 +366,8 @@ public class ControlService {
             .testerName(resolveOwnerName(req.getTesterOwnerId()))
             .escalationPolicyId(req.getEscalationPolicyId())
             .testFrequency(req.getTestFrequency())
-            .testFrequencyDays(req.getTestFrequencyDays())
+            .testFrequencyDays(req.getTestFrequencyDays() != null
+                ? req.getTestFrequencyDays() : ControlSchedule.daysForFrequency(req.getTestFrequency()))
             .linkedObligationIds(new ArrayList<>())
             .inherentRisk(req.getInherentRisk())
             .residualRisk(req.getInherentRisk())
@@ -404,6 +414,9 @@ public class ControlService {
         }
         if (req.getTestFrequencyDays() != null) {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
+        } else if (req.getTestFrequency() != null) {
+            Integer derived = ControlSchedule.daysForFrequency(req.getTestFrequency());
+            if (derived != null) c.setTestFrequencyDays(derived);
         }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());
@@ -421,6 +434,72 @@ public class ControlService {
             testService.reassignOpenTasks(saved);
         }
         return toDto(saved);
+    }
+
+    @Transactional
+    public ControlDto updateEscalation(Integer id, ControlEscalationRequest req, Integer userId) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        String scope = ControlSchedule.scope(c.getTestFrequency());
+        EscalationPolicy def = escalationPolicyService
+            .defaultPolicy(EscalationConstants.SUBJECT_CONTROL, scope)
+            .or(() -> escalationPolicyService.defaultPolicy(EscalationConstants.SUBJECT_CONTROL))
+            .orElse(null);
+        Integer startValue = req.getReminderStartValue() != null ? req.getReminderStartValue()
+            : (def == null ? null : def.getReminderStartValue());
+        String startUnit = req.getReminderStartUnit() != null ? req.getReminderStartUnit()
+            : (def == null || def.getReminderStartUnit() == null
+                ? EscalationConstants.UNIT_DAYS : def.getReminderStartUnit());
+        EscalationPolicyRequest policyReq = EscalationPolicyRequest.builder()
+            .name(c.getName() + " escalation #" + c.getControlId())
+            .subjectType(EscalationConstants.SUBJECT_CONTROL)
+            .frequencyScope(scope).isDefault(false).isActive(true)
+            .reminderStartValue(startValue).reminderStartUnit(startUnit)
+            .reminderRepeatValue(req.getReminderRepeatValue()).reminderRepeatUnit(req.getReminderRepeatUnit())
+            .sendLink(true).notifyOnStart(true)
+            .levels(normaliseLevels(req.getLevels())).build();
+        Long policyId = c.getEscalationPolicyId();
+        EscalationPolicyDto dto = policyId == null
+            ? escalationPolicyService.create(policyReq, userId)
+            : escalationPolicyService.update(policyId, policyReq, userId);
+        c.setEscalationPolicyId(dto.getPolicyId());
+        audit.log(userId, "control_escalation_set", "control", id.longValue(),
+            Map.of("policyId", String.valueOf(dto.getPolicyId())));
+        return toDto(repo.save(c));
+    }
+
+    private static List<EscalationLevelRequest> normaliseLevels(List<EscalationLevelRequest> provided) {
+        if (provided != null && !provided.isEmpty()) {
+            List<EscalationLevelRequest> out = new ArrayList<>();
+            int levelNo = 1;
+            for (EscalationLevelRequest l : provided) {
+                if (l == null) continue;
+                String type = l.getTargetType() == null || l.getTargetType().isBlank()
+                    ? EscalationConstants.TARGET_MANAGER : l.getTargetType().trim().toUpperCase();
+                boolean role = EscalationConstants.TARGET_ROLE.equals(type) || "CCO".equals(type);
+                if ("CCO".equals(type)) type = EscalationConstants.TARGET_ROLE;
+                out.add(EscalationLevelRequest.builder()
+                    .levelNo(levelNo++)
+                    .afterValue(l.getAfterValue() != null ? l.getAfterValue() : 0)
+                    .afterUnit(EscalationConstants.UNIT_HOURS.equalsIgnoreCase(
+                        l.getAfterUnit() == null ? "" : l.getAfterUnit())
+                        ? EscalationConstants.UNIT_HOURS : EscalationConstants.UNIT_DAYS)
+                    .targetType(type)
+                    .targetRole(role ? AppRole.CCO : null)
+                    .targetUserId(role ? null : l.getTargetUserId())
+                    .targetName(role ? null : l.getTargetName())
+                    .targetEmail(role ? null : l.getTargetEmail())
+                    .build());
+            }
+            if (!out.isEmpty()) return out;
+        }
+        return List.of(
+            EscalationLevelRequest.builder().levelNo(1).afterValue(0).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_ASSIGNEE).build(),
+            EscalationLevelRequest.builder().levelNo(2).afterValue(2).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_MANAGER).build(),
+            EscalationLevelRequest.builder().levelNo(3).afterValue(5).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_ROLE).targetRole(AppRole.CCO).build());
     }
 
     @Transactional

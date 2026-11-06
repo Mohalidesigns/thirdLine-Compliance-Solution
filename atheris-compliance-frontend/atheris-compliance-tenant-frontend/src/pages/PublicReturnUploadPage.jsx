@@ -191,7 +191,7 @@ export default function PublicReturnUploadPage() {
             </>
           )}
           <Detail label="Responsible unit" value={view.responsibleUnit} />
-          <Detail label="Responsible person" value={view.responsiblePerson} />
+          <Detail label="Filer" value={view.responsiblePerson} />
           <Detail label="Return owner" value={view.ownerName} />
         </Box>
 

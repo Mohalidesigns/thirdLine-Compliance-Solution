@@ -14,6 +14,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.Control
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RiskOwnerDirectory;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
@@ -57,6 +58,7 @@ public class ControlTestLinkService {
     private final EvidenceVaultService evidenceVault;
     private final TenantIdentityService tenantIdentity;
     private final ControlTestDetails details;
+    private final RiskOwnerDirectory riskOwners;
     private final AuditService audit;
 
     @Value("${atheris.controls.test-link-expiry-days:30}")
@@ -153,6 +155,7 @@ public class ControlTestLinkService {
             && !actor.getEmail().equalsIgnoreCase(to) && !cc.contains(actor.getEmail())) {
             cc.add(actor.getEmail());
         }
+        addRiskOwners(cc, c, to);
         String raw = createTestLink(controlId, t == null ? null : t.getTaskId(), to, c.getTesterName(),
             actor == null ? null : actor.getUserId());
         TestMail mail = sendTestRequest(c, t, to, cc, c.getTesterName(), raw);
@@ -273,7 +276,16 @@ public class ControlTestLinkService {
         audit.log(null, "control_test_submitted_via_link", "control", c.getControlId().longValue(),
             Map.of("testId", String.valueOf(saved.getTestId())));
 
-        sendReceipt(c, task, link.getRecipientEmail(), ccList(ownerEmail(c), link.getRecipientEmail()), result);
+        List<String> receiptCc = new ArrayList<>(ccList(ownerEmail(c), link.getRecipientEmail()));
+        addRiskOwners(receiptCc, c, link.getRecipientEmail());
+        sendReceipt(c, task, link.getRecipientEmail(), receiptCc, result);
+    }
+
+    private void addRiskOwners(List<String> cc, Control c, String to) {
+        for (String e : riskOwners.ccEmailsForControl(c)) {
+            if (to != null && e.equalsIgnoreCase(to)) continue;
+            if (!cc.contains(e)) cc.add(e);
+        }
     }
 
     static List<String> ccList(String candidate, String to) {

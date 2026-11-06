@@ -7,6 +7,7 @@ import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.findings.service.FindingDetails;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RiskOwnerDirectory;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.remediation.service.RemediationLinkService;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
@@ -33,6 +34,7 @@ public class FindingEscalationHandler implements EscalationSubjectHandler {
     private final OwnerRepository owners;
     private final FindingDetails details;
     private final RemediationLinkService remediationLinks;
+    private final RiskOwnerDirectory riskOwners;
 
     @Override
     public String subjectType() {
@@ -56,6 +58,7 @@ public class FindingEscalationHandler implements EscalationSubjectHandler {
                 assignees.add(new Person(f.getAssignedToName(), null, null));
             }
             Map<String, String> extra = details.detailVars(f);
+            extra.putAll(riskOwners.detailVarsForFinding(f));
             out.add(new EscalationCandidate(
                 EscalationConstants.SUBJECT_FINDING,
                 f.getFindingId(),
@@ -70,7 +73,8 @@ public class FindingEscalationHandler implements EscalationSubjectHandler {
                 NotificationConstants.CATEGORY_FINDINGS,
                 extra,
                 f.getSeverity(),
-                true));
+                true, true,
+                riskOwners.ccEmailsForFinding(f)));
         }
         return out;
     }

@@ -12,6 +12,7 @@ import com.atheris.compliance.tenant.backend.modules.notifications.service.Notif
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RiskOwnerDirectory;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.remediation.dto.PublicRemediationView;
 import com.atheris.compliance.tenant.backend.modules.remediation.entity.RemediationLink;
@@ -62,6 +63,7 @@ public class RemediationLinkService {
     private final TenantIdentityService tenantIdentity;
     private final NotificationTemplateService templates;
     private final FindingDetails details;
+    private final RiskOwnerDirectory riskOwners;
 
     @Value("${atheris.remediation.link-expiry-grace-days:7}")
     private int graceDays;
@@ -106,7 +108,7 @@ public class RemediationLinkService {
             : "Changes requested: finding #" + findingId + " remediation";
         String body = rendered.body() != null ? rendered.body()
             : "The remediation for finding #" + findingId + " needs more work: " + notes;
-        return email.send(ownerEmail, subject, body, remediationUrl(raw));
+        return email.send(ownerEmail, riskCc(f, ownerEmail), subject, body, remediationUrl(raw));
     }
 
     public String ensureLinkPath(Long findingId) {
@@ -289,7 +291,16 @@ public class RemediationLinkService {
             : "Action required: remediation for finding #" + f.getFindingId();
         String body = rendered.body() != null ? rendered.body()
             : "Finding #" + f.getFindingId() + " (" + f.getSeverity() + ") needs remediation.";
-        return email.send(ownerEmail, subject, body, remediationUrl(rawToken));
+        return email.send(ownerEmail, riskCc(f, ownerEmail), subject, body, remediationUrl(rawToken));
+    }
+
+    private List<String> riskCc(Finding f, String exclude) {
+        List<String> cc = new ArrayList<>();
+        for (String e : riskOwners.ccEmailsForFinding(f)) {
+            if (exclude != null && e.equalsIgnoreCase(exclude)) continue;
+            if (!cc.contains(e)) cc.add(e);
+        }
+        return cc;
     }
 
     private String tokenFor(Long findingId) {

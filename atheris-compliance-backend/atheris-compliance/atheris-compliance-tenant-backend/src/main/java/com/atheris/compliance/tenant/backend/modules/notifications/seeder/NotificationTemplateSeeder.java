@@ -24,15 +24,19 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
     private static final String CONTROL_DETAILS = "Control: {{controlName}} ({{controlNumber}})\n"
         + "Act/Regulation: {{actName}}\n"
         + "Regulator: {{regulator}}\n"
-        + "Responsible person: {{responsiblePerson}}\n"
-        + "Owner: {{ownerName}}\n"
+        + "Tester: {{responsiblePerson}}\n"
+        + "Control owner: {{ownerName}}\n"
+        + "Risk owner: {{riskOwner}}\n"
+        + "Risk unit: {{riskUnit}}\n"
         + "Due date: {{dueDate}}\n"
         + "Test frequency: {{testFrequency}}";
 
     private static final String FINDING_DETAILS = "Finding: #{{findingId}} ({{severity}})\n"
         + "Type: {{findingType}}\n"
         + "Control: {{controlNumber}}\n"
-        + "Responsible person: {{responsiblePerson}}\n"
+        + "Remediation owner: {{responsiblePerson}}\n"
+        + "Risk owner: {{riskOwner}}\n"
+        + "Risk unit: {{riskUnit}}\n"
         + "Remediation deadline: {{remediationDeadline}}\n"
         + "Status: {{findingStatus}}";
 

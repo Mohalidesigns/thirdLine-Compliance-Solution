@@ -174,17 +174,17 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
             </Typography>
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                Responsible person (tester)
+                Tester
               </Typography>
               <OwnerPicker value={form.testerOwnerId} onChange={(id) => set('testerOwnerId', id)}
                 label="Who performs the test" />
             </Box>
             <Divider sx={{ my: 2 }} />
             <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 0.5 }}>
-              Owner (analyst)
+              Control owner
             </Typography>
             <OwnerPicker value={form.controlOwnerId} onChange={(id) => set('controlOwnerId', id)}
-              label="Compliance owner" />
+              label="Control owner" />
           </>
         )}
       </DialogContent>

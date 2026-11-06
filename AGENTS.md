@@ -140,6 +140,14 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Role clarity & risk-owner visibility (Commit A) — `feature/controls-testing-workflow`
+Names the people model explicitly and carries the accountable team on the mail. No schema change.
+- **Vocabulary (labels only, no column renames):** `controls.control_owner_id` = **Control owner** (manages the control, 2nd line); `controls.tester_owner_id` = **Tester** (runs the test — deliberately not the owner); `obligation_classifications.assigned_owner_id` = **Risk owner** (1st-line accountable team); `findings.assigned_to_owner_id` = **Remediation owner**; returns `responsible_persons` = **Filer**(s); `departments.head_owner_id` = **Department head**. Renamed across `CreateControlDialog`, `ControlEditDialog`, `ReturnEditDialog`/`ReturnDetailsCard`, `FindingsPage`, `TasksPage`, the public pages and `OwnerModal`.
+- **Risk owner is editable again** — the obligation-detail **Risk owner** action is restored (`OwnerModal` → `PUT /obligations/{id}/owner`); `ObligationDetailResponse.assignedOwnerId` was added so the picker pre-selects.
+- **Risk owner + department head are Cc'd** (never To, never an escalation level). New `RiskOwnerDirectory` (`modules/obligations/service/`) resolves, per control (via `linkedObligationIds`) or finding (via `linkedObligationId`), the obligation owner **and** the `departments.head_owner_id` of their department — batched, no N+1. `EscalationCandidate` gained `extraCcEmails` (back-compat ctors kept) which `EscalationDeliveryService.ccTargets` appends; the controls/findings handlers populate it, and `ControlTestLinkService` (test request + receipt) and `RemediationLinkService` (raised / changes-requested) append it to their own Cc lists. `CONTROL_DETAILS`/`FINDING_DETAILS` gained `{{riskOwner}}`/`{{riskUnit}}`.
+- **Verify:** tenant compiles, **180 tests green** (new `RiskOwnerDirectoryTest`, extended `EscalationCcTargetsTest`), tenant FE builds. **Browser pass owed.**
+
+
 ### Control testing workflow Phases 1–5 (tenant) — `feature/controls-testing-workflow` (`8b42f1c` = 1–3; 4–5 in this commit)
 Turns a control test into the same request → submit → review → accept/reject loop returns already had, with a separate **tester** (the responsible person) distinct from the **owner** (the control analyst).
 - **Tester ≠ owner** — `controls.tester_owner_id` / `tester_user_id` / `tester_name` (**tenancy V49**, with `control_test_links`), set in the create dialog and the new 4-tab `ControlEditDialog.jsx` (Details / Testing schedule / Escalation / Responsibility). The tester is copied onto `control_tasks.assigned_to_user_id` (`reassignOpenTasks` on change), so escalation reaches a real person. An account-less tester resolves through `owners.email`.

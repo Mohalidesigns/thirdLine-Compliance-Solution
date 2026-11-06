@@ -123,8 +123,8 @@ export default function PublicControlTestPage() {
           <Detail label="Frequency" value={view.frequency} />
           <Detail label="Act / Regulation" value={view.actName} />
           <Detail label="Regulator" value={view.regulator} />
-          <Detail label="Responsible person" value={view.responsiblePerson} />
-          <Detail label="Owner" value={view.ownerName} />
+          <Detail label="Tester" value={view.responsiblePerson} />
+          <Detail label="Control owner" value={view.ownerName} />
           <Detail label="Due date" value={formatDate(view.dueDate)} />
           <Detail label="Last test" value={view.lastTestResult} />
           <Detail label="Last test date" value={formatDate(view.lastTestDate)} />

@@ -222,7 +222,7 @@ export default function FindingsPage() {
                   <TableRow>
                     <TableCell>Title</TableCell>
                     <TableCell>Severity</TableCell>
-                    <TableCell>Owner</TableCell>
+                    <TableCell>Remediation owner</TableCell>
                     <TableCell>Deadline</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -514,13 +514,13 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
             <DetailRow label="Created" value={detail.createdAt ? new Date(detail.createdAt).toLocaleDateString('en-GB', DATE_FMT) : '-'} />
             <Box sx={{ borderTop: `1px solid ${TL.gray100}`, my: 2 }} />
             <Typography component="span" sx={SECTION_LABEL_SX}>Remediation</Typography>
-            <DetailRow label="Owner" value={detail.assignedToName || 'Unassigned'} />
+            <DetailRow label="Remediation owner" value={detail.assignedToName || 'Unassigned'} />
             <DetailRow label="Deadline" value={deadline ? deadline.toLocaleDateString('en-GB', DATE_FMT) : '-'} />
             {detail.remediationSubmittedAt && (
               <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleDateString('en-GB', DATE_FMT)} />
             )}
             {detail.remediationSubmittedViaLink && (
-              <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Owner'} (via link)`} />
+              <DetailRow label="Submitted by" value={`${detail.assignedToName || 'Remediation owner'} (via link)`} />
             )}
             {detail.remediationNotes && <DetailRow label="Notes" value={detail.remediationNotes} />}
             <Box sx={{ mt: 1.5 }}>
@@ -664,7 +664,7 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
           </Grid>
           <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
-              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
+              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Remediation owner" />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
@@ -758,7 +758,7 @@ function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid size={{ xs: 12 }}>
             <OwnerPicker value={form.assignedToOwnerId}
-              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Assign to" />
+              onChange={id => setForm(f => ({ ...f, assignedToOwnerId: id }))} label="Remediation owner" />
           </Grid>
           <Grid size={{ xs: 12 }}>
             <TextField label="Remediation deadline" type="date" fullWidth size="small" required
@@ -864,7 +864,7 @@ function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar })
   };
 
   const submittedBy = detail?.remediationSubmittedViaLink
-    ? `${detail?.assignedToName || 'Owner'} (via link)`
+    ? `${detail?.assignedToName || 'Remediation owner'} (via link)`
     : (detail?.remediationSubmittedByUserId != null ? 'Analyst (on behalf of owner)' : null);
 
   return (
@@ -873,7 +873,7 @@ function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar })
       <DialogContent>
         <Box sx={{ mb: 2, p: 1.5, bgcolor: TL.gray50, borderRadius: 1 }}>
           <Typography component="span" sx={SECTION_LABEL_SX}>Submitted remediation</Typography>
-          <DetailRow label="Owner" value={detail?.assignedToName || 'Unassigned'} />
+          <DetailRow label="Remediation owner" value={detail?.assignedToName || 'Unassigned'} />
           {detail?.remediationSubmittedAt && (
             <DetailRow label="Submitted" value={new Date(detail.remediationSubmittedAt).toLocaleString()} />
           )}

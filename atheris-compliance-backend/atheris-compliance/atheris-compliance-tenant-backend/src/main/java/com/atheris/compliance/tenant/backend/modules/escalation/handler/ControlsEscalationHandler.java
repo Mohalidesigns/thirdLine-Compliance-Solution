@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTaskRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlTestLinkService;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RiskOwnerDirectory;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationCandidate;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationSubjectHandler;
@@ -34,6 +35,7 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
     private final UserRepository users;
     private final OwnerRepository owners;
     private final ControlTestLinkService testLinks;
+    private final RiskOwnerDirectory riskOwners;
 
     @Override
     public String subjectType() {
@@ -68,6 +70,7 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
             extra.put("responsiblePerson", c != null && c.getTesterName() != null ? c.getTesterName() : "");
             extra.put("ownerName", c != null && c.getControlOwnerName() != null ? c.getControlOwnerName() : "");
             extra.put("testFrequency", c != null && c.getTestFrequency() != null ? c.getTestFrequency() : "");
+            if (c != null) extra.putAll(riskOwners.detailVarsForControl(c));
             out.add(new EscalationCandidate(
                 EscalationConstants.SUBJECT_CONTROL,
                 t.getTaskId(),
@@ -82,7 +85,8 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 NotificationConstants.CATEGORY_CONTROLS,
                 extra,
                 ControlSchedule.scope(c == null ? null : c.getTestFrequency()),
-                true));
+                true, true,
+                c == null ? List.of() : riskOwners.ccEmailsForControl(c)));
         }
         return out;
     }

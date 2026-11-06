@@ -65,6 +65,11 @@ public class EscalationDeliveryService {
         for (Person p : assignees) {
             if (p.hasEmail()) cc.add(p.email());
         }
+        if (candidate.extraCcEmails() != null) {
+            for (String e : candidate.extraCcEmails()) {
+                if (e != null && !e.isBlank() && !cc.contains(e)) cc.add(e);
+            }
+        }
         return cc;
     }
 

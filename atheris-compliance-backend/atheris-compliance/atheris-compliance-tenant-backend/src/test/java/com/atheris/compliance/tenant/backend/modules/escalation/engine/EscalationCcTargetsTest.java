@@ -42,6 +42,20 @@ class EscalationCcTargetsTest {
     }
 
     @Test
+    void appendsRiskOwnerCcEmailsWithoutDuplicates() {
+        Person owner = new Person("Adaeze Analyst", "analyst@x.test", 3);
+        EscalationCandidate candidate = new EscalationCandidate(
+            "CONTROL", 7L, "CTL-0001", 12L,
+            List.of(new Person("Tester", "tester@x.test", 5)), owner,
+            LocalDateTime.of(2026, 12, 4, 0, 0), null,
+            1L, "/controls?controlId=", "CONTROLS", Map.of(), "MONTHLY", true, true,
+            List.of("riskowner@x.test", "analyst@x.test", "digithead@x.test"));
+
+        assertEquals(List.of("analyst@x.test", "tester@x.test", "riskowner@x.test", "digithead@x.test"),
+            service.ccTargets(candidate, owner));
+    }
+
+    @Test
     void emptyWhenNobodyHasEmail() {
         EscalationCandidate candidate = candidate(List.of(), new Person("Owner", null, null));
 
