@@ -39,6 +39,7 @@ public class Control {
     private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
+    private java.time.LocalDate firstDueDate;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Long> linkedObligationIds;

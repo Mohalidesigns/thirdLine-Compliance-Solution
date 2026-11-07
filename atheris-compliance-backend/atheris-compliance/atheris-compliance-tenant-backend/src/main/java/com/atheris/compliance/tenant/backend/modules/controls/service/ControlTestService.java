@@ -213,23 +213,31 @@ public class ControlTestService {
 
     @Transactional
     public void scheduleNextTest(Control control) {
+        boolean firstTest = taskRepo.findByControlId(control.getControlId()).isEmpty();
+        if (firstTest && control.getFirstDueDate() != null) {
+            taskRepo.save(buildTask(control, control.getFirstDueDate()));
+            return;
+        }
         Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
             : ControlSchedule.daysForFrequency(control.getTestFrequency());
         if (days == null) {
             return;
         }
-        LocalDate nextDue = LocalDate.now().plus(days, ChronoUnit.DAYS);
-        taskRepo.save(ControlTask.builder()
+        taskRepo.save(buildTask(control, LocalDate.now().plus(days, ChronoUnit.DAYS)));
+    }
+
+    private ControlTask buildTask(Control control, LocalDate dueDate) {
+        return ControlTask.builder()
             .controlId(control.getControlId())
             .controlNumber(control.getControlNumber())
             .controlName(control.getName())
             .taskType(WorkflowStatus.TASK_TYPE_SCHEDULED_TEST)
             .assignedToUserId(control.getTesterUserId())
             .assignedToName(control.getTesterName())
-            .dueDate(nextDue)
+            .dueDate(dueDate)
             .status(WorkflowStatus.TASK_PENDING)
             .escalationLevel(0)
-            .build());
+            .build();
     }
 
     @Scheduled(cron = "0 0 1 * * *")

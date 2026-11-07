@@ -24,6 +24,7 @@ function initialForm(control) {
     howTested: control?.howTested || '',
     testFrequency: control?.testFrequency || control?.frequency || '',
     testFrequencyDays: control?.testFrequencyDays != null ? String(control.testFrequencyDays) : '',
+    firstDueDate: control?.firstDueDate || '',
     controlOwnerId: control?.controlOwnerId ?? null,
     testerOwnerId: control?.testerOwnerId ?? null,
     escalationPolicyId: control?.escalationPolicyId != null ? String(control.escalationPolicyId) : DEFAULT_POLICY,
@@ -40,6 +41,7 @@ function body(form) {
     howTested: form.howTested,
     testFrequency: form.testFrequency,
     testFrequencyDays: form.testFrequencyDays === '' ? null : Number(form.testFrequencyDays),
+    firstDueDate: form.firstDueDate || null,
     controlOwnerId: form.controlOwnerId || null,
     testerOwnerId: form.testerOwnerId || null,
     escalationPolicyId: form.escalationPolicyId === DEFAULT_POLICY ? null : Number(form.escalationPolicyId),
@@ -145,6 +147,10 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
                 onChange={(e) => set('testFrequencyDays', e.target.value)}
                 helperText="Leave blank to derive it from the frequency." />
             </Box>
+            <TextField fullWidth size="small" type="date" label="First test due date" value={form.firstDueDate}
+              onChange={(e) => set('firstDueDate', e.target.value)} sx={{ mt: 2 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              helperText="Optional. Sets when the first test is due; later tests follow the frequency. Leave blank to schedule from today." />
           </>
         )}
 

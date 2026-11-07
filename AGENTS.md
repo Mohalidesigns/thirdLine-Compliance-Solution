@@ -140,6 +140,12 @@ Config: `opencode.json`
 
 ## Recent Changes
 
+### Control first due date + role-based Tasks default lens — `feature/controls-testing-workflow`
+- **A control can now be given an explicit first test due date.** New `controls.first_due_date` (**tenant V51**) + `CreateControlRequest.firstDueDate`, surfaced as **First test due date** on the Add-Control and Edit-Control (Testing schedule tab) forms. `ControlTestService.scheduleNextTest` anchors the **first** task to it when set (so a past date reads Overdue immediately — the returns' user-anchor behaviour); when blank the first due date stays `today + frequencyDays`, and every later test still follows the frequency from the last recorded test. `ControlPersonalDto`/`ControlDto` carry it back. *(Note: V49's checksum was re-baselined with flyway `repair` while this landed — a fix for the earlier in-place edit.)*
+- **Tasks default lens is role-based** — `TasksPage` now opens on **Whole organisation** for an ANALYST and **My work** for a CCO (`user?.role === 'CCO' ? 'me' : 'all'`), still overridable via `?assignee=`. This **supersedes** the earlier "always defaults to My work" rule.
+- **Verify:** tenant compiles, 186 tests green, tenant FE builds, tenant boots clean applying **V51** (`err.log` empty), `first_due_date` present, `POST /controls` + `GET/PUT /settings/task-centre` live. **Browser pass owed.**
+
+
 ### Task Centre: cadence window, sensible default tab, unit on rows (Commit B) — `feature/controls-testing-workflow`
 - **Control tests now use each control's own cadence, not a flat 30 days.** `TaskCenterService.withinControlHorizon(days, control, override)` surfaces a pending/overdue test when `daysToDue <= control.testFrequencyDays` (falling back to `ControlSchedule.daysForFrequency(frequency)`, then 30). A freshly created monthly/quarterly/annual control is therefore always visible on Tasks; overdue tests always show.
 - **Configurable override** — new `atheris`-level setting stored on `tenant_polling_config.task_control_horizon_days` (**tenant V50**): `GET/PUT /api/v1/settings/task-centre` (`TaskCentreConfigRequest/Response`; `0` = use each control's cadence, `N` = flat horizon). Folded into **Settings → Notifications** as a "Task Centre" card (`api.settings.taskCentre/saveTaskCentre`).
@@ -831,4 +837,4 @@ The pre-due window, the recipient of the overdue link and the filing↔policy bi
 - in pages with tables, MUST use similar styling as the obligations register pages
 - in the tables MUST use maximum of five columns to ensure visibility
 - the card stats MUST have a drop down
-- the ANALYST is the primary user of the tenant system — NEVER restrict, hide or gate an analyst-facing view without informing the user first; default org-wide/aggregate views to visible for every role. The Tasks Center is the deliberate exception: it now defaults to **"My work"** with "Whole organisation" as the explicit toggle (the sidebar badge still shows the org-wide backlog).
+- the ANALYST is the primary user of the tenant system — NEVER restrict, hide or gate an analyst-facing view without informing the user first; default org-wide/aggregate views to visible for every role. The Tasks Center defaults to **"Whole organisation" for an ANALYST and "My work" for a CCO** (role-based; "My work"/"Whole organisation" stays an explicit toggle and the sidebar badge shows the org-wide backlog).

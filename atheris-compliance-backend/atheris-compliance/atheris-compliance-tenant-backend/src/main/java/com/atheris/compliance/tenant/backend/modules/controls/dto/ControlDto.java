@@ -25,6 +25,7 @@ public class ControlDto {
     private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
+    private java.time.LocalDate firstDueDate;
     private List<Long> linkedObligationIds;
     private String inherentRisk;
     private String residualRisk;

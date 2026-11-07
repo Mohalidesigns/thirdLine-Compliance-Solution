@@ -285,6 +285,7 @@ public class ControlService {
             .ownerName(c.getOwnerName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
+            .firstDueDate(c.getFirstDueDate())
             .linkedObligations(obligations)
             .inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk())
@@ -368,6 +369,7 @@ public class ControlService {
             .testFrequency(req.getTestFrequency())
             .testFrequencyDays(req.getTestFrequencyDays() != null
                 ? req.getTestFrequencyDays() : ControlSchedule.daysForFrequency(req.getTestFrequency()))
+            .firstDueDate(req.getFirstDueDate())
             .linkedObligationIds(new ArrayList<>())
             .inherentRisk(req.getInherentRisk())
             .residualRisk(req.getInherentRisk())
@@ -376,7 +378,9 @@ public class ControlService {
             .build();
         Control saved = repo.save(c);
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
-            Map.of("control_number", saved.getControlNumber()));
+            saved.getFirstDueDate() == null ? Map.of("control_number", saved.getControlNumber())
+                : Map.of("control_number", saved.getControlNumber(),
+                    "firstDueDate", saved.getFirstDueDate().toString()));
         testService.scheduleNextTest(saved);
         return toDto(saved);
     }
@@ -411,6 +415,9 @@ public class ControlService {
         }
         if (req.getTestFrequency() != null) {
             c.setTestFrequency(req.getTestFrequency());
+        }
+        if (req.getFirstDueDate() != null) {
+            c.setFirstDueDate(req.getFirstDueDate());
         }
         if (req.getTestFrequencyDays() != null) {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
@@ -576,6 +583,7 @@ public class ControlService {
             .testerName(c.getTesterName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
+            .firstDueDate(c.getFirstDueDate())
             .linkedObligationIds(c.getLinkedObligationIds())
             .inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk())

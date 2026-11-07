@@ -11,6 +11,7 @@ import MultiPersonPicker from '../components/common/MultiPersonPicker';
 import OwnerPicker from '../components/org/OwnerPicker';
 import TextField from '@mui/material/TextField';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const opt = (values) => values.map((v) => ({ value: v, label: v }));
 const PRIORITIES = ['OVERDUE', 'HIGH', 'MEDIUM', 'SOON', 'LOW'];
@@ -40,8 +41,10 @@ function relText(t) {
 export default function TasksPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [sp, setSp] = useSearchParams();
-  const assignee = sp.get('assignee') || 'me';
+  const defaultAssignee = user?.role === 'CCO' ? 'me' : 'all';
+  const assignee = sp.get('assignee') || defaultAssignee;
   const categoryParam = sp.get('category');
   const priority = sp.get('priority') || '';
   const setFilter = (patch) => {

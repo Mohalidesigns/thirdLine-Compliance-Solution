@@ -25,6 +25,7 @@ public class ControlDetailResponse {
     private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
+    private java.time.LocalDate firstDueDate;
     private List<LinkedObligation> linkedObligations;
     private String inherentRisk;
     private String residualRisk;

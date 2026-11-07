@@ -12,12 +12,15 @@ import PersonPicker from '../common/PersonPicker';
 const EMPTY = {
   name: '', description: '', controlType: '', inherentRisk: '',
   whatItDoes: '', howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
+  firstDueDate: '',
   reminderStartValue: '', reminderStartUnit: 'DAYS', reminderRepeatValue: '', reminderRepeatUnit: 'DAYS',
   level1Person: null, level1AfterValue: '', level1AfterUnit: 'DAYS',
   level2Person: null, level2AfterValue: '', level2AfterUnit: 'DAYS',
 };
 
 const scopeForFrequency = (f) => (f ? f.toUpperCase().replace(/-/g, '_') : null);
+const FREQ_DAYS = { Daily: 1, Weekly: 7, Monthly: 30, Quarterly: 90, 'Semi-Annual': 182, Annual: 365 };
+const scopeDays = (f) => FREQ_DAYS[f] ?? 30;
 
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
 const RISKS = ['Critical', 'High', 'Moderate', 'Low'];
@@ -180,7 +183,16 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                 {FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
               </TextField>
             </Field>
+            <Field label="First test due date" sx={{ mb: 0 }}>
+              <TextField fullWidth size="small" type="date" value={form.firstDueDate}
+                slotProps={{ inputLabel: { shrink: true } }}
+                onChange={e => set('firstDueDate', e.target.value)} />
+            </Field>
           </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Leave the due date blank to schedule the first test automatically from the frequency
+            {form.testFrequency ? ` (${form.testFrequency} — ${scopeDays(form.testFrequency)} days)` : ''}.
+          </Typography>
 
           <Accordion disableGutters elevation={0}
             sx={{ mt: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
