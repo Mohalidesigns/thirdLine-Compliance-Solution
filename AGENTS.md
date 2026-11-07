@@ -142,7 +142,7 @@ Config: `opencode.json`
 
 ### Control first due date + role-based Tasks default lens — `feature/controls-testing-workflow`
 - **A control can now be given an explicit first test due date.** New `controls.first_due_date` (**tenant V51**) + `CreateControlRequest.firstDueDate`, surfaced as **First test due date** on the Add-Control and Edit-Control (Testing schedule tab) forms. `ControlTestService.scheduleNextTest` anchors the **first** task to it when set (so a past date reads Overdue immediately — the returns' user-anchor behaviour); when blank the first due date stays `today + frequencyDays`, and every later test still follows the frequency from the last recorded test. `ControlPersonalDto`/`ControlDto` carry it back. *(Note: V49's checksum was re-baselined with flyway `repair` while this landed — a fix for the earlier in-place edit.)*
-- **Tasks default lens is role-based** — `TasksPage` now opens on **Whole organisation** for an ANALYST and **My work** for a CCO (`user?.role === 'CCO' ? 'me' : 'all'`), still overridable via `?assignee=`. This **supersedes** the earlier "always defaults to My work" rule.
+- **Tasks lens is CCO-only** — an ANALYST always sees **Whole organisation** with **no** lens toggle (analysts do everything, so a personal filter is meaningless); only a **CCO** gets the **My work / Whole organisation** buttons, defaulting to **My work**. `assignee` is forced to `all` for non-CCOs (so `?assignee=me` can't filter an analyst either). This **supersedes** both the earlier "always defaults to My work" and the transient "role-based default" rules.
 - **Verify:** tenant compiles, 186 tests green, tenant FE builds, tenant boots clean applying **V51** (`err.log` empty), `first_due_date` present, `POST /controls` + `GET/PUT /settings/task-centre` live. **Browser pass owed.**
 
 
@@ -837,4 +837,4 @@ The pre-due window, the recipient of the overdue link and the filing↔policy bi
 - in pages with tables, MUST use similar styling as the obligations register pages
 - in the tables MUST use maximum of five columns to ensure visibility
 - the card stats MUST have a drop down
-- the ANALYST is the primary user of the tenant system — NEVER restrict, hide or gate an analyst-facing view without informing the user first; default org-wide/aggregate views to visible for every role. The Tasks Center defaults to **"Whole organisation" for an ANALYST and "My work" for a CCO** (role-based; "My work"/"Whole organisation" stays an explicit toggle and the sidebar badge shows the org-wide backlog).
+- the ANALYST is the primary user of the tenant system — NEVER restrict, hide or gate an analyst-facing view without informing the user first; default org-wide/aggregate views to visible for every role. The Tasks Center shows **only Whole organisation** to an ANALYST (no lens toggle); the **My work / Whole organisation** toggle appears for a **CCO** only and defaults to My work. The sidebar badge still shows the org-wide backlog.

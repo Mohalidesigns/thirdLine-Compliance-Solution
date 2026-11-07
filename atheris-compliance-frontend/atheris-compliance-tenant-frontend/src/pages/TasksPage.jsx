@@ -43,8 +43,8 @@ export default function TasksPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [sp, setSp] = useSearchParams();
-  const defaultAssignee = user?.role === 'CCO' ? 'me' : 'all';
-  const assignee = sp.get('assignee') || defaultAssignee;
+  const isCco = user?.role === 'CCO';
+  const assignee = isCco ? (sp.get('assignee') || 'me') : 'all';
   const categoryParam = sp.get('category');
   const priority = sp.get('priority') || '';
   const setFilter = (patch) => {
@@ -182,10 +182,14 @@ export default function TasksPage() {
         subtitle="Actionable work across the compliance calendar — prepare, submit, or chase."
         actions={(
           <Stack direction="row" spacing={1} alignItems="center">
-            <Button variant={assignee === 'me' ? 'contained' : 'outlined'} size="small"
-              onClick={() => setAssignee('me')}>My work</Button>
-            <Button variant={assignee === 'all' ? 'contained' : 'outlined'} size="small"
-              onClick={() => setAssignee('all')}>Whole organisation</Button>
+            {isCco && (
+              <Button variant={assignee === 'me' ? 'contained' : 'outlined'} size="small"
+                onClick={() => setAssignee('me')}>My work</Button>
+            )}
+            {isCco && (
+              <Button variant={assignee === 'all' ? 'contained' : 'outlined'} size="small"
+                onClick={() => setAssignee('all')}>Whole organisation</Button>
+            )}
             <Button variant="outlined" size="small" onClick={() => refetch()}>Refresh</Button>
           </Stack>
         )}
