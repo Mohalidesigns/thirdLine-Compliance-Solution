@@ -1,46 +1,7 @@
 -- Phase A: Nigerian Compliance Toolkit — act parent entity + universe curation
-
-CREATE TABLE IF NOT EXISTS areas_of_focus (
-    area_id     BIGSERIAL PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS acts (
-    act_id              BIGSERIAL PRIMARY KEY,
-    name                VARCHAR(500) NOT NULL,
-    abbreviation        VARCHAR(50),
-    description         TEXT,
-    regulator_id        INT REFERENCES regulators(regulator_id),
-    canonical_instrument_id BIGINT REFERENCES instruments(instrument_id),
-    status              VARCHAR(50) DEFAULT 'Active',
-    created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX idx_acts_name ON acts(name);
-
-CREATE TABLE IF NOT EXISTS act_aliases (
-    alias_id    BIGSERIAL PRIMARY KEY,
-    alias       VARCHAR(500) NOT NULL,
-    act_id      BIGINT NOT NULL REFERENCES acts(act_id) ON DELETE CASCADE,
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX idx_act_aliases_alias ON act_aliases(alias);
-
--- Link instruments to their toolkit act. `act_id` stays an ALTER here because `acts` is created
--- in this migration (later than `instruments` in V2), and `acts.canonical_instrument_id`
--- references instruments, so the two columns form a genuine mutual reference.
-ALTER TABLE instruments ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
+-- (acts / areas_of_focus / act_aliases live in V2, before instruments, so act_id FKs are inline.)
 
 CREATE INDEX idx_instruments_act ON instruments(act_id);
-
--- Link obligations + sanctions to acts too
-ALTER TABLE obligation_mappings ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
-ALTER TABLE sanctions_and_penalties ADD COLUMN IF NOT EXISTS act_id BIGINT REFERENCES acts(act_id);
-
 CREATE INDEX IF NOT EXISTS idx_obligation_mappings_act ON obligation_mappings(act_id);
 CREATE INDEX IF NOT EXISTS idx_sanctions_act ON sanctions_and_penalties(act_id);
 

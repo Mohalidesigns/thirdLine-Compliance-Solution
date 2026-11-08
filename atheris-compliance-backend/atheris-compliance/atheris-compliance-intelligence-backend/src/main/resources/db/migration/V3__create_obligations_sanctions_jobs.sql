@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS obligation_mappings (
     obligation_id           BIGSERIAL PRIMARY KEY,
     instrument_id           BIGINT NOT NULL REFERENCES instruments(instrument_id),
+    act_id                  BIGINT REFERENCES acts(act_id),
     obligation_number       INT,
     title                   VARCHAR(500),
     description             TEXT,
@@ -24,6 +25,7 @@ CREATE INDEX idx_obligation_mappings_instrument ON obligation_mappings(instrumen
 CREATE TABLE IF NOT EXISTS sanctions_and_penalties (
     sanction_id               BIGSERIAL PRIMARY KEY,
     instrument_id             BIGINT NOT NULL REFERENCES instruments(instrument_id),
+    act_id                    BIGINT REFERENCES acts(act_id),
     sanction_type             VARCHAR(100),
     sanction_amount_naira     DECIMAL(15,2),
     sanction_amount_per_day   BOOLEAN,

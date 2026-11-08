@@ -1,3 +1,33 @@
+CREATE TABLE IF NOT EXISTS areas_of_focus (
+    area_id     BIGSERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS acts (
+    act_id              BIGSERIAL PRIMARY KEY,
+    name                VARCHAR(500) NOT NULL,
+    abbreviation        VARCHAR(50),
+    description         TEXT,
+    regulator_id        INT REFERENCES regulators(regulator_id),
+    canonical_instrument_id BIGINT,
+    status              VARCHAR(50) DEFAULT 'Active',
+    created_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at          TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_acts_name ON acts(name);
+
+CREATE TABLE IF NOT EXISTS act_aliases (
+    alias_id    BIGSERIAL PRIMARY KEY,
+    alias       VARCHAR(500) NOT NULL,
+    act_id      BIGINT NOT NULL REFERENCES acts(act_id) ON DELETE CASCADE,
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_act_aliases_alias ON act_aliases(alias);
+
 CREATE TABLE IF NOT EXISTS instruments (
     instrument_id              BIGSERIAL PRIMARY KEY,
     regulator_id               INT REFERENCES regulators(regulator_id),
@@ -30,7 +60,8 @@ CREATE TABLE IF NOT EXISTS instruments (
     uploaded_by                INT,
     is_historical_backfill     BOOLEAN DEFAULT false,
     ai_summary                 TEXT,
-    -- toolkit curation columns (per-act enrichment; act_id FK is added in V15 once `acts` exists)
+    -- toolkit curation columns (per-act enrichment)
+    act_id                     BIGINT REFERENCES acts(act_id),
     regulatory_item_type       VARCHAR(100),
     comment_on_status          TEXT,
     risk_rating_explanation    TEXT,
