@@ -8,7 +8,7 @@ import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
 import {
   Box, Typography, Stepper, Step, StepLabel, Button, TextField,
   Alert, CircularProgress, Radio, RadioGroup, Divider, Chip, Checkbox,
-  FormControl, FormLabel, FormControlLabel, LinearProgress,
+  FormControl, FormLabel, FormControlLabel, LinearProgress, Paper,
 } from '@mui/material';
 import { api } from '../services/api';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
@@ -19,22 +19,67 @@ import PersonPicker from '../components/common/PersonPicker';
 // feed the toolkit seed -> Obligations Register (only when the license enables it).
 const STEPS = ['License', 'Institution', 'User Setup', 'Intelligence', 'Toolkit', 'SMTP', 'Confirm'];
 
-const regulatorColumns = (selected, toggle, countField, countLabel) => [
-  { id: 'select', label: '', minWidth: 48,
-    render: (r) => (
-      <Checkbox size="small" checked={selected.includes(r.regulatorId)}
-        onClick={(e) => e.stopPropagation()}
-        onChange={() => toggle(r.regulatorId)} />
-    ) },
-  { id: 'name', label: 'Regulator', minWidth: 240,
-    render: (r) => <Typography variant="body2">{r.name || '—'}</Typography> },
-  { id: 'abbreviation', label: 'Abbrev', minWidth: 100,
-    render: (r) => (r.abbreviation
-      ? <Chip size="small" label={r.abbreviation} sx={{ height: 22, borderRadius: '4px' }} />
-      : <Typography variant="body2" color="text.secondary">—</Typography>) },
-  { id: countField, label: countLabel, minWidth: 120,
-    render: (r) => <Typography variant="body2">{r[countField] ?? 0}</Typography> },
-];
+const regulatorColumns = (selected, toggle, countField, countLabel, { rows = [], onToggleAll } = {}) => {
+  const allSelected = rows.length > 0 && rows.every(r => selected.includes(r.regulatorId));
+  const someSelected = rows.some(r => selected.includes(r.regulatorId));
+  return [
+    { id: 'select', label: '', minWidth: 48,
+      header: rows.length > 0 ? (
+        <Checkbox size="small"
+          checked={allSelected}
+          indeterminate={!allSelected && someSelected}
+          onChange={() => onToggleAll && onToggleAll(rows)}
+          inputProps={{ 'aria-label': 'Select all regulators' }} />
+      ) : null,
+      render: (r) => (
+        <Checkbox size="small" checked={selected.includes(r.regulatorId)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => toggle(r.regulatorId)} />
+      ) },
+    { id: 'name', label: 'Regulator', minWidth: 200,
+      render: (r) => <Typography variant="body2">{r.name || '—'}</Typography> },
+    { id: 'abbreviation', label: 'Abbrev', minWidth: 90,
+      render: (r) => (r.abbreviation
+        ? <Chip size="small" label={r.abbreviation} sx={{ height: 22, borderRadius: '4px' }} />
+        : <Typography variant="body2" color="text.secondary">—</Typography>) },
+    { id: countField, label: countLabel, minWidth: 100,
+      render: (r) => <Typography variant="body2">{r[countField] ?? 0}</Typography> },
+  ];
+};
+
+/** Side panel listing the currently selected regulators (with counts + quick remove). */
+function SelectedRegulatorsPanel({ title, selected, allRegulators, countField, countLabel, onRemove, onClear }) {
+  const byId = new Map(allRegulators.map(r => [r.regulatorId, r]));
+  const items = selected.map(id => byId.get(id)).filter(Boolean);
+  const total = items.reduce((sum, r) => sum + (r[countField] ?? 0), 0);
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '12px', p: 2, height: '100%', minWidth: 240 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: TL.gray500,
+          textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {title}
+        </Typography>
+        {items.length > 0 && (
+          <Button size="small" onClick={onClear} sx={{ minWidth: 0, fontSize: '0.7rem' }}>Clear</Button>
+        )}
+      </Box>
+      <Typography sx={{ fontSize: '0.8rem', color: TL.gray500, mb: 1.5 }}>
+        {items.length} selected{items.length > 0 ? ` · ${total} ${countLabel.toLowerCase()}` : ''}
+      </Typography>
+      {items.length === 0 ? (
+        <Typography variant="body2" sx={{ color: TL.gray400 }}>None selected yet</Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 320, overflowY: 'auto' }}>
+          {items.map(r => (
+            <Chip key={r.regulatorId} size="small" label={r.abbreviation || r.name}
+              onDelete={() => onRemove(r.regulatorId)}
+              sx={{ height: 24, borderRadius: '6px' }} />
+          ))}
+        </Box>
+      )}
+    </Paper>
+  );
+}
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -282,6 +327,24 @@ export default function OnboardingPage() {
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
+  function toggleAllRegulators(rows) {
+    setSelectedRegulators(prev => {
+      const ids = rows.map(r => r.regulatorId);
+      const allSelected = ids.length > 0 && ids.every(id => prev.includes(id));
+      if (allSelected) return prev.filter(id => !ids.includes(id));
+      return Array.from(new Set([...prev, ...ids]));
+    });
+  }
+
+  function toggleAllToolkitRegulators(rows) {
+    setSelectedToolkitRegulators(prev => {
+      const ids = rows.map(r => r.regulatorId);
+      const allSelected = ids.length > 0 && ids.every(id => prev.includes(id));
+      if (allSelected) return prev.filter(id => !ids.includes(id));
+      return Array.from(new Set([...prev, ...ids]));
+    });
+  }
+
   function filterRegulators(list, term) {
     const t = (term || '').trim().toLowerCase();
     if (!t) return list;
@@ -312,6 +375,34 @@ export default function OnboardingPage() {
     setError('');
     try {
       await api.onboarding.toolkitRegulators({ subscribedRegulators: selectedToolkitRegulators });
+      setStep(5);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSkipRegulators() {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.regulators({ subscribedRegulators: [] });
+      setSelectedRegulators([]);
+      setStep(4);
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSkipToolkitRegulators() {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.onboarding.toolkitRegulators({ subscribedRegulators: [] });
+      setSelectedToolkitRegulators([]);
       setStep(5);
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -361,7 +452,7 @@ export default function OnboardingPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: TL.bg, p: { xs: 2, md: 4 } }}>
-      <Box sx={{ maxWidth: 720, mx: 'auto', pt: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: getActiveStep() === 3 || getActiveStep() === 4 ? 1040 : 720, mx: 'auto', pt: { xs: 2, md: 4 }, transition: 'max-width 0.2s' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <Box component="img" src={verityLogoLight} alt="Verity Compliance" sx={{ height: 44, width: 'auto' }} />
         </Box>
@@ -583,28 +674,48 @@ export default function OnboardingPage() {
                   in your Review Inbox after the AI pipeline processes them.
                 </Typography>
 
-                <SectionTable
-                  columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents')}
-                  rows={regRows}
-                  total={regRows.length}
-                  page={0}
-                  size={regRows.length || 1}
-                  loading={false}
-                  rowKey={(r) => r.regulatorId}
-                  onRowClick={(r) => toggleRegulator(r.regulatorId)}
-                  search={{ value: regSearch, onChange: setRegSearch, placeholder: 'Search regulator name or abbreviation...' }}
-                  rowsPerPageOptions={[Math.max(regRows.length, 1)]}
-                  emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
-                />
-
-                <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
-                  <Button size="small" onClick={() => setSelectedRegulators(regRows.map(r => r.regulatorId))}>
-                    Select all
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mb: 1.5 }}>
+                  <Button size="small" variant="outlined" onClick={() => toggleAllRegulators(regRows)}>
+                    {regRows.length > 0 && regRows.every(r => selectedRegulators.includes(r.regulatorId))
+                      ? 'Clear all' : 'Select all'}
                   </Button>
-                  <Button size="small" onClick={() => setSelectedRegulators([])}>Clear</Button>
-                  <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
+                  <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
                     {selectedRegulators.length} selected
                   </Typography>
+                  <Button size="small" sx={{ ml: 'auto' }} onClick={() => handleSkipRegulators()}
+                    disabled={submitting}>
+                    Skip for now
+                  </Button>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexDirection: { xs: 'column', md: 'row' } }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <SectionTable
+                      columns={regulatorColumns(selectedRegulators, toggleRegulator, 'intelligenceCount', 'Documents',
+                        { rows: regRows, onToggleAll: toggleAllRegulators })}
+                      rows={regRows}
+                      total={regRows.length}
+                      page={0}
+                      size={regRows.length || 1}
+                      loading={false}
+                      rowKey={(r) => r.regulatorId}
+                      onRowClick={(r) => toggleRegulator(r.regulatorId)}
+                      search={{ value: regSearch, onChange: setRegSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                      rowsPerPageOptions={[Math.max(regRows.length, 1)]}
+                      emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
+                    />
+                  </Box>
+                  <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+                    <SelectedRegulatorsPanel
+                      title="Selected regulators"
+                      selected={selectedRegulators}
+                      allRegulators={availableRegulators}
+                      countField="intelligenceCount"
+                      countLabel="Documents"
+                      onRemove={toggleRegulator}
+                      onClear={() => setSelectedRegulators([])}
+                    />
+                  </Box>
                 </Box>
 
                 <Button fullWidth variant="contained" size="large" sx={{ mt: 2 }}
@@ -623,28 +734,48 @@ export default function OnboardingPage() {
                       obligations should be loaded straight into your Obligations Register. You can skip this.
                     </Typography>
 
-                    <SectionTable
-                      columns={regulatorColumns(selectedToolkitRegulators, toggleToolkitRegulator, 'toolkitCount', 'Obligations')}
-                      rows={toolkitRows}
-                      total={toolkitRows.length}
-                      page={0}
-                      size={toolkitRows.length || 1}
-                      loading={false}
-                      rowKey={(r) => r.regulatorId}
-                      onRowClick={(r) => toggleToolkitRegulator(r.regulatorId)}
-                      search={{ value: toolkitSearch, onChange: setToolkitSearch, placeholder: 'Search regulator name or abbreviation...' }}
-                      rowsPerPageOptions={[Math.max(toolkitRows.length, 1)]}
-                      emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
-                    />
-
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center' }}>
-                      <Button size="small" onClick={() => setSelectedToolkitRegulators(toolkitRows.map(r => r.regulatorId))}>
-                        Select all
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mb: 1.5 }}>
+                      <Button size="small" variant="outlined" onClick={() => toggleAllToolkitRegulators(toolkitRows)}>
+                        {toolkitRows.length > 0 && toolkitRows.every(r => selectedToolkitRegulators.includes(r.regulatorId))
+                          ? 'Clear all' : 'Select all'}
                       </Button>
-                      <Button size="small" onClick={() => setSelectedToolkitRegulators([])}>Clear</Button>
-                      <Typography sx={{ fontSize: '0.875rem', color: TL.gray500, ml: 'auto' }}>
+                      <Typography sx={{ fontSize: '0.875rem', color: TL.gray500 }}>
                         {selectedToolkitRegulators.length} selected
                       </Typography>
+                      <Button size="small" sx={{ ml: 'auto' }} onClick={() => handleSkipToolkitRegulators()}
+                        disabled={submitting}>
+                        Skip for now
+                      </Button>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexDirection: { xs: 'column', md: 'row' } }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <SectionTable
+                          columns={regulatorColumns(selectedToolkitRegulators, toggleToolkitRegulator, 'toolkitCount', 'Obligations',
+                            { rows: toolkitRows, onToggleAll: toggleAllToolkitRegulators })}
+                          rows={toolkitRows}
+                          total={toolkitRows.length}
+                          page={0}
+                          size={toolkitRows.length || 1}
+                          loading={false}
+                          rowKey={(r) => r.regulatorId}
+                          onRowClick={(r) => toggleToolkitRegulator(r.regulatorId)}
+                          search={{ value: toolkitSearch, onChange: setToolkitSearch, placeholder: 'Search regulator name or abbreviation...' }}
+                          rowsPerPageOptions={[Math.max(toolkitRows.length, 1)]}
+                          emptyMessage={availableRegulators.length === 0 ? 'Loading regulators…' : 'No regulators match your search.'}
+                        />
+                      </Box>
+                      <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+                        <SelectedRegulatorsPanel
+                          title="Selected regulators"
+                          selected={selectedToolkitRegulators}
+                          allRegulators={availableRegulators}
+                          countField="toolkitCount"
+                          countLabel="Obligations"
+                          onRemove={toggleToolkitRegulator}
+                          onClear={() => setSelectedToolkitRegulators([])}
+                        />
+                      </Box>
                     </Box>
                   </>
                 ) : (
@@ -706,6 +837,7 @@ export default function OnboardingPage() {
 function RoleConfirmation({ ccoUser, analystUser }) {
   const both = ccoUser.email && analystUser.email;
   const same = ccoUser.email && ccoUser.email.toLowerCase() === (analystUser.email || '').toLowerCase();
+  if (!ccoUser.fullName && !ccoUser.email && !analystUser.fullName && !analystUser.email) return null;
   const rows = [
     { role: 'CCO', hint: 'Chief Compliance Officer', user: ccoUser },
     { role: 'Analyst', hint: 'Reviews and tests controls', user: analystUser },
@@ -720,9 +852,13 @@ function RoleConfirmation({ ccoUser, analystUser }) {
         {rows.map(({ role, hint, user }) => (
           <Box key={role} sx={{ flex: '1 1 220px', minWidth: 0 }}>
             <Typography variant="caption" sx={{ color: TL.gray500, display: 'block' }}>{role} — {hint}</Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
-              {user.fullName || '—'} · {user.email || 'not set'}
-            </Typography>
+            {(user.fullName || user.email) ? (
+              <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                {user.fullName || user.email}{user.fullName && user.email ? ` · ${user.email}` : ''}
+              </Typography>
+            ) : (
+              <Typography variant="body2" sx={{ color: TL.gray400 }}>Not selected yet</Typography>
+            )}
           </Box>
         ))}
       </Box>

@@ -92,17 +92,19 @@ export default function SectionTable({
                           }}
                           onClick={c.sortable && onSort ? () => onSort(sortKey) : undefined}
                         >
-                          {c.sortable
-                            ? (
-                              <TableSortLabel
-                                active={active}
-                                direction={active ? sortDir : 'asc'}
-                                sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}
-                              >
-                                {c.label}
-                              </TableSortLabel>
-                            )
-                            : c.label}
+                          {c.header
+                            ? c.header
+                            : (c.sortable
+                              ? (
+                                <TableSortLabel
+                                  active={active}
+                                  direction={active ? sortDir : 'asc'}
+                                  sx={{ '& .MuiTableSortLabel-icon': { opacity: active ? 1 : 0.4 } }}
+                                >
+                                  {c.label}
+                                </TableSortLabel>
+                              )
+                              : c.label)}
                         </TableCell>
                       );
                     })}
