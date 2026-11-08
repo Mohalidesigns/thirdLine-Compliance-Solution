@@ -60,18 +60,38 @@ emails must match directory entries) and set a **break-glass** local Tenant Admi
 
 ## Seeded identities (directory password `Passw0rd!`)
 
+Every department from `tools/toolkit-ownership/org_vocab.json` gets a **head** plus **one officer
+per unit**, all under the flat `ou=people` (so the onboarding search base is unchanged). 42
+identities total.
+
 | Email | Role in tests |
 |-------|---------------|
+| `cco@atheris.test` | chief compliance officer — escalation L3, board-pack sign-off |
 | `analyst@atheris.test` | control tester / remediation reviewer |
-| `cco@atheris.test` | escalation L3, board-pack sign-off |
-| `manager@atheris.test` | escalation L2 (set as the analyst's manager) |
-| `owner@atheris.test` | finding owner who has a login |
-| `itsecurity@` / `dba@` / `network@` / `sysadmin@` / `corebanking@` | Information Technology (directory-only) |
-| `aml@` / `regreporting@` | Compliance (directory-only) |
-| `ops@` · `treasury@` · `internalaudit@` | Operations / Finance / Audit (directory-only) |
 
-The department-aligned identities are **directory-only** — they are not tenant app accounts (no
-`users` row, no role). Use them to pick the CCO/Analyst at onboarding or as extra reviewers in SoD
-tests. An owner **without** a directory entry (e.g. `contractor@atheris.test`) exercises the public
+Department heads (org-chart escalation targets):
+
+| Email | Department |
+|-------|------------|
+| `headofcompliance@` | Compliance |
+| `headofrisk@` | Risk Management |
+| `headofit@` | Information Technology |
+| `headofoperations@` | Operations |
+| `headoffinance@` | Finance & Treasury |
+| `chiefauditexecutive@` | Internal Audit |
+| `headoflegal@` | Legal & Company Secretariat |
+| `headofhr@` | Human Resources |
+
+Plus one officer per unit (e.g. `regulatorycompliance@`, `dataprotection@`, `aml@`,
+`monitoringtesting@`, `conductethics@`, `enterpriserisk@`, `operationalrisk@`, `creditrisk@`,
+`marketliquidityrisk@`, `corebanking@`, `dba@`, `network@`, `sysadmin@`, `itsecurity@`,
+`branchoperations@`, `cashmanagement@`, `transactionprocessing@`, `tradeservices@`,
+`customerservice@`, `financialcontrol@`, `treasury@`, `regulatoryreporting@`, `tax@`,
+`procurement@`, `auditoperations@`, `auditassurance@`, `legaladvisory@`, `companysecretariat@`,
+`litigationdisputes@`, `hroperations@`, `learningdevelopment@`, `recruitment@`).
+
+Every identity is **directory-only** — none are tenant app accounts (no `users` row, no role).
+Use them to pick the CCO/Analyst at onboarding, as owners, or as extra reviewers in SoD tests. An
+owner **without** a directory entry (e.g. `contractor@atheris.test`) exercises the public
 remediation-link flow — they receive the link by email in Mailpit (http://localhost:8025) and
 never sign in.

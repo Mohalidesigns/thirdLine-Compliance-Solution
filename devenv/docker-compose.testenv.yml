@@ -9,8 +9,8 @@
 #             app's LDAP settings point here.
 #   phpldapadmin  Web UI to inspect/edit the directory at http://localhost:8080
 #
-# The LDIF seeds the identities used by onboarding/SoD tests:
-#   analyst@atheris.test / cco@atheris.test / owner@atheris.test / manager@atheris.test
+# The LDIF seeds the identities used by onboarding/SoD tests: cco@ / analyst@ plus a
+# department head and one officer per unit for the full org tree (see ldif/atheris.ldif),
 # and one owner with no directory entry (see devenv/README.md).
 services:
   mailpit:

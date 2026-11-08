@@ -61,14 +61,14 @@ public class DefaultOrgSeedService {
 
     private static Map<String, List<String>> buildTemplate() {
         Map<String, List<String>> m = new LinkedHashMap<>();
-        m.put("Compliance", List.of("AML/CFT Unit", "Regulatory Reporting", "Compliance Monitoring", "Sanctions Screening"));
-        m.put("Risk Management", List.of("Credit Risk", "Operational Risk", "Market Risk"));
+        m.put("Compliance", List.of("Regulatory Compliance", "Data Protection", "AML/CFT", "Monitoring & Testing", "Conduct & Ethics"));
+        m.put("Risk Management", List.of("Enterprise Risk", "Operational Risk", "Credit Risk", "Market & Liquidity Risk"));
         m.put("Information Technology", List.of("Core Banking", "Database Administration", "Networking", "System Administration", "IT Security"));
-        m.put("Operations", List.of("E-Banking", "Branch Operations", "Customer Service"));
-        m.put("Finance & Treasury", List.of("Financial Reporting", "Treasury"));
-        m.put("Internal Audit", List.of("Audit"));
-        m.put("Legal & Company Secretariat", List.of("Legal"));
-        m.put("Human Resources", List.of("HR"));
+        m.put("Operations", List.of("Branch Operations", "Cash Management", "Transaction Processing", "Trade Services", "Customer Service"));
+        m.put("Finance & Treasury", List.of("Financial Control", "Treasury", "Regulatory Reporting", "Tax", "Procurement"));
+        m.put("Internal Audit", List.of("Audit Operations", "Audit Assurance"));
+        m.put("Legal & Company Secretariat", List.of("Legal Advisory", "Company Secretariat", "Litigation & Disputes"));
+        m.put("Human Resources", List.of("HR Operations", "Learning & Development", "Recruitment"));
         return m;
     }
 }

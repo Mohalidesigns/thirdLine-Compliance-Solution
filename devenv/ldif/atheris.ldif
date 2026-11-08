@@ -12,23 +12,43 @@
 #   Search attribute  mail
 #   Full-name attr    cn
 #
-# Identities (all directory passwords: Passw0rd!):
-#   analyst@atheris.test      — used as the tester/reviewer in SoD tests
-#   cco@atheris.test          — escalation L3 + board-pack sign-off
-#   manager@atheris.test      — escalation L2 target (set as manager of analyst)
-#   owner@atheris.test        — a finding owner who has a login
+# Layout: every department from tools/toolkit-ownership/org_vocab.json gets a head and one
+# officer per unit, all under the flat ou=people (so the onboarding search base is unchanged).
+# All directory passwords are "Passw0rd!".
 #
-# Additional department-aligned identities (directory-only — they are NOT tenant app accounts;
-# use them to pick CCO/Analyst at onboarding or as extra reviewers in SoD tests):
-#   itsecurity@ / dba@ / network@ / sysadmin@ / corebanking@   (Information Technology)
-#   aml@ / regreporting@                                       (Compliance)
-#   ops@                                                       (Operations)
-#   treasury@                                                  (Finance & Treasury)
-#   internalaudit@                                             (Internal Audit)
+# Department heads (the org-chart "escalation L2/manager" targets):
+#   headofcompliance@<domain>    Compliance
+#   headofrisk@<domain>          Risk Management
+#   headofit@<domain>            Information Technology
+#   headofoperations@<domain>    Operations
+#   headoffinance@<domain>       Finance & Treasury
+#   chiefauditexecutive@<domain> Internal Audit
+#   headoflegal@<domain>         Legal & Company Secretariat
+#   headofhr@<domain>            Human Resources
+#
+# Functional accounts retained for onboarding/SoD/escalation flows:
+#   cco@               chief compliance officer (escalation L3 + board-pack sign-off)
+#   analyst@           control tester / remediation reviewer
+#
+# Directory-only: none of these are tenant app accounts (no users row, no role). They exist so
+# the onboarding CCO/Analyst picker, owner search and SoD tests have real people to choose.
 
 dn: ou=people,dc=atheris,dc=test
 objectClass: organizationalUnit
 ou: people
+
+# --- Functionals + Compliance ---
+dn: cn=cco,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chidi Compliance
+sn: Compliance
+givenName: Chidi
+title: Chief Compliance Officer
+mail: cco@atheris.test
+uid: cco
+userPassword: Passw0rd!
 
 dn: cn=analyst,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
@@ -37,96 +57,45 @@ objectClass: person
 cn: Adaeze Analyst
 sn: Analyst
 givenName: Adaeze
+title: Compliance Officer
 mail: analyst@atheris.test
 uid: analyst
 userPassword: Passw0rd!
 
-dn: cn=cco,ou=people,dc=atheris,dc=test
+dn: cn=headofcompliance,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
-cn: Chidi Compliance
-sn: Compliance
-givenName: Chidi
-mail: cco@atheris.test
-uid: cco
+cn: Bashir Adewale
+sn: Adewale
+givenName: Bashir
+title: Head of Compliance
+mail: headofcompliance@atheris.test
+uid: headofcompliance
 userPassword: Passw0rd!
 
-dn: cn=manager,ou=people,dc=atheris,dc=test
+dn: cn=regulatorycompliance,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
-cn: Muna Manager
-sn: Manager
-givenName: Muna
-mail: manager@atheris.test
-uid: manager
+cn: Kelechi Nwosu
+sn: Nwosu
+givenName: Kelechi
+title: Compliance Officer
+mail: regulatorycompliance@atheris.test
+uid: regulatorycompliance
 userPassword: Passw0rd!
 
-dn: cn=owner,ou=people,dc=atheris,dc=test
+dn: cn=dataprotection,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
-cn: Obi Owner
-sn: Owner
-givenName: Obi
-mail: owner@atheris.test
-uid: owner
-userPassword: Passw0rd!
-
-dn: cn=itsecurity,ou=people,dc=atheris,dc=test
-objectClass: inetOrgPerson
-objectClass: organizationalPerson
-objectClass: person
-cn: Tunde Bello
-sn: Bello
-givenName: Tunde
-mail: itsecurity@atheris.test
-uid: itsecurity
-userPassword: Passw0rd!
-
-dn: cn=dba,ou=people,dc=atheris,dc=test
-objectClass: inetOrgPerson
-objectClass: organizationalPerson
-objectClass: person
-cn: Ngozi Eze
-sn: Eze
-givenName: Ngozi
-mail: dba@atheris.test
-uid: dba
-userPassword: Passw0rd!
-
-dn: cn=network,ou=people,dc=atheris,dc=test
-objectClass: inetOrgPerson
-objectClass: organizationalPerson
-objectClass: person
-cn: Emeka Obi
-sn: Obi
-givenName: Emeka
-mail: network@atheris.test
-uid: network
-userPassword: Passw0rd!
-
-dn: cn=sysadmin,ou=people,dc=atheris,dc=test
-objectClass: inetOrgPerson
-objectClass: organizationalPerson
-objectClass: person
-cn: Fatima Yusuf
-sn: Yusuf
-givenName: Fatima
-mail: sysadmin@atheris.test
-uid: sysadmin
-userPassword: Passw0rd!
-
-dn: cn=corebanking,ou=people,dc=atheris,dc=test
-objectClass: inetOrgPerson
-objectClass: organizationalPerson
-objectClass: person
-cn: Dapo Adeyemi
-sn: Adeyemi
-givenName: Dapo
-mail: corebanking@atheris.test
-uid: corebanking
+cn: Aisha Mohammed
+sn: Mohammed
+givenName: Aisha
+title: Data Protection Officer
+mail: dataprotection@atheris.test
+uid: dataprotection
 userPassword: Passw0rd!
 
 dn: cn=aml,ou=people,dc=atheris,dc=test
@@ -136,50 +105,446 @@ objectClass: person
 cn: Halima Sani
 sn: Sani
 givenName: Halima
+title: Head of AML/CFT
 mail: aml@atheris.test
 uid: aml
 userPassword: Passw0rd!
 
-dn: cn=regreporting,ou=people,dc=atheris,dc=test
+dn: cn=monitoringtesting,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
-cn: Kelechi Nwosu
-sn: Nwosu
-givenName: Kelechi
-mail: regreporting@atheris.test
-uid: regreporting
+cn: Uche Balogun
+sn: Balogun
+givenName: Uche
+title: Compliance Monitoring Officer
+mail: monitoringtesting@atheris.test
+uid: monitoringtesting
 userPassword: Passw0rd!
 
-dn: cn=ops,ou=people,dc=atheris,dc=test
+dn: cn=conductethics,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Zainab Okoro
+sn: Okoro
+givenName: Zainab
+title: Ethics Officer
+mail: conductethics@atheris.test
+uid: conductethics
+userPassword: Passw0rd!
+
+# --- Risk Management ---
+dn: cn=headofrisk,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Emeka Obi
+sn: Obi
+givenName: Emeka
+title: Chief Risk Officer
+mail: headofrisk@atheris.test
+uid: headofrisk
+userPassword: Passw0rd!
+
+dn: cn=enterpriserisk,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ngozi Eze
+sn: Eze
+givenName: Ngozi
+title: Risk Manager
+mail: enterpriserisk@atheris.test
+uid: enterpriserisk
+userPassword: Passw0rd!
+
+dn: cn=operationalrisk,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Tunde Bello
+sn: Bello
+givenName: Tunde
+title: Operational Risk Manager
+mail: operationalrisk@atheris.test
+uid: operationalrisk
+userPassword: Passw0rd!
+
+dn: cn=creditrisk,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Fatima Yusuf
+sn: Yusuf
+givenName: Fatima
+title: Credit Risk Manager
+mail: creditrisk@atheris.test
+uid: creditrisk
+userPassword: Passw0rd!
+
+dn: cn=marketliquidityrisk,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Dapo Adeyemi
+sn: Adeyemi
+givenName: Dapo
+title: Market Risk Manager
+mail: marketliquidityrisk@atheris.test
+uid: marketliquidityrisk
+userPassword: Passw0rd!
+
+# --- Information Technology ---
+dn: cn=headofit,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ifeoma Chukwu
+sn: Chukwu
+givenName: Ifeoma
+title: Head of IT
+mail: headofit@atheris.test
+uid: headofit
+userPassword: Passw0rd!
+
+dn: cn=corebanking,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Segun Lawal
+sn: Lawal
+givenName: Segun
+title: Core Banking Manager
+mail: corebanking@atheris.test
+uid: corebanking
+userPassword: Passw0rd!
+
+dn: cn=dba,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Amara Nnamdi
+sn: Nnamdi
+givenName: Amara
+title: Database Administrator
+mail: dba@atheris.test
+uid: dba
+userPassword: Passw0rd!
+
+dn: cn=network,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Yusuf Danjuma
+sn: Danjuma
+givenName: Yusuf
+title: Network Manager
+mail: network@atheris.test
+uid: network
+userPassword: Passw0rd!
+
+dn: cn=sysadmin,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Blessing Ogu
+sn: Ogu
+givenName: Blessing
+title: System Administrator
+mail: sysadmin@atheris.test
+uid: sysadmin
+userPassword: Passw0rd!
+
+dn: cn=itsecurity,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ahmed Suleiman
+sn: Suleiman
+givenName: Ahmed
+title: Chief Information Security Officer
+mail: itsecurity@atheris.test
+uid: itsecurity
+userPassword: Passw0rd!
+
+# --- Operations ---
+dn: cn=headofoperations,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
 cn: Chioma Okafor
 sn: Okafor
 givenName: Chioma
-mail: ops@atheris.test
-uid: ops
+title: Head of Operations
+mail: headofoperations@atheris.test
+uid: headofoperations
 userPassword: Passw0rd!
 
-dn: cn=treasury,ou=people,dc=atheris,dc=test
+dn: cn=branchoperations,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Gbenga Ojo
+sn: Ojo
+givenName: Gbenga
+title: Branch Manager
+mail: branchoperations@atheris.test
+uid: branchoperations
+userPassword: Passw0rd!
+
+dn: cn=cashmanagement,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Rukayat Bello
+sn: Bello
+givenName: Rukayat
+title: Cash Management Head
+mail: cashmanagement@atheris.test
+uid: cashmanagement
+userPassword: Passw0rd!
+
+dn: cn=transactionprocessing,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Peter Eze
+sn: Eze
+givenName: Peter
+title: Operations Controller
+mail: transactionprocessing@atheris.test
+uid: transactionprocessing
+userPassword: Passw0rd!
+
+dn: cn=tradeservices,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Amina Garba
+sn: Garba
+givenName: Amina
+title: Trade Services Manager
+mail: tradeservices@atheris.test
+uid: tradeservices
+userPassword: Passw0rd!
+
+dn: cn=customerservice,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chinedu Obi
+sn: Obi
+givenName: Chinedu
+title: Customer Service Manager
+mail: customerservice@atheris.test
+uid: customerservice
+userPassword: Passw0rd!
+
+# --- Finance & Treasury ---
+dn: cn=headoffinance,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
 cn: Bode Ajayi
 sn: Ajayi
 givenName: Bode
+title: Chief Financial Officer
+mail: headoffinance@atheris.test
+uid: headoffinance
+userPassword: Passw0rd!
+
+dn: cn=financialcontrol,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Nneka Umeh
+sn: Umeh
+givenName: Nneka
+title: Financial Controller
+mail: financialcontrol@atheris.test
+uid: financialcontrol
+userPassword: Passw0rd!
+
+dn: cn=treasury,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Sadiq Abubakar
+sn: Abubakar
+givenName: Sadiq
+title: Treasury Manager
 mail: treasury@atheris.test
 uid: treasury
 userPassword: Passw0rd!
 
-dn: cn=internalaudit,ou=people,dc=atheris,dc=test
+dn: cn=regulatoryreporting,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ify Okonkwo
+sn: Okonkwo
+givenName: Ify
+title: Head of Regulatory Reporting
+mail: regulatoryreporting@atheris.test
+uid: regulatoryreporting
+userPassword: Passw0rd!
+
+dn: cn=tax,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Musa Ibrahim
+sn: Ibrahim
+givenName: Musa
+title: Tax Manager
+mail: tax@atheris.test
+uid: tax
+userPassword: Passw0rd!
+
+dn: cn=procurement,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Grace Adeniyi
+sn: Adeniyi
+givenName: Grace
+title: Procurement Manager
+mail: procurement@atheris.test
+uid: procurement
+userPassword: Passw0rd!
+
+# --- Internal Audit ---
+dn: cn=chiefauditexecutive,ou=people,dc=atheris,dc=test
 objectClass: inetOrgPerson
 objectClass: organizationalPerson
 objectClass: person
 cn: Amaka Uche
 sn: Uche
 givenName: Amaka
-mail: internalaudit@atheris.test
-uid: internalaudit
+title: Chief Audit Executive
+mail: chiefauditexecutive@atheris.test
+uid: chiefauditexecutive
+userPassword: Passw0rd!
+
+dn: cn=auditoperations,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Femi Adeleke
+sn: Adeleke
+givenName: Femi
+title: Internal Audit Manager
+mail: auditoperations@atheris.test
+uid: auditoperations
+userPassword: Passw0rd!
+
+dn: cn=auditassurance,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Hauwa Musa
+sn: Musa
+givenName: Hauwa
+title: Quality Assurance Officer
+mail: auditassurance@atheris.test
+uid: auditassurance
+userPassword: Passw0rd!
+
+# --- Legal & Company Secretariat ---
+dn: cn=headoflegal,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Oyinkan Adebayo
+sn: Adebayo
+givenName: Oyinkan
+title: Head of Legal
+mail: headoflegal@atheris.test
+uid: headoflegal
+userPassword: Passw0rd!
+
+dn: cn=legaladvisory,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chuka Nwankwo
+sn: Nwankwo
+givenName: Chuka
+title: Legal Counsel
+mail: legaladvisory@atheris.test
+uid: legaladvisory
+userPassword: Passw0rd!
+
+dn: cn=companysecretariat,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Bolanle Salami
+sn: Salami
+givenName: Bolanle
+title: Company Secretary
+mail: companysecretariat@atheris.test
+uid: companysecretariat
+userPassword: Passw0rd!
+
+dn: cn=litigationdisputes,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Idris Yakubu
+sn: Yakubu
+givenName: Idris
+title: Legal Manager
+mail: litigationdisputes@atheris.test
+uid: litigationdisputes
+userPassword: Passw0rd!
+
+# --- Human Resources ---
+dn: cn=headofhr,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Temitope Fashola
+sn: Fashola
+givenName: Temitope
+title: HR Director
+mail: headofhr@atheris.test
+uid: headofhr
+userPassword: Passw0rd!
+
+dn: cn=hroperations,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ndidi Anyanwu
+sn: Anyanwu
+givenName: Ndidi
+title: HR Manager
+mail: hroperations@atheris.test
+uid: hroperations
+userPassword: Passw0rd!
+
+dn: cn=learningdevelopment,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Kola Ogunleye
+sn: Ogunleye
+givenName: Kola
+title: HR Business Partner
+mail: learningdevelopment@atheris.test
+uid: learningdevelopment
+userPassword: Passw0rd!
+
+dn: cn=recruitment,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chisom Ike
+sn: Ike
+givenName: Chisom
+title: Talent Acquisition
+mail: recruitment@atheris.test
+uid: recruitment
 userPassword: Passw0rd!
