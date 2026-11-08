@@ -34,8 +34,14 @@ CREATE TABLE IF NOT EXISTS controls (
     how_tested                    TEXT,
     control_owner_user_id         INT,
     control_owner_name            TEXT,
+    control_owner_id              INT REFERENCES owners(owner_id),
+    tester_owner_id               INT REFERENCES owners(owner_id),
+    tester_user_id                INT,
+    tester_name                   VARCHAR(255),
+    escalation_policy_id          BIGINT,
     test_frequency                VARCHAR(50),
     test_frequency_days           INT,
+    first_due_date                DATE,
     linked_obligation_ids         JSONB,
     inherent_risk                 VARCHAR(50),
     residual_risk                 VARCHAR(50),
@@ -59,6 +65,9 @@ CREATE TABLE IF NOT EXISTS controls (
 
 CREATE INDEX idx_controls_control_theme ON controls(control_theme_id);
 CREATE INDEX idx_controls_owner ON controls(control_owner_user_id);
+CREATE INDEX idx_controls_owner_id ON controls(control_owner_id);
+CREATE INDEX idx_controls_tester_owner ON controls(tester_owner_id);
+CREATE INDEX idx_controls_tester_user ON controls(tester_user_id);
 
 CREATE TABLE IF NOT EXISTS control_tasks (
     task_id              BIGSERIAL PRIMARY KEY,
@@ -92,6 +101,7 @@ CREATE TABLE IF NOT EXISTS control_test_results (
     evidence_url           TEXT,
     remediation_required   BOOLEAN DEFAULT false,
     remediation_owner_user_id INT,
+    remediation_owner_id   INT REFERENCES owners(owner_id),
     remediation_deadline   DATE,
     review_status          VARCHAR(50) DEFAULT 'Pending',
     reviewed_by_user_id    INT,
@@ -102,3 +112,4 @@ CREATE TABLE IF NOT EXISTS control_test_results (
 );
 
 CREATE INDEX idx_test_results_control ON control_test_results(control_id, test_date DESC);
+CREATE INDEX idx_control_test_results_remediation_owner ON control_test_results(remediation_owner_id);

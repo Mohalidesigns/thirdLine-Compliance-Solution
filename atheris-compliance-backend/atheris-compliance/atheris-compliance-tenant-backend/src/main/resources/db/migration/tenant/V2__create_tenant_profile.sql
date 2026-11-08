@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS tenant_profile (
     profile_id                 SERIAL PRIMARY KEY,
     tenant_id                  BIGINT NOT NULL UNIQUE,
-    legal_name                 VARCHAR(500) NOT NULL,
+    legal_name                 VARCHAR(500),
     short_name                 VARCHAR(100),
-    licence_type               VARCHAR(100) NOT NULL,
+    licence_type               VARCHAR(100),
     licence_number             VARCHAR(100),
     state_of_hq                VARCHAR(100),
     employee_count             INT,
@@ -27,11 +27,31 @@ CREATE TABLE IF NOT EXISTS tenant_profile (
     onboarding_completed_at    TIMESTAMP WITH TIME ZONE,
     encrypted_api_key          TEXT,
     api_key_prefix             VARCHAR(16),
+    license_key                VARCHAR(64),
+    license_status             VARCHAR(50) DEFAULT 'inactive',
+    license_activated_at       TIMESTAMP WITH TIME ZONE,
+    license_expires_at         TIMESTAMP WITH TIME ZONE,
+    intelligence_enabled       BOOLEAN DEFAULT true,
+    device_fingerprint         VARCHAR(128),
+    device_fingerprint_provisioned_at TIMESTAMP WITH TIME ZONE,
+    last_license_checkup_at    TIMESTAMP WITH TIME ZONE,
+    license_grace_period_end   TIMESTAMP WITH TIME ZONE,
+    auth_type                  VARCHAR(50) DEFAULT 'local',
+    ldap_config                JSONB,
+    auto_seed_obligations      BOOLEAN NOT NULL DEFAULT false,
+    smtp_host                  VARCHAR(255),
+    smtp_port                  INTEGER,
+    smtp_username              VARCHAR(255),
+    smtp_password_encrypted    TEXT,
+    smtp_auth                  BOOLEAN NOT NULL DEFAULT false,
+    smtp_starttls              BOOLEAN NOT NULL DEFAULT false,
+    smtp_from                  VARCHAR(255),
     created_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at                 TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_tenant_profile_tenant ON tenant_profile(tenant_id);
+CREATE INDEX idx_tenant_profile_license_key ON tenant_profile(license_key);
 
 CREATE TABLE IF NOT EXISTS tenant_regulator_preferences (
     preference_id                 SERIAL PRIMARY KEY,

@@ -86,6 +86,3 @@ CREATE TABLE IF NOT EXISTS escalation_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_escalation_events_subject ON escalation_events (subject_type, subject_id);
-
-ALTER TABLE regulatory_returns ADD COLUMN IF NOT EXISTS escalation_policy_id BIGINT;
-ALTER TABLE controls ADD COLUMN IF NOT EXISTS escalation_policy_id BIGINT;

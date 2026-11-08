@@ -8,5 +8,3 @@ CREATE TABLE IF NOT EXISTS risk_matrix_config (
     created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
-ALTER TABLE tenant_profile ADD COLUMN IF NOT EXISTS auto_seed_obligations BOOLEAN NOT NULL DEFAULT false;

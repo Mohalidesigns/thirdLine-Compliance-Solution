@@ -1,2 +1,0 @@
-ALTER TABLE tenant_profile
-    ADD COLUMN IF NOT EXISTS license_expires_at TIMESTAMP WITH TIME ZONE;
