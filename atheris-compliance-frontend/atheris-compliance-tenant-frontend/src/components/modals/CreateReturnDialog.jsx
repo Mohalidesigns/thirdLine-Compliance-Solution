@@ -53,7 +53,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [extraRegulators, setExtraRegulators] = useState([]);
-  const [level2Shown, setLevel2Shown] = useState(false);
+  const [levelCount, setLevelCount] = useState(1);
   const [linksOpen, setLinksOpen] = useState(false);
   const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
 
@@ -164,7 +164,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
         || String(form.reminderRepeatValue) !== '2' || form.reminderRepeatUnit !== 'DAYS';
       // A blank "Level N" means that level is not wanted; levels are sent in order, so they stay contiguous.
       // No person picked → level 1 goes to the responsible person's manager, level 2 to the CCO.
-      const levels = (level2Shown ? [1, 2] : [1])
+      const levels = Array.from({ length: levelCount }, (_, i) => i + 1)
         .filter(n => String(form[`level${n}AfterValue`]).trim() !== '')
         .map(n => {
           const row = { afterValue: Number(form[`level${n}AfterValue`]), afterUnit: form[`level${n}AfterUnit`] };
@@ -398,38 +398,39 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Escalation</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {(level2Shown ? [1, 2] : [1]).map((n) => (
-              <Box key={n} sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1, mb: 1.5 }}>
-                <Field label="Escalate to" sx={{ mb: 0 }}>
-                  <PersonPicker mode="user" label={`Level ${n} escalate to`} value={form[`level${n}Person`]}
-                    onChange={p => set(`level${n}Person`, p)} />
-                </Field>
-                <Field label={`Level ${n}`} sx={{ mb: 0 }}>
-                  <TextField fullWidth size="small" type="number" value={form[`level${n}AfterValue`]}
-                    slotProps={{ htmlInput: { min: 0 } }}
-                    onChange={e => set(`level${n}AfterValue`, e.target.value)} />
-                </Field>
-                <Field label="Unit" sx={{ mb: 0 }}>
-                  <TextField select fullWidth size="small" value={form[`level${n}AfterUnit`]}
-                    onChange={e => set(`level${n}AfterUnit`, e.target.value)}>
-                    <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
-                  </TextField>
-                </Field>
+            {Array.from({ length: levelCount }, (_, i) => i + 1).map((n) => (
+              <Box key={n} sx={{ mb: 1.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>Level {n}</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1 }}>
+                  <Field label="Escalate to" sx={{ mb: 0 }}>
+                    <PersonPicker mode="user" label={`Level ${n} escalate to`} value={form[`level${n}Person`]}
+                      onChange={p => set(`level${n}Person`, p)} />
+                  </Field>
+                  <Field label="After" sx={{ mb: 0 }}>
+                    <TextField fullWidth size="small" type="number" value={form[`level${n}AfterValue`]}
+                      slotProps={{ htmlInput: { min: 0 } }}
+                      onChange={e => set(`level${n}AfterValue`, e.target.value)} />
+                  </Field>
+                  <Field label="Unit" sx={{ mb: 0 }}>
+                    <TextField select fullWidth size="small" value={form[`level${n}AfterUnit`]}
+                      onChange={e => set(`level${n}AfterUnit`, e.target.value)}>
+                      <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+                    </TextField>
+                  </Field>
+                </Box>
               </Box>
             ))}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {level2Shown ? (
-                <Button size="small" variant="text" onClick={() => {
-                  setLevel2Shown(false);
-                  setForm(f => ({ ...f, level2AfterValue: '', level2Person: null }));
-                }}>Remove level 2</Button>
-              ) : (
-                <Button size="small" variant="text" onClick={() => {
-                  setLevel2Shown(true);
-                  setForm(f => ({ ...f, level2AfterValue: EMPTY.level2AfterValue, level2Person: null }));
-                }}>+ Add another level</Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {levelCount < 3 && (
+                <Button size="small" variant="text" onClick={() => setLevelCount(c => c + 1)}>+ Add level</Button>
               )}
-              <Typography variant="caption" color="text.secondary">After the due date.</Typography>
+              {levelCount > 1 && (
+                <Button size="small" variant="text" onClick={() => {
+                  setForm(f => ({ ...f, [`level${levelCount}AfterValue`]: '', [`level${levelCount}Person`]: null }));
+                  setLevelCount(c => c - 1);
+                }}>Remove level {levelCount}</Button>
+              )}
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>After the due date.</Typography>
             </Box>
           </AccordionDetails>
         </Accordion>

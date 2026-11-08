@@ -58,6 +58,7 @@ public class ControlTestLinkService {
     private final EvidenceVaultService evidenceVault;
     private final TenantIdentityService tenantIdentity;
     private final ControlTestDetails details;
+    private final ControlThemeService themeService;
     private final RiskOwnerDirectory riskOwners;
     private final AuditService audit;
 
@@ -222,7 +223,8 @@ public class ControlTestLinkService {
             .institutionName(p != null ? p.getLegalName() : "Institution")
             .controlNumber(c.getControlNumber())
             .controlName(c.getName())
-            .theme(c.getTheme())
+            .theme(c.getControlThemeId() == null ? null
+                : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())

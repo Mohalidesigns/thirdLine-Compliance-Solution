@@ -24,7 +24,7 @@ public class Control {
     private String name;
     @Column(columnDefinition = "text")
     private String description;
-    private String theme;
+    private Integer controlThemeId;
     private String controlType;
     @Column(columnDefinition = "text")
     private String whatItDoes;

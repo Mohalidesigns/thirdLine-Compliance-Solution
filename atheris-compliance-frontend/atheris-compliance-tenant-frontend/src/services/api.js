@@ -460,6 +460,11 @@ export const api = {
     linkControl: (id, controlId) => request(`/findings/${id}/link-control?controlId=${controlId}`, { method: 'PUT' }),
     closeGap: (id) => request(`/findings/${id}/close-gap`, { method: 'PUT' }),
   },
+  controlThemes: {
+    list: (opts = {}) => request('/control-themes', { signal: opts.signal }),
+    create: (data) => request('/control-themes', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/control-themes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  },
   controls: {
     list: (params = {}) => {
       const qs = new URLSearchParams();
@@ -481,6 +486,7 @@ export const api = {
     assignTester: (id, testerOwnerId) => request(`/controls/${id}/tester`, {
       method: 'PUT', body: JSON.stringify({ testerOwnerId }),
     }),
+    escalation: (id, opts = {}) => request(`/controls/${id}/escalation`, { signal: opts.signal }),
     updateEscalation: (id, data) => request(`/controls/${id}/escalation`, {
       method: 'PUT', body: JSON.stringify(data),
     }),

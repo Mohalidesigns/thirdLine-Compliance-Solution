@@ -17,6 +17,7 @@ import PersonPicker from '../components/common/PersonPicker';
 import SmtpSettingsForm from '../components/settings/SmtpSettingsForm';
 import NotificationsTab from '../components/settings/NotificationsTab';
 import TemplatesTab from '../components/settings/TemplatesTab';
+import ThemesTab from '../components/settings/ThemesTab';
 
 const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
@@ -44,6 +45,7 @@ export default function SettingsPage() {
           { key: 4, label: 'Email / SMTP' },
           { key: 5, label: 'Notifications' },
           { key: 6, label: 'Email Templates' },
+          { key: 7, label: 'Themes' },
         ]}
       />
 
@@ -54,6 +56,7 @@ export default function SettingsPage() {
       {tab === 4 && <SmtpTab />}
       {tab === 5 && <NotificationsTab />}
       {tab === 6 && <TemplatesTab />}
+      {tab === 7 && <ThemesTab />}
     </Box>
   );
 }

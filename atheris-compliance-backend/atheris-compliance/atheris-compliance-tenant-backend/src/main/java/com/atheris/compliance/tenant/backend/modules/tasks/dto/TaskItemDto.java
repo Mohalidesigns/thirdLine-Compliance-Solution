@@ -20,6 +20,7 @@ public class TaskItemDto {
     private String regulator;
     private String responsiblePerson;
     private String department;
+    private String areaOfFocus;
     private String priority;
     private String severity;
     private LocalDate dueDate;

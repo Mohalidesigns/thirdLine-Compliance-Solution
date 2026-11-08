@@ -72,6 +72,12 @@ public class ControlController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, u.getUserId()));
     }
 
+    @GetMapping("/{id}/escalation")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlEscalationResponse> resolveEscalation(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.resolveEscalation(id));
+    }
+
     @PutMapping("/{id}/escalation")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlDto> updateEscalation(

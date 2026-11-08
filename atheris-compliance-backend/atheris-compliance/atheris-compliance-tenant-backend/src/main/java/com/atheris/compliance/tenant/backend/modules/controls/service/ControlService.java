@@ -13,6 +13,7 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTest
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationInstanceDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
 import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
@@ -25,10 +26,13 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,20 +49,69 @@ public class ControlService {
     private final AuditService audit;
     private final ControlTestService testService;
     private final EscalationPolicyService escalationPolicyService;
+    private final ControlThemeService themeService;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
-        Page<Control> page = repo.findAll(spec, p);
+        Integer themeId = themeService.require(theme);
+        var spec = ControlSpecification.withFilters(themeId, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
+        Page<Control> page = repo.findAll(spec, safeSort(p));
         List<Integer> ids = page.getContent().stream().map(Control::getControlId).toList();
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(ids);
         Map<Integer, ControlTestResult> lastTests = getLastTests(ids);
         Map<Integer, Long> openFindings = getOpenFindingCounts(ids);
+        Map<Integer, String> themeNames = themeService.namesById(page.getContent().stream()
+            .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
         List<ControlRegisterItem> items = page.getContent().stream()
             .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId()),
-                lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L)))
+                lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L), themeNames))
             .toList();
         return new PageImpl<>(items, p, page.getTotalElements());
+    }
+
+    private static Pageable safeSort(Pageable p) {
+        List<Sort.Order> orders = p.getSort().stream()
+            .filter(o -> !"theme".equals(o.getProperty()))
+            .toList();
+        if (p.isUnpaged() || p.getPageSize() < 1) {
+            return orders.isEmpty() ? Pageable.unpaged() : Pageable.unpaged(Sort.by(orders));
+        }
+        return PageRequest.of(p.getPageNumber(), p.getPageSize(), Sort.by(orders));
+    }
+
+    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
+            ControlTestResult lastTest, long openFindings, Map<Integer, String> themeNames) {
+        return ControlRegisterItem.builder()
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .name(c.getName())
+            .controlSummary(c.getName())
+            .theme(c.getControlThemeId() == null ? null : themeNames.get(c.getControlThemeId()))
+            .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
+            .escalationPolicyId(c.getEscalationPolicyId())
+            .ownerName(c.getOwnerName())
+            .controlType(c.getControlType())
+            .residualRisk(c.getResidualRisk())
+            .residualLikelihood(c.getResidualLikelihood())
+            .residualImpact(c.getResidualImpact())
+            .residualRiskRating(c.getResidualRiskRating())
+            .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
+            .status(c.getStatus())
+            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
+            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
+            .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
+            .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
+            .openFindings(openFindings)
+            .complianceArea(c.getComplianceArea())
+            .regulatoryRequirement(c.getRegulatoryRequirement())
+            .frequency(c.getTestFrequency())
+            .dueDate(c.getDueDate())
+            .actId(c.getActId())
+            .actName(c.getActName())
+            .build();
     }
 
     public ControlStatsDto getStats() {
@@ -66,7 +119,7 @@ public class ControlService {
         long active = repo.countByStatus("Active");
         long highRisk = repo.countByResidualRisk("High");
         long testsDue = ControlTaskRules.testsDue(taskRepo.findAll(), LocalDate.now());
-        List<String> themes = repo.findDistinctThemes();
+        List<String> themes = themeService.list(true).stream().map(t -> t.getName()).toList();
         List<String> owners = repo.findDistinctOwners();
         List<String> acts = repo.findDistinctActNames();
 
@@ -90,8 +143,11 @@ public class ControlService {
         List<String> riskLevels = new ArrayList<>(byRiskLevel.keySet());
         List<String> statuses = new ArrayList<>(byStatus.keySet());
 
+        Map<Integer, String> themeNames = themeService.namesById(all.stream()
+            .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
         Map<String, Long> byTheme = all.stream()
-            .map(Control::getTheme).filter(v -> v != null && !v.isBlank())
+            .map(Control::getControlThemeId).filter(Objects::nonNull)
+            .map(id -> themeNames.getOrDefault(id, "Unassigned"))
             .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
         Map<String, Long> findingsBySeverity = findingRepo.findAll().stream()
             .filter(f -> openStatuses.contains(f.getStatus()))
@@ -167,41 +223,6 @@ public class ControlService {
             .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
     }
 
-    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
-            ControlTestResult lastTest, long openFindings) {
-        return ControlRegisterItem.builder()
-            .controlId(c.getControlId())
-            .controlNumber(c.getControlNumber())
-            .name(c.getName())
-            .controlSummary(c.getName())
-            .theme(c.getTheme())
-            .controlOwnerName(c.getControlOwnerName())
-            .testerOwnerId(c.getTesterOwnerId())
-            .testerUserId(c.getTesterUserId())
-            .testerName(c.getTesterName())
-            .escalationPolicyId(c.getEscalationPolicyId())
-            .ownerName(c.getOwnerName())
-            .controlType(c.getControlType())
-            .residualRisk(c.getResidualRisk())
-            .residualLikelihood(c.getResidualLikelihood())
-            .residualImpact(c.getResidualImpact())
-            .residualRiskRating(c.getResidualRiskRating())
-            .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
-            .status(c.getStatus())
-            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
-            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
-            .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
-            .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
-            .openFindings(openFindings)
-            .complianceArea(c.getComplianceArea())
-            .regulatoryRequirement(c.getRegulatoryRequirement())
-            .frequency(c.getTestFrequency())
-            .dueDate(c.getDueDate())
-            .actId(c.getActId())
-            .actName(c.getActName())
-            .build();
-    }
-
     public ControlDetailResponse getDetail(Integer id) {
         Control c = repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id));
 
@@ -272,7 +293,8 @@ public class ControlService {
             .controlNumber(c.getControlNumber())
             .name(c.getName())
             .description(c.getDescription())
-            .theme(c.getTheme())
+            .theme(c.getControlThemeId() == null ? null
+                : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
@@ -356,7 +378,7 @@ public class ControlService {
             .controlNumber(controlNumber)
             .name(req.getName())
             .description(req.getDescription())
-            .theme(req.getTheme())
+            .controlThemeId(themeService.resolveOrCreate(req.getTheme()))
             .controlType(req.getControlType())
             .whatItDoes(req.getWhatItDoes())
             .howTested(req.getHowTested())
@@ -416,6 +438,9 @@ public class ControlService {
         if (req.getTestFrequency() != null) {
             c.setTestFrequency(req.getTestFrequency());
         }
+        if (req.getTheme() != null) {
+            c.setControlThemeId(themeService.resolveOrCreate(req.getTheme()));
+        }
         if (req.getFirstDueDate() != null) {
             c.setFirstDueDate(req.getFirstDueDate());
         }
@@ -441,6 +466,33 @@ public class ControlService {
             testService.reassignOpenTasks(saved);
         }
         return toDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public ControlEscalationResponse resolveEscalation(Integer id) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        String scope = ControlSchedule.scope(c.getTestFrequency());
+        EscalationInstanceDto config = escalationPolicyService.resolve(
+            EscalationConstants.SUBJECT_CONTROL, null, c.getEscalationPolicyId(), scope);
+        if (config == null) {
+            return ControlEscalationResponse.builder().active(false).build();
+        }
+        EscalationPolicyDto policy = config.getSourcePolicyId() == null ? null
+            : escalationPolicyService.get(config.getSourcePolicyId());
+        return ControlEscalationResponse.builder()
+            .policyId(config.getSourcePolicyId())
+            .policyName(policy == null ? null : policy.getName())
+            .frequencyScope(policy == null ? null : policy.getFrequencyScope())
+            .isDefault(policy == null ? null : policy.getIsDefault())
+            .active(config.getActive())
+            .reminderStartValue(config.getReminderStartValue())
+            .reminderStartUnit(config.getReminderStartUnit())
+            .reminderRepeatValue(config.getReminderRepeatValue())
+            .reminderRepeatUnit(config.getReminderRepeatUnit())
+            .sendLink(config.getSendLink())
+            .levels(config.getLevels())
+            .build();
     }
 
     @Transactional
@@ -554,7 +606,9 @@ public class ControlService {
     }
 
     public List<ControlDto> findByTheme(String theme) {
-        return repo.findByTheme(theme).stream().map(this::toDto).toList();
+        Integer themeId = themeService.require(theme);
+        if (themeId == null) return List.of();
+        return repo.findByControlThemeId(themeId).stream().map(this::toDto).toList();
     }
 
     public List<ControlDto> findByOwner(Integer ownerId) {
@@ -571,7 +625,8 @@ public class ControlService {
             .controlNumber(c.getControlNumber())
             .name(c.getName())
             .description(c.getDescription())
-            .theme(c.getTheme())
+            .theme(c.getControlThemeId() == null ? null
+                : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())

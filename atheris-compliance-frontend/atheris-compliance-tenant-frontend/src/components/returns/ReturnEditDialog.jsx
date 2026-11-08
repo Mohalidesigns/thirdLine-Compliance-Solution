@@ -365,27 +365,30 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="overline" color="text.secondary">Ladder (after the due date)</Typography>
                 {escalation.levels.map((level, index) => (
-                  <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1, mb: 1.5 }}>
-                    <PersonPicker mode="user" label={`Level ${index + 1} escalate to`} value={level.person}
-                      onChange={(p) => setLevel(index, 'person', p)} />
-                    <TextField fullWidth size="small" type="number" value={level.afterValue}
-                      slotProps={{ htmlInput: { min: 0 } }}
-                      onChange={(e) => setLevel(index, 'afterValue', e.target.value)} />
-                    <TextField select fullWidth size="small" value={level.afterUnit}
-                      onChange={(e) => setLevel(index, 'afterUnit', e.target.value)}>
-                      {UNITS.map((u) => <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>)}
-                    </TextField>
+                  <Box key={index} sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>Level {index + 1}</Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1 }}>
+                      <PersonPicker mode="user" label={`Level ${index + 1} escalate to`} value={level.person}
+                        onChange={(p) => setLevel(index, 'person', p)} />
+                      <TextField label="After" fullWidth size="small" type="number" value={level.afterValue}
+                        slotProps={{ htmlInput: { min: 0 } }}
+                        onChange={(e) => setLevel(index, 'afterValue', e.target.value)} />
+                      <TextField select label="Unit" fullWidth size="small" value={level.afterUnit}
+                        onChange={(e) => setLevel(index, 'afterUnit', e.target.value)}>
+                        {UNITS.map((u) => <MenuItem key={u.value} value={u.value}>{u.label}</MenuItem>)}
+                      </TextField>
+                    </Box>
                   </Box>
                 ))}
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Button size="small" variant="text" disabled={escalation.levels.length >= MAX_LEVELS}
                     onClick={() => setE('levels', [...escalation.levels,
                       { afterValue: 3, afterUnit: 'DAYS', targetType: 'MANAGER', person: null }])}>
-                    + Add another level
+                    + Add level
                   </Button>
                   <Button size="small" variant="text" disabled={escalation.levels.length <= 1}
                     onClick={() => setE('levels', escalation.levels.slice(0, -1))}>
-                    Remove last level
+                    Remove level
                   </Button>
                 </Box>
                 <Typography variant="caption" color="text.secondary">

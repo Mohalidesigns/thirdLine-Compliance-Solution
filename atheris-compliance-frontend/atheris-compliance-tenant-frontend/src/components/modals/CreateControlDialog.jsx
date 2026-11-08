@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Accordion, AccordionSummary, AccordionDetails,
@@ -10,7 +10,7 @@ import OwnerPicker from '../org/OwnerPicker';
 import PersonPicker from '../common/PersonPicker';
 
 const EMPTY = {
-  name: '', description: '', controlType: '', inherentRisk: '',
+  name: '', description: '', theme: '', controlType: '', inherentRisk: '',
   whatItDoes: '', howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
   firstDueDate: '',
   reminderStartValue: '', reminderStartUnit: 'DAYS', reminderRepeatValue: '', reminderRepeatUnit: 'DAYS',
@@ -38,11 +38,29 @@ function Field({ label, children, sx }) {
 }
 
 export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar, obligationId = null }) {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [level2Shown, setLevel2Shown] = useState(false);
+  const [levelCount, setLevelCount] = useState(1);
   const [remindersTouched, setRemindersTouched] = useState(false);
+
+  const themesQuery = useQuery({
+    queryKey: ['control-themes', 'active'],
+    queryFn: ({ signal }) => api.controlThemes.list({ signal }),
+    enabled: open,
+  });
+  const themes = themesQuery.data || [];
+  const [newTheme, setNewTheme] = useState('');
+  const createTheme = useMutation({
+    mutationFn: (name) => api.controlThemes.create({ name }),
+    onSuccess: (created) => {
+      set('theme', created?.name || '');
+      setNewTheme('');
+      queryClient.invalidateQueries({ queryKey: ['control-themes'] });
+    },
+    onError: (e) => setError(e.message || 'Could not add the theme.'),
+  });
 
   const templatesQuery = useQuery({
     queryKey: ['escalation', 'policies', 'CONTROL', 'templates'],
@@ -53,7 +71,7 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
   useEffect(() => {
     if (!open) return;
     setForm({ ...EMPTY });
-    setLevel2Shown(false);
+    setLevelCount(1);
     setRemindersTouched(false);
   }, [open]);
 
@@ -75,7 +93,8 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
     }));
   }, [open, scope, templates, remindersTouched]);
 
-  const levelRows = (level2Shown ? [1, 2] : [1])
+  const levels = Array.from({ length: levelCount }, (_, i) => i + 1);
+  const levelRows = levels
     .map(n => ({ n, person: form[`level${n}Person`], after: form[`level${n}AfterValue`], unit: form[`level${n}AfterUnit`] }))
     .filter(r => r.person || String(r.after).trim() !== '')
     .map(r => {
@@ -88,7 +107,8 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
       return { afterValue, afterUnit: r.unit, targetType: r.n === 1 ? 'MANAGER' : 'CCO' };
     });
   const ladderTouched = !!(form.level1Person
-    || (level2Shown && (form.level2Person || String(form.level2AfterValue).trim() !== '')));
+    || Array.from({ length: levelCount - 1 }, (_, i) => i + 2)
+        .some(n => form[`level${n}Person`] || String(form[`level${n}AfterValue`]).trim() !== ''));
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError('Control name is required'); return; }
@@ -153,6 +173,20 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                 {RISKS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
               </TextField>
             </Field>
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Field label="Theme" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.theme} onChange={e => set('theme', e.target.value)}>
+                <MenuItem value=""><em>No theme</em></MenuItem>
+                {themes.map(t => <MenuItem key={t.themeId} value={t.name}>{t.name}</MenuItem>)}
+              </TextField>
+            </Field>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <TextField size="small" placeholder="Add a new theme…" value={newTheme}
+                onChange={e => setNewTheme(e.target.value)} sx={{ flex: 1 }} />
+              <Button size="small" variant="outlined" disabled={!newTheme.trim() || createTheme.isPending}
+                onClick={() => createTheme.mutate(newTheme.trim())}>Add theme</Button>
+            </Box>
           </Box>
 
           <Divider sx={{ my: 2 }} />
@@ -232,35 +266,39 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                   </Box>
                 </Field>
               </Box>
-              {(level2Shown ? [1, 2] : [1]).map((n) => (
-                <Box key={n} sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1, mt: 1.5 }}>
-                  <Field label="Escalate to" sx={{ mb: 0 }}>
-                    <PersonPicker mode="user" label={`Level ${n} escalate to`} value={form[`level${n}Person`]}
-                      onChange={p => set(`level${n}Person`, p)} />
-                  </Field>
-                  <Field label={`Level ${n}`} sx={{ mb: 0 }}>
-                    <TextField fullWidth size="small" type="number" value={form[`level${n}AfterValue`]}
-                      slotProps={{ htmlInput: { min: 0 } }} placeholder="0"
-                      onChange={e => set(`level${n}AfterValue`, e.target.value)} />
-                  </Field>
-                  <Field label="Unit" sx={{ mb: 0 }}>
-                    <TextField select fullWidth size="small" value={form[`level${n}AfterUnit`]}
-                      onChange={e => set(`level${n}AfterUnit`, e.target.value)}>
-                      <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
-                    </TextField>
-                  </Field>
+              {levels.map((n) => (
+                <Box key={n} sx={{ mt: 1.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>Level {n}</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr', gap: 1 }}>
+                    <Field label="Escalate to" sx={{ mb: 0 }}>
+                      <PersonPicker mode="user" label={`Level ${n} escalate to`} value={form[`level${n}Person`]}
+                        onChange={p => set(`level${n}Person`, p)} />
+                    </Field>
+                    <Field label="After" sx={{ mb: 0 }}>
+                      <TextField fullWidth size="small" type="number" value={form[`level${n}AfterValue`]}
+                        slotProps={{ htmlInput: { min: 0 } }} placeholder="0"
+                        onChange={e => set(`level${n}AfterValue`, e.target.value)} />
+                    </Field>
+                    <Field label="Unit" sx={{ mb: 0 }}>
+                      <TextField select fullWidth size="small" value={form[`level${n}AfterUnit`]}
+                        onChange={e => set(`level${n}AfterUnit`, e.target.value)}>
+                        <MenuItem value="DAYS">Days</MenuItem><MenuItem value="HOURS">Hours</MenuItem>
+                      </TextField>
+                    </Field>
+                  </Box>
                 </Box>
               ))}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
-                {level2Shown ? (
-                  <Button size="small" variant="text" onClick={() => {
-                    setLevel2Shown(false);
-                    setForm(f => ({ ...f, level2AfterValue: '', level2Person: null }));
-                  }}>Remove level 2</Button>
-                ) : (
-                  <Button size="small" variant="text" onClick={() => setLevel2Shown(true)}>+ Add another level</Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                {levelCount < 3 && (
+                  <Button size="small" variant="text" onClick={() => setLevelCount(c => c + 1)}>+ Add level</Button>
                 )}
-                <Typography variant="caption" color="text.secondary">After the due date.</Typography>
+                {levelCount > 1 && (
+                  <Button size="small" variant="text" onClick={() => {
+                    setForm(f => ({ ...f, [`level${levelCount}AfterValue`]: '', [`level${levelCount}Person`]: null }));
+                    setLevelCount(c => c - 1);
+                  }}>Remove level {levelCount}</Button>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>After the due date.</Typography>
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Leave the ladder blank to keep the default: responsible person +0 days, manager +2 days, CCO +5 days.

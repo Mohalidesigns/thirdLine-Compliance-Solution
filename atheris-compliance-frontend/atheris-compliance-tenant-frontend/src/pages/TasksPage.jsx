@@ -138,42 +138,66 @@ export default function TasksPage() {
     return rows;
   }, [rows, kpi]);
 
-  const columns = [
+  const titleColumn = {
+    id: 'title', label: 'Task', minWidth: 260, render: (t) => (
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{t.title}</Typography>
+        <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
+          color={priorityChip[t.priority]?.color || 'default'} />
+      </Stack>
+    ),
+  };
+  const dueColumn = {
+    id: 'due', label: 'Due date', minWidth: 160, render: (t) => (
+      t.dueDate ? (
+        <Typography variant="body2" sx={{ color: t.daysRemaining < 0 ? 'error.main' : 'text.primary' }} noWrap>
+          {t.dueDate}
+          {relText(t) ? <Typography component="span" variant="caption" color="text.secondary">{` (${relText(t)})`}</Typography> : null}
+        </Typography>
+      ) : <Typography variant="body2" color="text.secondary">—</Typography>
+    ),
+  };
+  const regulatorColumn = {
+    id: 'regulator', label: 'Regulator', minWidth: 130, render: (t) => (
+      t.regulator ? <Chip size="small" variant="outlined" label={t.regulator} /> : <Typography variant="body2" color="text.secondary">—</Typography>
+    ),
+  };
+  const responsibleColumn = { id: 'responsible', label: 'Responsible', minWidth: 180, render: (t) => (
+    <>
+      <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography>
+      {t.department && (
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+          {t.department}
+        </Typography>
+      )}
+    </>
+  ) };
+
+  const obligationColumns = [
+    titleColumn,
     {
-      id: 'title', label: 'Task', minWidth: 260, render: (t) => (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{t.title}</Typography>
-          <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
-            color={priorityChip[t.priority]?.color || 'default'} />
-        </Stack>
+      id: 'act', label: 'Act / Regulation', minWidth: 180, render: (t) => (
+        t.regulator ? <Typography variant="body2" noWrap>{t.regulator}</Typography>
+          : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
     {
-      id: 'due', label: 'Due date', minWidth: 160, render: (t) => (
-        t.dueDate ? (
-          <Typography variant="body2" sx={{ color: t.daysRemaining < 0 ? 'error.main' : 'text.primary' }} noWrap>
-            {t.dueDate}
-            {relText(t) ? <Typography component="span" variant="caption" color="text.secondary">{` (${relText(t)})`}</Typography> : null}
-          </Typography>
-        ) : <Typography variant="body2" color="text.secondary">—</Typography>
+      id: 'area', label: 'Area of focus', minWidth: 160, render: (t) => (
+        t.areaOfFocus ? <Chip size="small" variant="outlined" label={t.areaOfFocus} />
+          : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
     {
-      id: 'regulator', label: 'Regulator', minWidth: 130, render: (t) => (
-        t.regulator ? <Chip size="small" variant="outlined" label={t.regulator} /> : <Typography variant="body2" color="text.secondary">—</Typography>
+      id: 'risk', label: 'Risk', minWidth: 110, render: (t) => (
+        t.stage ? <Chip size="small" label={t.stage} color={/critical|high/i.test(t.stage) ? 'error' : 'warning'}
+          variant="outlined" /> : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
-    { id: 'responsible', label: 'Responsible', minWidth: 180, render: (t) => (
-      <>
-        <Typography variant="body2" noWrap>{t.responsiblePerson || '—'}</Typography>
-        {t.department && (
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-            {t.department}
-          </Typography>
-        )}
-      </>
-    ) },
+    { ...responsibleColumn, label: 'Risk owner' },
   ];
+
+  const defaultColumns = [titleColumn, dueColumn, regulatorColumn, responsibleColumn];
+  const columns = category === 'OBLIGATIONS' ? obligationColumns : defaultColumns;
 
   return (
     <Box>

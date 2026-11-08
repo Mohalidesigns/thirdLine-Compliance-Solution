@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.imports.handler;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
 import com.atheris.compliance.tenant.backend.modules.imports.entity.ImportRowData;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
@@ -60,7 +61,6 @@ public class ControlImportHandler implements ImportHandler {
     static final List<String> CONTROL_TYPES = List.of("Preventive", "Detective", "Corrective", "Directive");
     static final List<String> FREQUENCIES = List.of("Monthly", "Quarterly", "Semi-Annual", "Annual");
     static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
-    static final List<String> THEME_SUGGESTIONS = List.of("IT", "Financial", "Operational", "Compliance", "Legal");
     private static final Map<String, Integer> FREQUENCY_DAYS_DEFAULT =
         Map.of("Monthly", 30, "Quarterly", 90, "Semi-Annual", 182, "Annual", 365);
 
@@ -77,6 +77,7 @@ public class ControlImportHandler implements ImportHandler {
     private final OwnerRepository ownerRepo;
     private final ObligationService obligationService;
     private final AuditService audit;
+    private final ControlThemeService controlThemeService;
 
     // ------------------------------------------------------------------ template
 
@@ -100,13 +101,14 @@ public class ControlImportHandler implements ImportHandler {
     @Override
     public LinkedHashMap<String, List<String>> suggestions() {
         LinkedHashMap<String, List<String>> m = new LinkedHashMap<>();
-        m.put("Theme", THEME_SUGGESTIONS);
+        m.put("Theme", controlThemeService.list(true).stream().map(t -> t.getName()).toList());
         return m;
     }
 
     @Override
     public List<ReferenceSheet> referenceSheets() {
-        return List.of(obligationsReferenceSheet(obligationService));
+        return List.of(obligationsReferenceSheet(obligationService),
+            controlsReferenceSheet(controlRepo, controlThemeService));
     }
 
 
@@ -284,7 +286,7 @@ public class ControlImportHandler implements ImportHandler {
                 .controlNumber(number)
                 .name(p.name())
                 .description(row.value(DESCRIPTION))
-                .theme(row.value(THEME))
+                .controlThemeId(controlThemeService.resolveOrCreate(row.value(THEME)))
                 .controlType(p.type())
                 .whatItDoes(row.value(WHAT_IT_DOES))
                 .howTested(row.value(HOW_TESTED))

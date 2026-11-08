@@ -18,6 +18,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Obli
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.service.DueRule;
@@ -57,6 +58,7 @@ public class RegulationSeedService {
     private final RegulatorySanctionRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ControlRepository controlRepo;
+    private final ControlThemeService controlThemeService;
     private final ActRepository actRepo;
     private final TenantIdentityService tenantIdentity;
     private final TenantProfileRepository profiles;
@@ -278,7 +280,7 @@ public class RegulationSeedService {
                     .controlNumber(c.getControlNumber())
                     .name(c.getComplianceControl() != null ? c.getComplianceControl() : c.getComplianceArea())
                     .description(c.getComplianceControl())
-                    .theme(c.getTheme())
+                    .controlThemeId(resolveTheme(c.getTheme()))
                     .controlType(c.getControlType() != null ? c.getControlType() : "CMP")
                     .whatItDoes(c.getMonitoringActivity())
                     // Deliberately NOT howTested: the toolkit only carries one control description,
@@ -429,5 +431,13 @@ public class RegulationSeedService {
             return frequency;
         }
         return ControlSchedule.frequencyForRisk(riskLevel);
+    }
+
+    private Integer resolveTheme(String theme) {
+        if (theme == null || theme.isBlank()
+                || AreasOfFocus.GENERIC_TOOLKIT_SECTION.equalsIgnoreCase(theme.trim())) {
+            return null;
+        }
+        return controlThemeService.resolveOrCreate(theme);
     }
 }

@@ -153,6 +153,11 @@ export default function ControlsPage() {
     queryKey: ['controls', 'stats'],
     queryFn: () => api.controls.stats(),
   });
+  const themesQuery = useQuery({
+    queryKey: ['control-themes', 'active'],
+    queryFn: ({ signal }) => api.controlThemes.list({ signal }),
+  });
+  const themes = themesQuery.data || [];
 
   // Typeahead source for the "Linked obligation" filter.
   const obligationOptionsQuery = useQuery({
@@ -241,7 +246,7 @@ export default function ControlsPage() {
   const filters = [
     { key: 'theme', label: 'Theme', minWidth: 140, value: themeFilter,
       onChange: (v) => { setThemeFilter(v); setPage(0); }, allLabel: 'All themes',
-      options: (stats?.themes || []).map((t) => ({ value: t, label: t })) },
+      options: (themes?.map((t) => t.name) || stats?.themes || []).map((t) => ({ value: t, label: t })) },
     { key: 'risk', label: 'Residual Risk', minWidth: 150, value: riskFilter,
       onChange: (v) => { setRiskFilter(v); setPage(0); }, allLabel: 'All risks',
       options: ['Critical', 'High', 'Moderate', 'Low'].map((r) => ({ value: r, label: r })) },

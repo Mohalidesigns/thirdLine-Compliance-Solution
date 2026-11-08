@@ -414,6 +414,7 @@ public class TaskCenterService {
                 .type("OBLIGATION_NO_CONTROL").category(CATEGORY_OBLIGATIONS)
                 .title(o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle() : o.getName())
                 .caption(o.getSectionReference())
+                .areaOfFocus(o.getAreaOfFocus())
                 .regulator(o.getActName())
                 .responsiblePerson(c.getAssignedOwnerName())
                 .department(c.getAssignedDepartmentId() == null ? null : deptNames.get(c.getAssignedDepartmentId()))

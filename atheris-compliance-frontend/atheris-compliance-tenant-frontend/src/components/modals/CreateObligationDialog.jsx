@@ -5,13 +5,14 @@ import {
 } from '@mui/material';
 import { LinkIcon } from 'shared';
 import { api } from '../../services/api';
+import OwnerPicker from '../org/OwnerPicker';
 import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
   instrumentId: '', name: '', tenantRegulatorId: '', description: '', areaOfFocus: '', effectiveDate: '',
-  linkedControlIds: [], linkedReturnIds: [],
+  assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
 
 const AREAS_OF_FOCUS = [
@@ -59,6 +60,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             description: initial.description || '',
             areaOfFocus: initial.areaOfFocus || '',
             effectiveDate: initial.effectiveDate || '',
+            assignedOwnerId: initial.assignedOwnerId ?? null,
             linkedControlIds: [...(initial.linkedControlIds || [])],
             linkedReturnIds: [...(initial.linkedReturnIds || [])],
           }
@@ -88,10 +90,16 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
       };
+      delete body.assignedOwnerId;
       const saved = editing && initial
         ? await api.obligations.update(initial.obligationId, body)
         : await api.obligations.create(body);
       const obligationId = editing && initial ? initial.obligationId : saved?.obligationId;
+      if (obligationId && form.assignedOwnerId != null) {
+        await api.obligations.assignOwner(obligationId, {
+          assignedOwnerId: form.assignedOwnerId, changeReason: 'Risk owner set on save',
+        });
+      }
       const returnIds = (form.linkedReturnIds || []).map(Number);
       if (obligationId && returnIds.length > 0) {
         await api.obligations.linkReturns(obligationId, returnIds);
@@ -132,6 +140,12 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
                 onChange={e => set('effectiveDate', e.target.value)} />
+            </Field>
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Field label="Risk owner (accountable for this obligation)" sx={{ mb: 0 }}>
+              <OwnerPicker value={form.assignedOwnerId} onChange={id => set('assignedOwnerId', id)}
+                label="Risk owner" />
             </Field>
           </Box>
           <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>

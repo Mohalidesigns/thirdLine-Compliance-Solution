@@ -110,10 +110,10 @@ public class LdapAuthService {
             LdapUtils.closeContext(ctx.getContext(s.getBindDn(), s.getBindPassword()));
             return new LdapResult(Status.SUCCESS, null, "Connection succeeded");
         } catch (org.springframework.ldap.AuthenticationException e) {
-            return new LdapResult(Status.INVALID_CREDENTIALS, null, "Service account bind failed — check the DN and password");
+            return new LdapResult(Status.INVALID_CREDENTIALS, null, "Service account bind failed — check the bind DN and password");
         } catch (Exception e) {
             log.warn("LDAP test connection failed: {}", e.getMessage());
-            return new LdapResult(Status.UNAVAILABLE, null, "Could not reach the directory: " + e.getMessage());
+            return new LdapResult(Status.UNAVAILABLE, null, friendlyLdapError(s.getUrl(), e));
         }
     }
 
@@ -230,5 +230,35 @@ public class LdapAuthService {
         } catch (Exception e) {
             return v;
         }
+    }
+
+    private static String friendlyLdapError(String url, Exception e) {
+        Throwable root = rootCause(e);
+        String detail = root.getMessage() == null ? "" : root.getMessage().toLowerCase();
+        if (root instanceof java.net.ConnectException || detail.contains("connection refused")
+                || detail.contains("connection reset")) {
+            return "No LDAP server is listening on " + url;
+        }
+        if (root instanceof java.net.UnknownHostException) {
+            return "Unknown host in the LDAP URL \"" + url + "\" — check the host name.";
+        }
+        if (root instanceof java.net.SocketTimeoutException || detail.contains("timed out")) {
+            return "Timed out connecting to " + url + " — the host or port may be wrong, or a firewall is blocking it.";
+        }
+        if (root instanceof javax.naming.AuthenticationException) {
+            return "Service account bind failed — check the bind DN and password.";
+        }
+        if (root instanceof javax.naming.NameNotFoundException) {
+            return "The user search base does not exist in the directory — check the base DN.";
+        }
+        String message = root.getMessage();
+        return "Could not reach the directory (" + url + "): "
+            + (message == null || message.isBlank() ? root.getClass().getSimpleName() : message);
+    }
+
+    private static Throwable rootCause(Throwable t) {
+        Throwable c = t;
+        while (c.getCause() != null && c.getCause() != c) c = c.getCause();
+        return c;
     }
 }

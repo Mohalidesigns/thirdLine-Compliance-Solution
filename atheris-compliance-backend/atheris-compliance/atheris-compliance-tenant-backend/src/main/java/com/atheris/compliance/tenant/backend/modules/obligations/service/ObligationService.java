@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.repository.EvidenceFileRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.*;
@@ -53,6 +54,7 @@ public class ObligationService {
     private final ObligationSanctionRepository obligationSanctionRepo;
     private final TenantRegulatorRepository tenantRegulatorRepo;
     private final FindingRepository findingRepo;
+    private final ControlThemeService controlThemeService;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -579,12 +581,15 @@ public class ObligationService {
         if (c != null && c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) {
             Map<Integer, Control> byId = controlRepo.findAllById(c.getLinkedControlIds()).stream()
                 .collect(Collectors.toMap(Control::getControlId, x -> x, (a, b) -> a));
+            Map<Integer, String> themeNames = controlThemeService.namesById(byId.values().stream()
+                .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
             controls = c.getLinkedControlIds().stream()
                 .map(byId::get).filter(Objects::nonNull)
                 .map(ct -> ObligationDetailView.ControlItem.builder()
                     .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
                     .name(ct.getName()).controlSummary(ct.getName())
-                    .theme(ct.getTheme()).complianceArea(ct.getComplianceArea())
+                    .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
+                    .complianceArea(ct.getComplianceArea())
                     .controlType(ct.getControlType())
                     .inherentRisk(ct.getInherentRisk()).residualRisk(ct.getResidualRisk())
                     .riskLevel(ct.getResidualRiskRating() != null ? ct.getResidualRiskRating() : ct.getResidualRisk())

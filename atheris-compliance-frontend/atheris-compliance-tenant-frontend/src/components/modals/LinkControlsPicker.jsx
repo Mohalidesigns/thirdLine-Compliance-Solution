@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Checkbox,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
-  Paper, TextField, Box, Typography, CircularProgress, InputAdornment,
+  Paper, TextField, Box, Typography, CircularProgress, InputAdornment, Chip,
 } from '@mui/material';
 import { MagnifyingGlassIcon, PlusIcon } from 'shared';
 import { api } from '../../services/api';
@@ -63,6 +63,19 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
               Add New Control
             </Button>
           </Box>
+          {selected.length > 0 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5, alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>Selected:</Typography>
+              {selected.map(id => {
+                const c = rows.find(x => x.controlId === id);
+                return (
+                  <Chip key={id} size="small" color="primary" variant="outlined"
+                    label={c ? (c.controlNumber || c.name || `#${id}`) : `#${id}`}
+                    onDelete={() => setSelected(prev => prev.filter(x => x !== id))} />
+                );
+              })}
+            </Box>
+          )}
           {isPending ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress size={26} /></Box>
           ) : rows.length === 0 ? (

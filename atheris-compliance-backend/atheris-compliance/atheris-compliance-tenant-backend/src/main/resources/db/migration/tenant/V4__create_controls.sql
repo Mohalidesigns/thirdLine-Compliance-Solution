@@ -1,9 +1,34 @@
+-- Control Theme vocabulary (tenant-managed). Seeded with the toolkit section themes
+-- (the generic "Compliance Risk Management" catch-all is deliberately excluded).
+CREATE TABLE IF NOT EXISTS control_themes (
+    theme_id     SERIAL PRIMARY KEY,
+    name         VARCHAR(255) NOT NULL UNIQUE,
+    description  TEXT,
+    is_active    BOOLEAN DEFAULT true,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+INSERT INTO control_themes (name) VALUES
+    ('Conduct Risk'),
+    ('Corporate Governance'),
+    ('Data Protection'),
+    ('Capital Market'),
+    ('ESG'),
+    ('Cybersecurity'),
+    ('Consumer Protection'),
+    ('Anti-Bribery & Corruption'),
+    ('AML/CFT'),
+    ('Account Management'),
+    ('Cash Management')
+ON CONFLICT (name) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS controls (
     control_id                    SERIAL PRIMARY KEY,
     control_number                VARCHAR(100) NOT NULL UNIQUE,
     name                          TEXT NOT NULL,
     description                   TEXT,
-    theme                         TEXT,
+    control_theme_id              INT REFERENCES control_themes(theme_id),
     control_type                  VARCHAR(100),
     what_it_does                  TEXT,
     how_tested                    TEXT,
@@ -32,7 +57,7 @@ CREATE TABLE IF NOT EXISTS controls (
     updated_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_controls_theme ON controls(theme);
+CREATE INDEX idx_controls_control_theme ON controls(control_theme_id);
 CREATE INDEX idx_controls_owner ON controls(control_owner_user_id);
 
 CREATE TABLE IF NOT EXISTS control_tasks (
