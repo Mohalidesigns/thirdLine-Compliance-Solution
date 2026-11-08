@@ -727,6 +727,11 @@ public class ToolkitImportService {
     }
 
     private String abbreviate(String name) {
+        Matcher paren = PAREN_ACRONYM.matcher(name);
+        if (paren.find()) {
+            String acronym = paren.group(1).toUpperCase(Locale.ROOT);
+            return acronym.length() > 20 ? acronym.substring(0, 20) : acronym;
+        }
         String abbr = Arrays.stream(name.replaceAll("[()]", " ").split("\\s+"))
             .filter(w -> w.length() >= 3 && Character.isUpperCase(w.charAt(0)))
             .map(w -> String.valueOf(w.charAt(0)))
@@ -849,6 +854,8 @@ public class ToolkitImportService {
         Pattern.compile("(\\d[\\d,]*(?:\\.\\d{1,2})?)\\s*([mMkK])?");
     private static final BigDecimal ONE_MILLION = new BigDecimal("1000000");
     private static final BigDecimal ONE_THOUSAND = new BigDecimal("1000");
+
+    private static final Pattern PAREN_ACRONYM = Pattern.compile("\\(([A-Z][A-Za-z0-9&./-]{1,19})\\)");
 
     private BigDecimal parseMoneyToken(String token) {
         Matcher m = MONEY_TOKEN.matcher(token);
