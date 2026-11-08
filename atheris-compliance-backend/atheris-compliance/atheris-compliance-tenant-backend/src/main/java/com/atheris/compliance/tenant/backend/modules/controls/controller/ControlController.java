@@ -72,6 +72,30 @@ public class ControlController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req, u.getUserId()));
     }
 
+    @GetMapping("/{id}/escalation")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlEscalationResponse> resolveEscalation(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.resolveEscalation(id));
+    }
+
+    @PutMapping("/{id}/escalation")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlDto> updateEscalation(
+            @PathVariable Integer id,
+            @RequestBody ControlEscalationRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.updateEscalation(id, req, u.getUserId()));
+    }
+
+    @PutMapping("/{id}/tester")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlDto> assignTester(
+            @PathVariable Integer id,
+            @RequestBody AssignTesterRequest req,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.assignTester(id, req.getTesterOwnerId(), u.getUserId()));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlDto> update(

@@ -4,6 +4,8 @@ import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigR
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigResponse;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.TaskCentreConfigRequest;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.TaskCentreConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.service.SettingsService;
 import com.atheris.compliance.tenant.backend.modules.settings.service.SmtpSettingsService;
 import com.atheris.compliance.tenant.backend.modules.notifications.dto.NotificationTemplateDto;
@@ -40,6 +42,18 @@ public class SettingsController {
     public ResponseEntity<Void> updatePolling(@Valid @RequestBody PollingConfigRequest req) {
         service.updatePollingConfig(req.getIntervalMinutes());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/task-centre")
+    public ResponseEntity<TaskCentreConfigResponse> getTaskCentre() {
+        return ResponseEntity.ok(service.getTaskCentreConfig());
+    }
+
+    @PutMapping("/task-centre")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    public ResponseEntity<TaskCentreConfigResponse> updateTaskCentre(@Valid @RequestBody TaskCentreConfigRequest req) {
+        service.updateTaskCentreConfig(req.getControlDueHorizonDays());
+        return ResponseEntity.ok(service.getTaskCentreConfig());
     }
 
     @GetMapping("/smtp")

@@ -25,7 +25,7 @@ export default function Sidebar(props) {
     queryFn: ({ signal }) => api.tasks.centerStats({}, { signal }),
     refetchInterval: 60000,
   });
-  const openTasks = taskStats?.total || 0;
+  const openTasks = taskStats?.backlog ?? taskStats?.total ?? 0;
 
   useEffect(() => {
     let cancelled = false;

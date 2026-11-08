@@ -41,7 +41,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
           <Field label="Filing channel" value={item.filingChannel} />
           <Field label="Return owner" value={item.returnOwnerName} />
           <Field label="Responsible units"><Chips values={responsibleUnits(item)} /></Field>
-          <Field label="Responsible persons"><Chips values={responsiblePersons(item)} /></Field>
+          <Field label="Filers"><Chips values={responsiblePersons(item)} /></Field>
           {item.deadlineText && <Field label="Regulator wording" value={item.deadlineText} />}
         </FieldGrid>
       </Section>

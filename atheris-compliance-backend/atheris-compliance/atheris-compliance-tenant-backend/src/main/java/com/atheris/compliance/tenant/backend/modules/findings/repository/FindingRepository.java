@@ -4,6 +4,7 @@ import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -14,11 +15,14 @@ public interface FindingRepository extends JpaRepository<Finding, Long>, JpaSpec
     List<Finding> findBySeverity(String severity);
     List<Finding> findByAssignedToUserId(Integer userId);
     long countByStatus(String status);
+    long countByClosedAtGreaterThanEqual(Instant cutoff);
     long countBySeverity(String severity);
     List<Finding> findByStatusNotOrderByCreatedAtDesc(String status);
     List<Finding> findByStatusAndSeverity(String status, String severity);
     List<Finding> findByStatusInAndRemediationDeadlineBefore(List<String> statuses, LocalDate today);
     List<Finding> findByLinkedControlIdIn(Collection<Integer> controlIds);
     List<Finding> findByLinkedObligationIdIn(Collection<Long> obligationIds);
+    List<Finding> findByStatusInAndRemediationDeadlineBetweenOrderByRemediationDeadlineAsc(
+        List<String> statuses, LocalDate from, LocalDate to);
     List<Finding> findByLinkedControlIdOrderByFindingIdDesc(Integer controlId);
 }

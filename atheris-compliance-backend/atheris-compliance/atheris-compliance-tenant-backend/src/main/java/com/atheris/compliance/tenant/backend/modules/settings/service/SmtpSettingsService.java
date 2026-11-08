@@ -91,8 +91,8 @@ public class SmtpSettingsService {
             sender.send(message);
             return result(true, "Connection successful — test email sent to " + to);
         } catch (Exception e) {
-            log.warn("SMTP test failed for host {}: {}", host, e.getMessage());
-            return result(false, e.getMessage());
+            log.warn("SMTP test failed for host {}:{}: {}", host, port, e.getMessage());
+            return result(false, friendlySmtpError(host, port, e));
         }
     }
 
@@ -148,5 +148,35 @@ public class SmtpSettingsService {
         if (value == null) return null;
         String t = value.trim();
         return t.isEmpty() ? null : t;
+    }
+
+    private static String friendlySmtpError(String host, int port, Exception e) {
+        Throwable root = rootCause(e);
+        String detail = root.getMessage() == null ? "" : root.getMessage().toLowerCase();
+        if (root instanceof java.net.ConnectException || detail.contains("connection refused")) {
+            return "No SMTP server is listening on " + host + ":" + port;
+        }
+        if (root instanceof java.net.UnknownHostException) {
+            return "Unknown host \"" + host + "\" — check the SMTP host name.";
+        }
+        if (root instanceof java.net.SocketTimeoutException) {
+            return "Timed out connecting to " + host + ":" + port
+                + " — the host or port may be wrong, or a firewall is blocking it.";
+        }
+        if (root instanceof jakarta.mail.AuthenticationFailedException || detail.contains("authentication failed")
+                || detail.contains("535") || detail.contains("username and password not accepted")) {
+            return "Authentication failed — check the username and password.";
+        }
+        if (root instanceof jakarta.mail.MessagingException) {
+            String m = root.getMessage();
+            return "SMTP error: " + (m == null || m.isBlank() ? root.getClass().getSimpleName() : m);
+        }
+        return "SMTP error: " + (root.getMessage() == null ? root.getClass().getSimpleName() : root.getMessage());
+    }
+
+    private static Throwable rootCause(Throwable t) {
+        Throwable c = t;
+        while (c.getCause() != null && c.getCause() != c) c = c.getCause();
+        return c;
     }
 }

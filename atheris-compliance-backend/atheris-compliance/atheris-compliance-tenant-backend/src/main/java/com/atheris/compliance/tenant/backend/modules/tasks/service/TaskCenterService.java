@@ -15,6 +15,11 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.settings.service.SettingsService;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
@@ -50,6 +55,7 @@ public class TaskCenterService {
     public static final String CATEGORY_OBLIGATIONS = "OBLIGATIONS";
 
     private static final int CONTROL_DUE_SOON_DAYS = 30;
+    private static final int CONTROL_FALLBACK_HORIZON_DAYS = 30;
     private static final int FINDING_DUE_SOON_DAYS = 7;
     private static final Map<String, Integer> RANK =
         Map.of("OVERDUE", 0, "HIGH", 1, "MEDIUM", 2, "SOON", 3, "LOW", 4);
@@ -64,6 +70,9 @@ public class TaskCenterService {
     private final FindingRepository findings;
     private final ObligationClassificationRepository classifications;
     private final ObligationRepository obligations;
+    private final SettingsService settings;
+    private final OwnerRepository owners;
+    private final DepartmentRepository departments;
 
     @Transactional(readOnly = true)
     public Page<TaskItemDto> page(String assignee, String category, String priority, String q,
@@ -96,10 +105,16 @@ public class TaskCenterService {
             .toList();
     }
 
+    private static final Set<String> ROLE_ACTIONABLE = Set.of(
+        "RETURN_REPORT_REVIEW", "CONTROL_TEST_ASSIGN", "CONTROL_TEST_AWAITING_REVIEW",
+        "FINDING_UNASSIGNED", "FINDING_AWAITING_REVIEW", "OBLIGATION_NO_CONTROL");
+
     private static boolean actionableByRole(TaskItemDto task, String role) {
         if (task == null || role == null || task.getOwnerUserId() != null) return false;
-        return "RETURN_REPORT_REVIEW".equals(task.getType())
-            && (AppRole.CCO.equals(role) || AppRole.TENANT_ADMIN.equals(role));
+        if (!AppRole.ANALYST.equals(role) && !AppRole.CCO.equals(role) && !AppRole.TENANT_ADMIN.equals(role)) {
+            return false;
+        }
+        return ROLE_ACTIONABLE.contains(task.getType());
     }
 
     @Transactional(readOnly = true)
@@ -108,11 +123,15 @@ public class TaskCenterService {
         List<TaskItemDto> scoped = category == null || category.isBlank() ? all
             : all.stream().filter(t -> category.equalsIgnoreCase(t.getCategory())).toList();
         LocalDate today = LocalDate.now();
+        java.time.Instant cutoff = java.time.Instant.now().minus(7, ChronoUnit.DAYS);
         long completed = instances.countByStatusInAndCompletedAtGreaterThanEqual(
-            List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE),
-            java.time.Instant.now().minus(7, ChronoUnit.DAYS));
+                List.of(ReturnFilingStatus.SUBMITTED, ReturnFilingStatus.SUBMITTED_LATE), cutoff)
+            + findings.countByClosedAtGreaterThanEqual(cutoff)
+            + testResults.countByReviewedAtGreaterThanEqual(cutoff);
+        long backlog = build("all", null, null, null, null, null, null).size();
         return TaskStatsDto.builder()
             .total(scoped.size())
+            .backlog(backlog)
             .overdue(scoped.stream().filter(t -> "OVERDUE".equals(t.getPriority())).count())
             .dueToday(scoped.stream().filter(t -> t.getDueDate() != null && t.getDueDate().isEqual(today)).count())
             .dueThisWeek(scoped.stream().filter(t -> t.getDueDate() != null
@@ -222,18 +241,34 @@ public class TaskCenterService {
         Map<Integer, Control> byId = new HashMap<>();
         if (!controlIds.isEmpty()) for (Control c : controls.findAllById(controlIds)) byId.put(c.getControlId(), c);
 
+        Integer configuredHorizon = controlHorizonDays();
+        Set<Integer> controlOwnerIds = byId.values().stream().map(Control::getControlOwnerId)
+            .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Integer, String> deptByOwner = new HashMap<>();
+        if (!controlOwnerIds.isEmpty()) {
+            Map<Integer, String> deptNames = departmentNames(
+                owners.findAllById(controlOwnerIds).stream().map(Owner::getDepartmentId)
+                    .filter(Objects::nonNull).collect(Collectors.toSet()));
+            for (Owner o : owners.findAllById(controlOwnerIds)) {
+                if (o.getDepartmentId() != null) deptByOwner.put(o.getOwnerId(), deptNames.get(o.getDepartmentId()));
+            }
+        }
         for (ControlTask t : tasks) {
             if (t.getDueDate() == null) continue;
             long days = ChronoUnit.DAYS.between(today, t.getDueDate());
+            Control c0 = byId.get(t.getControlId());
+            if (days >= 0 && !withinControlHorizon(days, c0, configuredHorizon)) continue;
             String type, priority, label;
             if (WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()) || days < 0) {
                 type = "CONTROL_TEST_OVERDUE"; priority = "OVERDUE"; label = "Record test";
-            } else if (days <= CONTROL_DUE_SOON_DAYS) {
-                type = "CONTROL_TEST_DUE"; priority = "SOON"; label = "Record test";
             } else {
-                continue;
+                type = "CONTROL_TEST_DUE"; priority = "SOON"; label = "Record test";
             }
             Control c = byId.get(t.getControlId());
+            boolean noTester = c != null && c.getTesterOwnerId() == null && c.getTesterUserId() == null;
+            String actionType = noTester ? "ASSIGN" : "OPEN";
+            String actionLabel = noTester ? "Assign tester" : label;
+            if (noTester) type = "CONTROL_TEST_ASSIGN";
             Integer ownerId = t.getAssignedToUserId() != null ? t.getAssignedToUserId()
                 : (c == null ? null : c.getControlOwnerUserId());
             String ownerName = t.getAssignedToName() != null && !t.getAssignedToName().isBlank()
@@ -244,10 +279,11 @@ public class TaskCenterService {
                 .title(t.getControlName()).caption(t.getControlNumber())
                 .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(ownerName)
+                .department(c == null ? null : deptByOwner.get(c.getControlOwnerId()))
                 .priority(priority).dueDate(t.getDueDate()).daysRemaining((int) days)
                 .ownerName(ownerName).ownerUserId(ownerId)
                 .stage(t.getStatus()).escalationLevel(t.getEscalationLevel())
-                .linkPath("/controls?controlId=" + t.getControlId()).actionLabel(label).actionType("OPEN")
+                .linkPath("/controls?controlId=" + t.getControlId()).actionLabel(actionLabel).actionType(actionType)
                 .sourceRef(Map.of("controlId", t.getControlId(), "taskId", t.getTaskId()))
                 .build());
         }
@@ -308,6 +344,9 @@ public class TaskCenterService {
             .collect(Collectors.toSet());
         Map<Integer, Control> byControl = new HashMap<>();
         if (!controlIds.isEmpty()) for (Control c : controls.findAllById(controlIds)) byControl.put(c.getControlId(), c);
+        Set<Integer> findingOwnerIds = open.stream().map(Finding::getAssignedToOwnerId)
+            .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Integer, String> findingDept = ownerDepartmentMap(findingOwnerIds);
 
         List<TaskItemDto> out = new ArrayList<>();
         for (Finding f : open) {
@@ -337,10 +376,13 @@ public class TaskCenterService {
                 .caption(displayId(f))
                 .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(f.getAssignedToName())
+                .department(f.getAssignedToOwnerId() == null ? null : findingDept.get(f.getAssignedToOwnerId()))
                 .priority(priority).dueDate(dl).daysRemaining(dl == null ? null : (int) days)
-                .ownerName(f.getAssignedToName()).ownerUserId(f.getAssignedToUserId())
+                .ownerName(f.getAssignedToName())
+                .ownerUserId("FINDING_AWAITING_REVIEW".equals(type) ? null : f.getAssignedToUserId())
                 .stage(f.getStatus()).severity(f.getSeverity())
-                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label).actionType("OPEN")
+                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label)
+                .actionType("FINDING_UNASSIGNED".equals(type) ? "ASSIGN" : "OPEN")
                 .sourceRef(Map.of("findingId", f.getFindingId()))
                 .build());
         }
@@ -357,6 +399,9 @@ public class TaskCenterService {
         Set<Long> ids = gaps.stream().map(ObligationClassification::getObligationId).collect(Collectors.toSet());
         Map<Long, Obligation> byId = new HashMap<>();
         for (Obligation o : obligations.findAllById(ids)) byId.put(o.getObligationId(), o);
+        Map<Integer, String> deptNames = departmentNames(gaps.stream()
+            .map(ObligationClassification::getAssignedDepartmentId).filter(Objects::nonNull)
+            .collect(Collectors.toSet()));
 
         List<TaskItemDto> out = new ArrayList<>();
         for (ObligationClassification c : gaps) {
@@ -369,12 +414,14 @@ public class TaskCenterService {
                 .type("OBLIGATION_NO_CONTROL").category(CATEGORY_OBLIGATIONS)
                 .title(o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle() : o.getName())
                 .caption(o.getSectionReference())
+                .areaOfFocus(o.getAreaOfFocus())
                 .regulator(o.getActName())
                 .responsiblePerson(c.getAssignedOwnerName())
+                .department(c.getAssignedDepartmentId() == null ? null : deptNames.get(c.getAssignedDepartmentId()))
                 .priority(high ? "HIGH" : "MEDIUM").dueDate(null).daysRemaining(null)
                 .ownerName(c.getAssignedOwnerName()).ownerUserId(c.getAssignedOwnerUserId())
                 .stage(risk)
-                .linkPath("/obligations?noControl=true").actionLabel("Link control").actionType("OPEN")
+                .linkPath("/obligations/" + o.getObligationId()).actionLabel("Link control").actionType("OPEN")
                 .sourceRef(Map.of("obligationId", o.getObligationId()))
                 .build());
         }
@@ -423,5 +470,48 @@ public class TaskCenterService {
 
     private static boolean contains(String v, String s) {
         return v != null && v.toLowerCase(Locale.ROOT).contains(s);
+    }
+
+    private Integer controlHorizonDays() {
+        try {
+            var cfg = settings.getTaskCentreConfig();
+            return cfg == null ? null : cfg.getControlDueHorizonDays();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    static boolean withinControlHorizon(long days, Control c, Integer configuredHorizon) {
+        if (configuredHorizon != null && configuredHorizon > 0) return days <= configuredHorizon;
+        Integer cadence = c == null ? null : c.getTestFrequencyDays();
+        if (cadence == null) cadence = com.atheris.compliance.tenant.backend.shared.util.ControlSchedule
+            .daysForFrequency(c == null ? null : c.getTestFrequency());
+        int horizon = cadence == null ? CONTROL_FALLBACK_HORIZON_DAYS : cadence;
+        return days <= horizon;
+    }
+
+    private Map<Integer, String> ownerDepartmentMap(Collection<Integer> ownerIds) {
+        if (ownerIds == null || ownerIds.isEmpty()) return Map.of();
+        List<Owner> found = owners.findAllById(ownerIds);
+        Map<Integer, String> deptNames = departmentNames(found.stream().map(Owner::getDepartmentId)
+            .filter(Objects::nonNull).collect(Collectors.toSet()));
+        Map<Integer, String> out = new HashMap<>();
+        for (Owner o : found) {
+            if (o.getDepartmentId() != null) out.put(o.getOwnerId(), deptNames.get(o.getDepartmentId()));
+        }
+        return out;
+    }
+
+    private Map<Integer, String> departmentNames(Collection<Integer> departmentIds) {
+        if (departmentIds == null || departmentIds.isEmpty()) return Map.of();
+        Map<Integer, String> out = new HashMap<>();
+        for (Department d : departments.findAllById(departmentIds)) out.put(d.getDepartmentId(), d.getName());
+        return out;
+    }
+
+    private String departmentOfOwner(Integer ownerId, Map<Integer, String> departmentsById) {
+        if (ownerId == null || departmentsById.isEmpty()) return null;
+        return owners.findById(ownerId).map(Owner::getDepartmentId)
+            .map(departmentsById::get).orElse(null);
     }
 }

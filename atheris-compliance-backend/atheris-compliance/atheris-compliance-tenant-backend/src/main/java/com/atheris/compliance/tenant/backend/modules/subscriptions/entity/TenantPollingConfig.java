@@ -13,6 +13,8 @@ public class TenantPollingConfig {
     @Column(nullable = false, unique = true) private Long tenantId;
     @Builder.Default
     private Integer pollingIntervalMinutes = 15;
+    @Builder.Default
+    private Integer taskControlHorizonDays = 0;
     private Instant lastPolledAt;
     private Instant createdAt;
     private Instant updatedAt;

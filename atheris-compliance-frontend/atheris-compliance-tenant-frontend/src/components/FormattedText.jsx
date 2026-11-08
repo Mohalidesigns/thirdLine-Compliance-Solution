@@ -43,26 +43,11 @@ function renderPoint(point, depth = 0, idx = 0, minLevel = 0) {
   );
 }
 
-function renderPoints(points, pointType) {
-  let filtered = points.filter((p) => p.pointType === pointType);
-  if (filtered.length === 0) filtered = points.filter((p) => !p.pointType);
-  if (filtered.length === 0) filtered = points;
-  if (filtered.length === 0) return null;
-  const minLevel = Math.min(...filtered.map((p) => p.level ?? 0));
-  return (
-    <Box sx={{ py: 0.5 }}>
-      {filtered.map((point, idx) => renderPoint(point, (point.level ?? 0) - minLevel, idx, minLevel))}
-    </Box>
-  );
-}
-
 export default function FormattedText({ text, points, pointType }) {
   if (!text && (!points || points.length === 0)) return null;
 
   if (points && points.length > 0 && pointType) {
-    let typePoints = points.filter((p) => p.pointType === pointType);
-    if (typePoints.length === 0) typePoints = points.filter((p) => !p.pointType);
-    if (typePoints.length === 0) typePoints = points;
+    const typePoints = points.filter((p) => p.pointType === pointType);
     if (typePoints.length > 0) {
       const minLevel = Math.min(...typePoints.map((p) => p.level ?? 0));
       return (

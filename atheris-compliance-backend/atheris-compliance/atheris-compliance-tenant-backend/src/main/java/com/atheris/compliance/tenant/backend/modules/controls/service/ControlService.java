@@ -1,6 +1,9 @@
 package com.atheris.compliance.tenant.backend.modules.controls.service;
 
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
+import com.atheris.compliance.tenant.backend.shared.util.AppRole;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
+import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.*;
@@ -9,17 +12,27 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationInstanceDto;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyDto;
+import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationPolicyRequest;
+import com.atheris.compliance.tenant.backend.modules.escalation.entity.EscalationPolicy;
+import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,20 +48,70 @@ public class ControlService {
     private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
+    private final EscalationPolicyService escalationPolicyService;
+    private final ControlThemeService themeService;
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
-        var spec = ControlSpecification.withFilters(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
-        Page<Control> page = repo.findAll(spec, p);
+        Integer themeId = themeService.require(theme);
+        var spec = ControlSpecification.withFilters(themeId, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId);
+        Page<Control> page = repo.findAll(spec, safeSort(p));
         List<Integer> ids = page.getContent().stream().map(Control::getControlId).toList();
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(ids);
         Map<Integer, ControlTestResult> lastTests = getLastTests(ids);
         Map<Integer, Long> openFindings = getOpenFindingCounts(ids);
+        Map<Integer, String> themeNames = themeService.namesById(page.getContent().stream()
+            .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
         List<ControlRegisterItem> items = page.getContent().stream()
             .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId()),
-                lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L)))
+                lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L), themeNames))
             .toList();
         return new PageImpl<>(items, p, page.getTotalElements());
+    }
+
+    private static Pageable safeSort(Pageable p) {
+        List<Sort.Order> orders = p.getSort().stream()
+            .filter(o -> !"theme".equals(o.getProperty()))
+            .toList();
+        if (p.isUnpaged() || p.getPageSize() < 1) {
+            return orders.isEmpty() ? Pageable.unpaged() : Pageable.unpaged(Sort.by(orders));
+        }
+        return PageRequest.of(p.getPageNumber(), p.getPageSize(), Sort.by(orders));
+    }
+
+    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
+            ControlTestResult lastTest, long openFindings, Map<Integer, String> themeNames) {
+        return ControlRegisterItem.builder()
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .name(c.getName())
+            .controlSummary(c.getName())
+            .theme(c.getControlThemeId() == null ? null : themeNames.get(c.getControlThemeId()))
+            .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
+            .escalationPolicyId(c.getEscalationPolicyId())
+            .ownerName(c.getOwnerName())
+            .controlType(c.getControlType())
+            .residualRisk(c.getResidualRisk())
+            .residualLikelihood(c.getResidualLikelihood())
+            .residualImpact(c.getResidualImpact())
+            .residualRiskRating(c.getResidualRiskRating())
+            .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
+            .status(c.getStatus())
+            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
+            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
+            .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
+            .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
+            .openFindings(openFindings)
+            .complianceArea(c.getComplianceArea())
+            .regulatoryRequirement(c.getRegulatoryRequirement())
+            .frequency(c.getTestFrequency())
+            .dueDate(c.getDueDate())
+            .actId(c.getActId())
+            .actName(c.getActName())
+            .build();
     }
 
     public ControlStatsDto getStats() {
@@ -56,7 +119,7 @@ public class ControlService {
         long active = repo.countByStatus("Active");
         long highRisk = repo.countByResidualRisk("High");
         long testsDue = ControlTaskRules.testsDue(taskRepo.findAll(), LocalDate.now());
-        List<String> themes = repo.findDistinctThemes();
+        List<String> themes = themeService.list(true).stream().map(t -> t.getName()).toList();
         List<String> owners = repo.findDistinctOwners();
         List<String> acts = repo.findDistinctActNames();
 
@@ -80,8 +143,11 @@ public class ControlService {
         List<String> riskLevels = new ArrayList<>(byRiskLevel.keySet());
         List<String> statuses = new ArrayList<>(byStatus.keySet());
 
+        Map<Integer, String> themeNames = themeService.namesById(all.stream()
+            .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
         Map<String, Long> byTheme = all.stream()
-            .map(Control::getTheme).filter(v -> v != null && !v.isBlank())
+            .map(Control::getControlThemeId).filter(Objects::nonNull)
+            .map(id -> themeNames.getOrDefault(id, "Unassigned"))
             .collect(Collectors.groupingBy(v -> v, TreeMap::new, Collectors.counting()));
         Map<String, Long> findingsBySeverity = findingRepo.findAll().stream()
             .filter(f -> openStatuses.contains(f.getStatus()))
@@ -157,37 +223,6 @@ public class ControlService {
             .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
     }
 
-    private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
-            ControlTestResult lastTest, long openFindings) {
-        return ControlRegisterItem.builder()
-            .controlId(c.getControlId())
-            .controlNumber(c.getControlNumber())
-            .name(c.getName())
-            .controlSummary(c.getName())
-            .theme(c.getTheme())
-            .controlOwnerName(c.getControlOwnerName())
-            .ownerName(c.getOwnerName())
-            .controlType(c.getControlType())
-            .residualRisk(c.getResidualRisk())
-            .residualLikelihood(c.getResidualLikelihood())
-            .residualImpact(c.getResidualImpact())
-            .residualRiskRating(c.getResidualRiskRating())
-            .riskLevel(c.getResidualRiskRating() != null ? c.getResidualRiskRating() : c.getResidualRisk())
-            .status(c.getStatus())
-            .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
-            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
-            .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
-            .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
-            .openFindings(openFindings)
-            .complianceArea(c.getComplianceArea())
-            .regulatoryRequirement(c.getRegulatoryRequirement())
-            .frequency(c.getTestFrequency())
-            .dueDate(c.getDueDate())
-            .actId(c.getActId())
-            .actName(c.getActName())
-            .build();
-    }
-
     public ControlDetailResponse getDetail(Integer id) {
         Control c = repo.findById(id).orElseThrow(() -> ApiException.notFound("Control not found: " + id));
 
@@ -258,16 +293,21 @@ public class ControlService {
             .controlNumber(c.getControlNumber())
             .name(c.getName())
             .description(c.getDescription())
-            .theme(c.getTheme())
+            .theme(c.getControlThemeId() == null ? null
+                : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
             .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
             .ownerName(c.getOwnerName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
+            .firstDueDate(c.getFirstDueDate())
             .linkedObligations(obligations)
             .inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk())
@@ -338,14 +378,20 @@ public class ControlService {
             .controlNumber(controlNumber)
             .name(req.getName())
             .description(req.getDescription())
-            .theme(req.getTheme())
+            .controlThemeId(themeService.resolveOrCreate(req.getTheme()))
             .controlType(req.getControlType())
             .whatItDoes(req.getWhatItDoes())
             .howTested(req.getHowTested())
             .controlOwnerId(req.getControlOwnerId())
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
+            .testerOwnerId(req.getTesterOwnerId())
+            .testerUserId(resolveTesterUserId(req.getTesterOwnerId()))
+            .testerName(resolveOwnerName(req.getTesterOwnerId()))
+            .escalationPolicyId(req.getEscalationPolicyId())
             .testFrequency(req.getTestFrequency())
-            .testFrequencyDays(req.getTestFrequencyDays())
+            .testFrequencyDays(req.getTestFrequencyDays() != null
+                ? req.getTestFrequencyDays() : ControlSchedule.daysForFrequency(req.getTestFrequency()))
+            .firstDueDate(req.getFirstDueDate())
             .linkedObligationIds(new ArrayList<>())
             .inherentRisk(req.getInherentRisk())
             .residualRisk(req.getInherentRisk())
@@ -354,7 +400,9 @@ public class ControlService {
             .build();
         Control saved = repo.save(c);
         audit.log(userId, "control_created", "control", saved.getControlId().longValue(),
-            Map.of("control_number", saved.getControlNumber()));
+            saved.getFirstDueDate() == null ? Map.of("control_number", saved.getControlNumber())
+                : Map.of("control_number", saved.getControlNumber(),
+                    "firstDueDate", saved.getFirstDueDate().toString()));
         testService.scheduleNextTest(saved);
         return toDto(saved);
     }
@@ -379,11 +427,28 @@ public class ControlService {
             c.setControlOwnerId(req.getControlOwnerId());
             c.setControlOwnerName(resolveOwnerName(req.getControlOwnerId()));
         }
+        if (req.getTesterOwnerId() != null) {
+            c.setTesterOwnerId(req.getTesterOwnerId());
+            c.setTesterUserId(resolveTesterUserId(req.getTesterOwnerId()));
+            c.setTesterName(resolveOwnerName(req.getTesterOwnerId()));
+        }
+        if (req.getEscalationPolicyId() != null) {
+            c.setEscalationPolicyId(req.getEscalationPolicyId());
+        }
         if (req.getTestFrequency() != null) {
             c.setTestFrequency(req.getTestFrequency());
         }
+        if (req.getTheme() != null) {
+            c.setControlThemeId(themeService.resolveOrCreate(req.getTheme()));
+        }
+        if (req.getFirstDueDate() != null) {
+            c.setFirstDueDate(req.getFirstDueDate());
+        }
         if (req.getTestFrequencyDays() != null) {
             c.setTestFrequencyDays(req.getTestFrequencyDays());
+        } else if (req.getTestFrequency() != null) {
+            Integer derived = ControlSchedule.daysForFrequency(req.getTestFrequency());
+            if (derived != null) c.setTestFrequencyDays(derived);
         }
         if (req.getInherentRisk() != null) {
             c.setInherentRisk(req.getInherentRisk());
@@ -397,7 +462,116 @@ public class ControlService {
             .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
         if (!hasOpenTask && saved.getTestFrequencyDays() != null) {
             testService.scheduleNextTest(saved);
+        } else {
+            testService.reassignOpenTasks(saved);
         }
+        return toDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public ControlEscalationResponse resolveEscalation(Integer id) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        String scope = ControlSchedule.scope(c.getTestFrequency());
+        EscalationInstanceDto config = escalationPolicyService.resolve(
+            EscalationConstants.SUBJECT_CONTROL, null, c.getEscalationPolicyId(), scope);
+        if (config == null) {
+            return ControlEscalationResponse.builder().active(false).build();
+        }
+        EscalationPolicyDto policy = config.getSourcePolicyId() == null ? null
+            : escalationPolicyService.get(config.getSourcePolicyId());
+        return ControlEscalationResponse.builder()
+            .policyId(config.getSourcePolicyId())
+            .policyName(policy == null ? null : policy.getName())
+            .frequencyScope(policy == null ? null : policy.getFrequencyScope())
+            .isDefault(policy == null ? null : policy.getIsDefault())
+            .active(config.getActive())
+            .reminderStartValue(config.getReminderStartValue())
+            .reminderStartUnit(config.getReminderStartUnit())
+            .reminderRepeatValue(config.getReminderRepeatValue())
+            .reminderRepeatUnit(config.getReminderRepeatUnit())
+            .sendLink(config.getSendLink())
+            .levels(config.getLevels())
+            .build();
+    }
+
+    @Transactional
+    public ControlDto updateEscalation(Integer id, ControlEscalationRequest req, Integer userId) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        String scope = ControlSchedule.scope(c.getTestFrequency());
+        EscalationPolicy def = escalationPolicyService
+            .defaultPolicy(EscalationConstants.SUBJECT_CONTROL, scope)
+            .or(() -> escalationPolicyService.defaultPolicy(EscalationConstants.SUBJECT_CONTROL))
+            .orElse(null);
+        Integer startValue = req.getReminderStartValue() != null ? req.getReminderStartValue()
+            : (def == null ? null : def.getReminderStartValue());
+        String startUnit = req.getReminderStartUnit() != null ? req.getReminderStartUnit()
+            : (def == null || def.getReminderStartUnit() == null
+                ? EscalationConstants.UNIT_DAYS : def.getReminderStartUnit());
+        EscalationPolicyRequest policyReq = EscalationPolicyRequest.builder()
+            .name(c.getName() + " escalation #" + c.getControlId())
+            .subjectType(EscalationConstants.SUBJECT_CONTROL)
+            .frequencyScope(scope).isDefault(false).isActive(true)
+            .reminderStartValue(startValue).reminderStartUnit(startUnit)
+            .reminderRepeatValue(req.getReminderRepeatValue()).reminderRepeatUnit(req.getReminderRepeatUnit())
+            .sendLink(true).notifyOnStart(true)
+            .levels(normaliseLevels(req.getLevels())).build();
+        Long policyId = c.getEscalationPolicyId();
+        EscalationPolicyDto dto = policyId == null
+            ? escalationPolicyService.create(policyReq, userId)
+            : escalationPolicyService.update(policyId, policyReq, userId);
+        c.setEscalationPolicyId(dto.getPolicyId());
+        audit.log(userId, "control_escalation_set", "control", id.longValue(),
+            Map.of("policyId", String.valueOf(dto.getPolicyId())));
+        return toDto(repo.save(c));
+    }
+
+    private static List<EscalationLevelRequest> normaliseLevels(List<EscalationLevelRequest> provided) {
+        if (provided != null && !provided.isEmpty()) {
+            List<EscalationLevelRequest> out = new ArrayList<>();
+            int levelNo = 1;
+            for (EscalationLevelRequest l : provided) {
+                if (l == null) continue;
+                String type = l.getTargetType() == null || l.getTargetType().isBlank()
+                    ? EscalationConstants.TARGET_MANAGER : l.getTargetType().trim().toUpperCase();
+                boolean role = EscalationConstants.TARGET_ROLE.equals(type) || "CCO".equals(type);
+                if ("CCO".equals(type)) type = EscalationConstants.TARGET_ROLE;
+                out.add(EscalationLevelRequest.builder()
+                    .levelNo(levelNo++)
+                    .afterValue(l.getAfterValue() != null ? l.getAfterValue() : 0)
+                    .afterUnit(EscalationConstants.UNIT_HOURS.equalsIgnoreCase(
+                        l.getAfterUnit() == null ? "" : l.getAfterUnit())
+                        ? EscalationConstants.UNIT_HOURS : EscalationConstants.UNIT_DAYS)
+                    .targetType(type)
+                    .targetRole(role ? AppRole.CCO : null)
+                    .targetUserId(role ? null : l.getTargetUserId())
+                    .targetName(role ? null : l.getTargetName())
+                    .targetEmail(role ? null : l.getTargetEmail())
+                    .build());
+            }
+            if (!out.isEmpty()) return out;
+        }
+        return List.of(
+            EscalationLevelRequest.builder().levelNo(1).afterValue(0).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_ASSIGNEE).build(),
+            EscalationLevelRequest.builder().levelNo(2).afterValue(2).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_MANAGER).build(),
+            EscalationLevelRequest.builder().levelNo(3).afterValue(5).afterUnit(EscalationConstants.UNIT_DAYS)
+                .targetType(EscalationConstants.TARGET_ROLE).targetRole(AppRole.CCO).build());
+    }
+
+    @Transactional
+    public ControlDto assignTester(Integer id, Integer testerOwnerId, Integer userId) {
+        Control c = repo.findById(id)
+            .orElseThrow(() -> ApiException.notFound("Control not found: " + id));
+        c.setTesterOwnerId(testerOwnerId);
+        c.setTesterUserId(resolveTesterUserId(testerOwnerId));
+        c.setTesterName(resolveOwnerName(testerOwnerId));
+        audit.log(userId, "control_tester_assigned", "control", id.longValue(),
+            testerOwnerId == null ? Map.of("tester", "none") : Map.of("testerOwnerId", testerOwnerId));
+        Control saved = repo.save(c);
+        testService.reassignOpenTasks(saved);
         return toDto(saved);
     }
 
@@ -408,6 +582,13 @@ public class ControlService {
         return ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
             .getFullName();
+    }
+
+    private Integer resolveTesterUserId(Integer ownerId) {
+        if (ownerId == null) {
+            return null;
+        }
+        return ownerRepo.findById(ownerId).map(Owner::getUserId).orElse(null);
     }
 
     private String nextControlNumber() {
@@ -425,7 +606,9 @@ public class ControlService {
     }
 
     public List<ControlDto> findByTheme(String theme) {
-        return repo.findByTheme(theme).stream().map(this::toDto).toList();
+        Integer themeId = themeService.require(theme);
+        if (themeId == null) return List.of();
+        return repo.findByControlThemeId(themeId).stream().map(this::toDto).toList();
     }
 
     public List<ControlDto> findByOwner(Integer ownerId) {
@@ -442,15 +625,20 @@ public class ControlService {
             .controlNumber(c.getControlNumber())
             .name(c.getName())
             .description(c.getDescription())
-            .theme(c.getTheme())
+            .theme(c.getControlThemeId() == null ? null
+                : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
             .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
             .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
+            .testerOwnerId(c.getTesterOwnerId())
+            .testerUserId(c.getTesterUserId())
+            .testerName(c.getTesterName())
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
+            .firstDueDate(c.getFirstDueDate())
             .linkedObligationIds(c.getLinkedObligationIds())
             .inherentRisk(c.getInherentRisk())
             .residualRisk(c.getResidualRisk())

@@ -4,11 +4,15 @@ import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTask;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTaskRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlTestLinkService;
+import com.atheris.compliance.tenant.backend.modules.obligations.service.RiskOwnerDirectory;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationCandidate;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.EscalationSubjectHandler;
 import com.atheris.compliance.tenant.backend.modules.escalation.engine.Person;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.util.ControlSchedule;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
@@ -29,6 +33,9 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
     private final ControlTaskRepository tasks;
     private final ControlRepository controls;
     private final UserRepository users;
+    private final OwnerRepository owners;
+    private final ControlTestLinkService testLinks;
+    private final RiskOwnerDirectory riskOwners;
 
     @Override
     public String subjectType() {
@@ -53,16 +60,23 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
         for (ControlTask t : open) {
             if (t.getDueDate() == null) continue;
             Control c = byId.get(t.getControlId());
+            if (!hasResponsiblePerson(t, c)) continue;
             Map<String, String> extra = new HashMap<>();
             extra.put("controlNumber", t.getControlNumber() == null ? "" : t.getControlNumber());
-            extra.put("controlName", t.getControlName() == null ? "" : t.getControlName());
+            extra.put("controlName", c != null && c.getName() != null ? c.getName()
+                : (t.getControlName() == null ? "" : t.getControlName()));
             extra.put("regulator", c != null && c.getActName() != null ? c.getActName() : "");
+            extra.put("actName", c != null && c.getActName() != null ? c.getActName() : "");
+            extra.put("responsiblePerson", c != null && c.getTesterName() != null ? c.getTesterName() : "");
+            extra.put("ownerName", c != null && c.getControlOwnerName() != null ? c.getControlOwnerName() : "");
+            extra.put("testFrequency", c != null && c.getTestFrequency() != null ? c.getTestFrequency() : "");
+            if (c != null) extra.putAll(riskOwners.detailVarsForControl(c));
             out.add(new EscalationCandidate(
                 EscalationConstants.SUBJECT_CONTROL,
                 t.getTaskId(),
                 label(t),
-                null,
-                assignees(t),
+                c == null ? null : c.getEscalationPolicyId(),
+                assignees(t, c),
                 owner(c),
                 t.getDueDate().atStartOfDay(),
                 null,
@@ -70,8 +84,9 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 "/controls?controlId=",
                 NotificationConstants.CATEGORY_CONTROLS,
                 extra,
-                null,
-                true));
+                ControlSchedule.scope(c == null ? null : c.getTestFrequency()),
+                true, true,
+                c == null ? List.of() : riskOwners.ccEmailsForControl(c)));
         }
         return out;
     }
@@ -86,18 +101,56 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
         });
     }
 
-    private List<Person> assignees(ControlTask t) {
-        if (t.getAssignedToUserId() == null) return List.of();
-        User u = users.findById(t.getAssignedToUserId()).orElse(null);
-        if (u == null) return List.of(new Person(t.getAssignedToName(), null, t.getAssignedToUserId()));
-        return List.of(new Person(u.getFullName(), u.getEmail(), u.getUserId()));
+    private boolean hasResponsiblePerson(ControlTask t, Control c) {
+        if (t.getAssignedToUserId() != null) return true;
+        if (c == null) return false;
+        return testLinks.testerEmail(c) != null || c.getTesterUserId() != null;
+    }
+
+    private List<Person> assignees(ControlTask t, Control c) {
+        if (t.getAssignedToUserId() != null) {
+            User u = users.findById(t.getAssignedToUserId()).orElse(null);
+            return List.of(u == null ? new Person(t.getAssignedToName(), null, t.getAssignedToUserId())
+                : new Person(u.getFullName(), u.getEmail(), u.getUserId()));
+        }
+        if (c == null) return List.of();
+        String testerEmail = testLinks.testerEmail(c);
+        if (testerEmail == null && c.getTesterUserId() == null) return List.of();
+        return List.of(new Person(c.getTesterName(), testerEmail, c.getTesterUserId()));
     }
 
     private Person owner(Control c) {
-        if (c == null || c.getControlOwnerUserId() == null) return null;
-        User u = users.findById(c.getControlOwnerUserId()).orElse(null);
-        return u == null ? new Person(c.getControlOwnerName(), null, c.getControlOwnerUserId())
-            : new Person(u.getFullName(), u.getEmail(), u.getUserId());
+        if (c == null) return null;
+        if (c.getControlOwnerUserId() != null) {
+            User u = users.findById(c.getControlOwnerUserId()).orElse(null);
+            if (u != null) return new Person(u.getFullName(), u.getEmail(), u.getUserId());
+            return new Person(c.getControlOwnerName(), null, c.getControlOwnerUserId());
+        }
+        if (c.getControlOwnerId() == null) return null;
+        return owners.findById(c.getControlOwnerId())
+            .map(o -> new Person(o.getFullName(), o.getEmail(), o.getUserId()))
+            .orElse(null);
+    }
+
+    @Override
+    public Optional<String> filingLink(EscalationCandidate candidate) {
+        if (candidate.linkSubjectId() == null) return Optional.empty();
+        Control c = controls.findById(candidate.linkSubjectId().intValue()).orElse(null);
+        if (c == null) return Optional.empty();
+        String to = testLinks.testerEmail(c);
+        if (to == null) return Optional.empty();
+        try {
+            String raw = testLinks.createTestLink(c.getControlId(), candidate.subjectId(), to, c.getTesterName(), null);
+            return Optional.of(testLinks.uploadPath(raw));
+        } catch (RuntimeException e) {
+            log.warn("[Escalation] control test link failed for control {}: {}", c.getControlId(), e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public boolean remindUnstarted() {
+        return true;
     }
 
     private static String label(ControlTask t) {

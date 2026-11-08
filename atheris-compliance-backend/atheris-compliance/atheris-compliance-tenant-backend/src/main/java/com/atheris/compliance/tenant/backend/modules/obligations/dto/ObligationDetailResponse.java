@@ -31,6 +31,7 @@ public class ObligationDetailResponse {
     private String inherentRiskRating;
     private String residualRiskRating;
     private Integer assignedOwnerUserId;
+    private Integer assignedOwnerId;
     private String assignedOwnerName;
     private String assignedDepartment;
     private List<Integer> linkedControlIds;

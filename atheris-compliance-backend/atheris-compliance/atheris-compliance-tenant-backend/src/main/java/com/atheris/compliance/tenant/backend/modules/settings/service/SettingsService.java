@@ -1,6 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.settings.service;
 
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigResponse;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.TaskCentreConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantPollingConfig;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.repository.TenantPollingConfigRepository;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
@@ -30,6 +31,24 @@ public class SettingsService {
     }
 
     @Transactional
+    public TaskCentreConfigResponse getTaskCentreConfig() {
+        Long tenantId = tenantIdentity.currentTenantId();
+        if (tenantId == null) return TaskCentreConfigResponse.builder().controlDueHorizonDays(0).build();
+        return repo.findByTenantId(tenantId)
+            .map(c -> TaskCentreConfigResponse.builder()
+                .controlDueHorizonDays(c.getTaskControlHorizonDays())
+                .build())
+            .orElse(TaskCentreConfigResponse.builder().controlDueHorizonDays(0).build());
+    }
+
+    public void updateTaskCentreConfig(Integer controlDueHorizonDays) {
+        Long tenantId = tenantIdentity.currentTenantId();
+        TenantPollingConfig config = repo.findByTenantId(tenantId)
+            .orElse(TenantPollingConfig.builder().tenantId(tenantId).build());
+        config.setTaskControlHorizonDays(controlDueHorizonDays);
+        repo.save(config);
+    }
+
     public void updatePollingConfig(Integer intervalMinutes) {
         Long tenantId = tenantIdentity.currentTenantId();
         TenantPollingConfig config = repo.findByTenantId(tenantId)

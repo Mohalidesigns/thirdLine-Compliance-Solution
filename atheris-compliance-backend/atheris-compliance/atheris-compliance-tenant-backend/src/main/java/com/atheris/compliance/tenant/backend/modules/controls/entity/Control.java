@@ -24,7 +24,7 @@ public class Control {
     private String name;
     @Column(columnDefinition = "text")
     private String description;
-    private String theme;
+    private Integer controlThemeId;
     private String controlType;
     @Column(columnDefinition = "text")
     private String whatItDoes;
@@ -33,8 +33,13 @@ public class Control {
     private Integer controlOwnerUserId;
     private String controlOwnerName;
     private Integer controlOwnerId;
+    private Integer testerOwnerId;
+    private Integer testerUserId;
+    private String testerName;
+    private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;
+    private java.time.LocalDate firstDueDate;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Long> linkedObligationIds;

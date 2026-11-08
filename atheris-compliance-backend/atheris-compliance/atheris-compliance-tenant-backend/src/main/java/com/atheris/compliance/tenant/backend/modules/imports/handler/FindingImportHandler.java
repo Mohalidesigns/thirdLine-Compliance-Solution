@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.imports.handler;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.DashboardService;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -78,6 +79,7 @@ public class FindingImportHandler implements ImportHandler {
     private final ObligationService obligationService;
     private final DashboardService dashboardService;
     private final AuditService audit;
+    private final ControlThemeService controlThemeService;
 
     // ------------------------------------------------------------------ template
 
@@ -103,7 +105,8 @@ public class FindingImportHandler implements ImportHandler {
 
     @Override
     public List<ReferenceSheet> referenceSheets() {
-        return List.of(obligationsReferenceSheet(obligationService), controlsReferenceSheet(controlRepo));
+        return List.of(obligationsReferenceSheet(obligationService),
+            controlsReferenceSheet(controlRepo, controlThemeService));
     }
 
     @Override

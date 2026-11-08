@@ -1,7 +1,9 @@
 package com.atheris.compliance.tenant.backend.modules.controls.controller;
 
+import com.atheris.compliance.tenant.backend.modules.controls.dto.ControlTestLinkSentResponse;
 import com.atheris.compliance.tenant.backend.modules.controls.dto.RecordTestRequest;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlTestLinkService;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlTestService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
@@ -18,6 +20,7 @@ import java.util.*;
 public class ControlTestController {
 
     private final ControlTestService service;
+    private final ControlTestLinkService testLinks;
 
     @GetMapping("/api/v1/controls/{id}/tests")
     public ResponseEntity<List<ControlTestResult>> getTests(@PathVariable Integer id) {
@@ -32,6 +35,15 @@ public class ControlTestController {
             @AuthenticationPrincipal User u) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(service.recordTest(id, req, u));
+    }
+
+    /** Email the responsible person (tester) the deterministic link to record this control's test result. */
+    @PostMapping("/api/v1/controls/{id}/send-test-link")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ControlTestLinkSentResponse> sendTestLink(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(testLinks.sendTestLink(id, u));
     }
 
     @PutMapping("/api/v1/controls/{id}/tests/{testId}/review")

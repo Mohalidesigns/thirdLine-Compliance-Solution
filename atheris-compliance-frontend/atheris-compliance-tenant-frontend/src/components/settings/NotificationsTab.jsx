@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Button, Alert, CircularProgress, Table, TableHead, TableBody,
@@ -11,6 +11,7 @@ import { api } from '../../services/api';
 const SUBJECT_TYPES = [
   { value: 'RETURN', label: 'Returns' },
   { value: 'CONTROL', label: 'Controls' },
+  { value: 'FINDING', label: 'Findings' },
 ];
 const UNITS = [
   { value: 'DAYS', label: 'Days' },
@@ -52,6 +53,20 @@ export default function NotificationsTab() {
     queryFn: ({ signal }) => api.escalation.policies(null, { defaultsOnly: true }, { signal }),
   });
 
+  const taskCentreQuery = useQuery({
+    queryKey: ['settings', 'task-centre'],
+    queryFn: ({ signal }) => api.settings.taskCentre({ signal }),
+  });
+  const [horizon, setHorizon] = useState('');
+  useEffect(() => {
+    if (taskCentreQuery.data) setHorizon(String(taskCentreQuery.data.controlDueHorizonDays ?? 0));
+  }, [taskCentreQuery.data]);
+  const saveTaskCentre = useMutation({
+    mutationFn: () => api.settings.saveTaskCentre({ controlDueHorizonDays: Number(horizon || 0) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings', 'task-centre'] }); setError(''); },
+    onError: (e) => setError(e.message || 'Could not save the Task Centre setting.'),
+  });
+
   const savePolicy = useMutation({
     mutationFn: (p) => (p.policyId ? api.escalation.updatePolicy(p.policyId, p) : api.escalation.createPolicy(p)),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['escalation', 'policies'] }); setPolicyEdit(null); },
@@ -67,6 +82,23 @@ export default function NotificationsTab() {
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+
+      <DataCard title="Task Centre" sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          How far ahead control tests appear on the Tasks page. Leave 0 to use each control&apos;s own test cadence
+          (a monthly control is always visible; a quarterly one shows when it is within its cadence).
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+          <TextField size="small" type="number" label="Control-test look-ahead (days)"
+            helperText="0 = each control's own cadence"
+            slotProps={{ htmlInput: { min: 0 } }}
+            value={horizon} onChange={(e) => setHorizon(e.target.value)} sx={{ width: 260 }} />
+          <Button variant="contained" size="small" disabled={saveTaskCentre.isPending}
+            onClick={() => saveTaskCentre.mutate()}>
+            {saveTaskCentre.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </Box>
+      </DataCard>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         Reusable frequency templates (Daily, Weekly, Monthly …) applied to any return of that frequency, or to a return
@@ -123,11 +155,47 @@ export default function NotificationsTab() {
         )}
       </DataCard>
 
+      <TaskCentreCard />
+
       {policyEdit && (
         <PolicyDialog value={policyEdit} saving={savePolicy.isPending}
           onClose={() => setPolicyEdit(null)} onSave={(p) => savePolicy.mutate(p)} />
       )}
     </Box>
+  );
+}
+
+function TaskCentreCard() {
+  const qc = useQueryClient();
+  const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(false);
+  const { data } = useQuery({
+    queryKey: ['settings', 'task-centre'],
+    queryFn: ({ signal }) => api.settings.taskCentre({ signal }),
+  });
+  useEffect(() => {
+    if (data) setValue(String(data.controlDueHorizonDays ?? 0));
+  }, [data]);
+  const save = useMutation({
+    mutationFn: () => api.settings.saveTaskCentre({ controlDueHorizonDays: Number(value) || 0 }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings', 'task-centre'] }); qc.invalidateQueries({ queryKey: ['tasks'] }); setSaved(true); },
+  });
+  return (
+    <DataCard title="Task Centre" sx={{ mt: 3 }}
+      actions={(
+        <Button size="small" variant="contained" disabled={save.isPending}
+          onClick={() => { setSaved(false); save.mutate(); }}>{save.isPending ? 'Saving…' : 'Save'}</Button>
+      )}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        How far ahead control tests appear on the Tasks page. <strong>0</strong> uses each control&apos;s own test
+        cadence (monthly controls show a month out); set a number to use one flat horizon in days for every control.
+      </Typography>
+      <TextField size="small" type="number" label="Control test horizon (days)"
+        value={value} onChange={(e) => { setValue(e.target.value); setSaved(false); }}
+        slotProps={{ htmlInput: { min: 0 } }} sx={{ width: 260 }}
+        helperText={String(value) === '0' || value === '' ? 'Using each control’s own cadence' : `Flat ${value}-day horizon`} />
+      {saved && <Alert severity="success" sx={{ mt: 2 }}>Task Centre settings saved.</Alert>}
+    </DataCard>
   );
 }
 

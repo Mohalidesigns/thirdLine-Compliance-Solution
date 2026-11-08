@@ -63,6 +63,28 @@ public class NotificationTemplateService {
             .ccOwner(ccOwner).isActive(true).build());
     }
 
+    @Transactional
+    public void upgrade(String key, String previousBody, String subject, String body, boolean ccOwner) {
+        NotificationTemplate template = repo.findByTemplateKey(key).orElse(null);
+        if (template == null) {
+            require(key, subject, body, ccOwner);
+            return;
+        }
+        if (previousBody != null && !previousBody.equals(template.getBody())) return;
+        template.setSubject(subject);
+        template.setBody(body);
+        template.setCcOwner(ccOwner);
+        repo.save(template);
+    }
+
+    @Transactional
+    public void require(String key, String subject, String body, boolean ccOwner) {
+        if (repo.findByTemplateKey(key).isPresent()) return;
+        repo.save(NotificationTemplate.builder()
+            .templateKey(key).channel("EMAIL").subject(subject).body(body)
+            .ccOwner(ccOwner).isActive(true).build());
+    }
+
     public RenderedEmail render(String key, Map<String, String> vars) {
         NotificationTemplate template = repo.findByTemplateKey(key).orElse(null);
         if (template == null) {

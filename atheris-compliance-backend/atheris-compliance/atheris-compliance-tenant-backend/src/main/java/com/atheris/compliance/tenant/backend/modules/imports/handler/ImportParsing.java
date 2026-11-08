@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.imports.handler;
 
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.ObligationRegisterItem;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
 import com.atheris.compliance.tenant.backend.modules.subscriptions.entity.TenantRegulator;
@@ -151,11 +152,16 @@ final class ImportParsing {
     }
 
     /** Read-only "Controls" lookup sheet (control number, name, theme) for link columns; sorted by number. */
-    static ImportHandler.ReferenceSheet controlsReferenceSheet(ControlRepository controlRepo) {
-        List<List<String>> rows = controlRepo.findAll().stream()
+    static ImportHandler.ReferenceSheet controlsReferenceSheet(ControlRepository controlRepo,
+                                                               ControlThemeService themeService) {
+        List<Control> controls = controlRepo.findAll();
+        Map<Integer, String> themeNames = themeService.namesById(controls.stream()
+            .map(Control::getControlThemeId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet()));
+        List<List<String>> rows = controls.stream()
             .filter(c -> c.getControlNumber() != null && !c.getControlNumber().isBlank())
             .sorted(Comparator.comparing(Control::getControlNumber, String.CASE_INSENSITIVE_ORDER))
-            .map(c -> Arrays.asList(c.getControlNumber(), c.getName(), c.getTheme()))
+            .map(c -> Arrays.asList(c.getControlNumber(), c.getName(),
+                c.getControlThemeId() == null ? null : themeNames.get(c.getControlThemeId())))
             .toList();
         return new ImportHandler.ReferenceSheet("Controls", List.of("Control Number", "Name", "Theme"), rows);
     }
