@@ -28,7 +28,6 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-/** Latest test date across a requirement's controls, or null when none has been tested. */
 function lastTested(controls) {
   const dates = controls.map((c) => c.latestTestDate).filter(Boolean);
   if (!dates.length) return null;
@@ -46,7 +45,7 @@ function StateChip({ state, gap }) {
 }
 
 const COLUMNS = [
-  { id: 'text', label: 'Requirement', minWidth: 380,
+  { id: 'text', label: 'Obligation text', minWidth: 380,
     render: (r) => (
       <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap', maxWidth: 560 }}>{r.text}</Box>} placement="top-start">
         <Typography variant="body2" sx={{ ...ellipsis(500), color: 'primary.main', fontWeight: 500 }}>
@@ -90,7 +89,6 @@ const COLUMNS = [
     } },
 ];
 
-/** Requirements tab: one line per requirement; clicking a row opens the requirement drawer. */
 export default function RequirementsList({ requirements = [], onOpen, onAdd }) {
   const [search, setSearch] = useState('');
 

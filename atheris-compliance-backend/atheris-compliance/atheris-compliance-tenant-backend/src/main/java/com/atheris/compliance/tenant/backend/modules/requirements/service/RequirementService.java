@@ -202,6 +202,47 @@ public class RequirementService {
         });
     }
 
+    @Transactional
+    public void replaceTexts(Long obligationId, List<String> texts, Integer userId) {
+        if (!obligations.existsById(obligationId))
+            throw ApiException.notFound("Obligation not found: " + obligationId);
+        List<String> wanted = (texts == null ? List.<String>of() : texts).stream()
+            .map(t -> t == null ? "" : t.trim())
+            .filter(t -> !t.isBlank())
+            .toList();
+        Set<String> wantedSet = new LinkedHashSet<>(wanted);
+
+        List<Requirement> existing = requirements.findByObligationIdOrderByOrdinalAsc(obligationId);
+        Map<String, Requirement> kept = new LinkedHashMap<>();
+        for (Requirement r : existing) {
+            String key = r.getText() == null ? "" : r.getText().trim();
+            if (wantedSet.contains(key) && !kept.containsKey(key)) kept.put(key, r);
+        }
+
+        for (Requirement r : existing) {
+            String key = r.getText() == null ? "" : r.getText().trim();
+            if (kept.get(key) != r) {
+                requirementControls.deleteByRequirementId(r.getRequirementId());
+                requirements.delete(r);
+            }
+        }
+        requirements.flush();
+
+        int ordinal = 0;
+        for (String text : wanted) {
+            Requirement r = kept.get(text);
+            if (r == null) {
+                requirements.save(Requirement.builder()
+                    .obligationId(obligationId).ordinal(ordinal).text(text).source("manual").build());
+            } else if (!Objects.equals(r.getOrdinal(), ordinal)) {
+                r.setOrdinal(ordinal);
+                requirements.save(r);
+            }
+            ordinal++;
+        }
+        syncObligationLinks(obligationId);
+    }
+
     /**
      * The obligation-level control list (the older "link controls" action and the create/update
      * obligation dialogs) expressed as requirement links. With no requirements yet, one default

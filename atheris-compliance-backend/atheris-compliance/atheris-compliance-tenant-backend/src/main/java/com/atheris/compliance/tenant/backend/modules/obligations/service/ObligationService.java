@@ -474,6 +474,7 @@ public class ObligationService {
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
+        if (req.getObligationTexts() != null) requirementService.replaceTexts(saved.getObligationId(), req.getObligationTexts(), userId);
         requirementService.applyObligationControls(saved.getObligationId(), c.getLinkedControlIds());
         if (c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) autoCloseGapFindings(saved.getObligationId(), userId);
 
@@ -502,6 +503,7 @@ public class ObligationService {
 
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
+        if (req.getObligationTexts() != null) requirementService.replaceTexts(obligationId, req.getObligationTexts(), userId);
         if (req.getLinkedControlIds() != null) {
             List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
             classifications.save(c);

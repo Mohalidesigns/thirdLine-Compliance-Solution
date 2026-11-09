@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Chip,
@@ -11,7 +12,7 @@ import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', description: '', areaOfFocus: '', effectiveDate: '',
+  instrumentId: '', name: '', tenantRegulatorId: '', obligationText: '', areaOfFocus: '', effectiveDate: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
 
@@ -34,49 +35,93 @@ function Field({ label, children, sx }) {
 }
 
 export default function CreateObligationDialog({ open, onClose, onSaved, onSnackbar, editing, initial }) {
-  const [form, setForm] = useState({ ...EMPTY });
+  const isEditing = !!(editing && initial);
+  const obligationId = isEditing ? initial.obligationId : null;
+
+  const { data: instruments = [] } = useQuery({
+    queryKey: ['obligations', 'dialog', 'instruments'],
+    queryFn: ({ signal }) => api.instruments.list(0, 50, '', { signal }),
+    enabled: open,
+    select: (d) => (Array.isArray(d) ? d : (d?.content || [])),
+  });
+
+  const { data: fetchedRegulators = [] } = useQuery({
+    queryKey: ['regulators', 'list'],
+    queryFn: ({ signal }) => api.regulators.list({}, { signal }),
+    enabled: open,
+    select: (d) => (Array.isArray(d) ? d : (d?.content || [])),
+  });
+
+  const { data: existingRequirements = [], isSuccess: requirementsReady } = useQuery({
+    queryKey: ['requirements', 'obligation', String(obligationId)],
+    queryFn: ({ signal }) => api.requirements.forObligation(obligationId, { signal }),
+    enabled: open && !!obligationId,
+  });
+
+  const initialForm = useMemo(() => {
+    if (!isEditing) return { ...EMPTY };
+    return {
+      instrumentId: initial.instrumentId ?? '',
+      name: initial.title || initial.name || '',
+      tenantRegulatorId: initial.tenantRegulatorId ?? '',
+      obligationText: [...existingRequirements]
+        .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
+        .map((r) => r.text || '').filter(Boolean).join('\n'),
+      areaOfFocus: initial.areaOfFocus || '',
+      effectiveDate: initial.effectiveDate || '',
+      assignedOwnerId: initial.assignedOwnerId ?? null,
+      linkedControlIds: [...(initial.linkedControlIds || [])],
+      linkedReturnIds: [...(initial.linkedReturnIds || [])],
+    };
+  }, [isEditing, initial, existingRequirements]);
+
+  if (open && isEditing && !requirementsReady) {
+    return (
+      <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <ObligationForm
+      key={`${open ? 'o' : 'c'}-${isEditing ? `edit-${obligationId}` : 'new'}`}
+      open={open}
+      onClose={onClose}
+      onSaved={onSaved}
+      onSnackbar={onSnackbar}
+      isEditing={isEditing}
+      obligationId={obligationId}
+      initialForm={initialForm}
+      instruments={instruments}
+      fetchedRegulators={fetchedRegulators}
+    />
+  );
+}
+
+function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligationId, initialForm, instruments, fetchedRegulators }) {
+  const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [returnPickerOpen, setReturnPickerOpen] = useState(false);
-  const [instruments, setInstruments] = useState([]);
-  const [regulators, setRegulators] = useState([]);
   const [regulatorAddOpen, setRegulatorAddOpen] = useState(false);
+  const [extraRegulators, setExtraRegulators] = useState([]);
+
+  const regulators = useMemo(() => {
+    const idOf = (r) => r.id ?? r.tenantRegulatorId;
+    const seen = new Set(fetchedRegulators.map(idOf));
+    return [...fetchedRegulators, ...extraRegulators.filter((x) => !seen.has(idOf(x)))];
+  }, [fetchedRegulators, extraRegulators]);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const addRegulator = (created) => {
     setRegulatorAddOpen(false);
     if (!created) return;
-    setRegulators(prev => [...prev, created]);
+    setExtraRegulators(prev => [...prev, created]);
     set('tenantRegulatorId', String(created.id ?? created.tenantRegulatorId));
   };
-
-  useEffect(() => {
-    if (open) {
-      const base = editing && initial
-        ? {
-            instrumentId: initial.instrumentId ?? '',
-            name: initial.name || '',
-            tenantRegulatorId: initial.tenantRegulatorId ?? '',
-            description: initial.description || '',
-            areaOfFocus: initial.areaOfFocus || '',
-            effectiveDate: initial.effectiveDate || '',
-            assignedOwnerId: initial.assignedOwnerId ?? null,
-            linkedControlIds: [...(initial.linkedControlIds || [])],
-            linkedReturnIds: [...(initial.linkedReturnIds || [])],
-          }
-        : { ...EMPTY };
-      setForm(base);
-      setError('');
-      api.instruments.list(0, 50, '')
-        .then(d => setInstruments(Array.isArray(d) ? d : (d.content || [])))
-        .catch(() => setInstruments([]));
-      api.regulators.list()
-        .then(d => setRegulators(Array.isArray(d) ? d : (d.content || [])))
-        .catch(() => setRegulators([]));
-    }
-  }, [open, editing, initial]);
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
@@ -89,20 +134,23 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         tenantRegulatorId: form.tenantRegulatorId ? Number(form.tenantRegulatorId) : null,
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
+        obligationTexts: (form.obligationText || '')
+          .split('\n').map((l) => l.trim()).filter(Boolean),
       };
       delete body.assignedOwnerId;
-      const saved = editing && initial
-        ? await api.obligations.update(initial.obligationId, body)
+      delete body.obligationText;
+      const saved = isEditing
+        ? await api.obligations.update(obligationId, body)
         : await api.obligations.create(body);
-      const obligationId = editing && initial ? initial.obligationId : saved?.obligationId;
-      if (obligationId && form.assignedOwnerId != null) {
-        await api.obligations.assignOwner(obligationId, {
+      const savedId = isEditing ? obligationId : saved?.obligationId;
+      if (savedId && form.assignedOwnerId != null) {
+        await api.obligations.assignOwner(savedId, {
           assignedOwnerId: form.assignedOwnerId, changeReason: 'Risk owner set on save',
         });
       }
       const returnIds = (form.linkedReturnIds || []).map(Number);
-      if (obligationId && returnIds.length > 0) {
-        await api.obligations.linkReturns(obligationId, returnIds);
+      if (savedId && returnIds.length > 0) {
+        await api.obligations.linkReturns(savedId, returnIds);
       }
       onSaved?.(saved);
       onClose();
@@ -113,7 +161,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing && initial ? 'Edit Obligation' : 'New Obligation'}</DialogTitle>
+        <DialogTitle>{isEditing ? 'Edit Obligation' : 'New Obligation'}</DialogTitle>
         <DialogContent sx={{ '&&': { pt: 2.5 } }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -122,9 +170,13 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
             <TextField fullWidth size="small" placeholder="e.g. Quarterly regulatory return filing"
               required value={form.name} onChange={e => set('name', e.target.value)} />
           </Field>
-          <Field label="Description">
-            <TextField fullWidth size="small" multiline minRows={2} placeholder="Additional details"
-              value={form.description} onChange={e => set('description', e.target.value)} />
+          <Field label="Obligation text">
+            <TextField fullWidth size="small" multiline minRows={4}
+              placeholder="Each line becomes a requirement, e.g.&#10;The Bank shall implement tiered KYC requirements.&#10;The Bank shall file quarterly returns."
+              value={form.obligationText} onChange={e => set('obligationText', e.target.value)} />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              One requirement per line — these appear on the obligation's Requirements tab.
+            </Typography>
           </Field>
 
           <Divider sx={{ my: 2 }} />
@@ -212,7 +264,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.name}>
-            {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : (editing && initial ? 'Save changes' : 'Create')}
+            {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : (isEditing ? 'Save changes' : 'Create')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -221,7 +273,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
         initialIds={form.linkedControlIds} onSave={ids => set('linkedControlIds', ids)} />}
       {returnPickerOpen && <ReturnPicker open onClose={() => setReturnPickerOpen(false)}
         obligationContext={{
-          obligationId: editing && initial ? initial.obligationId : null,
+          obligationId,
           name: form.name,
           tenantRegulatorId: form.tenantRegulatorId || null,
         }}

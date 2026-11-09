@@ -20,15 +20,9 @@ import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import RequirementsList from '../components/requirements/RequirementsList';
 import RequirementDrawer from '../components/requirements/RequirementDrawer';
-import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
 
 const APPLICABILITY_TONE = { applicable: 'green', not_applicable: 'red', under_review: 'orange' };
-
-const PANEL_LABEL_SX = {
-  display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400,
-  textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.75,
-};
 
 function formatDate(d) {
   if (!d) return '—';
@@ -220,7 +214,6 @@ export default function ObligationDetailPage() {
             ))}
           </Box>
         )}
-        description={selected.plainEnglishStatement}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <Button size="small" variant="outlined" startIcon={<UserCircleIcon size={16} />}
@@ -236,27 +229,6 @@ export default function ObligationDetailPage() {
           </Box>
         )}
       />
-
-      {(selected.description || selected.plainEnglishStatement) && (
-        <DataCard title="Obligation Text" sx={{ mb: 3 }}>
-          {selected.description && (
-            <Box sx={{ mb: selected.plainEnglishStatement ? 2.5 : 0 }}>
-              <Typography component="span" sx={PANEL_LABEL_SX}>
-                Source Text
-              </Typography>
-              <FormattedText text={selected.description} />
-            </Box>
-          )}
-          {selected.plainEnglishStatement && (
-            <Box>
-              <Typography component="span" sx={PANEL_LABEL_SX}>
-                Plain English
-              </Typography>
-              <FormattedText text={selected.plainEnglishStatement} />
-            </Box>
-          )}
-        </DataCard>
-      )}
 
       <Box sx={{ mb: 3, width: '100%' }}>
         <CoverageStrip

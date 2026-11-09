@@ -16,5 +16,6 @@ public class ObligationRequest {
     private String recurringDeadlineType;
     private LocalDate effectiveDate;
     private List<Integer> linkedControlIds;
+    private List<String> obligationTexts;
     private String changeReason;
 }
