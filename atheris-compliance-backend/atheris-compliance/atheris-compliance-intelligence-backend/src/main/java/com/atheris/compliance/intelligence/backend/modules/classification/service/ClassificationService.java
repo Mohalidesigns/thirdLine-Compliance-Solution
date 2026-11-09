@@ -455,9 +455,6 @@ public class ClassificationService {
                         .inherentRiskRating(riskBand)
                         .controlOwner(controlOwner)
                         .build();
-                    if (o.getPoints() != null && !o.getPoints().isEmpty()) {
-                        mapping.setPoints(convertPoints(o.getPoints()));
-                    }
                     obligations.save(mapping);
                 }
             }
@@ -723,18 +720,6 @@ public class ClassificationService {
             else if (suffix.equalsIgnoreCase("k")) v = v.multiply(ONE_THOUSAND);
         }
         return v;
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> convertPoints(List<ClassificationResult.PointItem> points) {
-        return points.stream().map(p -> {
-            Map<String, Object> map = new LinkedHashMap<>();
-            map.put("marker", p.getMarker());
-            map.put("text", p.getText());
-            map.put("level", p.getLevel());
-            map.put("children", p.getChildren() != null ? convertPoints(p.getChildren()) : List.of());
-            return map;
-        }).toList();
     }
 
     private static String stripQuotes(String s) {

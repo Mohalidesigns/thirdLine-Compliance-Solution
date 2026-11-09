@@ -40,24 +40,22 @@ class DefaultOrgSeedServiceTest {
 
         int createdDepartments = service.seedDefaults();
 
-        assertEquals(7, createdDepartments, "the 7 non-seeded template departments are created");
+        assertEquals(DefaultOrgSeedService.TEMPLATE.size() - 1, createdDepartments,
+            "every template department except the pre-existing Compliance is created");
         verify(departments, never()).save(argThat(d -> "Compliance".equals(d.getName())));
-        assertEquals(4, createdTeams.stream().filter(t -> t.getDepartmentId() == 1).count(),
-            "Compliance is given its 4 teams, not skipped");
-        assertTrue(createdTeams.stream().anyMatch(t -> "AML/CFT Unit".equals(t.getName())));
+        List<String> complianceTeams = DefaultOrgSeedService.TEMPLATE.get("Compliance");
+        assertEquals(complianceTeams.size(),
+            createdTeams.stream().filter(t -> t.getDepartmentId() == 1).count(),
+            "Compliance is given all of its template teams, not skipped");
+        assertTrue(createdTeams.stream().anyMatch(t -> complianceTeams.contains(t.getName())));
     }
 
     @Test
     void secondRunCreatesNothingWhenTheTemplateExists() {
         when(departments.findByName(anyString())).thenReturn(Optional.of(
             Department.builder().departmentId(1).name("Compliance").build()));
-        List<Team> allTemplateTeams = List.of(
-            "AML/CFT Unit", "Regulatory Reporting", "Compliance Monitoring", "Sanctions Screening",
-            "Credit Risk", "Operational Risk", "Market Risk",
-            "Core Banking", "Database Administration", "Networking", "System Administration", "IT Security",
-            "E-Banking", "Branch Operations", "Customer Service",
-            "Financial Reporting", "Treasury", "Audit", "Legal", "HR")
-            .stream().map(n -> Team.builder().name(n).build()).toList();
+        List<Team> allTemplateTeams = DefaultOrgSeedService.TEMPLATE.values().stream()
+            .flatMap(List::stream).map(n -> Team.builder().name(n).build()).toList();
         when(teams.findByDepartmentIdOrderByNameAsc(anyInt())).thenReturn(allTemplateTeams);
 
         assertEquals(0, service.seedDefaults());

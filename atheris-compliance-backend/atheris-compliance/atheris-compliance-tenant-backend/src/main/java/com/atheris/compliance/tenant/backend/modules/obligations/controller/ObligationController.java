@@ -39,13 +39,12 @@ public class ObligationController {
             @RequestParam(required = false) Boolean noControl,
             @RequestParam(required = false) Long instrumentId,
             @RequestParam(required = false) String act,
-            @RequestParam(required = false) Boolean hasPoints,
             @RequestParam(required = false) Boolean hasReturns,
             @RequestParam(required = false) String cells,
             @RequestParam(required = false) String riskView,
             Pageable p) {
         return ResponseEntity.ok(service.getRegisterList(
-            q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints, hasReturns,
+            q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasReturns,
             cells, riskView, p));
     }
 

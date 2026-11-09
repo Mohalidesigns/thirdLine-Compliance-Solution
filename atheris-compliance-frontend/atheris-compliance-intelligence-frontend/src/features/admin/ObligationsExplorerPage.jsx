@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   PageHeader, KpiCards, FilterBar, obligationColumns,
-  ScaleIcon, ExclamationTriangleIcon, CheckCircleIcon, ClockIcon, EyeIcon,
+  ScaleIcon, ExclamationTriangleIcon, EyeIcon,
 } from 'shared';
 import api from '../../services/api';
 
@@ -23,7 +23,6 @@ export default function ObligationsExplorerPage() {
   const [regulator, setRegulator] = useState(searchParams.get('regulator') || 'All');
   const [area, setArea] = useState(searchParams.get('areaOfFocus') || 'All');
   const [act, setAct] = useState(searchParams.get('act') || 'All');
-  const [hasPoints, setHasPoints] = useState(searchParams.get('hasPoints') || 'All');
   const [page, setPage] = useState(Number(searchParams.get('page') || 0));
   const [size, setSize] = useState(Number(searchParams.get('size') || 10));
   const [sortField, setSortField] = useState(searchParams.get('sortField') || '');
@@ -41,12 +40,11 @@ export default function ObligationsExplorerPage() {
     if (regulator !== 'All') p.regulator = regulator;
     if (area !== 'All') p.areaOfFocus = area;
     if (act !== 'All') p.act = act;
-    if (hasPoints !== 'All') p.hasPoints = hasPoints;
     if (page) p.page = String(page);
     if (size !== 10) p.size = String(size);
     if (sortField) { p.sortField = sortField; p.sortDir = sortDir; }
     setSearchParams(p, { replace: true });
-  }, [q, risk, regulator, area, act, hasPoints, page, size, sortField, sortDir, setSearchParams]);
+  }, [q, risk, regulator, area, act, page, size, sortField, sortDir, setSearchParams]);
 
   const obligationsApi = api.platform?.obligations ?? api.obligations;
 
@@ -62,14 +60,13 @@ export default function ObligationsExplorerPage() {
     regulator: regulator !== 'All' ? regulator : undefined,
     areaOfFocus: area !== 'All' ? area : undefined,
     act: act !== 'All' ? act : undefined,
-    hasPoints: hasPoints === 'With' ? true : hasPoints === 'Without' ? false : undefined,
     page,
     size,
     sort: sortField ? `${sortField},${sortDir}` : undefined,
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['obligations', q, risk, regulator, area, act, hasPoints, page, size, sortField, sortDir],
+    queryKey: ['obligations', q, risk, regulator, area, act, page, size, sortField, sortDir],
     queryFn: ({ signal }) => obligationsApi.list(queryParams, signal),
   });
 
@@ -78,16 +75,14 @@ export default function ObligationsExplorerPage() {
 
   function clearAll() {
     setSearchInput(''); setQ(''); setRisk('All'); setRegulator('All');
-    setArea('All'); setAct('All'); setHasPoints('All'); setPage(0); setSize(10);
+    setArea('All'); setAct('All'); setPage(0); setSize(10);
     setSortField(''); setSortDir('asc');
   }
 
   function applyKpi(key) {
     setPage(0);
-    if (key === 'highRisk') { setRisk('High'); setHasPoints('All'); }
-    else if (key === 'withPoints') { setHasPoints('With'); setRisk('All'); }
-    else if (key === 'withoutPoints') { setHasPoints('Without'); setRisk('All'); }
-    else { setRisk('All'); setHasPoints('All'); }
+    if (key === 'highRisk') { setRisk('High'); }
+    else { setRisk('All'); }
   }
 
   function handleSort(field) {
@@ -96,13 +91,10 @@ export default function ObligationsExplorerPage() {
     setPage(0);
   }
 
-  const activeKpi = risk === 'High' ? 'highRisk'
-    : hasPoints === 'With' ? 'withPoints' : hasPoints === 'Without' ? 'withoutPoints' : null;
+  const activeKpi = risk === 'High' ? 'highRisk' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
     { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
-    { key: 'withPoints', label: 'With Points', value: stats?.withPoints ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
-    { key: 'withoutPoints', label: 'Without Points', value: stats?.withoutPoints ?? 0, tone: 'orange', icon: <ClockIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskOptions = stats?.risks?.length ? stats.risks : ['Critical', 'High', 'Moderate', 'Low'];
@@ -111,7 +103,7 @@ export default function ObligationsExplorerPage() {
   const actOptions = stats?.acts || [];
 
   const opts = (list) => list.map((v) => ({ value: v, label: v }));
-  const dirty = !!(searchInput || risk !== 'All' || regulator !== 'All' || area !== 'All' || act !== 'All' || hasPoints !== 'All');
+  const dirty = !!(searchInput || risk !== 'All' || regulator !== 'All' || area !== 'All' || act !== 'All');
 
   return (
     <Box>
@@ -126,7 +118,6 @@ export default function ObligationsExplorerPage() {
           { key: 'regulator', label: 'Regulator', value: regulator, onChange: (v) => { setRegulator(v); setPage(0); }, options: opts(regulatorOptions), allLabel: 'All Regulators', minWidth: 160 },
           { key: 'area', label: 'Area of Focus', value: area, onChange: (v) => { setArea(v); setPage(0); }, options: opts(areaOptions), allLabel: 'All Areas' },
           { key: 'act', label: 'Act', value: act, onChange: (v) => { setAct(v); setPage(0); }, options: opts(actOptions), allLabel: 'All Acts' },
-          { key: 'points', label: 'Points', value: hasPoints, onChange: (v) => { setHasPoints(v); setPage(0); }, options: opts(['With', 'Without']), allLabel: 'All', minWidth: 130 },
         ]}
         showClear={dirty}
         onClear={clearAll}

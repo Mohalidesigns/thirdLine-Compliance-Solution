@@ -8,8 +8,6 @@ import java.util.List;
 public class ObligationStats {
     private long total;
     private long highRisk;
-    private long withPoints;
-    private long withoutPoints;
     private long gaps;
     /** Obligations that are linked to at least one return. */
     private long withReturns;

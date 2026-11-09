@@ -28,7 +28,6 @@ public class ObligationExplorerItem {
     private String actName;
     private Long instrumentId;
     private String instrumentTitle;
-    private Boolean hasPoints;
     /** Linked-entity counts for the register columns (Returns / Controls / Sanctions). */
     private Long returnCount;
     private Long controlCount;

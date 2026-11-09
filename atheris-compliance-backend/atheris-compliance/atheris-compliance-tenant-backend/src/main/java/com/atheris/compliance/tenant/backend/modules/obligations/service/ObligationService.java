@@ -41,7 +41,6 @@ public class ObligationService {
     private final ObligationClassificationRepository classifications;
     private final ClassificationHistoryRepository history;
     private final ObligationRepository obligationRepo;
-    private final ObligationPointRepository obligationPoints;
     private final ControlRepository controlRepo;
     private final RegulatoryReturnRepository returnRepo;
     private final EvidenceFileRepository evidenceRepo;
@@ -67,12 +66,12 @@ public class ObligationService {
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean noControl, Long instrumentId,
-            String act, Boolean hasPoints, Boolean hasReturns, String cells, String riskView, Pageable p) {
+            String act, Boolean hasReturns, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasPoints, hasReturns))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasReturns))
             .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
@@ -95,8 +94,6 @@ public class ObligationService {
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
                 || !i.getApplicability().equals("applicable")
                 || "unclassified".equals(i.getStatus())).count();
-        long withPoints = rows.stream().filter(i -> Boolean.TRUE.equals(i.getHasPoints())).count();
-        long withoutPoints = total - withPoints;
 
         Set<String> regulators = rows.stream()
             .map(ObligationRegisterItem::getRegulatorAbbreviation)
@@ -120,7 +117,6 @@ public class ObligationService {
 
         return ObligationStats.builder()
             .total(total).highRisk(highRisk).gaps(gaps).withReturns(withReturns).underReview(underReview)
-            .withPoints(withPoints).withoutPoints(withoutPoints)
             .regulators(List.copyOf(regulators))
             .themes(List.copyOf(themes))
             .owners(List.copyOf(owners))
@@ -187,11 +183,6 @@ public class ObligationService {
 
         Set<Long> uniqueInstrumentIds = allObligations.stream()
             .map(Obligation::getInstrumentId).filter(Objects::nonNull).collect(Collectors.toSet());
-
-        // Obligations that carry at least one structured point (register "Points" column).
-        Set<Long> obligationIdsWithPoints = allObligations.isEmpty() ? Set.of()
-            : obligationPoints.findByObligationIdIn(allObligations.stream().map(Obligation::getObligationId).toList())
-                .stream().map(ObligationPoint::getObligationId).collect(Collectors.toSet());
 
         // per-obligation sanction links (V29 join) — fallback to instrument-wide if none linked yet
         Map<Long, List<Long>> sanctionIdsByObligation = obligationSanctionRepo.findAllSanctionLinks().stream()
@@ -264,7 +255,6 @@ public class ObligationService {
                 .applicability(c != null ? c.getApplicability() : null)
                 .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
                 .riskRating(riskRatingOf(c))
-                .hasPoints(obligationIdsWithPoints.contains(ob.getObligationId()))
                 .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
                 .inherentLikelihood(ob.getInherentLikelihood())
                 .inherentImpact(ob.getInherentImpact())
@@ -294,14 +284,13 @@ public class ObligationService {
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
                             String areaOfFocus, String owner, String status, Boolean noControl,
-                            Long instrumentId, String act, Boolean hasPoints, Boolean hasReturns) {
+                            Long instrumentId, String act, Boolean hasReturns) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
         if (noControl != null && noControl && i.getControlCount() > 0) return false;
         if (hasReturns != null) {
             boolean has = i.getLinkedReturnIds() != null && !i.getLinkedReturnIds().isEmpty();
             if (hasReturns != has) return false;
         }
-        if (hasPoints != null && hasPoints != Boolean.TRUE.equals(i.getHasPoints())) return false;
         if (act != null && !act.isBlank() && !act.equals(i.getActName())) return false;
         if (risk != null && !risk.isBlank()
                 && !risk.equals(i.getTenantRiskRating()) && !risk.equals(i.getInherentRiskRating())) return false;
@@ -414,7 +403,6 @@ public class ObligationService {
             case "sourceTitle", "title" -> Comparator.comparing(i -> nullSafe(i.getTitle() != null ? i.getTitle() : i.getSourceTitle()));
             case "regulator", "regulatorAbbreviation" -> Comparator.comparing(i -> nullSafe(i.getRegulatorAbbreviation()));
             case "tenantRiskRating", "inherentRiskRating", "riskRating", "risk" -> riskComparator();
-            case "hasPoints" -> Comparator.comparing(i -> Boolean.TRUE.equals(i.getHasPoints()));
             case "assignedOwnerName" -> Comparator.comparing(i -> nullSafe(i.getAssignedOwnerName()));
             case "status" -> Comparator.comparing(i -> nullSafe(i.getStatus()));
             default -> Comparator.comparing(i -> nullSafe(i.getDescription()));
@@ -548,7 +536,6 @@ public class ObligationService {
             .applicability(c != null ? c.getApplicability() : null)
             .tenantRiskRating(c != null ? c.getTenantRiskRating() : null)
             .riskRating(riskRatingOf(c))
-            .hasPoints(!obligationPoints.findByObligationIdOrderBySortOrder(ob.getObligationId()).isEmpty())
             .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
             .inherentLikelihood(ob.getInherentLikelihood())
             .inherentImpact(ob.getInherentImpact())
@@ -642,15 +629,6 @@ public class ObligationService {
                 : null;
         }
 
-        // Load structured points
-        List<ObligationPoint> rawPoints = obligationPoints.findByObligationIdOrderBySortOrder(ob.getObligationId());
-        List<ObligationDetailView.PointItem> points = rawPoints.stream()
-            .map(p -> ObligationDetailView.PointItem.builder()
-                .id(p.getId()).parentId(p.getParentId()).sortOrder(p.getSortOrder())
-                .marker(p.getMarker()).level(p.getLevel()).content(p.getContent())
-                .pointType(p.getPointType()).build())
-            .toList();
-
         return ObligationDetailView.builder()
             .obligationId(ob.getObligationId())
             .obligationNumber(ob.getObligationNumber())
@@ -702,7 +680,6 @@ public class ObligationService {
             .evidence(evidence)
             .history(historyItems)
             .sanctions(sanctions)
-            .points(points)
             .build();
     }
 

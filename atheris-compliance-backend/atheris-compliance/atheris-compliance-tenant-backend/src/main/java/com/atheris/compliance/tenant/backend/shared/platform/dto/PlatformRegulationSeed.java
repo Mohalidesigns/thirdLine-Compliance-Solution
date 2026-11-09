@@ -59,7 +59,6 @@ public class PlatformRegulationSeed {
         private String inherentImpact;
         private String inherentRiskRating;
         private String controlOwner;
-        private List<Map<String, Object>> points;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

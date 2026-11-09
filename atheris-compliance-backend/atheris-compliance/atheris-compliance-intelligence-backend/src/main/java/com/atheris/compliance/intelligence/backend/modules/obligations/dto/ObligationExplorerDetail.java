@@ -39,9 +39,6 @@ public class ObligationExplorerDetail {
     private Long actId;
     private String instrumentTitle;
     private Long instrumentId;
-    private Boolean hasPoints;
-    @Builder.Default
-    private List<Map<String, Object>> points = List.of();
     private Boolean hasGap;
     private String gapDescription;
     private String applicability;

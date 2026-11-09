@@ -34,8 +34,6 @@ export const obligationRegister = {
   kpis: [
     { key: 'total', label: 'Total', color: '#1976d2', value: (s) => s?.total ?? 0 },
     { key: 'highRisk', label: 'High Risk', color: '#d32f2f', value: (s) => s?.highRisk ?? 0 },
-    { key: 'withPoints', label: 'With Points', color: '#2e7d32', value: (s) => s?.withPoints ?? 0 },
-    { key: 'withoutPoints', label: 'Without Points', color: '#ed6c02', value: (s) => s?.withoutPoints ?? 0 },
   ],
   filters: [
     { key: 'q', param: 'q', label: 'Search', type: 'search', placeholder: 'Search obligation, title or regulator...' },
@@ -43,13 +41,10 @@ export const obligationRegister = {
     { key: 'regulator', param: 'regulator', label: 'Regulator', type: 'select', options: (s) => listOptions(s?.regulators) },
     { key: 'areaOfFocus', param: 'areaOfFocus', label: 'Area of Focus', type: 'select', options: (s) => listOptions(s?.areas) },
     { key: 'act', param: 'act', label: 'Act', type: 'select', options: (s) => listOptions(s?.acts) },
-    { key: 'hasPoints', param: 'hasPoints', label: 'Points', type: 'select', options: () => [{ value: 'With', label: 'With' }, { value: 'Without', label: 'Without' }] },
   ],
   kpiFilter: (key) => {
-    if (key === 'highRisk') return { risk: 'High', hasPoints: 'All' };
-    if (key === 'withPoints') return { risk: 'All', hasPoints: 'With' };
-    if (key === 'withoutPoints') return { risk: 'All', hasPoints: 'Without' };
-    return { risk: 'All', hasPoints: 'All' };
+    if (key === 'highRisk') return { risk: 'High' };
+    return { risk: 'All' };
   },
 };
 

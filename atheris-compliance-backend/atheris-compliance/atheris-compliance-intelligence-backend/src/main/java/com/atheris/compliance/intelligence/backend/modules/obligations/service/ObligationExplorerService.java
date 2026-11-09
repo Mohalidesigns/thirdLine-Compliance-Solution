@@ -83,8 +83,7 @@ public class ObligationExplorerService {
             String areaOfFocus,
             Long actId,                 // "regulationId" is an alias
             String act,                 // act name (what the stats option list holds)
-            String obligationType,
-            Boolean hasPoints) {}
+            String obligationType) {}
 
     // ------------------------------------------------------------------ list
 
@@ -230,13 +229,6 @@ public class ObligationExplorerService {
         if (regulatorIds != null) {
             if (regulatorIds.isEmpty()) ps.add(cb.disjunction());
             else ps.add(regulatorMatches(root, query, cb, regulatorIds));
-        }
-        if (f.hasPoints() != null) {
-            Path<Object> points = root.get("points");
-            Expression<Integer> len = cb.function("jsonb_array_length", Integer.class, points);
-            ps.add(f.hasPoints()
-                    ? cb.and(cb.isNotNull(points), cb.gt(len, 0))
-                    : cb.or(cb.isNull(points), cb.equal(len, 0)));
         }
         return ps;
     }
@@ -480,8 +472,6 @@ public class ObligationExplorerService {
                 .actId(ob.getRegulationId())
                 .instrumentTitle(inst != null ? inst.getSourceTitle() : null)
                 .instrumentId(ob.getInstrumentId())
-                .hasPoints(ob.getPoints() != null && !ob.getPoints().isEmpty())
-                .points(ob.getPoints() != null ? ob.getPoints() : List.of())
                 .createdAt(ob.getCreatedAt())
                 .instrument(instrumentInfo)
                 .sanctions(resolveSanctions(ob))
@@ -565,7 +555,6 @@ public class ObligationExplorerService {
                 .actName(reg != null ? reg.getName() : null)
                 .instrumentId(ob.getInstrumentId())
                 .instrumentTitle(inst != null ? inst.getSourceTitle() : null)
-                .hasPoints(ob.getPoints() != null && !ob.getPoints().isEmpty())
                 .build();
     }
 

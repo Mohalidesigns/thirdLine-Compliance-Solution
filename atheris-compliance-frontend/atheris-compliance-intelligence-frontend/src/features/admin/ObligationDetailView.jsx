@@ -162,7 +162,6 @@ export default function ObligationDetailView({ obligationId, onBack }) {
               <Chip key={c} size="small" variant="outlined" label={c}
                 sx={c === selected.sectionReference ? { fontFamily: TL.mono, fontSize: '0.7rem' } : undefined} />
             ))}
-            <StatusBadge label={selected.hasPoints ? 'With Points' : 'Without Points'} tone={selected.hasPoints ? 'green' : 'gray'} />
           </Box>
         )}
         description={selected.plainEnglishStatement}
@@ -175,7 +174,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
               <Typography component="span" sx={MICRO_LABEL_SX}>
                 Source Text
               </Typography>
-              <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
+              <FormattedText text={selected.description} />
             </Box>
           )}
           {selected.plainEnglishStatement && (
@@ -183,7 +182,7 @@ export default function ObligationDetailView({ obligationId, onBack }) {
               <Typography component="span" sx={MICRO_LABEL_SX}>
                 Plain English
               </Typography>
-              <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
+              <FormattedText text={selected.plainEnglishStatement} />
             </Box>
           )}
         </DataCard>

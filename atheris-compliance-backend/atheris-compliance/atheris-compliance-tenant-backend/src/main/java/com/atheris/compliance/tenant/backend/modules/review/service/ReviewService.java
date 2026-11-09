@@ -4,14 +4,11 @@ import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationPoint;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.RegulatorySanction;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationPointRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationSanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationPointParser;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
@@ -46,7 +43,6 @@ public class ReviewService {
     private final PendingReviewRepository reviews;
     private final ObligationRepository obligationRepo;
     private final ObligationClassificationRepository classifications;
-    private final ObligationPointRepository obligationPoints;
     private final RegulatorySanctionRepository sanctionRepo;
     private final ObligationSanctionRepository obligationSanctionRepo;
     private final PlatformApiClient platform;
@@ -302,13 +298,6 @@ public class ReviewService {
                         .controlOwner(shorten(o.getControlOwner(), 500))
                         .build();
                     ob = obligationRepo.save(ob);
-                    // Parse and store structured points
-                    obligationPoints.deleteByObligationId(ob.getObligationId());
-                    List<ObligationPoint> verbatimPoints = ObligationPointParser.parse(o.getDescription(), ob.getObligationId(), "verbatim");
-                    List<ObligationPoint> interpretedPoints = ObligationPointParser.parse(o.getPlainEnglishStatement(), ob.getObligationId(), "interpreted");
-                    List<ObligationPoint> allPoints = new java.util.ArrayList<>(verbatimPoints);
-                    allPoints.addAll(interpretedPoints);
-                    if (!allPoints.isEmpty()) obligationPoints.saveAll(allPoints);
 
                     ObligationClassification c = classifications.findByObligationId(ob.getObligationId())
                         .orElse(ObligationClassification.builder()

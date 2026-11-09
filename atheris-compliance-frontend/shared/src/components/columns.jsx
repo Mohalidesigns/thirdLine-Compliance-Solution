@@ -10,7 +10,7 @@ import { RiskBadge, StateBadge } from './StatusBadge';
  * `render` is called with the register DTO row; `sortField` is the backend sort property.
  *
  * Field contracts (the register DTOs must expose these names):
- *   obligation : title, plainEnglishStatement, regulatorAbbreviation, riskRating, hasPoints
+ *   obligation : title, plainEnglishStatement, regulatorAbbreviation, riskRating
  *   sanction   : description, penaltyType[], penaltyDetails, liableRoles[]
  *   return     : title, frequencyType, frequency, deadline, responsibleUnit, responsiblePerson
  *   control    : controlSummary, controlNumber, controlPoints[], complianceArea, theme, riskLevel, status, actName
@@ -42,10 +42,6 @@ export function obligationColumns() {
         ? <Chip size="small" label={r.regulatorAbbreviation} />
         : <Typography variant="body2" color="text.secondary">—</Typography>) },
     { id: 'riskRating', label: 'Risk', minWidth: 100, sortable: true, sortField: 'risk', render: (r) => riskChip(r.riskRating) },
-    { id: 'hasPoints', label: 'Points', minWidth: 100, sortable: true, sortField: 'hasPoints',
-      render: (r) => (r.hasPoints
-        ? <Chip size="small" label="With" color="success" />
-        : <Chip size="small" label="Without" />) },
   ];
 }
 

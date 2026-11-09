@@ -225,7 +225,7 @@ export default function ObligationDetailPage() {
               <Typography component="span" sx={PANEL_LABEL_SX}>
                 Source Text
               </Typography>
-              <FormattedText text={selected.description} points={selected.points} pointType="verbatim" />
+              <FormattedText text={selected.description} />
             </Box>
           )}
           {selected.plainEnglishStatement && (
@@ -233,7 +233,7 @@ export default function ObligationDetailPage() {
               <Typography component="span" sx={PANEL_LABEL_SX}>
                 Plain English
               </Typography>
-              <FormattedText text={selected.plainEnglishStatement} points={selected.points} pointType="interpreted" />
+              <FormattedText text={selected.plainEnglishStatement} />
             </Box>
           )}
         </DataCard>

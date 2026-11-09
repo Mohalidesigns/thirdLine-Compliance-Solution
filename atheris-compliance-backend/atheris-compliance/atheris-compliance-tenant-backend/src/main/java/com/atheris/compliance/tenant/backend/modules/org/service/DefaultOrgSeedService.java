@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public class DefaultOrgSeedService {
 
     /** Department name → its team names. */
-    private static final Map<String, List<String>> TEMPLATE = buildTemplate();
+    static final Map<String, List<String>> TEMPLATE = buildTemplate();
 
     private final DepartmentRepository departments;
     private final TeamRepository teams;

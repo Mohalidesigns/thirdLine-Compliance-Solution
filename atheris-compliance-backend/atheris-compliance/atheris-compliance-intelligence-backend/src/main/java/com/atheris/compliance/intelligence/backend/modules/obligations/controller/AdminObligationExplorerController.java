@@ -31,7 +31,7 @@ public class AdminObligationExplorerController {
 
     /**
      * Filters: q, risk (alias inherentRiskRating), regulatorId, regulator (abbreviation), areaOfFocus,
-     * actId (alias regulationId), act (name), obligationType, hasPoints. Sort: title, risk, areaOfFocus, id, ...
+     * actId (alias regulationId), act (name), obligationType. Sort: title, risk, areaOfFocus, id, ...
      */
     @GetMapping
     public ResponseEntity<Page<ObligationExplorerItem>> list(
@@ -45,10 +45,9 @@ public class AdminObligationExplorerController {
             @RequestParam(required = false) Long regulationId,
             @RequestParam(required = false) String act,
             @RequestParam(required = false) String obligationType,
-            @RequestParam(required = false) Boolean hasPoints,
             Pageable pageable) {
         ListFilter filter = new ListFilter(q, risk != null ? risk : inherentRiskRating, regulatorId, regulator,
-                areaOfFocus, actId != null ? actId : regulationId, act, obligationType, hasPoints);
+                areaOfFocus, actId != null ? actId : regulationId, act, obligationType);
         return ResponseEntity.ok(service.list(filter, pageable));
     }
 
