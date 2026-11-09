@@ -28,6 +28,7 @@ const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPa
 const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
 const RequirementDetailPage = lazy(() => import('./pages/RequirementDetailPage'));
 const RisksPage = lazy(() => import('./pages/RisksPage'));
+const RiskDetailPage = lazy(() => import('./pages/RiskDetailPage'));
 const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -99,6 +100,7 @@ export default function AppRoutes() {
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
           <Route path="requirements/:id" element={<RequirementDetailPage />} />
           <Route path="risks" element={<RisksPage />} />
+          <Route path="risks/:id" element={<RiskDetailPage />} />
           <Route path="acts" element={<ActsPage />} />
           <Route path="acts/:id" element={<ActDetailPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />

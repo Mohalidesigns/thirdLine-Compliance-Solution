@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
-  controlColumns, returnColumns, requirementColumns,
+  controlColumns, returnColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
   ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon, ListBulletIcon,
 } from 'shared';
@@ -18,6 +18,8 @@ import MapReturnModal from '../components/modals/MapReturnModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
+import RequirementsList from '../components/requirements/RequirementsList';
+import RequirementDrawer from '../components/requirements/RequirementDrawer';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
 
@@ -75,6 +77,7 @@ export default function ObligationDetailPage() {
 
   const [tab, setTab] = useState('requirements');
   const [addRequirementOpen, setAddRequirementOpen] = useState(false);
+  const [requirementOpen, setRequirementOpen] = useState(null);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [activeModal, setActiveModal] = useState(null);
@@ -139,7 +142,6 @@ export default function ObligationDetailPage() {
   };
 
   const columnsByTab = {
-    requirements: requirementColumns({ onOpen: (rid) => navigate(`/requirements/${rid}`) }),
     controls: controlColumns({ withAct: false }),
     returns: returnColumns(),
     sanctions: SANCTION_TAB_COLUMNS,
@@ -278,22 +280,46 @@ export default function ObligationDetailPage() {
         sx={{ mb: 2 }}
       />
 
-      <SectionTable
-        rows={pageRows}
-        total={filtered.length}
-        page={page}
-        size={size}
-        onPage={setPage}
-        rowKey={(r) => rowId[tab] ? rowId[tab](r) : `${tab}-${pageRows.indexOf(r)}`}
-        onRowClick={drillKind[tab] ? (r) => setDrill({ kind: drillKind[tab], row: r }) : undefined}
-        search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: `Search ${tab}…`, action: actionFor[tab] }}
-        emptyMessage={`No ${tab} recorded for this obligation.`}
-        columns={columnsByTab[tab]}
-        actions={tab === 'evidence' ? (ev) => (
-          <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><ArrowDownTrayIcon size={16} /></IconButton>
-        ) : undefined}
-      />
+      {tab === 'requirements' ? (
+        <DataCard
+          title={`Requirements (${requirements.length})`}
+          subtitle="Each duty with its derived state and covering controls"
+          actions={(
+            <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+              onClick={() => setAddRequirementOpen(true)}>Add requirement</Button>
+          )}
+        >
+          <RequirementsList
+            requirements={requirements}
+            onOpen={(r) => setRequirementOpen(r)}
+            onAdd={() => setAddRequirementOpen(true)}
+          />
+        </DataCard>
+      ) : (
+        <SectionTable
+          rows={pageRows}
+          total={filtered.length}
+          page={page}
+          size={size}
+          onPage={setPage}
+          rowKey={(r) => rowId[tab] ? rowId[tab](r) : `${tab}-${pageRows.indexOf(r)}`}
+          onRowClick={drillKind[tab] ? (r) => setDrill({ kind: drillKind[tab], row: r }) : undefined}
+          search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: `Search ${tab}…`, action: actionFor[tab] }}
+          emptyMessage={`No ${tab} recorded for this obligation.`}
+          columns={columnsByTab[tab]}
+          actions={tab === 'evidence' ? (ev) => (
+            <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><ArrowDownTrayIcon size={16} /></IconButton>
+          ) : undefined}
+        />
+      )}
 
+      <RequirementDrawer
+        open={!!requirementOpen}
+        onClose={() => setRequirementOpen(null)}
+        requirement={requirementOpen}
+        onSaved={() => notify('success', 'Controls updated')}
+        onError={(m) => notify('error', m)}
+      />
       <AddRequirementDialog
         open={addRequirementOpen}
         onClose={() => setAddRequirementOpen(false)}

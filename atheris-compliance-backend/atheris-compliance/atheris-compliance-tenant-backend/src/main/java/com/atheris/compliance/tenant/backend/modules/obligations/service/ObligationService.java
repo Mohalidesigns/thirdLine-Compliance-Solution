@@ -14,6 +14,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.*;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.*;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.ComplianceState;
 import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
@@ -69,12 +70,12 @@ public class ObligationService {
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean noControl, Long instrumentId,
-            String act, Boolean hasReturns, String cells, String riskView, Pageable p) {
+            String act, Boolean hasReturns, String state, String cells, String riskView, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
-            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasReturns))
+            .filter(item -> matches(item, q, risk, regulator, areaOfFocus, owner, status, noControl, instrumentId, act, hasReturns, state))
             .filter(item -> heatmapCells == null || inHeatmapCells(item, heatmapCells, residual))
             .sorted(registerComparator(p))
             .toList();
@@ -94,6 +95,10 @@ public class ObligationService {
         long gaps = rows.stream().filter(i -> Boolean.TRUE.equals(i.getHasGap())).count();
         long gapRequirements = rows.stream().mapToLong(i -> i.getGapRequirementCount() == null ? 0 : i.getGapRequirementCount()).sum();
         long totalRequirements = rows.stream().mapToLong(i -> i.getRequirementCount() == null ? 0 : i.getRequirementCount()).sum();
+        long compliant = rows.stream().filter(i -> ComplianceState.COMPLIANT.equals(i.getComplianceState())).count();
+        long partial = rows.stream().filter(i -> ComplianceState.PARTIAL.equals(i.getComplianceState())).count();
+        long nonCompliant = rows.stream().filter(i -> ComplianceState.NON_COMPLIANT.equals(i.getComplianceState())).count();
+        long noRequirements = rows.stream().filter(i -> ComplianceState.NO_REQUIREMENTS.equals(i.getComplianceState())).count();
         long withReturns = rows.stream().filter(i -> i.getLinkedReturnIds() != null
                 && !i.getLinkedReturnIds().isEmpty()).count();
         long underReview = rows.stream().filter(i -> i.getApplicability() == null
@@ -122,6 +127,7 @@ public class ObligationService {
 
         return ObligationStats.builder()
             .total(total).highRisk(highRisk).gaps(gaps).gapRequirements(gapRequirements).totalRequirements(totalRequirements)
+            .compliant(compliant).partial(partial).nonCompliant(nonCompliant).noRequirements(noRequirements)
             .withReturns(withReturns).underReview(underReview)
             .regulators(List.copyOf(regulators))
             .themes(List.copyOf(themes))
@@ -298,8 +304,9 @@ public class ObligationService {
 
     private boolean matches(ObligationRegisterItem i, String q, String risk, String regulator,
                             String areaOfFocus, String owner, String status, Boolean noControl,
-                            Long instrumentId, String act, Boolean hasReturns) {
+                            Long instrumentId, String act, Boolean hasReturns, String state) {
         if (instrumentId != null && !instrumentId.equals(i.getInstrumentId())) return false;
+        if (state != null && !state.isBlank() && !state.equalsIgnoreCase(i.getComplianceState())) return false;
         if (noControl != null && noControl && !Boolean.TRUE.equals(i.getHasGap())) return false;
         if (hasReturns != null) {
             boolean has = i.getLinkedReturnIds() != null && !i.getLinkedReturnIds().isEmpty();

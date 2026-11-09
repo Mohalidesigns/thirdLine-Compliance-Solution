@@ -7,9 +7,10 @@ import {
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  SectionTable, PageHeader, KpiCards, FilterBar,
+  SectionTable, PageHeader, KpiCards, FilterBar, StatusBadge,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
   ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon, CalendarDaysIcon,
+  CheckCircleIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -19,6 +20,12 @@ import { isReadOnly } from '../utils/roles';
 const ellipsis = (maxWidth) => ({
   maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 });
+
+const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray' };
+const STATE_LABEL = {
+  COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
+  GAP: 'No control', NO_REQUIREMENTS: 'No requirements',
+};
 
 const COLUMNS = [
   { id: 'title', label: 'Obligation', minWidth: 360, sortable: true, sortField: 'name',
@@ -40,6 +47,24 @@ const COLUMNS = [
     render: (item) => (item.regulatorAbbreviation
       ? <Chip size="small" label={item.regulatorAbbreviation} />
       : <Typography variant="body2" color="text.secondary">—</Typography>) },
+  { id: 'complianceState', label: 'Compliance', minWidth: 150,
+    render: (item) => (
+      <Tooltip title={item.requirementCount
+        ? `${item.coveredRequirementCount ?? 0} of ${item.requirementCount} requirements covered`
+        : 'No requirements'}>
+        <span>
+          <StatusBadge tone={STATE_TONE[item.complianceState] || 'gray'}
+            label={STATE_LABEL[item.complianceState] || item.complianceState || '—'}
+            dot={item.complianceState === 'NON_COMPLIANT' || item.complianceState === 'GAP'} />
+        </span>
+      </Tooltip>
+    ) },
+  { id: 'controlCount', label: 'Controls', minWidth: 110,
+    render: (item) => {
+      const count = item.controlCount ?? 0;
+      return <Typography variant="body2"
+        sx={count === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>{count}</Typography>;
+    } },
   { id: 'returnCount', label: 'Returns', minWidth: 100,
     render: (item) => {
       const count = item.linkedReturnIds?.length ?? 0;
@@ -48,21 +73,6 @@ const COLUMNS = [
         sx={count === 0 ? { color: 'text.secondary' } : { color: '#DD6B20' }}>{count}</Typography>;
       return count > 0 && names.length > 0
         ? <Tooltip title={names.join(', ')}>{label}</Tooltip>
-        : label;
-    } },
-  { id: 'controlCount', label: 'Controls', minWidth: 110,
-    render: (item) => {
-      const count = item.controlCount ?? 0;
-      return <Typography variant="body2"
-        sx={count === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>{count}</Typography>;
-    } },
-  { id: 'sanctionCount', label: 'Sanctions', minWidth: 110,
-    render: (item) => {
-      const sanctions = item.sanctions || [];
-      const label = <Typography variant="body2"
-        sx={sanctions.length === 0 ? { color: 'text.secondary' } : { color: '#805AD5' }}>{sanctions.length}</Typography>;
-      return sanctions.length > 0
-        ? <Tooltip title={sanctions.map(s => s.sanctionType || s.description).filter(Boolean).join('; ')}>{label}</Tooltip>
         : label;
     } },
 ];
@@ -83,6 +93,7 @@ export default function ObligationsRegisterPage() {
   const [regulatorFilter, setRegulatorFilter] = useState(searchParams.get('regulator') || 'All');
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
+  const [stateFilter, setStateFilter] = useState(searchParams.get('state') || 'All');
   const [noControl, setNoControl] = useState(() => searchParams.get('noControl') === 'true');
   const [withReturns, setWithReturns] = useState(() => searchParams.get('hasReturns') === 'true');
   // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
@@ -101,7 +112,8 @@ export default function ObligationsRegisterPage() {
   const [snackbar, setSnackbar] = useState('');
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
-    || areaFilter !== 'All' || statusFilter !== 'All' || noControl || withReturns || heatmapDrill;
+    || areaFilter !== 'All' || statusFilter !== 'All' || stateFilter !== 'All'
+    || noControl || withReturns || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -109,6 +121,7 @@ export default function ObligationsRegisterPage() {
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
   if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
+  if (stateFilter !== 'All') params.state = stateFilter;
   if (noControl) params.noControl = 'true';
   if (withReturns) params.hasReturns = 'true';
   if (heatmapDrill) { params.cells = heatmapDrill.cells; params.riskView = heatmapDrill.riskView; }
@@ -146,7 +159,7 @@ export default function ObligationsRegisterPage() {
 
   function clearFilters() {
     setSearch(''); setRiskFilter('All'); setRegulatorFilter('All');
-    setAreaFilter('All'); setStatusFilter('All'); setNoControl(false); setWithReturns(false);
+    setAreaFilter('All'); setStatusFilter('All'); setStateFilter('All'); setNoControl(false); setWithReturns(false);
     clearHeatmapDrill();
     setPage(0);
   }
@@ -184,22 +197,27 @@ export default function ObligationsRegisterPage() {
 
   function applyKpiFilter(type) {
     setRiskFilter('All'); setRegulatorFilter('All'); setAreaFilter('All');
-    setStatusFilter('All'); setNoControl(false); setWithReturns(false);
+    setStatusFilter('All'); setStateFilter('All'); setNoControl(false); setWithReturns(false);
     clearHeatmapDrill();
     if (type === 'highRisk') { setRiskFilter('High'); }
+    else if (type === 'compliant') { setStateFilter('COMPLIANT'); }
+    else if (type === 'partial') { setStateFilter('PARTIAL'); }
+    else if (type === 'nonCompliant') { setStateFilter('NON_COMPLIANT'); }
     else if (type === 'gaps') { setNoControl(true); }
-    else if (type === 'withReturns') { setWithReturns(true); }
     setPage(0);
   }
 
-  const activeKpi = withReturns ? 'withReturns'
-    : riskFilter === 'High' ? 'highRisk'
-      : noControl ? 'gaps' : null;
+  const activeKpi = stateFilter === 'COMPLIANT' ? 'compliant'
+    : stateFilter === 'PARTIAL' ? 'partial'
+      : stateFilter === 'NON_COMPLIANT' ? 'nonCompliant'
+        : riskFilter === 'High' ? 'highRisk'
+          : noControl ? 'gaps' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
-    { key: 'highRisk', label: 'High Risk', value: stats?.highRisk ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'compliant', label: 'Compliant', value: stats?.compliant ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
+    { key: 'partial', label: 'Partial', value: stats?.partial ?? 0, tone: 'amber', icon: <InformationCircleIcon /> },
+    { key: 'nonCompliant', label: 'Non-compliant', value: stats?.nonCompliant ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
     { key: 'gaps', label: 'No Control', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
-    { key: 'withReturns', label: 'With Returns', value: stats?.withReturns ?? 0, tone: 'green', icon: <CalendarDaysIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];
@@ -231,7 +249,7 @@ export default function ObligationsRegisterPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={4} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={5} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}

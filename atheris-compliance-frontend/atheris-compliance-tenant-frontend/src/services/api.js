@@ -451,6 +451,7 @@ export const api = {
     },
     stats: (opts = {}) => request('/risks/stats', { signal: opts.signal }),
     detail: (riskId, opts = {}) => request(`/risks/${riskId}`, { signal: opts.signal }),
+    create: (data) => request('/risks', { method: 'POST', body: JSON.stringify(data) }),
   },
   acts: {
     list: (params = {}, opts = {}) => {

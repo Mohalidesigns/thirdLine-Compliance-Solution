@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.risks.service;
 
+import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
@@ -11,6 +12,7 @@ import com.atheris.compliance.tenant.backend.modules.requirements.entity.Require
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementControlRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.service.ComplianceState;
+import com.atheris.compliance.tenant.backend.modules.risks.dto.CreateRiskRequest;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskItem;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskStats;
 import com.atheris.compliance.tenant.backend.modules.risks.entity.Risk;
@@ -41,6 +43,7 @@ public class RiskService {
     private final ObligationRepository obligations;
     private final ControlRepository controls;
     private final ControlTestResultRepository testResults;
+    private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<RiskItem> register(String q, String band, String status) {
@@ -67,6 +70,55 @@ public class RiskService {
             controlsByRisk(List.of(r)).getOrDefault(riskId, List.of()),
             requirementCounts(List.of(r)).getOrDefault(riskId, 0),
             uncoveredCounts(List.of(r)).getOrDefault(riskId, 0));
+    }
+
+    @Transactional
+    public RiskItem create(CreateRiskRequest req, Integer userId) {
+        if (req.getName() == null || req.getName().isBlank())
+            throw ApiException.badRequest("name_required", "name is required");
+
+        List<Long> obligationIds = req.getObligationIds() == null ? List.of() : req.getObligationIds();
+        Set<Long> known = obligationIds.isEmpty() ? Set.of()
+            : obligations.findAllById(obligationIds).stream().map(Obligation::getObligationId).collect(Collectors.toSet());
+        if (!known.containsAll(obligationIds))
+            throw ApiException.badRequest("unknown_obligation", "one or more obligations do not exist");
+
+        List<Integer> controlIds = req.getControlIds() == null ? List.of() : req.getControlIds();
+        Set<Integer> knownControls = controlIds.isEmpty() ? Set.of()
+            : controls.findAllById(controlIds).stream().map(Control::getControlId).collect(Collectors.toSet());
+        if (!knownControls.containsAll(controlIds))
+            throw ApiException.badRequest("unknown_control", "one or more controls do not exist");
+
+        Risk risk = Risk.builder()
+            .riskCode(nextCode())
+            .name(req.getName().trim())
+            .description(req.getDescription())
+            .riskType(req.getRiskType())
+            .areaOfFocus(req.getAreaOfFocus())
+            .source("manual")
+            .build();
+        RiskScoring.apply(risk, obligations.findAllById(obligationIds));
+        Risk saved = risks.save(risk);
+
+        for (Long obligationId : new LinkedHashSet<>(obligationIds))
+            riskObligations.save(new RiskObligation(saved.getRiskId(), obligationId));
+        for (Integer controlId : new LinkedHashSet<>(controlIds))
+            riskControls.save(new RiskControl(saved.getRiskId(), controlId));
+
+        audit.log(userId, "risk_created", "risk", saved.getRiskId().longValue(),
+            Map.of("obligations", obligationIds.size(), "controls", controlIds.size()));
+        return detail(saved.getRiskId());
+    }
+
+    private String nextCode() {
+        int max = risks.findAll().stream()
+            .map(Risk::getRiskCode)
+            .filter(c -> c != null && c.startsWith("RISK-"))
+            .mapToInt(c -> {
+                try { return Integer.parseInt(c.substring(5)); } catch (NumberFormatException e) { return 0; }
+            })
+            .max().orElse(0);
+        return String.format("RISK-%04d", max + 1);
     }
 
     @Transactional(readOnly = true)
@@ -173,6 +225,7 @@ public class RiskService {
                     .controlNumber(c.getControlNumber())
                     .name(c.getName())
                     .latestResult(t == null ? null : t.getResult())
+                    .latestTestDate(t == null ? null : t.getTestDate())
                     .effective(t != null && ComplianceState.effective(t.getResult()))
                     .build();
             }).toList()));

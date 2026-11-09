@@ -61,11 +61,12 @@ export function Field({ label, value, mono, children }) {
 }
 
 /** Responsive grid of Fields — collapses to one column on small screens. */
-export function FieldGrid({ children, min = 170, gap = 2.5 }) {
+export function FieldGrid({ children, min = 170, gap = 2.5, sx }) {
   return (
     <Box sx={{
       display: 'grid', gap,
       gridTemplateColumns: { xs: '1fr', sm: `repeat(auto-fit, minmax(${min}px, 1fr))` },
+      ...sx,
     }}>
       {children}
     </Box>

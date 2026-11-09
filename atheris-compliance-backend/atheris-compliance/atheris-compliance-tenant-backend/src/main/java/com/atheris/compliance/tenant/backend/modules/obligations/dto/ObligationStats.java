@@ -11,6 +11,11 @@ public class ObligationStats {
     private long gaps;
     private long gapRequirements;
     private long totalRequirements;
+    /** Obligations by derived compliance state. */
+    private long compliant;
+    private long partial;
+    private long nonCompliant;
+    private long noRequirements;
     /** Obligations that are linked to at least one return. */
     private long withReturns;
     private long underReview;

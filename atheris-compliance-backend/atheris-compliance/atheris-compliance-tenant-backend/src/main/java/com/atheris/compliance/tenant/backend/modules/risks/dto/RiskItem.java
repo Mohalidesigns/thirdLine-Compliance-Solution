@@ -38,6 +38,7 @@ public class RiskItem {
         private String controlNumber;
         private String name;
         private String latestResult;
+        private java.time.LocalDate latestTestDate;
         private boolean effective;
     }
 }
