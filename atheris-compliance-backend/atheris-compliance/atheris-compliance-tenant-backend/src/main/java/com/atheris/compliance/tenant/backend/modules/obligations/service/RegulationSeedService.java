@@ -17,6 +17,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Regu
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementSeedService;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.RegulatoryReturn;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.service.DueRule;
@@ -56,6 +57,7 @@ public class RegulationSeedService {
     private final RegulatoryReturnRepository returns;
     private final ControlRepository controlRepo;
     private final ControlThemeService controlThemeService;
+    private final RequirementSeedService requirementSeed;
     private final ActRepository actRepo;
     private final TenantIdentityService tenantIdentity;
     private final TenantProfileRepository profiles;
@@ -313,6 +315,11 @@ public class RegulationSeedService {
                 c.setLinkedControlIds(new java.util.ArrayList<>(new java.util.LinkedHashSet<>(ids)));
                 classifications.save(c);
             }
+        }
+
+        if (!createdObligations.isEmpty()) {
+            Map<Long, Long> requirementLinks = SeedLinks.platformToTenant(bundle.getObligations(), createdObligations);
+            requirementSeed.seed(bundle.getObligations(), requirementLinks);
         }
 
         log.debug("Seeded instrument {} ({}): {} obligations, {} sanctions, returns {}, controls {}",

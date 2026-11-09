@@ -34,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementSnapshotService;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,7 @@ public class ReviewService {
     private final PlatformApiClient platform;
     private final AuditService audit;
     private final OwnerRepository ownerRepo;
+    private final RequirementSnapshotService requirementSnapshots;
     private final DepartmentRepository departmentRepo;
     private final TenantIdentityService tenantIdentity;
     private final TenantRegulatorRepository tenantRegulators;
@@ -260,6 +263,8 @@ public class ReviewService {
                 throw new IllegalArgumentException("Cannot save: instrument not ready yet");
             }
             Long instrumentId = r.getInstrumentId();
+            RequirementSnapshotService.Snapshot requirementSnapshot =
+                requirementSnapshots.capture(obligationRepo.findByInstrumentId(instrumentId));
             obligationRepo.deleteByInstrumentId(instrumentId);
             classifications.deleteByInstrumentId(instrumentId);
             // clean existing sanctions for this instrument (join cascades via obligation delete, sanctions remain orphaned — keep deduped rows)
@@ -326,6 +331,15 @@ public class ReviewService {
                     }
                     savedObligations.add(ob);
                     num++;
+                }
+                Map<Long, Set<Integer>> restoredControls = requirementSnapshots.restore(requirementSnapshot, savedObligations);
+                for (Obligation ob : savedObligations) {
+                    Set<Integer> controlIds = restoredControls.get(ob.getObligationId());
+                    if (controlIds == null || controlIds.isEmpty()) continue;
+                    classifications.findByObligationId(ob.getObligationId()).ifPresent(c -> {
+                        c.setLinkedControlIds(new ArrayList<>(controlIds));
+                        classifications.save(c);
+                    });
                 }
             }
 

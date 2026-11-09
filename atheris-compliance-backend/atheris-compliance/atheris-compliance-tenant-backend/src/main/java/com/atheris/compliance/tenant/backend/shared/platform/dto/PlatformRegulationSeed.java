@@ -59,6 +59,19 @@ public class PlatformRegulationSeed {
         private String inherentImpact;
         private String inherentRiskRating;
         private String controlOwner;
+        private List<RequirementItem> requirements;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class RequirementItem {
+        private Integer ordinal;
+        private String text;
+        private String riskCode;
+        private String riskName;
+        private String riskType;
+        private String riskArea;
+        /** Toolkit control numbers that satisfy this requirement (resolved to tenant controls on seed). */
+        private List<String> controlNumbers;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

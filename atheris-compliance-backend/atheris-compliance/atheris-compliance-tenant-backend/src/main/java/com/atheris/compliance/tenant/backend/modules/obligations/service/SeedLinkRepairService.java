@@ -14,6 +14,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Clas
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationSanctionRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementMergeService;
 import com.atheris.compliance.tenant.backend.modules.runbooks.entity.Runbook;
 import com.atheris.compliance.tenant.backend.modules.runbooks.repository.RunbookRepository;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformRegulationSeed;
@@ -56,6 +57,7 @@ public class SeedLinkRepairService {
     private final FindingRepository findings;
     private final RunbookRepository runbooks;
     private final EvidenceFileRepository evidence;
+    private final RequirementMergeService requirementMerge;
 
     public record Result(int duplicatesMerged, int duplicateGroupsSkipped, int controlsRelinked, int obligationsRelinked) {}
 
@@ -173,6 +175,8 @@ public class SeedLinkRepairService {
                 classifications.save(kc);
             }
         });
+
+        requirementMerge.moveToKeeper(loserToKeeper);
 
         List<Finding> movedFindings = findings.findByLinkedObligationIdIn(losers);
         movedFindings.forEach(f -> f.setLinkedObligationId(loserToKeeper.get(f.getLinkedObligationId())));
