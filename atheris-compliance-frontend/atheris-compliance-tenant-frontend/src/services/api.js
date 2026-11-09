@@ -429,6 +429,29 @@ export const api = {
     history: (id) => request(`/obligations/${id}/history`),
     riskTypes: () => request('/obligations/risk-types'),
   },
+  requirements: {
+    forObligation: (obligationId, opts = {}) =>
+      request(`/obligations/${obligationId}/requirements`, { signal: opts.signal }),
+    detail: (requirementId, opts = {}) => request(`/requirements/${requirementId}`, { signal: opts.signal }),
+    create: (data) => request('/requirements', { method: 'POST', body: JSON.stringify(data) }),
+    update: (requirementId, data) =>
+      request(`/requirements/${requirementId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    remove: (requirementId) => request(`/requirements/${requirementId}`, { method: 'DELETE' }),
+    setControls: (requirementId, controlIds) =>
+      request(`/requirements/${requirementId}/controls`, { method: 'PUT', body: JSON.stringify(controlIds) }),
+    setState: (requirementId, data) =>
+      request(`/requirements/${requirementId}/state`, { method: 'PUT', body: JSON.stringify(data) }),
+  },
+  risks: {
+    register: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/risks${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    stats: (opts = {}) => request('/risks/stats', { signal: opts.signal }),
+    detail: (riskId, opts = {}) => request(`/risks/${riskId}`, { signal: opts.signal }),
+  },
   acts: {
     list: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
