@@ -117,6 +117,51 @@ export function controlColumns({ withAct = true } = {}) {
   return cols;
 }
 
+/** Requirements of an obligation: the duty, its derived state and the controls that satisfy it. */
+export function requirementColumns({ onOpen } = {}) {
+  return [
+    { id: 'text', label: 'Requirement', minWidth: 340, maxWidth: 460, truncate: true, sortable: false,
+      render: (r) => {
+        const text = <Typography variant="body2" sx={ellipsis(460)}>{r.text || '—'}</Typography>;
+        if (!onOpen) return text;
+        return (
+          <Box sx={{ cursor: 'pointer' }} onClick={() => onOpen(r.id || r.requirementId)}>
+            {text}
+          </Box>
+        );
+      } },
+    { id: 'state', label: 'State', minWidth: 150, sortable: false,
+      render: (r) => (
+        <StateBadge value={r.state}
+          label={r.state === 'NO_CONTROL' ? 'No control' : undefined}
+          title={r.state} />
+      ) },
+    { id: 'riskCode', label: 'Risk', minWidth: 180, sortable: false,
+      render: (r) => (
+        <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>
+          {r.riskCode ? `${r.riskCode} · ${r.riskName || ''}`.replace(/ · $/, '') : '—'}
+        </Typography>
+      ) },
+    { id: 'controls', label: 'Controls', minWidth: 200, sortable: false,
+      render: (r) => {
+        const controls = r.controls || [];
+        if (!controls.length) {
+          return <Typography variant="body2" color="text.secondary">No control linked</Typography>;
+        }
+        return (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {controls.map((c) => (
+              <Chip key={c.controlId || c.controlNumber} size="small"
+                variant={c.effective ? 'filled' : 'outlined'}
+                color={c.effective ? 'success' : undefined}
+                label={c.controlNumber || c.name || 'Control'} />
+            ))}
+          </Box>
+        );
+      } },
+  ];
+}
+
 /**
  * Instruments register. The intel register has no regulator name/abbreviation on the row,
  * so callers may pass a `regMap` (regulatorId -> abbreviation/name) to resolve it client-side.

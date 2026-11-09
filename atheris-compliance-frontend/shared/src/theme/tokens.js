@@ -81,6 +81,7 @@ const STATUS_TONE = {
   ineffective: 'red', 'non-compliant': 'red', escalated: 'red',
   superseded: 'gray', outdated: 'orange', inactive: 'gray', skipped: 'gray', not_applicable: 'gray',
   'not applicable': 'gray', disabled: 'gray', archived: 'gray',
+  non_compliant: 'red', partial: 'amber', no_control: 'red', gap: 'red', no_requirements: 'gray',
 };
 
 /** Tone for a workflow/status label. Unknown → gray. */

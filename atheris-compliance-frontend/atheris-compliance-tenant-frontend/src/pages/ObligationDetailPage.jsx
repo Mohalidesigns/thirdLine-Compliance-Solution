@@ -6,9 +6,9 @@ import {
 } from '@mui/material';
 import {
   DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
-  controlColumns, returnColumns,
+  controlColumns, returnColumns, requirementColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
-  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon,
+  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon, ListBulletIcon,
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -17,6 +17,7 @@ import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
 import EvidenceUploadModal from '../components/modals/EvidenceUploadModal';
 import OwnerModal from '../components/modals/OwnerModal';
+import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import FormattedText from '../components/FormattedText';
 import { Field, FieldGrid } from '../components/detailKit';
 
@@ -33,6 +34,7 @@ function formatDate(d) {
 }
 
 const TABS = [
+  { key: 'requirements', label: 'Requirements' },
   { key: 'controls', label: 'Controls' },
   { key: 'returns', label: 'Returns' },
   { key: 'sanctions', label: 'Sanctions' },
@@ -71,7 +73,8 @@ export default function ObligationDetailPage() {
   const obligationId = Number(id);
   const queryClient = useQueryClient();
 
-  const [tab, setTab] = useState('controls');
+  const [tab, setTab] = useState('requirements');
+  const [addRequirementOpen, setAddRequirementOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [activeModal, setActiveModal] = useState(null);
@@ -82,6 +85,12 @@ export default function ObligationDetailPage() {
   const { data: selected, isLoading, error } = useQuery({
     queryKey: ['obligations', 'detail', String(id)],
     queryFn: ({ signal }) => api.obligations.obligationDetail(obligationId, signal),
+    enabled: !!obligationId,
+  });
+
+  const { data: requirements = [] } = useQuery({
+    queryKey: ['requirements', 'obligation', String(id)],
+    queryFn: ({ signal }) => api.requirements.forObligation(obligationId, { signal }),
     enabled: !!obligationId,
   });
 
@@ -97,14 +106,19 @@ export default function ObligationDetailPage() {
   const evidence = useMemo(() => selected?.evidence || [], [selected]);
   const history = useMemo(() => selected?.history || [], [selected]);
 
+  const requirementsWithId = useMemo(
+    () => requirements.map((r) => ({ ...r, id: r.requirementId })), [requirements]);
+  const gapCount = requirements.filter((r) => r.gap).length;
+
   const counts = {
+    requirements: requirements.length,
     controls: controls.length, returns: returns.length, sanctions: sanctions.length,
     evidence: evidence.length, history: history.length,
   };
 
   const switchTab = (k) => { setTab(k); setPage(0); setSearch(''); };
 
-  const rowsByTab = { controls, returns, sanctions, evidence, history };
+  const rowsByTab = { requirements: requirementsWithId, controls, returns, sanctions, evidence, history };
   const rawRows = rowsByTab[tab] || [];
   const filtered = search
     ? rawRows.filter((r) => JSON.stringify(r).toLowerCase().includes(search.toLowerCase()))
@@ -112,6 +126,8 @@ export default function ObligationDetailPage() {
   const pageRows = filtered.slice(page * size, (page + 1) * size);
 
   const actionFor = {
+    requirements: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+      onClick={() => setAddRequirementOpen(true)}>Add requirement</Button>,
     controls: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
       onClick={() => setActiveModal('controls')}>Link controls</Button>,
     returns: <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
@@ -123,6 +139,7 @@ export default function ObligationDetailPage() {
   };
 
   const columnsByTab = {
+    requirements: requirementColumns({ onOpen: (rid) => navigate(`/requirements/${rid}`) }),
     controls: controlColumns({ withAct: false }),
     returns: returnColumns(),
     sanctions: SANCTION_TAB_COLUMNS,
@@ -243,6 +260,7 @@ export default function ObligationDetailPage() {
         <CoverageStrip
           title="Coverage"
           items={[
+            { key: 'requirements', label: 'Requirements', value: counts.requirements, tone: 'teal', icon: <ListBulletIcon /> },
             { key: 'controls', label: 'Controls', value: counts.controls, tone: 'orange', icon: <ShieldCheckIcon /> },
             { key: 'returns', label: 'Returns', value: counts.returns, tone: 'purple', icon: <CalendarDaysIcon /> },
             { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, tone: 'red', icon: <ScaleIcon /> },
@@ -276,6 +294,13 @@ export default function ObligationDetailPage() {
         ) : undefined}
       />
 
+      <AddRequirementDialog
+        open={addRequirementOpen}
+        onClose={() => setAddRequirementOpen(false)}
+        obligationId={obligationId}
+        onSaved={() => { queryClient.invalidateQueries({ queryKey: ['requirements'] }); notify('success', 'Requirement added'); }}
+        onError={(m) => notify('error', m)}
+      />
       <OwnerModal open={activeModal === 'owner'} onClose={() => setActiveModal(null)}
         obligationId={obligationId}
         initial={{ assignedOwnerId: selected.assignedOwnerId }}

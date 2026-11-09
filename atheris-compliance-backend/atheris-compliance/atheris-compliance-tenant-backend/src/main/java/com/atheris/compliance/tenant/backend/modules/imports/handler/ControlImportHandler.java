@@ -10,6 +10,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import lombok.RequiredArgsConstructor;
@@ -76,6 +77,7 @@ public class ControlImportHandler implements ImportHandler {
     private final ObligationClassificationRepository classificationRepo;
     private final OwnerRepository ownerRepo;
     private final ObligationService obligationService;
+    private final RequirementService requirementService;
     private final AuditService audit;
     private final ControlThemeService controlThemeService;
 
@@ -343,6 +345,15 @@ public class ControlImportHandler implements ImportHandler {
                 toSave.add(c);
             });
             classificationRepo.saveAll(toSave);
+        }
+
+        // Requirements are the source of truth: attach the new controls to each obligation's
+        // uncovered requirements so a gap closes here too, then re-derive the union lists.
+        for (Long obligationId : controlsByObligation.keySet()) {
+            requirementService.applyObligationControls(obligationId,
+                classificationRepo.findByObligationId(obligationId)
+                    .map(c -> c.getLinkedControlIds() == null ? List.<Integer>of() : c.getLinkedControlIds())
+                    .orElse(List.of()));
         }
 
         List<Integer> ids = saved.stream().map(Control::getControlId).toList();
