@@ -7,10 +7,9 @@ import {
 import {
   DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
   controlColumns, returnColumns,
-  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon,
-  ShieldCheckIcon, UserCircleIcon,
+  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
-import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
+import { api } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
@@ -20,9 +19,7 @@ import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import RequirementsList from '../components/requirements/RequirementsList';
 import RequirementDrawer from '../components/requirements/RequirementDrawer';
-import { Field, FieldGrid } from '../components/detailKit';
-
-const APPLICABILITY_TONE = { applicable: 'green', not_applicable: 'red', under_review: 'orange' };
+import { Field, FieldGrid, Section, RiskChip } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -156,19 +153,6 @@ export default function ObligationDetailPage() {
     } catch { notify('error', 'Failed to download evidence.'); }
   }
 
-  async function handleViewPdf() {
-    const instrumentId = selected?.instrumentId;
-    if (!instrumentId) return;
-    try {
-      const res = await fetch(`${API_BASE}/subscriptions/instruments/${instrumentId}/pdf`, {
-        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
-      });
-      if (!res.ok) throw new Error(await pdfErrorMessage(res));
-      const blob = await res.blob();
-      window.open(URL.createObjectURL(blob), '_blank');
-    } catch (e) { notify('error', e.message || 'Failed to load PDF.'); }
-  }
-
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
   }
@@ -198,8 +182,6 @@ export default function ObligationDetailPage() {
         onBack={() => navigate('/obligations')}
         backLabel="Back to Obligations"
         title={selected.title || selected.name || 'Untitled obligation'}
-        status={selected.applicability}
-        statusTone={APPLICABILITY_TONE[selected.applicability]}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             {selected.actName && (
@@ -214,21 +196,26 @@ export default function ObligationDetailPage() {
             ))}
           </Box>
         )}
-        right={(
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Button size="small" variant="outlined" startIcon={<UserCircleIcon size={16} />}
-              onClick={() => setActiveModal('owner')}>
-              {selected.assignedOwnerName ? 'Risk owner' : 'Assign Risk owner'}
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
-              onClick={() => setActiveModal('risk')}>Assess Risk</Button>
-            <Button size="small" variant="outlined" startIcon={<ShieldCheckIcon size={16} />}
-              onClick={() => navigate(`/controls?obligationId=${obligationId}`)}>View controls</Button>
-            <Button size="small" variant="outlined" startIcon={<EyeIcon size={16} />}
-              onClick={handleViewPdf}>PDF</Button>
-          </Box>
-        )}
       />
+
+      <Section title="Details" sx={{ mb: 3 }}>
+        <FieldGrid min={190}>
+          <Field label="Act / Regulation" value={selected.actName} />
+          <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
+          <Field label="Area of focus" value={selected.areaOfFocus} />
+          <Field label="Section reference" value={selected.sectionReference} mono />
+          <Field label="Obligation type" value={selected.obligationType} />
+          <Field label="Deadline type" value={selected.recurringDeadlineType} />
+          <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
+          <Field label="Source" value={selected.sourceTitle} />
+          <Field label="Risk type" value={selected.riskType} />
+          <Field label="Inherent risk"
+            children={<RiskChip rating={selected.inherentRiskRating} likelihood={selected.inherentLikelihood || selected.likelihoodRating} impact={selected.inherentImpact || selected.impactRating} />} />
+          <Field label="Residual risk" value={selected.residualRiskRating} />
+          <Field label="Risk owner" value={selected.assignedOwnerName} />
+          <Field label="Department" value={selected.assignedDepartment} />
+        </FieldGrid>
+      </Section>
 
       <SectionTabs
         tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
