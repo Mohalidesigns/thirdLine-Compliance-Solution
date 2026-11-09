@@ -282,8 +282,6 @@ export default function ObligationDetailPage() {
 
       {tab === 'requirements' ? (
         <DataCard
-          title={`Requirements (${requirements.length})`}
-          subtitle="Each duty with its derived state and covering controls"
           actions={(
             <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
               onClick={() => setAddRequirementOpen(true)}>Add requirement</Button>

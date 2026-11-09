@@ -11,7 +11,7 @@ import LinkControlsPicker from './LinkControlsPicker';
 
 const EMPTY = { name: '', description: '', riskType: '', areaOfFocus: '' };
 
-export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
+export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = null }) {
   const qc = useQueryClient();
   const [form, setForm] = useState(EMPTY);
   const [obligations, setObligations] = useState([]);
@@ -19,6 +19,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
   const [saving, setSaving] = useState(false);
   const [obligationPickerOpen, setObligationPickerOpen] = useState(false);
   const [controlPickerOpen, setControlPickerOpen] = useState(false);
+  const isEdit = !!risk;
 
   const { data: risks = [] } = useQuery({
     queryKey: ['risks', 'register'],
@@ -42,14 +43,19 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
 
   useEffect(() => {
     if (open) {
-      setForm(EMPTY);
-      setObligations([]);
-      setControls([]);
+      setForm(risk ? {
+        name: risk.name || '',
+        description: risk.description || '',
+        riskType: risk.riskType || '',
+        areaOfFocus: risk.areaOfFocus || '',
+      } : EMPTY);
+      setObligations(risk?.obligations ? [...risk.obligations] : []);
+      setControls(risk?.controls ? [...risk.controls] : []);
       setSaving(false);
       setObligationPickerOpen(false);
       setControlPickerOpen(false);
     }
-  }, [open]);
+  }, [open, risk]);
 
   const riskTypeOptions = Array.from(new Set(risks.map((r) => r.riskType).filter(Boolean))).sort();
   const areaOptions = Object.keys(stats?.byAreaOfFocus || {}).filter((a) => a && a !== 'Unassigned').sort();
@@ -60,18 +66,20 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      await api.risks.create({
+      const payload = {
         name: form.name.trim(),
         description: form.description || null,
         riskType: form.riskType || null,
         areaOfFocus: form.areaOfFocus || null,
         obligationIds: obligations.map((o) => o.obligationId),
         controlIds: controls.map((c) => c.controlId),
-      });
+      };
+      if (isEdit) await api.risks.update(risk.riskId, payload);
+      else await api.risks.create(payload);
       await qc.invalidateQueries({ queryKey: ['risks'] });
       onSaved?.();
       onClose();
-    } catch (e) { onError?.(e.message || 'Failed to create risk.'); }
+    } catch (e) { onError?.(e.message || `Failed to ${isEdit ? 'update' : 'create'} risk.`); }
     finally { setSaving(false); }
   }
 
@@ -80,7 +88,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle>Add Risk</DialogTitle>
+        <DialogTitle>{isEdit ? 'Edit Risk' : 'Add Risk'}</DialogTitle>
         <DialogContent dividers>
           {riskTypeOptions.length === 0 && areaOptions.length === 0 && (
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -143,7 +151,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError }) {
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.name.trim()}>
-            {saving ? <CircularProgress size={18} /> : 'Create risk'}
+            {saving ? <CircularProgress size={18} /> : (isEdit ? 'Save changes' : 'Create risk')}
           </Button>
         </DialogActions>
       </Dialog>

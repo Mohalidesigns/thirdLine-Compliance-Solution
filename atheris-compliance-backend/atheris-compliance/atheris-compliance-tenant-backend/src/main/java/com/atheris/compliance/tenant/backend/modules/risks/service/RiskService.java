@@ -15,6 +15,7 @@ import com.atheris.compliance.tenant.backend.modules.requirements.service.Compli
 import com.atheris.compliance.tenant.backend.modules.risks.dto.CreateRiskRequest;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskItem;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskStats;
+import com.atheris.compliance.tenant.backend.modules.risks.dto.UpdateRiskRequest;
 import com.atheris.compliance.tenant.backend.modules.risks.entity.Risk;
 import com.atheris.compliance.tenant.backend.modules.risks.entity.RiskControl;
 import com.atheris.compliance.tenant.backend.modules.risks.entity.RiskObligation;
@@ -38,6 +39,7 @@ public class RiskService {
     private final RiskRepository risks;
     private final RiskObligationRepository riskObligations;
     private final RiskControlRepository riskControls;
+    private final jakarta.persistence.EntityManager em;
     private final RequirementRepository requirements;
     private final RequirementControlRepository requirementControls;
     private final ObligationRepository obligations;
@@ -107,6 +109,64 @@ public class RiskService {
 
         audit.log(userId, "risk_created", "risk", saved.getRiskId().longValue(),
             Map.of("obligations", obligationIds.size(), "controls", controlIds.size()));
+        return detail(saved.getRiskId());
+    }
+
+    @Transactional
+    public RiskItem update(Integer riskId, UpdateRiskRequest req, Integer userId) {
+        Risk risk = risks.findById(riskId)
+            .orElseThrow(() -> ApiException.notFound("Risk not found: " + riskId));
+
+        if (req.getName() != null) {
+            if (req.getName().isBlank())
+                throw ApiException.badRequest("name_required", "name cannot be blank");
+            risk.setName(req.getName().trim());
+        }
+        if (req.getDescription() != null) risk.setDescription(req.getDescription());
+        if (req.getRiskType() != null) risk.setRiskType(req.getRiskType());
+        if (req.getAreaOfFocus() != null) risk.setAreaOfFocus(req.getAreaOfFocus());
+        if (req.getStatus() != null) risk.setStatus(req.getStatus());
+
+        boolean relinkObligations = req.getObligationIds() != null;
+        boolean relinkControls = req.getControlIds() != null;
+
+        List<Long> obligationIds = relinkObligations ? req.getObligationIds() : List.of();
+        if (relinkObligations) {
+            Set<Long> known = obligationIds.isEmpty() ? Set.of()
+                : obligations.findAllById(obligationIds).stream().map(Obligation::getObligationId).collect(Collectors.toSet());
+            if (!known.containsAll(obligationIds))
+                throw ApiException.badRequest("unknown_obligation", "one or more obligations do not exist");
+        }
+
+        List<Integer> controlIds = relinkControls ? req.getControlIds() : List.of();
+        if (relinkControls) {
+            Set<Integer> knownControls = controlIds.isEmpty() ? Set.of()
+                : controls.findAllById(controlIds).stream().map(Control::getControlId).collect(Collectors.toSet());
+            if (!knownControls.containsAll(controlIds))
+                throw ApiException.badRequest("unknown_control", "one or more controls do not exist");
+        }
+
+        if (relinkObligations) {
+            riskObligations.deleteByRiskId(riskId);
+            riskObligations.flush();
+            for (Long obligationId : new LinkedHashSet<>(obligationIds))
+                riskObligations.save(new RiskObligation(riskId, obligationId));
+        }
+        if (relinkControls) {
+            riskControls.deleteByRiskId(riskId);
+            riskControls.flush();
+            for (Integer controlId : new LinkedHashSet<>(controlIds))
+                riskControls.save(new RiskControl(riskId, controlId));
+        }
+
+        List<Long> effectiveObligationIds = relinkObligations
+            ? obligationIds
+            : riskObligations.findByRiskId(riskId).stream().map(RiskObligation::getObligationId).toList();
+        RiskScoring.apply(risk, obligations.findAllById(effectiveObligationIds));
+
+        Risk saved = risks.save(risk);
+        audit.log(userId, "risk_updated", "risk", saved.getRiskId().longValue(),
+            Map.of("obligations", effectiveObligationIds.size()));
         return detail(saved.getRiskId());
     }
 

@@ -3,6 +3,7 @@ package com.atheris.compliance.tenant.backend.modules.risks.controller;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.CreateRiskRequest;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskItem;
 import com.atheris.compliance.tenant.backend.modules.risks.dto.RiskStats;
+import com.atheris.compliance.tenant.backend.modules.risks.dto.UpdateRiskRequest;
 import com.atheris.compliance.tenant.backend.modules.risks.service.RiskService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
@@ -46,5 +47,12 @@ public class RiskController {
     @PreAuthorize(WRITERS)
     public ResponseEntity<RiskItem> create(@RequestBody CreateRiskRequest req, @AuthenticationPrincipal User u) {
         return ResponseEntity.ok(service.create(req, u.getUserId()));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize(WRITERS)
+    public ResponseEntity<RiskItem> update(@PathVariable Integer id, @RequestBody UpdateRiskRequest req,
+                                           @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.update(id, req, u.getUserId()));
     }
 }

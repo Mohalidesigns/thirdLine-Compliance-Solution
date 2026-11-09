@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Box, Typography, Tooltip, Button } from '@mui/material';
 import { SectionTable, StateBadge, TL, ShieldCheckIcon } from 'shared';
 
@@ -91,6 +92,16 @@ const COLUMNS = [
 
 /** Requirements tab: one line per requirement; clicking a row opens the requirement drawer. */
 export default function RequirementsList({ requirements = [], onOpen, onAdd }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return requirements;
+    return requirements.filter((r) => [
+      r.text, r.state, r.riskName, r.actName,
+    ].some((v) => (v || '').toLowerCase().includes(q)));
+  }, [requirements, search]);
+
   if (!requirements.length) {
     return (
       <Box sx={{ textAlign: 'center', py: 5 }}>
@@ -105,15 +116,16 @@ export default function RequirementsList({ requirements = [], onOpen, onAdd }) {
   return (
     <SectionTable
       columns={COLUMNS}
-      rows={requirements}
-      total={requirements.length}
+      rows={filtered}
+      total={filtered.length}
       page={0}
-      size={requirements.length}
+      size={filtered.length}
       onPage={() => {}}
-      rowsPerPageOptions={[requirements.length]}
+      rowsPerPageOptions={[Math.max(filtered.length, 1)]}
+      search={{ value: search, onChange: setSearch, placeholder: 'Search requirement, risk or state…' }}
       onRowClick={onOpen ? (r) => onOpen(r) : undefined}
       rowKey={(r) => r.requirementId}
-      emptyMessage="No requirements recorded for this obligation."
+      emptyMessage="No requirements match the current search."
     />
   );
 }

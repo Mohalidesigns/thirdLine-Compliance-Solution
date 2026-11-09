@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Box, Typography, CircularProgress, Alert, Button, Tooltip } from '@mui/material';
 import {
   DetailHeader, DataCard, StateBadge, StatusBadge, SectionTabs, SectionTable, TL,
-  ShieldCheckIcon, ArrowLeftIcon, ExclamationTriangleIcon, LinkIcon, ListBulletIcon,
+  ShieldCheckIcon, ArrowLeftIcon, ExclamationTriangleIcon, LinkIcon, ListBulletIcon, PencilSquareIcon,
 } from 'shared';
 import { api } from '../services/api';
 import { Field, FieldGrid } from '../components/detailKit';
+import AddRiskDialog from '../components/modals/AddRiskDialog';
 
 function bandTone(band) {
   switch ((band || '').toLowerCase()) {
@@ -70,6 +71,8 @@ export default function RiskDetailPage() {
   const { id } = useParams();
   const riskId = Number(id);
   const [tab, setTab] = useState('overview');
+  const [editOpen, setEditOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: risk, isLoading, error } = useQuery({
     queryKey: ['risks', 'detail', String(id)],
@@ -119,6 +122,11 @@ export default function RiskDetailPage() {
           </Box>
         )}
         description={risk.description}
+        right={(
+          <Button variant="contained" startIcon={<PencilSquareIcon size={16} />} onClick={() => setEditOpen(true)}>
+            Edit risk
+          </Button>
+        )}
       />
 
       <SectionTabs
@@ -181,6 +189,13 @@ export default function RiskDetailPage() {
           )}
         </DataCard>
       )}
+
+      <AddRiskDialog
+        open={editOpen}
+        risk={risk}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['risks'] })}
+      />
     </Box>
   );
 }
