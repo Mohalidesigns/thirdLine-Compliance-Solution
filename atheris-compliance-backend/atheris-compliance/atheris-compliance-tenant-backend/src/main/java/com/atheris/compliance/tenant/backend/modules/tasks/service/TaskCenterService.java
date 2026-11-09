@@ -15,6 +15,8 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
@@ -70,6 +72,7 @@ public class TaskCenterService {
     private final FindingRepository findings;
     private final ObligationClassificationRepository classifications;
     private final ObligationRepository obligations;
+    private final RequirementService requirementService;
     private final SettingsService settings;
     private final OwnerRepository owners;
     private final DepartmentRepository departments;
@@ -389,11 +392,18 @@ public class TaskCenterService {
         return out;
     }
 
+    private static String gapCaption(String section, RequirementSummary summary) {
+        String uncovered = summary.getGapCount() + " of " + summary.getRequirementCount() + " requirements have no control";
+        return section == null || section.isBlank() ? uncovered : section + " · " + uncovered;
+    }
+
     private List<TaskItemDto> obligationsTasks() {
-        List<ObligationClassification> applicable = classifications.findByApplicability("applicable");
+        List<ObligationClassification> applicable = classifications.findByApplicability("applicable").stream()
+            .filter(c -> c.getObligationId() != null).toList();
+        Map<Long, RequirementSummary> coverage = requirementService.summaries(
+            applicable.stream().map(ObligationClassification::getObligationId).toList());
         List<ObligationClassification> gaps = applicable.stream()
-            .filter(c -> c.getLinkedControlIds() == null || c.getLinkedControlIds().isEmpty())
-            .filter(c -> c.getObligationId() != null)
+            .filter(c -> coverage.get(c.getObligationId()).isHasGap())
             .toList();
         if (gaps.isEmpty()) return List.of();
         Set<Long> ids = gaps.stream().map(ObligationClassification::getObligationId).collect(Collectors.toSet());
@@ -413,7 +423,7 @@ public class TaskCenterService {
                 .id(-o.getObligationId()).key("obligation:" + o.getObligationId())
                 .type("OBLIGATION_NO_CONTROL").category(CATEGORY_OBLIGATIONS)
                 .title(o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle() : o.getName())
-                .caption(o.getSectionReference())
+                .caption(gapCaption(o.getSectionReference(), coverage.get(o.getObligationId())))
                 .areaOfFocus(o.getAreaOfFocus())
                 .regulator(o.getActName())
                 .responsiblePerson(c.getAssignedOwnerName())

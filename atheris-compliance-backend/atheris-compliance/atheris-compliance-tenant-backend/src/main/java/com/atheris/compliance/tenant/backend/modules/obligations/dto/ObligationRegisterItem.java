@@ -50,6 +50,11 @@ public class ObligationRegisterItem {
     private String status;
     private List<Integer> linkedControlIds;
     private Integer controlCount;
+    private Integer requirementCount;
+    private Integer coveredRequirementCount;
+    private Integer gapRequirementCount;
+    private String complianceState;
+    private Boolean hasGap;
     private Integer activeFindingsCount;
     private Long latestActiveFindingId;
     private List<Long> linkedReturnIds;

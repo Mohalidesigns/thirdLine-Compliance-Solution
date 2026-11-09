@@ -10,6 +10,8 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.Control
 import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.findings.dto.*;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
@@ -48,6 +50,7 @@ public class FindingService {
     private final ControlTestResultRepository controlTestRepo;
     private final ObligationClassificationRepository obligationClassificationRepo;
     private final ObligationRepository obligationRepo;
+    private final RequirementService requirementService;
     private final AuditService audit;
     private final NotificationService notifications;
     private final NotificationTemplateService templates;
@@ -511,6 +514,9 @@ public class FindingService {
         if (f.getLinkedObligationId() == null) {
             return false;
         }
+        RequirementSummary coverage = requirementService.summaries(List.of(f.getLinkedObligationId()))
+            .get(f.getLinkedObligationId());
+        if (coverage.getRequirementCount() > 0) return !coverage.isHasGap();
         return obligationClassificationRepo.findByObligationId(f.getLinkedObligationId())
             .map(c -> c.getLinkedControlIds())
             .filter(ids -> ids != null && !ids.isEmpty())

@@ -60,6 +60,10 @@ public class ObligationDetailView {
     private List<EvidenceItem> evidence;
     private List<HistoryItem> history;
     private List<SanctionItem> sanctions;
+    private String complianceState;
+    private Boolean hasGap;
+    private Integer requirementCount;
+    private Integer gapRequirementCount;
 
     @Data @Builder
     public static class SanctionItem {

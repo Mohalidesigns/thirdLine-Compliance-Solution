@@ -9,6 +9,8 @@ public class ObligationStats {
     private long total;
     private long highRisk;
     private long gaps;
+    private long gapRequirements;
+    private long totalRequirements;
     /** Obligations that are linked to at least one return. */
     private long withReturns;
     private long underReview;
