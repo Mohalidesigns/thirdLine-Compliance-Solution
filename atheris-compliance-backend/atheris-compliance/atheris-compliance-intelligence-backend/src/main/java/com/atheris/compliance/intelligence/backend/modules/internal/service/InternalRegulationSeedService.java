@@ -5,7 +5,14 @@ import com.atheris.compliance.intelligence.backend.modules.instruments.repositor
 import com.atheris.compliance.intelligence.backend.modules.internal.dto.InternalRegulationSeed;
 import com.atheris.compliance.intelligence.backend.modules.obligations.repository.ObligationMappingRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulators.repository.RegulatorRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ComplianceControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationRequirement;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RequirementControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Risk;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationRequirementRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RequirementControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RiskRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
@@ -18,8 +25,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service @Slf4j @RequiredArgsConstructor
 public class InternalRegulationSeedService {
@@ -31,6 +40,9 @@ public class InternalRegulationSeedService {
     private final RegulatoryReturnRepository returns;
     private final ComplianceControlRepository complianceControls;
     private final RegulatorRepository regulatorRepo;
+    private final ObligationRequirementRepository requirementRepo;
+    private final RequirementControlRepository requirementControlRepo;
+    private final RiskRepository riskRepo;
 
     public List<InternalRegulationSeed> seedForRegulators(List<Integer> regulatorIds) {
         if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
@@ -47,6 +59,25 @@ public class InternalRegulationSeedService {
         }
 
         List<InternalRegulationSeed> out = new ArrayList<>();
+        Map<Integer, Risk> riskById = riskRepo.findAll().stream()
+            .collect(Collectors.toMap(Risk::getRiskId, x -> x));
+        Map<Long, String> controlNumberById = complianceControls.findAll().stream()
+            .collect(Collectors.toMap(ComplianceControl::getComplianceControlId,
+                ComplianceControl::getControlNumber, (a, b) -> a));
+        Set<Long> allObligationIds = new LinkedHashSet<>();
+        for (Long rid : regulationIds) {
+            obligations.findByRegulationId(rid).forEach(o -> allObligationIds.add(o.getObligationId()));
+        }
+        Map<Long, List<ObligationRequirement>> requirementsByObligation = allObligationIds.isEmpty() ? Map.of()
+            : requirementRepo.findByObligationIdInOrderByObligationIdAscOrdinalAsc(allObligationIds).stream()
+                .collect(Collectors.groupingBy(ObligationRequirement::getObligationId));
+        Set<Long> requirementIds = requirementsByObligation.values().stream()
+            .flatMap(List::stream).map(ObligationRequirement::getRequirementId).collect(Collectors.toSet());
+        Map<Long, List<Integer>> controlIdsByRequirement = requirementIds.isEmpty() ? Map.of()
+            : requirementControlRepo.findByRequirementIdIn(requirementIds).stream()
+                .collect(Collectors.groupingBy(RequirementControl::getRequirementId,
+                    Collectors.mapping(RequirementControl::getControlId, Collectors.toList())));
+
         for (Long rid : regulationIds) {
             Regulation r = regulations.findById(rid).orElse(null);
             if (r == null || r.getCanonicalInstrumentId() == null) continue;
@@ -101,7 +132,8 @@ public class InternalRegulationSeedService {
                         .inherentImpact(o.getInherentImpact())
                         .inherentRiskRating(o.getInherentRiskRating())
                         .controlOwner(o.getControlOwner())
-                        .points(o.getPoints())
+                        .requirements(requirementItems(o.getObligationId(), requirementsByObligation,
+                            controlIdsByRequirement, riskById, controlNumberById))
                         .build())
                     .toList())
                 .sanctions(sanctions.findByRegulationId(r.getRegulationId()).stream()
@@ -165,5 +197,32 @@ public class InternalRegulationSeedService {
         }
         log.info("Built {} regulation seed bundles for {} regulators", out.size(), regulatorIds.size());
         return out;
+    }
+
+    private static List<InternalRegulationSeed.RequirementItem> requirementItems(
+            Long obligationId,
+            Map<Long, List<ObligationRequirement>> requirementsByObligation,
+            Map<Long, List<Integer>> controlIdsByRequirement,
+            Map<Integer, Risk> riskById,
+            Map<Long, String> controlNumberById) {
+        return requirementsByObligation.getOrDefault(obligationId, List.of()).stream()
+            .map(req -> {
+                Risk risk = req.getRiskId() == null ? null : riskById.get(req.getRiskId());
+                List<String> controlNumbers = controlIdsByRequirement.getOrDefault(req.getRequirementId(), List.of())
+                    .stream()
+                    .map(id -> controlNumberById.get(id.longValue()))
+                    .filter(Objects::nonNull)
+                    .toList();
+                return InternalRegulationSeed.RequirementItem.builder()
+                    .ordinal(req.getOrdinal())
+                    .text(req.getText())
+                    .riskCode(risk == null ? null : risk.getCode())
+                    .riskName(risk == null ? null : risk.getName())
+                    .riskType(risk == null ? null : risk.getRiskType())
+                    .riskArea(risk == null ? null : risk.getAreaOfFocus())
+                    .controlNumbers(controlNumbers)
+                    .build();
+            })
+            .toList();
     }
 }

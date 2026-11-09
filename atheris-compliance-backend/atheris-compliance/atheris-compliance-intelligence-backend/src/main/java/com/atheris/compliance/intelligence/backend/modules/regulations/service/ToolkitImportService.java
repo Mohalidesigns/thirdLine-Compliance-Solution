@@ -14,7 +14,17 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Co
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulationAlias;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RegulatoryReturn;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationRequirement;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RequirementControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Risk;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RiskControl;
+import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RiskObligation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationRequirementRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RequirementControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RiskControlRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RiskObligationRepository;
+import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RiskRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationAliasRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
@@ -55,6 +65,11 @@ public class ToolkitImportService {
     private final SanctionsRepository sanctions;
     private final RegulatoryReturnRepository returns;
     private final ComplianceControlRepository complianceControls;
+    private final RiskRepository risks;
+    private final ObligationRequirementRepository requirements;
+    private final RequirementControlRepository requirementControls;
+    private final RiskObligationRepository riskObligations;
+    private final RiskControlRepository riskControls;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper mapper;
     private final ToolkitDataRepairService toolkitRepair;
@@ -134,6 +149,7 @@ public class ToolkitImportService {
                     importCmpControlsFromSections(doc.getObligations() == null ? Map.of() : doc.getObligations());
                     // each control links the obligation(s) of the row(s) it came from
                     toolkitRepair.relinkControls(doc.getObligations() == null ? Map.of() : doc.getObligations());
+                    importRequirementsAndRisks(doc);
                     return successResult();
                 } catch (Exception e) {
                     status.setRollbackOnly();
@@ -177,6 +193,94 @@ public class ToolkitImportService {
             .sanctions(sanctionCount).returns(returnCount)
             .controls(controlCount)
             .build();
+    }
+
+    // ── Toolkit enrichment: requirements + risks ──
+    int requirementCount = 0;
+    int riskCount = 0;
+    int requirementControlCount = 0;
+
+    @Transactional
+    public void importRequirementsAndRisks(ToolkitSeedDoc doc) {
+        if (doc == null || doc.getObligations() == null) return;
+
+        Map<String, Risk> riskByCode = new HashMap<>();
+        for (Risk existing : risks.findAll()) riskByCode.put(existing.getCode(), existing);
+        for (ToolkitSeedDoc.RiskRow r : doc.getRisks() == null ? List.<ToolkitSeedDoc.RiskRow>of() : doc.getRisks()) {
+            if (r.getCode() == null || r.getCode().isBlank()) continue;
+            if (riskByCode.containsKey(r.getCode())) continue;
+            Risk saved = risks.save(Risk.builder()
+                .code(r.getCode())
+                .name(shorten(r.getName(), 300))
+                .riskType(shorten(r.getType(), 60))
+                .areaOfFocus(shorten(r.getArea(), 120))
+                .source("toolkit_seed")
+                .build());
+            riskByCode.put(saved.getCode(), saved);
+            riskCount++;
+        }
+
+        Map<String, ComplianceControl> controlByKey = new HashMap<>();
+        for (ComplianceControl c : complianceControls.findAll()) {
+            if (c.getActId() != null) {
+                controlByKey.put(ToolkitControlDedup.naturalKey(c.getActId(), c.getComplianceControl(), c.getControlType()), c);
+            }
+        }
+        Map<String, Long> actIdByName = new HashMap<>();
+        for (Regulation a : actRepo.findAll()) actIdByName.putIfAbsent(a.getName().trim(), a.getRegulationId());
+
+        Set<String> obligationRiskPairs = new HashSet<>();
+        Set<String> riskControlPairs = new HashSet<>();
+        for (var sectionEntry : doc.getObligations().entrySet()) {
+            for (ToolkitSeedDoc.ObligationRow o : sectionEntry.getValue()) {
+                if (o.getRequirements() == null || o.getRequirements().isEmpty()) continue;
+                String source = o.getSource();
+                if (source == null || source.isBlank()) continue;
+                Long actId = actIdByName.get(source.trim());
+                if (actId == null) continue;
+                String actKey = ToolkitDataRepairService.actKey(actId, o);
+                Long obligationId = actKey == null ? null : obligationByActKey.get(actKey);
+                if (obligationId == null) continue;
+
+                requirements.deleteByObligationId(obligationId);
+                int ordinal = 0;
+                for (ToolkitSeedDoc.RequirementRow r : o.getRequirements()) {
+                    if (r.getText() == null || r.getText().isBlank()) continue;
+                    Risk risk = r.getRiskCode() == null ? null : riskByCode.get(r.getRiskCode());
+                    ObligationRequirement req = requirements.save(ObligationRequirement.builder()
+                        .obligationId(obligationId)
+                        .ordinal(ordinal++)
+                        .text(r.getText().trim())
+                        .riskId(risk == null ? null : risk.getRiskId())
+                        .source("toolkit_seed")
+                        .build());
+                    requirementCount++;
+
+                    for (String which : r.getControls() == null ? List.<String>of() : r.getControls()) {
+                        String text = "primary".equalsIgnoreCase(which) ? o.getPrimaryControl()
+                            : "additional".equalsIgnoreCase(which) ? o.getAdditionalControl() : null;
+                        if (text == null || text.isBlank()) continue;
+                        String type = "primary".equalsIgnoreCase(which) ? "PRIMARY" : "ADDITIONAL";
+                        ComplianceControl c = controlByKey.get(ToolkitControlDedup.naturalKey(actId, text, type));
+                        if (c == null) continue;
+                        requirementControls.save(new RequirementControl(req.getRequirementId(), Math.toIntExact(c.getComplianceControlId())));
+                        requirementControlCount++;
+                        if (risk != null) riskControlPairs.add(risk.getRiskId() + ":" + c.getComplianceControlId());
+                    }
+                    if (risk != null) obligationRiskPairs.add(risk.getRiskId() + ":" + obligationId);
+                }
+            }
+        }
+        for (String pair : obligationRiskPairs) {
+            String[] p = pair.split(":");
+            riskObligations.save(new RiskObligation(Integer.valueOf(p[0]), Long.valueOf(p[1])));
+        }
+        for (String pair : riskControlPairs) {
+            String[] p = pair.split(":");
+            riskControls.save(new RiskControl(Integer.valueOf(p[0]), Integer.valueOf(p[1])));
+        }
+        log.info("[ToolkitImport] requirements imported: {}, risks imported: {}, requirement-control links: {}",
+            requirementCount, riskCount, requirementControlCount);
     }
 
     static String stripQuotes(String s) {
@@ -290,7 +394,6 @@ public class ToolkitImportService {
                 .inherentImpact(impactInherent)
                 .inherentRiskRating(inherentRiskRating)
                 .controlOwner(o.getOwner())
-                .points(o.getPoints() == null ? List.of() : o.getPoints())
                 .build());
             if (actKey != null) obligationByActKey.put(actKey, saved.getObligationId());
             obligationCount++;

@@ -59,7 +59,19 @@ public class InternalRegulationSeed {
         private String inherentImpact;
         private String inherentRiskRating;
         private String controlOwner;
-        private List<Map<String, Object>> points;
+        private List<RequirementItem> requirements;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class RequirementItem {
+        private Integer ordinal;
+        private String text;
+        private String riskCode;
+        private String riskName;
+        private String riskType;
+        private String riskArea;
+        /** Control numbers (toolkit control identity) that satisfy this requirement. */
+        private List<String> controlNumbers;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
