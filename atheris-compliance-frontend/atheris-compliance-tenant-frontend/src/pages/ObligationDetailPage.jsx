@@ -5,10 +5,10 @@ import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Snackbar,
 } from '@mui/material';
 import {
-  DetailHeader, CoverageStrip, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
+  DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
   controlColumns, returnColumns,
-  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon, ScaleIcon,
-  ShieldCheckIcon, CalendarDaysIcon, DocumentTextIcon, ClockIcon, UserCircleIcon, ListBulletIcon,
+  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon, EyeIcon,
+  ShieldCheckIcon, UserCircleIcon,
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
@@ -229,21 +229,6 @@ export default function ObligationDetailPage() {
           </Box>
         )}
       />
-
-      <Box sx={{ mb: 3, width: '100%' }}>
-        <CoverageStrip
-          title="Coverage"
-          items={[
-            { key: 'requirements', label: 'Requirements', value: counts.requirements, tone: 'teal', icon: <ListBulletIcon /> },
-            { key: 'controls', label: 'Controls', value: counts.controls, tone: 'orange', icon: <ShieldCheckIcon /> },
-            { key: 'returns', label: 'Returns', value: counts.returns, tone: 'purple', icon: <CalendarDaysIcon /> },
-            { key: 'sanctions', label: 'Sanctions', value: counts.sanctions, tone: 'red', icon: <ScaleIcon /> },
-            { key: 'evidence', label: 'Evidence', value: counts.evidence, tone: 'blue', icon: <DocumentTextIcon /> },
-            { key: 'history', label: 'History', value: counts.history, tone: 'teal', icon: <ClockIcon /> },
-          ]}
-          onTileClick={switchTab}
-        />
-      </Box>
 
       <SectionTabs
         tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
