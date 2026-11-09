@@ -10,7 +10,7 @@ import java.io.Serializable;
 @IdClass(RequirementControl.Key.class)
 public class RequirementControl {
     @Id private Long requirementId;
-    @Id private Integer controlId;
+    @Id @Column(name = "control_id") private Integer controlId;
 
     @Data @NoArgsConstructor @AllArgsConstructor
     public static class Key implements Serializable {

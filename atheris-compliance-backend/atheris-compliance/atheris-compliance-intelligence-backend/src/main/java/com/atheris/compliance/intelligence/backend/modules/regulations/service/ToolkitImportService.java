@@ -243,6 +243,7 @@ public class ToolkitImportService {
                 if (obligationId == null) continue;
 
                 requirements.deleteByObligationId(obligationId);
+                requirements.flush();
                 int ordinal = 0;
                 for (ToolkitSeedDoc.RequirementRow r : o.getRequirements()) {
                     if (r.getText() == null || r.getText().isBlank()) continue;

@@ -37,7 +37,7 @@ CREATE INDEX idx_requirements_risk ON obligation_requirements(risk_id);
 
 CREATE TABLE IF NOT EXISTS requirement_controls (
     requirement_id BIGINT NOT NULL REFERENCES obligation_requirements(requirement_id) ON DELETE CASCADE,
-    control_id     INT    NOT NULL REFERENCES compliance_controls(control_id) ON DELETE CASCADE,
+    control_id     INT    NOT NULL REFERENCES compliance_controls(compliance_control_id) ON DELETE CASCADE,
     PRIMARY KEY (requirement_id, control_id)
 );
 
@@ -53,7 +53,7 @@ CREATE INDEX idx_risk_obligations_obligation ON risk_obligations(obligation_id);
 
 CREATE TABLE IF NOT EXISTS risk_controls (
     risk_id    INT NOT NULL REFERENCES risks(risk_id) ON DELETE CASCADE,
-    control_id INT NOT NULL REFERENCES compliance_controls(control_id) ON DELETE CASCADE,
+    control_id INT NOT NULL REFERENCES compliance_controls(compliance_control_id) ON DELETE CASCADE,
     PRIMARY KEY (risk_id, control_id)
 );
 

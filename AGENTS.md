@@ -811,7 +811,7 @@ The pre-due window, the recipient of the overdue link and the filing↔policy bi
 - ONLY use curl for pure backend-only internal endpoints (e.g. `/api/v1/internal/` server-to-server callbacks) that have no frontend path
 - MUST NEVER assume changes work — always verify builds compile (`mvn clean compile`, `npm run build`) and check backend logs for errors after any manual onboarding (`%TEMP%\opencode\{intel,tenant}-{out,err}.log`)
 - if onboarding fails, MUST STOP and fix before proceeding with any new work
-- after every database drop/recreate, MUST prompt the user to start the backends themselves and then run manual onboarding — NEVER start backends automatically; do NOT proceed with automated testing without user confirmation
+- after every database drop/recreate, the AI restarts the backends itself (see BACKEND RESTART below), then prompts the user to run manual onboarding — onboarding itself is still the user's to run/verify
 - use the following onboarding parameters (values are examples; credentials via env vars only)
  organization name: Mam Corp
  address: No 121, Lewis Street, Lagos Island, Lagos
@@ -824,7 +824,24 @@ The pre-due window, the recipient of the overdue link and the filing↔policy bi
 
 ## VERIFICATION
 
-- after every backend restart, MUST verify builds compile and prompt user to start backends + run manual onboarding (do NOT start backends or automate onboarding with Playwright)
+- after every backend restart, MUST verify builds compile, restart the backends (see BACKEND RESTART), then prompt the user to run manual onboarding (do NOT automate onboarding with Playwright)
+
+## BACKEND RESTART (the AI does this)
+
+Both backends run under launchd agents that `source ~/.bash_profile` (DB creds) and run `mvn spring-boot:run`:
+- `~/Library/LaunchAgents/com.atheris.intel.plist` (intel, :9090) — `KeepAlive=true`, `RunAtLoad=true`
+- `~/Library/LaunchAgents/com.atheris.tenant.plist` (tenant, :9091) — `KeepAlive=true`, `RunAtLoad=true`
+- Frontends: `com.atheris.intel-fe` (:5173), `com.atheris.tenant-fe` (:5174) — leave running.
+
+Restart recipe (done by the AI after a DB drop/recreate or a code change):
+1. Stop: `launchctl bootout gui/$(id -u)/com.atheris.intel` (and `.../com.atheris.tenant`); then `pkill -9 -f "atheris-compliance-intelligence-backend"` / `...-tenant-backend` — **KeepAlive respawns and a `spring-boot:run` Maven parent holds the DB, so `launchctl bootout` alone is not enough; kill the Java process too and confirm with `pgrep -fl atheris-compliance`**.
+2. If `atheris-compliance-common` changed: `mvn -o clean install -pl atheris-compliance-common -DskipTests` (launchd resolves it from `~/.m2`).
+3. `mvn -o clean -pl atheris-compliance-intelligence-backend,atheris-compliance-tenant-backend` — a renamed/edited migration lingers in `target/classes` and makes Flyway report "more than one migration with version N"; clean is mandatory after touching migrations.
+4. Truncate `$TMPDIR/opencode/{intel,tenant}-{out,err}.log`, then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atheris.<x>.plist`. If bootstrap reports `Input/output error`, the agent was still registered — bootout + pkill, then retry.
+5. Start intel first (it seeds the toolkit), wait for `Successfully applied ... now at version vN` and the `[ToolkitImport]`/`[ToolkitSeeder]` lines; then start tenant and wait for `Started AtherisTenantBackendApplication`.
+6. Verify: both `-err.log` empty, `/actuator/health` reachable. **Intel `/actuator/health` may report `DOWN` on the `MailHealthIndicator` alone (intel SMTP is unset — benign); a `DOWN` with login returning 401 and no boot exception is fine.** Then prompt the user to run onboarding.
+
+Logs: `$TMPDIR/opencode/{intel,tenant}-{out,err}.log` = `/var/folders/bw/__llhhgx1ll45y0zkj3xkvz1gj9_ff/T/opencode/`.
 - after onboarding, MUST verify the UI loads and check the backend logs for errors
 - if onboarding fails, MUST STOP and fix before proceeding with any new work
 - use the following onboarding parameters (values are examples; credentials via env vars only)
