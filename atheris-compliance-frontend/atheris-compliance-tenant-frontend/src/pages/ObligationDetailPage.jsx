@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Chip, Button, CircularProgress, Alert, IconButton, Snackbar,
+  Box, Typography, Button, CircularProgress, Alert, IconButton, Snackbar,
 } from '@mui/material';
 import {
-  DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, TL,
+  DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard,
   controlColumns, returnColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
@@ -167,13 +167,15 @@ export default function ObligationDetailPage() {
     );
   }
 
-  const chips = [
-    selected.regulatorAbbreviation,
-    selected.areaOfFocus,
-    selected.sectionReference,
-    selected.obligationType,
-    selected.recurringDeadlineType,
-  ].filter(Boolean);
+  const complianceTone = {
+    COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red',
+    NO_CONTROL: 'red', NO_REQUIREMENTS: 'gray',
+  }[selected.complianceState] || 'gray';
+
+  const complianceLabel = {
+    COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
+    NO_CONTROL: 'No control', NO_REQUIREMENTS: 'No requirements',
+  }[selected.complianceState] || selected.complianceState;
 
   return (
     <Box>
@@ -182,6 +184,8 @@ export default function ObligationDetailPage() {
         onBack={() => navigate('/obligations')}
         backLabel="Back to Obligations"
         title={selected.title || selected.name || 'Untitled obligation'}
+        status={complianceLabel}
+        statusTone={complianceTone}
         meta={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             {selected.actName && (
@@ -190,10 +194,6 @@ export default function ObligationDetailPage() {
                 {selected.actName}
               </Typography>
             )}
-            {chips.map((c) => (
-              <Chip key={c} size="small" variant="outlined" label={c}
-                sx={c === selected.sectionReference ? { fontFamily: TL.mono, fontSize: '0.7rem' } : undefined} />
-            ))}
           </Box>
         )}
       />
