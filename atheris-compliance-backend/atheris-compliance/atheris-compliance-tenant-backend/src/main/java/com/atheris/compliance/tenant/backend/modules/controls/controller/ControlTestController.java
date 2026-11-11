@@ -27,6 +27,12 @@ public class ControlTestController {
         return ResponseEntity.ok(service.getTestHistory(id));
     }
 
+    @GetMapping("/api/v1/control-tests/{testId}")
+    @PreAuthorize("hasAnyRole(" + AppRole.CONTROL_REVIEWERS + ")")
+    public ResponseEntity<ControlTestResult> testDetail(@PathVariable Long testId) {
+        return ResponseEntity.ok(service.getTest(testId));
+    }
+
     @PostMapping("/api/v1/controls/{id}/tests")
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlTestResult> recordTest(
@@ -47,7 +53,7 @@ public class ControlTestController {
     }
 
     @PutMapping("/api/v1/controls/{id}/tests/{testId}/review")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.ANALYST + "')")
+    @PreAuthorize("hasAnyRole(" + AppRole.CONTROL_REVIEWERS + ")")
     public ResponseEntity<ControlTestResult> reviewTest(
             @PathVariable Integer id,
             @PathVariable Long testId,

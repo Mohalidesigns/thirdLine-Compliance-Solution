@@ -333,6 +333,7 @@ public class RequirementService {
         if (controlIds.isEmpty()) return Map.of();
         Map<Integer, ControlTestResult> latest = new HashMap<>();
         for (ControlTestResult t : testResults.findByControlIdInOrderByTestDateDesc(controlIds)) {
+            if (!com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())) continue;
             ControlTestResult cur = latest.get(t.getControlId());
             if (cur == null || isLater(t, cur)) latest.put(t.getControlId(), t);
         }

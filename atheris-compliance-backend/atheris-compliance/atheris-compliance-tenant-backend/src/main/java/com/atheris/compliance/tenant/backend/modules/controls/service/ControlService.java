@@ -187,6 +187,7 @@ public class ControlService {
         }
         Map<Integer, ControlTestResult> latest = new HashMap<>();
         for (ControlTestResult t : testRepo.findByControlIdInOrderByTestDateDesc(ids)) {
+            if (!WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())) continue;
             ControlTestResult current = latest.get(t.getControlId());
             if (current == null || compareTest(t, current) > 0) {
                 latest.put(t.getControlId(), t);
@@ -328,7 +329,8 @@ public class ControlService {
             .testHistory(tests)
             .nextTestDueDate(nextTest)
             .findings(findings)
-            .residualRiskReason(residualRiskReason(c, tests, findings))
+            .residualRiskReason(residualRiskReason(c,
+                tests.stream().filter(t -> WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())).toList(), findings))
             .build();
     }
 

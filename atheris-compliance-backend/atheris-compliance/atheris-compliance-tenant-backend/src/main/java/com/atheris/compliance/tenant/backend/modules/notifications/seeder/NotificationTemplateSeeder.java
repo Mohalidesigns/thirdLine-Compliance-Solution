@@ -93,6 +93,9 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
             templates.require(EscalationConstants.KEY_CONTROL_DATA_RECEIPT,
                 "Received: {{controlName}} test result",
                 CONTROL_DETAILS + "\n\nYour test result has been recorded and is being reviewed.", false);
+            templates.require(EscalationConstants.KEY_CONTROL_TEST_ACCEPTED,
+                "Accepted: {{controlName}} test result",
+                CONTROL_DETAILS + "\n\nYour test result ({{result}}) has been reviewed and accepted. Thank you.", false);
             templates.require(EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED,
                 "Changes requested: {{controlName}} test",
                 CONTROL_DETAILS + "\n\n{{reviewNotes}}\n\nPlease review and record the test again using the link below.", false);

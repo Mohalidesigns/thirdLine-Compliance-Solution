@@ -134,7 +134,8 @@ public class ComplianceMetricsService {
         int controlsTotal = allControls.size();
         int controlsHighResidual = (int) allControls.stream()
             .filter(c -> HIGH_RISK.contains(c.getResidualRisk())).count();
-        Map<Integer, ControlTestResult> latestTest = latestTestByControl(controlTests.findAll());
+        Map<Integer, ControlTestResult> latestTest = latestTestByControl(controlTests.findAll().stream()
+            .filter(t -> WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())).toList());
         Set<Integer> controlIds = allControls.stream().map(Control::getControlId).collect(Collectors.toSet());
         latestTest.keySet().retainAll(controlIds);
         int controlsTested = latestTest.size();

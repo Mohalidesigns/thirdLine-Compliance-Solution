@@ -15,6 +15,7 @@ public interface ControlTestResultRepository extends JpaRepository<ControlTestRe
     List<ControlTestResult> findByControlIdOrderByTestDateDesc(Integer controlId);
     List<ControlTestResult> findByControlIdInOrderByTestDateDesc(Collection<Integer> controlIds);
     Optional<ControlTestResult> findTopByControlIdOrderByTestDateDesc(Integer controlId);
+    Optional<ControlTestResult> findTopByControlIdAndReviewStatusOrderByTestDateDesc(Integer controlId, String reviewStatus);
     List<ControlTestResult> findByReviewStatus(String reviewStatus);
     long countByReviewedAtGreaterThanEqual(Instant cutoff);
     List<ControlTestResult> findByRemediationRequiredTrueAndRemediationDeadlineBefore(LocalDate today);

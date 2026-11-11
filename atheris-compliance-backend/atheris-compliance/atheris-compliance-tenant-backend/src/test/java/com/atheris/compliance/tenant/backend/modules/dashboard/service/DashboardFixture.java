@@ -116,7 +116,8 @@ class DashboardFixture {
     }
 
     private void test(int controlId, LocalDate date, String result, long testId) {
-        testRows.add(ControlTestResult.builder().testId(testId).controlId(controlId).testDate(date).result(result).build());
+        testRows.add(ControlTestResult.builder().testId(testId).controlId(controlId).testDate(date).result(result)
+            .reviewStatus("Accepted").build());
     }
 
     private void task(int controlId, LocalDate due, String status) {

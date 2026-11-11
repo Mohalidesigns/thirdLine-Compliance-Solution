@@ -70,6 +70,8 @@ public class PlatformRegulationSeed {
         private String riskName;
         private String riskType;
         private String riskArea;
+        private String riskLikelihood;
+        private String riskImpact;
         /** Toolkit control numbers that satisfy this requirement (resolved to tenant controls on seed). */
         private List<String> controlNumbers;
     }

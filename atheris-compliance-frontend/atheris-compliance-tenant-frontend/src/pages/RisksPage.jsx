@@ -40,16 +40,16 @@ const COLUMNS = [
     render: (r) => (r.areaOfFocus
       ? <Typography variant="body2" sx={ellipsis(200)}>{r.areaOfFocus}</Typography>
       : <Typography variant="body2" color="text.secondary">—</Typography>) },
-  { id: 'inherentBand', label: 'Inherent Band', minWidth: 150,
+  { id: 'inherentBand', label: 'Inherent', minWidth: 130,
     render: (r) => (
       <StatusBadge tone={bandTone(r.inherentBand)} dot label={r.inherentBand}
         title={r.inherentLikelihood && r.inherentImpact ? `${r.inherentLikelihood} × ${r.inherentImpact}` : undefined} />
     ) },
-  { id: 'obligationCount', label: 'Obligations', minWidth: 130,
+  { id: 'residualBand', label: 'Residual', minWidth: 130,
     render: (r) => (
-      <Typography variant="body2" sx={(r.obligationCount ?? 0) === 0 ? { color: 'text.secondary' } : undefined}>
-        {r.obligationCount ?? 0}
-      </Typography>
+      <Tooltip title={r.residualReason || ''}>
+        <span><StatusBadge tone={bandTone(r.residualBand)} dot label={r.residualBand} /></span>
+      </Tooltip>
     ) },
   { id: 'controlCount', label: 'Controls', minWidth: 130,
     render: (r) => (r.controlCount > 0
@@ -91,9 +91,12 @@ export default function RisksPage() {
 
   const kpiItems = [
     { key: 'total', label: 'Total Risks', value: stats?.total ?? 0, tone: 'blue', icon: <ExclamationTriangleIcon /> },
-    { key: 'critical', label: 'Critical / High', value: (stats?.byBand?.Critical ?? 0) + (stats?.byBand?.High ?? 0),
+    { key: 'critical', label: 'Inherent Critical / High', value: (stats?.byBand?.Critical ?? 0) + (stats?.byBand?.High ?? 0),
       tone: 'red', icon: <ExclamationTriangleIcon />,
       breakdown: BANDS.filter((b) => stats?.byBand?.[b]).map((b) => ({ label: b, value: stats.byBand[b] })) },
+    { key: 'residual', label: 'Residual Critical / High', value: (stats?.byResidualBand?.Critical ?? 0) + (stats?.byResidualBand?.High ?? 0),
+      tone: 'amber', icon: <ShieldCheckIcon />,
+      breakdown: BANDS.filter((b) => stats?.byResidualBand?.[b]).map((b) => ({ label: b, value: stats.byResidualBand[b] })) },
     { key: 'unmanaged', label: 'No Control', value: stats?.unmanaged ?? 0, tone: 'orange', icon: <ShieldCheckIcon />,
       caption: 'Risk with no control' },
   ];
@@ -127,7 +130,7 @@ export default function RisksPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Failed to load risks.'}</Alert>}
 
-      <KpiCards items={kpiItems.map((k) => ({ ...k, active: k.key === activeKpi }))} onSelect={onKpiSelect} columns={3} />
+      <KpiCards items={kpiItems.map((k) => ({ ...k, active: k.key === activeKpi }))} onSelect={onKpiSelect} columns={4} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search risk or area…', minWidth: 260 }}

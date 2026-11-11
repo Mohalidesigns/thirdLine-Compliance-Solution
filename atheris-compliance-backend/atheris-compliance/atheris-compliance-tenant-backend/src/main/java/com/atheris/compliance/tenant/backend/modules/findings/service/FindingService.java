@@ -374,10 +374,13 @@ public class FindingService {
             ownerRepo.findById(f.getAssignedToOwnerId())
                 .map(o -> o.getEmail()).filter(e -> e != null && !e.isBlank()).ifPresent(cc::add);
         }
-        notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS,
-            NotificationConstants.SEVERITY_MEDIUM, summary, "/findings",
-            rendered.subject() != null ? rendered.subject() : "Remediation submitted — review required",
-            rendered.body() != null ? rendered.body() : summary, cc);
+        String findingsReviewLink = "/findings/" + id + "/review";
+        for (String role : java.util.List.of(AppRole.ANALYST, AppRole.CCO, AppRole.FINDINGS_REVIEW)) {
+            notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_FINDINGS,
+                NotificationConstants.SEVERITY_MEDIUM, summary, findingsReviewLink,
+                rendered.subject() != null ? rendered.subject() : "Remediation submitted — review required",
+                rendered.body() != null ? rendered.body() : summary, cc);
+        }
         return repo.save(f);
     }
 
@@ -500,7 +503,7 @@ public class FindingService {
                 .filter(x -> !x.getFindingId().equals(f.getFindingId()))
                 .anyMatch(x -> !WorkflowStatus.FINDING_CLOSED.equals(x.getStatus()));
             String risk = otherOpen
-                ? controlTestRepo.findTopByControlIdOrderByTestDateDesc(controlId)
+                ? controlTestRepo.findTopByControlIdAndReviewStatusOrderByTestDateDesc(controlId, WorkflowStatus.REVIEW_ACCEPTED)
                     .map(t -> ResidualRisk.fromTestResult(t.getResult(), control.getInherentRisk())).orElse(null)
                 : ResidualRisk.capAtInherent(WorkflowStatus.RISK_LOW, control.getInherentRisk());
             if (risk != null && !risk.equals(control.getResidualRisk())) {

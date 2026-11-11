@@ -70,6 +70,8 @@ public class InternalRegulationSeed {
         private String riskName;
         private String riskType;
         private String riskArea;
+        private String riskLikelihood;
+        private String riskImpact;
         /** Control numbers (toolkit control identity) that satisfy this requirement. */
         private List<String> controlNumbers;
     }

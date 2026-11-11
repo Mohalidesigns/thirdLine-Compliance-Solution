@@ -2,7 +2,6 @@ package com.atheris.compliance.tenant.backend.modules.requirements.service;
 
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.Requirement;
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.RequirementControl;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementControlRepository;
@@ -13,8 +12,7 @@ import com.atheris.compliance.tenant.backend.modules.risks.entity.RiskObligation
 import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskControlRepository;
 import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskRepository;
-import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
-import com.atheris.compliance.tenant.backend.modules.risks.service.RiskScoring;
+import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.tenant.backend.shared.platform.dto.PlatformRegulationSeed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +36,6 @@ public class RequirementSeedService {
     private final RiskControlRepository riskControls;
     private final RiskObligationRepository riskObligations;
     private final ControlRepository controls;
-    private final ObligationRepository obligationRepo;
 
     public record Result(int requirements, int risks, int requirementControlLinks) {}
 
@@ -63,6 +60,9 @@ public class RequirementSeedService {
                     .name(r.getRiskName() != null ? r.getRiskName() : r.getRiskCode())
                     .riskType(r.getRiskType())
                     .areaOfFocus(r.getRiskArea())
+                    .inherentLikelihood(r.getRiskLikelihood())
+                    .inherentImpact(r.getRiskImpact())
+                    .inherentBand(RiskBands.band(r.getRiskLikelihood(), r.getRiskImpact()))
                     .build());
                 riskByCode.put(saved.getRiskCode(), saved);
                 newRisks++;
@@ -130,27 +130,9 @@ public class RequirementSeedService {
         }
         riskObligations.saveAll(newRiskObligations);
         riskControls.saveAll(newRiskControls);
-        rescore(riskByCode.values());
         log.info("[RequirementSeed] requirements={}, risks={}, requirement-control links={}",
             newRequirements, newRisks, links);
         return new Result(newRequirements, newRisks, links);
-    }
-
-    private void rescore(java.util.Collection<Risk> touched) {
-        List<Integer> riskIds = touched.stream().map(Risk::getRiskId).toList();
-        Map<Integer, List<Long>> obligationIdsByRisk = riskObligations.findByRiskIdIn(riskIds).stream()
-            .collect(Collectors.groupingBy(RiskObligation::getRiskId,
-                Collectors.mapping(RiskObligation::getObligationId, Collectors.toList())));
-        Set<Long> allObligationIds = obligationIdsByRisk.values().stream()
-            .flatMap(List::stream).collect(Collectors.toSet());
-        Map<Long, Obligation> obligationById = obligationRepo.findAllById(allObligationIds).stream()
-            .collect(Collectors.toMap(Obligation::getObligationId, Function.identity()));
-        for (Risk risk : touched) {
-            List<Obligation> covered = obligationIdsByRisk.getOrDefault(risk.getRiskId(), List.of()).stream()
-                .map(obligationById::get).filter(java.util.Objects::nonNull).toList();
-            RiskScoring.apply(risk, covered);
-        }
-        risks.saveAll(touched);
     }
 
     private static <T> List<T> orEmpty(List<T> list) {

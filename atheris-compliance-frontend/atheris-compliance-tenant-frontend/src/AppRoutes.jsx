@@ -18,9 +18,12 @@ const UploadPage = lazy(() => import('./pages/UploadPage'));
 const UploadStatusPage = lazy(() => import('./pages/UploadStatusPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ControlsPage = lazy(() => import('./pages/ControlsPage'));
+const ControlTestReviewPage = lazy(() => import('./pages/ControlTestReviewPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
+const FindingReviewPage = lazy(() => import('./pages/FindingReviewPage'));
 const ReturnsPage = lazy(() => import('./pages/ReturnsPage'));
 const ReturnsDetailPage = lazy(() => import('./pages/ReturnsDetailPage'));
+const ReturnInstanceReviewPage = lazy(() => import('./pages/ReturnInstanceReviewPage'));
 const SanctionsPage = lazy(() => import('./pages/SanctionsPage'));
 const AuditTrailPage = lazy(() => import('./pages/AuditTrailPage'));
 const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
@@ -108,6 +111,7 @@ export default function AppRoutes() {
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
+          <Route path="controls/tests/:testId/review" element={<ControlTestReviewPage />} />
           <Route path="runbooks" element={<RunbooksLibraryPage />} />
           <Route path="runbooks/new" element={<RunbookBuilderPage />} />
           <Route path="runbooks/executions" element={<ExecutionsPage />} />
@@ -120,8 +124,10 @@ export default function AppRoutes() {
           <Route path="runbooks/:id" element={<RunbookDetailPage />} />
           <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />
+          <Route path="findings/:id/review" element={<FindingReviewPage />} />
           <Route path="returns" element={<ReturnsPage />} />
           <Route path="returns/:returnId" element={<ReturnsDetailPage />} />
+          <Route path="returns/:returnId/instances/:instanceId/review" element={<ReturnInstanceReviewPage />} />
           <Route path="sanctions" element={<SanctionsPage />} />
           <Route path="audit" element={<AuditTrailPage />} />
           <Route path="evidence" element={<EvidenceVaultPage />} />

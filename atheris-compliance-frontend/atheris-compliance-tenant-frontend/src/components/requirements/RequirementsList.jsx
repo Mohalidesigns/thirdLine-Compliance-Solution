@@ -55,10 +55,6 @@ const COLUMNS = [
     ) },
   { id: 'state', label: 'Compliance', minWidth: 150,
     render: (r) => <StateChip state={r.state} gap={r.gap} /> },
-  { id: 'riskName', label: 'Risk', minWidth: 200,
-    render: (r) => (r.riskName
-      ? <Typography variant="body2" sx={ellipsis(220)}>{r.riskName}</Typography>
-      : <Typography variant="body2" color="text.secondary">—</Typography>) },
   { id: 'coverage', label: 'Controls', minWidth: 140,
     render: (r) => {
       const controls = r.controls || [];

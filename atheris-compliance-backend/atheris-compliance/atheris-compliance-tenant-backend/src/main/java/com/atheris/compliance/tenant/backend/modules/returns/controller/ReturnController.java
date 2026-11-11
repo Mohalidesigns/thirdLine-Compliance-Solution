@@ -97,7 +97,7 @@ public class ReturnController {
     }
 
     @PutMapping("/instances/{id}/data-review")
-    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole(" + AppRole.RETURN_REVIEWERS + ")")
     public ResponseEntity<ReturnInstanceDetailResponse> dataReview(
             @PathVariable Long id,
             @RequestBody ReviewFilingRequest req,
@@ -107,7 +107,7 @@ public class ReturnController {
     }
 
     @PutMapping("/instances/{id}/review")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole(" + AppRole.RETURN_REVIEWERS + ")")
     public ResponseEntity<ReturnInstanceDetailResponse> review(
             @PathVariable Long id,
             @RequestBody ReviewFilingRequest req,

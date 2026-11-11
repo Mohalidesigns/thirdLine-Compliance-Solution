@@ -4,12 +4,26 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, MenuItem, Box, Typography, CircularProgress, Chip, Alert,
 } from '@mui/material';
-import { LinkIcon, PlusIcon } from 'shared';
+import { LinkIcon, PlusIcon, RiskBadge } from 'shared';
 import { api } from '../../services/api';
 import LinkObligationsPicker from './LinkObligationsPicker';
 import LinkControlsPicker from './LinkControlsPicker';
 
-const EMPTY = { name: '', description: '', riskType: '', areaOfFocus: '' };
+const EMPTY = { name: '', description: '', riskType: '', areaOfFocus: '', inherentLikelihood: '', inherentImpact: '' };
+
+const LIKELIHOODS = ['Rare', 'Unlikely', 'Possible', 'Likely', 'Almost Certain'];
+const IMPACTS = ['Insignificant', 'Minor', 'Moderate', 'Major', 'Severe'];
+
+function bandOf(likelihood, impact) {
+  const l = LIKELIHOODS.indexOf(likelihood) + 1;
+  const i = IMPACTS.indexOf(impact) + 1;
+  if (!l || !i) return null;
+  const s = l * i;
+  if (s >= 18) return 'Critical';
+  if (s >= 12) return 'High';
+  if (s >= 6) return 'Moderate';
+  return 'Low';
+}
 
 export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = null }) {
   const qc = useQueryClient();
@@ -48,6 +62,8 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
         description: risk.description || '',
         riskType: risk.riskType || '',
         areaOfFocus: risk.areaOfFocus || '',
+        inherentLikelihood: risk.inherentLikelihood || '',
+        inherentImpact: risk.inherentImpact || '',
       } : EMPTY);
       setObligations(risk?.obligations ? [...risk.obligations] : []);
       setControls(risk?.controls ? [...risk.controls] : []);
@@ -71,6 +87,8 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
         description: form.description || null,
         riskType: form.riskType || null,
         areaOfFocus: form.areaOfFocus || null,
+        inherentLikelihood: form.inherentLikelihood || null,
+        inherentImpact: form.inherentImpact || null,
         obligationIds: obligations.map((o) => o.obligationId),
         controlIds: controls.map((c) => c.controlId),
       };
@@ -109,6 +127,26 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
           </Box>
           <TextField size="small" fullWidth multiline rows={3} label="Description"
             value={form.description} onChange={set('description')} sx={{ mb: 2.5 }} />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 2, alignItems: 'center', mb: 2.5 }}>
+            <TextField select size="small" label="Likelihood (inherent)" value={form.inherentLikelihood}
+              onChange={set('inherentLikelihood')}>
+              <MenuItem value=""><em>Unrated</em></MenuItem>
+              {LIKELIHOODS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+            </TextField>
+            <TextField select size="small" label="Impact (inherent)" value={form.inherentImpact}
+              onChange={set('inherentImpact')}>
+              <MenuItem value=""><em>Unrated</em></MenuItem>
+              {IMPACTS.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+            </TextField>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.25 }}>
+              <Typography variant="caption" color="text.secondary">Inherent band</Typography>
+              <RiskBadge value={bandOf(form.inherentLikelihood, form.inherentImpact)} />
+            </Box>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            The risk is rated on its own likelihood × impact. Residual is derived live from the tests of the controls linked below.
+          </Typography>
 
           <Box sx={{ mb: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>

@@ -13,6 +13,8 @@ public class UpdateRiskRequest {
     private String riskType;
     private String areaOfFocus;
     private String status;
+    private String inherentLikelihood;
+    private String inherentImpact;
 
     private List<Long> obligationIds;
     private List<Integer> controlIds;

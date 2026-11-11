@@ -98,6 +98,8 @@ public class ToolkitSeedDoc {
         private String name;
         private String type;
         private String area;
+        private String likelihood;
+        private String impact;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)

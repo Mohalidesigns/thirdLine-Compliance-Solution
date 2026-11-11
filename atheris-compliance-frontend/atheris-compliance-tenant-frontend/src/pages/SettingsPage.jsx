@@ -19,7 +19,8 @@ import NotificationsTab from '../components/settings/NotificationsTab';
 import TemplatesTab from '../components/settings/TemplatesTab';
 import ThemesTab from '../components/settings/ThemesTab';
 
-const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
+const ROLE_OPTIONS = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS',
+  'CONTROL_TEST_REVIEWER', 'FINDINGS_REVIEW', 'RETURNS_REVIEWER', 'RUNBOOK_APPROVER'];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0);

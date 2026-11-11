@@ -220,6 +220,8 @@ public class InternalRegulationSeedService {
                     .riskName(risk == null ? null : risk.getName())
                     .riskType(risk == null ? null : risk.getRiskType())
                     .riskArea(risk == null ? null : risk.getAreaOfFocus())
+                    .riskLikelihood(risk == null ? null : risk.getInherentLikelihood())
+                    .riskImpact(risk == null ? null : risk.getInherentImpact())
                     .controlNumbers(controlNumbers)
                     .build();
             })

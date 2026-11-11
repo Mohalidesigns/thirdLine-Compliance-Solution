@@ -313,9 +313,6 @@ public class ObligationExplorerService {
 
     public ObligationExplorerStats getStats() {
         long total = obligationRepo.count();
-        long withPoints = obligationRepo.count((root, q, b) ->
-                b.and(b.isNotNull(root.get("points")),
-                        b.gt(b.function("jsonb_array_length", Integer.class, root.get("points")), 0)));
 
         Map<String, Long> byRisk = groupCount("inherentRiskRating");
         Map<String, Long> byArea = groupCount("areaOfFocus");
@@ -340,8 +337,6 @@ public class ObligationExplorerService {
         return ObligationExplorerStats.builder()
                 .total(total)
                 .highRisk(highRisk)
-                .withPoints(withPoints)
-                .withoutPoints(total - withPoints)
                 .regulators(regulators)
                 .areas(areas)
                 .risks(risks)

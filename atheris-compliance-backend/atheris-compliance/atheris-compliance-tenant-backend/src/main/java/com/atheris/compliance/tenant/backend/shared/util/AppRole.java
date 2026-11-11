@@ -20,6 +20,22 @@ public final class AppRole {
     /** Technical operator: runs runbook steps and captures evidence, no compliance authority (runbook spec D5). */
     public static final String IT_OPS = "IT_OPS";
 
+    public static final String CONTROL_TEST_REVIEWER = "CONTROL_TEST_REVIEWER";
+    public static final String FINDINGS_REVIEW = "FINDINGS_REVIEW";
+    public static final String RETURNS_REVIEWER = "RETURNS_REVIEWER";
+    public static final String RUNBOOK_APPROVER = "RUNBOOK_APPROVER";
+
     /** Every assignable role (validated on invite and role change). */
-    public static final java.util.Set<String> ALL = java.util.Set.of(ANALYST, CCO, TENANT_ADMIN, AUDITOR, IT_OPS);
+    public static final java.util.Set<String> ALL = java.util.Set.of(
+        ANALYST, CCO, TENANT_ADMIN, AUDITOR, IT_OPS,
+        CONTROL_TEST_REVIEWER, FINDINGS_REVIEW, RETURNS_REVIEWER, RUNBOOK_APPROVER);
+
+    public static final String CONTROL_REVIEWERS =
+        "'" + ANALYST + "','" + CCO + "','" + TENANT_ADMIN + "','" + CONTROL_TEST_REVIEWER + "'";
+    public static final String FINDING_REVIEWERS =
+        "'" + ANALYST + "','" + CCO + "','" + TENANT_ADMIN + "','" + FINDINGS_REVIEW + "'";
+    public static final String RETURN_REVIEWERS =
+        "'" + ANALYST + "','" + CCO + "','" + TENANT_ADMIN + "','" + RETURNS_REVIEWER + "'";
+    public static final String RUNBOOK_APPROVERS =
+        "'" + ANALYST + "','" + CCO + "','" + TENANT_ADMIN + "','" + RUNBOOK_APPROVER + "'";
 }

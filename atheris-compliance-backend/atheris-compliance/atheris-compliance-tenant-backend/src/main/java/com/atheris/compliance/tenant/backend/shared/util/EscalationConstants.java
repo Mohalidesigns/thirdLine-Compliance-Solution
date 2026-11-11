@@ -35,6 +35,7 @@ public final class EscalationConstants {
     public static final String KEY_CONTROL_OVERDUE = "control.test.overdue";
     public static final String KEY_CONTROL_DATA_REVIEW = "control.test.data_review";
     public static final String KEY_CONTROL_DATA_RECEIPT = "control.test.data_receipt";
+    public static final String KEY_CONTROL_TEST_ACCEPTED = "control.test.accepted";
     public static final String KEY_CONTROL_CHANGES_REQUESTED = "control.test.changes_requested";
 
     public static final String KEY_FINDING_RAISED = "finding.remediation.raised";

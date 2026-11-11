@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Box, CircularProgress, Alert, Divider, Typography, Chip,
+  Box, CircularProgress, Alert, Divider, Typography, Chip, IconButton,
 } from '@mui/material';
-import { LinkIcon } from 'shared';
+import { LinkIcon, PlusIcon, TrashIcon } from 'shared';
 import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
 import LinkControlsPicker from './LinkControlsPicker';
@@ -12,7 +12,7 @@ import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', obligationText: '', areaOfFocus: '', effectiveDate: '',
+  instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', effectiveDate: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
 
@@ -59,14 +59,15 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   });
 
   const initialForm = useMemo(() => {
-    if (!isEditing) return { ...EMPTY };
+    if (!isEditing) return { ...EMPTY, requirements: [''] };
+    const texts = [...existingRequirements]
+      .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
+      .map((r) => r.text || '').filter(Boolean);
     return {
       instrumentId: initial.instrumentId ?? '',
       name: initial.title || initial.name || '',
       tenantRegulatorId: initial.tenantRegulatorId ?? '',
-      obligationText: [...existingRequirements]
-        .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
-        .map((r) => r.text || '').filter(Boolean).join('\n'),
+      requirements: texts.length ? texts : [''],
       areaOfFocus: initial.areaOfFocus || '',
       effectiveDate: initial.effectiveDate || '',
       assignedOwnerId: initial.assignedOwnerId ?? null,
@@ -116,6 +117,17 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const setRequirement = (idx, value) => setForm(f => {
+    const requirements = [...f.requirements];
+    requirements[idx] = value;
+    return { ...f, requirements };
+  });
+  const addRequirement = () => setForm(f => ({ ...f, requirements: [...f.requirements, ''] }));
+  const removeRequirement = (idx) => setForm(f => {
+    const requirements = f.requirements.filter((_, i) => i !== idx);
+    return { ...f, requirements: requirements.length ? requirements : [''] };
+  });
+
   const addRegulator = (created) => {
     setRegulatorAddOpen(false);
     if (!created) return;
@@ -134,11 +146,10 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
         tenantRegulatorId: form.tenantRegulatorId ? Number(form.tenantRegulatorId) : null,
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
-        obligationTexts: (form.obligationText || '')
-          .split('\n').map((l) => l.trim()).filter(Boolean),
+        obligationTexts: (form.requirements || []).map((t) => t.trim()).filter(Boolean),
       };
       delete body.assignedOwnerId;
-      delete body.obligationText;
+      delete body.requirements;
       const saved = isEditing
         ? await api.obligations.update(obligationId, body)
         : await api.obligations.create(body);
@@ -170,14 +181,37 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
             <TextField fullWidth size="small" placeholder="e.g. Quarterly regulatory return filing"
               required value={form.name} onChange={e => set('name', e.target.value)} />
           </Field>
-          <Field label="Obligation text">
-            <TextField fullWidth size="small" multiline minRows={4}
-              placeholder="Each line becomes a requirement, e.g.&#10;The Bank shall implement tiered KYC requirements.&#10;The Bank shall file quarterly returns."
-              value={form.obligationText} onChange={e => set('obligationText', e.target.value)} />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              One requirement per line — these appear on the obligation's Requirements tab.
-            </Typography>
-          </Field>
+
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em' }}>Requirements</Typography>
+            <Button size="small" variant="outlined" startIcon={<PlusIcon size={15} />} onClick={addRequirement}>
+              Add requirement
+            </Button>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+            One enforceable duty per requirement. These appear on the obligation's Requirements tab and each can be covered by its own controls.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {form.requirements.map((text, idx) => (
+              <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <Box sx={{
+                  minWidth: 26, height: 26, mt: 0.5, borderRadius: '50%', bgcolor: 'action.hover',
+                  color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {idx + 1}
+                </Box>
+                <TextField fullWidth size="small" multiline minRows={1} maxRows={4}
+                  placeholder={`Requirement ${idx + 1}`}
+                  value={text} onChange={e => setRequirement(idx, e.target.value)} />
+                <IconButton size="small" onClick={() => removeRequirement(idx)}
+                  disabled={form.requirements.length === 1} title="Remove requirement" sx={{ mt: 0.25 }}>
+                  <TrashIcon size={16} />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Classification</Typography>

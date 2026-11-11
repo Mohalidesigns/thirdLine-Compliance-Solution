@@ -19,7 +19,7 @@ import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import RequirementsList from '../components/requirements/RequirementsList';
 import RequirementDrawer from '../components/requirements/RequirementDrawer';
-import { Field, FieldGrid, Section, RiskChip } from '../components/detailKit';
+import { Field, FieldGrid, Section } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -204,16 +204,8 @@ export default function ObligationDetailPage() {
           <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
           <Field label="Area of focus" value={selected.areaOfFocus} />
           <Field label="Section reference" value={selected.sectionReference} mono />
-          <Field label="Obligation type" value={selected.obligationType} />
-          <Field label="Deadline type" value={selected.recurringDeadlineType} />
           <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
           <Field label="Source" value={selected.sourceTitle} />
-          <Field label="Risk type" value={selected.riskType} />
-          <Field label="Inherent risk"
-            children={<RiskChip rating={selected.inherentRiskRating} likelihood={selected.inherentLikelihood || selected.likelihoodRating} impact={selected.inherentImpact || selected.impactRating} />} />
-          <Field label="Residual risk" value={selected.residualRiskRating} />
-          <Field label="Risk owner" value={selected.assignedOwnerName} />
-          <Field label="Department" value={selected.assignedDepartment} />
         </FieldGrid>
       </Section>
 

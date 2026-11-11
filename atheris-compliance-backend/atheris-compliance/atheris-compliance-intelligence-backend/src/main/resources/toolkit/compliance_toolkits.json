@@ -233937,241 +233937,321 @@
    "code": "RC-01",
    "name": "Regulatory breach / non-compliance",
    "type": "Compliance",
-   "area": "Risk Management"
+   "area": "Risk Management",
+   "likelihood": "Almost Certain",
+   "impact": "Major"
   },
   {
    "code": "RC-02",
    "name": "Late or inaccurate regulatory reporting",
    "type": "Compliance",
-   "area": "Financial Reporting"
+   "area": "Financial Reporting",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "RC-03",
    "name": "Licensing & permissible-activities breach",
    "type": "Compliance",
-   "area": "Licensing & Permissible Activities"
+   "area": "Licensing & Permissible Activities",
+   "likelihood": "Unlikely",
+   "impact": "Severe"
   },
   {
    "code": "AML-01",
    "name": "Money laundering",
    "type": "Financial Crime",
-   "area": "AML/CFT/CPF"
+   "area": "AML/CFT/CPF",
+   "likelihood": "Likely",
+   "impact": "Severe"
   },
   {
    "code": "AML-02",
    "name": "Terrorist financing",
    "type": "Financial Crime",
-   "area": "AML/CFT/CPF"
+   "area": "AML/CFT/CPF",
+   "likelihood": "Possible",
+   "impact": "Severe"
   },
   {
    "code": "AML-03",
    "name": "Sanctions / proliferation-financing breach",
    "type": "Financial Crime",
-   "area": "AML/CFT/CPF"
+   "area": "AML/CFT/CPF",
+   "likelihood": "Possible",
+   "impact": "Severe"
   },
   {
    "code": "AML-04",
    "name": "KYC / customer due-diligence failure",
    "type": "Financial Crime",
-   "area": "AML/CFT/CPF"
+   "area": "AML/CFT/CPF",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "DP-01",
    "name": "Unlawful personal-data processing",
    "type": "Data",
-   "area": "Data Protection"
+   "area": "Data Protection",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "DP-02",
    "name": "Data breach / loss of confidentiality",
    "type": "Data",
-   "area": "Data Protection"
+   "area": "Data Protection",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "CY-01",
    "name": "Cyber attack / systems compromise",
    "type": "Technology",
-   "area": "Cybersecurity"
+   "area": "Cybersecurity",
+   "likelihood": "Likely",
+   "impact": "Severe"
   },
   {
    "code": "CY-02",
    "name": "Inadequate IT security controls",
    "type": "Technology",
-   "area": "Cybersecurity"
+   "area": "Cybersecurity",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "CY-03",
    "name": "IT / service outage and disruption",
    "type": "Technology",
-   "area": "Risk Management"
+   "area": "Risk Management",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "CY-04",
    "name": "Third-party / technology provider failure",
    "type": "Technology",
-   "area": "Risk Management"
+   "area": "Risk Management",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "CD-01",
    "name": "Unfair customer treatment / mis-selling",
    "type": "Conduct",
-   "area": "Consumer Protection"
+   "area": "Consumer Protection",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "CD-02",
    "name": "Market abuse / insider dealing",
    "type": "Conduct",
-   "area": "Capital Market Operations"
+   "area": "Capital Market Operations",
+   "likelihood": "Possible",
+   "impact": "Severe"
   },
   {
    "code": "CD-03",
    "name": "Conflicts of interest",
    "type": "Conduct",
-   "area": "Corporate Governance"
+   "area": "Corporate Governance",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "CD-04",
    "name": "Bribery & corruption",
    "type": "Conduct",
-   "area": "Anti-Bribery & Corruption"
+   "area": "Anti-Bribery & Corruption",
+   "likelihood": "Possible",
+   "impact": "Severe"
   },
   {
    "code": "CD-05",
    "name": "Fraud (internal or external)",
    "type": "Conduct",
-   "area": "Fraud Management"
+   "area": "Fraud Management",
+   "likelihood": "Likely",
+   "impact": "Severe"
   },
   {
    "code": "GV-01",
    "name": "Board / governance failure",
    "type": "Governance",
-   "area": "Corporate Governance"
+   "area": "Corporate Governance",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "GV-02",
    "name": "Weak internal controls",
    "type": "Governance",
-   "area": "Corporate Governance"
+   "area": "Corporate Governance",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "GV-03",
    "name": "Segregation-of-duties failure",
    "type": "Governance",
-   "area": "Corporate Governance"
+   "area": "Corporate Governance",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "CR-01",
    "name": "Credit loss / borrower default",
    "type": "Credit",
-   "area": "Credit Risk"
+   "area": "Credit Risk",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "LI-01",
    "name": "Liquidity shortfall",
    "type": "Financial",
-   "area": "Liquidity Management"
+   "area": "Liquidity Management",
+   "likelihood": "Unlikely",
+   "impact": "Severe"
   },
   {
    "code": "MK-01",
    "name": "Market / interest-rate / FX loss",
    "type": "Financial",
-   "area": "Foreign Exchange Operations"
+   "area": "Foreign Exchange Operations",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "CA-01",
    "name": "Capital adequacy breach",
    "type": "Financial",
-   "area": "Capital Adequacy"
+   "area": "Capital Adequacy",
+   "likelihood": "Unlikely",
+   "impact": "Major"
   },
   {
    "code": "FR-01",
    "name": "Financial misstatement / reporting error",
    "type": "Financial",
-   "area": "Financial Reporting"
+   "area": "Financial Reporting",
+   "likelihood": "Likely",
+   "impact": "Major"
   },
   {
    "code": "TX-01",
    "name": "Tax non-compliance",
    "type": "Financial",
-   "area": "Tax Compliance"
+   "area": "Tax Compliance",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "OP-01",
    "name": "Payment / transaction processing error",
    "type": "Operational",
-   "area": "Payment Management Systems"
+   "area": "Payment Management Systems",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "OP-02",
    "name": "Cash handling / custody loss",
    "type": "Operational",
-   "area": "Cash Management"
+   "area": "Cash Management",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "OP-03",
    "name": "Business-continuity failure",
    "type": "Operational",
-   "area": "Risk Management"
+   "area": "Risk Management",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "OP-04",
    "name": "Trade-finance / processing breach",
    "type": "Operational",
-   "area": "Trade Compliance"
+   "area": "Trade Compliance",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "AC-01",
    "name": "Account-management breach",
    "type": "Operational",
-   "area": "Account Management"
+   "area": "Account Management",
+   "likelihood": "Likely",
+   "impact": "Moderate"
   },
   {
    "code": "MO-01",
    "name": "Mobile / digital banking failure",
    "type": "Technology",
-   "area": "Mobile Banking Operations"
+   "area": "Mobile Banking Operations",
+   "likelihood": "Possible",
+   "impact": "Major"
   },
   {
    "code": "HR-01",
    "name": "Inadequate staff competence / training",
    "type": "People",
-   "area": "People and Conduct Risk"
+   "area": "People and Conduct Risk",
+   "likelihood": "Likely",
+   "impact": "Moderate"
   },
   {
    "code": "HR-02",
    "name": "Employment / labour-practice breach",
    "type": "People",
-   "area": "People and Conduct Risk"
+   "area": "People and Conduct Risk",
+   "likelihood": "Likely",
+   "impact": "Moderate"
   },
   {
    "code": "HR-03",
    "name": "Pension / statutory employee-benefit breach",
    "type": "People",
-   "area": "People and Conduct Risk"
+   "area": "People and Conduct Risk",
+   "likelihood": "Possible",
+   "impact": "Moderate"
   },
   {
    "code": "ES-01",
    "name": "Environmental / social harm",
    "type": "ESG",
-   "area": "ESG"
+   "area": "ESG",
+   "likelihood": "Possible",
+   "impact": "Moderate"
   },
   {
    "code": "ES-02",
    "name": "Climate / sustainability disclosure failure",
    "type": "ESG",
-   "area": "ESG"
+   "area": "ESG",
+   "likelihood": "Possible",
+   "impact": "Moderate"
   },
   {
    "code": "FI-01",
    "name": "Financial-inclusion / access failure",
    "type": "Conduct",
-   "area": "Financial Inclusion"
+   "area": "Financial Inclusion",
+   "likelihood": "Possible",
+   "impact": "Moderate"
   },
   {
    "code": "MP-01",
    "name": "Monetary-policy / reserve breach",
    "type": "Financial",
-   "area": "Monetary Policy"
+   "area": "Monetary Policy",
+   "likelihood": "Unlikely",
+   "impact": "Major"
   }
  ]
 }

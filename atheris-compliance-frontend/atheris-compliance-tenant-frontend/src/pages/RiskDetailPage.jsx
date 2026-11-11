@@ -137,24 +137,53 @@ export default function RiskDetailPage() {
       />
 
       {tab === 'overview' && (
-        <DataCard title="Assessment">
-          <FieldGrid>
-            <Field label="Inherent band" value={risk.inherentBand} />
-            <Field label="Likelihood" value={risk.inherentLikelihood} />
-            <Field label="Impact" value={risk.inherentImpact} />
-            <Field label="Status" value={risk.status} />
-            <Field label="Obligations covered" value={String(risk.obligationCount ?? 0)} />
-            <Field label="Controls linked" value={String(risk.controlCount ?? 0)} />
-          </FieldGrid>
-          {risk.uncoveredRequirementCount > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2.5, color: 'error.main' }}>
-              <ExclamationTriangleIcon size={18} />
-              <Typography variant="body2">
-                {risk.uncoveredRequirementCount} requirement{risk.uncoveredRequirementCount === 1 ? '' : 's'} across these obligations have no control.
-              </Typography>
+        <>
+          <DataCard title="Rating" sx={{ mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
+              <Box>
+                <Typography component="span" sx={{ display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.75 }}>
+                  Inherent
+                </Typography>
+                <StatusBadge tone={bandTone(risk.inherentBand)} dot label={risk.inherentBand} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {risk.inherentLikelihood && risk.inherentImpact
+                    ? `${risk.inherentLikelihood} × ${risk.inherentImpact}`
+                    : 'Not rated — set likelihood and impact.'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography component="span" sx={{ display: 'block', fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.75 }}>
+                  Residual
+                </Typography>
+                <StatusBadge tone={bandTone(risk.residualBand)} dot label={risk.residualBand} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {risk.residualLikelihood && risk.residualImpact
+                    ? `${risk.residualLikelihood} × ${risk.residualImpact}`
+                    : '—'}
+                </Typography>
+                {risk.residualReason && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    {risk.residualReason}
+                  </Typography>
+                )}
+              </Box>
             </Box>
-          )}
-        </DataCard>
+            <FieldGrid min={160} sx={{ mt: 3 }}>
+              <Field label="Status" value={risk.status} />
+              <Field label="Areas covered" value={String(risk.obligationCount ?? 0)} />
+              <Field label="Controls linked" value={String(risk.controlCount ?? 0)} />
+              <Field label="Controls effective" value={`${risk.effectiveControls ?? 0}/${risk.controlCount ?? 0}`} />
+            </FieldGrid>
+            {risk.uncoveredRequirementCount > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2.5, color: 'error.main' }}>
+                <ExclamationTriangleIcon size={18} />
+                <Typography variant="body2">
+                  {risk.uncoveredRequirementCount} requirement{risk.uncoveredRequirementCount === 1 ? '' : 's'} across these obligations have no control.
+                </Typography>
+              </Box>
+            )}
+          </DataCard>
+        </>
       )}
 
       {tab === 'obligations' && (

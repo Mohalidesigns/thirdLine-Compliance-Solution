@@ -15,6 +15,8 @@ import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
+import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
+import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,9 +41,16 @@ public class ControlTestService {
     private final NotificationTemplateService templates;
     private final ControlTestDetails details;
     private final OwnerRepository ownerRepo;
+    private final UserRepository userRepo;
+    private final EmailService email;
 
     public List<ControlTestResult> getTestHistory(Integer controlId) {
         return testRepo.findByControlIdOrderByTestDateDesc(controlId);
+    }
+
+    public ControlTestResult getTest(Long testId) {
+        return testRepo.findById(testId)
+            .orElseThrow(() -> ApiException.notFound("Control test not found: " + testId));
     }
 
     public List<ControlTestResult> getPendingReview() {
@@ -93,40 +102,8 @@ public class ControlTestService {
             .reviewStatus(WorkflowStatus.REVIEW_PENDING)
             .build();
         testRepo.save(result);
-        updateResidualRisk(control, req.getResult());
 
-        boolean failed = WorkflowStatus.TEST_FAILED.equals(req.getResult())
-                      || WorkflowStatus.TEST_PARTIAL.equals(req.getResult());
-        if (failed) {
-            findingService.autoRaiseFromTest(result, control);
-        }
-
-        ControlTask openTask = taskRepo.findByControlId(controlId).stream()
-            .filter(t -> WorkflowStatus.TASK_PENDING.equals(t.getStatus())
-                      || WorkflowStatus.TASK_IN_PROGRESS.equals(t.getStatus())
-                      || WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()))
-            .findFirst().orElse(null);
-        taskRepo.findByControlId(controlId).stream()
-            .filter(t -> WorkflowStatus.TASK_PENDING.equals(t.getStatus())
-                      || WorkflowStatus.TASK_IN_PROGRESS.equals(t.getStatus())
-                      || WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()))
-            .forEach(t -> {
-                t.setStatus(WorkflowStatus.TASK_COMPLETED);
-                t.setCompletedByTestId(result.getTestId());
-                taskRepo.save(t);
-            });
-        scheduleNextTest(control);
-
-        if (failed) {
-            Integer notifyUser = control.getTesterUserId() != null
-                ? control.getTesterUserId() : testerUserId;
-            notifications.notifyUserEmailed(notifyUser, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_HIGH,
-                "Control test " + req.getResult().toLowerCase() + ": "
-                    + safeName(control) + " — a finding has been raised",
-                "/controls", "Control test failed — action required");
-        }
-
-        // Maker/checker: the test needs a review by someone other than the tester.
+        ControlTask openTask = currentOpenTask(controlId);
         String reviewSummary = "Control test (" + req.getResult().toLowerCase() + ") on " + safeName(control)
             + " by " + (testerName == null ? "the responsible person" : testerName) + " is waiting for your review";
         Map<String, String> reviewVars = details.messageVars(control, openTask, testerName);
@@ -136,15 +113,37 @@ public class ControlTestService {
         String reviewSubject = review.subject() != null ? review.subject()
             : "Review needed: control test on " + safeName(control);
         String reviewBody = review.body() != null ? review.body() : reviewSummary;
+        String reviewLink = "/controls/tests/" + result.getTestId() + "/review";
         List<String> reviewCc = ownerCc(control);
-        for (String role : List.of(AppRole.ANALYST, AppRole.CCO)) {
+        for (String role : List.of(AppRole.ANALYST, AppRole.CCO, AppRole.CONTROL_TEST_REVIEWER)) {
             notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
-                reviewSummary, "/controls", reviewSubject, reviewBody, reviewCc, testerUserId);
+                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, testerUserId);
         }
 
         audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
-            Map.of("result", req.getResult()));
+            Map.of("result", req.getResult(), "reviewStatus", WorkflowStatus.REVIEW_PENDING));
         return result;
+    }
+
+    private ControlTask currentOpenTask(Integer controlId) {
+        return taskRepo.findByControlId(controlId).stream()
+            .filter(t -> WorkflowStatus.TASK_PENDING.equals(t.getStatus())
+                      || WorkflowStatus.TASK_IN_PROGRESS.equals(t.getStatus())
+                      || WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()))
+            .findFirst().orElse(null);
+    }
+
+    private String testerEmail(Control c) {
+        if (c.getTesterUserId() != null) {
+            String byUser = userRepo.findById(c.getTesterUserId()).map(User::getEmail)
+                .filter(e -> e != null && !e.isBlank()).orElse(null);
+            if (byUser != null) return byUser;
+        }
+        if (c.getTesterOwnerId() != null) {
+            return ownerRepo.findById(c.getTesterOwnerId()).map(Owner::getEmail)
+                .filter(e -> e != null && !e.isBlank()).orElse(null);
+        }
+        return null;
     }
 
     private List<String> ownerCc(Control control) {
@@ -173,27 +172,67 @@ public class ControlTestService {
         t.setReviewStatus(decision);
         t.setReviewNotes(notes);
         t.setReviewedAt(Instant.now());
-        if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
-            boolean openTaskExists = taskRepo.findByControlId(t.getControlId()).stream()
-                .anyMatch(task -> !WorkflowStatus.TASK_COMPLETED.equals(task.getStatus()));
-            if (!openTaskExists) {
-                controls.findById(t.getControlId()).ifPresent(c -> {
-                    taskRepo.save(ControlTask.builder()
-                        .controlId(c.getControlId())
-                        .controlNumber(c.getControlNumber())
-                        .controlName(c.getName())
-                        .taskType(WorkflowStatus.TASK_TYPE_SCHEDULED_TEST)
-                        .assignedToUserId(c.getTesterUserId())
-                        .assignedToName(c.getTesterName())
-                        .dueDate(LocalDate.now().plusDays(3))
-                        .status(WorkflowStatus.TASK_PENDING)
-                        .escalationLevel(0)
-                        .build());
-                });
-            }
+
+        if (WorkflowStatus.REVIEW_ACCEPTED.equals(decision)) {
+            applyAcceptedEffects(t);
+        } else {
+            ensureOpenTask(t.getControlId());
         }
+        ControlTestResult saved = testRepo.save(t);
+        notifyTesterOutcome(saved, decision, notes);
         audit.log(reviewer.getUserId(), "test_reviewed", "control_test", testId, Map.of("decision", decision));
-        return testRepo.save(t);
+        return saved;
+    }
+
+    private void applyAcceptedEffects(ControlTestResult t) {
+        Control control = controls.findById(t.getControlId()).orElse(null);
+        if (control == null) return;
+        updateResidualRisk(control, t.getResult());
+        boolean failed = WorkflowStatus.TEST_FAILED.equals(t.getResult())
+                      || WorkflowStatus.TEST_PARTIAL.equals(t.getResult());
+        if (failed) findingService.autoRaiseFromTest(t, control);
+        taskRepo.findByControlId(control.getControlId()).stream()
+            .filter(task -> WorkflowStatus.TASK_PENDING.equals(task.getStatus())
+                         || WorkflowStatus.TASK_IN_PROGRESS.equals(task.getStatus())
+                         || WorkflowStatus.TASK_OVERDUE.equals(task.getStatus()))
+            .forEach(task -> {
+                task.setStatus(WorkflowStatus.TASK_COMPLETED);
+                task.setCompletedByTestId(t.getTestId());
+                taskRepo.save(task);
+            });
+        scheduleNextTest(control);
+    }
+
+    private void ensureOpenTask(Integer controlId) {
+        boolean openTaskExists = taskRepo.findByControlId(controlId).stream()
+            .anyMatch(task -> !WorkflowStatus.TASK_COMPLETED.equals(task.getStatus()));
+        if (openTaskExists) return;
+        controls.findById(controlId).ifPresent(c -> taskRepo.save(ControlTask.builder()
+            .controlId(c.getControlId())
+            .controlNumber(c.getControlNumber())
+            .controlName(c.getName())
+            .taskType(WorkflowStatus.TASK_TYPE_SCHEDULED_TEST)
+            .assignedToUserId(c.getTesterUserId())
+            .assignedToName(c.getTesterName())
+            .dueDate(LocalDate.now().plusDays(3))
+            .status(WorkflowStatus.TASK_PENDING)
+            .escalationLevel(0)
+            .build()));
+    }
+
+    private void notifyTesterOutcome(ControlTestResult t, String decision, String notes) {
+        Control control = controls.findById(t.getControlId()).orElse(null);
+        if (control == null) return;
+        String to = testerEmail(control);
+        if (to == null || to.isBlank()) return;
+        Map<String, String> vars = details.messageVars(control, currentOpenTask(control.getControlId()), control.getTesterName());
+        details.putResult(vars, t.getResult(), notes);
+        String key = WorkflowStatus.REVIEW_ACCEPTED.equals(decision)
+            ? EscalationConstants.KEY_CONTROL_TEST_ACCEPTED
+            : EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED;
+        NotificationTemplateService.RenderedEmail rendered = templates.render(key, vars);
+        if (rendered.subject() == null || rendered.body() == null) return;
+        email.send(to, List.of(), rendered.subject(), rendered.body(), null);
     }
 
     @Transactional

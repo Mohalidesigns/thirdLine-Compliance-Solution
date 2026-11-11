@@ -36,8 +36,9 @@ export function RiskBadge({ value, emptyLabel = 'Unrated', title, sx }) {
   return <StatusBadge label={value} tone={riskTone(value)} dot title={title} sx={sx} />;
 }
 
-/** Status badge (no dot), coloured by the shared status vocabulary. */
-export function StateBadge({ value, label, emptyLabel = 'Unknown', title, sx }) {
-  if (!value) return <StatusBadge label={emptyLabel} tone="gray" title={title} sx={sx} />;
-  return <StatusBadge label={label || value} tone={statusTone(value)} title={title} sx={sx} />;
+/** Status badge (no dot), coloured by the shared status vocabulary or an explicit `tone`. */
+export function StateBadge({ value, label, tone, dot = false, emptyLabel = 'Unknown', title, sx }) {
+  const text = label || value;
+  if (!text) return <StatusBadge label={emptyLabel} tone="gray" title={title} sx={sx} />;
+  return <StatusBadge label={text} tone={tone || statusTone(value || text)} dot={dot} title={title} sx={sx} />;
 }

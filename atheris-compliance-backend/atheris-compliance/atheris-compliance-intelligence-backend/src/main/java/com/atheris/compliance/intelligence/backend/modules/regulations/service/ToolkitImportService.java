@@ -214,6 +214,9 @@ public class ToolkitImportService {
                 .name(shorten(r.getName(), 300))
                 .riskType(shorten(r.getType(), 60))
                 .areaOfFocus(shorten(r.getArea(), 120))
+                .inherentLikelihood(r.getLikelihood())
+                .inherentImpact(r.getImpact())
+                .inherentBand(RiskBands.band(r.getLikelihood(), r.getImpact()))
                 .source("toolkit_seed")
                 .build());
             riskByCode.put(saved.getCode(), saved);

@@ -97,7 +97,7 @@ public class FindingController {
     }
 
     @PutMapping("/{id}/review")
-    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole(" + AppRole.FINDING_REVIEWERS + ")")
     public ResponseEntity<FindingDetailResponse> review(
             @PathVariable Long id,
             @RequestParam String decision,

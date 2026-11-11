@@ -517,6 +517,7 @@ export const api = {
     }),
     recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
     tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
+    testDetail: (testId, opts = {}) => request(`/control-tests/${testId}`, { signal: opts.signal }),
     reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {
       method: 'PUT', body: JSON.stringify({ decision, notes }),
     }),

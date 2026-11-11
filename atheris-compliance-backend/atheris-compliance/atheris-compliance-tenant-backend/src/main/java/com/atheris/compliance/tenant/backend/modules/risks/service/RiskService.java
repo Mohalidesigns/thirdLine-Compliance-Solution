@@ -97,9 +97,11 @@ public class RiskService {
             .description(req.getDescription())
             .riskType(req.getRiskType())
             .areaOfFocus(req.getAreaOfFocus())
+            .inherentLikelihood(req.getInherentLikelihood())
+            .inherentImpact(req.getInherentImpact())
+            .inherentBand(RiskResidual.inherentBand(req.getInherentLikelihood(), req.getInherentImpact()))
             .source("manual")
             .build();
-        RiskScoring.apply(risk, obligations.findAllById(obligationIds));
         Risk saved = risks.save(risk);
 
         for (Long obligationId : new LinkedHashSet<>(obligationIds))
@@ -126,6 +128,9 @@ public class RiskService {
         if (req.getRiskType() != null) risk.setRiskType(req.getRiskType());
         if (req.getAreaOfFocus() != null) risk.setAreaOfFocus(req.getAreaOfFocus());
         if (req.getStatus() != null) risk.setStatus(req.getStatus());
+        if (req.getInherentLikelihood() != null) risk.setInherentLikelihood(req.getInherentLikelihood());
+        if (req.getInherentImpact() != null) risk.setInherentImpact(req.getInherentImpact());
+        risk.setInherentBand(RiskResidual.inherentBand(risk.getInherentLikelihood(), risk.getInherentImpact()));
 
         boolean relinkObligations = req.getObligationIds() != null;
         boolean relinkControls = req.getControlIds() != null;
@@ -159,14 +164,9 @@ public class RiskService {
                 riskControls.save(new RiskControl(riskId, controlId));
         }
 
-        List<Long> effectiveObligationIds = relinkObligations
-            ? obligationIds
-            : riskObligations.findByRiskId(riskId).stream().map(RiskObligation::getObligationId).toList();
-        RiskScoring.apply(risk, obligations.findAllById(effectiveObligationIds));
-
         Risk saved = risks.save(risk);
         audit.log(userId, "risk_updated", "risk", saved.getRiskId().longValue(),
-            Map.of("obligations", effectiveObligationIds.size()));
+            Map.of("obligations", riskObligations.findByRiskId(riskId).size()));
         return detail(saved.getRiskId());
     }
 
@@ -190,7 +190,25 @@ public class RiskService {
         Set<Integer> withControls = riskControls.findAll().stream().map(RiskControl::getRiskId).collect(Collectors.toSet());
         long active = all.stream().filter(r -> r.getStatus() == null || "Active".equalsIgnoreCase(r.getStatus())).count();
         long unmanaged = all.stream().filter(r -> !withControls.contains(r.getRiskId())).count();
-        return RiskStats.builder().total(all.size()).active(active).byBand(byBand).unmanaged(unmanaged).build();
+
+        Map<Integer, List<Integer>> controlIdsByRisk = riskControls.findByRiskIdIn(all.stream().map(Risk::getRiskId).toList())
+            .stream().collect(Collectors.groupingBy(RiskControl::getRiskId,
+                Collectors.mapping(RiskControl::getControlId, Collectors.toList())));
+        Map<Integer, ControlTestResult> latest = latestTests(
+            controlIdsByRisk.values().stream().flatMap(List::stream).collect(Collectors.toSet()));
+        Map<String, Long> byResidualBand = all.stream().collect(Collectors.groupingBy(
+            r -> {
+                List<Integer> ids = controlIdsByRisk.getOrDefault(r.getRiskId(), List.of());
+                Map<Integer, String> results = new HashMap<>();
+                for (Integer id : ids) {
+                    ControlTestResult t = latest.get(id);
+                    results.put(id, t == null ? null : t.getResult());
+                }
+                String band = RiskResidual.compute(r.getInherentLikelihood(), r.getInherentImpact(), ids, results).band();
+                return band == null ? "Unrated" : band;
+            }, Collectors.counting()));
+        return RiskStats.builder().total(all.size()).active(active)
+            .byBand(byBand).byResidualBand(byResidualBand).unmanaged(unmanaged).build();
     }
 
     private Specification<Risk> matches(String q, String band, String status) {
@@ -296,6 +314,7 @@ public class RiskService {
         if (controlIds.isEmpty()) return Map.of();
         Map<Integer, ControlTestResult> latest = new HashMap<>();
         for (ControlTestResult t : testResults.findByControlIdInOrderByTestDateDesc(controlIds)) {
+            if (!com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())) continue;
             ControlTestResult cur = latest.get(t.getControlId());
             if (cur == null || isLater(t, cur)) latest.put(t.getControlId(), t);
         }
@@ -312,6 +331,12 @@ public class RiskService {
 
     private RiskItem toItem(Risk r, List<RiskItem.ObligationRef> obligationRefs, List<RiskItem.ControlRef> controlRefs,
                             int requirementCount, int uncovered) {
+        List<Integer> controlIds = controlRefs.stream().map(RiskItem.ControlRef::getControlId).toList();
+        Map<Integer, String> latestByControl = new HashMap<>();
+        for (RiskItem.ControlRef c : controlRefs) latestByControl.put(c.getControlId(), c.getLatestResult());
+        RiskResidual.Result residual = RiskResidual.compute(
+            r.getInherentLikelihood(), r.getInherentImpact(), controlIds, latestByControl);
+        long effective = controlRefs.stream().filter(RiskItem.ControlRef::isEffective).count();
         return RiskItem.builder()
             .riskId(r.getRiskId())
             .riskCode(r.getRiskCode())
@@ -322,6 +347,11 @@ public class RiskService {
             .inherentLikelihood(r.getInherentLikelihood())
             .inherentImpact(r.getInherentImpact())
             .inherentBand(r.getInherentBand() == null ? "Unrated" : r.getInherentBand())
+            .residualLikelihood(residual.likelihood())
+            .residualImpact(residual.impact())
+            .residualBand(residual.band() == null ? "Unrated" : residual.band())
+            .residualReason(residual.reason())
+            .effectiveControls((int) effective)
             .status(r.getStatus())
             .obligationCount(obligationRefs.size())
             .requirementCount(requirementCount)

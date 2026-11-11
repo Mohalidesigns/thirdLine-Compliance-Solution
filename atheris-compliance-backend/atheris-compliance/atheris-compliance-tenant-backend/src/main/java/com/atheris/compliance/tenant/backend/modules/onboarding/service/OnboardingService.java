@@ -216,6 +216,10 @@ public class OnboardingService {
             case "TENANT_ADMIN", "ADMIN" -> AppRole.TENANT_ADMIN;
             case "AUDITOR" -> AppRole.AUDITOR;
             case "IT_OPS", "ITOPS", "IT OPS" -> AppRole.IT_OPS;
+            case "CONTROL_TEST_REVIEWER" -> AppRole.CONTROL_TEST_REVIEWER;
+            case "FINDINGS_REVIEW" -> AppRole.FINDINGS_REVIEW;
+            case "RETURNS_REVIEWER" -> AppRole.RETURNS_REVIEWER;
+            case "RUNBOOK_APPROVER" -> AppRole.RUNBOOK_APPROVER;
             default -> null;
         };
     }

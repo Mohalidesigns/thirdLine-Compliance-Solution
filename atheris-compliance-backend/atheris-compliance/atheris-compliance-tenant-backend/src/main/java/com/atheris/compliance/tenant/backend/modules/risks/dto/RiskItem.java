@@ -16,6 +16,11 @@ public class RiskItem {
     private String inherentLikelihood;
     private String inherentImpact;
     private String inherentBand;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualBand;
+    private String residualReason;
+    private Integer effectiveControls;
     private String status;
     private Integer obligationCount;
     private Integer requirementCount;

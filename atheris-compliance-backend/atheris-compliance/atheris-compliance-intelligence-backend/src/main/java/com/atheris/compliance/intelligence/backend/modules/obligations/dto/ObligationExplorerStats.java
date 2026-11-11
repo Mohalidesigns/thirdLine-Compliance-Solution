@@ -19,8 +19,6 @@ public class ObligationExplorerStats {
     // explorer page
     private long total;
     private long highRisk;
-    private long withPoints;
-    private long withoutPoints;
     @Builder.Default
     private List<String> regulators = List.of();
     @Builder.Default
