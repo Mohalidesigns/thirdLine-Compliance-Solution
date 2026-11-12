@@ -21,6 +21,7 @@ import com.atheris.compliance.tenant.backend.modules.escalation.service.Escalati
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class ControlService {
     private final ControlTaskRepository taskRepo;
     private final ObligationRepository obligationRepo;
     private final OwnerRepository ownerRepo;
+    private final DepartmentRepository departmentRepo;
     private final FindingRepository findingRepo;
     private final AuditService audit;
     private final ControlTestService testService;
@@ -306,6 +308,7 @@ public class ControlService {
             .testerUserId(c.getTesterUserId())
             .testerName(c.getTesterName())
             .ownerName(c.getOwnerName())
+            .department(departmentOf(c))
             .testFrequency(c.getTestFrequency())
             .testFrequencyDays(c.getTestFrequencyDays())
             .firstDueDate(c.getFirstDueDate())
@@ -365,6 +368,15 @@ public class ControlService {
             }
             default -> "Residual risk carried from the last test" + when + ".";
         };
+    }
+
+    private String departmentOf(Control c) {
+        if (c == null || c.getControlOwnerId() == null) return null;
+        return ownerRepo.findById(c.getControlOwnerId())
+            .filter(o -> o.getDepartmentId() != null)
+            .flatMap(o -> departmentRepo.findById(o.getDepartmentId()))
+            .map(d -> d.getName())
+            .orElse(null);
     }
 
     @Transactional

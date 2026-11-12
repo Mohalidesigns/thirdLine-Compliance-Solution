@@ -432,7 +432,8 @@ public class FindingService {
         if (!WorkflowStatus.FINDING_REMEDIATED.equals(f.getStatus())) {
             throw ApiException.conflict("invalid_transition", "Finding must be Remediated before review");
         }
-        if (f.getRemediationSubmittedByUserId() != null
+        if (!AppRole.ANALYST.equals(reviewer.getRole())
+                && f.getRemediationSubmittedByUserId() != null
                 && f.getRemediationSubmittedByUserId().equals(reviewer.getUserId())) {
             throw ApiException.conflict("self_review",
                 "You cannot approve a remediation you submitted yourself");

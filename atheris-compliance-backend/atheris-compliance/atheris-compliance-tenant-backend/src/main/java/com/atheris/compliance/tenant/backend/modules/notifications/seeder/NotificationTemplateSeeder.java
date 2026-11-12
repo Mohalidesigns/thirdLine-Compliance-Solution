@@ -21,7 +21,7 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
         + "Regulator: {{regulator}}\n"
         + "Responsible person: {{responsiblePerson}}";
 
-    private static final String CONTROL_DETAILS = "Control: {{controlName}} ({{controlNumber}})\n"
+    private static final String CONTROL_DETAILS_OLD = "Control: {{controlName}} ({{controlNumber}})\n"
         + "Act/Regulation: {{actName}}\n"
         + "Regulator: {{regulator}}\n"
         + "Tester: {{responsiblePerson}}\n"
@@ -30,6 +30,14 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
         + "Risk unit: {{riskUnit}}\n"
         + "Due date: {{dueDate}}\n"
         + "Test frequency: {{testFrequency}}";
+
+    private static final String CONTROL_DETAILS = "Control: {{controlName}} ({{controlNumber}})\n"
+        + "Act/Regulation: {{actName}}\n"
+        + "Control owner: {{ownerName}}\n"
+        + "Department: {{department}}\n"
+        + "Tester: {{responsiblePerson}}\n"
+        + "Test frequency: {{testFrequency}}\n"
+        + "Due date: {{dueDate}}";
 
     private static final String FINDING_DETAILS = "Finding: #{{findingId}} ({{severity}})\n"
         + "Type: {{findingType}}\n"
@@ -67,36 +75,45 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
                     + ESCALATION_DETAILS + "\nEscalated to level {{level}}.", true);
             templates.upgrade(EscalationConstants.KEY_CONTROL_APPROACHING,
-                "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}}, "
-                    + "{{daysLeft}} day(s) away. Please perform the test.",
+                "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}} "
+                    + "({{daysLeft}} day(s) left) — please perform the test.\n\n" + CONTROL_DETAILS_OLD,
                 "Upcoming control test: {{controlName}}",
                 "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}} "
                     + "({{daysLeft}} day(s) left) — please perform the test.\n\n" + CONTROL_DETAILS, true);
-            templates.require(EscalationConstants.KEY_CONTROL_REMINDER,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_REMINDER,
+                "Hi {{recipientName}},\n\nThis is a reminder that the test of control \"{{controlName}}\" is still "
+                    + "due on {{dueDate}} ({{daysLeft}} day(s) left) — please record the result.\n\n" + CONTROL_DETAILS_OLD,
                 "Reminder: test control {{controlName}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that the test of control \"{{controlName}}\" is still "
                     + "due on {{dueDate}} ({{daysLeft}} day(s) left) — please record the result.\n\n" + CONTROL_DETAILS, true);
-            templates.require(EscalationConstants.KEY_CONTROL_REQUEST,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_REQUEST,
+                "Hi {{recipientName}},\n\nPlease perform the test of control \"{{controlName}}\" and record the "
+                    + "result using the link below.\n\n" + CONTROL_DETAILS_OLD,
                 "Action required: test control {{controlName}}",
                 "Hi {{recipientName}},\n\nPlease perform the test of control \"{{controlName}}\" and record the "
                     + "result using the link below.\n\n" + CONTROL_DETAILS, true);
             templates.upgrade(EscalationConstants.KEY_CONTROL_OVERDUE,
-                "The test of control \"{{controlName}}\" was due on {{dueDate}} and is {{daysLate}} day(s) overdue. "
-                    + "Escalated to level {{level}}.",
+                "The test of control \"{{controlName}}\" was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
+                    + CONTROL_DETAILS_OLD + "\n\nEscalated to level {{level}}.",
                 "[L{{level}}] Overdue control test: {{controlName}}",
                 "The test of control \"{{controlName}}\" was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
                     + CONTROL_DETAILS + "\n\nEscalated to level {{level}}.", true);
-            templates.require(EscalationConstants.KEY_CONTROL_DATA_REVIEW,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_DATA_REVIEW,
+                CONTROL_DETAILS_OLD + "\n\nA test result ({{result}}) was submitted by {{responsiblePerson}} and is waiting "
+                    + "for your review.",
                 "Control test submitted: {{controlName}}",
                 CONTROL_DETAILS + "\n\nA test result ({{result}}) was submitted by {{responsiblePerson}} and is waiting "
                     + "for your review.", false);
-            templates.require(EscalationConstants.KEY_CONTROL_DATA_RECEIPT,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_DATA_RECEIPT,
+                CONTROL_DETAILS_OLD + "\n\nYour test result has been recorded and is being reviewed.",
                 "Received: {{controlName}} test result",
                 CONTROL_DETAILS + "\n\nYour test result has been recorded and is being reviewed.", false);
-            templates.require(EscalationConstants.KEY_CONTROL_TEST_ACCEPTED,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_TEST_ACCEPTED,
+                CONTROL_DETAILS_OLD + "\n\nYour test result ({{result}}) has been reviewed and accepted. Thank you.",
                 "Accepted: {{controlName}} test result",
                 CONTROL_DETAILS + "\n\nYour test result ({{result}}) has been reviewed and accepted. Thank you.", false);
-            templates.require(EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED,
+            templates.upgrade(EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED,
+                CONTROL_DETAILS_OLD + "\n\n{{reviewNotes}}\n\nPlease review and record the test again using the link below.",
                 "Changes requested: {{controlName}} test",
                 CONTROL_DETAILS + "\n\n{{reviewNotes}}\n\nPlease review and record the test again using the link below.", false);
             templates.require(EscalationConstants.KEY_FINDING_RAISED,

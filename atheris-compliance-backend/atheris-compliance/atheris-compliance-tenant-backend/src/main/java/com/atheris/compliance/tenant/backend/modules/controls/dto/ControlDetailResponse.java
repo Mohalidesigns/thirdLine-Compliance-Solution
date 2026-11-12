@@ -19,6 +19,7 @@ public class ControlDetailResponse {
     private Integer controlOwnerUserId;
     private Integer controlOwnerId;
     private String controlOwnerName;
+    private String department;
     private Integer testerOwnerId;
     private Integer testerUserId;
     private String testerName;

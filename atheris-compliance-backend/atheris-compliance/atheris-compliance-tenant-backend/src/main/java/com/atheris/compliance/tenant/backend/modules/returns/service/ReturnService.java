@@ -782,7 +782,9 @@ public class ReturnService {
 
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
         // Maker/checker: whoever prepared the filing (Data Gathering / Draft) cannot also review it.
-        if (inst.getCurrentStage() == ReturnStage.REVIEW && preparers(stageData).contains(String.valueOf(userId)))
+        User reviewer = users.findById(userId).orElse(null);
+        boolean analystReviewer = reviewer != null && AppRole.ANALYST.equals(reviewer.getRole());
+        if (!analystReviewer && inst.getCurrentStage() == ReturnStage.REVIEW && preparers(stageData).contains(String.valueOf(userId)))
             throw ApiException.conflict("segregation_of_duties",
                 "You prepared this filing, so a different user must complete the review.");
         Map<String, String> stageEntry = new HashMap<>();

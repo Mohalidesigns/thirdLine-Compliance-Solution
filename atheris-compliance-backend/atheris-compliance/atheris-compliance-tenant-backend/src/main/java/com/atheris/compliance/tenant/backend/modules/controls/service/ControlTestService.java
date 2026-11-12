@@ -117,7 +117,7 @@ public class ControlTestService {
         List<String> reviewCc = ownerCc(control);
         for (String role : List.of(AppRole.ANALYST, AppRole.CCO, AppRole.CONTROL_TEST_REVIEWER)) {
             notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
-                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, testerUserId);
+                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, null);
         }
 
         audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
@@ -163,7 +163,8 @@ public class ControlTestService {
             throw ApiException.badRequest("Decision must be " + WorkflowStatus.REVIEW_ACCEPTED
                 + " or " + WorkflowStatus.REVIEW_REJECTED);
         }
-        if (t.getTestedByUserId() != null && t.getTestedByUserId().equals(reviewer.getUserId())) {
+        if (!AppRole.ANALYST.equals(reviewer.getRole())
+                && t.getTestedByUserId() != null && t.getTestedByUserId().equals(reviewer.getUserId())) {
             throw ApiException.conflict("self_review",
                 "You cannot review a control test you recorded yourself");
         }
