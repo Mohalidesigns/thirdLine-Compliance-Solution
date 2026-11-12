@@ -7,6 +7,7 @@ import {
 import { LinkIcon, PlusIcon, TrashIcon } from 'shared';
 import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
+import { AREAS_OF_FOCUS } from '../../utils/areas';
 import LinkControlsPicker from './LinkControlsPicker';
 import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
@@ -15,13 +16,6 @@ const EMPTY = {
   instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', effectiveDate: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
-
-const AREAS_OF_FOCUS = [
-  'AML/CFT', 'Corporate Governance', 'Conduct Risk', 'Data Protection',
-  'Consumer Protection', 'Cybersecurity', 'Anti-Bribery & Corruption',
-  'Capital Market', 'Compliance Risk Management', 'ESG', 'Account Management',
-  'Cash Management', 'Financial Reporting',
-];
 
 function Field({ label, children, sx }) {
   return (

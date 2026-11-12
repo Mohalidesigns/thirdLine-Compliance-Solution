@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { LinkIcon, PlusIcon, RiskBadge } from 'shared';
 import { api } from '../../services/api';
+import { areaOptions as areaOptionsFrom } from '../../utils/areas';
 import LinkObligationsPicker from './LinkObligationsPicker';
 import LinkControlsPicker from './LinkControlsPicker';
 
@@ -41,12 +42,6 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
     enabled: open,
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ['instruments', 'universe-stats'],
-    queryFn: ({ signal }) => api.instruments.universeStats({ signal }),
-    enabled: open,
-  });
-
   const { data: controlData } = useQuery({
     queryKey: ['controls', 'picker'],
     queryFn: () => api.controls.list({}),
@@ -74,7 +69,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
   }, [open, risk]);
 
   const riskTypeOptions = Array.from(new Set(risks.map((r) => r.riskType).filter(Boolean))).sort();
-  const areaOptions = Object.keys(stats?.byAreaOfFocus || {}).filter((a) => a && a !== 'Unassigned').sort();
+  const areaOptions = areaOptionsFrom(risks.map((r) => r.areaOfFocus));
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -160,7 +155,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {obligations.map((o) => (
                   <Chip key={o.obligationId} size="small" variant="outlined"
-                    label={o.title || o.description || `#${o.obligationId}`}
+                    label={o.name || o.title || o.description || `#${o.obligationId}`}
                     onDelete={() => setObligations((prev) => prev.filter((x) => x.obligationId !== o.obligationId))} />
                 ))}
               </Box>

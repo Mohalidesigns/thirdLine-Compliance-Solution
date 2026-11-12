@@ -11,5 +11,6 @@ public class RiskStats {
     private long active;
     private Map<String, Long> byBand;
     private Map<String, Long> byResidualBand;
+    private Map<String, Long> byAreaOfFocus;
     private long unmanaged;
 }

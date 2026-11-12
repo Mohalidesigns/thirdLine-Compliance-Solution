@@ -208,7 +208,11 @@ public class RiskService {
                 return band == null ? "Unrated" : band;
             }, Collectors.counting()));
         return RiskStats.builder().total(all.size()).active(active)
-            .byBand(byBand).byResidualBand(byResidualBand).unmanaged(unmanaged).build();
+            .byBand(byBand).byResidualBand(byResidualBand)
+            .byAreaOfFocus(all.stream()
+                .map(r -> r.getAreaOfFocus() == null || r.getAreaOfFocus().isBlank() ? "Unassigned" : r.getAreaOfFocus())
+                .collect(Collectors.groupingBy(a -> a, Collectors.counting())))
+            .unmanaged(unmanaged).build();
     }
 
     private Specification<Risk> matches(String q, String band, String status) {

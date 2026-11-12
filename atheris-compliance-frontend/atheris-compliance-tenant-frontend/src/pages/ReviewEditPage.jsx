@@ -13,17 +13,11 @@ import {
 } from 'shared';
 import { api, API_BASE, getToken, pdfErrorMessage } from '../services/api';
 import OwnerPicker from '../components/org/OwnerPicker';
+import { AREAS_OF_FOCUS } from '../utils/areas';
 
 const OBLIGATION_TYPES = [
   'reporting', 'disclosure', 'compliance', 'record_keeping',
   'notification', 'approval', 'audit', 'other',
-];
-
-const AREAS_OF_FOCUS = [
-  'AML/CFT', 'Corporate Governance', 'Conduct Risk', 'Data Protection',
-  'Consumer Protection', 'Cybersecurity', 'Anti-Bribery & Corruption',
-  'Capital Market', 'Compliance Risk Management', 'ESG', 'Account Management',
-  'Cash Management', 'Financial Reporting',
 ];
 
 const DEADLINE_TYPES = [
