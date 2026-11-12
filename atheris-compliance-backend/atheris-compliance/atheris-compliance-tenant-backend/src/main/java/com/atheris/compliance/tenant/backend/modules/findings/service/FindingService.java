@@ -170,8 +170,7 @@ public class FindingService {
             .triggeredByTestId(test.getTestId()).triggerReason("Control test failed")
             .linkedControlId(control.getControlId()).linkedObligationId(linkedObligationId)
             .findingType(WorkflowStatus.FINDING_TYPE_CONTROL_FAILURE).severity(severity)
-            .description(String.format("Control %s (%s) failed on %s. %s",
-                control.getControlNumber(), control.getName(), test.getTestDate(), test.getResultDescription()))
+            .description(describeTestFailure(control, test))
             .assignedToOwnerId(ownerId)
             .assignedToName(resolveOwnerName(ownerId))
             .assignedAt(ownerId != null ? Instant.now() : null)
@@ -226,6 +225,19 @@ public class FindingService {
             Map.of("severity", req.getSeverity()));
         notifyOwnerOfAssignment(saved);
         return new FindingRaisedResponse(saved.getFindingId(), saved.getStatus());
+    }
+
+    static String describeTestFailure(Control control, ControlTestResult test) {
+        StringBuilder sb = new StringBuilder("Control ")
+            .append(control.getControlNumber()).append(" (").append(control.getName()).append(") ");
+        if (test.getResult() != null) sb.append(test.getResult().toLowerCase());
+        else sb.append("failed");
+        if (test.getTestDate() != null) sb.append(" on ").append(test.getTestDate());
+        sb.append('.');
+        if (test.getResultDescription() != null && !test.getResultDescription().isBlank()) {
+            sb.append(' ').append(test.getResultDescription().trim());
+        }
+        return sb.toString();
     }
 
     @Transactional

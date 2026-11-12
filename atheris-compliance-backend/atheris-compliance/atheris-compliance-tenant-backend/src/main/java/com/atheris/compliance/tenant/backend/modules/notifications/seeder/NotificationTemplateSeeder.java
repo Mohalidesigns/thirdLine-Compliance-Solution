@@ -39,12 +39,25 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
         + "Test frequency: {{testFrequency}}\n"
         + "Due date: {{dueDate}}";
 
-    private static final String FINDING_DETAILS = "Finding: #{{findingId}} ({{severity}})\n"
+    private static final String FINDING_DETAILS_OLD = "Finding: #{{findingId}} ({{severity}})\n"
         + "Type: {{findingType}}\n"
         + "Control: {{controlNumber}}\n"
         + "Remediation owner: {{responsiblePerson}}\n"
         + "Risk owner: {{riskOwner}}\n"
         + "Risk unit: {{riskUnit}}\n"
+        + "Remediation deadline: {{remediationDeadline}}\n"
+        + "Status: {{findingStatus}}";
+
+    private static final String FINDING_DETAILS = "Finding: #{{findingId}} ({{severity}})\n"
+        + "Type: {{findingType}}\n"
+        + "Details: {{findingDescription}}\n"
+        + "Control: {{controlName}} ({{controlNumber}})\n"
+        + "Act/Regulation: {{actName}}\n"
+        + "Control owner: {{controlOwner}}\n"
+        + "Department: {{department}}\n"
+        + "Obligation: {{obligation}}\n"
+        + "Triggered by: control test on {{testDate}} (result {{testResult}})\n"
+        + "Remediation owner: {{responsiblePerson}}\n"
         + "Remediation deadline: {{remediationDeadline}}\n"
         + "Status: {{findingStatus}}";
 
@@ -116,30 +129,43 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 CONTROL_DETAILS_OLD + "\n\n{{reviewNotes}}\n\nPlease review and record the test again using the link below.",
                 "Changes requested: {{controlName}} test",
                 CONTROL_DETAILS + "\n\n{{reviewNotes}}\n\nPlease review and record the test again using the link below.", false);
-            templates.require(EscalationConstants.KEY_FINDING_RAISED,
+            templates.upgrade(EscalationConstants.KEY_FINDING_RAISED,
+                "Hi {{recipientName}},\n\nFinding #{{findingId}} ({{severity}}) needs remediation. Please provide the "
+                    + "remediation evidence using the link below.\n\n" + FINDING_DETAILS_OLD,
                 "Action required: finding #{{findingId}} remediation",
                 "Hi {{recipientName}},\n\nFinding #{{findingId}} ({{severity}}) needs remediation. Please provide the "
                     + "remediation evidence using the link below.\n\n" + FINDING_DETAILS, true);
-            templates.require(EscalationConstants.KEY_FINDING_APPROACHING,
+            templates.upgrade(EscalationConstants.KEY_FINDING_APPROACHING,
+                "Hi {{recipientName}},\n\nThe remediation for finding #{{findingId}} is due on {{remediationDeadline}} "
+                    + "({{daysLeft}} day(s) left). Please submit the evidence using the link below.\n\n" + FINDING_DETAILS_OLD,
                 "Upcoming remediation deadline: finding #{{findingId}}",
                 "Hi {{recipientName}},\n\nThe remediation for finding #{{findingId}} is due on {{remediationDeadline}} "
                     + "({{daysLeft}} day(s) left). Please submit the evidence using the link below.\n\n" + FINDING_DETAILS, true);
-            templates.require(EscalationConstants.KEY_FINDING_REMINDER,
+            templates.upgrade(EscalationConstants.KEY_FINDING_REMINDER,
+                "Hi {{recipientName}},\n\nThis is a reminder that the remediation for finding #{{findingId}} is still "
+                    + "due on {{remediationDeadline}} ({{daysLeft}} day(s) left).\n\n" + FINDING_DETAILS_OLD,
                 "Reminder: finding #{{findingId}} remediation due {{remediationDeadline}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that the remediation for finding #{{findingId}} is still "
                     + "due on {{remediationDeadline}} ({{daysLeft}} day(s) left).\n\n" + FINDING_DETAILS, true);
-            templates.require(EscalationConstants.KEY_FINDING_OVERDUE,
+            templates.upgrade(EscalationConstants.KEY_FINDING_OVERDUE,
+                "The remediation for finding #{{findingId}} was due on {{remediationDeadline}} and is {{daysLate}} "
+                    + "day(s) overdue.\n\n" + FINDING_DETAILS_OLD + "\n\nEscalated to level {{level}}.",
                 "[L{{level}}] Overdue finding remediation: #{{findingId}}",
                 "The remediation for finding #{{findingId}} was due on {{remediationDeadline}} and is {{daysLate}} "
                     + "day(s) overdue.\n\n" + FINDING_DETAILS + "\n\nEscalated to level {{level}}.", true);
-            templates.require(EscalationConstants.KEY_FINDING_DATA_REVIEW,
+            templates.upgrade(EscalationConstants.KEY_FINDING_DATA_REVIEW,
+                FINDING_DETAILS_OLD + "\n\nRemediation evidence was submitted by {{responsiblePerson}} and is waiting for "
+                    + "your review.",
                 "Remediation submitted: finding #{{findingId}}",
                 FINDING_DETAILS + "\n\nRemediation evidence was submitted by {{responsiblePerson}} and is waiting for "
                     + "your review.", false);
-            templates.require(EscalationConstants.KEY_FINDING_RECEIPT,
+            templates.upgrade(EscalationConstants.KEY_FINDING_RECEIPT,
+                FINDING_DETAILS_OLD + "\n\nYour remediation has been received and is being reviewed.",
                 "Received: finding #{{findingId}} remediation",
                 FINDING_DETAILS + "\n\nYour remediation has been received and is being reviewed.", false);
-            templates.require(EscalationConstants.KEY_FINDING_CHANGES_REQUESTED,
+            templates.upgrade(EscalationConstants.KEY_FINDING_CHANGES_REQUESTED,
+                FINDING_DETAILS_OLD + "\n\n{{reviewNotes}}\n\nPlease review and submit the remediation again using the "
+                    + "link below.",
                 "Changes requested: finding #{{findingId}} remediation",
                 FINDING_DETAILS + "\n\n{{reviewNotes}}\n\nPlease review and submit the remediation again using the "
                     + "link below.", false);
