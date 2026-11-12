@@ -41,21 +41,22 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
 
     private static final String FINDING_DETAILS_OLD = "Finding: #{{findingId}} ({{severity}})\n"
         + "Type: {{findingType}}\n"
-        + "Control: {{controlNumber}}\n"
-        + "Remediation owner: {{responsiblePerson}}\n"
-        + "Risk owner: {{riskOwner}}\n"
-        + "Risk unit: {{riskUnit}}\n"
-        + "Remediation deadline: {{remediationDeadline}}\n"
-        + "Status: {{findingStatus}}";
-
-    private static final String FINDING_DETAILS = "Finding: #{{findingId}} ({{severity}})\n"
-        + "Type: {{findingType}}\n"
         + "Details: {{findingDescription}}\n"
         + "Control: {{controlName}} ({{controlNumber}})\n"
         + "Act/Regulation: {{actName}}\n"
         + "Control owner: {{controlOwner}}\n"
         + "Department: {{department}}\n"
         + "Obligation: {{obligation}}\n"
+        + "Triggered by: control test on {{testDate}} (result {{testResult}})\n"
+        + "Remediation owner: {{responsiblePerson}}\n"
+        + "Remediation deadline: {{remediationDeadline}}\n"
+        + "Status: {{findingStatus}}";
+
+    private static final String FINDING_DETAILS = "Type: {{findingType}}\n"
+        + "Details: {{findingDescription}}\n"
+        + "Control: {{controlName}} ({{controlNumber}})\n"
+        + "Control owner: {{controlOwner}}\n"
+        + "Department: {{department}}\n"
         + "Triggered by: control test on {{testDate}} (result {{testResult}})\n"
         + "Remediation owner: {{responsiblePerson}}\n"
         + "Remediation deadline: {{remediationDeadline}}\n"
@@ -132,9 +133,9 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
             templates.upgrade(EscalationConstants.KEY_FINDING_RAISED,
                 "Hi {{recipientName}},\n\nFinding #{{findingId}} ({{severity}}) needs remediation. Please provide the "
                     + "remediation evidence using the link below.\n\n" + FINDING_DETAILS_OLD,
-                "Action required: finding #{{findingId}} remediation",
-                "Hi {{recipientName}},\n\nFinding #{{findingId}} ({{severity}}) needs remediation. Please provide the "
-                    + "remediation evidence using the link below.\n\n" + FINDING_DETAILS, true);
+                "Action required: Finding raised against control {{controlName}}",
+                "Hi {{recipientName}},\n\nControl {{controlName}} needs remediation. Kindly remediate and provide "
+                    + "evidence using the link below.\n\n" + FINDING_DETAILS, true);
             templates.upgrade(EscalationConstants.KEY_FINDING_APPROACHING,
                 "Hi {{recipientName}},\n\nThe remediation for finding #{{findingId}} is due on {{remediationDeadline}} "
                     + "({{daysLeft}} day(s) left). Please submit the evidence using the link below.\n\n" + FINDING_DETAILS_OLD,
