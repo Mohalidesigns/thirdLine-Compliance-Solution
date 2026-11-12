@@ -31,9 +31,9 @@ const COLUMNS = [
   { id: 'title', label: 'Obligation', minWidth: 360, sortable: true, sortField: 'name',
     render: (item) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Tooltip title={item.title || item.name || ''}>
+        <Tooltip title={item.name || ''}>
           <Typography variant="body2" sx={{ ...ellipsis(420), color: 'primary.main', fontWeight: 500 }}>
-            {item.title || item.name || 'Untitled obligation'}
+            {item.name || 'Untitled obligation'}
           </Typography>
         </Tooltip>
         {item.description && (
@@ -186,7 +186,7 @@ export default function ObligationsRegisterPage() {
   }
 
   function handleDelete(row) {
-    if (!window.confirm(`Delete obligation #${row.obligationNumber}?\n\n"${row.title || row.name || row.description}"`)) return;
+    if (!window.confirm(`Delete obligation #${row.obligationNumber}?\n\n"${row.name}"`)) return;
     deleteMutation.mutate(row.obligationId);
   }
 

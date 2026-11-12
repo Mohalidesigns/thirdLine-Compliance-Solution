@@ -172,7 +172,7 @@ export default function ControlTestReviewPage() {
               <Link component="button" underline="hover"
                 onClick={() => navigate(`/obligations/${o.obligationId}`)}
                 sx={{ fontSize: '0.875rem', textAlign: 'left' }}>
-                {o.name || o.title || `Obligation ${o.obligationId}`}
+                {o.name || `Obligation ${o.obligationId}`}
               </Link>
             </Box>
           ))}

@@ -155,7 +155,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {obligations.map((o) => (
                   <Chip key={o.obligationId} size="small" variant="outlined"
-                    label={o.name || o.title || o.description || `#${o.obligationId}`}
+                    label={o.name}
                     onDelete={() => setObligations((prev) => prev.filter((x) => x.obligationId !== o.obligationId))} />
                 ))}
               </Box>

@@ -244,7 +244,7 @@ public class RiskService {
         idsByRisk.forEach((riskId, ids) -> out.put(riskId, ids.stream().map(byId::get).filter(Objects::nonNull)
             .map(o -> RiskItem.ObligationRef.builder()
                 .obligationId(o.getObligationId())
-                .title(o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle() : o.getName())
+                .title(o.getName())
                 .actName(o.getActName())
                 .build()).toList()));
         return out;

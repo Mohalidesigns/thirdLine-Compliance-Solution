@@ -91,6 +91,7 @@ public class SeedDataRepairService {
             Map<Long, InstrumentContext> context = contextByInstrument(bundles);
             Result r = tx.execute(status -> repair(context));
             Integer regLinked = tx.execute(status -> linkRegulators(tenantId, bundles));
+            Integer namesBackfilled = tx.execute(status -> backfillNames());
             SeedLinkRepairService.Result lr = tx.execute(status -> linkRepair.repair(bundles));
             SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
@@ -101,8 +102,8 @@ public class SeedDataRepairService {
                     + cr.riskRebanded() + cr.residualRatingRebanded() + cr.howTestedCleared()
                     + lr.duplicatesMerged() + lr.controlsRelinked() + lr.obligationsRelinked() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
-            log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}",
-                r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked);
+            log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}, names backfilled={}",
+                r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked, namesBackfilled);
             log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}, howTested cleared={}",
                 cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded(), cr.howTestedCleared());
             done.set(true);
@@ -148,6 +149,27 @@ public class SeedDataRepairService {
             Long tenantReg = platformReg != null ? tenantRegByPlatform.get(platformReg) : null;
             if (tenantReg != null) {
                 o.setTenantRegulatorId(tenantReg);
+                changed.add(o);
+            }
+        }
+        if (!changed.isEmpty()) obligationRepo.saveAll(changed);
+        return changed.size();
+    }
+
+    /**
+     * Obligations saved through the review flow carried {@code title} but not {@code name}, so the
+     * register and every picker that labels by {@code name} showed a blank/"#id". Backfills
+     * {@code name} from {@code title} (then {@code description}) so a single deterministic field
+     * labels an obligation everywhere.
+     */
+    int backfillNames() {
+        List<Obligation> changed = new ArrayList<>();
+        for (Obligation o : obligationRepo.findAll()) {
+            if (o.getName() != null && !o.getName().isBlank()) continue;
+            String fallback = o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle()
+                : o.getDescription() != null && !o.getDescription().isBlank() ? o.getDescription() : null;
+            if (fallback != null) {
+                o.setName(fallback);
                 changed.add(o);
             }
         }

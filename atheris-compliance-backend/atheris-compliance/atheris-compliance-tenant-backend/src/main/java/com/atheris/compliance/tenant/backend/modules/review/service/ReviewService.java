@@ -284,6 +284,7 @@ public class ReviewService {
                     Obligation ob = Obligation.builder()
                         .instrumentId(instrumentId)
                         .obligationNumber(o.getObligationNumber() != null ? o.getObligationNumber() : num)
+                        .name(shorten(o.getTitle(), 500))
                         .title(shorten(o.getTitle(), 500))
                         .description(shorten(o.getDescription(), 2000))
                         .plainEnglishStatement(shorten(o.getPlainEnglishStatement(), 2000))

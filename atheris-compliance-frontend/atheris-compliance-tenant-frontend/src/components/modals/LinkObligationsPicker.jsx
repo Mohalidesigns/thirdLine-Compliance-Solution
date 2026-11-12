@@ -36,8 +36,6 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
     if (!search) return true;
     const q = search.toLowerCase();
     return (r.name || '').toLowerCase().includes(q)
-      || (r.title || '').toLowerCase().includes(q)
-      || (r.description || '').toLowerCase().includes(q)
       || (r.areaOfFocus || '').toLowerCase().includes(q)
       || String(r.obligationNumber || '').toLowerCase().includes(q)
       || (r.sectionReference || '').toLowerCase().includes(q)
@@ -69,7 +67,7 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
               const r = rows.find(x => x.obligationId === id);
               return (
                 <Chip key={id} size="small" color="primary" variant="outlined"
-                  label={r ? (r.title || r.name || `#${id}`) : `#${id}`}
+                  label={r ? r.name : `#${id}`}
                   onDelete={() => setSelected(prev => prev.filter(x => x !== id))} />
               );
             })}
@@ -94,7 +92,7 @@ export default function LinkObligationsPicker({ open, onClose, initialIds = [], 
                   <TableRow key={r.obligationId} hover selected={selected.includes(r.obligationId)}
                     onClick={() => toggle(r.obligationId)} sx={{ cursor: 'pointer' }}>
                     <TableCell>
-                      <Typography variant="body2">{r.name || r.title || r.description || `Obligation #${r.obligationNumber}`}</Typography>
+                      <Typography variant="body2">{r.name}</Typography>
                       <Typography variant="caption" color="text.secondary">{r.areaOfFocus || r.sourceTitle || ''}</Typography>
                     </TableCell>
                     <TableCell>{r.regulatorAbbreviation || r.regulatorName || '-'}</TableCell>

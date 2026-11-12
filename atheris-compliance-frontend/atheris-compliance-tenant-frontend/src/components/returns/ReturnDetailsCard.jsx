@@ -157,7 +157,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
         ) : (
           <Box>
             {obligations.map((o, i) => {
-              const title = o.title || o.name || `Obligation #${o.obligationId}`;
+              const title = o.name || `Obligation #${o.obligationId}`;
               return (
                 <Box key={o.obligationId ?? i} sx={{ py: 0.5 }}>
                   <Tooltip title={title.length > 70 ? title : ''} placement="right">

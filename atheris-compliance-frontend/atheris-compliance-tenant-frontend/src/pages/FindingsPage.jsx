@@ -703,16 +703,16 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
         <EntityPicker open title="Select Obligation (no control)"
           fetchRows={(q) => api.obligations.register({ q: q || undefined, noControl: 'true', size: 50 })}
           getKey={(o) => o.obligationId}
-          label={(o) => o.title || o.name || `Obligation #${o.obligationId}`}
+          label={(o) => o.name || `Obligation #${o.obligationId}`}
           columns={[
-            { label: 'Obligation', render: (o) => o.title || o.name || `Obligation #${o.obligationId}` },
+            { label: 'Obligation', render: (o) => o.name || `Obligation #${o.obligationId}` },
             { label: 'Act', render: (o) => o.actName || '-' },
             { label: 'Controls', render: (o) => o.controlCount ?? 0 },
           ]}
           onClose={() => setObligationOpen(false)}
           onSave={(id, row) => {
             setForm(f => ({ ...f, linkedObligationId: id }));
-            setObligationLabel(row ? (row.title || row.name || `Obligation #${id}`) : `Obligation #${id}`);
+            setObligationLabel(row ? (row.name || `Obligation #${id}`) : `Obligation #${id}`);
             setObligationOpen(false);
           }} />
       )}

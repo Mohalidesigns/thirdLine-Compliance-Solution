@@ -59,7 +59,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       .map((r) => r.text || '').filter(Boolean);
     return {
       instrumentId: initial.instrumentId ?? '',
-      name: initial.title || initial.name || '',
+      name: initial.name || '',
       tenantRegulatorId: initial.tenantRegulatorId ?? '',
       requirements: texts.length ? texts : [''],
       areaOfFocus: initial.areaOfFocus || '',

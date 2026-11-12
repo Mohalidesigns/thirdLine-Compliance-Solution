@@ -191,7 +191,7 @@ export default function ControlsPage() {
   const obligationOptions = obligationOptionsQuery.data?.content || [];
   const selectedObligation = selectedObligationQuery.data;
   const obligationChipLabel = obligationFilter == null ? ''
-    : (selectedObligation?.title || selectedObligation?.name || `Obligation #${obligationFilter}`);
+    : (selectedObligation?.name || `Obligation #${obligationFilter}`);
   const obligationAutocompleteValue = obligationFilter == null ? null
     : (obligationOptions.find((o) => o.obligationId === obligationFilter)
         || { obligationId: obligationFilter, title: obligationChipLabel });
@@ -326,7 +326,7 @@ export default function ControlsPage() {
             value={obligationAutocompleteValue}
             onChange={(_, opt) => setObligationFilter(opt ? opt.obligationId : null)}
             onInputChange={(_, v) => setObligationInput(v)}
-            getOptionLabel={(o) => o.title || o.name || `Obligation #${o.obligationId}`}
+            getOptionLabel={(o) => o.name || `Obligation #${o.obligationId}`}
             isOptionEqualToValue={(o, v) => o.obligationId === v.obligationId}
             filterOptions={(x) => x}
             loading={obligationOptionsQuery.isFetching}
@@ -463,7 +463,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                   <Tooltip key={o.obligationId} arrow
                     title={o.instrumentTitle ? `Instrument: ${o.instrumentTitle}` : (o.description || '')}>
                     <Chip clickable size="small"
-                      label={o.title || o.name || o.description || 'Untitled obligation'}
+                      label={o.name || 'Untitled obligation'}
                       onClick={() => navigate(`/obligations/${o.obligationId}`)}
                       sx={{ height: 'auto', py: 0.4, borderRadius: '6px', bgcolor: TL.gray100, color: TL.gray700,
                         '& .MuiChip-label': { display: 'block', whiteSpace: 'normal', maxWidth: 460, fontSize: '0.75rem', lineHeight: 1.35, py: 0.25 } }} />
