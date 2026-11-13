@@ -243,7 +243,7 @@ public class ControlTestLinkService {
 
     @Transactional
     public void submit(String rawToken, LocalDate testDate, String result, String notes,
-                       String failureDetails, MultipartFile file) {
+                       MultipartFile file) {
         ControlTestLink link = resolve(rawToken);
         Control c = controls.findById(link.getControlId())
             .orElseThrow(() -> ApiException.notFound("Control not found"));
@@ -257,7 +257,6 @@ public class ControlTestLinkService {
         req.setTestDate(testDate == null ? LocalDate.now() : testDate);
         req.setResult(result);
         req.setResultDescription(notes);
-        req.setFailureDetails(failureDetails);
         req.setTestedByName(link.getRecipientName() != null ? link.getRecipientName() : c.getTesterName());
         ControlTestResult saved = testService.recordTestFromLink(c.getControlId(), req,
             req.getTestedByName() != null ? req.getTestedByName() : "the responsible person");

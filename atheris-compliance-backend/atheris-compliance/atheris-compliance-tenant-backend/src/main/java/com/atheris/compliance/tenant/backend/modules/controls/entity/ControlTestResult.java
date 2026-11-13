@@ -25,10 +25,7 @@ public class ControlTestResult {
     private String result;
     @Column(columnDefinition = "text")
     private String resultDescription;
-    @Column(columnDefinition = "text")
-    private String failureDetails;
     private String failureSeverity;
-    private String evidenceUrl;
     @Builder.Default
     private Boolean remediationRequired = false;
     private Integer remediationOwnerUserId;

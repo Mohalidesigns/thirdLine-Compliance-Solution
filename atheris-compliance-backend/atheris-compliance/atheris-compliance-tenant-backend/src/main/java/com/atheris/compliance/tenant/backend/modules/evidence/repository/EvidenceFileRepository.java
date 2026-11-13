@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface EvidenceFileRepository extends JpaRepository<EvidenceFile, Long> {
     Page<EvidenceFile> findAllByOrderByCreatedAtDesc(Pageable p);
+    Page<EvidenceFile> findBySourceTypeInOrderByCreatedAtDesc(java.util.Collection<String> sourceTypes, Pageable p);
     List<EvidenceFile> findBySourceTypeAndSourceId(String sourceType, Long sourceId);
     Optional<EvidenceFile> findByFileIdAndSourceTypeAndSourceId(Long fileId, String sourceType, Long sourceId);
     List<EvidenceFile> findBySourceTypeInAndSourceIdIn(java.util.Collection<String> sourceTypes,

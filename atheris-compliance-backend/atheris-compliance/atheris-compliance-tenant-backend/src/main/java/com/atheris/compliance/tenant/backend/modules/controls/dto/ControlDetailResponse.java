@@ -78,9 +78,7 @@ public class ControlDetailResponse {
         private String testedByName;
         private String result;
         private String resultDescription;
-        private String failureDetails;
         private String failureSeverity;
-        private String evidenceUrl;
         private Boolean remediationRequired;
         private String reviewStatus;
         private Instant createdAt;

@@ -29,10 +29,9 @@ public class PublicControlTestController {
             @RequestParam(value = "testDate", required = false) String testDate,
             @RequestParam(value = "result") String result,
             @RequestParam(value = "notes", required = false) String notes,
-            @RequestParam(value = "failureDetails", required = false) String failureDetails,
             @RequestParam(value = "file", required = false) MultipartFile file) {
         LocalDate date = testDate == null || testDate.isBlank() ? null : LocalDate.parse(testDate);
-        service.submit(token, date, result, notes, failureDetails, file);
+        service.submit(token, date, result, notes, file);
         return ResponseEntity.ok(Map.of("status", "submitted"));
     }
 }

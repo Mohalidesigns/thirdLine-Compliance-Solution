@@ -11,9 +11,7 @@ public class RecordTestRequest {
     private String testedByName;
     @NotBlank private String result;
     private String resultDescription;
-    private String failureDetails;
     private String failureSeverity;
-    private String evidenceUrl;
     private Boolean remediationRequired;
     private Integer remediationOwnerUserId;
     private Integer remediationOwnerId;

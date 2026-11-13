@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box, Typography, Chip, Button, Alert, TextField, Link, IconButton, Tooltip,
-  Stepper, Step, StepLabel, MenuItem,
+  Stepper, Step, StepLabel, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
   Section, Field, FieldGrid, StatTile,
@@ -27,6 +27,7 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
   const [draftOpen, setDraftOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [escalationOpen, setEscalationOpen] = useState(false);
+  const [proofOpen, setProofOpen] = useState(false);
   const reviewRef = useRef(null);
   const isCompleted = detail.currentStage === 'Completed';
 
@@ -227,12 +228,22 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
               <CheckCircleIcon size={18} sx={{ color: 'success.main' }} />
               Completed {detail.completedAt ? formatDate(detail.completedAt) : ''}{detail.daysLate > 0 && ` (${detail.daysLate} days late)`}
             </Typography>
-            {detail.submissionEvidenceUrl && (
-              <Link href={detail.submissionEvidenceUrl} target="_blank" rel="noopener" variant="caption">View evidence</Link>
-            )}
           </Box>
         )}
       </Section>
+
+      {isCompleted && (
+        <Section icon={<DocumentTextIcon />} title="Proof of filing"
+          action={canReview ? (
+            <Button size="small" variant="outlined" onClick={() => setProofOpen(true)}>Attach proof</Button>
+          ) : null}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            After filing on the regulator's portal, attach the acknowledgement or receipt here.
+          </Typography>
+          <EvidenceFileList sourceType="return_receipt" sourceId={detail.instanceId}
+            emptyText="No proof of filing attached yet." />
+        </Section>
+      )}
 
       {detail.notes && (
         <Section icon={<DocumentTextIcon />} title="Notes">
@@ -245,7 +256,61 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
         onSnackbar={onSnackbar} />
       <EscalationOverrideDialog open={escalationOpen} instanceId={detail.instanceId}
         onClose={() => setEscalationOpen(false)} onSnackbar={onSnackbar} />
+      <ProofOfFilingDialog open={proofOpen} instanceId={detail.instanceId}
+        onClose={() => setProofOpen(false)} onSaved={() => { setProofOpen(false); onRefresh(); }}
+        onSnackbar={onSnackbar} />
     </Box>
+  );
+}
+
+function ProofOfFilingDialog({ open, instanceId, onClose, onSaved, onSnackbar }) {
+  const [files, setFiles] = useState([]);
+  const [reference, setReference] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!files.length) return;
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append('files', f));
+      if (reference.trim()) fd.append('reference', reference.trim());
+      await api.returns.proofOfFiling(instanceId, fd);
+      setFiles([]); setReference('');
+      onSaved();
+    } catch (e) { onSnackbar?.(e.message || 'Failed to attach proof of filing.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
+      TransitionProps={{ onExited: () => { setFiles([]); setReference(''); } }}>
+      <DialogTitle>Attach proof of filing</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Upload the regulator's acknowledgement or filing receipt, and optionally a reference.
+        </Typography>
+        <Button variant="outlined" component="label" fullWidth startIcon={<DocumentTextIcon size={16} />}
+          sx={{ py: 2, borderStyle: 'dashed', mb: 2 }}>
+          {files.length ? `${files.length} file(s) selected` : 'Select file(s)'}
+          <input type="file" hidden multiple
+            onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+        </Button>
+        <TextField fullWidth size="small" label="Reference (optional)" value={reference}
+          onChange={(e) => setReference(e.target.value)} placeholder="e.g. CBN-ACK-2026-0042" />
+        {files.length > 0 && (
+          <Box sx={{ mt: 1 }}>
+            {files.map((f) => <Typography key={f.name} variant="caption" sx={{ display: 'block' }}>{f.name}</Typography>)}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !files.length}>
+          {saving ? 'Uploading…' : 'Attach'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

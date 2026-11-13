@@ -554,6 +554,7 @@ export const api = {
     advance: (id, data) => request(`/returns/instances/${id}/advance`, { method: 'PUT', body: JSON.stringify(data) }),
     // Attach the drafted report and send it to the CCO (Draft -> Review). Multipart: >=1 file + optional notes.
     submitDraft: (id, formData) => rawRequest(`/returns/instances/${id}/submit-draft`, { method: 'PUT', body: formData }),
+    proofOfFiling: (id, formData) => rawRequest(`/returns/instances/${id}/proof-of-filing`, { method: 'POST', body: formData }),
     // Review the data submitted by the responsible person at Data Gathering (analyst). ACCEPT → Draft; REJECT → re-send link.
     dataReview: (id, data) => request(`/returns/instances/${id}/data-review`, { method: 'PUT', body: JSON.stringify(data) }),
     // Review the drafted report at the Review stage (CCO). ACCEPT → Completed; REJECT → request changes (back to Draft).
@@ -611,6 +612,14 @@ export const api = {
   },
   evidence: {
     list: (page = 0, size = 20) => request(`/evidence?page=${page}&size=${size}`),
+    register: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/evidence/register${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    stats: (opts = {}) => request('/evidence/stats', { signal: opts.signal }),
+    forObligation: (obligationId, opts = {}) => request(`/evidence/for-obligation/${obligationId}`, { signal: opts.signal }),
     bySource: (sourceType, sourceId, opts = {}) =>
       request(`/evidence/by-source?sourceType=${encodeURIComponent(sourceType)}&sourceId=${sourceId}`, { signal: opts.signal }),
     detail: (id, opts = {}) => request(`/evidence/${id}`, { signal: opts.signal }),

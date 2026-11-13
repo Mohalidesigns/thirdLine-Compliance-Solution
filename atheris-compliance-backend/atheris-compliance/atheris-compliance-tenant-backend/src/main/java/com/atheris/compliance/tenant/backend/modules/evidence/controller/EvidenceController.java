@@ -1,5 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.evidence.controller;
 
+import com.atheris.compliance.tenant.backend.modules.evidence.dto.EvidenceRegisterItem;
+import com.atheris.compliance.tenant.backend.modules.evidence.dto.EvidenceStats;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
@@ -26,6 +28,24 @@ public class EvidenceController {
     @GetMapping
     public ResponseEntity<Page<EvidenceFile>> list(Pageable p) {
         return ResponseEntity.ok(service.list(p));
+    }
+
+    @GetMapping("/register")
+    public ResponseEntity<Page<EvidenceRegisterItem>> register(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String q,
+            Pageable p) {
+        return ResponseEntity.ok(service.register(category, q, p));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<EvidenceStats> stats() {
+        return ResponseEntity.ok(service.stats());
+    }
+
+    @GetMapping("/for-obligation/{obligationId}")
+    public ResponseEntity<List<EvidenceRegisterItem>> forObligation(@PathVariable Long obligationId) {
+        return ResponseEntity.ok(service.forObligation(obligationId));
     }
 
     @GetMapping("/by-source")

@@ -96,6 +96,16 @@ public class ReturnController {
         return ResponseEntity.ok(service.getDetail(id));
     }
 
+    @PostMapping(value = "/instances/{id}/proof-of-filing", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ReturnInstanceDetailResponse> proofOfFiling(
+            @PathVariable Long id,
+            @RequestParam(value = "reference", required = false) String reference,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal User u) {
+        return ResponseEntity.ok(service.addProofOfFiling(id, files, reference, u.getUserId()));
+    }
+
     @PutMapping("/instances/{id}/data-review")
     @PreAuthorize("hasAnyRole(" + AppRole.RETURN_REVIEWERS + ")")
     public ResponseEntity<ReturnInstanceDetailResponse> dataReview(

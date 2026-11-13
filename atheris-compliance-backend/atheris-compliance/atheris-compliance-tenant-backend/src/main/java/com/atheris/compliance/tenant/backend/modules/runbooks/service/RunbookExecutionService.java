@@ -704,9 +704,8 @@ public class RunbookExecutionService {
                 t.setTestedByName(operator.getFullName());
                 t.setResult(pass ? WorkflowStatus.TEST_PASSED : WorkflowStatus.TEST_FAILED);
                 t.setResultDescription("Runbook " + rb.getRunbookCode() + " execution " + e.getExecutionRef() + " — "
-                    + e.getStepsPassed() + " passed, " + e.getStepsFailed() + " failed, " + e.getStepsSkipped() + " skipped/N/A");
-                t.setFailureDetails(pass ? null : e.getOutcomeSummary());
-                t.setEvidenceUrl("/runbooks/executions/" + e.getExecutionId() + "/summary");
+                    + e.getStepsPassed() + " passed, " + e.getStepsFailed() + " failed, " + e.getStepsSkipped() + " skipped/N/A"
+                    + (pass || e.getOutcomeSummary() == null ? "" : ". " + e.getOutcomeSummary()));
                 controlTests.recordTest(c.getControlId(), t, operator);
             }
         }

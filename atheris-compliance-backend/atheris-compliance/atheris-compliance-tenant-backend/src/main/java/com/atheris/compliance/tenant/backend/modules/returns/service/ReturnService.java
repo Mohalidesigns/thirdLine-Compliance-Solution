@@ -56,7 +56,9 @@ public class ReturnService {
     /** Register status filter value for returns with no due rule. */
     public static final String STATUS_DUE_DATE_NEEDED = "Due date needed";
     private static final String INSTANCE_EVIDENCE_TYPE = "return_instance";
+    private static final String RECEIPT_EVIDENCE_TYPE = "return_receipt";
     private static final String DRAFT_EVIDENCE_PREFIX = "Draft report ";
+    private static final String RECEIPT_EVIDENCE_PREFIX = "Filing receipt ";
 
     private final RegulatoryReturnRepository returns;
     private final ReturnFilingInstanceRepository instances;
@@ -900,6 +902,36 @@ public class ReturnService {
         return (int) evidenceVault.listBySource(INSTANCE_EVIDENCE_TYPE, instanceId).stream()
             .filter(f -> f.getDescription() != null && f.getDescription().startsWith(DRAFT_EVIDENCE_PREFIX))
             .count();
+    }
+
+    @Transactional
+    public ReturnInstanceDetailResponse addProofOfFiling(Long instanceId, List<MultipartFile> files, String reference, Integer userId) {
+        try {
+            ReturnFilingInstance inst = instances.findById(instanceId)
+                .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
+            if (inst.getCurrentStage() != ReturnStage.COMPLETED)
+                throw ApiException.conflict("not_completed",
+                    "Proof of filing can only be attached once the filing is completed.");
+            List<MultipartFile> attached = files == null ? List.of()
+                : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+            if (attached.isEmpty())
+                throw ApiException.conflict("proof_required", "Attach the regulator's acknowledgement or filing receipt.");
+            String description = RECEIPT_EVIDENCE_PREFIX
+                + (reference != null && !reference.isBlank() ? reference.trim() : inst.getPeriod());
+            for (MultipartFile file : attached) {
+                evidenceVault.upload(file, RECEIPT_EVIDENCE_TYPE, instanceId, description, userId);
+            }
+            audit.log(userId, "return_proof_filed", "return_instance", instanceId,
+                Map.of("files", attached.size()));
+            RegulatoryReturn ret = returns.findById(inst.getReturnId()).orElse(null);
+            return ReturnInstanceDetailResponse.from(inst, ret == null ? null : ret.getReturnName(),
+                ret == null ? null : regulatorLabel(ret), ret == null ? null : ret.getReturnOwnerName());
+        } catch (Throwable e) {
+            log.error("Adding proof of filing for instance {} failed: {}", instanceId, e.getMessage(), e);
+            try { em.clear(); } catch (Throwable ignored) {}
+            try { TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); } catch (Throwable ignored) {}
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+        }
     }
 
     private void advanceToReview(ReturnFilingInstance inst, Integer userId, String evidenceRef) {

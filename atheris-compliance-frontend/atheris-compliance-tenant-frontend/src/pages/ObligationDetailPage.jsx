@@ -5,7 +5,7 @@ import {
   Box, Typography, Button, CircularProgress, Alert, IconButton, Snackbar,
 } from '@mui/material';
 import {
-  DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard,
+  DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, StatusBadge,
   controlColumns, returnColumns,
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
@@ -41,11 +41,25 @@ const SANCTION_TAB_COLUMNS = [
       textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.penaltyDetails || r.sanctionType || '—'}</Typography> },
 ];
 
+const EVIDENCE_CATEGORY_LABEL = {
+  control_tests: 'Control tests', findings: 'Findings', returns: 'Returns',
+  obligations: 'Obligations', controls: 'Controls', runbooks: 'Runbooks', other: 'Other',
+};
+const EVIDENCE_CATEGORY_TONE = {
+  control_tests: 'blue', findings: 'red', returns: 'green',
+  obligations: 'amber', controls: 'orange', runbooks: 'purple',
+};
+
 const EVIDENCE_COLUMNS = [
-  { id: 'originalName', label: 'File', minWidth: 260, truncate: true, maxWidth: 320 },
-  { id: 'uploadedByName', label: 'Uploaded By', minWidth: 160,
+  { id: 'originalName', label: 'File', minWidth: 240, truncate: true, maxWidth: 300 },
+  { id: 'category', label: 'Category', minWidth: 130,
+    render: (r) => <StatusBadge tone={EVIDENCE_CATEGORY_TONE[r.category] || 'gray'}
+      label={EVIDENCE_CATEGORY_LABEL[r.category] || r.category || '—'} /> },
+  { id: 'linkedLabel', label: 'Via', minWidth: 220, truncate: true, maxWidth: 300,
+    render: (r) => <Typography variant="body2" color="text.secondary">{r.linkedLabel || '—'}</Typography> },
+  { id: 'uploadedByName', label: 'Uploaded By', minWidth: 150,
     render: (r) => <Typography variant="body2">{r.uploadedByName || '—'}</Typography> },
-  { id: 'createdAt', label: 'Date', minWidth: 130,
+  { id: 'createdAt', label: 'Date', minWidth: 120,
     render: (r) => <Typography variant="body2" color="text.secondary">{formatDate(r.createdAt)}</Typography> },
 ];
 
@@ -88,16 +102,23 @@ export default function ObligationDetailPage() {
     enabled: !!obligationId,
   });
 
+  const { data: evidenceRollup = [] } = useQuery({
+    queryKey: ['evidence', 'forObligation', String(id)],
+    queryFn: ({ signal }) => api.evidence.forObligation(obligationId, { signal }),
+    enabled: !!obligationId,
+  });
+
   const notify = (severity, message) => setSnack({ severity, message });
   const onSaved = (message) => async () => {
     await queryClient.invalidateQueries({ queryKey: ['obligations'] });
+    await queryClient.invalidateQueries({ queryKey: ['evidence', 'forObligation', String(id)] });
     notify('success', message);
   };
 
   const controls = useMemo(() => selected?.linkedControls || [], [selected]);
   const returns = useMemo(() => selected?.linkedReturns || [], [selected]);
   const sanctions = useMemo(() => selected?.sanctions || [], [selected]);
-  const evidence = useMemo(() => selected?.evidence || [], [selected]);
+  const evidence = useMemo(() => evidenceRollup, [evidenceRollup]);
   const history = useMemo(() => selected?.history || [], [selected]);
 
   const requirementsWithId = useMemo(
