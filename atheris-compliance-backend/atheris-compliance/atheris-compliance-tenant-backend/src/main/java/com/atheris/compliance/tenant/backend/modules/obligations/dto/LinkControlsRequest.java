@@ -5,6 +5,7 @@ import java.util.List;
 
 @Data
 public class LinkControlsRequest {
+    private List<Long> requirementIds;
     private List<Integer> linkedControlIds;
     private String changeReason;
 }

@@ -252,6 +252,11 @@ public class RequirementService {
      */
     @Transactional
     public void applyObligationControls(Long obligationId, Collection<Integer> selected) {
+        applyObligationControls(obligationId, null, selected);
+    }
+
+    public void applyObligationControls(Long obligationId, Collection<Long> requirementIds,
+                                        Collection<Integer> selected) {
         Obligation ob = obligations.findById(obligationId)
             .orElseThrow(() -> ApiException.notFound("Obligation not found: " + obligationId));
         Set<Integer> wanted = new LinkedHashSet<>(selected == null ? List.of() : selected);
@@ -266,6 +271,20 @@ public class RequirementService {
             Requirement def = requirements.save(Requirement.builder()
                 .obligationId(obligationId).ordinal(0).text(text.trim()).source("manual").build());
             reqs = List.of(def);
+        }
+
+        if (requirementIds != null) {
+            Set<Long> scope = new LinkedHashSet<>(requirementIds);
+            for (Requirement r : reqs) {
+                if (!scope.contains(r.getRequirementId())) continue;
+                requirementControls.deleteByRequirementId(r.getRequirementId());
+                requirementControls.flush();
+                for (Integer id : wanted) {
+                    requirementControls.save(new RequirementControl(r.getRequirementId(), id));
+                }
+            }
+            syncObligationLinks(obligationId);
+            return;
         }
 
         Map<Long, Set<Integer>> linked = requirementControls

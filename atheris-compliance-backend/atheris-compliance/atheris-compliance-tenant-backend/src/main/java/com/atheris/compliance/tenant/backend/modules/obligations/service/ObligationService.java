@@ -853,7 +853,7 @@ public class ObligationService {
         recordHistory(c, ob, req.getChangeReason(), userId);
         List<Integer> selected = req.getLinkedControlIds() == null
             ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
-        requirementService.applyObligationControls(obligationId, selected);
+        requirementService.applyObligationControls(obligationId, req.getRequirementIds(), selected);
         c = classifications.findByObligationId(obligationId).orElse(c);
         if (!selected.isEmpty()) autoCloseGapFindings(obligationId, userId);
         audit.log(userId, "link_controls", "obligation", obligationId,
