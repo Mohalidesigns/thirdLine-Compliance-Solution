@@ -8,7 +8,7 @@ import {
 import {
   PageHeader, KpiCards, FilterBar, SectionTable, StatusBadge, EntityDrawer,
   ArrowPathIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, FolderOpenIcon,
-  ClipboardDocumentCheckIcon, ShieldCheckIcon, DocumentTextIcon, LinkIcon, DocumentIcon,
+  ClipboardDocumentCheckIcon, ShieldCheckIcon, DocumentTextIcon, LinkIcon,
 } from 'shared';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,8 +18,6 @@ const CATEGORIES = [
   { key: 'control_tests', label: 'Control Tests', tone: 'blue', icon: <ClipboardDocumentCheckIcon /> },
   { key: 'findings', label: 'Findings', tone: 'red', icon: <ShieldCheckIcon /> },
   { key: 'returns', label: 'Returns', tone: 'green', icon: <DocumentTextIcon /> },
-  { key: 'obligations', label: 'Obligations', tone: 'amber', icon: <DocumentIcon /> },
-  { key: 'controls', label: 'Controls', tone: 'orange', icon: <ShieldCheckIcon /> },
   { key: 'runbooks', label: 'Runbooks', tone: 'purple', icon: <FolderOpenIcon /> },
 ];
 
@@ -74,12 +72,9 @@ export default function EvidenceVaultPage() {
     sourceType ? rows.filter((r) => r.sourceType === sourceType) : rows
   ), [rows, sourceType]);
 
-  const kpiItems = [
-    { key: '', label: 'All Evidence', value: stats?.total ?? 0, tone: 'blue', icon: <FolderOpenIcon /> },
-    ...CATEGORIES.map((c) => ({
-      key: c.key, label: c.label, value: stats?.byCategory?.[c.key] ?? 0, tone: c.tone, icon: c.icon,
-    })),
-  ];
+  const kpiItems = CATEGORIES.map((c) => ({
+    key: c.key, label: c.label, value: stats?.byCategory?.[c.key] ?? 0, tone: c.tone, icon: c.icon,
+  }));
 
   const COLUMNS = [
     { id: 'originalName', label: 'File', minWidth: 280,
