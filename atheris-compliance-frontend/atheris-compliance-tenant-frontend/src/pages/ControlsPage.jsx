@@ -5,10 +5,11 @@ import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, MenuItem, Tooltip, Autocomplete,
-  Snackbar, Alert as MuiAlert, Link, Grid,
+  Snackbar, Alert as MuiAlert, Grid,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import { api } from '../services/api';
+import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
   KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, RISK_COLOR, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
@@ -562,29 +563,29 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                               Severity: {t.failureSeverity}
                             </Typography>
                           )}
+                          {t.resultDescription && (
+                            <Typography sx={{ display: 'block', mt: 0.25, fontSize: '0.75rem', color: TL.gray500, maxWidth: 320 }}>
+                              {t.resultDescription}
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <StatusBadge label={t.reviewStatus === 'Pending' ? 'Pending review' : (t.reviewStatus || 'Pending review')}
                               tone={REVIEW_TONE[t.reviewStatus] || 'gray'} />
-                            {t.reviewStatus === 'Pending' && canReview && t.testedByUserId !== user?.userId && (
+                            {t.reviewStatus === 'Pending' && canReview && (
                               <Tooltip title="Review this test result">
                                 <IconButton size="small" color="warning" onClick={() => setReviewTarget(t)}>
                                   <ScaleIcon size={16} />
                                 </IconButton>
                               </Tooltip>
                             )}
-                            {t.reviewStatus === 'Pending' && t.testedByUserId === user?.userId && (
-                              <Tooltip title="You recorded this test — a different analyst must review it">
-                                <span><IconButton size="small" disabled><ScaleIcon size={16} /></IconButton></span>
-                              </Tooltip>
-                            )}
                           </Box>
                           {t.reviewStatus === 'Pending' && (
                             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
                               {t.testedByUserId === user?.userId
-                                ? 'Awaiting review by another Analyst/CCO/Admin'
-                                : 'Awaiting independent review'}
+                                ? 'Awaiting review (you may self-review)'
+                                : 'Awaiting review by an Analyst / CCO / Admin'}
                             </Typography>
                           )}
                           {t.reviewNotes && (
@@ -594,7 +595,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                           )}
                         </TableCell>
                         <TableCell>
-                          {t.evidenceUrl ? <Link href={t.evidenceUrl} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>View</Link> : '-'}
+                          <EvidenceFileList sourceType="control_test" sourceId={t.testId} emptyText="—" />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -797,11 +798,11 @@ function SendTestLinkDialog({ open, control, onClose, onSnackbar }) {
 function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, onSnackbar, saving, setSaving }) {
   const [form, setForm] = useState({
     testDate: new Date().toISOString().split('T')[0], result: '', resultDescription: '',
-    failureDetails: '', failureSeverity: '', evidenceUrl: '', remediationRequired: false,
-    remediationOwnerId: null, remediationDeadline: '',
+    failureSeverity: '', remediationRequired: false, remediationOwnerId: null, remediationDeadline: '',
   });
+  const [files, setFiles] = useState([]);
   useEffect(() => {
-    if (open) setForm(f => ({ ...f, remediationOwnerId: controlOwnerId ?? null }));
+    if (open) { setForm(f => ({ ...f, remediationOwnerId: controlOwnerId ?? null })); setFiles([]); }
   }, [open, controlOwnerId]);
   const handleSave = async () => {
     setSaving(true);
@@ -809,7 +810,18 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
       const body = { ...form };
       if (!body.remediationOwnerId) body.remediationOwnerId = null;
       if (!body.remediationDeadline) delete body.remediationDeadline;
-      await api.controls.recordTest(controlId, body);
+      const created = await api.controls.recordTest(controlId, body);
+      const testId = created?.testId;
+      if (testId && files.length) {
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('sourceType', 'control_test');
+          fd.append('sourceId', String(testId));
+          fd.append('description', `Test evidence ${body.testDate}`);
+          await api.evidence.upload(fd);
+        }
+      }
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
@@ -832,8 +844,19 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
           </Grid>
           <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
-            onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} /></Grid>
+          <Grid size={{ xs: 12 }}>
+            <Button variant="outlined" component="label" fullWidth startIcon={<ArrowUpTrayIcon size={16} />}
+              sx={{ py: 2, borderStyle: 'dashed' }}>
+              {files.length ? `${files.length} file(s) selected` : 'Attach evidence (PDF, PNG, JPG, XLSX)'}
+              <input type="file" hidden multiple
+                onChange={e => setFiles(Array.from(e.target.files || []))} />
+            </Button>
+            {files.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                {files.map(f => <Typography key={f.name} variant="caption" sx={{ display: 'block' }}>{f.name}</Typography>)}
+              </Box>
+            )}
+          </Grid>
           <Grid size={{ xs: 6 }}>
             <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
               onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
@@ -844,8 +867,6 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
               <MenuItem value="Low">Low</MenuItem>
             </TextField>
           </Grid>
-          <Grid size={{ xs: 6 }}><TextField label="Evidence URL" fullWidth size="small" value={form.evidenceUrl}
-            onChange={e => setForm(f => ({ ...f, evidenceUrl: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
             onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
           <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
