@@ -9,7 +9,6 @@ import PersonPicker from '../common/PersonPicker';
 import { api } from '../../services/api';
 
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
-const RISKS = ['Critical', 'High', 'Moderate', 'Low'];
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 const DEFAULT_POLICY = '';
 
@@ -21,7 +20,6 @@ function initialForm(control) {
     description: control?.description || '',
     theme: control?.theme || '',
     controlType: control?.controlType || '',
-    inherentRisk: control?.inherentRisk || '',
     whatItDoes: control?.whatItDoes || '',
     howTested: control?.howTested || '',
     testFrequency: control?.testFrequency || control?.frequency || '',
@@ -72,7 +70,6 @@ function body(form) {
     description: form.description,
     theme: form.theme || null,
     controlType: form.controlType,
-    inherentRisk: form.inherentRisk,
     whatItDoes: form.whatItDoes,
     howTested: form.howTested,
     testFrequency: form.testFrequency,
@@ -185,22 +182,15 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
               onChange={(e) => set('name', e.target.value)} sx={{ mb: 2 }} />
             <TextField fullWidth size="small" multiline minRows={2} label="Description" value={form.description}
               onChange={(e) => set('description', e.target.value)} sx={{ mb: 2 }} />
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-              <TextField select fullWidth size="small" label="Control type" value={form.controlType}
-                onChange={(e) => set('controlType', e.target.value)}>
-                <MenuItem value=""><em>Not set</em></MenuItem>
-                {CONTROL_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-              </TextField>
-              <TextField select fullWidth size="small" label="Inherent risk" value={form.inherentRisk}
-                onChange={(e) => set('inherentRisk', e.target.value)}>
-                <MenuItem value=""><em>Not set</em></MenuItem>
-                {RISKS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-              </TextField>
-            </Box>
+            <TextField select fullWidth size="small" label="Control type" value={form.controlType}
+              onChange={(e) => set('controlType', e.target.value)} sx={{ mb: 2 }}>
+              <MenuItem value=""><em>Not set</em></MenuItem>
+              {CONTROL_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
             <TextField select fullWidth size="small" label="Theme" value={form.theme}
-              onChange={(e) => set('theme', e.target.value)} sx={{ mb: 1 }}>
-              <MenuItem value=""><em>No theme</em></MenuItem>
-              {themes.map((t) => <MenuItem key={t.themeId} value={t.name}>{t.name}</MenuItem>)}
+              onChange={(e) => set('theme', e.target.value)} SelectProps={{ native: true }} sx={{ mb: 1 }}>
+              <option value="">No theme</option>
+              {Array.from(new Set(themes.map((t) => t.name))).map((name) => <option key={name} value={name}>{name}</option>)}
             </TextField>
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <TextField size="small" placeholder="Add a new theme…" value={newTheme}
