@@ -70,7 +70,7 @@ export default function LinkControlsPicker({ open, onClose, initialIds = [], onS
                 const c = rows.find(x => x.controlId === id);
                 return (
                   <Chip key={id} size="small" color="primary" variant="outlined"
-                    label={c ? (c.controlNumber || c.name || `#${id}`) : `#${id}`}
+                    label={c ? (c.name || c.controlNumber || `#${id}`) : `#${id}`}
                     onDelete={() => setSelected(prev => prev.filter(x => x !== id))} />
                 );
               })}

@@ -10,7 +10,7 @@ import OwnerPicker from '../org/OwnerPicker';
 import PersonPicker from '../common/PersonPicker';
 
 const EMPTY = {
-  name: '', description: '', theme: '', controlType: '', inherentRisk: '',
+  name: '', description: '', theme: '', controlType: '',
   whatItDoes: '', howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
   firstDueDate: '',
   reminderStartValue: '', reminderStartUnit: 'DAYS', reminderRepeatValue: '', reminderRepeatUnit: 'DAYS',
@@ -23,7 +23,6 @@ const FREQ_DAYS = { Daily: 1, Weekly: 7, Monthly: 30, Quarterly: 90, 'Semi-Annua
 const scopeDays = (f) => FREQ_DAYS[f] ?? 30;
 
 const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
-const RISKS = ['Critical', 'High', 'Moderate', 'Low'];
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 
 function Field({ label, children, sx }) {
@@ -167,26 +166,19 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
                 {CONTROL_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>
             </Field>
-            <Field label="Inherent risk" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.inherentRisk} onChange={e => set('inherentRisk', e.target.value)}>
-                <MenuItem value=""><em>Select risk</em></MenuItem>
-                {RISKS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            <Field label="Theme" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" SelectProps={{ native: true }} value={form.theme}
+                onChange={e => set('theme', e.target.value)}>
+                <option value="">No theme</option>
+                {Array.from(new Set(themes.map(t => t.name))).map(name => <option key={name} value={name}>{name}</option>)}
               </TextField>
             </Field>
           </Box>
-          <Box sx={{ mt: 2 }}>
-            <Field label="Theme" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" value={form.theme} onChange={e => set('theme', e.target.value)}>
-                <MenuItem value=""><em>No theme</em></MenuItem>
-                {themes.map(t => <MenuItem key={t.themeId} value={t.name}>{t.name}</MenuItem>)}
-              </TextField>
-            </Field>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-              <TextField size="small" placeholder="Add a new theme…" value={newTheme}
-                onChange={e => setNewTheme(e.target.value)} sx={{ flex: 1 }} />
-              <Button size="small" variant="outlined" disabled={!newTheme.trim() || createTheme.isPending}
-                onClick={() => createTheme.mutate(newTheme.trim())}>Add theme</Button>
-            </Box>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <TextField size="small" placeholder="Add a new theme…" value={newTheme}
+              onChange={e => setNewTheme(e.target.value)} sx={{ flex: 1 }} />
+            <Button size="small" variant="outlined" disabled={!newTheme.trim() || createTheme.isPending}
+              onClick={() => createTheme.mutate(newTheme.trim())}>Add theme</Button>
           </Box>
 
           <Divider sx={{ my: 2 }} />

@@ -238,17 +238,15 @@ export default function ObligationDetailPage() {
       />
 
       {tab === 'requirements' ? (
-        <DataCard
-          actions={(
-            <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
-              onClick={() => setAddRequirementOpen(true)}>Add requirement</Button>
-          )}
-        >
+        <DataCard>
           <RequirementsList
             requirements={requirements}
             onOpen={(r) => setRequirementOpen(r)}
-            onAdd={() => setAddRequirementOpen(true)}
           />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button size="small" variant="contained" startIcon={<PencilSquareIcon size={16} />}
+              onClick={() => setAddRequirementOpen(true)}>Add requirement</Button>
+          </Box>
         </DataCard>
       ) : (
         <SectionTable
