@@ -58,6 +58,7 @@ public class FindingService {
     private final RemediationLinkService remediationLinks;
     private final EmailService email;
     private final EvidenceVaultService evidence;
+    private final com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService complianceSettings;
 
     private static final Set<String> ALLOWED_EVIDENCE_TYPES = Set.of(
         "application/pdf", "image/png", "image/jpeg",
@@ -160,7 +161,7 @@ public class FindingService {
     @Transactional
     public Finding autoRaiseFromTest(ControlTestResult test, Control control) {
         String severity = determineSeverity(test.getFailureSeverity(), control.getInherentRisk());
-        int sla = slaDays(severity);
+        int sla = slaDaysFor(severity);
         Integer ownerId = test.getRemediationOwnerId() != null
             ? test.getRemediationOwnerId()
             : control.getControlOwnerId();
@@ -208,7 +209,7 @@ public class FindingService {
                     .map(ids -> ids.get(0)).orElse(null);
             }
         }
-        int sla = slaDays(req.getSeverity());
+        int sla = slaDaysFor(req.getSeverity());
         Finding f = Finding.builder()
             .triggerReason("Manual discovery").findingType(type)
             .severity(req.getSeverity()).description(req.getDescription())
@@ -591,5 +592,16 @@ public class FindingService {
             case WorkflowStatus.RISK_MEDIUM -> 30;
             default -> 60;
         };
+    }
+
+    private int slaDaysFor(String severity) {
+        var s = complianceSettings.current();
+        Integer override = switch (severity) {
+            case WorkflowStatus.RISK_CRITICAL -> s.getSlaCriticalDays();
+            case WorkflowStatus.RISK_HIGH -> s.getSlaHighDays();
+            case WorkflowStatus.RISK_MEDIUM -> s.getSlaMediumDays();
+            default -> s.getSlaLowDays();
+        };
+        return override == null ? slaDays(severity) : override;
     }
 }
