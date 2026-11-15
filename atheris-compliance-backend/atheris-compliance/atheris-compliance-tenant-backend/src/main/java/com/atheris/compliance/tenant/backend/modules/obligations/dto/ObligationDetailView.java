@@ -43,6 +43,9 @@ public class ObligationDetailView {
     private String inherentImpact;
     private String riskDescription;
     private String residualRiskRating;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualReason;
     private Integer assignedOwnerUserId;
     private Integer assignedOwnerId;
     private Integer assignedTeamId;

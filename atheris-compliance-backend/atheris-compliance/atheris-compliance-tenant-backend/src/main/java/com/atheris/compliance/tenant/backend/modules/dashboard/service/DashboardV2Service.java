@@ -37,6 +37,7 @@ public class DashboardV2Service {
     private final RegulatoryReturnRepository regReturns;
     private final ObligationClassificationRepository obligations;
     private final ObligationRepository obligationRepo;
+    private final com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService obligationService;
     private final ControlRepository controls;
     private final DashboardThresholdRepository thresholds;
     private final RiskMatrixConfigRepository riskMatrixConfig;
@@ -315,12 +316,23 @@ public class DashboardV2Service {
             .filter(c -> "applicable".equals(c.getApplicability()))
             .toList();
 
+        boolean residualView = "residual".equals(view);
+        Map<Long, com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationResidual.Result> residual =
+            residualView ? obligationService.residualByObligation(all) : Map.of();
+        java.util.function.Function<ObligationClassification, String> impactOf = oc -> residualView
+            ? residualAxis(residual.get(oc.getObligationId()), true)
+            : oc.getImpactRating();
+        java.util.function.Function<ObligationClassification, String> likelihoodOf = oc -> residualView
+            ? residualAxis(residual.get(oc.getObligationId()), false)
+            : oc.getLikelihoodRating();
+
         Set<String> seenImpacts = new LinkedHashSet<>();
         Set<String> seenLikelihoods = new LinkedHashSet<>();
         for (ObligationClassification oc : all) {
-            String rating = "residual".equals(view) ? oc.getResidualRiskRating() : oc.getImpactRating();
+            String rating = impactOf.apply(oc);
             if (rating != null) seenImpacts.add(rating);
-            if (oc.getLikelihoodRating() != null) seenLikelihoods.add(oc.getLikelihoodRating());
+            String like = likelihoodOf.apply(oc);
+            if (like != null) seenLikelihoods.add(like);
         }
         List<String> impacts = resolveAxis(config.getImpactLevels(), seenImpacts, DEFAULT_IMPACT_LEVELS);
         List<String> likelihoods = resolveAxis(config.getLikelihoodLevels(), seenLikelihoods, DEFAULT_LIKELIHOOD_LEVELS);
@@ -353,8 +365,8 @@ public class DashboardV2Service {
         }
 
         for (ObligationClassification oc : all) {
-            String impact = "residual".equals(view) ? oc.getResidualRiskRating() : oc.getImpactRating();
-            String likelihood = oc.getLikelihoodRating();
+            String impact = impactOf.apply(oc);
+            String likelihood = likelihoodOf.apply(oc);
             if (impact == null || likelihood == null) continue;
             if (!impacts.contains(impact) || !likelihoods.contains(likelihood)) continue;
 
@@ -414,6 +426,12 @@ public class DashboardV2Service {
         if (idx > 0) return idx;
         int lvl = RiskBands.level(label);
         return lvl > 0 ? lvl : position;
+    }
+
+    private static String residualAxis(
+            com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationResidual.Result r, boolean impact) {
+        if (r == null) return null;
+        return impact ? r.impact() : r.likelihood();
     }
 
     private String resolveBand(int score, Map<String, Integer> bands) {

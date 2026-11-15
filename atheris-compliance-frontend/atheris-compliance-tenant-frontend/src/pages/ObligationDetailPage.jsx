@@ -240,8 +240,9 @@ export default function ObligationDetailPage() {
             <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
           </Field>
           <Field label="Residual risk">
-            <RiskChip rating={selected.residualRiskRating} />
+            <RiskChip rating={selected.residualRiskRating} likelihood={selected.residualLikelihood} impact={selected.residualImpact} />
           </Field>
+          <Field label="Residual basis" value={selected.residualReason} />
         </FieldGrid>
       </Section>
 
