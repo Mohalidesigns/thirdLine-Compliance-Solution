@@ -14,6 +14,7 @@ public class CreateRiskRequest {
     private String areaOfFocus;
     private String inherentLikelihood;
     private String inherentImpact;
+    private Integer ownerId;
 
     @Builder.Default private List<Long> obligationIds = List.of();
     @Builder.Default private List<Integer> controlIds = List.of();

@@ -150,7 +150,7 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
       const savedId = isEditing ? obligationId : saved?.obligationId;
       if (savedId && form.assignedOwnerId != null) {
         await api.obligations.assignOwner(savedId, {
-          assignedOwnerId: form.assignedOwnerId, changeReason: 'Risk owner set on save',
+          assignedOwnerId: form.assignedOwnerId, changeReason: 'Accountable owner set on save',
         });
       }
       const returnIds = (form.linkedReturnIds || []).map(Number);
@@ -223,9 +223,9 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
             </Field>
           </Box>
           <Box sx={{ mt: 2 }}>
-            <Field label="Risk owner (accountable for this obligation)" sx={{ mb: 0 }}>
+            <Field label="Accountable owner (responsible for this obligation)" sx={{ mb: 0 }}>
               <OwnerPicker value={form.assignedOwnerId} onChange={id => set('assignedOwnerId', id)}
-                label="Risk owner" />
+                label="Accountable owner" />
             </Field>
           </Box>
           <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>

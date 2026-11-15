@@ -427,7 +427,7 @@ export const api = {
     }),
     detail: (id) => request(`/obligations/${id}/detail`),
     history: (id) => request(`/obligations/${id}/history`),
-    riskTypes: () => request('/obligations/risk-types'),
+    riskTypes: (opts = {}) => request('/obligations/risk-types', { signal: opts.signal }),
   },
   requirements: {
     forObligation: (obligationId, opts = {}) =>
@@ -761,6 +761,10 @@ export const api = {
     }),
     taskCentre: (opts = {}) => request('/settings/task-centre', { signal: opts.signal }),
     saveTaskCentre: (data) => request('/settings/task-centre', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    compliance: (opts = {}) => request('/settings/compliance', { signal: opts.signal }),
+    saveCompliance: (data) => request('/settings/compliance', {
       method: 'PUT', body: JSON.stringify(data),
     }),
     smtp: () => request('/settings/smtp'),

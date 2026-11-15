@@ -15,6 +15,7 @@ public class UpdateRiskRequest {
     private String status;
     private String inherentLikelihood;
     private String inherentImpact;
+    private Integer ownerId;
 
     private List<Long> obligationIds;
     private List<Integer> controlIds;

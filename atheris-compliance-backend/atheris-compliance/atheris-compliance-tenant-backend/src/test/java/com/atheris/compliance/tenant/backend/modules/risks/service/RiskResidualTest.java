@@ -54,4 +54,42 @@ class RiskResidualTest {
         assertEquals("Rare", r.likelihood());
         assertEquals("Low", r.band());
     }
+
+    @Test
+    void customAllDropUsesConfiguredValue() {
+        ResidualRule rule = new ResidualRule(4, 1, ResidualRule.Axis.LIKELIHOOD, "Passed", 1);
+        RiskResidual.Result r = RiskResidual.compute("Likely", "Major", List.of(1, 2, 3), RESULTS, rule);
+        assertEquals("Rare", r.likelihood());
+        assertEquals("Low", r.band());
+    }
+
+    @Test
+    void axisImpactLowersImpactNotLikelihood() {
+        ResidualRule rule = new ResidualRule(2, 1, ResidualRule.Axis.IMPACT, "Passed", 1);
+        RiskResidual.Result r = RiskResidual.compute("Likely", "Major", List.of(1, 2, 3), RESULTS, rule);
+        assertEquals("Likely", r.likelihood());
+        assertEquals("Minor", r.impact());
+    }
+
+    @Test
+    void axisBothLowersBothAxes() {
+        ResidualRule rule = new ResidualRule(2, 1, ResidualRule.Axis.BOTH, "Passed", 1);
+        RiskResidual.Result r = RiskResidual.compute("Likely", "Major", List.of(1, 2, 3), RESULTS, rule);
+        assertEquals("Unlikely", r.likelihood());
+        assertEquals("Minor", r.impact());
+    }
+
+    @Test
+    void lenientTargetCountsPartialAsEffective() {
+        ResidualRule rule = new ResidualRule(2, 1, ResidualRule.Axis.LIKELIHOOD, "PassedOrPartial", 1);
+        RiskResidual.Result r = RiskResidual.compute("Likely", "Major", List.of(1, 5), RESULTS, rule);
+        assertEquals("Unlikely", r.likelihood());
+    }
+
+    @Test
+    void customFloorClampsTheDrop() {
+        ResidualRule rule = new ResidualRule(4, 1, ResidualRule.Axis.LIKELIHOOD, "Passed", 3);
+        RiskResidual.Result r = RiskResidual.compute("Likely", "Major", List.of(1, 2, 3), RESULTS, rule);
+        assertEquals("Possible", r.likelihood());
+    }
 }

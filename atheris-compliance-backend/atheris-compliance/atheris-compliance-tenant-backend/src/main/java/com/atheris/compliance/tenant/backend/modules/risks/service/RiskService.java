@@ -7,6 +7,10 @@ import com.atheris.compliance.tenant.backend.modules.controls.repository.Control
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.Requirement;
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.RequirementControl;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementControlRepository;
@@ -45,6 +49,9 @@ public class RiskService {
     private final ObligationRepository obligations;
     private final ControlRepository controls;
     private final ControlTestResultRepository testResults;
+    private final OwnerRepository owners;
+    private final DepartmentRepository departments;
+    private final com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService complianceSettings;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -55,23 +62,31 @@ public class RiskService {
         Map<Integer, List<RiskItem.ControlRef>> controlsByRisk = controlsByRisk(all);
         Map<Integer, Integer> requirementCounts = requirementCounts(all);
         Map<Integer, Integer> uncoveredCounts = uncoveredCounts(all);
+        Map<Integer, String[]> ownerInfo = ownerInfo(all);
+        ResidualRule rule = complianceSettings.residualRule();
 
-        return all.stream().map(r -> toItem(r,
-            obligationsByRisk.getOrDefault(r.getRiskId(), List.of()),
-            controlsByRisk.getOrDefault(r.getRiskId(), List.of()),
-            requirementCounts.getOrDefault(r.getRiskId(), 0),
-            uncoveredCounts.getOrDefault(r.getRiskId(), 0))).toList();
+        return all.stream().map(r -> {
+            String[] info = ownerInfo.getOrDefault(r.getRiskId(), new String[]{null, null});
+            return toItem(r,
+                obligationsByRisk.getOrDefault(r.getRiskId(), List.of()),
+                controlsByRisk.getOrDefault(r.getRiskId(), List.of()),
+                requirementCounts.getOrDefault(r.getRiskId(), 0),
+                uncoveredCounts.getOrDefault(r.getRiskId(), 0),
+                info[0], info[1], rule);
+        }).toList();
     }
 
     @Transactional(readOnly = true)
     public RiskItem detail(Integer riskId) {
         Risk r = risks.findById(riskId)
             .orElseThrow(() -> ApiException.notFound("Risk not found: " + riskId));
+        String[] info = ownerInfo(List.of(r)).getOrDefault(riskId, new String[]{null, null});
         return toItem(r,
             obligationsByRisk(List.of(r)).getOrDefault(riskId, List.of()),
             controlsByRisk(List.of(r)).getOrDefault(riskId, List.of()),
             requirementCounts(List.of(r)).getOrDefault(riskId, 0),
-            uncoveredCounts(List.of(r)).getOrDefault(riskId, 0));
+            uncoveredCounts(List.of(r)).getOrDefault(riskId, 0),
+            info[0], info[1], complianceSettings.residualRule());
     }
 
     @Transactional
@@ -100,6 +115,8 @@ public class RiskService {
             .inherentLikelihood(req.getInherentLikelihood())
             .inherentImpact(req.getInherentImpact())
             .inherentBand(RiskResidual.inherentBand(req.getInherentLikelihood(), req.getInherentImpact()))
+            .ownerId(req.getOwnerId())
+            .departmentId(departmentOf(req.getOwnerId()))
             .source("manual")
             .build();
         Risk saved = risks.save(risk);
@@ -130,6 +147,10 @@ public class RiskService {
         if (req.getStatus() != null) risk.setStatus(req.getStatus());
         if (req.getInherentLikelihood() != null) risk.setInherentLikelihood(req.getInherentLikelihood());
         if (req.getInherentImpact() != null) risk.setInherentImpact(req.getInherentImpact());
+        if (req.getOwnerId() != null) {
+            risk.setOwnerId(req.getOwnerId() == 0 ? null : req.getOwnerId());
+            risk.setDepartmentId(departmentOf(risk.getOwnerId()));
+        }
         risk.setInherentBand(RiskResidual.inherentBand(risk.getInherentLikelihood(), risk.getInherentImpact()));
 
         boolean relinkObligations = req.getObligationIds() != null;
@@ -196,6 +217,7 @@ public class RiskService {
                 Collectors.mapping(RiskControl::getControlId, Collectors.toList())));
         Map<Integer, ControlTestResult> latest = latestTests(
             controlIdsByRisk.values().stream().flatMap(List::stream).collect(Collectors.toSet()));
+        ResidualRule rule = complianceSettings.residualRule();
         Map<String, Long> byResidualBand = all.stream().collect(Collectors.groupingBy(
             r -> {
                 List<Integer> ids = controlIdsByRisk.getOrDefault(r.getRiskId(), List.of());
@@ -204,7 +226,7 @@ public class RiskService {
                     ControlTestResult t = latest.get(id);
                     results.put(id, t == null ? null : t.getResult());
                 }
-                String band = RiskResidual.compute(r.getInherentLikelihood(), r.getInherentImpact(), ids, results).band();
+                String band = RiskResidual.compute(r.getInherentLikelihood(), r.getInherentImpact(), ids, results, rule).band();
                 return band == null ? "Unrated" : band;
             }, Collectors.counting()));
         return RiskStats.builder().total(all.size()).active(active)
@@ -334,12 +356,13 @@ public class RiskService {
     }
 
     private RiskItem toItem(Risk r, List<RiskItem.ObligationRef> obligationRefs, List<RiskItem.ControlRef> controlRefs,
-                            int requirementCount, int uncovered) {
+                            int requirementCount, int uncovered, String ownerName, String departmentName,
+                            ResidualRule rule) {
         List<Integer> controlIds = controlRefs.stream().map(RiskItem.ControlRef::getControlId).toList();
         Map<Integer, String> latestByControl = new HashMap<>();
         for (RiskItem.ControlRef c : controlRefs) latestByControl.put(c.getControlId(), c.getLatestResult());
         RiskResidual.Result residual = RiskResidual.compute(
-            r.getInherentLikelihood(), r.getInherentImpact(), controlIds, latestByControl);
+            r.getInherentLikelihood(), r.getInherentImpact(), controlIds, latestByControl, rule);
         long effective = controlRefs.stream().filter(RiskItem.ControlRef::isEffective).count();
         return RiskItem.builder()
             .riskId(r.getRiskId())
@@ -355,6 +378,10 @@ public class RiskService {
             .residualImpact(residual.impact())
             .residualBand(residual.band() == null ? "Unrated" : residual.band())
             .residualReason(residual.reason())
+            .ownerId(r.getOwnerId())
+            .ownerName(ownerName)
+            .departmentId(r.getDepartmentId())
+            .departmentName(departmentName)
             .effectiveControls((int) effective)
             .status(r.getStatus())
             .obligationCount(obligationRefs.size())
@@ -364,5 +391,27 @@ public class RiskService {
             .obligations(obligationRefs)
             .controls(controlRefs)
             .build();
+    }
+
+    private Integer departmentOf(Integer ownerId) {
+        if (ownerId == null) return null;
+        return owners.findById(ownerId).map(Owner::getDepartmentId).orElse(null);
+    }
+
+    private Map<Integer, String[]> ownerInfo(List<Risk> forRisks) {
+        Set<Integer> ownerIds = forRisks.stream().map(Risk::getOwnerId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> deptIds = forRisks.stream().map(Risk::getDepartmentId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Integer, Owner> ownersById = ownerIds.isEmpty() ? Map.of()
+            : owners.findAllById(ownerIds).stream().collect(Collectors.toMap(Owner::getOwnerId, o -> o));
+        Map<Integer, String> deptNames = deptIds.isEmpty() ? Map.of()
+            : departments.findAllById(deptIds).stream().collect(Collectors.toMap(Department::getDepartmentId, Department::getName));
+        Map<Integer, String[]> out = new HashMap<>();
+        for (Risk r : forRisks) {
+            Owner o = r.getOwnerId() == null ? null : ownersById.get(r.getOwnerId());
+            String ownerName = o == null ? null : o.getFullName();
+            String deptName = r.getDepartmentId() == null ? null : deptNames.get(r.getDepartmentId());
+            out.put(r.getRiskId(), new String[]{ownerName, deptName});
+        }
+        return out;
     }
 }

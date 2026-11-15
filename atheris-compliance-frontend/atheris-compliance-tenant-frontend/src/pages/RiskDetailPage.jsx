@@ -138,6 +138,30 @@ export default function RiskDetailPage() {
 
       {tab === 'overview' && (
         <>
+          <DataCard title="Details" sx={{ mb: 3 }}>
+            <FieldGrid min={190}>
+              <Field label="Risk code" value={risk.riskCode} mono />
+              <Field label="Risk type" value={risk.riskType} />
+              <Field label="Area of focus" value={risk.areaOfFocus} />
+              <Field label="Risk owner" value={risk.ownerName} />
+              <Field label="Department" value={risk.departmentName} />
+              <Field label="Status" value={risk.status} />
+              <Field label="Inherent likelihood" value={risk.inherentLikelihood} />
+              <Field label="Inherent impact" value={risk.inherentImpact} />
+              <Field label="Inherent band" value={risk.inherentBand} />
+              <Field label="Residual likelihood" value={risk.residualLikelihood} />
+              <Field label="Residual impact" value={risk.residualImpact} />
+              <Field label="Residual band" value={risk.residualBand} />
+              <Field label="Obligations covered" value={String(risk.obligationCount ?? 0)} />
+              <Field label="Requirements covered" value={`${Math.max(0, (risk.requirementCount ?? 0) - (risk.uncoveredRequirementCount ?? 0))}/${risk.requirementCount ?? 0}`} />
+              <Field label="Controls linked" value={String(risk.controlCount ?? 0)} />
+              <Field label="Controls effective" value={`${risk.effectiveControls ?? 0}/${risk.controlCount ?? 0}`} />
+            </FieldGrid>
+            <Box sx={{ mt: 2.5 }}>
+              <Field label="Description" value={risk.description} />
+            </Box>
+          </DataCard>
+
           <DataCard title="Rating" sx={{ mb: 3 }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
               <Box>
@@ -168,12 +192,6 @@ export default function RiskDetailPage() {
                 )}
               </Box>
             </Box>
-            <FieldGrid min={160} sx={{ mt: 3 }}>
-              <Field label="Status" value={risk.status} />
-              <Field label="Areas covered" value={String(risk.obligationCount ?? 0)} />
-              <Field label="Controls linked" value={String(risk.controlCount ?? 0)} />
-              <Field label="Controls effective" value={`${risk.effectiveControls ?? 0}/${risk.controlCount ?? 0}`} />
-            </FieldGrid>
             {risk.uncoveredRequirementCount > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2.5, color: 'error.main' }}>
                 <ExclamationTriangleIcon size={18} />

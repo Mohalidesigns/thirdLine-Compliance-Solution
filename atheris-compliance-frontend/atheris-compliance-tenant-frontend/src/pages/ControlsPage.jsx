@@ -15,7 +15,7 @@ import {
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
-  ChartBarIcon, UserCircleIcon,
+  UserCircleIcon,
 } from 'shared';
 import { useAuth } from '../contexts/AuthContext';
 import OwnerPicker from '../components/org/OwnerPicker';
@@ -75,20 +75,12 @@ const COLUMNS = [
       ? <Typography variant="body2">{c.frequency}</Typography>
       : <Typography variant="body2" color="text.secondary">Not set</Typography>
   ) },
-  { id: 'testerName', label: 'Responsible person', minWidth: 170, render: (c) => (
+  { id: 'testerName', label: 'Tester', minWidth: 170, render: (c) => (
     c.testerName
-      ? <>
-          <Tooltip title={c.testerName}>
-            <Typography variant="body2" sx={{ maxWidth: 170, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.testerName}</Typography>
-          </Tooltip>
-          {(c.controlOwnerName || c.ownerName) && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 170,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Owner: {c.controlOwnerName || c.ownerName}
-            </Typography>
-          )}
-        </>
+      ? <Tooltip title={c.testerName}>
+          <Typography variant="body2" sx={{ maxWidth: 170, overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.testerName}</Typography>
+        </Tooltip>
       : <StatusBadge label="No tester" tone="amber" />
   ) },
 ];
@@ -619,23 +611,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Field label="Status" value={detail.status} />
               <Field label="Compliance Area" value={detail.complianceArea} />
             </FieldGrid>
-          </Section>
-
-          <Section icon={<ChartBarIcon />} title="Risk Assessment">
-            <FieldGrid min={130}>
-              <Field label="Inherent Risk"><RiskChip rating={detail.inherentRisk} /></Field>
-              <Field label="Residual Risk">
-                <RiskChip rating={detail.residualRiskRating || detail.residualRisk}
-                  likelihood={detail.residualLikelihood} impact={detail.residualImpact} />
-              </Field>
-              <Field label="Residual Likelihood" value={detail.residualLikelihood} />
-              <Field label="Residual Impact" value={detail.residualImpact} />
-            </FieldGrid>
-            {detail.residualRiskReason && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                {detail.residualRiskReason}
-              </Typography>
-            )}
           </Section>
 
           <Section icon={<UserCircleIcon />} title="Ownership">

@@ -20,6 +20,10 @@ public class RiskItem {
     private String residualImpact;
     private String residualBand;
     private String residualReason;
+    private Integer ownerId;
+    private String ownerName;
+    private Integer departmentId;
+    private String departmentName;
     private Integer effectiveControls;
     private String status;
     private Integer obligationCount;

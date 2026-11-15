@@ -283,7 +283,7 @@ export default function ObligationDetailPage() {
       <OwnerModal open={activeModal === 'owner'} onClose={() => setActiveModal(null)}
         obligationId={obligationId}
         initial={{ assignedOwnerId: selected.assignedOwnerId }}
-        onSaved={onSaved('Risk owner updated')} onError={notify} />
+        onSaved={onSaved('Accountable owner updated')} onError={notify} />
       <RiskAssessmentModal open={activeModal === 'risk'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Risk assessment saved')} onError={notify} />
       <LinkControlsModal open={activeModal === 'controls'} onClose={() => setActiveModal(null)}

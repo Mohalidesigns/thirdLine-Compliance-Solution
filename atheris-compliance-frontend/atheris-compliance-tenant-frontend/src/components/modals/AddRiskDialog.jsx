@@ -9,8 +9,9 @@ import { api } from '../../services/api';
 import { areaOptions as areaOptionsFrom } from '../../utils/areas';
 import LinkObligationsPicker from './LinkObligationsPicker';
 import LinkControlsPicker from './LinkControlsPicker';
+import OwnerPicker from '../org/OwnerPicker';
 
-const EMPTY = { name: '', description: '', riskType: '', areaOfFocus: '', inherentLikelihood: '', inherentImpact: '' };
+const EMPTY = { name: '', description: '', riskType: '', areaOfFocus: '', inherentLikelihood: '', inherentImpact: '', ownerId: null };
 
 const LIKELIHOODS = ['Rare', 'Unlikely', 'Possible', 'Likely', 'Almost Certain'];
 const IMPACTS = ['Insignificant', 'Minor', 'Moderate', 'Major', 'Severe'];
@@ -42,6 +43,12 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
     enabled: open,
   });
 
+  const { data: riskTypes = [] } = useQuery({
+    queryKey: ['risk-types'],
+    queryFn: ({ signal }) => api.obligations.riskTypes(signal),
+    enabled: open,
+  });
+
   const { data: controlData } = useQuery({
     queryKey: ['controls', 'picker'],
     queryFn: () => api.controls.list({}),
@@ -59,6 +66,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
         areaOfFocus: risk.areaOfFocus || '',
         inherentLikelihood: risk.inherentLikelihood || '',
         inherentImpact: risk.inherentImpact || '',
+        ownerId: risk.ownerId ?? null,
       } : EMPTY);
       setObligations(risk?.obligations ? [...risk.obligations] : []);
       setControls(risk?.controls ? [...risk.controls] : []);
@@ -68,7 +76,11 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
     }
   }, [open, risk]);
 
-  const riskTypeOptions = Array.from(new Set(risks.map((r) => r.riskType).filter(Boolean))).sort();
+  const seen = new Set();
+  const riskTypeOptions = [
+    ...riskTypes.map((t) => t.name),
+    ...risks.map((r) => r.riskType),
+  ].filter((t) => t && !seen.has(t) && seen.add(t)).sort();
   const areaOptions = areaOptionsFrom(risks.map((r) => r.areaOfFocus));
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -84,6 +96,7 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
         areaOfFocus: form.areaOfFocus || null,
         inherentLikelihood: form.inherentLikelihood || null,
         inherentImpact: form.inherentImpact || null,
+        ownerId: form.ownerId ?? null,
         obligationIds: obligations.map((o) => o.obligationId),
         controlIds: controls.map((c) => c.controlId),
       };
@@ -122,6 +135,11 @@ export default function AddRiskDialog({ open, onClose, onSaved, onError, risk = 
           </Box>
           <TextField size="small" fullWidth multiline rows={3} label="Description"
             value={form.description} onChange={set('description')} sx={{ mb: 2.5 }} />
+
+          <Box sx={{ mb: 2.5 }}>
+            <OwnerPicker value={form.ownerId} onChange={(id) => setForm((f) => ({ ...f, ownerId: id }))}
+              label="Risk owner (accountable for this risk)" />
+          </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 2, alignItems: 'center', mb: 2.5 }}>
             <TextField select size="small" label="Likelihood (inherent)" value={form.inherentLikelihood}

@@ -33,9 +33,9 @@ export default function OwnerModal({ open, onClose, obligationId, initial = {}, 
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Risk owner</DialogTitle>
+      <DialogTitle>Accountable owner</DialogTitle>
       <DialogContent dividers>
-        <OwnerPicker value={ownerId} onChange={setOwnerId} label="Risk owner" />
+        <OwnerPicker value={ownerId} onChange={setOwnerId} label="Accountable owner" />
         <TextField size="small" fullWidth multiline rows={2} label="Reason for update (optional)"
           value={changeReason || ''} onChange={e => setChangeReason(e.target.value)} sx={{ mt: 2 }} />
       </DialogContent>

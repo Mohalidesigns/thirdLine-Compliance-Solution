@@ -21,6 +21,12 @@ const CATEGORIES = [
   { key: 'FINDINGS', label: 'Findings' },
   { key: 'OBLIGATIONS', label: 'Obligations' },
 ];
+const CATEGORY_HELP = {
+  CONTROLS: 'Control tests to run, tests waiting for your review, and controls that need a tester or a follow-up after a failed test.',
+  RETURNS: 'Regulatory filings to start, submit or review — including the data review and the CCO report sign-off.',
+  FINDINGS: 'Findings to remediate or sign off, unassigned findings, and gap findings still waiting for a control.',
+  OBLIGATIONS: 'Applicable obligations that have a requirement with no control linked — a coverage gap to close.',
+};
 const CATEGORY_ORDER = CATEGORIES.map((c) => c.key);
 const priorityChip = {
   OVERDUE: { label: 'Overdue', color: 'error' },
@@ -193,11 +199,14 @@ export default function TasksPage() {
           variant="outlined" /> : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
-    { ...responsibleColumn, label: 'Risk owner' },
+    { ...responsibleColumn, label: 'Accountable owner' },
   ];
 
   const defaultColumns = [titleColumn, dueColumn, regulatorColumn, responsibleColumn];
-  const columns = category === 'OBLIGATIONS' ? obligationColumns : defaultColumns;
+  const controlColumns = [titleColumn, dueColumn, responsibleColumn];
+  const columns = category === 'OBLIGATIONS' ? obligationColumns
+    : category === 'CONTROLS' ? controlColumns
+    : defaultColumns;
 
   return (
     <Box>
@@ -220,6 +229,10 @@ export default function TasksPage() {
       />
 
       <SectionTabs tabs={tabs} value={category} onChange={setCategory} sx={{ mb: 2 }} />
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {CATEGORY_HELP[category]}
+      </Typography>
 
       <KpiCards items={kpis.map((k) => ({ ...k, active: kpi === k.key }))}
         onSelect={(key) => { setKpi((v) => (v === key ? null : key)); setPage(0); }} columns={5} />
