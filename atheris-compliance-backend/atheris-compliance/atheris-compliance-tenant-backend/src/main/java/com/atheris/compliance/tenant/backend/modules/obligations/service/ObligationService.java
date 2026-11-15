@@ -470,10 +470,13 @@ public class ObligationService {
             .applicability("applicable")
             .classifiedByUserId(userId)
             .classifiedAt(Instant.now())
+            .impactRating(req.getImpactRating())
+            .likelihoodRating(req.getLikelihoodRating())
                         .linkedControlIds(req.getLinkedControlIds() == null
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
+        applyRiskAxes(saved, c);
         if (req.getObligationTexts() != null) requirementService.replaceTexts(saved.getObligationId(), req.getObligationTexts(), userId);
         requirementService.applyObligationControls(saved.getObligationId(), c.getLinkedControlIds());
         if (c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) autoCloseGapFindings(saved.getObligationId(), userId);
@@ -503,6 +506,8 @@ public class ObligationService {
 
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
+        if (req.getImpactRating() != null) c.setImpactRating(req.getImpactRating());
+        if (req.getLikelihoodRating() != null) c.setLikelihoodRating(req.getLikelihoodRating());
         if (req.getObligationTexts() != null) requirementService.replaceTexts(obligationId, req.getObligationTexts(), userId);
         if (req.getLinkedControlIds() != null) {
             List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
@@ -512,8 +517,24 @@ public class ObligationService {
             c = classifications.findByObligationId(obligationId).orElse(c);
         }
         classifications.save(c);
+        applyRiskAxes(saved, c);
         audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
         return toRegisterItem(saved, c, null, List.of(), List.of());
+    }
+
+    private void applyRiskAxes(Obligation ob, ObligationClassification c) {
+        if (c.getImpactRating() == null || c.getLikelihoodRating() == null) return;
+        String band = ObligationClassification.inherentBand(c.getImpactRating(), c.getLikelihoodRating());
+        ob.setInherentImpact(c.getImpactRating());
+        ob.setInherentLikelihood(c.getLikelihoodRating());
+        if (band != null) {
+            ob.setInherentRiskRating(band);
+            c.setInherentRiskRating(band);
+            if (c.getTenantRiskRating() == null) c.setTenantRiskRating(band);
+        }
+        obligationRepo.save(ob);
+        classifications.save(c);
+        evictRegisterCache();
     }
 
     @Transactional

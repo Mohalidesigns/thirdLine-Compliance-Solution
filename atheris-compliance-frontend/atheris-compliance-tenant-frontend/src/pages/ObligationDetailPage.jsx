@@ -19,7 +19,7 @@ import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import RequirementsList from '../components/requirements/RequirementsList';
 import RequirementDrawer from '../components/requirements/RequirementDrawer';
-import { Field, FieldGrid, Section } from '../components/detailKit';
+import { Field, FieldGrid, Section, RiskChip } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -217,6 +217,8 @@ export default function ObligationDetailPage() {
             )}
           </Box>
         )}
+        right={<Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
+          onClick={() => setActiveModal('risk')}>Risk assessment</Button>}
       />
 
       <Section title="Details" sx={{ mb: 3 }}>
@@ -227,6 +229,19 @@ export default function ObligationDetailPage() {
           <Field label="Section reference" value={selected.sectionReference} mono />
           <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
           <Field label="Source" value={selected.sourceTitle} />
+        </FieldGrid>
+      </Section>
+
+      <Section title="Risk assessment" sx={{ mb: 3 }}>
+        <FieldGrid min={190}>
+          <Field label="Impact" value={selected.impactRating} />
+          <Field label="Likelihood" value={selected.likelihoodRating} />
+          <Field label="Inherent risk">
+            <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
+          </Field>
+          <Field label="Residual risk">
+            <RiskChip rating={selected.residualRiskRating} />
+          </Field>
         </FieldGrid>
       </Section>
 

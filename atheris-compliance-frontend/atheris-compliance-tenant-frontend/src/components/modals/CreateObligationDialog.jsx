@@ -14,8 +14,12 @@ import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
   instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', effectiveDate: '',
+  impactRating: '', likelihoodRating: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
+
+const IMPACT_LEVELS = ['Insignificant', 'Minor', 'Moderate', 'Major', 'Severe'];
+const LIKELIHOOD_LEVELS = ['Rare', 'Unlikely', 'Possible', 'Likely', 'Almost Certain'];
 
 function Field({ label, children, sx }) {
   return (
@@ -64,6 +68,8 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       requirements: texts.length ? texts : [''],
       areaOfFocus: initial.areaOfFocus || '',
       effectiveDate: initial.effectiveDate || '',
+      impactRating: initial.impactRating || '',
+      likelihoodRating: initial.likelihoodRating || '',
       assignedOwnerId: initial.assignedOwnerId ?? null,
       linkedControlIds: [...(initial.linkedControlIds || [])],
       linkedReturnIds: [...(initial.linkedReturnIds || [])],
@@ -220,6 +226,22 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
                 onChange={e => set('effectiveDate', e.target.value)} />
+            </Field>
+          </Box>
+          <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Field label="Impact" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.impactRating}
+                onChange={e => set('impactRating', e.target.value)}>
+                <MenuItem value=""><em>Not rated</em></MenuItem>
+                {IMPACT_LEVELS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            </Field>
+            <Field label="Likelihood" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.likelihoodRating}
+                onChange={e => set('likelihoodRating', e.target.value)}>
+                <MenuItem value=""><em>Not rated</em></MenuItem>
+                {LIKELIHOOD_LEVELS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
             </Field>
           </Box>
           <Box sx={{ mt: 2 }}>
