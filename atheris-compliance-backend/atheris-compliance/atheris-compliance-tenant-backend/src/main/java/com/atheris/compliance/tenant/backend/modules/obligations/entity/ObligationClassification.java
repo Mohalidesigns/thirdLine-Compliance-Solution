@@ -99,13 +99,10 @@ public class ObligationClassification {
         int likelihoodIdx = likelihoods.indexOf(likelihood) + 1;
         // seeded ratings use the toolkit's Very Low..Very High scale, not the matrix axes
         if (impactIdx == 0 || likelihoodIdx == 0)
-            return com.atheris.compliance.common.risk.RiskBands.band(likelihood, impact);
+            return com.atheris.compliance.tenant.backend.shared.util.BandThresholds.bandByLabels(likelihood, impact);
 
         int score = impactIdx * likelihoodIdx;
-        if (score >= 18) return "Critical";
-        if (score >= 12) return "High";
-        if (score >= 6) return "Moderate";
-        return "Low";
+        return com.atheris.compliance.tenant.backend.shared.util.BandThresholds.band(score);
     }
 
     public static String computeResidualRisk(String inherentRisk, boolean controlsLinked, String testStatus) {

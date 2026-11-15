@@ -9,6 +9,7 @@ import {
 import { api } from '../services/api';
 import { Field, FieldGrid } from '../components/detailKit';
 import AddRiskDialog from '../components/modals/AddRiskDialog';
+import { OBLIGATION_COLUMNS } from '../utils/registerColumns';
 
 function bandTone(band) {
   switch ((band || '').toLowerCase()) {
@@ -28,19 +29,6 @@ function formatDate(d) {
 const ellipsis = (maxWidth) => ({
   maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 });
-
-const OBLIGATION_COLUMNS = [
-  { id: 'title', label: 'Obligation', minWidth: 380,
-    render: (o) => (
-      <Tooltip title={o.title || ''}>
-        <Typography variant="body2" sx={{ ...ellipsis(480), color: 'primary.main', fontWeight: 500 }}>{o.title}</Typography>
-      </Tooltip>
-    ) },
-  { id: 'actName', label: 'Act / Regulation', minWidth: 240,
-    render: (o) => (o.actName
-      ? <Typography variant="body2" sx={ellipsis(280)}>{o.actName}</Typography>
-      : <Typography variant="body2" color="text.secondary">—</Typography>) },
-];
 
 const CONTROL_COLUMNS = [
   { id: 'name', label: 'Control', minWidth: 320,

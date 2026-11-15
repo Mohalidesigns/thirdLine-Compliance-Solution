@@ -1,6 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.risks.service;
 
-import com.atheris.compliance.common.risk.RiskBands;
+import com.atheris.compliance.tenant.backend.shared.util.BandThresholds;
 import com.atheris.compliance.tenant.backend.modules.requirements.service.ComplianceState;
 
 import java.util.Collection;
@@ -17,7 +17,7 @@ public final class RiskResidual {
     private RiskResidual() {}
 
     public static String inherentBand(String likelihood, String impact) {
-        return RiskBands.band(likelihood, impact);
+        return BandThresholds.bandByLabels(likelihood, impact);
     }
 
     public static Result compute(String inherentLikelihood, String inherentImpact,
@@ -33,7 +33,7 @@ public final class RiskResidual {
         }
         if (controlIds == null || controlIds.isEmpty()) {
             return new Result(inherentLikelihood, inherentImpact,
-                RiskBands.band(inherentLikelihood, inherentImpact),
+                BandThresholds.bandByLabels(inherentLikelihood, inherentImpact),
                 "No control linked — residual equals inherent.");
         }
         ResidualRule r = rule == null ? ResidualRule.defaults() : rule;
@@ -60,7 +60,7 @@ public final class RiskResidual {
             reason = passed + " of " + controlIds.size() + " controls passed — residual lowered by " + drop
                 + " to " + measured + ".";
         }
-        return new Result(resLikelihood, resImpact, RiskBands.band(resLikelihood, resImpact), reason);
+        return new Result(resLikelihood, resImpact, BandThresholds.bandByLabels(resLikelihood, resImpact), reason);
     }
 
     private static boolean isTarget(String result, ResidualRule rule) {

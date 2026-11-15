@@ -37,8 +37,16 @@ public class RiskItem {
     public static class ObligationRef {
         private Long obligationId;
         private String title;
+        private String name;
         private String actName;
         private String riskRating;
+        private String regulatorAbbreviation;
+        private String complianceState;
+        private Integer requirementCount;
+        private Integer coveredRequirementCount;
+        private Integer controlCount;
+        @Builder.Default private List<Long> linkedReturnIds = List.of();
+        @Builder.Default private List<String> returnNames = List.of();
     }
 
     @Data @Builder

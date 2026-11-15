@@ -47,6 +47,7 @@ public class RiskService {
     private final RequirementRepository requirements;
     private final RequirementControlRepository requirementControls;
     private final ObligationRepository obligations;
+    private final com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService obligationService;
     private final ControlRepository controls;
     private final ControlTestResultRepository testResults;
     private final OwnerRepository owners;
@@ -260,14 +261,25 @@ public class RiskService {
                 Collectors.mapping(RiskObligation::getObligationId, Collectors.toList())));
         Set<Long> obligationIds = idsByRisk.values().stream().flatMap(List::stream).collect(Collectors.toSet());
         if (obligationIds.isEmpty()) return Map.of();
-        Map<Long, Obligation> byId = obligations.findAllById(obligationIds).stream()
-            .collect(Collectors.toMap(Obligation::getObligationId, o -> o));
+        Map<Long, com.atheris.compliance.tenant.backend.modules.obligations.dto.ObligationRegisterItem> reg = new HashMap<>();
+        for (var row : obligationService.registerRows()) {
+            if (row.getObligationId() != null && obligationIds.contains(row.getObligationId())) reg.put(row.getObligationId(), row);
+        }
         Map<Integer, List<RiskItem.ObligationRef>> out = new HashMap<>();
-        idsByRisk.forEach((riskId, ids) -> out.put(riskId, ids.stream().map(byId::get).filter(Objects::nonNull)
-            .map(o -> RiskItem.ObligationRef.builder()
-                .obligationId(o.getObligationId())
-                .title(o.getName())
-                .actName(o.getActName())
+        idsByRisk.forEach((riskId, ids) -> out.put(riskId, ids.stream().map(reg::get).filter(Objects::nonNull)
+            .map(row -> RiskItem.ObligationRef.builder()
+                .obligationId(row.getObligationId())
+                .title(row.getName())
+                .name(row.getName())
+                .actName(row.getActName())
+                .riskRating(row.getRiskRating())
+                .regulatorAbbreviation(row.getRegulatorAbbreviation())
+                .complianceState(row.getComplianceState())
+                .requirementCount(row.getRequirementCount())
+                .coveredRequirementCount(row.getCoveredRequirementCount())
+                .controlCount(row.getControlCount())
+                .linkedReturnIds(row.getLinkedReturnIds() == null ? List.of() : row.getLinkedReturnIds())
+                .returnNames(row.getReturnNames() == null ? List.of() : row.getReturnNames())
                 .build()).toList()));
         return out;
     }

@@ -65,7 +65,7 @@ public class DashboardV2Controller {
     }
 
     @PutMapping("/thresholds")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<Void> saveThresholds(@RequestBody ThresholdDto dto) {
         service.saveThresholds(dto);
         return ResponseEntity.ok().build();
