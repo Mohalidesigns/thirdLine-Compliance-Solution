@@ -42,7 +42,7 @@ export default function SectionTable({
   loading = false, error = null,
   sortField, sortDir = 'asc', onSort, onPage, onSize,
   onRowClick, rowKey = (r) => r.id, actions,
-  search, emptyMessage = 'No records found.', emptyIcon,
+  search, emptyMessage = 'No records found.', emptyIcon, dense = false,
   rowsPerPageOptions = [10, 20, 50], children,
 }) {
   const showActions = typeof actions === 'function';
@@ -77,7 +77,7 @@ export default function SectionTable({
         ) : (
           <>
             <TableContainer>
-              <Table stickyHeader size="small">
+              <Table stickyHeader size="small" sx={dense ? { '& td, & th': { py: 0.5, px: 1.5 } } : undefined}>
                 <TableHead>
                   <TableRow>
                     {columns.map((c) => {

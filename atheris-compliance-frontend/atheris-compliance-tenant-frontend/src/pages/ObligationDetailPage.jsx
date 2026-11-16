@@ -237,23 +237,29 @@ export default function ObligationDetailPage() {
           onClick={() => setEditOpen(true)}>Edit</Button>}
       />
 
-      <Section title="Details" sx={{ mb: 3 }}>
-        <FieldGrid min={190} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-          <Field label="Impact" value={selected.impactRating} />
-          <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
-          <Field label="Likelihood" value={selected.likelihoodRating} />
-          <Field label="Area of focus" value={selected.areaOfFocus} />
-          <Field label="Inherent risk">
-            <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
-          </Field>
-          <Field label="Section reference" value={selected.sectionReference} mono />
-          <Field label="Residual risk">
-            <RiskChip rating={selected.residualRiskRating} likelihood={selected.residualLikelihood} impact={selected.residualImpact} />
-          </Field>
-          <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
-          <Field label="Residual basis" value={selected.residualReason} />
-        </FieldGrid>
-      </Section>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>
+        <Section title="Details" sx={{ mb: 0 }} contentSx={{ pt: 2, pb: 1.5, px: 2 }}>
+          <FieldGrid min={150} gap={1.5} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
+            <Field label="Area of focus" value={selected.areaOfFocus} />
+            <Field label="Section reference" value={selected.sectionReference} mono />
+            <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
+          </FieldGrid>
+        </Section>
+
+        <Section title="Risk assessment" sx={{ mb: 0 }} contentSx={{ pt: 2, pb: 1.5, px: 2 }}>
+          <FieldGrid min={150} gap={1.5} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Field label="Impact" value={selected.impactRating} />
+            <Field label="Likelihood" value={selected.likelihoodRating} />
+            <Field label="Inherent risk">
+              <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
+            </Field>
+            <Field label="Residual risk">
+              <RiskChip rating={selected.residualRiskRating} likelihood={selected.residualLikelihood} impact={selected.residualImpact} />
+            </Field>
+          </FieldGrid>
+        </Section>
+      </Box>
 
       <SectionTabs
         tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
@@ -279,6 +285,7 @@ export default function ObligationDetailPage() {
           total={filtered.length}
           page={page}
           size={size}
+          dense
           onPage={setPage}
           rowKey={(r) => rowId[tab] ? rowId[tab](r) : `${tab}-${pageRows.indexOf(r)}`}
           onRowClick={drillKind[tab] ? (r) => setDrill({ kind: drillKind[tab], row: r }) : undefined}
