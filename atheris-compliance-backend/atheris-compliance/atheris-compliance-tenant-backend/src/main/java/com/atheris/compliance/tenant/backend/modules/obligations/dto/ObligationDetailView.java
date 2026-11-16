@@ -99,6 +99,10 @@ public class ObligationDetailView {
         private String complianceArea;
         private String controlType;
         private String controlOwnerName;
+        private String testerName;
+        private String frequency;
+        private LocalDate nextTestDueDate;
+        private Long openFindings;
         private String status;
     }
 

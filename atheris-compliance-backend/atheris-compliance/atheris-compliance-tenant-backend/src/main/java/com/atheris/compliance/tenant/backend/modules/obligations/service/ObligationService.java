@@ -63,6 +63,7 @@ public class ObligationService {
     private final FindingRepository findingRepo;
     private final ControlThemeService controlThemeService;
     private final ControlTestResultRepository controlTestResults;
+    private final com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTaskRepository controlTasks;
     private final ComplianceSettingsService complianceSettings;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
@@ -199,6 +200,26 @@ public class ObligationService {
         Map<Integer, String> out = new HashMap<>();
         latest.forEach((id, t) -> out.put(id, t.getResult()));
         return out;
+    }
+
+    private Map<Integer, LocalDate> nextOpenTaskDue(Collection<Integer> controlIds) {
+        if (controlIds == null || controlIds.isEmpty()) return Map.of();
+        Map<Integer, LocalDate> out = new HashMap<>();
+        for (var t : controlTasks.findByControlIdInAndStatusIn(new ArrayList<>(controlIds),
+                List.of(WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS, WorkflowStatus.TASK_OVERDUE))) {
+            if (t.getDueDate() == null) continue;
+            LocalDate cur = out.get(t.getControlId());
+            if (cur == null || t.getDueDate().isBefore(cur)) out.put(t.getControlId(), t.getDueDate());
+        }
+        return out;
+    }
+
+    private Map<Integer, Long> openFindingCounts(Collection<Integer> controlIds) {
+        if (controlIds == null || controlIds.isEmpty()) return Map.of();
+        List<String> open = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
+        return findingRepo.findByLinkedControlIdIn(new ArrayList<>(controlIds)).stream()
+            .filter(f -> f.getLinkedControlId() != null && open.contains(f.getStatus()))
+            .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
     }
 
     private static boolean isLaterTest(ControlTestResult a, ControlTestResult b) {
@@ -677,6 +698,9 @@ public class ObligationService {
                 .collect(Collectors.toMap(Control::getControlId, x -> x, (a, b) -> a));
             Map<Integer, String> themeNames = controlThemeService.namesById(byId.values().stream()
                 .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
+            List<Integer> controlIds = c.getLinkedControlIds();
+            Map<Integer, LocalDate> nextOpenDue = nextOpenTaskDue(controlIds);
+            Map<Integer, Long> openFindings = openFindingCounts(controlIds);
             controls = c.getLinkedControlIds().stream()
                 .map(byId::get).filter(Objects::nonNull)
                 .map(ct -> ObligationDetailView.ControlItem.builder()
@@ -685,7 +709,11 @@ public class ObligationService {
                     .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
                     .complianceArea(ct.getComplianceArea())
                     .controlType(ct.getControlType())
-                    .controlOwnerName(ct.getControlOwnerName()).status(ct.getStatus()).build())
+                    .controlOwnerName(ct.getControlOwnerName())
+                    .testerName(ct.getTesterName())
+                    .frequency(ct.getTestFrequency())
+                    .nextTestDueDate(nextOpenDue.get(ct.getControlId()))
+                    .openFindings(openFindings.getOrDefault(ct.getControlId(), 0L)).status(ct.getStatus()).build())
                 .toList();
         }
 

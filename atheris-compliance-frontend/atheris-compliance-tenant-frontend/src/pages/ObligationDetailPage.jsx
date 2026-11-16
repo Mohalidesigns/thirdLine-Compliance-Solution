@@ -6,8 +6,7 @@ import {
 } from '@mui/material';
 import {
   DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, StatusBadge,
-  controlColumns, returnColumns,
-  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
+  controlRegisterColumns, returnColumns,  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
 import { api } from '../services/api';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
@@ -170,7 +169,7 @@ export default function ObligationDetailPage() {
   };
 
   const columnsByTab = {
-    controls: controlColumns({ withAct: false }),
+    controls: controlRegisterColumns(),
     returns: returnColumns(),
     sanctions: SANCTION_TAB_COLUMNS,
     evidence: EVIDENCE_COLUMNS,

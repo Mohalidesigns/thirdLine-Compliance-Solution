@@ -11,7 +11,7 @@ import {
 import { api } from '../services/api';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
-  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, TL,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
@@ -38,52 +38,7 @@ function actLabel(row) {
 const TEST_RESULT_TONE = { Passed: 'green', Failed: 'red', Partial: 'orange' };
 const REVIEW_TONE = { Accepted: 'green', Rejected: 'red' };
 
-function nextTestDueCell(value) {
-  if (!value) {
-    return <Typography variant="body2" color="text.secondary">—</Typography>;
-  }
-  const due = new Date(value);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const days = Math.round((due - today) / 86400000);
-  if (days < 0) {
-    return <StatusBadge label={`Overdue ${Math.abs(days)}d`} tone="red" />;
-  }
-  if (days <= 7) {
-    return <StatusBadge label={`Due in ${days}d`} tone="orange" />;
-  }
-  return <Typography variant="body2">{formatDate(value)}</Typography>;
-}
-
-const COLUMNS = [
-  { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name', render: (c) => (
-    <Tooltip title={c.name || ''}>
-      <Typography variant="body2" sx={{ maxWidth: 420, overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'primary.main', fontWeight: 500 }}>
-        {c.name || 'Untitled control'}
-      </Typography>
-    </Tooltip>
-  ) },
-  { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
-  { id: 'openFindings', label: 'Has Finding', minWidth: 120, render: (c) => {
-    const n = c.openFindings ?? 0;
-    return n > 0
-      ? <StatusBadge label={`${n} open`} tone="red" />
-      : <Typography variant="body2" color="text.secondary">None</Typography>;
-  } },
-  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
-    c.frequency
-      ? <Typography variant="body2">{c.frequency}</Typography>
-      : <Typography variant="body2" color="text.secondary">Not set</Typography>
-  ) },
-  { id: 'testerName', label: 'Tester', minWidth: 170, render: (c) => (
-    c.testerName
-      ? <Tooltip title={c.testerName}>
-          <Typography variant="body2" sx={{ maxWidth: 170, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.testerName}</Typography>
-        </Tooltip>
-      : <StatusBadge label="No tester" tone="amber" />
-  ) },
-];
+const COLUMNS = controlRegisterColumns();
 
 export default function ControlsPage() {
   const { user: currentUser } = useAuth();
