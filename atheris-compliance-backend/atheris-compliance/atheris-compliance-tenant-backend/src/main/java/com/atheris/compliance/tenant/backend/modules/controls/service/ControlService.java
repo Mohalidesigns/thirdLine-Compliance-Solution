@@ -163,8 +163,10 @@ public class ControlService {
     }
 
     private Map<Integer, ControlTask> getLatestPendingTasks(List<Integer> ids) {
-        List<ControlTask> tasks = taskRepo.findByControlIdInAndStatus(ids, WorkflowStatus.TASK_PENDING);
-        return tasks.stream().collect(Collectors.toMap(
+        if (ids.isEmpty()) return Map.of();
+        List<ControlTask> tasks = taskRepo.findByControlIdInAndStatusIn(ids,
+            List.of(WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS, WorkflowStatus.TASK_OVERDUE));
+        return tasks.stream().filter(t -> t.getDueDate() != null).collect(Collectors.toMap(
             ControlTask::getControlId, t -> t, (a, b) -> a.getDueDate().isBefore(b.getDueDate()) ? a : b));
     }
 
@@ -257,7 +259,12 @@ public class ControlService {
             .toList();
 
         LocalDate nextTest = null;
-        ControlTask task = taskRepo.findTopByControlIdAndStatusOrderByDueDateAsc(id, WorkflowStatus.TASK_PENDING);
+        ControlTask task = taskRepo.findByControlId(id).stream()
+            .filter(t -> List.of(WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS,
+                WorkflowStatus.TASK_OVERDUE).contains(t.getStatus()))
+            .filter(t -> t.getDueDate() != null)
+            .min(Comparator.comparing(ControlTask::getDueDate))
+            .orElse(null);
         if (task != null) {
             nextTest = task.getDueDate();
         }
