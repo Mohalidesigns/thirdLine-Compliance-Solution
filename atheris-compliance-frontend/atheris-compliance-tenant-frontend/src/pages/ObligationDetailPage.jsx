@@ -239,7 +239,6 @@ export default function ObligationDetailPage() {
 
       <Section title="Details" sx={{ mb: 3 }}>
         <FieldGrid min={190} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-          <Field label="Act / Regulation" value={selected.actName} />
           <Field label="Impact" value={selected.impactRating} />
           <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
           <Field label="Likelihood" value={selected.likelihoodRating} />
@@ -253,7 +252,6 @@ export default function ObligationDetailPage() {
           </Field>
           <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
           <Field label="Residual basis" value={selected.residualReason} />
-          <Field label="Source" value={selected.sourceTitle} />
         </FieldGrid>
       </Section>
 

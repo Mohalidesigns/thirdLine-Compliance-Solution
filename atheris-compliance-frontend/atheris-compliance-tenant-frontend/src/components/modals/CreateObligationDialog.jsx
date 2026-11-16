@@ -13,7 +13,7 @@ import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', sectionReference: '', effectiveDate: '',
+  instrumentId: null, name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', sectionReference: '', effectiveDate: '',
   impactRating: '', likelihoodRating: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
@@ -36,13 +36,6 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
   const isEditing = !!(editing && initial);
   const obligationId = isEditing ? initial.obligationId : null;
 
-  const { data: instruments = [] } = useQuery({
-    queryKey: ['obligations', 'dialog', 'instruments'],
-    queryFn: ({ signal }) => api.instruments.list(0, 50, '', { signal }),
-    enabled: open,
-    select: (d) => (Array.isArray(d) ? d : (d?.content || [])),
-  });
-
   const { data: fetchedRegulators = [] } = useQuery({
     queryKey: ['regulators', 'list'],
     queryFn: ({ signal }) => api.regulators.list({}, { signal }),
@@ -62,7 +55,6 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
       .map((r) => r.text || '').filter(Boolean);
     return {
-      instrumentId: initial.instrumentId ?? '',
       name: initial.name || '',
       tenantRegulatorId: initial.tenantRegulatorId ?? '',
       requirements: texts.length ? texts : [''],
@@ -95,13 +87,12 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       isEditing={isEditing}
       obligationId={obligationId}
       initialForm={initialForm}
-      instruments={instruments}
       fetchedRegulators={fetchedRegulators}
     />
   );
 }
 
-function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligationId, initialForm, instruments, fetchedRegulators }) {
+function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligationId, initialForm, fetchedRegulators }) {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -143,7 +134,6 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
     try {
       const body = {
         ...form,
-        instrumentId: form.instrumentId ? Number(form.instrumentId) : null,
         tenantRegulatorId: form.tenantRegulatorId ? Number(form.tenantRegulatorId) : null,
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
@@ -255,7 +245,7 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
                 label="Accountable owner" />
             </Field>
           </Box>
-          <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ mt: 2 }}>
             <Field label="Regulator *" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" select value={form.tenantRegulatorId}
                 onChange={e => {
@@ -269,17 +259,6 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
                   </MenuItem>
                 ))}
                 <MenuItem value="__add__" sx={{ color: 'primary.main', fontWeight: 600 }}>+ Add regulator</MenuItem>
-              </TextField>
-            </Field>
-            <Field label="Instrument (optional)" sx={{ mb: 0 }}>
-              <TextField fullWidth size="small" select value={form.instrumentId}
-                onChange={e => set('instrumentId', e.target.value)}>
-                <MenuItem value=""><em>None — standalone obligation</em></MenuItem>
-                {instruments.map(ins => (
-                  <MenuItem key={ins.instrumentId} value={ins.instrumentId}>
-                    {ins.sourceTitle || `Instrument #${ins.instrumentId}`}
-                  </MenuItem>
-                ))}
               </TextField>
             </Field>
           </Box>
