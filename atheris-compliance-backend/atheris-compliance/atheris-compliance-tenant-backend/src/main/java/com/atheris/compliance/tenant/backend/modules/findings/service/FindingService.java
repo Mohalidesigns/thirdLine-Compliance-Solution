@@ -7,7 +7,6 @@ import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
-import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
@@ -160,7 +159,7 @@ public class FindingService {
 
     @Transactional
     public Finding autoRaiseFromTest(ControlTestResult test, Control control) {
-        String severity = determineSeverity(test.getFailureSeverity(), control.getInherentRisk());
+        String severity = determineSeverity(test.getFailureSeverity());
         int sla = slaDaysFor(severity);
         Integer ownerId = test.getRemediationOwnerId() != null
             ? test.getRemediationOwnerId()
@@ -427,7 +426,6 @@ public class FindingService {
         f.setClosedAt(Instant.now());
         f.setSignedOffByUserId(reviewer.getUserId());
         f.setSignedOffAt(Instant.now());
-        reEvaluateControlResidualRisk(f);
         audit.log(reviewer.getUserId(), "gap_finding_closed", "finding", id, Map.of());
         return repo.save(f);
     }
@@ -461,7 +459,6 @@ public class FindingService {
             f.setClosedAt(Instant.now());
             f.setSignedOffByUserId(reviewer.getUserId());
             f.setSignedOffAt(Instant.now());
-            reEvaluateControlResidualRisk(f);
             audit.log(reviewer.getUserId(), "finding_signed_off", "finding", id, Map.of());
             sendReceipt(f);
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
@@ -504,26 +501,6 @@ public class FindingService {
                     "Remediation for finding #" + f.getFindingId() + " accepted and closed", "/findings");
             }
             email.send(o.getEmail(), rendered.subject(), rendered.body(), null);
-        });
-    }
-
-    private void reEvaluateControlResidualRisk(Finding f) {
-        if (f.getLinkedControlId() == null) {
-            return;
-        }
-        Integer controlId = f.getLinkedControlId();
-        controlRepo.findById(controlId).ifPresent(control -> {
-            boolean otherOpen = repo.findByLinkedControlIdOrderByFindingIdDesc(controlId).stream()
-                .filter(x -> !x.getFindingId().equals(f.getFindingId()))
-                .anyMatch(x -> !WorkflowStatus.FINDING_CLOSED.equals(x.getStatus()));
-            String risk = otherOpen
-                ? controlTestRepo.findTopByControlIdAndReviewStatusOrderByTestDateDesc(controlId, WorkflowStatus.REVIEW_ACCEPTED)
-                    .map(t -> ResidualRisk.fromTestResult(t.getResult(), control.getInherentRisk())).orElse(null)
-                : ResidualRisk.capAtInherent(WorkflowStatus.RISK_LOW, control.getInherentRisk());
-            if (risk != null && !risk.equals(control.getResidualRisk())) {
-                control.setResidualRisk(risk);
-                controlRepo.save(control);
-            }
         });
     }
 
@@ -575,11 +552,11 @@ public class FindingService {
             .build();
     }
 
-    private String determineSeverity(String testSev, String inherent) {
-        if (WorkflowStatus.RISK_HIGH.equals(testSev) || WorkflowStatus.RISK_HIGH.equals(inherent)) {
+    private String determineSeverity(String testSev) {
+        if (WorkflowStatus.RISK_HIGH.equals(testSev)) {
             return WorkflowStatus.RISK_HIGH;
         }
-        if (WorkflowStatus.RISK_MEDIUM.equals(testSev) || WorkflowStatus.RISK_MEDIUM.equals(inherent)) {
+        if (WorkflowStatus.RISK_MEDIUM.equals(testSev)) {
             return WorkflowStatus.RISK_MEDIUM;
         }
         return WorkflowStatus.RISK_LOW;

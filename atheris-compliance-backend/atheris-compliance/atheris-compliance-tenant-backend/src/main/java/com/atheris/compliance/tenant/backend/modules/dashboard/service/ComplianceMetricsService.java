@@ -132,8 +132,6 @@ public class ComplianceMetricsService {
         // ── Controls ── (pass/fail from the latest test result per control)
         List<Control> allControls = controls.findAll();
         int controlsTotal = allControls.size();
-        int controlsHighResidual = (int) allControls.stream()
-            .filter(c -> HIGH_RISK.contains(c.getResidualRisk())).count();
         Map<Integer, ControlTestResult> latestTest = latestTestByControl(controlTests.findAll().stream()
             .filter(t -> WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())).toList());
         Set<Integer> controlIds = allControls.stream().map(Control::getControlId).collect(Collectors.toSet());
@@ -256,7 +254,6 @@ public class ComplianceMetricsService {
             .obligationsByArea(byArea)
             .obligationsByAct(byAct)
             .controlsTotal(controlsTotal)
-            .controlsHighResidualRisk(controlsHighResidual)
             .controlsTested(controlsTested)
             .controlsUntested(controlsTotal - controlsTested)
             .controlsPassing(controlsPassing)

@@ -10,13 +10,11 @@ import java.util.List;
 public class ControlSpecification {
 
     public static Specification<Control> withFilters(
-            Integer themeId, String residualRisk, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId) {
+            Integer themeId, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (themeId != null)
                 predicates.add(cb.equal(root.get("controlThemeId"), themeId));
-            if (residualRisk != null && !residualRisk.isEmpty())
-                predicates.add(cb.equal(root.get("residualRisk"), residualRisk));
             if (ownerUserId != null)
                 predicates.add(cb.equal(root.get("controlOwnerUserId"), ownerUserId));
             if (ownerId != null)

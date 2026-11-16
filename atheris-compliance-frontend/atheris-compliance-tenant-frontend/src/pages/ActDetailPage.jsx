@@ -46,7 +46,7 @@ const COLUMNS = {
       </Box>) },
     { id: 'theme', label: 'Theme / Area', minWidth: 180, truncate: true,
       render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>{r.theme || r.complianceArea || '—'}</Typography> },
-    { id: 'risk', label: 'Risk', minWidth: 100, render: (r) => <RiskBadge value={r.residualRisk || r.residualRiskRating} /> },
+    { id: 'controlType', label: 'Type', minWidth: 120, render: (r) => <Typography variant="body2">{r.controlType || '—'}</Typography> },
     { id: 'status', label: 'Status', minWidth: 110, render: (r) => (r.status ? <StateBadge value={r.status} /> : <Typography variant="body2">—</Typography>) },
   ],
   returns: [

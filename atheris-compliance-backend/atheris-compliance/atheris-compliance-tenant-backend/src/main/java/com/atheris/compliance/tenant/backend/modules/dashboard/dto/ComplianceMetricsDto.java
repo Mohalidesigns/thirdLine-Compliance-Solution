@@ -34,7 +34,6 @@ public class ComplianceMetricsDto {
 
     // ── Controls ── (pass/fail come from control test results, never from a risk rating)
     @Builder.Default private int controlsTotal = 0;
-    @Builder.Default private int controlsHighResidualRisk = 0;  // residual rating High or Critical (untested = inherent)
     @Builder.Default private int controlsTested = 0;            // controls with at least one test result
     @Builder.Default private int controlsUntested = 0;
     @Builder.Default private int controlsPassing = 0;           // latest test Passed

@@ -11,7 +11,7 @@ import {
 import { api } from '../services/api';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
-  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, RISK_COLOR, TL,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
@@ -22,7 +22,7 @@ import OwnerPicker from '../components/org/OwnerPicker';
 import ControlEditDialog from '../components/controls/ControlEditDialog';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
-import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
+import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 import { isReadOnly } from '../utils/roles';
 
 function formatDate(d) {
@@ -102,7 +102,6 @@ export default function ControlsPage() {
 
   const [search, setSearch] = useState('');
   const [themeFilter, setThemeFilter] = useState('All');
-  const [riskFilter, setRiskFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
@@ -124,13 +123,12 @@ export default function ControlsPage() {
     if (cid && !Number.isNaN(Number(cid))) setDetailId(Number(cid));
   }, [searchParams]);
 
-  const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
+  const hasFilters = search || themeFilter !== 'All'
     || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All' || obligationFilter != null;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
   if (themeFilter !== 'All') params.theme = themeFilter;
-  if (riskFilter !== 'All') params.residualRisk = riskFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (actFilter !== 'All') params.actName = actFilter;
   if (obligationFilter != null) params.obligationId = obligationFilter;
@@ -200,7 +198,7 @@ export default function ControlsPage() {
   }
 
   function clearFilters() {
-    setSearch(''); setThemeFilter('All'); setRiskFilter('All');
+    setSearch(''); setThemeFilter('All');
     setOwnerFilter('All'); setStatusFilter('All'); setActFilter('All');
     setObligationFilter(null);
     setPage(0);
@@ -212,21 +210,20 @@ export default function ControlsPage() {
     { key: 'testsDue', label: 'Tests Due (30 days)', value: stats?.testsDue ?? 0, tone: 'orange', icon: <ClockIcon />,
       breakdown: stats?.byTheme, drill: (label) => setThemeFilter(label) },
     { key: 'failing', label: 'Failing Controls', value: stats?.failingControls ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
-      breakdown: stats?.byRiskLevel, drill: (label) => setRiskFilter(label) },
+      breakdown: stats?.findingsBySeverity },
     { key: 'openFindings', label: 'Open Findings', value: stats?.openFindings ?? 0, tone: 'purple', icon: <ExclamationCircleIcon />,
       breakdown: stats?.findingsBySeverity, drill: (label) => navigate(`/findings?severity=${label}`) },
   ];
 
   const kpiItems = kpis.map((k) => ({
     key: k.key, label: k.label, tone: k.tone, icon: k.icon, value: k.value, breakdown: k.breakdown,
-    active: k.key === 'failing' && riskFilter === 'High',
+    active: false,
   }));
 
   const onKpiSelect = (key) => {
     setPage(0);
     if (key === 'testsDue') { setSortField(''); return; }
     if (key === 'openFindings') { navigate('/findings'); return; }
-    if (key === 'failing') { setRiskFilter('High'); return; }
     clearFilters();
   };
 
@@ -240,9 +237,6 @@ export default function ControlsPage() {
     { key: 'theme', label: 'Theme', minWidth: 140, value: themeFilter,
       onChange: (v) => { setThemeFilter(v); setPage(0); }, allLabel: 'All themes',
       options: (themes?.map((t) => t.name) || stats?.themes || []).map((t) => ({ value: t, label: t })) },
-    { key: 'risk', label: 'Residual Risk', minWidth: 150, value: riskFilter,
-      onChange: (v) => { setRiskFilter(v); setPage(0); }, allLabel: 'All risks',
-      options: ['Critical', 'High', 'Moderate', 'Low'].map((r) => ({ value: r, label: r })) },
     { key: 'status', label: 'Status', minWidth: 130, value: statusFilter,
       onChange: (v) => { setStatusFilter(v); setPage(0); }, allLabel: 'All statuses',
       options: ['Active', 'Inactive'].map((s) => ({ value: s, label: s })) },
@@ -419,15 +413,11 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
 
       {/* Headline numbers */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<ExclamationTriangleIcon />} label="Inherent Risk"
-          accent={RISK_COLOR[detail.inherentRisk] || TL.primary} chip={<RiskChip rating={detail.inherentRisk} />} />
-        <StatTile icon={<ShieldCheckIcon />} label="Residual Risk"
-          accent={RISK_COLOR[detail.residualRiskRating] || TL.primary}
-          chip={<RiskChip rating={detail.residualRiskRating || detail.residualRisk}
-            likelihood={detail.residualLikelihood} impact={detail.residualImpact} />} />
         <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
         <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
+        <StatTile icon={<ClipboardDocumentCheckIcon />} label="Tester" value={detail.testerName || 'Not assigned'} />
+        <StatTile icon={<UserCircleIcon />} label="Control owner" value={detail.controlOwnerName || 'Not assigned'} />
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>

@@ -55,11 +55,6 @@ public class Control {
     @Column(columnDefinition = "text")
     private String actName;
     private Long obligationId;
-    private String inherentRisk;
-    private String residualRisk;
-    private String residualLikelihood;
-    private String residualImpact;
-    private String residualRiskRating;
     @Column(columnDefinition = "text") private String ownerName;
     @Builder.Default
     private String status = "Active";

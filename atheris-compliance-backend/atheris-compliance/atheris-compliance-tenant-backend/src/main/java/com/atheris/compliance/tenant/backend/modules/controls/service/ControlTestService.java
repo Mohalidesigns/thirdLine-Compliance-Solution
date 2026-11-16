@@ -186,7 +186,6 @@ public class ControlTestService {
     private void applyAcceptedEffects(ControlTestResult t) {
         Control control = controls.findById(t.getControlId()).orElse(null);
         if (control == null) return;
-        updateResidualRisk(control, t.getResult());
         boolean failed = WorkflowStatus.TEST_FAILED.equals(t.getResult())
                       || WorkflowStatus.TEST_PARTIAL.equals(t.getResult());
         if (failed) findingService.autoRaiseFromTest(t, control);
@@ -288,14 +287,6 @@ public class ControlTestService {
             taskRepo.save(t);
         }
         log.info("Marked {} control tasks as overdue", due.size());
-    }
-
-    private void updateResidualRisk(Control c, String result) {
-        String risk = ResidualRisk.fromTestResult(result, c.getInherentRisk());
-        if (risk != null) {
-            c.setResidualRisk(risk);
-            controls.save(c);
-        }
     }
 
     private static String safeName(Control c) {

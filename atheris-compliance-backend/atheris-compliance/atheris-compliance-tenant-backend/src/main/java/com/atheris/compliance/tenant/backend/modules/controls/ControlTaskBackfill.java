@@ -56,14 +56,13 @@ public class ControlTaskBackfill implements ApplicationRunner {
 
     private boolean scheduleOne(Control c) {
         if (c.getTestFrequencyDays() == null) {
-            String frequency = (c.getTestFrequency() != null && !c.getTestFrequency().isBlank())
-                ? c.getTestFrequency()
-                : ControlSchedule.frequencyForRisk(c.getInherentRisk());
-            Integer days = ControlSchedule.daysForFrequency(frequency);
+            if (c.getTestFrequency() == null || c.getTestFrequency().isBlank()) {
+                return false;
+            }
+            Integer days = ControlSchedule.daysForFrequency(c.getTestFrequency());
             if (days == null) {
                 return false;
             }
-            c.setTestFrequency(frequency);
             c.setTestFrequencyDays(days);
             controls.save(c);
         }

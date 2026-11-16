@@ -27,8 +27,6 @@ public class ControlDto {
     private Integer testFrequencyDays;
     private java.time.LocalDate firstDueDate;
     private List<Long> linkedObligationIds;
-    private String inherentRisk;
-    private String residualRisk;
     private String status;
     private Instant createdAt;
     private Instant updatedAt;

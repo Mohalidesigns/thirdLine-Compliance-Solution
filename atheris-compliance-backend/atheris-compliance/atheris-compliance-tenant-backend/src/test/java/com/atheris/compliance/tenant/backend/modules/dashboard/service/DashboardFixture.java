@@ -100,7 +100,7 @@ class DashboardFixture {
     }
 
     DashboardV2Service v2() {
-        return new DashboardV2Service(null, null, classifications, obligations, null, null, null, null, null);
+        return new DashboardV2Service(null, null, classifications, obligations, null, null, null, null, null, null);
     }
 
     private void obligation(long id, String area, String act, String inherent, String tenant, List<Integer> controlIds) {
@@ -112,7 +112,7 @@ class DashboardFixture {
     }
 
     private void control(int id, String residual) {
-        controlRows.add(Control.builder().controlId(id).residualRisk(residual).inherentRisk(residual).build());
+        controlRows.add(Control.builder().controlId(id).build());
     }
 
     private void test(int controlId, LocalDate date, String result, long testId) {

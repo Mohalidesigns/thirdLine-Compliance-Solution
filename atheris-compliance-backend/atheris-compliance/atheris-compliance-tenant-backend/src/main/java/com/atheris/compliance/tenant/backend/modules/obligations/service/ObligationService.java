@@ -683,8 +683,6 @@ public class ObligationService {
                     .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
                     .complianceArea(ct.getComplianceArea())
                     .controlType(ct.getControlType())
-                    .inherentRisk(ct.getInherentRisk()).residualRisk(ct.getResidualRisk())
-                    .riskLevel(ct.getResidualRiskRating() != null ? ct.getResidualRiskRating() : ct.getResidualRisk())
                     .controlOwnerName(ct.getControlOwnerName()).status(ct.getStatus()).build())
                 .toList();
         }

@@ -19,12 +19,6 @@ public class ControlRegisterItem {
     private Long escalationPolicyId;
     private String ownerName;
     private String controlType;
-    private String residualRisk;
-    private String residualLikelihood;
-    private String residualImpact;
-    private String residualRiskRating;
-    /** Alias of {@link #residualRiskRating} (fallback {@link #residualRisk}) for the shared intel column. */
-    private String riskLevel;
     private String status;
     private LocalDate nextTestDueDate;
     private String lastTestResult;

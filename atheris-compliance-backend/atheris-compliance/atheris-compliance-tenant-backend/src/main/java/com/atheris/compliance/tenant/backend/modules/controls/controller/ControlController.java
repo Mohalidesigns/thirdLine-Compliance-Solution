@@ -23,7 +23,6 @@ public class ControlController {
     @GetMapping("/register")
     public ResponseEntity<Page<ControlRegisterItem>> register(
             @RequestParam(required = false) String theme,
-            @RequestParam(required = false) String residualRisk,
             @RequestParam(required = false) Integer ownerUserId,
             @RequestParam(required = false) Integer ownerId,
             @RequestParam(required = false) String status,
@@ -32,7 +31,7 @@ public class ControlController {
             @RequestParam(required = false) String actName,
             @RequestParam(required = false) Integer obligationId,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegisterList(theme, residualRisk, ownerUserId, ownerId, status, q, actId, actName, obligationId, p));
+        return ResponseEntity.ok(service.getRegisterList(theme, ownerUserId, ownerId, status, q, actId, actName, obligationId, p));
     }
 
     @GetMapping("/stats")
@@ -52,11 +51,6 @@ public class ControlController {
         if (theme != null) return ResponseEntity.ok(service.findByTheme(theme));
         if (ownerId != null) return ResponseEntity.ok(service.findByOwner(ownerId));
         return ResponseEntity.ok(service.findAll());
-    }
-
-    @GetMapping("/high-risk")
-    public ResponseEntity<List<ControlDto>> highRisk() {
-        return ResponseEntity.ok(service.findHighRisk());
     }
 
     @GetMapping("/{id}")

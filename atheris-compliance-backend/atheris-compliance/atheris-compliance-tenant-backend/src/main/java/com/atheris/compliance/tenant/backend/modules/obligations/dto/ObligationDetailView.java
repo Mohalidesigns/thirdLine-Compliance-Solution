@@ -95,9 +95,6 @@ public class ObligationDetailView {
         private String theme;
         private String complianceArea;
         private String controlType;
-        private String inherentRisk;
-        private String residualRisk;
-        private String riskLevel;
         private String controlOwnerName;
         private String status;
     }

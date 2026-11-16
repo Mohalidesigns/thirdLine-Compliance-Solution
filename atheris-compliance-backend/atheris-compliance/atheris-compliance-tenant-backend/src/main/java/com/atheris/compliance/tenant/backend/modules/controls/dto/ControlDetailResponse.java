@@ -28,11 +28,6 @@ public class ControlDetailResponse {
     private Integer testFrequencyDays;
     private java.time.LocalDate firstDueDate;
     private List<LinkedObligation> linkedObligations;
-    private String inherentRisk;
-    private String residualRisk;
-    private String residualLikelihood;
-    private String residualImpact;
-    private String residualRiskRating;
     private String ownerName;
     private String status;
     private String regulatoryRequirement;
@@ -48,7 +43,6 @@ public class ControlDetailResponse {
     private List<TestResultItem> testHistory;
     private LocalDate nextTestDueDate;
     private List<FindingItem> findings;
-    private String residualRiskReason;
 
     @Data @Builder
     public static class FindingItem {

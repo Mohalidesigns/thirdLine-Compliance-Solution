@@ -2,7 +2,6 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.common.taxonomy.AreasOfFocus;
-import com.atheris.compliance.tenant.backend.modules.controls.service.SeedControlRepairService;
 import com.atheris.compliance.tenant.backend.modules.dashboard.service.DashboardService;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.ObligationClassification;
@@ -39,8 +38,7 @@ import java.util.stream.Collectors;
  *   <li><b>risk</b> — re-banded from likelihood × impact. Only ratings still equal to what the old
  *       toolkit band produced are changed, so a rating a user set is kept.</li>
  * </ul>
- * Seeded obligations only. Seeded controls are re-banded in the same run by
- * {@link SeedControlRepairService}.
+ * Seeded obligations only.
  */
 @Service
 @Slf4j
@@ -57,7 +55,6 @@ public class SeedDataRepairService {
     private final PlatformTransactionManager txManager;
     private final ObligationService obligationService;
     private final DashboardService dashboardService;
-    private final SeedControlRepairService controlRepair;
     private final PendingReviewRepository pendingReviews;
     private final SeedLinkRepairService linkRepair;
 
@@ -93,19 +90,15 @@ public class SeedDataRepairService {
             Integer regLinked = tx.execute(status -> linkRegulators(tenantId, bundles));
             Integer namesBackfilled = tx.execute(status -> backfillNames());
             SeedLinkRepairService.Result lr = tx.execute(status -> linkRepair.repair(bundles));
-            SeedControlRepairService.Result cr = tx.execute(status -> controlRepair.repair(bundles));
             obligationService.evictRegisterCache();
             log.info("[SeedRepair] duplicate obligations merged={}, duplicate groups left (both edited)={}, "
                     + "controls relinked={}, obligations relinked={}",
                 lr.duplicatesMerged(), lr.duplicateGroupsSkipped(), lr.controlsRelinked(), lr.obligationsRelinked());
             if (r.actLinked() + r.areaReassigned() + r.riskRebanded() + r.classificationsUpdated()
-                    + cr.riskRebanded() + cr.residualRatingRebanded() + cr.howTestedCleared()
                     + lr.duplicatesMerged() + lr.controlsRelinked() + lr.obligationsRelinked() > 0)
                 dashboardService.refreshTodaySnapshot();   // today's trend point reflects the repaired data
             log.info("[SeedRepair] act linked={}, area reassigned={}, risk re-banded={}, classifications updated={}, regulator linked={}, names backfilled={}",
                 r.actLinked(), r.areaReassigned(), r.riskRebanded(), r.classificationsUpdated(), regLinked, namesBackfilled);
-            log.info("[SeedRepair] controls risk re-banded={}, cadence changed={}, tests rescheduled={}, residual rating re-banded={}, howTested cleared={}",
-                cr.riskRebanded(), cr.cadenceChanged(), cr.tasksRescheduled(), cr.residualRatingRebanded(), cr.howTestedCleared());
             done.set(true);
         } catch (Throwable e) {
             log.warn("[SeedRepair] skipped this run: {}", e.getMessage());

@@ -357,7 +357,6 @@ function DrillBody({ kind, row }) {
         <Field label="Summary" value={row.controlSummary || row.name} />
         <Field label="Theme / Area" value={row.theme || row.complianceArea} />
         <Field label="Type" value={row.controlType} />
-        <Field label="Risk" value={row.riskLevel || row.residualRisk || row.inherentRisk} />
         <Field label="Owner" value={row.controlOwnerName} />
         <Field label="Status" value={row.status} />
       </FieldGrid>

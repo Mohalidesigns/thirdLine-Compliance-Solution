@@ -9,7 +9,6 @@ import java.util.Map;
 public class ControlStatsDto {
     private long total;
     private long active;
-    private long highRisk;
     private long testsDue;
     private long failingControls;
     private long openFindings;
@@ -20,8 +19,6 @@ public class ControlStatsDto {
     private Map<String, Long> findingsBySeverity;
     /** Aliases consumed by the shared intel register config. */
     private long totalControls;
-    private Map<String, Long> byRiskLevel;
     private Map<String, Long> byStatus;
-    private List<String> riskLevels;
     private List<String> statuses;
 }
