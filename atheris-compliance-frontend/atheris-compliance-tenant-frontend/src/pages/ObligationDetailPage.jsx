@@ -10,7 +10,7 @@ import {
   PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
 import { api } from '../services/api';
-import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
+import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
@@ -86,6 +86,7 @@ export default function ObligationDetailPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [activeModal, setActiveModal] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [drill, setDrill] = useState(null);
   const [snack, setSnack] = useState(null);
   const size = 10;
@@ -120,6 +121,21 @@ export default function ObligationDetailPage() {
   const sanctions = useMemo(() => selected?.sanctions || [], [selected]);
   const evidence = useMemo(() => evidenceRollup, [evidenceRollup]);
   const history = useMemo(() => selected?.history || [], [selected]);
+
+  const editInitial = useMemo(() => selected ? {
+    obligationId: selected.obligationId,
+    instrumentId: selected.instrumentId,
+    name: selected.title || selected.name || '',
+    tenantRegulatorId: selected.tenantRegulatorId ?? '',
+    areaOfFocus: selected.areaOfFocus || '',
+    sectionReference: selected.sectionReference || '',
+    effectiveDate: selected.effectiveDate || '',
+    impactRating: selected.impactRating || '',
+    likelihoodRating: selected.likelihoodRating || '',
+    assignedOwnerId: selected.assignedOwnerId ?? null,
+    linkedControlIds: selected.linkedControlIds || [],
+    linkedReturnIds: selected.linkedReturnIds || [],
+  } : null, [selected]);
 
   const requirementsWithId = useMemo(
     () => requirements.map((r) => ({ ...r, id: r.requirementId })), [requirements]);
@@ -218,7 +234,7 @@ export default function ObligationDetailPage() {
           </Box>
         )}
         right={<Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
-          onClick={() => setActiveModal('risk')}>Risk assessment</Button>}
+          onClick={() => setEditOpen(true)}>Edit</Button>}
       />
 
       <Section title="Details" sx={{ mb: 3 }}>
@@ -295,8 +311,14 @@ export default function ObligationDetailPage() {
         obligationId={obligationId}
         initial={{ assignedOwnerId: selected.assignedOwnerId }}
         onSaved={onSaved('Accountable owner updated')} onError={notify} />
-      <RiskAssessmentModal open={activeModal === 'risk'} onClose={() => setActiveModal(null)}
-        obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Risk assessment saved')} onError={notify} />
+      <CreateObligationDialog
+        open={editOpen}
+        editing
+        initial={editInitial}
+        onClose={() => setEditOpen(false)}
+        onSaved={onSaved('Obligation updated')}
+        onSnackbar={(m) => notify('error', m)}
+      />
       <LinkControlsModal open={activeModal === 'controls'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initialIds={controls.map((c) => c.controlId) || []}
         onSaved={onSaved('Controls linked')} onError={notify} />

@@ -27,6 +27,7 @@ public class ObligationDetailView {
     private String sourceTitle;
     private String regulatorAbbreviation;
     private String regulatorName;
+    private Long tenantRegulatorId;
     private String pdfUrl;
 
     private String applicability;
@@ -46,6 +47,8 @@ public class ObligationDetailView {
     private String residualLikelihood;
     private String residualImpact;
     private String residualReason;
+    private List<Integer> linkedControlIds;
+    private List<Long> linkedReturnIds;
     private Integer assignedOwnerUserId;
     private Integer assignedOwnerId;
     private Integer assignedTeamId;
