@@ -18,6 +18,7 @@ public final class EscalationConstants {
     public static final String UNIT_HOURS = "HOURS";
 
     public static final String TRIGGER_APPROACHING = "APPROACHING";
+    public static final String TRIGGER_DUE_TODAY = "DUE_TODAY";
     public static final String TRIGGER_REMINDER = "REMINDER";
     public static final String TRIGGER_OVERDUE = "OVERDUE";
 
@@ -26,10 +27,12 @@ public final class EscalationConstants {
     public static final int MAX_LEVEL = 3;
 
     public static final String KEY_RETURN_APPROACHING = "return.filing.approaching";
+    public static final String KEY_RETURN_DUE_TODAY = "return.filing.due_today";
     public static final String KEY_RETURN_REMINDER = "return.filing.reminder";
     public static final String KEY_RETURN_FILING_REQUEST = "return.filing.request";
     public static final String KEY_RETURN_OVERDUE = "return.filing.overdue";
     public static final String KEY_CONTROL_APPROACHING = "control.test.approaching";
+    public static final String KEY_CONTROL_DUE_TODAY = "control.test.due_today";
     public static final String KEY_CONTROL_REMINDER = "control.test.reminder";
     public static final String KEY_CONTROL_REQUEST = "control.test.request";
     public static final String KEY_CONTROL_OVERDUE = "control.test.overdue";

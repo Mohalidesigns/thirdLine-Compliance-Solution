@@ -347,6 +347,42 @@ public class EscalationPolicyService {
         return actives.stream().filter(p -> normScope(p.getFrequencyScope()) == null).findFirst();
     }
 
+    /**
+     * Re-applies the seeded escalation levels to a default policy only while it still holds the
+     * legacy seeded ladder (so a ladder a user edited is never overwritten). No-op otherwise.
+     */
+    @Transactional
+    public void refreshSeededLevels(String subjectType, String frequencyScope,
+                                    List<EscalationLevelRequest> legacy, List<EscalationLevelRequest> current) {
+        policies.findBySubjectTypeOrderByNameAsc(subjectType).stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsDefault()))
+            .filter(p -> Objects.equals(normScope(p.getFrequencyScope()), normScope(frequencyScope)))
+            .forEach(p -> {
+                if (!levelsMatch(policyLevels.findByPolicyIdOrderByLevelNoAsc(p.getPolicyId()), legacy)) return;
+                policyLevels.deleteByPolicyId(p.getPolicyId());
+                policyLevels.flush();
+                writePolicyLevels(p.getPolicyId(), current);
+                log.info("[Escalation] refreshed default {}{} levels", subjectType,
+                    normScope(frequencyScope) == null ? "" : " " + normScope(frequencyScope));
+            });
+    }
+
+    private static boolean levelsMatch(List<EscalationPolicyLevel> actual, List<EscalationLevelRequest> expected) {
+        if (actual.size() != expected.size()) return false;
+        for (int i = 0; i < expected.size(); i++) {
+            EscalationPolicyLevel a = actual.get(i);
+            EscalationLevelRequest e = expected.get(i);
+            if (!Objects.equals(a.getLevelNo(), e.getLevelNo())) return false;
+            int av = a.getAfterValue() == null ? 0 : a.getAfterValue();
+            int ev = e.getAfterValue() == null ? 0 : e.getAfterValue();
+            if (av != ev) return false;
+            if (!Objects.equals(a.getTargetType(), e.getTargetType() == null ? null : e.getTargetType().toUpperCase(Locale.ROOT)))
+                return false;
+            if (!Objects.equals(a.getTargetRole(), e.getTargetRole())) return false;
+        }
+        return true;
+    }
+
     private EscalationPolicy load(Long id) {
         return policies.findById(id).orElseThrow(() -> ApiException.notFound("Escalation policy not found: " + id));
     }

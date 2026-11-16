@@ -80,6 +80,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "Reminder: {{returnName}} due {{dueDate}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that {{returnName}} ({{period}}) is still due on {{dueDate}} "
                     + "({{daysLeft}} day(s) left) — please submit to avoid escalation.\n\n" + ESCALATION_DETAILS, true);
+            templates.ensure(EscalationConstants.KEY_RETURN_DUE_TODAY,
+                "Due today: {{returnName}}",
+                "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due today ({{dueDate}}) "
+                    + "— please submit it now to avoid escalation.\n\n" + ESCALATION_DETAILS, true);
             templates.ensure(EscalationConstants.KEY_RETURN_OVERDUE,
                 "[L{{level}}] Overdue filing: {{returnName}}",
                 "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
@@ -90,6 +94,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "Upcoming control test: {{controlName}}",
                 "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}} "
                     + "({{daysLeft}} day(s) left) — please perform the test.\n\n" + CONTROL_DETAILS, true);
+            templates.ensure(EscalationConstants.KEY_CONTROL_DUE_TODAY,
+                "Due today: control test {{controlName}}",
+                "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due today ({{dueDate}}) "
+                    + "— please perform the test.\n\n" + CONTROL_DETAILS, true);
             templates.upgrade(EscalationConstants.KEY_CONTROL_REMINDER,
                 "Hi {{recipientName}},\n\nThis is a reminder that the test of control \"{{controlName}}\" is still "
                     + "due on {{dueDate}} ({{daysLeft}} day(s) left) — please record the result.\n\n" + CONTROL_DETAILS_PREV,
