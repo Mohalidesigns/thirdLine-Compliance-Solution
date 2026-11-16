@@ -14,6 +14,7 @@ import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
 import ControlsRow from '../components/dashboard/ControlsRow';
 import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../components/dashboard/RiskAreaActRow';
+import RiskHeatmap from '../components/dashboard/RiskHeatmap';
 import RunbooksWidget from '../components/dashboard/RunbooksWidget';
 import ScoreBreakdown, { pctOrNa } from '../components/dashboard/ScoreBreakdown';
 
@@ -190,6 +191,11 @@ export default function CcoDashboardPage() {
       <Box sx={row('1fr 1fr')}>
         <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
         <ActBreakdownTable profile={riskProfile} />
+      </Box>
+
+      {/* Risk heatmap — inherent vs residual */}
+      <Box sx={{ mt: 3 }}>
+        <RiskHeatmap />
       </Box>
     </Box>
   );

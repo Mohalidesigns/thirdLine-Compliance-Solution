@@ -172,7 +172,7 @@ public class EvidenceVaultService {
                 .fileId(f.getFileId()).originalName(f.getOriginalName()).mimeType(f.getMimeType())
                 .fileSize(f.getFileSize()).sourceType(f.getSourceType()).sourceId(f.getSourceId())
                 .category(categoryOf(f.getSourceType())).description(f.getDescription())
-                .uploadedByName(f.getUploadedByUserId() == null ? null : userNames.get(f.getUploadedByUserId()))
+                .uploadedByName(uploaderName(f, testsById, userNames))
                 .createdAt(f.getCreatedAt())
                 .linkedLabel(ref.label()).linkedPath(ref.path())
                 .build());
@@ -181,6 +181,18 @@ public class EvidenceVaultService {
     }
 
     private record LinkedRef(String label, String path) {}
+
+    /** Uploader display name: the platform user if there is one, else the tester of the linked test
+     *  (evidence submitted through a public test link has no user). */
+    private static String uploaderName(EvidenceFile f, Map<Long, ControlTestResult> testsById,
+                                       Map<Integer, String> userNames) {
+        if (f.getUploadedByUserId() != null) return userNames.get(f.getUploadedByUserId());
+        if ("control_test".equals(f.getSourceType()) && f.getSourceId() != null) {
+            ControlTestResult t = testsById.get(f.getSourceId());
+            if (t != null && t.getTestedByName() != null && !t.getTestedByName().isBlank()) return t.getTestedByName();
+        }
+        return null;
+    }
 
     private LinkedRef resolve(EvidenceFile f, Map<Integer, Control> controlsById, Map<Long, ControlTestResult> testsById,
                               Map<Long, Finding> findingsById, Map<Long, ReturnFilingInstance> instancesById,

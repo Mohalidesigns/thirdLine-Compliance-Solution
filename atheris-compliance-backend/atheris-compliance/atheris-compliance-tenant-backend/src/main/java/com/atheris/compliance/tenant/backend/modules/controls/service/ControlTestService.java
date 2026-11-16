@@ -115,7 +115,7 @@ public class ControlTestService {
         List<String> reviewCc = ownerCc(control);
         for (String role : List.of(AppRole.ANALYST, AppRole.CCO, AppRole.CONTROL_TEST_REVIEWER)) {
             notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
-                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, null);
+                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, testerUserId);
         }
 
         audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),

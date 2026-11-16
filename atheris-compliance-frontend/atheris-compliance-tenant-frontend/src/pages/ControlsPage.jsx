@@ -777,16 +777,6 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
               </Box>
             )}
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
-              onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Critical">Critical</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-            </TextField>
-          </Grid>
           <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
             onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
           <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
