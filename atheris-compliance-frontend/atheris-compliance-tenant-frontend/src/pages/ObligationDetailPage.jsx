@@ -222,27 +222,22 @@ export default function ObligationDetailPage() {
       />
 
       <Section title="Details" sx={{ mb: 3 }}>
-        <FieldGrid min={190}>
+        <FieldGrid min={190} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
           <Field label="Act / Regulation" value={selected.actName} />
-          <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
-          <Field label="Area of focus" value={selected.areaOfFocus} />
-          <Field label="Section reference" value={selected.sectionReference} mono />
-          <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
-          <Field label="Source" value={selected.sourceTitle} />
-        </FieldGrid>
-      </Section>
-
-      <Section title="Risk assessment" sx={{ mb: 3 }}>
-        <FieldGrid min={190}>
           <Field label="Impact" value={selected.impactRating} />
+          <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
           <Field label="Likelihood" value={selected.likelihoodRating} />
+          <Field label="Area of focus" value={selected.areaOfFocus} />
           <Field label="Inherent risk">
             <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
           </Field>
+          <Field label="Section reference" value={selected.sectionReference} mono />
           <Field label="Residual risk">
             <RiskChip rating={selected.residualRiskRating} likelihood={selected.residualLikelihood} impact={selected.residualImpact} />
           </Field>
+          <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
           <Field label="Residual basis" value={selected.residualReason} />
+          <Field label="Source" value={selected.sourceTitle} />
         </FieldGrid>
       </Section>
 

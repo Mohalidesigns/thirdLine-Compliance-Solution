@@ -507,6 +507,7 @@ public class ObligationService {
             .tenantRegulatorId(req.getTenantRegulatorId())
             .description(req.getDescription())
             .areaOfFocus(req.getAreaOfFocus())
+            .sectionReference(req.getSectionReference())
             .obligationType(req.getObligationType())
             .recurringDeadlineType(req.getRecurringDeadlineType())
             .effectiveDate(req.getEffectiveDate())
@@ -550,6 +551,7 @@ public class ObligationService {
         if (req.getName() != null) ob.setName(req.getName());
         if (req.getDescription() != null) ob.setDescription(req.getDescription());
         if (req.getAreaOfFocus() != null) ob.setAreaOfFocus(req.getAreaOfFocus());
+        if (req.getSectionReference() != null) ob.setSectionReference(req.getSectionReference());
         if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
         if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
         if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());

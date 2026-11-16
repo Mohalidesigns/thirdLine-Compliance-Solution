@@ -1,5 +1,5 @@
 import { Box, Typography, Chip, Tooltip } from '@mui/material';
-import { StatusBadge, InformationCircleIcon } from 'shared';
+import { StatusBadge, RiskBadge, InformationCircleIcon } from 'shared';
 
 const ellipsis = (maxWidth) => ({
   maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -49,14 +49,10 @@ export const OBLIGATION_COLUMNS = [
       return <Typography variant="body2"
         sx={count === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>{count}</Typography>;
     } },
-  { id: 'returnCount', label: 'Returns', minWidth: 100,
-    render: (item) => {
-      const count = item.linkedReturnIds?.length ?? 0;
-      const names = item.returnNames || [];
-      const label = <Typography variant="body2"
-        sx={count === 0 ? { color: 'text.secondary' } : { color: '#DD6B20' }}>{count}</Typography>;
-      return count > 0 && names.length > 0
-        ? <Tooltip title={names.join(', ')}>{label}</Tooltip>
-        : label;
-    } },
+  { id: 'residualRiskRating', label: 'Residual risk', minWidth: 130,
+    render: (item) => (
+      <Tooltip title={item.residualReason || ''}>
+        <span><RiskBadge value={item.residualRiskRating} emptyLabel="Unrated" /></span>
+      </Tooltip>
+    ) },
 ];

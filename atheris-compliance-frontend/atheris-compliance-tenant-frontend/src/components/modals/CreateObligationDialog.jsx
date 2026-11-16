@@ -13,7 +13,7 @@ import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', effectiveDate: '',
+  instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', sectionReference: '', effectiveDate: '',
   impactRating: '', likelihoodRating: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
@@ -67,6 +67,7 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       tenantRegulatorId: initial.tenantRegulatorId ?? '',
       requirements: texts.length ? texts : [''],
       areaOfFocus: initial.areaOfFocus || '',
+      sectionReference: initial.sectionReference || '',
       effectiveDate: initial.effectiveDate || '',
       impactRating: initial.impactRating || '',
       likelihoodRating: initial.likelihoodRating || '',
@@ -222,6 +223,10 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
                 <MenuItem value=""><em>Select area</em></MenuItem>
                 {AREAS_OF_FOCUS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>
+            </Field>
+            <Field label="Section reference" sx={{ mb: 0 }}>
+              <TextField fullWidth size="small" placeholder="e.g. s.12(3)"
+                value={form.sectionReference} onChange={e => set('sectionReference', e.target.value)} />
             </Field>
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
