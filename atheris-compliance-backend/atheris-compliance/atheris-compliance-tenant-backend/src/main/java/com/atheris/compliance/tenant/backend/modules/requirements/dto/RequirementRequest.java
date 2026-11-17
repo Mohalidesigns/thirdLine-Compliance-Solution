@@ -9,6 +9,5 @@ import java.util.List;
 public class RequirementRequest {
     private Long obligationId;
     private String text;
-    private Integer riskId;
     private List<Integer> controlIds;
 }

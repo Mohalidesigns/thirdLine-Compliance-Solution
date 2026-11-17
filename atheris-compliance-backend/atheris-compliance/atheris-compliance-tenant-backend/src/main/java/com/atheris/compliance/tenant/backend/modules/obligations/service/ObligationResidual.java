@@ -1,7 +1,7 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.requirements.service.ComplianceState;
-import com.atheris.compliance.tenant.backend.modules.risks.service.ResidualRule;
+import com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule;
 import com.atheris.compliance.tenant.backend.shared.util.BandThresholds;
 
 import java.util.Collection;

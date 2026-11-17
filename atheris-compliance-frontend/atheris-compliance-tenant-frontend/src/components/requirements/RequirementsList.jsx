@@ -92,7 +92,7 @@ export default function RequirementsList({ requirements = [], onOpen, onAdd }) {
     const q = search.trim().toLowerCase();
     if (!q) return requirements;
     return requirements.filter((r) => [
-      r.text, r.state, r.riskName, r.actName,
+      r.text, r.state, r.actName,
     ].some((v) => (v || '').toLowerCase().includes(q)));
   }, [requirements, search]);
 

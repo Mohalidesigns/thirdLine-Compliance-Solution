@@ -1,4 +1,4 @@
-package com.atheris.compliance.tenant.backend.modules.risks.service;
+package com.atheris.compliance.tenant.backend.modules.risk.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -442,18 +442,6 @@ export const api = {
     setState: (requirementId, data) =>
       request(`/requirements/${requirementId}/state`, { method: 'PUT', body: JSON.stringify(data) }),
   },
-  risks: {
-    register: (params = {}, opts = {}) => {
-      const qs = new URLSearchParams();
-      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
-      const s = qs.toString();
-      return request(`/risks${s ? '?' + s : ''}`, { signal: opts.signal });
-    },
-    stats: (opts = {}) => request('/risks/stats', { signal: opts.signal }),
-    detail: (riskId, opts = {}) => request(`/risks/${riskId}`, { signal: opts.signal }),
-    create: (data) => request('/risks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (riskId, data) => request(`/risks/${riskId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  },
   acts: {
     list: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();

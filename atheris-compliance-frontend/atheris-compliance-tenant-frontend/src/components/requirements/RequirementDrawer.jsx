@@ -59,8 +59,6 @@ export default function RequirementDrawer({ open, onClose, requirement, onError,
         </Box>
 
         <FieldGrid min={150} sx={{ mb: 3 }}>
-          <Field label="Risk" value={requirement.riskName} />
-          <Field label="Risk band" value={requirement.riskBand} />
           <Field label="Source" value={requirement.source} />
           <Field label="Controls" value={String(controls.length)} />
         </FieldGrid>

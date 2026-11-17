@@ -1,4 +1,4 @@
-package com.atheris.compliance.tenant.backend.modules.risks.service;
+package com.atheris.compliance.tenant.backend.modules.risk.service;
 
 public record ResidualRule(int allDrop, int majorityDrop, Axis axis, String target, int floor) {
 

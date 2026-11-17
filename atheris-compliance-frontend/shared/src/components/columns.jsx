@@ -183,12 +183,6 @@ export function requirementColumns({ onOpen } = {}) {
           label={r.state === 'NO_CONTROL' ? 'No control' : undefined}
           title={r.state} />
       ) },
-    { id: 'riskCode', label: 'Risk', minWidth: 180, sortable: false,
-      render: (r) => (
-        <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>
-          {r.riskCode ? `${r.riskCode} · ${r.riskName || ''}`.replace(/ · $/, '') : '—'}
-        </Typography>
-      ) },
     { id: 'controls', label: 'Controls', minWidth: 200, sortable: false,
       render: (r) => {
         const controls = r.controls || [];

@@ -178,7 +178,7 @@ public class ObligationService {
             .flatMap(List::stream)
             .collect(Collectors.toSet());
         Map<Integer, String> latestResult = latestAcceptedResults(controlIds);
-        com.atheris.compliance.tenant.backend.modules.risks.service.ResidualRule rule = complianceSettings.residualRule();
+        com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule rule = complianceSettings.residualRule();
         Map<Long, ObligationResidual.Result> out = new HashMap<>();
         for (ObligationClassification c : classes) {
             if (c.getObligationId() == null) continue;

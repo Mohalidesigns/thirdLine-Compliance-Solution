@@ -2,7 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.dashboard.controller;
 
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.RiskMatrixConfig;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.RiskMatrixConfigRepository;
-import com.atheris.compliance.tenant.backend.modules.risks.service.RiskMatrixService;
+import com.atheris.compliance.tenant.backend.modules.risk.service.RiskMatrixService;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;

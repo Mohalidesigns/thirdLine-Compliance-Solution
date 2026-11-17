@@ -117,8 +117,6 @@ export default function RequirementDetailPage() {
       <DataCard title="Assessment" sx={{ mb: 3 }}>
         <FieldGrid>
           <Field label="Derived state" value={stateLabel} />
-          <Field label="Risk" value={req.riskName} />
-          <Field label="Risk band" value={req.riskBand} />
           <Field label="Source" value={req.source} />
           <Field label="Controls" value={String(controls.length)} />
         </FieldGrid>

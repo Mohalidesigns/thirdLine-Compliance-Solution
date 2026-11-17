@@ -9,10 +9,8 @@ import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Co
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.ObligationRequirement;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Regulation;
 import com.atheris.compliance.intelligence.backend.modules.regulations.entity.RequirementControl;
-import com.atheris.compliance.intelligence.backend.modules.regulations.entity.Risk;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ObligationRequirementRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RequirementControlRepository;
-import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RiskRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulationRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.ComplianceControlRepository;
 import com.atheris.compliance.intelligence.backend.modules.regulations.repository.RegulatoryReturnRepository;
@@ -42,7 +40,6 @@ public class InternalRegulationSeedService {
     private final RegulatorRepository regulatorRepo;
     private final ObligationRequirementRepository requirementRepo;
     private final RequirementControlRepository requirementControlRepo;
-    private final RiskRepository riskRepo;
 
     public List<InternalRegulationSeed> seedForRegulators(List<Integer> regulatorIds) {
         if (regulatorIds == null || regulatorIds.isEmpty()) return List.of();
@@ -59,8 +56,6 @@ public class InternalRegulationSeedService {
         }
 
         List<InternalRegulationSeed> out = new ArrayList<>();
-        Map<Integer, Risk> riskById = riskRepo.findAll().stream()
-            .collect(Collectors.toMap(Risk::getRiskId, x -> x));
         Map<Long, String> controlNumberById = complianceControls.findAll().stream()
             .collect(Collectors.toMap(ComplianceControl::getComplianceControlId,
                 ComplianceControl::getControlNumber, (a, b) -> a));
@@ -133,7 +128,7 @@ public class InternalRegulationSeedService {
                         .inherentRiskRating(o.getInherentRiskRating())
                         .controlOwner(o.getControlOwner())
                         .requirements(requirementItems(o.getObligationId(), requirementsByObligation,
-                            controlIdsByRequirement, riskById, controlNumberById))
+                            controlIdsByRequirement, controlNumberById))
                         .build())
                     .toList())
                 .sanctions(sanctions.findByRegulationId(r.getRegulationId()).stream()
@@ -203,11 +198,9 @@ public class InternalRegulationSeedService {
             Long obligationId,
             Map<Long, List<ObligationRequirement>> requirementsByObligation,
             Map<Long, List<Integer>> controlIdsByRequirement,
-            Map<Integer, Risk> riskById,
             Map<Long, String> controlNumberById) {
         return requirementsByObligation.getOrDefault(obligationId, List.of()).stream()
             .map(req -> {
-                Risk risk = req.getRiskId() == null ? null : riskById.get(req.getRiskId());
                 List<String> controlNumbers = controlIdsByRequirement.getOrDefault(req.getRequirementId(), List.of())
                     .stream()
                     .map(id -> controlNumberById.get(id.longValue()))
@@ -216,12 +209,6 @@ public class InternalRegulationSeedService {
                 return InternalRegulationSeed.RequirementItem.builder()
                     .ordinal(req.getOrdinal())
                     .text(req.getText())
-                    .riskCode(risk == null ? null : risk.getCode())
-                    .riskName(risk == null ? null : risk.getName())
-                    .riskType(risk == null ? null : risk.getRiskType())
-                    .riskArea(risk == null ? null : risk.getAreaOfFocus())
-                    .riskLikelihood(risk == null ? null : risk.getInherentLikelihood())
-                    .riskImpact(risk == null ? null : risk.getInherentImpact())
                     .controlNumbers(controlNumbers)
                     .build();
             })

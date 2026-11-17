@@ -19,8 +19,6 @@ public class Requirement {
 
     @Column(nullable = false, columnDefinition = "text")
     private String text;
-
-    private Integer riskId;
     private String stateOverride;
 
     @Column(columnDefinition = "text")

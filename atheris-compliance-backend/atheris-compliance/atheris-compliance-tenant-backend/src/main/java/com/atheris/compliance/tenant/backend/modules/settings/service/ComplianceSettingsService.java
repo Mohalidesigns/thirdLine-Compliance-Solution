@@ -1,6 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.settings.service;
 
-import com.atheris.compliance.tenant.backend.modules.risks.service.ResidualRule;
+import com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.ComplianceSettingsRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.ComplianceSettingsResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.entity.TenantComplianceSettings;
@@ -23,15 +23,22 @@ public class ComplianceSettingsService {
     private final TenantComplianceSettingsRepository repo;
     private final TenantIdentityService tenantIdentity;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public TenantComplianceSettings current() {
         Long tenantId = tenantIdentity.currentTenantId();
         if (tenantId == null) return TenantComplianceSettings.builder().tenantId(null).build();
         return repo.findByTenantId(tenantId)
-            .orElseGet(() -> repo.save(TenantComplianceSettings.builder().tenantId(tenantId).build()));
+            .orElseGet(() -> TenantComplianceSettings.builder().tenantId(tenantId).build());
     }
 
     @Transactional
+    public TenantComplianceSettings currentForUpdate() {
+        Long tenantId = tenantIdentity.currentTenantId();
+        return repo.findByTenantId(tenantId)
+            .orElseGet(() -> repo.save(TenantComplianceSettings.builder().tenantId(tenantId).build()));
+    }
+
+    @Transactional(readOnly = true)
     public ComplianceSettingsResponse get() {
         return toResponse(current());
     }
@@ -45,7 +52,7 @@ public class ComplianceSettingsService {
 
     @Transactional
     public ComplianceSettingsResponse update(ComplianceSettingsRequest req) {
-        TenantComplianceSettings s = current();
+        TenantComplianceSettings s = currentForUpdate();
         if (req.getResidualAllDrop() != null) s.setResidualAllDrop(nonNegative(req.getResidualAllDrop(), "residualAllDrop"));
         if (req.getResidualMajorityDrop() != null) s.setResidualMajorityDrop(nonNegative(req.getResidualMajorityDrop(), "residualMajorityDrop"));
         if (req.getResidualFloor() != null) s.setResidualFloor(atLeastOne(req.getResidualFloor(), "residualFloor"));

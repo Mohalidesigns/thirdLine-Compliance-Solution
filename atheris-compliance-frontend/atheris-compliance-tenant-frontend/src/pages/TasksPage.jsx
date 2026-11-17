@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, Button, Chip, Stack, Typography, Snackbar, Alert,
+import { Box, Button, Chip, Stack, Typography, Snackbar, Alert, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
   PageHeader, KpiCards, FilterBar, SectionTable, SectionTabs,
@@ -145,9 +145,13 @@ export default function TasksPage() {
   }, [rows, kpi]);
 
   const titleColumn = {
-    id: 'title', label: 'Task', minWidth: 260, render: (t) => (
+    id: 'title', label: 'Task', minWidth: 340, render: (t) => (
       <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{t.title}</Typography>
+        <Tooltip title={t.title || ''}>
+          <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {t.title}
+          </Typography>
+        </Tooltip>
         <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
           color={priorityChip[t.priority]?.color || 'default'} />
       </Stack>

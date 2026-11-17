@@ -52,7 +52,6 @@ export default function Sidebar(props) {
       { text: 'Acts', path: '/acts', icon: <BookOpenIcon /> },
       { text: 'Obligations', path: '/obligations', icon: <ScaleIcon /> },
       { text: 'Regulators', path: '/regulators', icon: <BuildingLibraryIcon /> },
-      { text: 'Risks', path: '/risks', icon: <ExclamationTriangleIcon /> },
       { text: 'Controls', path: '/controls', icon: <ShieldCheckIcon /> },
       { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
       { text: 'Findings', path: '/findings', icon: <ExclamationTriangleIcon /> },
