@@ -21,7 +21,7 @@ function initials(name) {
 }
 
 export default function AppTopBar({
-  offset = 0, onMenuClick, searchPlaceholder = 'Search…', onSearch,
+  offset = 0, onMenuClick, brand, searchPlaceholder = 'Search…', onSearch,
   notificationCount = 0, onNotificationsClick, user = {}, menuItems = [], children,
 }) {
   const [anchor, setAnchor] = useState(null);
@@ -42,6 +42,20 @@ export default function AppTopBar({
           <IconButton onClick={onMenuClick} aria-label="Open navigation" sx={{ color: TL.gray500, ml: -1 }}>
             <Bars3Icon size={22} />
           </IconButton>
+        )}
+
+        {brand && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+            {brand.logo && <Box component="img" src={brand.logo} alt={brand.name || 'Logo'} sx={{ height: brand.height || 26, display: 'block' }} />}
+            {brand.name && (
+              <Typography noWrap sx={{
+                fontFamily: TL.font, fontSize: '1.125rem', fontWeight: 700, lineHeight: '1.75rem',
+                color: TL.primary, letterSpacing: '-0.01em',
+              }}>
+                {brand.name}
+              </Typography>
+            )}
+          </Box>
         )}
 
         {onSearch && (

@@ -11,7 +11,7 @@ import {
 import { api } from '../services/api';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
-  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, TL,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
@@ -59,6 +59,7 @@ export default function ControlsPage() {
   const [themeFilter, setThemeFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [effectivenessFilter, setEffectivenessFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
   const [obligationInput, setObligationInput] = useState('');
   const [page, setPage] = useState(0);
@@ -79,12 +80,14 @@ export default function ControlsPage() {
   }, [searchParams]);
 
   const hasFilters = search || themeFilter !== 'All'
-    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All' || obligationFilter != null;
+    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All'
+    || effectivenessFilter !== 'All' || obligationFilter != null;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
   if (themeFilter !== 'All') params.theme = themeFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
+  if (effectivenessFilter !== 'All') params.effectiveness = effectivenessFilter;
   if (actFilter !== 'All') params.actName = actFilter;
   if (obligationFilter != null) params.obligationId = obligationFilter;
   if (sortField) params.sort = `${sortField},${sortDir}`;
@@ -154,20 +157,20 @@ export default function ControlsPage() {
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All');
-    setOwnerFilter('All'); setStatusFilter('All'); setActFilter('All');
+    setOwnerFilter('All'); setStatusFilter('All'); setEffectivenessFilter('All'); setActFilter('All');
     setObligationFilter(null);
     setPage(0);
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, tone: 'blue', icon: <ShieldCheckIcon />,
-      breakdown: stats?.byStatus, drill: (label) => setStatusFilter(label) },
-    { key: 'testsDue', label: 'Tests Due (30 days)', value: stats?.testsDue ?? 0, tone: 'orange', icon: <ClockIcon />,
-      breakdown: stats?.byTheme, drill: (label) => setThemeFilter(label) },
-    { key: 'failing', label: 'Failing Controls', value: stats?.failingControls ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
-      breakdown: stats?.findingsBySeverity },
-    { key: 'openFindings', label: 'Open Findings', value: stats?.openFindings ?? 0, tone: 'purple', icon: <ExclamationCircleIcon />,
-      breakdown: stats?.findingsBySeverity, drill: (label) => navigate(`/findings?severity=${label}`) },
+    { key: 'effective', label: 'Effective', value: stats?.effective ?? 0, tone: 'green', icon: <ShieldCheckIcon />,
+      drill: () => setEffectivenessFilter('EFFECTIVE') },
+    { key: 'partial', label: 'Partially Effective', value: stats?.partiallyEffective ?? 0, tone: 'amber', icon: <ExclamationCircleIcon />,
+      drill: () => setEffectivenessFilter('PARTIAL') },
+    { key: 'ineffective', label: 'Ineffective', value: stats?.ineffective ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
+      breakdown: stats?.findingsBySeverity, drill: () => setEffectivenessFilter('INEFFECTIVE') },
+    { key: 'untested', label: 'Untested', value: stats?.untested ?? 0, tone: 'gray', icon: <ClipboardDocumentCheckIcon />,
+      drill: () => setEffectivenessFilter('UNTESTED') },
   ];
 
   const kpiItems = kpis.map((k) => ({
@@ -177,9 +180,8 @@ export default function ControlsPage() {
 
   const onKpiSelect = (key) => {
     setPage(0);
-    if (key === 'testsDue') { setSortField(''); return; }
-    if (key === 'openFindings') { navigate('/findings'); return; }
-    clearFilters();
+    if (key === 'untested') { setEffectivenessFilter('UNTESTED'); return; }
+    setEffectivenessFilter('All');
   };
 
   const onKpiDrill = (key, label) => {
@@ -189,6 +191,14 @@ export default function ControlsPage() {
   };
 
   const filters = [
+    { key: 'effectiveness', label: 'State', minWidth: 160, value: effectivenessFilter,
+      onChange: (v) => { setEffectivenessFilter(v); setPage(0); }, allLabel: 'All states',
+      options: [
+        { value: 'EFFECTIVE', label: 'Effective' },
+        { value: 'PARTIAL', label: 'Partially Effective' },
+        { value: 'INEFFECTIVE', label: 'Ineffective' },
+        { value: 'UNTESTED', label: 'Untested' },
+      ] },
     { key: 'theme', label: 'Theme', minWidth: 140, value: themeFilter,
       onChange: (v) => { setThemeFilter(v); setPage(0); }, allLabel: 'All themes',
       options: (themes?.map((t) => t.name) || stats?.themes || []).map((t) => ({ value: t, label: t })) },
@@ -363,17 +373,31 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           <Chip size="small" variant="outlined" icon={<BuildingLibraryIcon size={14} />}
             label={actLabel(detail)} />
           {detail.status && <StateBadge value={detail.status} />}
+          {detail.effectivenessState && (
+            <StateBadge value={effectivenessLabel(detail.effectivenessState)}
+              tone={effectivenessTone(detail.effectivenessState)} />
+          )}
         </Box>
       </PageHeader>
 
       {/* Headline numbers */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile icon={<ShieldCheckIcon />} label="Effectiveness"
+          value={effectivenessLabel(detail.effectivenessState)} />
+        <StatTile icon={<ClipboardDocumentCheckIcon />} label="Latest Test"
+          value={detail.lastTestResult || 'Not tested'}
+          chip={detail.lastTestResult ? <StateBadge value={detail.lastTestResult}
+            tone={{ Passed: 'green', Partial: 'amber', Failed: 'red' }[detail.lastTestResult] || 'gray'} /> : undefined} />
         <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
         <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
-        <StatTile icon={<ClipboardDocumentCheckIcon />} label="Tester" value={detail.testerName || 'Not assigned'} />
-        <StatTile icon={<UserCircleIcon />} label="Control owner" value={detail.controlOwnerName || 'Not assigned'} />
+        <StatTile icon={<UserCircleIcon />} label="Tester" value={detail.testerName || 'Not assigned'} />
       </Box>
+      {detail.effectivenessReason && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2.5 }}>
+          {detail.effectivenessReason}
+        </Typography>
+      )}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
         <Box>

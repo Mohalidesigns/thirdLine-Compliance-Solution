@@ -181,9 +181,9 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
               {CONTROL_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </TextField>
             <TextField select fullWidth size="small" label="Theme" value={form.theme}
-              onChange={(e) => set('theme', e.target.value)} SelectProps={{ native: true }} sx={{ mb: 1 }}>
-              <option value="">No theme</option>
-              {Array.from(new Set(themes.map((t) => t.name))).map((name) => <option key={name} value={name}>{name}</option>)}
+              onChange={(e) => set('theme', e.target.value)} sx={{ mb: 1 }}>
+              <MenuItem value=""><em>No theme</em></MenuItem>
+              {Array.from(new Set(themes.map((t) => t.name))).map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
             </TextField>
             <TextField fullWidth size="small" multiline minRows={2} label="What it does" value={form.whatItDoes}
               onChange={(e) => set('whatItDoes', e.target.value)} sx={{ mb: 2 }} />

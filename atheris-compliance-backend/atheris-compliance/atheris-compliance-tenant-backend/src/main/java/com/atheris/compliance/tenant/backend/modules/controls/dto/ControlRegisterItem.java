@@ -25,6 +25,8 @@ public class ControlRegisterItem {
     private LocalDate lastTestDate;
     private String lastTestReviewStatus;
     private Long openFindings;
+    private String effectivenessState;
+    private String effectivenessReason;
     private String complianceArea;
     private String regulatoryRequirement;
     private String frequency;

@@ -12,6 +12,10 @@ public class ControlStatsDto {
     private long testsDue;
     private long failingControls;
     private long openFindings;
+    private long effective;
+    private long partiallyEffective;
+    private long ineffective;
+    private long untested;
     private List<String> themes;
     private List<String> owners;
     private List<String> acts;

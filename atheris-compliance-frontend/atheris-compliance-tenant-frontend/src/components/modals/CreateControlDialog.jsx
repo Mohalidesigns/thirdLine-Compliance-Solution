@@ -156,10 +156,10 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
               </TextField>
             </Field>
             <Field label="Theme" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" SelectProps={{ native: true }} value={form.theme}
+              <TextField select fullWidth size="small" value={form.theme}
                 onChange={e => set('theme', e.target.value)}>
-                <option value="">No theme</option>
-                {Array.from(new Set(themes.map(t => t.name))).map(name => <option key={name} value={name}>{name}</option>)}
+                <MenuItem value=""><em>No theme</em></MenuItem>
+                {Array.from(new Set(themes.map(t => t.name))).map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
               </TextField>
             </Field>
           </Box>

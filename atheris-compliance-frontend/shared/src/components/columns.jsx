@@ -134,25 +134,34 @@ export function controlRegisterColumns() {
         </Tooltip>
       ) },
     { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => <ControlDueCell value={c.nextTestDueDate} /> },
-    { id: 'openFindings', label: 'Has Finding', minWidth: 120,
-      render: (c) => {
-        const n = c.openFindings ?? 0;
-        return n > 0
-          ? <StatusBadge label={`${n} open`} tone="red" />
-          : <Typography variant="body2" color="text.secondary">None</Typography>;
-      } },
-    { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency',
-      render: (c) => (c.frequency
-        ? <Typography variant="body2">{c.frequency}</Typography>
-        : <Typography variant="body2" color="text.secondary">Not set</Typography>) },
-    { id: 'testerName', label: 'Tester', minWidth: 170,
+    { id: 'effectiveness', label: 'State', minWidth: 150,
+      render: (c) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <StateBadge value={effectivenessLabel(c.effectivenessState)} tone={effectivenessTone(c.effectivenessState)} />
+          {c.openFindings > 0 && (
+            <Typography variant="caption" color="text.secondary">{c.openFindings} open finding{c.openFindings === 1 ? '' : 's'}</Typography>
+          )}
+        </Box>
+      ) },
+    { id: 'schedule', label: 'Schedule', minWidth: 150,
+      render: (c) => (
+        <Typography variant="body2">{c.frequency || 'Not set'}</Typography>
+      ) },
+    { id: 'testerName', label: 'Tester', minWidth: 180,
       render: (c) => (c.testerName
-        ? <Tooltip title={c.testerName}>
-            <Typography variant="body2" sx={ellipsis(170)}>{c.testerName}</Typography>
-          </Tooltip>
+        ? <Tooltip title={c.testerName}><Typography variant="body2" sx={ellipsis(180)}>{c.testerName}</Typography></Tooltip>
         : <StatusBadge label="No tester" tone="amber" />) },
   ];
 }
+
+export const EFFECTIVENESS_LABEL = {
+  EFFECTIVE: 'Effective', PARTIAL: 'Partially Effective', INEFFECTIVE: 'Ineffective', UNTESTED: 'Untested',
+};
+export const EFFECTIVENESS_TONE = {
+  EFFECTIVE: 'green', PARTIAL: 'amber', INEFFECTIVE: 'red', UNTESTED: 'gray',
+};
+export const effectivenessLabel = (s) => EFFECTIVENESS_LABEL[s] || 'Untested';
+export const effectivenessTone = (s) => EFFECTIVENESS_TONE[s] || 'gray';
 
 function ControlDueCell({ value }) {
   if (!value) return <Typography variant="body2" color="text.secondary">—</Typography>;

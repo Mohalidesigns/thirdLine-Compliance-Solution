@@ -43,6 +43,11 @@ public class ControlDetailResponse {
     private List<TestResultItem> testHistory;
     private LocalDate nextTestDueDate;
     private List<FindingItem> findings;
+    private String effectivenessState;
+    private String effectivenessReason;
+    private String lastTestResult;
+    private LocalDate lastTestDate;
+    private String lastTestReviewStatus;
 
     @Data @Builder
     public static class FindingItem {

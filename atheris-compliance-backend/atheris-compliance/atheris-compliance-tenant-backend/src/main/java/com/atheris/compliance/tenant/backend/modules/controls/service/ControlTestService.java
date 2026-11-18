@@ -241,11 +241,25 @@ public class ControlTestService {
                       || WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()))
             .toList();
         if (open.isEmpty()) return;
+        LocalDate dueDate = openTaskDueDate(control);
         for (ControlTask t : open) {
             t.setAssignedToUserId(control.getTesterUserId());
             t.setAssignedToName(control.getTesterName());
+            if (dueDate != null && !dueDate.equals(t.getDueDate())) {
+                t.setDueDate(dueDate);
+                if (WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()) && dueDate.isAfter(LocalDate.now())) {
+                    t.setStatus(WorkflowStatus.TASK_PENDING);
+                }
+            }
         }
         taskRepo.saveAll(open);
+    }
+
+    private LocalDate openTaskDueDate(Control control) {
+        if (control.getFirstDueDate() != null) return control.getFirstDueDate();
+        Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
+            : ControlSchedule.daysForFrequency(control.getTestFrequency());
+        return days == null ? null : LocalDate.now().plus(days, ChronoUnit.DAYS);
     }
 
     @Transactional

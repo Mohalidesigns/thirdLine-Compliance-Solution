@@ -54,21 +54,34 @@ public class ControlService {
     private final ControlThemeService themeService;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, Pageable p) {
+            String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, String effectiveness, Pageable p) {
         Integer themeId = themeService.require(theme);
         var spec = ControlSpecification.withFilters(themeId, ownerUserId, ownerId, status, q, actId, actName, obligationId);
-        Page<Control> page = repo.findAll(spec, safeSort(p));
-        List<Integer> ids = page.getContent().stream().map(Control::getControlId).toList();
+        if (effectiveness == null || effectiveness.isBlank()) {
+            Page<Control> page = repo.findAll(spec, safeSort(p));
+            return new PageImpl<>(buildRegisterItems(page.getContent()), p, page.getTotalElements());
+        }
+        List<Control> all = repo.findAll(spec, safeSort(Pageable.unpaged(p.getSort()))).getContent();
+        List<ControlRegisterItem> filtered = buildRegisterItems(all).stream()
+            .filter(i -> effectiveness.equalsIgnoreCase(i.getEffectivenessState()))
+            .toList();
+        int from = (int) Math.min((long) p.getPageNumber() * p.getPageSize(), filtered.size());
+        int to = Math.min(from + p.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(from, to), p, filtered.size());
+    }
+
+    private List<ControlRegisterItem> buildRegisterItems(List<Control> controls) {
+        if (controls.isEmpty()) return List.of();
+        List<Integer> ids = controls.stream().map(Control::getControlId).toList();
         Map<Integer, ControlTask> latestTasks = getLatestPendingTasks(ids);
         Map<Integer, ControlTestResult> lastTests = getLastTests(ids);
         Map<Integer, Long> openFindings = getOpenFindingCounts(ids);
-        Map<Integer, String> themeNames = themeService.namesById(page.getContent().stream()
+        Map<Integer, String> themeNames = themeService.namesById(controls.stream()
             .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
-        List<ControlRegisterItem> items = page.getContent().stream()
+        return controls.stream()
             .map(c -> toRegisterItem(c, latestTasks.get(c.getControlId()),
                 lastTests.get(c.getControlId()), openFindings.getOrDefault(c.getControlId(), 0L), themeNames))
             .toList();
-        return new PageImpl<>(items, p, page.getTotalElements());
     }
 
     private static Pageable safeSort(Pageable p) {
@@ -83,6 +96,8 @@ public class ControlService {
 
     private ControlRegisterItem toRegisterItem(Control c, ControlTask nextTask,
             ControlTestResult lastTest, long openFindings, Map<Integer, String> themeNames) {
+        String latestResult = lastTest != null ? lastTest.getResult() : null;
+        String state = ControlEffectiveness.of(latestResult, openFindings);
         return ControlRegisterItem.builder()
             .controlId(c.getControlId())
             .controlNumber(c.getControlNumber())
@@ -98,10 +113,13 @@ public class ControlService {
             .controlType(c.getControlType())
             .status(c.getStatus())
             .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
-            .lastTestResult(lastTest != null ? lastTest.getResult() : null)
+            .lastTestResult(latestResult)
             .lastTestDate(lastTest != null ? lastTest.getTestDate() : null)
             .lastTestReviewStatus(lastTest != null ? lastTest.getReviewStatus() : null)
             .openFindings(openFindings)
+            .effectivenessState(state)
+            .effectivenessReason(ControlEffectiveness.reason(latestResult,
+                lastTest != null ? lastTest.getTestDate() : null, openFindings))
             .complianceArea(c.getComplianceArea())
             .regulatoryRequirement(c.getRegulatoryRequirement())
             .frequency(c.getTestFrequency())
@@ -120,10 +138,18 @@ public class ControlService {
         List<String> acts = repo.findDistinctActNames();
 
         List<Control> all = repo.findAll();
-        long failingControls = getLastTests(all.stream().map(Control::getControlId).toList())
-            .values().stream()
+        List<Integer> allIds = all.stream().map(Control::getControlId).toList();
+        Map<Integer, ControlTestResult> latestTests = getLastTests(allIds);
+        Map<Integer, Long> openFindingCounts = getOpenFindingCounts(allIds);
+        long failingControls = latestTests.values().stream()
             .filter(t -> WorkflowStatus.TEST_FAILED.equals(t.getResult()) || WorkflowStatus.TEST_PARTIAL.equals(t.getResult()))
             .count();
+        Map<String, Long> byEffectiveness = all.stream()
+            .collect(Collectors.groupingBy(
+                c -> ControlEffectiveness.of(
+                    latestTests.get(c.getControlId()) != null ? latestTests.get(c.getControlId()).getResult() : null,
+                    openFindingCounts.getOrDefault(c.getControlId(), 0L)),
+                Collectors.counting()));
         List<String> openStatuses = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
         long openFindings = findingRepo.findAll().stream()
             .filter(f -> openStatuses.contains(f.getStatus()))
@@ -151,6 +177,10 @@ public class ControlService {
             .testsDue(testsDue)
             .failingControls(failingControls)
             .openFindings(openFindings)
+            .effective(byEffectiveness.getOrDefault(ControlEffectiveness.EFFECTIVE, 0L))
+            .partiallyEffective(byEffectiveness.getOrDefault(ControlEffectiveness.PARTIAL, 0L))
+            .ineffective(byEffectiveness.getOrDefault(ControlEffectiveness.INEFFECTIVE, 0L))
+            .untested(byEffectiveness.getOrDefault(ControlEffectiveness.UNTESTED, 0L))
             .themes(themes)
             .owners(owners)
             .acts(acts)
@@ -282,6 +312,15 @@ public class ControlService {
                 .build())
             .toList();
 
+        ControlTestResult latestAccepted = testRepo.findByControlIdOrderByTestDateDesc(id).stream()
+            .filter(t -> WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus()))
+            .findFirst().orElse(null);
+        long openFindingCount = findings.stream()
+            .filter(f -> !WorkflowStatus.FINDING_CLOSED.equals(f.getStatus()))
+            .count();
+        String effectivenessState = ControlEffectiveness.of(
+            latestAccepted != null ? latestAccepted.getResult() : null, openFindingCount);
+
         return ControlDetailResponse.builder()
             .controlId(c.getControlId())
             .controlNumber(c.getControlNumber())
@@ -318,6 +357,13 @@ public class ControlService {
             .testHistory(tests)
             .nextTestDueDate(nextTest)
             .findings(findings)
+            .effectivenessState(effectivenessState)
+            .effectivenessReason(ControlEffectiveness.reason(
+                latestAccepted != null ? latestAccepted.getResult() : null,
+                latestAccepted != null ? latestAccepted.getTestDate() : null, openFindingCount))
+            .lastTestResult(latestAccepted != null ? latestAccepted.getResult() : null)
+            .lastTestDate(latestAccepted != null ? latestAccepted.getTestDate() : null)
+            .lastTestReviewStatus(latestAccepted != null ? latestAccepted.getReviewStatus() : null)
             .build();
     }
 

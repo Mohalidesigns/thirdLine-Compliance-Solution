@@ -14,6 +14,7 @@ export { default as FilterBar, FilterField, SearchInput } from './components/Fil
 export {
   obligationColumns, sanctionColumns, returnColumns, controlColumns, controlRegisterColumns, instrumentColumns, requirementColumns,
   riskChip, statusChip,
+  effectivenessLabel, effectivenessTone, EFFECTIVENESS_LABEL, EFFECTIVENESS_TONE,
 } from './components/columns';
 export {
   obligationRegister, controlRegister, returnRegister, sanctionRegister,

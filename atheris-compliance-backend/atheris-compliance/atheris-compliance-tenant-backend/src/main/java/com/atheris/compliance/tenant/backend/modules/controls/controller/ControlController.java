@@ -30,8 +30,9 @@ public class ControlController {
             @RequestParam(required = false) Integer actId,
             @RequestParam(required = false) String actName,
             @RequestParam(required = false) Integer obligationId,
+            @RequestParam(required = false) String effectiveness,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegisterList(theme, ownerUserId, ownerId, status, q, actId, actName, obligationId, p));
+        return ResponseEntity.ok(service.getRegisterList(theme, ownerUserId, ownerId, status, q, actId, actName, obligationId, effectiveness, p));
     }
 
     @GetMapping("/stats")
