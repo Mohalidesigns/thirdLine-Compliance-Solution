@@ -93,4 +93,19 @@ class ObligationResidualTest {
         ObligationResidual.Result r = ObligationResidual.compute("Major", "Likely", List.of(1, 2, 3), RESULTS, rule);
         assertEquals("Possible", r.likelihood());
     }
+
+    @Test
+    void toolkitVocabularyIsLoweredWithinItsOwnScale() {
+        ObligationResidual.Result r = ObligationResidual.compute("High", "High", List.of(1, 2, 3), RESULTS);
+        assertEquals("Low", r.likelihood());
+        assertEquals("High", r.impact());
+        assertEquals("Moderate", r.band());
+    }
+
+    @Test
+    void toolkitVocabularyMajorityDropLowersOneStep() {
+        ObligationResidual.Result r = ObligationResidual.compute("High", "Medium", List.of(1, 2, 4), RESULTS);
+        assertEquals("Low", r.likelihood());
+        assertEquals("High", r.impact());
+    }
 }

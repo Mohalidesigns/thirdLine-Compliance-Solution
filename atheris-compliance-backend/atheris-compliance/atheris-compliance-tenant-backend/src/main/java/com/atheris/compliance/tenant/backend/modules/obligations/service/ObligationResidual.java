@@ -1,5 +1,6 @@
 package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
+import com.atheris.compliance.common.risk.RiskBands;
 import com.atheris.compliance.tenant.backend.modules.requirements.service.ComplianceState;
 import com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule;
 import com.atheris.compliance.tenant.backend.shared.util.BandThresholds;
@@ -15,6 +16,8 @@ public final class ObligationResidual {
         List.of("Rare", "Unlikely", "Possible", "Likely", "Almost Certain");
     private static final List<String> IMPACTS =
         List.of("Insignificant", "Minor", "Moderate", "Major", "Severe");
+    private static final List<String> TOOLKIT =
+        List.of("Very Low", "Low", "Medium", "High", "Very High");
 
     private ObligationResidual() {}
 
@@ -76,11 +79,17 @@ public final class ObligationResidual {
         return ComplianceState.failed(result);
     }
 
-    private static String lower(List<String> levels, String value, int drop, int floor) {
-        int base = levels.indexOf(value) + 1;
+    private static String lower(List<String> canonical, String value, int drop, int floor) {
+        if (value == null) return null;
+        int base = RiskBands.level(value);
         if (base == 0) return value;
+        List<String> levels = contains(canonical, value) ? canonical : TOOLKIT;
         int lowered = Math.max(floor, base - drop);
         return levels.get(lowered - 1);
+    }
+
+    private static boolean contains(List<String> levels, String value) {
+        return value != null && levels.stream().anyMatch(l -> l.equalsIgnoreCase(value));
     }
 
     public record Result(String impact, String likelihood, String band, String reason) {}
