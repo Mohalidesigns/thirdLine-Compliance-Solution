@@ -818,7 +818,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
           </Grid>
           <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" startIcon={<ArrowUpTrayIcon size={16} />}>
-              Attach evidence files
+              Attach evidence files *
               <input hidden type="file" multiple
                 accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
                 onChange={e => setFiles(Array.from(e.target.files || []))} />
@@ -833,7 +833,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || files.length === 0}>
           {saving ? 'Submitting...' : 'Record remediation'}
         </Button>
       </DialogActions>

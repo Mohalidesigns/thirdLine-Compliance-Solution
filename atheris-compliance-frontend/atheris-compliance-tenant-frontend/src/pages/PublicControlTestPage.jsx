@@ -91,7 +91,7 @@ export default function PublicControlTestPage() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!result) return;
+    if (!result || !file) return;
     mutation.mutate({
       testDate,
       result,
@@ -169,7 +169,7 @@ export default function PublicControlTestPage() {
               )}
 
               <Box>
-                <Typography sx={{ ...labelSx, mb: 0.75 }}>Evidence</Typography>
+                <Typography sx={{ ...labelSx, mb: 0.75 }}>Evidence *</Typography>
                 <Button component="label" variant="outlined">
                   Attach evidence (PDF, PNG, JPG, XLSX · max {MAX_MB} MB)
                   <input hidden type="file" accept={ACCEPT}
@@ -184,7 +184,7 @@ export default function PublicControlTestPage() {
               {mutation.isError && <Alert severity="error">{mutation.error?.message || 'Submission failed.'}</Alert>}
 
               <Stack direction="row" justifyContent="flex-end">
-                <Button type="submit" variant="contained" disabled={mutation.isPending || !result}
+                <Button type="submit" variant="contained" disabled={mutation.isPending || !result || !file}
                   startIcon={mutation.isPending ? <CircularProgress size={16} color="inherit" /> : null}>
                   {mutation.isPending ? 'Submitting…' : 'Submit test result'}
                 </Button>

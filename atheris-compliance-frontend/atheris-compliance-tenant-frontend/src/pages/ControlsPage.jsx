@@ -751,21 +751,15 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { ...form };
-      if (!body.remediationOwnerId) body.remediationOwnerId = null;
-      if (!body.remediationDeadline) delete body.remediationDeadline;
-      const created = await api.controls.recordTest(controlId, body);
-      const testId = created?.testId;
-      if (testId && files.length) {
-        for (const file of files) {
-          const fd = new FormData();
-          fd.append('file', file);
-          fd.append('sourceType', 'control_test');
-          fd.append('sourceId', String(testId));
-          fd.append('description', `Test evidence ${body.testDate}`);
-          await api.evidence.upload(fd);
-        }
-      }
+      const fd = new FormData();
+      fd.append('testDate', form.testDate);
+      fd.append('result', form.result);
+      if (form.resultDescription) fd.append('resultDescription', form.resultDescription);
+      if (form.failureSeverity) fd.append('failureSeverity', form.failureSeverity);
+      if (form.remediationOwnerId) fd.append('remediationOwnerId', String(form.remediationOwnerId));
+      if (form.remediationDeadline) fd.append('remediationDeadline', form.remediationDeadline);
+      files.forEach(f => fd.append('files', f));
+      await api.controls.recordTest(controlId, fd);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
@@ -791,7 +785,7 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
           <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" fullWidth startIcon={<ArrowUpTrayIcon size={16} />}
               sx={{ py: 2, borderStyle: 'dashed' }}>
-              {files.length ? `${files.length} file(s) selected` : 'Attach evidence (PDF, PNG, JPG, XLSX)'}
+              {files.length ? `${files.length} file(s) selected` : 'Attach evidence * (PDF, PNG, JPG, XLSX)'}
               <input type="file" hidden multiple
                 onChange={e => setFiles(Array.from(e.target.files || []))} />
             </Button>
@@ -810,7 +804,7 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result || files.length === 0}>
           {saving ? 'Saving...' : 'Record Test'}
         </Button>
       </DialogActions>

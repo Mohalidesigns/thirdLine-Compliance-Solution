@@ -212,6 +212,10 @@ public class RemediationLinkService {
 
         List<MultipartFile> uploads = files == null ? List.of()
             : files.stream().filter(x -> x != null && !x.isEmpty()).toList();
+        if (uploads.isEmpty()) {
+            throw ApiException.conflict("evidence_required",
+                "Attach at least one evidence file before submitting remediation.");
+        }
         if (uploads.size() > maxFiles) {
             throw ApiException.badRequest("Too many files (max " + maxFiles + ")");
         }

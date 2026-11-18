@@ -252,6 +252,9 @@ public class ControlTestLinkService {
         ControlTask task = currentTask(c);
         if (task == null)
             throw ApiException.conflict("no_open_test", "No control test is currently scheduled.");
+        if (file == null || file.isEmpty())
+            throw ApiException.conflict("evidence_required",
+                "Attach supporting evidence before submitting the test result.");
 
         RecordTestRequest req = new RecordTestRequest();
         req.setTestDate(testDate == null ? LocalDate.now() : testDate);
@@ -261,13 +264,11 @@ public class ControlTestLinkService {
         ControlTestResult saved = testService.recordTestFromLink(c.getControlId(), req,
             req.getTestedByName() != null ? req.getTestedByName() : "the responsible person");
 
-        if (file != null && !file.isEmpty()) {
-            try {
-                evidenceVault.upload(file, EVIDENCE_TYPE, saved.getTestId(),
-                    "Test evidence " + saved.getTestDate(), null);
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to store the test evidence", e);
-            }
+        try {
+            evidenceVault.upload(file, EVIDENCE_TYPE, saved.getTestId(),
+                "Test evidence " + saved.getTestDate(), null);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to store the test evidence", e);
         }
 
         link.setUseCount((link.getUseCount() == null ? 0 : link.getUseCount()) + 1);

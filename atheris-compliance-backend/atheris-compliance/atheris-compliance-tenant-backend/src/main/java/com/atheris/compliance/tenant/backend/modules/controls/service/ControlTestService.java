@@ -14,6 +14,7 @@ import com.atheris.compliance.tenant.backend.modules.notifications.service.Notif
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -43,6 +45,7 @@ public class ControlTestService {
     private final OwnerRepository ownerRepo;
     private final UserRepository userRepo;
     private final EmailService email;
+    private final EvidenceVaultService evidenceVault;
 
     public List<ControlTestResult> getTestHistory(Integer controlId) {
         return testRepo.findByControlIdOrderByTestDateDesc(controlId);
@@ -80,6 +83,28 @@ public class ControlTestService {
     @Transactional
     public ControlTestResult recordTestFromLink(Integer controlId, RecordTestRequest req, String testerName) {
         return record(controlId, req, null, testerName);
+    }
+
+    @Transactional
+    public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, List<MultipartFile> files, User tester) {
+        List<MultipartFile> uploads = files == null ? List.of()
+            : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+        if (uploads.isEmpty()) {
+            throw ApiException.conflict("evidence_required",
+                "Attach supporting evidence before recording the test result.");
+        }
+        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName());
+        for (MultipartFile file : uploads) storeTestEvidence(file, result, tester.getUserId());
+        return result;
+    }
+
+    private void storeTestEvidence(MultipartFile file, ControlTestResult result, Integer userId) {
+        try {
+            evidenceVault.upload(file, ControlTestLinkService.EVIDENCE_TYPE, result.getTestId(),
+                "Test evidence " + result.getTestDate(), userId);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to store the test evidence", e);
+        }
     }
 
     private ControlTestResult record(Integer controlId, RecordTestRequest req, Integer testerUserId, String testerName) {
