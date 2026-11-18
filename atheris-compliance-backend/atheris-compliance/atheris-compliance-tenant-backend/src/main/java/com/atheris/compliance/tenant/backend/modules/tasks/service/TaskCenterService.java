@@ -334,7 +334,9 @@ public class TaskCenterService {
                 .dueDate(awaiting ? null : r.getTestDate()).daysRemaining(null)
                 .ownerName(ownerName).ownerUserId(c == null ? null : c.getControlOwnerUserId())
                 .stage(r.getResult())
-                .linkPath("/controls?controlId=" + r.getControlId()).actionLabel(label).actionType("OPEN")
+                .linkPath(awaiting ? "/controls/tests/" + r.getTestId() + "/review"
+                                   : "/controls?controlId=" + r.getControlId())
+                .actionLabel(label).actionType("OPEN")
                 .sourceRef(Map.of("controlId", r.getControlId(), "testId", r.getTestId()))
                 .build());
         }

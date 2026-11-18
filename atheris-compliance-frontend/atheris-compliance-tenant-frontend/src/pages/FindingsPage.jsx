@@ -62,6 +62,7 @@ export default function FindingsPage() {
   const refreshRelated = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['obligations'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }, [queryClient]);
 
   const loadList = useCallback(() => {

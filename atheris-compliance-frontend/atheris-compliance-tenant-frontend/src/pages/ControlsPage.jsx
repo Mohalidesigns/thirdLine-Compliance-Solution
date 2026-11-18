@@ -12,7 +12,7 @@ import { api } from '../services/api';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
   KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
-  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
+  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, TrashIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
   UserCircleIcon,
@@ -145,7 +145,11 @@ export default function ControlsPage() {
     : (obligationOptions.find((o) => o.obligationId === obligationFilter)
         || { obligationId: obligationFilter, title: obligationChipLabel });
 
-  const refreshAll = () => queryClient.invalidateQueries({ queryKey: ['controls'] });
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['controls'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
 
   function setObligationFilter(id) {
     const next = new URLSearchParams(searchParams);
@@ -748,6 +752,7 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
   useEffect(() => {
     if (open) { setForm(f => ({ ...f, remediationOwnerId: controlOwnerId ?? null })); setFiles([]); }
   }, [open, controlOwnerId]);
+  const showFailure = form.result === 'Failed' || form.result === 'Partial';
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -791,15 +796,26 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
             </Button>
             {files.length > 0 && (
               <Box sx={{ mt: 1 }}>
-                {files.map(f => <Typography key={f.name} variant="caption" sx={{ display: 'block' }}>{f.name}</Typography>)}
+                {files.map((f, i) => (
+                  <Box key={`${f.name}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
+                    <IconButton size="small" onClick={() => setFiles(fs => fs.filter((_, idx) => idx !== i))}>
+                      <TrashIcon size={16} />
+                    </IconButton>
+                  </Box>
+                ))}
               </Box>
             )}
           </Grid>
-          <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
-            onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
-          <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
-            InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
-            onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+          {showFailure && (
+            <>
+              <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+                onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+                InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
+                onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+            </>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>

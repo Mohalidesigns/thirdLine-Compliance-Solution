@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
-  Grid, Box, CircularProgress, Typography,
+  Grid, Box, CircularProgress, Typography, IconButton,
 } from '@mui/material';
-import { ArrowUpTrayIcon } from 'shared';
+import { ArrowUpTrayIcon, TrashIcon } from 'shared';
 import { api } from '../../services/api';
 import OwnerPicker from '../org/OwnerPicker';
 
@@ -15,6 +16,7 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
   });
   const [files, setFiles] = useState([]);
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (open) {
@@ -26,6 +28,8 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
       setFiles([]);
     }
   }, [open, controlOwnerId]);
+
+  const showFailure = form.result === 'Failed' || form.result === 'Partial';
 
   const handleSave = async () => {
     setSaving(true);
@@ -40,6 +44,8 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
       if (form.remediationDeadline) fd.append('remediationDeadline', form.remediationDeadline);
       files.forEach(f => fd.append('files', f));
       await api.controls.recordTest(controlId, fd);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
@@ -84,15 +90,26 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
             </Button>
             {files.length > 0 && (
               <Box sx={{ mt: 1 }}>
-                {files.map(f => <Typography key={f.name} variant="caption" sx={{ display: 'block' }}>{f.name}</Typography>)}
+                {files.map((f, i) => (
+                  <Box key={`${f.name}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
+                    <IconButton size="small" onClick={() => setFiles(fs => fs.filter((_, idx) => idx !== i))}>
+                      <TrashIcon size={16} />
+                    </IconButton>
+                  </Box>
+                ))}
               </Box>
             )}
           </Grid>
-          <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
-            onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
-          <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
-            InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
-            onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+          {showFailure && (
+            <>
+              <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+                onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+                InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
+                onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+            </>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>

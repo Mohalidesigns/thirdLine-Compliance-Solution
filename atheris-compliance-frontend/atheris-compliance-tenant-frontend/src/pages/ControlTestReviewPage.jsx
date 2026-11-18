@@ -68,6 +68,8 @@ export default function ControlTestReviewPage() {
       await queryClient.invalidateQueries({ queryKey: ['controls'] });
       await queryClient.invalidateQueries({ queryKey: ['risks'] });
       await queryClient.invalidateQueries({ queryKey: ['obligations'] });
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSnack({ severity: 'success', message: decision === 'Accepted' ? 'Test accepted.' : 'Changes requested.' });
     } catch (e) {
       setSnack({ severity: 'error', message: e.message || 'Failed to submit the review.' });
