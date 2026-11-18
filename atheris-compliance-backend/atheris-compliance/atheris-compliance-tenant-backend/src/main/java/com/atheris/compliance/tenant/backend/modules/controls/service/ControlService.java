@@ -364,6 +364,7 @@ public class ControlService {
             .lastTestResult(latestAccepted != null ? latestAccepted.getResult() : null)
             .lastTestDate(latestAccepted != null ? latestAccepted.getTestDate() : null)
             .lastTestReviewStatus(latestAccepted != null ? latestAccepted.getReviewStatus() : null)
+            .lastTestedByName(latestAccepted != null ? latestAccepted.getTestedByName() : null)
             .build();
     }
 

@@ -389,9 +389,16 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         <StatTile icon={<ShieldCheckIcon />} label="Effectiveness"
           value={effectivenessLabel(detail.effectivenessState)} />
         <StatTile icon={<ClipboardDocumentCheckIcon />} label="Latest Test"
-          value={detail.lastTestResult || 'Not tested'}
-          chip={detail.lastTestResult ? <StateBadge value={detail.lastTestResult}
-            tone={{ Passed: 'green', Partial: 'amber', Failed: 'red' }[detail.lastTestResult] || 'gray'} /> : undefined} />
+          value="Not tested"
+          chip={detail.lastTestResult ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <StateBadge value={detail.lastTestResult}
+                tone={{ Passed: 'green', Partial: 'amber', Failed: 'red' }[detail.lastTestResult] || 'gray'} />
+              {detail.lastTestedByName && (
+                <Typography variant="caption" color="text.secondary">Tested by {detail.lastTestedByName}</Typography>
+              )}
+            </Box>
+          ) : undefined} />
         <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
         <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
@@ -510,7 +517,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>
-                      <TableCell>Tester</TableCell>
+                      <TableCell>Tested by</TableCell>
                       <TableCell>Result</TableCell>
                       <TableCell>Review</TableCell>
                       <TableCell>Evidence</TableCell>

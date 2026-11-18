@@ -48,6 +48,7 @@ public class ControlDetailResponse {
     private String lastTestResult;
     private LocalDate lastTestDate;
     private String lastTestReviewStatus;
+    private String lastTestedByName;
 
     @Data @Builder
     public static class FindingItem {

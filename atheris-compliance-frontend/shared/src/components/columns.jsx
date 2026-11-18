@@ -150,7 +150,7 @@ export function controlRegisterColumns() {
     { id: 'testerName', label: 'Tester', minWidth: 180,
       render: (c) => (c.testerName
         ? <Tooltip title={c.testerName}><Typography variant="body2" sx={ellipsis(180)}>{c.testerName}</Typography></Tooltip>
-        : <StatusBadge label="No tester" tone="amber" />) },
+        : <StatusBadge label="Not assigned" tone="amber" />) },
   ];
 }
 
