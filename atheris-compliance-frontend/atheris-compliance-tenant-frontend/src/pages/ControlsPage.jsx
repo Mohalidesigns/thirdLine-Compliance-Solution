@@ -535,7 +535,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                               Severity: {t.failureSeverity}
                             </Typography>
                           )}
-                          {t.resultDescription && (
+                          {t.resultDescription && t.resultDescription.trim().toLowerCase() !== (t.result || '').toLowerCase() && (
                             <Typography sx={{ display: 'block', mt: 0.25, fontSize: '0.75rem', color: TL.gray500, maxWidth: 320 }}>
                               {t.resultDescription}
                             </Typography>
