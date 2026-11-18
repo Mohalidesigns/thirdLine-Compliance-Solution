@@ -289,7 +289,9 @@ export default function ObligationDetailPage() {
           rowKey={(r) => rowId[tab] ? rowId[tab](r) : `${tab}-${pageRows.indexOf(r)}`}
           onRowClick={drillKind[tab] ? (r) => setDrill({ kind: drillKind[tab], row: r }) : undefined}
           search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: `Search ${tab}…`, action: actionFor[tab] }}
-          emptyMessage={`No ${tab} recorded for this obligation.`}
+          emptyMessage={tab === 'evidence'
+            ? 'No evidence yet. Files attached to this obligation\u2019s control tests, findings and returns appear here.'
+            : `No ${tab} recorded for this obligation.`}
           columns={columnsByTab[tab]}
           actions={tab === 'evidence' ? (ev) => (
             <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><ArrowDownTrayIcon size={16} /></IconButton>

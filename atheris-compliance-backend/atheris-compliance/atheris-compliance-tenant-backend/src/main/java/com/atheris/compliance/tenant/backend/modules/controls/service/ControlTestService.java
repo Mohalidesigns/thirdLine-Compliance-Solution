@@ -77,12 +77,12 @@ public class ControlTestService {
 
     @Transactional
     public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, User tester) {
-        return record(controlId, req, tester.getUserId(), tester.getFullName());
+        return record(controlId, req, tester.getUserId(), tester.getFullName(), true);
     }
 
     @Transactional
     public ControlTestResult recordTestFromLink(Integer controlId, RecordTestRequest req, String testerName) {
-        return record(controlId, req, null, testerName);
+        return record(controlId, req, null, testerName, false);
     }
 
     @Transactional
@@ -93,7 +93,7 @@ public class ControlTestService {
             throw ApiException.conflict("evidence_required",
                 "Attach supporting evidence before recording the test result.");
         }
-        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName());
+        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName(), true);
         for (MultipartFile file : uploads) storeTestEvidence(file, result, tester.getUserId());
         return result;
     }
@@ -107,7 +107,8 @@ public class ControlTestService {
         }
     }
 
-    private ControlTestResult record(Integer controlId, RecordTestRequest req, Integer testerUserId, String testerName) {
+    private ControlTestResult record(Integer controlId, RecordTestRequest req, Integer testerUserId, String testerName,
+                                     boolean autoAccept) {
         Control control = controls.findById(controlId)
             .orElseThrow(() -> ApiException.notFound("Control not found: " + controlId));
         ControlTestResult result = ControlTestResult.builder()
@@ -122,15 +123,32 @@ public class ControlTestService {
             .remediationOwnerUserId(req.getRemediationOwnerUserId())
             .remediationOwnerId(req.getRemediationOwnerId())
             .remediationDeadline(req.getRemediationDeadline())
-            .reviewStatus(WorkflowStatus.REVIEW_PENDING)
+            .reviewStatus(autoAccept ? WorkflowStatus.REVIEW_ACCEPTED : WorkflowStatus.REVIEW_PENDING)
             .build();
         testRepo.save(result);
 
-        ControlTask openTask = currentOpenTask(controlId);
-        String reviewSummary = "Control test (" + req.getResult().toLowerCase() + ") on " + safeName(control)
+        if (autoAccept) {
+            result.setReviewedByUserId(testerUserId);
+            result.setReviewedByName(testerName);
+            result.setReviewedAt(Instant.now());
+            testRepo.save(result);
+            applyAcceptedEffects(result);
+        } else {
+            notifyReviewers(control, result, testerName, testerUserId);
+        }
+
+        audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
+            Map.of("result", req.getResult(),
+                   "reviewStatus", autoAccept ? WorkflowStatus.REVIEW_ACCEPTED : WorkflowStatus.REVIEW_PENDING));
+        return result;
+    }
+
+    private void notifyReviewers(Control control, ControlTestResult result, String testerName, Integer testerUserId) {
+        ControlTask openTask = currentOpenTask(control.getControlId());
+        String reviewSummary = "Control test (" + result.getResult().toLowerCase() + ") on " + safeName(control)
             + " by " + (testerName == null ? "the responsible person" : testerName) + " is waiting for your review";
         Map<String, String> reviewVars = details.messageVars(control, openTask, testerName);
-        details.putResult(reviewVars, req.getResult(), null);
+        details.putResult(reviewVars, result.getResult(), null);
         NotificationTemplateService.RenderedEmail review = templates.render(
             EscalationConstants.KEY_CONTROL_DATA_REVIEW, reviewVars);
         String reviewSubject = review.subject() != null ? review.subject()
@@ -142,10 +160,6 @@ public class ControlTestService {
             notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
                 reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, testerUserId);
         }
-
-        audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
-            Map.of("result", req.getResult(), "reviewStatus", WorkflowStatus.REVIEW_PENDING));
-        return result;
     }
 
     private ControlTask currentOpenTask(Integer controlId) {
