@@ -104,6 +104,8 @@ public class ObligationDetailView {
         private LocalDate nextTestDueDate;
         private Long openFindings;
         private String status;
+        private String effectivenessState;
+        private String effectivenessReason;
     }
 
     @Data @Builder

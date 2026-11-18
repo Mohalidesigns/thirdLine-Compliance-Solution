@@ -9,6 +9,7 @@ import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlEffectiveness;
 import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.repository.EvidenceFileRepository;
@@ -701,19 +702,27 @@ public class ObligationService {
             List<Integer> controlIds = c.getLinkedControlIds();
             Map<Integer, LocalDate> nextOpenDue = nextOpenTaskDue(controlIds);
             Map<Integer, Long> openFindings = openFindingCounts(controlIds);
+            Map<Integer, String> latestAccepted = latestAcceptedResults(controlIds);
             controls = c.getLinkedControlIds().stream()
                 .map(byId::get).filter(Objects::nonNull)
-                .map(ct -> ObligationDetailView.ControlItem.builder()
-                    .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
-                    .name(ct.getName()).controlSummary(ct.getName())
-                    .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
-                    .complianceArea(ct.getComplianceArea())
-                    .controlType(ct.getControlType())
-                    .controlOwnerName(ct.getControlOwnerName())
-                    .testerName(ct.getTesterName())
-                    .frequency(ct.getTestFrequency())
-                    .nextTestDueDate(nextOpenDue.get(ct.getControlId()))
-                    .openFindings(openFindings.getOrDefault(ct.getControlId(), 0L)).status(ct.getStatus()).build())
+                .map(ct -> {
+                    long open = openFindings.getOrDefault(ct.getControlId(), 0L);
+                    String latest = latestAccepted.get(ct.getControlId());
+                    return ObligationDetailView.ControlItem.builder()
+                        .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
+                        .name(ct.getName()).controlSummary(ct.getName())
+                        .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
+                        .complianceArea(ct.getComplianceArea())
+                        .controlType(ct.getControlType())
+                        .controlOwnerName(ct.getControlOwnerName())
+                        .testerName(ct.getTesterName())
+                        .frequency(ct.getTestFrequency())
+                        .nextTestDueDate(nextOpenDue.get(ct.getControlId()))
+                        .openFindings(open).status(ct.getStatus())
+                        .effectivenessState(ControlEffectiveness.of(latest, open))
+                        .effectivenessReason(ControlEffectiveness.reason(latest, null, open))
+                        .build();
+                })
                 .toList();
         }
 
