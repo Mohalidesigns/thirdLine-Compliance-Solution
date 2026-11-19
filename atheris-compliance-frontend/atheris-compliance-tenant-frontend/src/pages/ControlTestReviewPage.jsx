@@ -143,9 +143,6 @@ export default function ControlTestReviewPage() {
         {test.resultDescription && (
           <Box sx={{ mt: 2.5 }}><Field label="Notes" value={test.resultDescription} /></Box>
         )}
-        {test.failureDetails && (
-          <Box sx={{ mt: 2.5 }}><Field label="Failure details" value={test.failureDetails} /></Box>
-        )}
       </DataCard>
 
       <DataCard title="Control" sx={{ mb: 3 }}>

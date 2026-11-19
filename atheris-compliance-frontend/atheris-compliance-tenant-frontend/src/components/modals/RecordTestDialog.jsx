@@ -11,7 +11,7 @@ import OwnerPicker from '../org/OwnerPicker';
 export default function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, onSnackbar }) {
   const [form, setForm] = useState({
     testDate: new Date().toISOString().split('T')[0], result: '', resultDescription: '',
-    failureDetails: '', failureSeverity: '', evidenceUrl: '', remediationRequired: false,
+    failureSeverity: '', evidenceUrl: '', remediationRequired: false,
     remediationOwnerId: null, remediationDeadline: '',
   });
   const [files, setFiles] = useState([]);
@@ -22,7 +22,7 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
     if (open) {
       setForm({
         testDate: new Date().toISOString().split('T')[0], result: '', resultDescription: '',
-        failureDetails: '', failureSeverity: '', evidenceUrl: '', remediationRequired: false,
+        failureSeverity: '', evidenceUrl: '', remediationRequired: false,
         remediationOwnerId: controlOwnerId ?? null, remediationDeadline: '',
       });
       setFiles([]);
@@ -38,7 +38,6 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
       fd.append('testDate', form.testDate);
       fd.append('result', form.result);
       if (form.resultDescription) fd.append('resultDescription', form.resultDescription);
-      if (form.failureDetails) fd.append('failureDetails', form.failureDetails);
       if (form.failureSeverity) fd.append('failureSeverity', form.failureSeverity);
       if (form.remediationOwnerId) fd.append('remediationOwnerId', String(form.remediationOwnerId));
       if (form.remediationDeadline) fd.append('remediationDeadline', form.remediationDeadline);
@@ -67,10 +66,10 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+          <Grid size={{ xs: 12 }}><TextField label="Notes" fullWidth size="small" multiline minRows={2}
+            placeholder="Describe how the control was tested and what you observed."
+            value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Failure Details" fullWidth size="small" multiline minRows={2} value={form.failureDetails}
-            onChange={e => setForm(f => ({ ...f, failureDetails: e.target.value }))} /></Grid>
           <Grid size={{ xs: 6 }}>
             <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
               onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>

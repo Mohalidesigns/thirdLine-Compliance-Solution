@@ -41,7 +41,6 @@ export default function PublicControlTestPage() {
   const [testDate, setTestDate] = useState(today());
   const [result, setResult] = useState('');
   const [notes, setNotes] = useState('');
-  const [failureDetails, setFailureDetails] = useState('');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
 
@@ -79,7 +78,6 @@ export default function PublicControlTestPage() {
   }
 
   const closed = view.editable === false;
-  const showFailure = result === 'Failed' || result === 'Partial';
 
   function pickFile(list) {
     setFileError('');
@@ -96,7 +94,6 @@ export default function PublicControlTestPage() {
       testDate,
       result,
       notes: notes.trim() || undefined,
-      failureDetails: showFailure && failureDetails.trim() ? failureDetails.trim() : undefined,
       file: file || undefined,
     });
   }
@@ -161,12 +158,6 @@ export default function PublicControlTestPage() {
               <TextField label="Notes" fullWidth multiline minRows={3}
                 placeholder="Describe how the control was tested and what you observed."
                 value={notes} onChange={(e) => setNotes(e.target.value)} />
-
-              {showFailure && (
-                <TextField label="Failure details" fullWidth multiline minRows={3} required
-                  placeholder="Describe what failed and the impact."
-                  value={failureDetails} onChange={(e) => setFailureDetails(e.target.value)} />
-              )}
 
               <Box>
                 <Typography sx={{ ...labelSx, mb: 0.75 }}>Evidence *</Typography>

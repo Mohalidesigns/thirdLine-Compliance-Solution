@@ -792,7 +792,9 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+          <Grid size={{ xs: 12 }}><TextField label="Notes" fullWidth size="small" multiline minRows={2}
+            placeholder="Describe how the control was tested and what you observed."
+            value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
           <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" fullWidth startIcon={<ArrowUpTrayIcon size={16} />}
