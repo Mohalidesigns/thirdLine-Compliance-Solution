@@ -21,6 +21,8 @@ import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,9 @@ public class ControlTestService {
     private final UserRepository userRepo;
     private final EmailService email;
     private final EvidenceVaultService evidenceVault;
+
+    @Autowired @Lazy
+    private ControlTestLinkService testLinks;
 
     public List<ControlTestResult> getTestHistory(Integer controlId) {
         return testRepo.findByControlIdOrderByTestDateDesc(controlId);
@@ -269,7 +274,15 @@ public class ControlTestService {
             : EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED;
         NotificationTemplateService.RenderedEmail rendered = templates.render(key, vars);
         if (rendered.subject() == null || rendered.body() == null) return;
-        email.send(to, List.of(), rendered.subject(), rendered.body(), null);
+        String link = WorkflowStatus.REVIEW_ACCEPTED.equals(decision) ? null : testerTestLink(control, to);
+        email.send(to, List.of(), rendered.subject(), rendered.body(), link);
+    }
+
+    private String testerTestLink(Control control, String testerEmail) {
+        ControlTask open = currentOpenTask(control.getControlId());
+        String raw = testLinks.createTestLink(control.getControlId(),
+            open == null ? null : open.getTaskId(), testerEmail, control.getTesterName(), null);
+        return testLinks.uploadUrl(raw);
     }
 
     @Transactional
