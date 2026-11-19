@@ -157,7 +157,7 @@ public class ControlTestService {
         NotificationTemplateService.RenderedEmail review = templates.render(
             EscalationConstants.KEY_CONTROL_DATA_REVIEW, reviewVars);
         String reviewSubject = review.subject() != null ? review.subject()
-            : "Review needed: control test on " + safeName(control);
+            : "Review needed: control test " + shortRef(control);
         String reviewBody = review.body() != null ? review.body() : reviewSummary;
         String reviewLink = "/controls/tests/" + result.getTestId() + "/review";
         List<String> reviewCc = ownerCc(control);
@@ -357,5 +357,10 @@ public class ControlTestService {
 
     private static String safeName(Control c) {
         return c.getName() != null && !c.getName().isBlank() ? c.getName() : "Control " + c.getControlId();
+    }
+
+    private static String shortRef(Control c) {
+        return c.getControlNumber() != null && !c.getControlNumber().isBlank()
+            ? c.getControlNumber() : "Control " + c.getControlId();
     }
 }

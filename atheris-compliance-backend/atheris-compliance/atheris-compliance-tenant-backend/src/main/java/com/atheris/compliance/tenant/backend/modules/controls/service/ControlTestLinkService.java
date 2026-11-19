@@ -176,7 +176,7 @@ public class ControlTestLinkService {
         NotificationTemplateService.RenderedEmail rendered =
             templates.render(EscalationConstants.KEY_CONTROL_REQUEST, vars);
         String subject = rendered.subject() != null ? rendered.subject()
-            : "Action required: test control " + c.getName();
+            : "Action required: control test " + testRef(c);
         String body = rendered.body() != null ? rendered.body() : fallbackBody(c, name);
         String url = uploadUrl(raw);
         if (to != null && !to.isBlank()) email.send(to, cc, subject, body, url);
@@ -191,6 +191,11 @@ public class ControlTestLinkService {
             templates.render(EscalationConstants.KEY_CONTROL_DATA_RECEIPT, vars);
         if (rendered.subject() == null || rendered.body() == null) return;
         email.send(to, cc, rendered.subject(), rendered.body(), null);
+    }
+
+    private static String testRef(Control c) {
+        return c.getControlNumber() != null && !c.getControlNumber().isBlank()
+            ? c.getControlNumber() : "Control " + c.getControlId();
     }
 
     private static String fallbackBody(Control c, String name) {

@@ -184,6 +184,27 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
             templates.ensure(EscalationConstants.KEY_RETURN_CHANGES_REQUESTED,
                 "Changes requested: {{returnName}}",
                 FILING_DETAILS + "\nPlease review the requested changes and resubmit the draft.\n", false);
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_APPROACHING,
+                "Upcoming control test: {{controlName}}", "Upcoming control test: {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DUE_TODAY,
+                "Due today: control test {{controlName}}", "Due today: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_REMINDER,
+                "Reminder: test control {{controlName}}", "Reminder: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_REQUEST,
+                "Action required: test control {{controlName}}", "Action required: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_OVERDUE,
+                "[L{{level}}] Overdue control test: {{controlName}}", "[L{{level}}] Overdue control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DATA_REVIEW,
+                "Control test submitted: {{controlName}}", "Control test submitted: {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DATA_RECEIPT,
+                "Received: {{controlName}} test result", "Received: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_TEST_ACCEPTED,
+                "Accepted: {{controlName}} test result", "Accepted: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED,
+                "Changes requested: {{controlName}} test", "Changes requested: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_FINDING_RAISED,
+                "Action required: Finding raised against control {{controlName}}",
+                "Action required: finding #{{findingId}} remediation");
             log.info("[TemplateSeeder] notification templates ensured");
         } catch (Throwable e) {
             log.error("[TemplateSeeder] failed: {}", e.getMessage(), e);

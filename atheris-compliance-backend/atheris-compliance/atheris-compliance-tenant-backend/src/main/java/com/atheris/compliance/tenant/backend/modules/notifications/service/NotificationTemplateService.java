@@ -78,6 +78,14 @@ public class NotificationTemplateService {
     }
 
     @Transactional
+    public void upgradeSubject(String key, String previousSubject, String newSubject) {
+        NotificationTemplate template = repo.findByTemplateKey(key).orElse(null);
+        if (template == null || !previousSubject.equals(template.getSubject())) return;
+        template.setSubject(newSubject);
+        repo.save(template);
+    }
+
+    @Transactional
     public void require(String key, String subject, String body, boolean ccOwner) {
         if (repo.findByTemplateKey(key).isPresent()) return;
         repo.save(NotificationTemplate.builder()
