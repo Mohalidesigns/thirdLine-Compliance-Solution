@@ -8,7 +8,7 @@ const ellipsis = (maxWidth) => ({
 export const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray' };
 export const STATE_LABEL = {
   COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-  GAP: 'No control', NO_REQUIREMENTS: 'No requirements',
+  GAP: 'Coverage gap', NO_REQUIREMENTS: 'No requirements',
 };
 
 export const OBLIGATION_COLUMNS = [
@@ -35,6 +35,7 @@ export const OBLIGATION_COLUMNS = [
     render: (item) => (
       <Tooltip title={item.requirementCount
         ? `${item.coveredRequirementCount ?? 0} of ${item.requirementCount} requirements covered`
+          + (item.gapRequirementCount ? ` · ${item.gapRequirementCount} with no control` : '')
         : 'No requirements'}>
         <span>
           <StatusBadge tone={STATE_TONE[item.complianceState] || 'gray'}

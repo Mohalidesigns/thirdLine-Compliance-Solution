@@ -205,12 +205,12 @@ export default function ObligationDetailPage() {
 
   const complianceTone = {
     COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red',
-    NO_CONTROL: 'red', NO_REQUIREMENTS: 'gray',
+    NO_CONTROL: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray',
   }[selected.complianceState] || 'gray';
 
   const complianceLabel = {
     COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-    NO_CONTROL: 'No control', NO_REQUIREMENTS: 'No requirements',
+    NO_CONTROL: 'No control', GAP: 'Coverage gap', NO_REQUIREMENTS: 'No requirements',
   }[selected.complianceState] || selected.complianceState;
 
   return (

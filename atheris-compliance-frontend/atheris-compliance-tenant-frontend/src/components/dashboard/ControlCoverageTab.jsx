@@ -38,7 +38,7 @@ function CoverageTable({ data, dimension }) {
             <TableCell>{data.dimension || 'Dimension'}</TableCell>
             <TableCell align="right">Obligations</TableCell>
             <TableCell align="right">Covered</TableCell>
-            <TableCell align="right">No Control</TableCell>
+            <TableCell align="right">Gaps</TableCell>
             <TableCell align="right">Coverage %</TableCell>
           </TableRow>
         </TableHead>

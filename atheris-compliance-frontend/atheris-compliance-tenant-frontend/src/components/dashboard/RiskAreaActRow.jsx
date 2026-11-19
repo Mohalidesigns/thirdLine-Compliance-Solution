@@ -146,7 +146,7 @@ export function AreaOfFocusTable({ profile = {}, coverage = {} }) {
                 <TableCell>Area of Focus</TableCell>
                 <TableCell align="right">Obligations</TableCell>
                 <TableCell align="right">Critical + High</TableCell>
-                <TableCell align="right">No Control</TableCell>
+                <TableCell align="right">Gaps</TableCell>
                 <TableCell align="right">Coverage</TableCell>
               </TableRow>
             </TableHead>
@@ -227,7 +227,7 @@ export function ActBreakdownTable({ profile = {} }) {
                 <TableCell>Act</TableCell>
                 <TableCell align="right">Obligations</TableCell>
                 <TableCell align="right">Critical + High</TableCell>
-                <TableCell align="right">No Control</TableCell>
+                <TableCell align="right">Gaps</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

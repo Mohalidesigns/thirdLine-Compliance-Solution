@@ -158,7 +158,7 @@ export default function ObligationsRegisterPage() {
     { key: 'compliant', label: 'Compliant', value: stats?.compliant ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
     { key: 'partial', label: 'Partial', value: stats?.partial ?? 0, tone: 'amber', icon: <InformationCircleIcon /> },
     { key: 'nonCompliant', label: 'Non-compliant', value: stats?.nonCompliant ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
-    { key: 'gaps', label: 'No Control', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
+    { key: 'gaps', label: 'Coverage gaps', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];

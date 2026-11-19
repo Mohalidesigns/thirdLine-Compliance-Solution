@@ -16,6 +16,8 @@ import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligati
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
@@ -39,7 +41,7 @@ import java.util.stream.Collectors;
  *
  * Fixes carried in from the old {@code DashboardService.computeSnapshot}:
  *  - high-risk uses the canonical bands (Critical + High), not the outdated "Extreme";
- *  - a control gap has ONE definition: an applicable obligation with no linked control;
+ *  - a control gap has ONE definition: an obligation with at least one requirement no control covers;
  *  - findings "open" = Open + In Remediation, "high severity" = Critical + High;
  *  - controls pass/fail on their latest TEST RESULT, never on a risk rating (seeded residual risk is
  *    a copy of inherent risk, so "residual High" was being shown as "failing");
@@ -50,7 +52,7 @@ import java.util.stream.Collectors;
  * <p><b>Compliance score</b> — weighted mean of the components that have data (weights are the
  * tenant's {@code compliance_score_weights}, default 30/25/30/15):
  * <ol>
- *   <li>Control coverage — applicable obligations with ≥1 linked control;</li>
+ *   <li>Control coverage — applicable obligations with no uncovered requirement ÷ applicable obligations;</li>
  *   <li>Control effectiveness — controls whose latest test passed ÷ all controls (untested ≠ effective);</li>
  *   <li>Returns on time — filings submitted on time ÷ filings due;</li>
  *   <li>Findings within SLA — closed within SLA or still inside the remediation deadline ÷ all findings.</li>
@@ -72,6 +74,7 @@ public class ComplianceMetricsService {
     private final ReturnFilingInstanceRepository returns;
     private final RegulatorySanctionRepository sanctions;
     private final ComplianceScoreWeightsRepository scoreWeights;
+    private final RequirementService requirementService;
 
     private static final Set<String> HIGH_RISK = Set.of(WorkflowStatus.RISK_CRITICAL, WorkflowStatus.RISK_HIGH);
     private static final Set<String> OPEN_FINDING_STATUS = Set.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION);
@@ -107,13 +110,16 @@ public class ComplianceMetricsService {
         Map<String, Integer> byRisk = new TreeMap<>();
         Map<String, Integer> byArea = new TreeMap<>();
         Map<String, Integer> byAct = new TreeMap<>();
+        Map<Long, RequirementSummary> reqSummaries = requirementService.summaries(applicable.stream()
+            .map(ObligationClassification::getObligationId).filter(Objects::nonNull).distinct().toList());
         int highRisk = 0;
         int gaps = 0;
         for (ObligationClassification c : applicable) {
             String risk = resolveRisk(c);
             byRisk.merge(risk, 1, Integer::sum);
             if (HIGH_RISK.contains(risk)) highRisk++;
-            if (hasNoControl(c)) gaps++;
+            RequirementSummary rs = c.getObligationId() == null ? null : reqSummaries.get(c.getObligationId());
+            if (rs != null && rs.isHasGap()) gaps++;
 
             // every applicable obligation lands in exactly one area and one act bucket
             Obligation o = c.getObligationId() != null ? obligationById.get(c.getObligationId()) : null;
@@ -237,7 +243,7 @@ public class ComplianceMetricsService {
         if (escalated > 0) attention.add(item("returns", "Returns escalated to management", escalated, "high"));
         if (overdue > 0) attention.add(item("returns", "Overdue returns", overdue, "high"));
         if (overdueRemediation > 0) attention.add(item("findings", "Findings past remediation SLA", overdueRemediation, "high"));
-        if (gaps > 0) attention.add(item("obligations", "High-risk obligations with no control", countHighRiskGaps(applicable), "medium"));
+        if (gaps > 0) attention.add(item("obligations", "High-risk obligations with no control", countHighRiskGaps(applicable, reqSummaries), "medium"));
         if (controlsFailing > 0) attention.add(item("controls", "Controls failing their latest test", controlsFailing, "high"));
         if (testsOverdue > 0) attention.add(item("controls", "Control tests overdue", testsOverdue, "medium"));
         attention.sort(Comparator.comparingLong(ComplianceMetricsDto.AttentionItem::getCount).reversed());
@@ -348,13 +354,11 @@ public class ComplianceMetricsService {
         return out;
     }
 
-    private long countHighRiskGaps(List<ObligationClassification> applicable) {
-        return applicable.stream().filter(c -> hasNoControl(c) && HIGH_RISK.contains(resolveRisk(c))).count();
-    }
-
-    /** ONE gap definition: an applicable obligation with no linked control. */
-    private boolean hasNoControl(ObligationClassification c) {
-        return c.getLinkedControlIds() == null || c.getLinkedControlIds().isEmpty();
+    private long countHighRiskGaps(List<ObligationClassification> applicable, Map<Long, RequirementSummary> reqSummaries) {
+        return applicable.stream().filter(c -> {
+            RequirementSummary rs = c.getObligationId() == null ? null : reqSummaries.get(c.getObligationId());
+            return rs != null && rs.isHasGap() && HIGH_RISK.contains(resolveRisk(c));
+        }).count();
     }
 
     private String resolveRisk(ObligationClassification c) {

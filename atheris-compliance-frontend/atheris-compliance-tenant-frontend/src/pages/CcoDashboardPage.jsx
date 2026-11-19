@@ -110,7 +110,7 @@ export default function CcoDashboardPage() {
     { key: 'highRisk', label: 'Critical/High Obligations', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
       value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {},
       caption: `of ${metrics.obligationsApplicable ?? 0} applicable obligations` },
-    { key: 'gaps', label: 'No Control', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
+    { key: 'gaps', label: 'Coverage gaps', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
       value: metrics.obligationsWithGaps ?? 0 },
   ];
 
