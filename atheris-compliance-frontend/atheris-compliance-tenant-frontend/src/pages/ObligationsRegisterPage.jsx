@@ -10,7 +10,7 @@ import {
   SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
   ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon, CalendarDaysIcon,
-  CheckCircleIcon,
+  CheckCircleIcon, ClockIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -144,6 +144,7 @@ export default function ObligationsRegisterPage() {
     else if (type === 'compliant') { setStateFilter('COMPLIANT'); }
     else if (type === 'partial') { setStateFilter('PARTIAL'); }
     else if (type === 'nonCompliant') { setStateFilter('NON_COMPLIANT'); }
+    else if (type === 'notAssessed') { setStateFilter('NOT_ASSESSED'); }
     else if (type === 'gaps') { setNoControl(true); }
     setPage(0);
   }
@@ -151,13 +152,15 @@ export default function ObligationsRegisterPage() {
   const activeKpi = stateFilter === 'COMPLIANT' ? 'compliant'
     : stateFilter === 'PARTIAL' ? 'partial'
       : stateFilter === 'NON_COMPLIANT' ? 'nonCompliant'
-        : riskFilter === 'High' ? 'highRisk'
-          : noControl ? 'gaps' : null;
+        : stateFilter === 'NOT_ASSESSED' ? 'notAssessed'
+          : riskFilter === 'High' ? 'highRisk'
+            : noControl ? 'gaps' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
     { key: 'compliant', label: 'Compliant', value: stats?.compliant ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
     { key: 'partial', label: 'Partial', value: stats?.partial ?? 0, tone: 'amber', icon: <InformationCircleIcon /> },
     { key: 'nonCompliant', label: 'Non-compliant', value: stats?.nonCompliant ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
+    { key: 'notAssessed', label: 'Not assessed', value: stats?.notAssessed ?? 0, tone: 'gray', icon: <ClockIcon /> },
     { key: 'gaps', label: 'Coverage gaps', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
@@ -190,7 +193,7 @@ export default function ObligationsRegisterPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={5} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={6} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}

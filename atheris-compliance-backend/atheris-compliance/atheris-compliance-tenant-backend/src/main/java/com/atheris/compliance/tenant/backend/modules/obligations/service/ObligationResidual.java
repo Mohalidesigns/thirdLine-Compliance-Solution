@@ -37,11 +37,14 @@ public final class ObligationResidual {
             return new Result(null, null, null, "Risk not rated — set impact and likelihood.");
         }
         if (controlIds == null || controlIds.isEmpty()) {
-            return new Result(impact, likelihood, BandThresholds.bandByLabels(likelihood, impact),
-                "No control linked — residual equals inherent.");
+            return new Result(null, null, null, "No control linked — residual not assessed.");
+        }
+        Map<Integer, String> results = latestResultByControl == null ? Map.of() : latestResultByControl;
+        boolean anyTested = controlIds.stream().anyMatch(id -> results.get(id) != null);
+        if (!anyTested) {
+            return new Result(null, null, null, "No control tested yet — residual not assessed.");
         }
         ResidualRule r = rule == null ? ResidualRule.defaults() : rule;
-        Map<Integer, String> results = latestResultByControl == null ? Map.of() : latestResultByControl;
         long passed = controlIds.stream().filter(id -> isTarget(results.get(id), r)).count();
         boolean failed = controlIds.stream().anyMatch(id -> isFailed(results.get(id)));
 
@@ -58,7 +61,7 @@ public final class ObligationResidual {
         if (drop == 0 && failed) {
             reason = "A linked control failed its latest test — residual held at " + measured + ".";
         } else if (drop == 0) {
-            reason = "Controls not yet proven effective — residual held at " + measured + ".";
+            reason = "Controls tested but not yet proven effective — residual held at " + measured + ".";
         } else {
             reason = passed + " of " + controlIds.size() + " controls passed — residual lowered by " + drop
                 + " to " + measured + ".";

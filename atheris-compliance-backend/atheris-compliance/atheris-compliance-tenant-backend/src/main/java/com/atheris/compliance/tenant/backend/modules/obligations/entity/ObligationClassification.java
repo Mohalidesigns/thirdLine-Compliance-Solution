@@ -107,7 +107,7 @@ public class ObligationClassification {
 
     public static String computeResidualRisk(String inherentRisk, boolean controlsLinked, String testStatus) {
         if (inherentRisk == null) return null;
-        if (!controlsLinked || testStatus == null) return inherentRisk;
+        if (!controlsLinked || testStatus == null) return null;
         return switch (testStatus) {
             case "Passed" -> switch (inherentRisk) {
                 case "Critical" -> "High"; case "High" -> "Moderate";

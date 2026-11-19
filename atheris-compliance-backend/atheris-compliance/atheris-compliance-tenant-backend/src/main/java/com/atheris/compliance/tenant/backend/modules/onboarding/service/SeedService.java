@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.obligations.service.Obligat
 import com.atheris.compliance.tenant.backend.modules.obligations.service.RegulationSeedService;
 import com.atheris.compliance.tenant.backend.modules.onboarding.entity.TenantProfile;
 import com.atheris.compliance.tenant.backend.modules.onboarding.repository.TenantProfileRepository;
+import com.atheris.compliance.tenant.backend.modules.returns.service.ReturnService;
 import com.atheris.compliance.tenant.backend.modules.review.repository.PendingReviewRepository;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class SeedService {
     private final PendingReviewRepository pendingReviewRepo;
     private final TenantProfileRepository profiles;
     private final TenantIdentityService tenantIdentity;
+    private final ReturnService returnService;
 
     @Async
     public void seedAsync() {
@@ -36,6 +38,13 @@ public class SeedService {
             } catch (Exception e) {
                 log.error("[SeedService] seedAll failed: {}", e.getMessage(), e);
             }
+        }
+
+        try {
+            returnService.ensureInstancesForActive();
+            log.info("[SeedService] filing periods materialised");
+        } catch (Exception e) {
+            log.error("[SeedService] ensureInstances failed: {}", e.getMessage(), e);
         }
 
         try {

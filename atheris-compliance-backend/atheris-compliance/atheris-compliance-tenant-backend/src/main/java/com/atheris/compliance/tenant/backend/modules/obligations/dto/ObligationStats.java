@@ -15,6 +15,7 @@ public class ObligationStats {
     private long compliant;
     private long partial;
     private long nonCompliant;
+    private long notAssessed;
     private long noRequirements;
     /** Obligations that are linked to at least one return. */
     private long withReturns;

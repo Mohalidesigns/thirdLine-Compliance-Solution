@@ -37,10 +37,16 @@ class ObligationResidualTest {
     }
 
     @Test
-    void noControlLinkedResidualEqualsInherent() {
+    void noControlLinkedIsNotAssessed() {
         ObligationResidual.Result r = ObligationResidual.compute("Moderate", "Possible", List.of(), RESULTS);
-        assertEquals("Possible", r.likelihood());
-        assertEquals("Moderate", r.band());
+        assertNull(r.band());
+        assertNull(r.likelihood());
+    }
+
+    @Test
+    void linkedButUntestedControlsAreNotAssessed() {
+        ObligationResidual.Result r = ObligationResidual.compute("Moderate", "Possible", List.of(9, 10), Map.of());
+        assertNull(r.band());
     }
 
     @Test

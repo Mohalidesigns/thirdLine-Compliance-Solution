@@ -5,10 +5,10 @@ const ellipsis = (maxWidth) => ({
   maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 });
 
-export const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray' };
+export const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', GAP: 'red', NOT_ASSESSED: 'gray', NO_REQUIREMENTS: 'gray' };
 export const STATE_LABEL = {
   COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-  GAP: 'Coverage gap', NO_REQUIREMENTS: 'No requirements',
+  GAP: 'Coverage gap', NOT_ASSESSED: 'Not assessed', NO_REQUIREMENTS: 'No requirements',
 };
 
 export const OBLIGATION_COLUMNS = [

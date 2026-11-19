@@ -227459,7 +227459,7 @@
    "title": "Submission of Group Life Insurance Certificate",
    "sectionRef": "4(5)",
    "description": "Employer must maintain a group life insurance policy (minimum of 3x annual total emolument) and submit evidence of the policy to PenCom",
-   "frequency": "Annually or upon renewal",
+   "frequency": "On event",
    "responsibleUnit": "HR / Risk Management",
    "responsiblePerson": null
   },
@@ -227486,7 +227486,7 @@
    "title": "RSA Transfer Request Handling",
    "sectionRef": "13",
    "description": "An RSA holder may request transfer to another PFA only once per year, and the Bank must ensure smooth processing and non-obstruction",
-   "frequency": "Once per calendar year",
+   "frequency": "On event",
    "responsibleUnit": "Employee via HR (Monitored by Employer)",
    "responsiblePerson": null
   },
@@ -227531,7 +227531,7 @@
    "title": "NHF Deduction Remittance",
    "sectionRef": "Section 9(2)",
    "description": "Deduct 2.5% from qualifying employees’ salaries and remit to Federal Mortgage Bank of Nigeria (FMBN) within one month of deduction.",
-   "frequency": "Monthly",
+   "frequency": "On event",
    "responsibleUnit": "Payroll / Compliance",
    "responsiblePerson": null
   },
@@ -227651,7 +227651,7 @@
    "title": "Monthly Payment of National Minimum Wage",
    "sectionRef": "Section 3(1)",
    "description": "Every commercial bank must pay each worker not less than ₦30,000.00 (or the prevailing minimum wage).",
-   "frequency": "Monthly (with salary payment)",
+   "frequency": "On event",
    "responsibleUnit": "HR / Payroll / Finance",
    "responsiblePerson": null
   },
@@ -227787,7 +227787,7 @@
    "title": "Annual Asset Declaration (Employee)",
    "sectionRef": "Section 4(1)",
    "description": "Employees must submit a declaration of assets acquired/disposed after initial declaration using Form C.",
-   "frequency": "Annually: Within 7 days of each declaration anniversary",
+   "frequency": "On event",
    "responsibleUnit": "Employee / HR / Compliance",
    "responsiblePerson": null
   },
@@ -227796,7 +227796,7 @@
    "title": "Execution of Annual Declaration Form (Form C)",
    "sectionRef": "Section 4(2)",
    "description": "Annual declaration must follow the process in Section 2 – attestation and prescribed format (Form C).",
-   "frequency": "Annually: Within 7 days of each declaration anniversary",
+   "frequency": "On event",
    "responsibleUnit": "Employee / HR / Compliance",
    "responsiblePerson": null
   },
@@ -227814,7 +227814,7 @@
    "title": "Post-Employment Asset Declaration",
    "sectionRef": "Section 4(4)",
    "description": "Former employees must declare assets annually for 2 years after exit. Bank must make forms available.",
-   "frequency": "Annually for 2 years post-exit (within 7 days of anniversary)",
+   "frequency": "On event",
    "responsibleUnit": "Ex-Employee / Bank HR",
    "responsiblePerson": null
   },
@@ -227868,7 +227868,7 @@
    "title": "Attestation that due process was followed before blacklisting/delisting",
    "sectionRef": "Section 13(iii)",
    "description": "The MD and ECO must attest in writing that due process was followed before reaching a blacklisting/delisting decision.",
-   "frequency": "Monthly, with each return",
+   "frequency": "On event",
    "responsibleUnit": null,
    "responsiblePerson": "MD and ECO (or Compliance Officer)"
   },
@@ -227877,7 +227877,7 @@
    "title": "Notify FCCPC of proposed mergers/acquisitions",
    "sectionRef": "92(1)",
    "description": "Parties to a merger must notify the Commission in the prescribed manner before implementation.",
-   "frequency": "Before merger is implemented",
+   "frequency": "On event",
    "responsibleUnit": "Legal / Strategy",
    "responsiblePerson": "Company Secretary"
   },
@@ -227895,7 +227895,7 @@
    "title": "Biannual Audit Summary (for >1,000 data subjects)",
    "sectionRef": "4.1(6)",
    "description": "A summary of internal data audits must be submitted to NITDA if >1,000 data subjects are processed within 6 months.",
-   "frequency": "Every 6 months",
+   "frequency": "On event",
    "responsibleUnit": "DPO / Compliance",
    "responsiblePerson": null
   },
@@ -227942,7 +227942,7 @@
    "sectionRef": "Rule 17.20(e)",
    "description": "Issuers' Portal",
    "frequency": "Not later than 90 days after year-end",
-   "responsibleUnit": null,
+   "responsibleUnit": "Finance & Treasury",
    "responsiblePerson": null
   },
   {
@@ -227951,7 +227951,7 @@
    "sectionRef": "Rule 13.19(f)(1)(A)",
    "description": "Issuers' Portal",
    "frequency": "Not later than 30 days after quarter-end",
-   "responsibleUnit": null,
+   "responsibleUnit": "Finance & Treasury",
    "responsiblePerson": null
   },
   {
@@ -227960,7 +227960,7 @@
    "sectionRef": "Rule 19.2(b)",
    "description": "Issuers' Portal",
    "frequency": "At least 14 days in advance of the meeting",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -227969,7 +227969,7 @@
    "sectionRef": "Rule 19.2(a)",
    "description": "Issuers' Portal",
    "frequency": "Within 24 hours after the meeting",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -227978,7 +227978,7 @@
    "sectionRef": "Rule 19.6",
    "description": "To The Exchange",
    "frequency": "Not less than 14 days before dispatch to shareholders",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -227987,7 +227987,7 @@
    "sectionRef": "Rule 13.19(A)(J)(iv)",
    "description": "To The Exchange",
    "frequency": "Not less than 14 days before the closure date",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -227996,7 +227996,7 @@
    "sectionRef": "Rule 17.18(b)",
    "description": "Issuers' Portal",
    "frequency": "In advance of the commencement date",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -228005,7 +228005,7 @@
    "sectionRef": "Rule 17.13(a)",
    "description": "Issuers' Portal",
    "frequency": "Not later than 10 business days after the transaction",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -228014,7 +228014,7 @@
    "sectionRef": "Rule 13.19(A)(B)",
    "description": "Issuers' Portal",
    "frequency": "Immediately / Without delay",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -228023,7 +228023,7 @@
    "sectionRef": "Rule 18.2(d)",
    "description": "Issuers' Portal",
    "frequency": "Immediately / Without delay",
-   "responsibleUnit": null,
+   "responsibleUnit": "Legal & Company Secretariat",
    "responsiblePerson": null
   },
   {
@@ -228031,7 +228031,7 @@
    "title": "Submit Annual Financial Statements post Board Approval",
    "sectionRef": "Section 8(1)(d)",
    "description": "Public Interest Entities must submit a copy of their annual reports and financial statements to FRCN within 60 days after Board approval.",
-   "frequency": "Annually Within 60 days of Board approval",
+   "frequency": "On event",
    "responsibleUnit": "Financial Reporting / Corporate Finance",
    "responsiblePerson": null
   },
@@ -228238,7 +228238,7 @@
    "title": "Annual Training Contribution",
    "sectionRef": "6(1)",
    "description": "Bank must remit 1% of total annual payroll to the ITF if it has ≥5 employees or turnover ≥ ₦50 million.",
-   "frequency": "Annually (on or before prescribed date)",
+   "frequency": "On event",
    "responsibleUnit": "Finance / HR / Compliance",
    "responsiblePerson": null
   },
@@ -228310,7 +228310,7 @@
    "title": "NIN Compliance Report Submission",
    "sectionRef": "4(2)(b)",
    "description": "Submission of monthly compliance report detailing: (i) number of identifications added or renewed, (ii) status of compliance with NIN Regulations 2015, 2017, and Nigeria Biometrics Standards Regulations 2017,",
-   "frequency": "Monthly",
+   "frequency": "On event",
    "responsibleUnit": "Compliance Department / IT Governance / Risk Management",
    "responsiblePerson": null
   },
@@ -228347,7 +228347,7 @@
    "title": "Reassessment of fitness and propriety",
    "sectionRef": "3",
    "description": "Fitness and propriety of approved persons must be reassessed by the financial institution",
-   "frequency": "Every 2 years (or as may be directed by the CBN)",
+   "frequency": "On event",
    "responsibleUnit": "HR / Compliance",
    "responsiblePerson": null
   },
@@ -228423,7 +228423,7 @@
    "title": "Deadline for Annual Return",
    "sectionRef": "421 (1)",
    "description": "Annual return must be signed by a director and secretary, and submitted within 42 days after the AGM.",
-   "frequency": "42 days after AGM",
+   "frequency": "On event",
    "responsibleUnit": "Company Secretariat",
    "responsiblePerson": null
   },
@@ -228470,7 +228470,7 @@
    "title": "Ad-Hoc Statistical Returns",
    "sectionRef": "24(2)",
    "description": "Submit any data or returns requested by CBN",
-   "frequency": "As specified by CBN",
+   "frequency": "On event",
    "responsibleUnit": "Regulatory Reporting / Compliance",
    "responsiblePerson": null
   },
@@ -228561,7 +228561,7 @@
    "title": "Annual IRRBB Report  (Under Pillar 2)",
    "sectionRef": "3.1",
    "description": "Banks must render an Interest Rate Risk in the Banking Book (IRRBB) report at the same level as their ICAAP report, covering every major currency where positions exceed 5% of assets or liabilities.",
-   "frequency": "Annually (alongside ICAAP submission)",
+   "frequency": "On event",
    "responsibleUnit": "Risk Management / Regulatory Reporting",
    "responsiblePerson": null
   },

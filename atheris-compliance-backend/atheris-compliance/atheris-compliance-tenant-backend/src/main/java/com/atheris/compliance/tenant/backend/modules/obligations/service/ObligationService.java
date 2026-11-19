@@ -106,6 +106,7 @@ public class ObligationService {
         long compliant = rows.stream().filter(i -> ComplianceState.COMPLIANT.equals(i.getComplianceState())).count();
         long partial = rows.stream().filter(i -> ComplianceState.PARTIAL.equals(i.getComplianceState())).count();
         long nonCompliant = rows.stream().filter(i -> ComplianceState.NON_COMPLIANT.equals(i.getComplianceState())).count();
+        long notAssessed = rows.stream().filter(i -> ComplianceState.NOT_ASSESSED.equals(i.getComplianceState())).count();
         long noRequirements = rows.stream().filter(i -> ComplianceState.NO_REQUIREMENTS.equals(i.getComplianceState())).count();
         long withReturns = rows.stream().filter(i -> i.getLinkedReturnIds() != null
                 && !i.getLinkedReturnIds().isEmpty()).count();
@@ -135,7 +136,7 @@ public class ObligationService {
 
         return ObligationStats.builder()
             .total(total).highRisk(highRisk).gaps(gaps).gapRequirements(gapRequirements).totalRequirements(totalRequirements)
-            .compliant(compliant).partial(partial).nonCompliant(nonCompliant).noRequirements(noRequirements)
+            .compliant(compliant).partial(partial).nonCompliant(nonCompliant).notAssessed(notAssessed).noRequirements(noRequirements)
             .withReturns(withReturns).underReview(underReview)
             .regulators(List.copyOf(regulators))
             .themes(List.copyOf(themes))

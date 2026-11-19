@@ -17,6 +17,7 @@ const STATE_LABEL = {
   PARTIAL: 'Partial',
   NON_COMPLIANT: 'Non-compliant',
   NO_CONTROL: 'No control',
+  NOT_ASSESSED: 'Not assessed',
   NO_REQUIREMENTS: 'No requirements',
 };
 
@@ -25,6 +26,7 @@ const STATE_HINT = {
   PARTIAL: 'At least one linked control has not been proven effective yet.',
   NON_COMPLIANT: 'A linked control failed its latest test and none are effective.',
   NO_CONTROL: 'No control covers this requirement — this is a gap.',
+  NOT_ASSESSED: 'No linked control has been tested yet — not assessed.',
 };
 
 function formatDate(d) {
