@@ -64,7 +64,21 @@ public class ComplianceSettingsService {
         if (req.getSlaHighDays() != null) s.setSlaHighDays(nonNegative(req.getSlaHighDays(), "slaHighDays"));
         if (req.getSlaMediumDays() != null) s.setSlaMediumDays(nonNegative(req.getSlaMediumDays(), "slaMediumDays"));
         if (req.getSlaLowDays() != null) s.setSlaLowDays(nonNegative(req.getSlaLowDays(), "slaLowDays"));
+        if (req.getRequireControlTestReview() != null) s.setRequireControlTestReview(req.getRequireControlTestReview());
+        if (req.getRequireFindingReview() != null) s.setRequireFindingReview(req.getRequireFindingReview());
         return toResponse(repo.save(s));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean requireControlTestReview() {
+        Boolean v = current().getRequireControlTestReview();
+        return v == null || v;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean requireFindingReview() {
+        Boolean v = current().getRequireFindingReview();
+        return v == null || v;
     }
 
     private int nonNegative(Integer value, String field) {
@@ -104,6 +118,8 @@ public class ComplianceSettingsService {
             .slaHighDays(s.getSlaHighDays())
             .slaMediumDays(s.getSlaMediumDays())
             .slaLowDays(s.getSlaLowDays())
+            .requireControlTestReview(s.getRequireControlTestReview() == null || s.getRequireControlTestReview())
+            .requireFindingReview(s.getRequireFindingReview() == null || s.getRequireFindingReview())
             .build();
     }
 

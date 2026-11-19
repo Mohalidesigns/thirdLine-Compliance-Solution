@@ -17,4 +17,7 @@ public class ComplianceSettingsRequest {
     private Integer slaHighDays;
     private Integer slaMediumDays;
     private Integer slaLowDays;
+
+    private Boolean requireControlTestReview;
+    private Boolean requireFindingReview;
 }

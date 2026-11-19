@@ -20,4 +20,7 @@ public class ComplianceSettingsResponse {
     private Integer slaHighDays;
     private Integer slaMediumDays;
     private Integer slaLowDays;
+
+    private Boolean requireControlTestReview;
+    private Boolean requireFindingReview;
 }

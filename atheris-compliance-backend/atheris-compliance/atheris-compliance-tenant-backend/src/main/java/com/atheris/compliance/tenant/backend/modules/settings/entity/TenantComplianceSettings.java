@@ -30,6 +30,9 @@ public class TenantComplianceSettings {
     @Builder.Default private Integer slaMediumDays = 30;
     @Builder.Default private Integer slaLowDays = 60;
 
+    @Builder.Default private Boolean requireControlTestReview = true;
+    @Builder.Default private Boolean requireFindingReview = true;
+
     private Instant createdAt;
     private Instant updatedAt;
 

@@ -186,7 +186,7 @@ export default function FindingsPage() {
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Open">Open</MenuItem>
             <MenuItem value="In Remediation">In Remediation</MenuItem>
-            <MenuItem value="Remediated">Remediated</MenuItem>
+            <MenuItem value="Remediated">Awaiting review</MenuItem>
             <MenuItem value="Closed">Closed</MenuItem>
           </TextField>
         </FilterField>
@@ -253,7 +253,7 @@ export default function FindingsPage() {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <StateBadge value={row.status} />
+                          <StateBadge value={row.status} label={row.status === 'Remediated' ? 'Awaiting review' : undefined} />
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="View detail">

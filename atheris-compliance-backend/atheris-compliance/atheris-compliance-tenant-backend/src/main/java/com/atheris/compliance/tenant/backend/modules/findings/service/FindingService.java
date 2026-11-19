@@ -380,6 +380,9 @@ public class FindingService {
         f.setRemediationSubmittedViaLink(false);
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
+        repo.save(f);
+
+        if (closeIfReviewNotRequired(f, userId)) return f;
 
         Map<String, String> vars = findingDetails.messageVars(f, f.getAssignedToName());
         NotificationTemplateService.RenderedEmail rendered =
@@ -398,6 +401,20 @@ public class FindingService {
                 rendered.body() != null ? rendered.body() : summary, cc);
         }
         return repo.save(f);
+    }
+
+    @Transactional
+    public boolean closeIfReviewNotRequired(Finding f, Integer submittedByUserId) {
+        if (complianceSettings.requireFindingReview()) return false;
+        if (WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType()) && !gapResolved(f)) return false;
+        f.setStatus(WorkflowStatus.FINDING_CLOSED);
+        f.setClosedAt(Instant.now());
+        f.setSignedOffByUserId(submittedByUserId);
+        f.setSignedOffAt(Instant.now());
+        audit.log(submittedByUserId, "finding_auto_closed", "finding", f.getFindingId(),
+            Map.of("reason", "review_not_required"));
+        repo.save(f);
+        return true;
     }
 
     @Transactional

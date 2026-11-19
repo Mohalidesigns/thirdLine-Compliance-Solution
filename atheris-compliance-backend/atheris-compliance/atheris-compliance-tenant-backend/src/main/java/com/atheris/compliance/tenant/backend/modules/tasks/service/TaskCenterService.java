@@ -387,7 +387,10 @@ public class TaskCenterService {
                 .ownerName(f.getAssignedToName())
                 .ownerUserId("FINDING_AWAITING_REVIEW".equals(type) ? null : f.getAssignedToUserId())
                 .stage(f.getStatus()).severity(f.getSeverity())
-                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label)
+                .linkPath("FINDING_AWAITING_REVIEW".equals(type)
+                    ? "/findings/" + f.getFindingId() + "/review"
+                    : "/findings?findingId=" + f.getFindingId())
+                .actionLabel(label)
                 .actionType("FINDING_UNASSIGNED".equals(type) ? "ASSIGN" : "OPEN")
                 .sourceRef(Map.of("findingId", f.getFindingId()))
                 .build());

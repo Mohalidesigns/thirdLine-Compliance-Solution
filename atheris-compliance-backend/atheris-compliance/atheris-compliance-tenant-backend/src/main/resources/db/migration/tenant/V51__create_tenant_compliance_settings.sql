@@ -12,6 +12,8 @@ CREATE TABLE tenant_compliance_settings (
     sla_high_days           INTEGER NOT NULL DEFAULT 14,
     sla_medium_days         INTEGER NOT NULL DEFAULT 30,
     sla_low_days            INTEGER NOT NULL DEFAULT 60,
+    require_control_test_review BOOLEAN NOT NULL DEFAULT TRUE,
+    require_finding_review      BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMP DEFAULT NOW(),
     updated_at              TIMESTAMP DEFAULT NOW()
 );

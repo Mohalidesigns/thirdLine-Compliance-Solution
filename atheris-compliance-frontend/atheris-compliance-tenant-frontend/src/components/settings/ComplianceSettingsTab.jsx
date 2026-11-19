@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Button, Alert, CircularProgress, TextField, MenuItem, Grid,
+  Box, Typography, Button, Alert, CircularProgress, TextField, MenuItem, Grid, Switch, FormControlLabel,
 } from '@mui/material';
 import { DataCard, TL } from 'shared';
 import { api } from '../../services/api';
@@ -83,6 +83,8 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
     slaHighDays: String(initial.slaHighDays ?? 14),
     slaMediumDays: String(initial.slaMediumDays ?? 30),
     slaLowDays: String(initial.slaLowDays ?? 60),
+    requireControlTestReview: initial.requireControlTestReview ?? true,
+    requireFindingReview: initial.requireFindingReview ?? true,
   }), [initial]);
   const [form, setForm] = useState(seed);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -100,6 +102,8 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
       slaHighDays: Number(form.slaHighDays),
       slaMediumDays: Number(form.slaMediumDays),
       slaLowDays: Number(form.slaLowDays),
+      requireControlTestReview: form.requireControlTestReview,
+      requireFindingReview: form.requireFindingReview,
     }),
     onSuccess: () => onSaved('Compliance settings saved.'),
     onError: (e) => onError(e.message || 'Could not save compliance settings.'),
@@ -195,6 +199,31 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
           <Grid size={{ xs: 6, sm: 3 }}>
             <TextField fullWidth size="small" type="number" label="Low"
               value={form.slaLowDays} onChange={set('slaLowDays')} slotProps={{ htmlInput: { min: 0 } }} />
+          </Grid>
+        </Grid>
+      </DataCard>
+
+      <DataCard title="Review gates" sx={{ mb: 3 }}
+        subtitle="Whether a recorded control test / submitted remediation must be accepted before it takes effect.">
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControlLabel
+              control={<Switch checked={!!form.requireControlTestReview}
+                onChange={e => setForm(f => ({ ...f, requireControlTestReview: e.target.checked }))} />}
+              label="Require review of control tests" />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 0.5 }}>
+              On: every recorded test is Pending until accepted. Off: in-app/runbook tests are accepted on record
+              (public-test-link submissions are always reviewed).
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControlLabel
+              control={<Switch checked={!!form.requireFindingReview}
+                onChange={e => setForm(f => ({ ...f, requireFindingReview: e.target.checked }))} />}
+              label="Require review of remediation" />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 0.5 }}>
+              On: submitted remediation is “Awaiting review” until accepted. Off: submitting remediation closes the finding.
+            </Typography>
           </Grid>
         </Grid>
       </DataCard>

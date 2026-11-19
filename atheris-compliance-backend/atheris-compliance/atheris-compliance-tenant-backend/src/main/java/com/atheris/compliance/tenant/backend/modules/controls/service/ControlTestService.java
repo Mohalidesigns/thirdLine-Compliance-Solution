@@ -13,6 +13,7 @@ import com.atheris.compliance.tenant.backend.modules.notifications.service.Notif
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
@@ -48,6 +49,7 @@ public class ControlTestService {
     private final UserRepository userRepo;
     private final EmailService email;
     private final EvidenceVaultService evidenceVault;
+    private final ComplianceSettingsService complianceSettings;
 
     @Autowired @Lazy
     private ControlTestLinkService testLinks;
@@ -82,7 +84,8 @@ public class ControlTestService {
 
     @Transactional
     public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, User tester) {
-        return record(controlId, req, tester.getUserId(), tester.getFullName(), true);
+        return record(controlId, req, tester.getUserId(), tester.getFullName(),
+            !complianceSettings.requireControlTestReview());
     }
 
     @Transactional
@@ -98,7 +101,8 @@ public class ControlTestService {
             throw ApiException.conflict("evidence_required",
                 "Attach supporting evidence before recording the test result.");
         }
-        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName(), true);
+        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName(),
+            !complianceSettings.requireControlTestReview());
         for (MultipartFile file : uploads) storeTestEvidence(file, result, tester.getUserId());
         return result;
     }
