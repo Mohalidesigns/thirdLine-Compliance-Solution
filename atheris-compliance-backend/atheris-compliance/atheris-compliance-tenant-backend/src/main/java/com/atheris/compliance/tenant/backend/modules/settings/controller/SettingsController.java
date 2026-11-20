@@ -1,11 +1,14 @@
 package com.atheris.compliance.tenant.backend.modules.settings.controller;
 
+import com.atheris.compliance.tenant.backend.modules.settings.dto.ComplianceSettingsRequest;
+import com.atheris.compliance.tenant.backend.modules.settings.dto.ComplianceSettingsResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.PollingConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.SmtpConfigResponse;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.TaskCentreConfigRequest;
 import com.atheris.compliance.tenant.backend.modules.settings.dto.TaskCentreConfigResponse;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.modules.settings.service.SettingsService;
 import com.atheris.compliance.tenant.backend.modules.settings.service.SmtpSettingsService;
 import com.atheris.compliance.tenant.backend.modules.notifications.dto.NotificationTemplateDto;
@@ -31,6 +34,18 @@ public class SettingsController {
     private final SettingsService service;
     private final SmtpSettingsService smtpSettings;
     private final NotificationTemplateService templates;
+    private final ComplianceSettingsService complianceSettings;
+
+    @GetMapping("/compliance")
+    public ResponseEntity<ComplianceSettingsResponse> getCompliance() {
+        return ResponseEntity.ok(complianceSettings.get());
+    }
+
+    @PutMapping("/compliance")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
+    public ResponseEntity<ComplianceSettingsResponse> updateCompliance(@RequestBody ComplianceSettingsRequest req) {
+        return ResponseEntity.ok(complianceSettings.update(req));
+    }
 
     @GetMapping("/polling")
     public ResponseEntity<PollingConfigResponse> getPolling() {

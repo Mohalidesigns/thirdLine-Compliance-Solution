@@ -27,6 +27,7 @@ public class ObligationDetailView {
     private String sourceTitle;
     private String regulatorAbbreviation;
     private String regulatorName;
+    private Long tenantRegulatorId;
     private String pdfUrl;
 
     private String applicability;
@@ -43,6 +44,11 @@ public class ObligationDetailView {
     private String inherentImpact;
     private String riskDescription;
     private String residualRiskRating;
+    private String residualLikelihood;
+    private String residualImpact;
+    private String residualReason;
+    private List<Integer> linkedControlIds;
+    private List<Long> linkedReturnIds;
     private Integer assignedOwnerUserId;
     private Integer assignedOwnerId;
     private Integer assignedTeamId;
@@ -92,11 +98,14 @@ public class ObligationDetailView {
         private String theme;
         private String complianceArea;
         private String controlType;
-        private String inherentRisk;
-        private String residualRisk;
-        private String riskLevel;
         private String controlOwnerName;
+        private String testerName;
+        private String frequency;
+        private LocalDate nextTestDueDate;
+        private Long openFindings;
         private String status;
+        private String effectivenessState;
+        private String effectivenessReason;
     }
 
     @Data @Builder

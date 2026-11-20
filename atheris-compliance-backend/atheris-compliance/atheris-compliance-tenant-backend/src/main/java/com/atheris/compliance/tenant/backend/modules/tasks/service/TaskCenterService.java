@@ -74,6 +74,7 @@ public class TaskCenterService {
     private final ObligationRepository obligations;
     private final RequirementService requirementService;
     private final SettingsService settings;
+    private final com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService complianceSettings;
     private final OwnerRepository owners;
     private final DepartmentRepository departments;
 
@@ -245,6 +246,8 @@ public class TaskCenterService {
         if (!controlIds.isEmpty()) for (Control c : controls.findAllById(controlIds)) byId.put(c.getControlId(), c);
 
         Integer configuredHorizon = controlHorizonDays();
+        Integer complianceFallback = complianceControlHorizon();
+        int fallbackHorizon = complianceFallback == null ? CONTROL_FALLBACK_HORIZON_DAYS : complianceFallback;
         Set<Integer> controlOwnerIds = byId.values().stream().map(Control::getControlOwnerId)
             .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Integer, String> deptByOwner = new HashMap<>();
@@ -260,7 +263,7 @@ public class TaskCenterService {
             if (t.getDueDate() == null) continue;
             long days = ChronoUnit.DAYS.between(today, t.getDueDate());
             Control c0 = byId.get(t.getControlId());
-            if (days >= 0 && !withinControlHorizon(days, c0, configuredHorizon)) continue;
+            if (days >= 0 && !withinControlHorizon(days, c0, configuredHorizon, fallbackHorizon)) continue;
             String type, priority, label;
             if (WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()) || days < 0) {
                 type = "CONTROL_TEST_OVERDUE"; priority = "OVERDUE"; label = "Record test";
@@ -280,7 +283,6 @@ public class TaskCenterService {
                 .id(t.getTaskId()).key("control-task:" + t.getTaskId())
                 .type(type).category(CATEGORY_CONTROLS)
                 .title(t.getControlName()).caption(t.getControlNumber())
-                .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(ownerName)
                 .department(c == null ? null : deptByOwner.get(c.getControlOwnerId()))
                 .priority(priority).dueDate(t.getDueDate()).daysRemaining((int) days)
@@ -327,13 +329,14 @@ public class TaskCenterService {
                 .type(type).category(CATEGORY_CONTROLS)
                 .title(c != null ? c.getName() : ("Control " + r.getControlId()))
                 .caption(c != null ? c.getControlNumber() : null)
-                .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(ownerName)
                 .priority(priority)
                 .dueDate(awaiting ? null : r.getTestDate()).daysRemaining(null)
                 .ownerName(ownerName).ownerUserId(c == null ? null : c.getControlOwnerUserId())
                 .stage(r.getResult())
-                .linkPath("/controls?controlId=" + r.getControlId()).actionLabel(label).actionType("OPEN")
+                .linkPath(awaiting ? "/controls/tests/" + r.getTestId() + "/review"
+                                   : "/controls?controlId=" + r.getControlId())
+                .actionLabel(label).actionType("OPEN")
                 .sourceRef(Map.of("controlId", r.getControlId(), "testId", r.getTestId()))
                 .build());
         }
@@ -350,6 +353,7 @@ public class TaskCenterService {
         Set<Integer> findingOwnerIds = open.stream().map(Finding::getAssignedToOwnerId)
             .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Integer, String> findingDept = ownerDepartmentMap(findingOwnerIds);
+        int findingDueSoon = findingDueSoonDays();
 
         List<TaskItemDto> out = new ArrayList<>();
         for (Finding f : open) {
@@ -366,7 +370,7 @@ public class TaskCenterService {
                 type = "FINDING_GAP_UNRESOLVED"; priority = "HIGH"; label = "Resolve gap";
             } else if (WorkflowStatus.FINDING_OPEN.equals(f.getStatus()) && f.getAssignedToUserId() == null) {
                 type = "FINDING_UNASSIGNED"; priority = "MEDIUM"; label = "Assign";
-            } else if (openish && dl != null && days <= FINDING_DUE_SOON_DAYS) {
+            } else if (openish && dl != null && days <= findingDueSoon) {
                 type = "FINDING_DUE_SOON"; priority = "SOON"; label = "Open";
             } else {
                 continue;
@@ -377,14 +381,16 @@ public class TaskCenterService {
                 .type(type).category(CATEGORY_FINDINGS)
                 .title(f.getDescription() != null ? f.getDescription() : displayId(f))
                 .caption(displayId(f))
-                .regulator(c == null ? null : c.getActName())
                 .responsiblePerson(f.getAssignedToName())
                 .department(f.getAssignedToOwnerId() == null ? null : findingDept.get(f.getAssignedToOwnerId()))
                 .priority(priority).dueDate(dl).daysRemaining(dl == null ? null : (int) days)
                 .ownerName(f.getAssignedToName())
                 .ownerUserId("FINDING_AWAITING_REVIEW".equals(type) ? null : f.getAssignedToUserId())
                 .stage(f.getStatus()).severity(f.getSeverity())
-                .linkPath("/findings?findingId=" + f.getFindingId()).actionLabel(label)
+                .linkPath("FINDING_AWAITING_REVIEW".equals(type)
+                    ? "/findings/" + f.getFindingId() + "/review"
+                    : "/findings?findingId=" + f.getFindingId())
+                .actionLabel(label)
                 .actionType("FINDING_UNASSIGNED".equals(type) ? "ASSIGN" : "OPEN")
                 .sourceRef(Map.of("findingId", f.getFindingId()))
                 .build());
@@ -491,12 +497,34 @@ public class TaskCenterService {
         }
     }
 
+    private int findingDueSoonDays() {
+        try {
+            Integer d = complianceSettings.current().getFindingDueSoonDays();
+            return d == null ? FINDING_DUE_SOON_DAYS : d;
+        } catch (RuntimeException e) {
+            return FINDING_DUE_SOON_DAYS;
+        }
+    }
+
+    private Integer complianceControlHorizon() {
+        try {
+            Integer d = complianceSettings.current().getControlDueSoonDays();
+            return d == null || d <= 0 ? null : d;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     static boolean withinControlHorizon(long days, Control c, Integer configuredHorizon) {
+        return withinControlHorizon(days, c, configuredHorizon, CONTROL_FALLBACK_HORIZON_DAYS);
+    }
+
+    static boolean withinControlHorizon(long days, Control c, Integer configuredHorizon, int fallbackHorizon) {
         if (configuredHorizon != null && configuredHorizon > 0) return days <= configuredHorizon;
         Integer cadence = c == null ? null : c.getTestFrequencyDays();
         if (cadence == null) cadence = com.atheris.compliance.tenant.backend.shared.util.ControlSchedule
             .daysForFrequency(c == null ? null : c.getTestFrequency());
-        int horizon = cadence == null ? CONTROL_FALLBACK_HORIZON_DAYS : cadence;
+        int horizon = cadence == null ? fallbackHorizon : cadence;
         return days <= horizon;
     }
 

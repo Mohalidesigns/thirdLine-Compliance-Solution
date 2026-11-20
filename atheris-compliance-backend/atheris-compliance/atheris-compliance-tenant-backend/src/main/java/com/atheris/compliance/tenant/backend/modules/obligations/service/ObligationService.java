@@ -2,11 +2,15 @@ package com.atheris.compliance.tenant.backend.modules.obligations.service;
 
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.Control;
+import com.atheris.compliance.tenant.backend.modules.controls.entity.ControlTestResult;
 import com.atheris.compliance.tenant.backend.modules.findings.entity.Finding;
 import com.atheris.compliance.tenant.backend.modules.findings.repository.FindingRepository;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.service.ControlThemeService;
+import com.atheris.compliance.tenant.backend.modules.controls.service.ControlEffectiveness;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.modules.evidence.entity.EvidenceFile;
 import com.atheris.compliance.tenant.backend.modules.evidence.repository.EvidenceFileRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.dto.*;
@@ -35,6 +39,7 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -58,6 +63,9 @@ public class ObligationService {
     private final TenantRegulatorRepository tenantRegulatorRepo;
     private final FindingRepository findingRepo;
     private final ControlThemeService controlThemeService;
+    private final ControlTestResultRepository controlTestResults;
+    private final com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTaskRepository controlTasks;
+    private final ComplianceSettingsService complianceSettings;
 
     private static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
 
@@ -98,6 +106,7 @@ public class ObligationService {
         long compliant = rows.stream().filter(i -> ComplianceState.COMPLIANT.equals(i.getComplianceState())).count();
         long partial = rows.stream().filter(i -> ComplianceState.PARTIAL.equals(i.getComplianceState())).count();
         long nonCompliant = rows.stream().filter(i -> ComplianceState.NON_COMPLIANT.equals(i.getComplianceState())).count();
+        long notAssessed = rows.stream().filter(i -> ComplianceState.NOT_ASSESSED.equals(i.getComplianceState())).count();
         long noRequirements = rows.stream().filter(i -> ComplianceState.NO_REQUIREMENTS.equals(i.getComplianceState())).count();
         long withReturns = rows.stream().filter(i -> i.getLinkedReturnIds() != null
                 && !i.getLinkedReturnIds().isEmpty()).count();
@@ -127,7 +136,7 @@ public class ObligationService {
 
         return ObligationStats.builder()
             .total(total).highRisk(highRisk).gaps(gaps).gapRequirements(gapRequirements).totalRequirements(totalRequirements)
-            .compliant(compliant).partial(partial).nonCompliant(nonCompliant).noRequirements(noRequirements)
+            .compliant(compliant).partial(partial).nonCompliant(nonCompliant).notAssessed(notAssessed).noRequirements(noRequirements)
             .withReturns(withReturns).underReview(underReview)
             .regulators(List.copyOf(regulators))
             .themes(List.copyOf(themes))
@@ -160,6 +169,67 @@ public class ObligationService {
     private static String riskRatingOf(ObligationClassification c) {
         if (c == null) return null;
         return c.getTenantRiskRating() != null ? c.getTenantRiskRating() : c.getInherentRiskRating();
+    }
+
+    /** Derived residual risk per obligation: its linked controls' latest accepted tests against the configured rule. */
+    public Map<Long, ObligationResidual.Result> residualByObligation(Collection<ObligationClassification> classes) {
+        if (classes.isEmpty()) return Map.of();
+        Set<Integer> controlIds = classes.stream()
+            .map(ObligationClassification::getLinkedControlIds)
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .collect(Collectors.toSet());
+        Map<Integer, String> latestResult = latestAcceptedResults(controlIds);
+        com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule rule = complianceSettings.residualRule();
+        Map<Long, ObligationResidual.Result> out = new HashMap<>();
+        for (ObligationClassification c : classes) {
+            if (c.getObligationId() == null) continue;
+            List<Integer> ids = c.getLinkedControlIds() == null ? List.of() : c.getLinkedControlIds();
+            out.put(c.getObligationId(), ObligationResidual.compute(
+                c.getImpactRating(), c.getLikelihoodRating(), ids, latestResult, rule));
+        }
+        return out;
+    }
+
+    private Map<Integer, String> latestAcceptedResults(Collection<Integer> controlIds) {
+        if (controlIds.isEmpty()) return Map.of();
+        Map<Integer, ControlTestResult> latest = new HashMap<>();
+        for (ControlTestResult t : controlTestResults.findByControlIdInOrderByTestDateDesc(controlIds)) {
+            if (!WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())) continue;
+            ControlTestResult cur = latest.get(t.getControlId());
+            if (cur == null || isLaterTest(t, cur)) latest.put(t.getControlId(), t);
+        }
+        Map<Integer, String> out = new HashMap<>();
+        latest.forEach((id, t) -> out.put(id, t.getResult()));
+        return out;
+    }
+
+    private Map<Integer, LocalDate> nextOpenTaskDue(Collection<Integer> controlIds) {
+        if (controlIds == null || controlIds.isEmpty()) return Map.of();
+        Map<Integer, LocalDate> out = new HashMap<>();
+        for (var t : controlTasks.findByControlIdInAndStatusIn(new ArrayList<>(controlIds),
+                List.of(WorkflowStatus.TASK_PENDING, WorkflowStatus.TASK_IN_PROGRESS, WorkflowStatus.TASK_OVERDUE))) {
+            if (t.getDueDate() == null) continue;
+            LocalDate cur = out.get(t.getControlId());
+            if (cur == null || t.getDueDate().isBefore(cur)) out.put(t.getControlId(), t.getDueDate());
+        }
+        return out;
+    }
+
+    private Map<Integer, Long> openFindingCounts(Collection<Integer> controlIds) {
+        if (controlIds == null || controlIds.isEmpty()) return Map.of();
+        List<String> open = List.of(WorkflowStatus.FINDING_OPEN, WorkflowStatus.FINDING_IN_REMEDIATION, WorkflowStatus.FINDING_REMEDIATED);
+        return findingRepo.findByLinkedControlIdIn(new ArrayList<>(controlIds)).stream()
+            .filter(f -> f.getLinkedControlId() != null && open.contains(f.getStatus()))
+            .collect(Collectors.groupingBy(Finding::getLinkedControlId, Collectors.counting()));
+    }
+
+    private static boolean isLaterTest(ControlTestResult a, ControlTestResult b) {
+        LocalDate da = a.getTestDate(), db = b.getTestDate();
+        if (da != null && db != null && !da.equals(db)) return da.isAfter(db);
+        if (da != null && db == null) return true;
+        if (da == null && db != null) return false;
+        return a.getTestId() != null && b.getTestId() != null && a.getTestId() > b.getTestId();
     }
 
     private TenantRegulator tenantRegulatorFor(Obligation ob) {
@@ -211,6 +281,8 @@ public class ObligationService {
 
         Map<Long, RequirementSummary> requirementSummaries = requirementService.summaries(
             allObligations.stream().map(Obligation::getObligationId).toList());
+
+        Map<Long, ObligationResidual.Result> residualByObligation = residualByObligation(classByObligation.values());
 
         Map<Long, PlatformInstrumentDetail> detailCache = platform.getInstrumentDetailsBulk(new ArrayList<>(uniqueInstrumentIds));
 
@@ -273,7 +345,10 @@ public class ObligationService {
                 .inherentRiskRating(c != null ? c.getInherentRiskRating() : null)
                 .inherentLikelihood(ob.getInherentLikelihood())
                 .inherentImpact(ob.getInherentImpact())
-                .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
+                .residualRiskRating(c != null && residualByObligation.get(ob.getObligationId()) != null
+                    ? residualByObligation.get(ob.getObligationId()).band() : null)
+                .residualLikelihood(c != null && residualByObligation.get(ob.getObligationId()) != null
+                    ? residualByObligation.get(ob.getObligationId()).likelihood() : null)
                 .impactRating(c != null ? c.getImpactRating() : null)
                 .likelihoodRating(c != null ? c.getLikelihoodRating() : null)
                 .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
@@ -357,14 +432,15 @@ public class ObligationService {
 
     /**
      * Same population and axes as {@code DashboardV2Service.getRiskHeatmap}: applicable obligations,
-     * impact axis = classification impact (inherent) or residual rating (residual), likelihood axis =
-     * classification likelihood — so a heatmap cell's count equals the drilled-down register total.
+     * impact axis = classification impact, likelihood axis = classification likelihood (inherent) or
+     * the derived residual likelihood (residual) — so a heatmap cell's count equals the drilled total.
      */
     private static boolean inHeatmapCells(ObligationRegisterItem i, Set<String> cells, boolean residual) {
         if (!"applicable".equals(i.getApplicability())) return false;
-        String impact = residual ? i.getResidualRiskRating() : i.getImpactRating();
-        if (impact == null || i.getLikelihoodRating() == null) return false;
-        return cells.contains(impact + "|" + i.getLikelihoodRating());
+        String impact = i.getImpactRating();
+        String likelihood = residual ? i.getResidualLikelihood() : i.getLikelihoodRating();
+        if (impact == null || likelihood == null) return false;
+        return cells.contains(impact + "|" + likelihood);
     }
 
     private static boolean contains(String s, String needle) {
@@ -454,6 +530,7 @@ public class ObligationService {
             .tenantRegulatorId(req.getTenantRegulatorId())
             .description(req.getDescription())
             .areaOfFocus(req.getAreaOfFocus())
+            .sectionReference(req.getSectionReference())
             .obligationType(req.getObligationType())
             .recurringDeadlineType(req.getRecurringDeadlineType())
             .effectiveDate(req.getEffectiveDate())
@@ -470,10 +547,13 @@ public class ObligationService {
             .applicability("applicable")
             .classifiedByUserId(userId)
             .classifiedAt(Instant.now())
+            .impactRating(req.getImpactRating())
+            .likelihoodRating(req.getLikelihoodRating())
                         .linkedControlIds(req.getLinkedControlIds() == null
                 ? List.of() : new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds())))
             .build();
         classifications.save(c);
+        applyRiskAxes(saved, c);
         if (req.getObligationTexts() != null) requirementService.replaceTexts(saved.getObligationId(), req.getObligationTexts(), userId);
         requirementService.applyObligationControls(saved.getObligationId(), c.getLinkedControlIds());
         if (c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) autoCloseGapFindings(saved.getObligationId(), userId);
@@ -494,6 +574,7 @@ public class ObligationService {
         if (req.getName() != null) ob.setName(req.getName());
         if (req.getDescription() != null) ob.setDescription(req.getDescription());
         if (req.getAreaOfFocus() != null) ob.setAreaOfFocus(req.getAreaOfFocus());
+        if (req.getSectionReference() != null) ob.setSectionReference(req.getSectionReference());
         if (req.getObligationType() != null) ob.setObligationType(req.getObligationType());
         if (req.getRecurringDeadlineType() != null) ob.setRecurringDeadlineType(req.getRecurringDeadlineType());
         if (req.getEffectiveDate() != null) ob.setEffectiveDate(req.getEffectiveDate());
@@ -503,6 +584,8 @@ public class ObligationService {
 
         ObligationClassification c = loadOrCreateClassification(ob, userId);
         recordHistory(c, ob, req.getChangeReason(), userId);
+        if (req.getImpactRating() != null) c.setImpactRating(req.getImpactRating());
+        if (req.getLikelihoodRating() != null) c.setLikelihoodRating(req.getLikelihoodRating());
         if (req.getObligationTexts() != null) requirementService.replaceTexts(obligationId, req.getObligationTexts(), userId);
         if (req.getLinkedControlIds() != null) {
             List<Integer> selected = new ArrayList<>(new LinkedHashSet<>(req.getLinkedControlIds()));
@@ -512,8 +595,24 @@ public class ObligationService {
             c = classifications.findByObligationId(obligationId).orElse(c);
         }
         classifications.save(c);
+        applyRiskAxes(saved, c);
         audit.log(userId, "obligation_updated", "obligation", obligationId, Map.of());
         return toRegisterItem(saved, c, null, List.of(), List.of());
+    }
+
+    private void applyRiskAxes(Obligation ob, ObligationClassification c) {
+        if (c.getImpactRating() == null || c.getLikelihoodRating() == null) return;
+        String band = ObligationClassification.inherentBand(c.getImpactRating(), c.getLikelihoodRating());
+        ob.setInherentImpact(c.getImpactRating());
+        ob.setInherentLikelihood(c.getLikelihoodRating());
+        if (band != null) {
+            ob.setInherentRiskRating(band);
+            c.setInherentRiskRating(band);
+            if (c.getTenantRiskRating() == null) c.setTenantRiskRating(band);
+        }
+        obligationRepo.save(ob);
+        classifications.save(c);
+        evictRegisterCache();
     }
 
     @Transactional
@@ -601,17 +700,30 @@ public class ObligationService {
                 .collect(Collectors.toMap(Control::getControlId, x -> x, (a, b) -> a));
             Map<Integer, String> themeNames = controlThemeService.namesById(byId.values().stream()
                 .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
+            List<Integer> controlIds = c.getLinkedControlIds();
+            Map<Integer, LocalDate> nextOpenDue = nextOpenTaskDue(controlIds);
+            Map<Integer, Long> openFindings = openFindingCounts(controlIds);
+            Map<Integer, String> latestAccepted = latestAcceptedResults(controlIds);
             controls = c.getLinkedControlIds().stream()
                 .map(byId::get).filter(Objects::nonNull)
-                .map(ct -> ObligationDetailView.ControlItem.builder()
-                    .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
-                    .name(ct.getName()).controlSummary(ct.getName())
-                    .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
-                    .complianceArea(ct.getComplianceArea())
-                    .controlType(ct.getControlType())
-                    .inherentRisk(ct.getInherentRisk()).residualRisk(ct.getResidualRisk())
-                    .riskLevel(ct.getResidualRiskRating() != null ? ct.getResidualRiskRating() : ct.getResidualRisk())
-                    .controlOwnerName(ct.getControlOwnerName()).status(ct.getStatus()).build())
+                .map(ct -> {
+                    long open = openFindings.getOrDefault(ct.getControlId(), 0L);
+                    String latest = latestAccepted.get(ct.getControlId());
+                    return ObligationDetailView.ControlItem.builder()
+                        .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
+                        .name(ct.getName()).controlSummary(ct.getName())
+                        .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
+                        .complianceArea(ct.getComplianceArea())
+                        .controlType(ct.getControlType())
+                        .controlOwnerName(ct.getControlOwnerName())
+                        .testerName(ct.getTesterName())
+                        .frequency(ct.getTestFrequency())
+                        .nextTestDueDate(nextOpenDue.get(ct.getControlId()))
+                        .openFindings(open).status(ct.getStatus())
+                        .effectivenessState(ControlEffectiveness.of(latest, open))
+                        .effectivenessReason(ControlEffectiveness.reason(latest, null, open))
+                        .build();
+                })
                 .toList();
         }
 
@@ -662,6 +774,12 @@ public class ObligationService {
 
         RequirementSummary detailSummary = requirementService.summaries(List.of(ob.getObligationId())).get(ob.getObligationId());
 
+        ObligationResidual.Result residual = c == null ? null : ObligationResidual.compute(
+            c.getImpactRating(), c.getLikelihoodRating(),
+            c.getLinkedControlIds() == null ? List.of() : c.getLinkedControlIds(),
+            latestAcceptedResults(c.getLinkedControlIds() == null ? List.of() : c.getLinkedControlIds()),
+            complianceSettings.residualRule());
+
         return ObligationDetailView.builder()
             .obligationId(ob.getObligationId())
             .obligationNumber(ob.getObligationNumber())
@@ -680,6 +798,7 @@ public class ObligationService {
             .sourceTitle(d != null ? d.getSourceTitle() : null)
             .regulatorAbbreviation(d != null ? d.getRegulatorAbbreviation() : regulatorAbbrev(tr))
             .regulatorName(d != null ? d.getRegulatorName() : (tr != null ? tr.getName() : null))
+            .tenantRegulatorId(ob.getTenantRegulatorId())
             .pdfUrl(d != null ? d.getPdfUrl() : null)
             .applicability(c != null ? c.getApplicability() : null)
             .applicabilityReasoning(c != null ? c.getApplicabilityReasoning() : null)
@@ -694,7 +813,12 @@ public class ObligationService {
             .inherentLikelihood(ob.getInherentLikelihood())
             .inherentImpact(ob.getInherentImpact())
             .riskDescription(ob.getRiskDescription())
-            .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
+            .residualRiskRating(residual != null ? residual.band() : null)
+            .residualLikelihood(residual != null ? residual.likelihood() : null)
+            .residualImpact(residual != null ? residual.impact() : null)
+            .residualReason(residual != null ? residual.reason() : null)
+            .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
+            .linkedReturnIds(returnIds)
             .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
             .assignedTeamId(c != null ? c.getAssignedTeamId() : null)

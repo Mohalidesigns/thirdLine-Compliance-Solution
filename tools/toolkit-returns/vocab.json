@@ -1,0 +1,12 @@
+{
+  "departments": [
+    { "name": "Compliance", "teams": ["Regulatory Compliance", "Data Protection", "AML/CFT", "Monitoring & Testing", "Conduct & Ethics"] },
+    { "name": "Risk Management", "teams": ["Enterprise Risk", "Operational Risk", "Credit Risk", "Market & Liquidity Risk"] },
+    { "name": "Information Technology", "teams": ["Core Banking", "Database Administration", "Networking", "System Administration", "IT Security"] },
+    { "name": "Operations", "teams": ["Branch Operations", "Cash Management", "Transaction Processing", "Trade Services", "Customer Service"] },
+    { "name": "Finance & Treasury", "teams": ["Financial Control", "Treasury", "Regulatory Reporting", "Tax", "Procurement"] },
+    { "name": "Internal Audit", "teams": ["Audit Operations", "Audit Assurance"] },
+    { "name": "Legal & Company Secretariat", "teams": ["Legal Advisory", "Company Secretariat", "Litigation & Disputes"] },
+    { "name": "Human Resources", "teams": ["HR Operations", "Learning & Development", "Recruitment"] }
+  ]
+}

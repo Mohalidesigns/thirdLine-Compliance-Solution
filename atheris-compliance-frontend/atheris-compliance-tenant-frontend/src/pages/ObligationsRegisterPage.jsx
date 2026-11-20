@@ -7,75 +7,16 @@ import {
 } from '@mui/material';
 import { api } from '../services/api';
 import {
-  SectionTable, PageHeader, KpiCards, FilterBar, StatusBadge,
+  SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
   ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, ExclamationCircleIcon, EyeIcon, CalendarDaysIcon,
-  CheckCircleIcon,
+  CheckCircleIcon, ClockIcon,
 } from 'shared';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import ImportDialog from '../components/modals/ImportDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { isReadOnly } from '../utils/roles';
-
-const ellipsis = (maxWidth) => ({
-  maxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-});
-
-const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray' };
-const STATE_LABEL = {
-  COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-  GAP: 'No control', NO_REQUIREMENTS: 'No requirements',
-};
-
-const COLUMNS = [
-  { id: 'title', label: 'Obligation', minWidth: 360, sortable: true, sortField: 'name',
-    render: (item) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Tooltip title={item.name || ''}>
-          <Typography variant="body2" sx={{ ...ellipsis(420), color: 'primary.main', fontWeight: 500 }}>
-            {item.name || 'Untitled obligation'}
-          </Typography>
-        </Tooltip>
-        {item.description && (
-          <Tooltip title={<Box sx={{ whiteSpace: 'pre-wrap' }}>{item.description}</Box>}>
-            <Box component="span" sx={{ display: 'inline-flex', color: '#A0AEC0', flexShrink: 0 }}><InformationCircleIcon size={14} /></Box>
-          </Tooltip>
-        )}
-      </Box>
-    ) },
-  { id: 'regulatorAbbreviation', label: 'Regulator', minWidth: 130, sortable: true,
-    render: (item) => (item.regulatorAbbreviation
-      ? <Chip size="small" label={item.regulatorAbbreviation} />
-      : <Typography variant="body2" color="text.secondary">—</Typography>) },
-  { id: 'complianceState', label: 'Compliance', minWidth: 150,
-    render: (item) => (
-      <Tooltip title={item.requirementCount
-        ? `${item.coveredRequirementCount ?? 0} of ${item.requirementCount} requirements covered`
-        : 'No requirements'}>
-        <span>
-          <StatusBadge tone={STATE_TONE[item.complianceState] || 'gray'}
-            label={STATE_LABEL[item.complianceState] || item.complianceState || '—'}
-            dot={item.complianceState === 'NON_COMPLIANT' || item.complianceState === 'GAP'} />
-        </span>
-      </Tooltip>
-    ) },
-  { id: 'controlCount', label: 'Controls', minWidth: 110,
-    render: (item) => {
-      const count = item.controlCount ?? 0;
-      return <Typography variant="body2"
-        sx={count === 0 ? { color: 'text.secondary' } : { color: '#2D7D46' }}>{count}</Typography>;
-    } },
-  { id: 'returnCount', label: 'Returns', minWidth: 100,
-    render: (item) => {
-      const count = item.linkedReturnIds?.length ?? 0;
-      const names = item.returnNames || [];
-      const label = <Typography variant="body2"
-        sx={count === 0 ? { color: 'text.secondary' } : { color: '#DD6B20' }}>{count}</Typography>;
-      return count > 0 && names.length > 0
-        ? <Tooltip title={names.join(', ')}>{label}</Tooltip>
-        : label;
-    } },
-];
+import { OBLIGATION_COLUMNS, STATE_TONE, STATE_LABEL } from '../utils/registerColumns';
 
 export default function ObligationsRegisterPage() {
   const { user } = useAuth();
@@ -203,6 +144,7 @@ export default function ObligationsRegisterPage() {
     else if (type === 'compliant') { setStateFilter('COMPLIANT'); }
     else if (type === 'partial') { setStateFilter('PARTIAL'); }
     else if (type === 'nonCompliant') { setStateFilter('NON_COMPLIANT'); }
+    else if (type === 'notAssessed') { setStateFilter('NOT_ASSESSED'); }
     else if (type === 'gaps') { setNoControl(true); }
     setPage(0);
   }
@@ -210,14 +152,16 @@ export default function ObligationsRegisterPage() {
   const activeKpi = stateFilter === 'COMPLIANT' ? 'compliant'
     : stateFilter === 'PARTIAL' ? 'partial'
       : stateFilter === 'NON_COMPLIANT' ? 'nonCompliant'
-        : riskFilter === 'High' ? 'highRisk'
-          : noControl ? 'gaps' : null;
+        : stateFilter === 'NOT_ASSESSED' ? 'notAssessed'
+          : riskFilter === 'High' ? 'highRisk'
+            : noControl ? 'gaps' : null;
   const kpis = [
     { key: 'total', label: 'Total Obligations', value: stats?.total ?? 0, tone: 'blue', icon: <ScaleIcon /> },
     { key: 'compliant', label: 'Compliant', value: stats?.compliant ?? 0, tone: 'green', icon: <CheckCircleIcon /> },
     { key: 'partial', label: 'Partial', value: stats?.partial ?? 0, tone: 'amber', icon: <InformationCircleIcon /> },
     { key: 'nonCompliant', label: 'Non-compliant', value: stats?.nonCompliant ?? 0, tone: 'red', icon: <ExclamationTriangleIcon /> },
-    { key: 'gaps', label: 'No Control', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
+    { key: 'notAssessed', label: 'Not assessed', value: stats?.notAssessed ?? 0, tone: 'gray', icon: <ClockIcon /> },
+    { key: 'gaps', label: 'Coverage gaps', value: stats?.gaps ?? 0, tone: 'orange', icon: <ShieldCheckIcon /> },
   ].map((k) => ({ ...k, active: k.key === activeKpi }));
 
   const riskLevels = stats?.riskLevels?.length ? stats.riskLevels : ['Critical', 'High', 'Moderate', 'Low'];
@@ -249,7 +193,7 @@ export default function ObligationsRegisterPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={5} />
+      <KpiCards items={kpis} onSelect={applyKpiFilter} columns={6} />
 
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search obligation, title or regulator...' }}
@@ -277,7 +221,7 @@ export default function ObligationsRegisterPage() {
       )}
 
       <SectionTable
-        columns={COLUMNS}
+        columns={OBLIGATION_COLUMNS}
         rows={items}
         total={total}
         page={page}

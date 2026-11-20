@@ -25,8 +25,11 @@ import com.atheris.compliance.tenant.backend.shared.util.LinkTokens;
 import com.atheris.compliance.tenant.backend.shared.util.NotificationConstants;
 import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
+import com.atheris.compliance.tenant.backend.modules.findings.service.FindingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +67,9 @@ public class RemediationLinkService {
     private final NotificationTemplateService templates;
     private final FindingDetails details;
     private final RiskOwnerDirectory riskOwners;
+
+    @Autowired @Lazy
+    private FindingService findingService;
 
     @Value("${atheris.remediation.link-expiry-grace-days:7}")
     private int graceDays;
@@ -212,6 +218,10 @@ public class RemediationLinkService {
 
         List<MultipartFile> uploads = files == null ? List.of()
             : files.stream().filter(x -> x != null && !x.isEmpty()).toList();
+        if (uploads.isEmpty()) {
+            throw ApiException.conflict("evidence_required",
+                "Attach at least one evidence file before submitting remediation.");
+        }
         if (uploads.size() > maxFiles) {
             throw ApiException.badRequest("Too many files (max " + maxFiles + ")");
         }
@@ -245,6 +255,9 @@ public class RemediationLinkService {
 
         audit.log(null, "remediation_submitted_via_link", "finding", f.getFindingId(),
             Map.of("email", link.getOwnerEmail() == null ? "" : link.getOwnerEmail()));
+
+        if (findingService.closeIfReviewNotRequired(f, null)) return;
+
         String summary = "Finding #" + f.getFindingId() + " remediation submitted via link — awaiting review";
         Map<String, String> vars = details.messageVars(f, f.getAssignedToName());
         NotificationTemplateService.RenderedEmail rendered =
@@ -255,7 +268,7 @@ public class RemediationLinkService {
         List<String> cc = new ArrayList<>();
         if (link.getOwnerEmail() != null) cc.add(link.getOwnerEmail());
         notifications.notifyRoleEmailed(AppRole.ANALYST, NotificationConstants.CATEGORY_FINDINGS,
-            WorkflowStatus.RISK_MEDIUM, summary, "/findings", subject, body, cc);
+            WorkflowStatus.RISK_MEDIUM, summary, "/findings/" + f.getFindingId() + "/review", subject, body, cc);
     }
 
     private RemediationLink resolve(String rawToken) {

@@ -328,7 +328,7 @@ function LinkPickerBody({ value, onChange, label, disabled, size, fullWidth, hel
 
 /* ─────────────── owner quick-add ─────────────── */
 
-export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
+export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmentId, initialTeamId, title }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
   const [saving, setSaving] = useState(false);
@@ -357,11 +357,15 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (open) {
-      setForm({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
+      setForm({
+        fullName: '', email: '', jobTitle: '',
+        departmentId: initialDepartmentId != null ? String(initialDepartmentId) : '',
+        teamId: initialTeamId != null ? String(initialTeamId) : '',
+      });
       setError('');
       setDirInput('');
     }
-  }, [open]);
+  }, [open, initialDepartmentId, initialTeamId]);
 
   const departmentTeams = form.departmentId
     ? teams.filter((t) => t.departmentId === Number(form.departmentId))
@@ -390,7 +394,7 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add New Owner</DialogTitle>
+      <DialogTitle>{title || 'Add New Owner'}</DialogTitle>
       <DialogContent dividers>
         {shownError && <Alert severity="error" sx={{ mb: 2 }}>{shownError}</Alert>}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

@@ -65,7 +65,6 @@ class ComplianceMetricsServiceTest {
         assertEquals(1, m.getControlsPassing());
         assertEquals(1, m.getControlsFailing(), "control 4 passed once, then failed");
         assertEquals(50.0, m.getControlEffectivenessPct());
-        assertEquals(3, m.getControlsHighResidualRisk(), "residual High/Critical is reported separately");
     }
 
     // 4 — returns on time uses filings due as the denominator; overdue counts as a miss

@@ -68,6 +68,8 @@ export default function ControlTestReviewPage() {
       await queryClient.invalidateQueries({ queryKey: ['controls'] });
       await queryClient.invalidateQueries({ queryKey: ['risks'] });
       await queryClient.invalidateQueries({ queryKey: ['obligations'] });
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSnack({ severity: 'success', message: decision === 'Accepted' ? 'Test accepted.' : 'Changes requested.' });
     } catch (e) {
       setSnack({ severity: 'error', message: e.message || 'Failed to submit the review.' });
@@ -141,9 +143,6 @@ export default function ControlTestReviewPage() {
         {test.resultDescription && (
           <Box sx={{ mt: 2.5 }}><Field label="Notes" value={test.resultDescription} /></Box>
         )}
-        {test.failureDetails && (
-          <Box sx={{ mt: 2.5 }}><Field label="Failure details" value={test.failureDetails} /></Box>
-        )}
       </DataCard>
 
       <DataCard title="Control" sx={{ mb: 3 }}>
@@ -155,14 +154,7 @@ export default function ControlTestReviewPage() {
           <Field label="Tester" value={control?.testerName} />
           <Field label="Test frequency" value={control?.testFrequency} />
           <Field label="Next test due" value={formatDate(control?.nextTestDueDate)} />
-          <Field label="Inherent risk" children={<RiskBadge value={control?.inherentRisk} />} />
-          <Field label="Residual risk" children={<RiskBadge value={control?.residualRisk} />} />
         </FieldGrid>
-        {control?.residualRiskReason && (
-          <Box sx={{ mt: 2.5 }}>
-            <Field label="Residual risk basis" value={control.residualRiskReason} />
-          </Box>
-        )}
       </DataCard>
 
       {obligations.length > 0 && (

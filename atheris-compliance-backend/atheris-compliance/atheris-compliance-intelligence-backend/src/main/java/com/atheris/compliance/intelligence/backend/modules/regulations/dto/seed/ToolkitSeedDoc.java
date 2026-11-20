@@ -27,7 +27,6 @@ public class ToolkitSeedDoc {
     private Map<String, List<ObligationRow>> obligations;
     private List<SanctionsRow> sanctions;
     private List<ReturnsRow> returns;
-    private List<RiskRow> risks;
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Meta {
@@ -87,19 +86,8 @@ public class ToolkitSeedDoc {
     public static class RequirementRow {
         private Integer ordinal;
         private String text;
-        private String riskCode;
         /** Which of the row's controls satisfy this duty: "primary" and/or "additional". */
         private List<String> controls;
-    }
-
-    @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class RiskRow {
-        private String code;
-        private String name;
-        private String type;
-        private String area;
-        private String likelihood;
-        private String impact;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @JsonIgnoreProperties(ignoreUnknown = true)

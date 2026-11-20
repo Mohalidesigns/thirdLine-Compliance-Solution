@@ -40,13 +40,22 @@ public final class RiskBands {
 
     /** Band for likelihood × impact, or null when either rating is missing/unknown. */
     public static String band(String likelihood, String impact) {
+        return band(likelihood, impact, 6, 12, 18);
+    }
+
+    /** Band for likelihood × impact with explicit cut-offs (score ≥ critical → Critical, ≥ high → High, ≥ moderate → Moderate). */
+    public static String band(String likelihood, String impact, int moderate, int high, int critical) {
         int l = level(likelihood);
         int i = level(impact);
         if (l == 0 || i == 0) return null;
-        int score = l * i;
-        if (score >= 18) return CRITICAL;
-        if (score >= 12) return HIGH;
-        if (score >= 6) return MODERATE;
+        return bandForScore(l * i, moderate, high, critical);
+    }
+
+    /** Band for a numeric score with explicit cut-offs. */
+    public static String bandForScore(int score, int moderate, int high, int critical) {
+        if (score >= critical) return CRITICAL;
+        if (score >= high) return HIGH;
+        if (score >= moderate) return MODERATE;
         return LOW;
     }
 

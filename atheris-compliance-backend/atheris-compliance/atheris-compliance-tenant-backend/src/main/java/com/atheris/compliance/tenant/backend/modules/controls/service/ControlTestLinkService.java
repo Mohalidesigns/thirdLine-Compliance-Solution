@@ -176,7 +176,7 @@ public class ControlTestLinkService {
         NotificationTemplateService.RenderedEmail rendered =
             templates.render(EscalationConstants.KEY_CONTROL_REQUEST, vars);
         String subject = rendered.subject() != null ? rendered.subject()
-            : "Action required: test control " + c.getName();
+            : "Action required: control test " + testRef(c);
         String body = rendered.body() != null ? rendered.body() : fallbackBody(c, name);
         String url = uploadUrl(raw);
         if (to != null && !to.isBlank()) email.send(to, cc, subject, body, url);
@@ -191,6 +191,11 @@ public class ControlTestLinkService {
             templates.render(EscalationConstants.KEY_CONTROL_DATA_RECEIPT, vars);
         if (rendered.subject() == null || rendered.body() == null) return;
         email.send(to, cc, rendered.subject(), rendered.body(), null);
+    }
+
+    private static String testRef(Control c) {
+        return c.getControlNumber() != null && !c.getControlNumber().isBlank()
+            ? c.getControlNumber() : "Control " + c.getControlId();
     }
 
     private static String fallbackBody(Control c, String name) {
@@ -252,6 +257,9 @@ public class ControlTestLinkService {
         ControlTask task = currentTask(c);
         if (task == null)
             throw ApiException.conflict("no_open_test", "No control test is currently scheduled.");
+        if (file == null || file.isEmpty())
+            throw ApiException.conflict("evidence_required",
+                "Attach supporting evidence before submitting the test result.");
 
         RecordTestRequest req = new RecordTestRequest();
         req.setTestDate(testDate == null ? LocalDate.now() : testDate);
@@ -261,13 +269,11 @@ public class ControlTestLinkService {
         ControlTestResult saved = testService.recordTestFromLink(c.getControlId(), req,
             req.getTestedByName() != null ? req.getTestedByName() : "the responsible person");
 
-        if (file != null && !file.isEmpty()) {
-            try {
-                evidenceVault.upload(file, EVIDENCE_TYPE, saved.getTestId(),
-                    "Test evidence " + saved.getTestDate(), null);
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to store the test evidence", e);
-            }
+        try {
+            evidenceVault.upload(file, EVIDENCE_TYPE, saved.getTestId(),
+                "Test evidence " + saved.getTestDate(), null);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to store the test evidence", e);
         }
 
         link.setUseCount((link.getUseCount() == null ? 0 : link.getUseCount()) + 1);

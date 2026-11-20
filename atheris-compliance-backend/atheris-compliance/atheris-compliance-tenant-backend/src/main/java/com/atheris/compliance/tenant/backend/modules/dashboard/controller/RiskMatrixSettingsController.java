@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.dashboard.controller;
 
 import com.atheris.compliance.tenant.backend.modules.dashboard.entity.RiskMatrixConfig;
 import com.atheris.compliance.tenant.backend.modules.dashboard.repository.RiskMatrixConfigRepository;
+import com.atheris.compliance.tenant.backend.modules.risk.service.RiskMatrixService;
 import com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class RiskMatrixSettingsController {
 
     private final RiskMatrixConfigRepository repo;
     private final TenantIdentityService tenantIdentity;
+    private final RiskMatrixService riskMatrixService;
 
     @GetMapping
     public ResponseEntity<RiskMatrixConfig> get() {
@@ -30,7 +32,7 @@ public class RiskMatrixSettingsController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<RiskMatrixConfig> update(@RequestBody RiskMatrixConfig incoming) {
         Long tenantId = tenantIdentity.currentTenantId();
         RiskMatrixConfig config = repo.findByTenantId(tenantId)
@@ -39,6 +41,8 @@ public class RiskMatrixSettingsController {
         if (incoming.getLikelihoodLevels() != null) config.setLikelihoodLevels(incoming.getLikelihoodLevels());
         if (incoming.getScoringFormula() != null) config.setScoringFormula(incoming.getScoringFormula());
         if (incoming.getBandThresholds() != null) config.setBandThresholds(incoming.getBandThresholds());
-        return ResponseEntity.ok(repo.save(config));
+        RiskMatrixConfig saved = repo.save(config);
+        riskMatrixService.recomputeBands();
+        return ResponseEntity.ok(saved);
     }
 }

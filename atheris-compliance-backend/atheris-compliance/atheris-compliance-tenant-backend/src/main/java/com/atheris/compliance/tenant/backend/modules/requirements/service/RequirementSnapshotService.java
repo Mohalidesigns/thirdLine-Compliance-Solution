@@ -6,8 +6,6 @@ import com.atheris.compliance.tenant.backend.modules.requirements.entity.Require
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.RequirementControl;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementControlRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementRepository;
-import com.atheris.compliance.tenant.backend.modules.risks.entity.RiskObligation;
-import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskObligationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,13 +27,12 @@ public class RequirementSnapshotService {
 
     private final RequirementRepository requirements;
     private final RequirementControlRepository requirementControls;
-    private final RiskObligationRepository riskObligations;
 
-    public record Snapshot(Map<String, List<Entry>> byKey, Map<String, List<Integer>> riskIdsByKey) {
-        public static Snapshot empty() { return new Snapshot(Map.of(), Map.of()); }
+    public record Snapshot(Map<String, List<Entry>> byKey) {
+        public static Snapshot empty() { return new Snapshot(Map.of()); }
     }
 
-    public record Entry(Integer ordinal, String text, Integer riskId, String stateOverride, String overrideReason,
+    public record Entry(Integer ordinal, String text, String stateOverride, String overrideReason,
                         String source, List<Integer> controlIds) {}
 
     public static String key(Obligation o) {
@@ -58,14 +55,10 @@ public class RequirementSnapshotService {
         Map<String, List<Entry>> byKey = new HashMap<>();
         for (Requirement r : reqs) {
             byKey.computeIfAbsent(keyById.get(r.getObligationId()), k -> new ArrayList<>()).add(new Entry(
-                r.getOrdinal(), r.getText(), r.getRiskId(), r.getStateOverride(), r.getOverrideReason(), r.getSource(),
+                r.getOrdinal(), r.getText(), r.getStateOverride(), r.getOverrideReason(), r.getSource(),
                 controlsByRequirement.getOrDefault(r.getRequirementId(), List.of())));
         }
-        Map<String, List<Integer>> riskIdsByKey = new HashMap<>();
-        for (RiskObligation p : riskObligations.findByObligationIdIn(keyById.keySet())) {
-            riskIdsByKey.computeIfAbsent(keyById.get(p.getObligationId()), k -> new ArrayList<>()).add(p.getRiskId());
-        }
-        return new Snapshot(byKey, riskIdsByKey);
+        return new Snapshot(byKey);
     }
 
     /** Re-attaches the snapshot to the recreated obligations; returns the control ids restored per obligation. */
@@ -79,7 +72,6 @@ public class RequirementSnapshotService {
                     .obligationId(o.getObligationId())
                     .ordinal(e.ordinal())
                     .text(e.text())
-                    .riskId(e.riskId())
                     .stateOverride(e.stateOverride())
                     .overrideReason(e.overrideReason())
                     .source(e.source())
@@ -88,9 +80,6 @@ public class RequirementSnapshotService {
                     requirementControls.save(new RequirementControl(saved.getRequirementId(), controlId));
                     controlsByObligation.computeIfAbsent(o.getObligationId(), x -> new java.util.HashSet<>()).add(controlId);
                 }
-            }
-            for (Integer riskId : snapshot.riskIdsByKey().getOrDefault(k, List.of())) {
-                riskObligations.save(new RiskObligation(riskId, o.getObligationId()));
             }
         }
         return controlsByObligation;

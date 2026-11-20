@@ -19,10 +19,6 @@ public class RequirementDto {
     private boolean gap;
     private String stateOverride;
     private String overrideReason;
-    private Integer riskId;
-    private String riskCode;
-    private String riskName;
-    private String riskBand;
     private String source;
     @Builder.Default private List<ControlRef> controls = List.of();
     private Instant updatedAt;

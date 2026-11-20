@@ -17,10 +17,6 @@ import com.atheris.compliance.tenant.backend.modules.requirements.entity.Require
 import com.atheris.compliance.tenant.backend.modules.requirements.entity.RequirementControl;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementControlRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.repository.RequirementRepository;
-import com.atheris.compliance.tenant.backend.modules.risks.entity.Risk;
-import com.atheris.compliance.tenant.backend.modules.risks.entity.RiskObligation;
-import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskObligationRepository;
-import com.atheris.compliance.tenant.backend.modules.risks.repository.RiskRepository;
 import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +40,6 @@ public class RequirementService {
     private final ObligationClassificationRepository classifications;
     private final ControlRepository controls;
     private final ControlTestResultRepository testResults;
-    private final RiskRepository risks;
-    private final RiskObligationRepository riskObligations;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -97,12 +91,10 @@ public class RequirementService {
             .obligationId(req.getObligationId())
             .ordinal(next)
             .text(req.getText().trim())
-            .riskId(validRisk(req.getRiskId()))
             .source("manual")
             .build());
         if (req.getControlIds() != null) replaceControls(saved, req.getControlIds());
         syncObligationLinks(saved.getObligationId());
-        linkRisk(saved);
         audit.log(userId, "requirement_created", "requirement", saved.getRequirementId(),
             Map.of("obligationId", saved.getObligationId()));
         return detail(saved.getRequirementId());
@@ -116,11 +108,9 @@ public class RequirementService {
             if (req.getText().isBlank()) throw ApiException.badRequest("text_required", "text must not be blank");
             r.setText(req.getText().trim());
         }
-        if (req.getRiskId() != null) r.setRiskId(validRisk(req.getRiskId()));
         requirements.save(r);
         if (req.getControlIds() != null) replaceControls(r, req.getControlIds());
         syncObligationLinks(r.getObligationId());
-        linkRisk(r);
         audit.log(userId, "requirement_updated", "requirement", requirementId, Map.of());
         return detail(requirementId);
     }
@@ -318,17 +308,6 @@ public class RequirementService {
         for (Integer id : wanted) requirementControls.save(new RequirementControl(r.getRequirementId(), id));
     }
 
-    private Integer validRisk(Integer riskId) {
-        if (riskId == null) return null;
-        if (!risks.existsById(riskId)) throw ApiException.badRequest("unknown_risk", "risk does not exist: " + riskId);
-        return riskId;
-    }
-
-    private void linkRisk(Requirement r) {
-        if (r.getRiskId() == null) return;
-        riskObligations.save(new RiskObligation(r.getRiskId(), r.getObligationId()));
-    }
-
     private Map<Long, String> states(List<Requirement> reqs) {
         if (reqs.isEmpty()) return Map.of();
         Map<Long, List<Integer>> controlIdsByReq = requirementControls
@@ -380,9 +359,6 @@ public class RequirementService {
         Map<Integer, String> latestResult = latest.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getResult()));
 
-        Set<Integer> riskIds = reqs.stream().map(Requirement::getRiskId).filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Integer, Risk> riskById = riskIds.isEmpty() ? Map.of()
-            : risks.findByRiskIdIn(riskIds).stream().collect(Collectors.toMap(Risk::getRiskId, Function.identity()));
         Set<Long> obligationIds = reqs.stream().map(Requirement::getObligationId).collect(Collectors.toSet());
         Map<Long, Obligation> obligationById = obligations.findAllById(obligationIds).stream()
             .collect(Collectors.toMap(Obligation::getObligationId, Function.identity()));
@@ -391,7 +367,6 @@ public class RequirementService {
         for (Requirement r : reqs) {
             List<Integer> ids = controlIdsByReq.getOrDefault(r.getRequirementId(), List.of());
             String state = ComplianceState.ofRequirement(r, ids, latestResult);
-            Risk risk = r.getRiskId() == null ? null : riskById.get(r.getRiskId());
             Obligation ob = obligationById.get(r.getObligationId());
             out.add(RequirementDto.builder()
                 .requirementId(r.getRequirementId())
@@ -404,10 +379,6 @@ public class RequirementService {
                 .gap(ComplianceState.isGap(state))
                 .stateOverride(r.getStateOverride())
                 .overrideReason(r.getOverrideReason())
-                .riskId(r.getRiskId())
-                .riskCode(risk == null ? null : risk.getRiskCode())
-                .riskName(risk == null ? null : risk.getName())
-                .riskBand(risk == null ? null : risk.getInherentBand())
                 .source(r.getSource())
                 .controls(ids.stream().map(controlById::get).filter(Objects::nonNull).map(c -> {
                     ControlTestResult t = latest.get(c.getControlId());

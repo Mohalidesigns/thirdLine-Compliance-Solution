@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem,
   Box, CircularProgress, Alert, Divider, Typography, Accordion, AccordionSummary, AccordionDetails,
@@ -37,7 +37,6 @@ function Field({ label, children, sx }) {
 }
 
 export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar, obligationId = null }) {
-  const queryClient = useQueryClient();
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -50,16 +49,6 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
     enabled: open,
   });
   const themes = themesQuery.data || [];
-  const [newTheme, setNewTheme] = useState('');
-  const createTheme = useMutation({
-    mutationFn: (name) => api.controlThemes.create({ name }),
-    onSuccess: (created) => {
-      set('theme', created?.name || '');
-      setNewTheme('');
-      queryClient.invalidateQueries({ queryKey: ['control-themes'] });
-    },
-    onError: (e) => setError(e.message || 'Could not add the theme.'),
-  });
 
   const templatesQuery = useQuery({
     queryKey: ['escalation', 'policies', 'CONTROL', 'templates'],
@@ -167,18 +156,12 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
               </TextField>
             </Field>
             <Field label="Theme" sx={{ mb: 0 }}>
-              <TextField select fullWidth size="small" SelectProps={{ native: true }} value={form.theme}
+              <TextField select fullWidth size="small" value={form.theme}
                 onChange={e => set('theme', e.target.value)}>
-                <option value="">No theme</option>
-                {Array.from(new Set(themes.map(t => t.name))).map(name => <option key={name} value={name}>{name}</option>)}
+                <MenuItem value=""><em>No theme</em></MenuItem>
+                {Array.from(new Set(themes.map(t => t.name))).map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
               </TextField>
             </Field>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-            <TextField size="small" placeholder="Add a new theme…" value={newTheme}
-              onChange={e => setNewTheme(e.target.value)} sx={{ flex: 1 }} />
-            <Button size="small" variant="outlined" disabled={!newTheme.trim() || createTheme.isPending}
-              onClick={() => createTheme.mutate(newTheme.trim())}>Add theme</Button>
           </Box>
 
           <Divider sx={{ my: 2 }} />

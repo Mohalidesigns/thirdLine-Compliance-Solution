@@ -1,22 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Box,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
 } from '@mui/material';
 import { api } from '../../services/api';
 
-const EMPTY = { text: '', riskId: '' };
+const EMPTY = { text: '' };
 
 export default function AddRequirementDialog({ open, onClose, obligationId, onSaved, onError }) {
   const qc = useQueryClient();
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
-
-  const { data: risks = [] } = useQuery({
-    queryKey: ['risks', 'register'],
-    queryFn: ({ signal }) => api.risks.register({}, { signal }),
-    enabled: open,
-  });
 
   useEffect(() => { if (open) setForm(EMPTY); }, [open]);
 
@@ -27,7 +21,6 @@ export default function AddRequirementDialog({ open, onClose, obligationId, onSa
       await api.requirements.create({
         obligationId,
         text: form.text.trim(),
-        riskId: form.riskId ? Number(form.riskId) : null,
       });
       qc.invalidateQueries({ queryKey: ['requirements'] });
       qc.invalidateQueries({ queryKey: ['obligations'] });
@@ -46,15 +39,6 @@ export default function AddRequirementDialog({ open, onClose, obligationId, onSa
           value={form.text} onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
           sx={{ mt: 1 }}
         />
-        <Box sx={{ mt: 2 }}>
-          <TextField
-            select fullWidth size="small" label="Risk (optional)"
-            value={form.riskId} onChange={(e) => setForm((f) => ({ ...f, riskId: e.target.value }))}
-          >
-            <MenuItem value="">No risk</MenuItem>
-            {risks.map((r) => <MenuItem key={r.riskId} value={r.riskId}>{r.riskCode} · {r.name}</MenuItem>)}
-          </TextField>
-        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>

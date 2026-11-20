@@ -18,6 +18,7 @@ public final class ComplianceState {
     public static final String PARTIAL = "PARTIAL";
     public static final String COMPLIANT = "COMPLIANT";
     public static final String GAP = "GAP";
+    public static final String NOT_ASSESSED = "NOT_ASSESSED";
     public static final String NO_REQUIREMENTS = "NO_REQUIREMENTS";
 
     private ComplianceState() {}
@@ -46,15 +47,19 @@ public final class ComplianceState {
         if (effective == controlIds.size()) return COMPLIANT;
         if (effective > 0) return PARTIAL;
         boolean anyFailed = controlIds.stream().anyMatch(id -> failed(latestResultByControl.get(id)));
-        return anyFailed ? NON_COMPLIANT : PARTIAL;
+        if (anyFailed) return NON_COMPLIANT;
+        boolean anyTested = controlIds.stream().anyMatch(id -> latestResultByControl.get(id) != null);
+        return anyTested ? PARTIAL : NOT_ASSESSED;
     }
 
-    /** Worst first: any non-compliant requirement, then any gap, then partial, else compliant. */
+    /** Worst first: any non-compliant requirement, then any gap, then all-compliant, else partial; an
+     *  obligation whose requirements are all untested is not assessed. */
     public static String ofObligation(List<String> requirementStates) {
         if (requirementStates == null || requirementStates.isEmpty()) return NO_REQUIREMENTS;
         if (requirementStates.contains(NON_COMPLIANT)) return NON_COMPLIANT;
         if (requirementStates.contains(NO_CONTROL)) return GAP;
         if (requirementStates.stream().allMatch(COMPLIANT::equals)) return COMPLIANT;
+        if (requirementStates.stream().allMatch(NOT_ASSESSED::equals)) return NOT_ASSESSED;
         return PARTIAL;
     }
 

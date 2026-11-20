@@ -193,12 +193,8 @@ def resolve_columns(section_rows):
     type_col = col(idx, "obligationtype")
     deadline = col(idx, "recurringdeadlinetype", "duedate")
     has_theme = "theme" in idx
-    if col_format:
-        risk_desc = 7
-        lik_inh = 8
-        imp_inh = 9
-        owner = 10
-    elif has_theme:
+    has_area = "areaoffocus" in idx
+    if col_format or has_theme or has_area:
         risk_desc = 7
         lik_inh = 8
         imp_inh = 9

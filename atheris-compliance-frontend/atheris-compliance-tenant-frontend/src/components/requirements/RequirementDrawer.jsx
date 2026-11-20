@@ -7,14 +7,15 @@ import RequirementControlsModal from '../modals/RequirementControlsModal';
 
 const STATE_LABEL = {
   COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-  NO_CONTROL: 'No control', NO_REQUIREMENTS: 'No requirements',
+  NO_CONTROL: 'No control', NOT_ASSESSED: 'Not assessed', NO_REQUIREMENTS: 'No requirements',
 };
-const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', NO_CONTROL: 'red', NO_REQUIREMENTS: 'gray' };
+const STATE_TONE = { COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red', NO_CONTROL: 'red', NOT_ASSESSED: 'gray', NO_REQUIREMENTS: 'gray' };
 const STATE_HINT = {
   COMPLIANT: 'Every linked control passed its latest test.',
   PARTIAL: 'At least one linked control has not been proven effective yet.',
   NON_COMPLIANT: 'A linked control failed its latest test and none are effective.',
   NO_CONTROL: 'No control covers this requirement — this is a gap.',
+  NOT_ASSESSED: 'No linked control has been tested yet — not assessed.',
 };
 
 function formatDate(d) {
@@ -59,8 +60,6 @@ export default function RequirementDrawer({ open, onClose, requirement, onError,
         </Box>
 
         <FieldGrid min={150} sx={{ mb: 3 }}>
-          <Field label="Risk" value={requirement.riskName} />
-          <Field label="Risk band" value={requirement.riskBand} />
           <Field label="Source" value={requirement.source} />
           <Field label="Controls" value={String(controls.length)} />
         </FieldGrid>

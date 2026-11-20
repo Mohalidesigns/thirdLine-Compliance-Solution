@@ -12,8 +12,9 @@ export { default as EntityDrawer } from './components/EntityDrawer';
 export { default as KpiCards, KpiCard } from './components/KpiCards';
 export { default as FilterBar, FilterField, SearchInput } from './components/FilterBar';
 export {
-  obligationColumns, sanctionColumns, returnColumns, controlColumns, instrumentColumns, requirementColumns,
+  obligationColumns, sanctionColumns, returnColumns, controlColumns, controlRegisterColumns, instrumentColumns, requirementColumns,
   riskChip, statusChip,
+  effectivenessLabel, effectivenessTone, EFFECTIVENESS_LABEL, EFFECTIVENESS_TONE,
 } from './components/columns';
 export {
   obligationRegister, controlRegister, returnRegister, sanctionRegister,

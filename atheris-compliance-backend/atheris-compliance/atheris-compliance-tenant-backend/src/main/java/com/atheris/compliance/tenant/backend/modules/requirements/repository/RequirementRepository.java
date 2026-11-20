@@ -11,7 +11,6 @@ import java.util.Optional;
 public interface RequirementRepository extends JpaRepository<Requirement, Long>, JpaSpecificationExecutor<Requirement> {
     List<Requirement> findByObligationIdOrderByOrdinalAsc(Long obligationId);
     List<Requirement> findByObligationIdInOrderByObligationIdAscOrdinalAsc(Collection<Long> obligationIds);
-    List<Requirement> findByRiskId(Integer riskId);
     Optional<Requirement> findByObligationIdAndOrdinal(Long obligationId, Integer ordinal);
     long countByObligationId(Long obligationId);
     void deleteByObligationId(Long obligationId);

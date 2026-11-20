@@ -59,7 +59,7 @@ public class DashboardController {
     }
 
     @PutMapping("/score-weights")
-    @PreAuthorize("hasRole('" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ScoreWeightsDto> saveScoreWeights(@RequestBody ScoreWeightsDto dto) {
         return ResponseEntity.ok(scoreWeights.save(dto));
     }

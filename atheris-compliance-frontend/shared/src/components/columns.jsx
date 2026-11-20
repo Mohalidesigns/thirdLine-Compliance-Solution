@@ -1,6 +1,7 @@
 import { Chip, Typography, Box, Tooltip } from '@mui/material';
 import { friendlyPenaltyTypes } from './formatters';
 import { RiskBadge, StateBadge } from './StatusBadge';
+import StatusBadge from './StatusBadge';
 
 /**
  * Per-entity register column definitions shared by the standalone registers and the
@@ -117,6 +118,61 @@ export function controlColumns({ withAct = true } = {}) {
   return cols;
 }
 
+/**
+ * The Controls register column set, shared by the Controls register page and every
+ * "controls" section (obligation detail), so all show the SAME columns.
+ * The row DTO must expose: name, nextTestDueDate, openFindings, frequency, testerName.
+ */
+export function controlRegisterColumns() {
+  return [
+    { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name',
+      render: (c) => (
+        <Tooltip title={c.name || ''}>
+          <Typography variant="body2" sx={{ ...ellipsis(420), color: 'primary.main', fontWeight: 500 }}>
+            {c.name || 'Untitled control'}
+          </Typography>
+        </Tooltip>
+      ) },
+    { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => <ControlDueCell value={c.nextTestDueDate} /> },
+    { id: 'effectiveness', label: 'State', minWidth: 150,
+      render: (c) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <StateBadge value={effectivenessLabel(c.effectivenessState)} tone={effectivenessTone(c.effectivenessState)} />
+          {c.openFindings > 0 && (
+            <Typography variant="caption" color="text.secondary">{c.openFindings} open finding{c.openFindings === 1 ? '' : 's'}</Typography>
+          )}
+        </Box>
+      ) },
+    { id: 'schedule', label: 'Schedule', minWidth: 150,
+      render: (c) => (
+        <Typography variant="body2">{c.frequency || 'Not set'}</Typography>
+      ) },
+    { id: 'testerName', label: 'Tester', minWidth: 180,
+      render: (c) => (c.testerName
+        ? <Tooltip title={c.testerName}><Typography variant="body2" sx={ellipsis(180)}>{c.testerName}</Typography></Tooltip>
+        : <StatusBadge label="Not assigned" tone="amber" />) },
+  ];
+}
+
+export const EFFECTIVENESS_LABEL = {
+  EFFECTIVE: 'Effective', PARTIAL: 'Partially Effective', INEFFECTIVE: 'Ineffective', UNTESTED: 'Untested',
+};
+export const EFFECTIVENESS_TONE = {
+  EFFECTIVE: 'green', PARTIAL: 'amber', INEFFECTIVE: 'red', UNTESTED: 'gray',
+};
+export const effectivenessLabel = (s) => EFFECTIVENESS_LABEL[s] || 'Untested';
+export const effectivenessTone = (s) => EFFECTIVENESS_TONE[s] || 'gray';
+
+function ControlDueCell({ value }) {
+  if (!value) return <Typography variant="body2" color="text.secondary">—</Typography>;
+  const due = new Date(value);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((due - today) / 86400000);
+  if (days < 0) return <StatusBadge label={`Overdue ${Math.abs(days)}d`} tone="red" />;
+  if (days <= 7) return <StatusBadge label={`Due in ${days}d`} tone="orange" />;
+  return <Typography variant="body2">{value}</Typography>;
+}
+
 /** Requirements of an obligation: the duty, its derived state and the controls that satisfy it. */
 export function requirementColumns({ onOpen } = {}) {
   return [
@@ -135,12 +191,6 @@ export function requirementColumns({ onOpen } = {}) {
         <StateBadge value={r.state}
           label={r.state === 'NO_CONTROL' ? 'No control' : undefined}
           title={r.state} />
-      ) },
-    { id: 'riskCode', label: 'Risk', minWidth: 180, sortable: false,
-      render: (r) => (
-        <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>
-          {r.riskCode ? `${r.riskCode} · ${r.riskName || ''}`.replace(/ · $/, '') : '—'}
-        </Typography>
       ) },
     { id: 'controls', label: 'Controls', minWidth: 200, sortable: false,
       render: (r) => {

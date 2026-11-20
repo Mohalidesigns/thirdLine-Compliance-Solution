@@ -427,7 +427,7 @@ export const api = {
     }),
     detail: (id) => request(`/obligations/${id}/detail`),
     history: (id) => request(`/obligations/${id}/history`),
-    riskTypes: () => request('/obligations/risk-types'),
+    riskTypes: (opts = {}) => request('/obligations/risk-types', { signal: opts.signal }),
   },
   requirements: {
     forObligation: (obligationId, opts = {}) =>
@@ -441,18 +441,6 @@ export const api = {
       request(`/requirements/${requirementId}/controls`, { method: 'PUT', body: JSON.stringify(controlIds) }),
     setState: (requirementId, data) =>
       request(`/requirements/${requirementId}/state`, { method: 'PUT', body: JSON.stringify(data) }),
-  },
-  risks: {
-    register: (params = {}, opts = {}) => {
-      const qs = new URLSearchParams();
-      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
-      const s = qs.toString();
-      return request(`/risks${s ? '?' + s : ''}`, { signal: opts.signal });
-    },
-    stats: (opts = {}) => request('/risks/stats', { signal: opts.signal }),
-    detail: (riskId, opts = {}) => request(`/risks/${riskId}`, { signal: opts.signal }),
-    create: (data) => request('/risks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (riskId, data) => request(`/risks/${riskId}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   acts: {
     list: (params = {}, opts = {}) => {
@@ -515,7 +503,7 @@ export const api = {
     updateEscalation: (id, data) => request(`/controls/${id}/escalation`, {
       method: 'PUT', body: JSON.stringify(data),
     }),
-    recordTest: (id, data) => request(`/controls/${id}/tests`, { method: 'POST', body: JSON.stringify(data) }),
+    recordTest: (id, formData) => rawRequest(`/controls/${id}/tests`, { method: 'POST', body: formData }),
     tests: (id, opts = {}) => request(`/controls/${id}/tests`, { signal: opts.signal }),
     testDetail: (testId, opts = {}) => request(`/control-tests/${testId}`, { signal: opts.signal }),
     reviewTest: (id, testId, decision, notes) => request(`/controls/${id}/tests/${testId}/review`, {
@@ -716,10 +704,7 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     v2: {
-      returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
-      renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
       riskHeatmap: (view = 'inherent', opts = {}) => request(`/dashboard/v2/risk-heatmap?view=${view}`, { signal: opts.signal }),
-      escalationMatrix: (opts = {}) => request('/dashboard/v2/escalation-matrix', { signal: opts.signal }),
       controlCoverage: (by = 'areaOfFocus', opts = {}) => request(`/dashboard/v2/control-coverage?by=${by}`, { signal: opts.signal }),
       riskProfile: (opts = {}) => request('/dashboard/v2/risk-profile', { signal: opts.signal }),
       thresholds: (opts = {}) => request('/dashboard/v2/thresholds', { signal: opts.signal }),
@@ -761,6 +746,10 @@ export const api = {
     }),
     taskCentre: (opts = {}) => request('/settings/task-centre', { signal: opts.signal }),
     saveTaskCentre: (data) => request('/settings/task-centre', {
+      method: 'PUT', body: JSON.stringify(data),
+    }),
+    compliance: (opts = {}) => request('/settings/compliance', { signal: opts.signal }),
+    saveCompliance: (data) => request('/settings/compliance', {
       method: 'PUT', body: JSON.stringify(data),
     }),
     smtp: () => request('/settings/smtp'),

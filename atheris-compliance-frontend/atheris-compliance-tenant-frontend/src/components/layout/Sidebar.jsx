@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  AppSidebar, Squares2x2Icon, GlobeAltIcon, PresentationChartBarIcon, InboxArrowDownIcon, DocumentTextIcon,
+  AppSidebar, Squares2x2Icon, InboxArrowDownIcon, DocumentTextIcon,
   ScaleIcon, BuildingLibraryIcon, ShieldCheckIcon, ExclamationTriangleIcon, CalendarIcon,
-  BanknotesIcon, FingerPrintIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
-  CloudArrowUpIcon, QueueListIcon,
+  BanknotesIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
+  QueueListIcon,
 } from 'shared';
 import verityLogoDark from '../../atheris-verity/verity-logo-on-black.svg';
 import verityMark from '../../atheris-verity/verity-mark-on-black.svg';
@@ -37,32 +37,29 @@ export default function Sidebar(props) {
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
+  const isAnalyst = user?.role === 'ANALYST';
+
   const sections = [
-    { key: 'main', items: [
+    { key: 'overview', items: [
       { text: 'Dashboard', path: '/dashboard', icon: <Squares2x2Icon />, exact: true },
-      { text: 'Tasks', path: '/tasks', icon: <QueueListIcon />, badge: openTasks },
-      { text: 'Rendition & Coverage', path: '/dashboard/v2', icon: <PresentationChartBarIcon /> },
-      { text: 'Review Inbox', path: '/review', icon: <InboxArrowDownIcon />, badge: pendingCount },
-      // uploaded documents feed the Review Inbox (this page had no sidebar entry)
-      { text: 'Uploads', path: '/uploads', icon: <CloudArrowUpIcon /> },
+      ...(isAnalyst ? [] : [{ text: 'Reports', path: '/reports', icon: <ChartBarIcon /> }]),
+      { text: 'Settings', path: '/settings', icon: <Cog6ToothIcon /> },
     ] },
-    { key: 'registers', items: [
-      { text: 'Compliance Universe', path: '/universe', icon: <GlobeAltIcon /> },
-      { text: 'Instruments', path: '/instruments', icon: <DocumentTextIcon /> },
+    { key: 'actionables', items: [
+      { text: 'Compliance Intelligence', path: '/review', icon: <InboxArrowDownIcon />, badge: pendingCount },
+      { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
+      { text: 'Tasks', path: '/tasks', icon: <QueueListIcon />, badge: openTasks },
+      { text: 'Findings', path: '/findings', icon: <ExclamationTriangleIcon /> },
+    ] },
+    { key: 'compendium', items: [
       { text: 'Acts', path: '/acts', icon: <BookOpenIcon /> },
       { text: 'Obligations', path: '/obligations', icon: <ScaleIcon /> },
+      { text: 'Instruments', path: '/instruments', icon: <DocumentTextIcon /> },
       { text: 'Regulators', path: '/regulators', icon: <BuildingLibraryIcon /> },
-      { text: 'Risks', path: '/risks', icon: <ExclamationTriangleIcon /> },
-      { text: 'Controls', path: '/controls', icon: <ShieldCheckIcon /> },
-      { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
-      { text: 'Findings', path: '/findings', icon: <ExclamationTriangleIcon /> },
       { text: 'Returns', path: '/returns', icon: <CalendarIcon /> },
+      { text: 'Controls', path: '/controls', icon: <ShieldCheckIcon /> },
       { text: 'Sanctions', path: '/sanctions', icon: <BanknotesIcon /> },
-    ] },
-    { key: 'assurance', items: [
-      { text: 'Reports', path: '/reports', icon: <ChartBarIcon /> },
-      { text: 'Audit Trail', path: '/audit', icon: <FingerPrintIcon /> },
-      { text: 'Evidence Vault', path: '/evidence', icon: <FolderOpenIcon /> },
+      { text: 'Evidence', path: '/evidence', icon: <FolderOpenIcon /> },
     ] },
   ];
 
@@ -71,7 +68,7 @@ export default function Sidebar(props) {
   const visibleSections = itOps
     ? [{ key: 'ops', items: [
         { text: 'Runbooks', path: '/runbooks', icon: <ClipboardDocumentCheckIcon /> },
-        { text: 'Evidence Vault', path: '/evidence', icon: <FolderOpenIcon /> },
+        { text: 'Evidence', path: '/evidence', icon: <FolderOpenIcon /> },
       ] }]
     : sections;
 
@@ -79,7 +76,7 @@ export default function Sidebar(props) {
     <AppSidebar
       brand={BRAND}
       sections={visibleSections}
-      footerItems={[{ text: 'Settings', path: '/settings', icon: <Cog6ToothIcon /> }]}
+      footerItems={[]}
       activePath={location.pathname}
       onNavigate={(path) => { navigate(path); props.onClose?.(); }}
       {...props}

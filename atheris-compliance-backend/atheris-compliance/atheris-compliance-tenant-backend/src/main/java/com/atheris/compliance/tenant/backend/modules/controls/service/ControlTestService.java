@@ -13,16 +13,21 @@ import com.atheris.compliance.tenant.backend.modules.notifications.service.Notif
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.modules.evidence.service.EvidenceVaultService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.shared.util.EscalationConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -43,6 +48,11 @@ public class ControlTestService {
     private final OwnerRepository ownerRepo;
     private final UserRepository userRepo;
     private final EmailService email;
+    private final EvidenceVaultService evidenceVault;
+    private final ComplianceSettingsService complianceSettings;
+
+    @Autowired @Lazy
+    private ControlTestLinkService testLinks;
 
     public List<ControlTestResult> getTestHistory(Integer controlId) {
         return testRepo.findByControlIdOrderByTestDateDesc(controlId);
@@ -74,15 +84,40 @@ public class ControlTestService {
 
     @Transactional
     public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, User tester) {
-        return record(controlId, req, tester.getUserId(), tester.getFullName());
+        return record(controlId, req, tester.getUserId(), tester.getFullName(),
+            !complianceSettings.requireControlTestReview());
     }
 
     @Transactional
     public ControlTestResult recordTestFromLink(Integer controlId, RecordTestRequest req, String testerName) {
-        return record(controlId, req, null, testerName);
+        return record(controlId, req, null, testerName, false);
     }
 
-    private ControlTestResult record(Integer controlId, RecordTestRequest req, Integer testerUserId, String testerName) {
+    @Transactional
+    public ControlTestResult recordTest(Integer controlId, RecordTestRequest req, List<MultipartFile> files, User tester) {
+        List<MultipartFile> uploads = files == null ? List.of()
+            : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+        if (uploads.isEmpty()) {
+            throw ApiException.conflict("evidence_required",
+                "Attach supporting evidence before recording the test result.");
+        }
+        ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName(),
+            !complianceSettings.requireControlTestReview());
+        for (MultipartFile file : uploads) storeTestEvidence(file, result, tester.getUserId());
+        return result;
+    }
+
+    private void storeTestEvidence(MultipartFile file, ControlTestResult result, Integer userId) {
+        try {
+            evidenceVault.upload(file, ControlTestLinkService.EVIDENCE_TYPE, result.getTestId(),
+                "Test evidence " + result.getTestDate(), userId);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to store the test evidence", e);
+        }
+    }
+
+    private ControlTestResult record(Integer controlId, RecordTestRequest req, Integer testerUserId, String testerName,
+                                     boolean autoAccept) {
         Control control = controls.findById(controlId)
             .orElseThrow(() -> ApiException.notFound("Control not found: " + controlId));
         ControlTestResult result = ControlTestResult.builder()
@@ -97,30 +132,43 @@ public class ControlTestService {
             .remediationOwnerUserId(req.getRemediationOwnerUserId())
             .remediationOwnerId(req.getRemediationOwnerId())
             .remediationDeadline(req.getRemediationDeadline())
-            .reviewStatus(WorkflowStatus.REVIEW_PENDING)
+            .reviewStatus(autoAccept ? WorkflowStatus.REVIEW_ACCEPTED : WorkflowStatus.REVIEW_PENDING)
             .build();
         testRepo.save(result);
 
-        ControlTask openTask = currentOpenTask(controlId);
-        String reviewSummary = "Control test (" + req.getResult().toLowerCase() + ") on " + safeName(control)
+        if (autoAccept) {
+            result.setReviewedByUserId(testerUserId);
+            result.setReviewedByName(testerName);
+            result.setReviewedAt(Instant.now());
+            testRepo.save(result);
+            applyAcceptedEffects(result);
+        } else {
+            notifyReviewers(control, result, testerName, testerUserId);
+        }
+
+        audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
+            Map.of("result", req.getResult(),
+                   "reviewStatus", autoAccept ? WorkflowStatus.REVIEW_ACCEPTED : WorkflowStatus.REVIEW_PENDING));
+        return result;
+    }
+
+    private void notifyReviewers(Control control, ControlTestResult result, String testerName, Integer testerUserId) {
+        ControlTask openTask = currentOpenTask(control.getControlId());
+        String reviewSummary = "Control test (" + result.getResult().toLowerCase() + ") on " + safeName(control)
             + " by " + (testerName == null ? "the responsible person" : testerName) + " is waiting for your review";
         Map<String, String> reviewVars = details.messageVars(control, openTask, testerName);
-        details.putResult(reviewVars, req.getResult(), null);
+        details.putResult(reviewVars, result.getResult(), null);
         NotificationTemplateService.RenderedEmail review = templates.render(
             EscalationConstants.KEY_CONTROL_DATA_REVIEW, reviewVars);
         String reviewSubject = review.subject() != null ? review.subject()
-            : "Review needed: control test on " + safeName(control);
+            : "Review needed: control test " + shortRef(control);
         String reviewBody = review.body() != null ? review.body() : reviewSummary;
         String reviewLink = "/controls/tests/" + result.getTestId() + "/review";
         List<String> reviewCc = ownerCc(control);
         for (String role : List.of(AppRole.ANALYST, AppRole.CCO, AppRole.CONTROL_TEST_REVIEWER)) {
             notifications.notifyRoleEmailed(role, NotificationConstants.CATEGORY_CONTROLS, NotificationConstants.SEVERITY_MEDIUM,
-                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, null);
+                reviewSummary, reviewLink, reviewSubject, reviewBody, reviewCc, testerUserId);
         }
-
-        audit.log(testerUserId, "control_test_recorded", "control", controlId.longValue(),
-            Map.of("result", req.getResult(), "reviewStatus", WorkflowStatus.REVIEW_PENDING));
-        return result;
     }
 
     private ControlTask currentOpenTask(Integer controlId) {
@@ -186,7 +234,6 @@ public class ControlTestService {
     private void applyAcceptedEffects(ControlTestResult t) {
         Control control = controls.findById(t.getControlId()).orElse(null);
         if (control == null) return;
-        updateResidualRisk(control, t.getResult());
         boolean failed = WorkflowStatus.TEST_FAILED.equals(t.getResult())
                       || WorkflowStatus.TEST_PARTIAL.equals(t.getResult());
         if (failed) findingService.autoRaiseFromTest(t, control);
@@ -231,7 +278,15 @@ public class ControlTestService {
             : EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED;
         NotificationTemplateService.RenderedEmail rendered = templates.render(key, vars);
         if (rendered.subject() == null || rendered.body() == null) return;
-        email.send(to, List.of(), rendered.subject(), rendered.body(), null);
+        String link = WorkflowStatus.REVIEW_ACCEPTED.equals(decision) ? null : testerTestLink(control, to);
+        email.send(to, List.of(), rendered.subject(), rendered.body(), link);
+    }
+
+    private String testerTestLink(Control control, String testerEmail) {
+        ControlTask open = currentOpenTask(control.getControlId());
+        String raw = testLinks.createTestLink(control.getControlId(),
+            open == null ? null : open.getTaskId(), testerEmail, control.getTesterName(), null);
+        return testLinks.uploadUrl(raw);
     }
 
     @Transactional
@@ -242,11 +297,25 @@ public class ControlTestService {
                       || WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()))
             .toList();
         if (open.isEmpty()) return;
+        LocalDate dueDate = openTaskDueDate(control);
         for (ControlTask t : open) {
             t.setAssignedToUserId(control.getTesterUserId());
             t.setAssignedToName(control.getTesterName());
+            if (dueDate != null && !dueDate.equals(t.getDueDate())) {
+                t.setDueDate(dueDate);
+                if (WorkflowStatus.TASK_OVERDUE.equals(t.getStatus()) && dueDate.isAfter(LocalDate.now())) {
+                    t.setStatus(WorkflowStatus.TASK_PENDING);
+                }
+            }
         }
         taskRepo.saveAll(open);
+    }
+
+    private LocalDate openTaskDueDate(Control control) {
+        if (control.getFirstDueDate() != null) return control.getFirstDueDate();
+        Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
+            : ControlSchedule.daysForFrequency(control.getTestFrequency());
+        return days == null ? null : LocalDate.now().plus(days, ChronoUnit.DAYS);
     }
 
     @Transactional
@@ -290,15 +359,12 @@ public class ControlTestService {
         log.info("Marked {} control tasks as overdue", due.size());
     }
 
-    private void updateResidualRisk(Control c, String result) {
-        String risk = ResidualRisk.fromTestResult(result, c.getInherentRisk());
-        if (risk != null) {
-            c.setResidualRisk(risk);
-            controls.save(c);
-        }
-    }
-
     private static String safeName(Control c) {
         return c.getName() != null && !c.getName().isBlank() ? c.getName() : "Control " + c.getControlId();
+    }
+
+    private static String shortRef(Control c) {
+        return c.getControlNumber() != null && !c.getControlNumber().isBlank()
+            ? c.getControlNumber() : "Control " + c.getControlId();
     }
 }

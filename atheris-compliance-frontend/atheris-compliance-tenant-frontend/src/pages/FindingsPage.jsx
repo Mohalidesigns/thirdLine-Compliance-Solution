@@ -62,6 +62,7 @@ export default function FindingsPage() {
   const refreshRelated = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['obligations'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }, [queryClient]);
 
   const loadList = useCallback(() => {
@@ -185,7 +186,7 @@ export default function FindingsPage() {
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Open">Open</MenuItem>
             <MenuItem value="In Remediation">In Remediation</MenuItem>
-            <MenuItem value="Remediated">Remediated</MenuItem>
+            <MenuItem value="Remediated">Awaiting review</MenuItem>
             <MenuItem value="Closed">Closed</MenuItem>
           </TextField>
         </FilterField>
@@ -252,7 +253,7 @@ export default function FindingsPage() {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <StateBadge value={row.status} />
+                          <StateBadge value={row.status} label={row.status === 'Remediated' ? 'Awaiting review' : undefined} />
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="View detail">
@@ -818,7 +819,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
           </Grid>
           <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" startIcon={<ArrowUpTrayIcon size={16} />}>
-              Attach evidence files
+              Attach evidence files *
               <input hidden type="file" multiple
                 accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx"
                 onChange={e => setFiles(Array.from(e.target.files || []))} />
@@ -833,7 +834,7 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || files.length === 0}>
           {saving ? 'Submitting...' : 'Record remediation'}
         </Button>
       </DialogActions>

@@ -6,11 +6,10 @@ import {
 } from '@mui/material';
 import {
   DetailHeader, SectionTabs, SectionTable, EntityDrawer, DataCard, StatusBadge,
-  controlColumns, returnColumns,
-  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
+  controlRegisterColumns, returnColumns,  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
 import { api } from '../services/api';
-import RiskAssessmentModal from '../components/modals/RiskAssessmentModal';
+import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
 import MapReturnModal from '../components/modals/MapReturnModal';
@@ -19,7 +18,7 @@ import OwnerModal from '../components/modals/OwnerModal';
 import AddRequirementDialog from '../components/modals/AddRequirementDialog';
 import RequirementsList from '../components/requirements/RequirementsList';
 import RequirementDrawer from '../components/requirements/RequirementDrawer';
-import { Field, FieldGrid, Section } from '../components/detailKit';
+import { Field, FieldGrid, Section, RiskChip } from '../components/detailKit';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -86,6 +85,7 @@ export default function ObligationDetailPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [activeModal, setActiveModal] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [drill, setDrill] = useState(null);
   const [snack, setSnack] = useState(null);
   const size = 10;
@@ -121,6 +121,21 @@ export default function ObligationDetailPage() {
   const evidence = useMemo(() => evidenceRollup, [evidenceRollup]);
   const history = useMemo(() => selected?.history || [], [selected]);
 
+  const editInitial = useMemo(() => selected ? {
+    obligationId: selected.obligationId,
+    instrumentId: selected.instrumentId,
+    name: selected.title || selected.name || '',
+    tenantRegulatorId: selected.tenantRegulatorId ?? '',
+    areaOfFocus: selected.areaOfFocus || '',
+    sectionReference: selected.sectionReference || '',
+    effectiveDate: selected.effectiveDate || '',
+    impactRating: selected.impactRating || '',
+    likelihoodRating: selected.likelihoodRating || '',
+    assignedOwnerId: selected.assignedOwnerId ?? null,
+    linkedControlIds: selected.linkedControlIds || [],
+    linkedReturnIds: selected.linkedReturnIds || [],
+  } : null, [selected]);
+
   const requirementsWithId = useMemo(
     () => requirements.map((r) => ({ ...r, id: r.requirementId })), [requirements]);
   const gapCount = requirements.filter((r) => r.gap).length;
@@ -154,7 +169,7 @@ export default function ObligationDetailPage() {
   };
 
   const columnsByTab = {
-    controls: controlColumns({ withAct: false }),
+    controls: controlRegisterColumns(),
     returns: returnColumns(),
     sanctions: SANCTION_TAB_COLUMNS,
     evidence: EVIDENCE_COLUMNS,
@@ -190,12 +205,12 @@ export default function ObligationDetailPage() {
 
   const complianceTone = {
     COMPLIANT: 'green', PARTIAL: 'amber', NON_COMPLIANT: 'red',
-    NO_CONTROL: 'red', NO_REQUIREMENTS: 'gray',
+    NO_CONTROL: 'red', GAP: 'red', NO_REQUIREMENTS: 'gray',
   }[selected.complianceState] || 'gray';
 
   const complianceLabel = {
     COMPLIANT: 'Compliant', PARTIAL: 'Partial', NON_COMPLIANT: 'Non-compliant',
-    NO_CONTROL: 'No control', NO_REQUIREMENTS: 'No requirements',
+    NO_CONTROL: 'No control', GAP: 'Coverage gap', NO_REQUIREMENTS: 'No requirements',
   }[selected.complianceState] || selected.complianceState;
 
   return (
@@ -217,18 +232,33 @@ export default function ObligationDetailPage() {
             )}
           </Box>
         )}
+        right={<Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
+          onClick={() => setEditOpen(true)}>Edit</Button>}
       />
 
-      <Section title="Details" sx={{ mb: 3 }}>
-        <FieldGrid min={190}>
-          <Field label="Act / Regulation" value={selected.actName} />
-          <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
-          <Field label="Area of focus" value={selected.areaOfFocus} />
-          <Field label="Section reference" value={selected.sectionReference} mono />
-          <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
-          <Field label="Source" value={selected.sourceTitle} />
-        </FieldGrid>
-      </Section>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>
+        <Section title="Details" sx={{ mb: 0 }} contentSx={{ pt: 2, pb: 1.5, px: 2 }}>
+          <FieldGrid min={150} gap={1.5} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Field label="Regulator" value={selected.regulatorAbbreviation || selected.regulatorName} />
+            <Field label="Area of focus" value={selected.areaOfFocus} />
+            <Field label="Section reference" value={selected.sectionReference} mono />
+            <Field label="Effective date" value={selected.effectiveDate ? formatDate(selected.effectiveDate) : '—'} />
+          </FieldGrid>
+        </Section>
+
+        <Section title="Risk assessment" sx={{ mb: 0 }} contentSx={{ pt: 2, pb: 1.5, px: 2 }}>
+          <FieldGrid min={150} gap={1.5} sx={{ gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Field label="Impact" value={selected.impactRating} />
+            <Field label="Likelihood" value={selected.likelihoodRating} />
+            <Field label="Inherent risk">
+              <RiskChip rating={selected.inherentRiskRating} likelihood={selected.likelihoodRating} impact={selected.impactRating} />
+            </Field>
+            <Field label="Residual risk">
+              <RiskChip rating={selected.residualRiskRating} likelihood={selected.residualLikelihood} impact={selected.residualImpact} />
+            </Field>
+          </FieldGrid>
+        </Section>
+      </Box>
 
       <SectionTabs
         tabs={TABS.map((t) => ({ ...t, count: counts[t.key] }))}
@@ -254,11 +284,14 @@ export default function ObligationDetailPage() {
           total={filtered.length}
           page={page}
           size={size}
+          dense
           onPage={setPage}
           rowKey={(r) => rowId[tab] ? rowId[tab](r) : `${tab}-${pageRows.indexOf(r)}`}
           onRowClick={drillKind[tab] ? (r) => setDrill({ kind: drillKind[tab], row: r }) : undefined}
           search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: `Search ${tab}…`, action: actionFor[tab] }}
-          emptyMessage={`No ${tab} recorded for this obligation.`}
+          emptyMessage={tab === 'evidence'
+            ? 'No evidence yet. Files attached to this obligation\u2019s control tests, findings and returns appear here.'
+            : `No ${tab} recorded for this obligation.`}
           columns={columnsByTab[tab]}
           actions={tab === 'evidence' ? (ev) => (
             <IconButton size="small" title="Download" onClick={() => handleDownloadEvidence(ev)}><ArrowDownTrayIcon size={16} /></IconButton>
@@ -283,9 +316,15 @@ export default function ObligationDetailPage() {
       <OwnerModal open={activeModal === 'owner'} onClose={() => setActiveModal(null)}
         obligationId={obligationId}
         initial={{ assignedOwnerId: selected.assignedOwnerId }}
-        onSaved={onSaved('Risk owner updated')} onError={notify} />
-      <RiskAssessmentModal open={activeModal === 'risk'} onClose={() => setActiveModal(null)}
-        obligationId={obligationId} initial={selected || {}} onSaved={onSaved('Risk assessment saved')} onError={notify} />
+        onSaved={onSaved('Accountable owner updated')} onError={notify} />
+      <CreateObligationDialog
+        open={editOpen}
+        editing
+        initial={editInitial}
+        onClose={() => setEditOpen(false)}
+        onSaved={onSaved('Obligation updated')}
+        onSnackbar={(m) => notify('error', m)}
+      />
       <LinkControlsModal open={activeModal === 'controls'} onClose={() => setActiveModal(null)}
         obligationId={obligationId} initialIds={controls.map((c) => c.controlId) || []}
         onSaved={onSaved('Controls linked')} onError={notify} />
@@ -341,7 +380,6 @@ function DrillBody({ kind, row }) {
         <Field label="Summary" value={row.controlSummary || row.name} />
         <Field label="Theme / Area" value={row.theme || row.complianceArea} />
         <Field label="Type" value={row.controlType} />
-        <Field label="Risk" value={row.riskLevel || row.residualRisk || row.inherentRisk} />
         <Field label="Owner" value={row.controlOwnerName} />
         <Field label="Status" value={row.status} />
       </FieldGrid>

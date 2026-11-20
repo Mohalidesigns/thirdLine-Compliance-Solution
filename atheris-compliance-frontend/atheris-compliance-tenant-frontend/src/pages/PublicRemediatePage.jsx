@@ -89,6 +89,10 @@ export default function PublicRemediatePage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError('');
+    if (files.length === 0) {
+      setSubmitError('Attach at least one evidence file before submitting.');
+      return;
+    }
     setSubmitting(true);
     try {
       await publicApi.remediationSubmit(token, { notes, files });
@@ -194,7 +198,7 @@ export default function PublicRemediatePage() {
               <Grid size={{ xs: 12 }}>
                 <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />}
                   disabled={files.length >= MAX_FILES}>
-                  Attach evidence (PDF, PNG, JPG, DOCX, XLSX · max {MAX_FILES} files · {MAX_MB} MB each)
+                  Attach evidence * (PDF, PNG, JPG, DOCX, XLSX · max {MAX_FILES} files · {MAX_MB} MB each)
                   <input hidden type="file" multiple accept={ACCEPT}
                     onChange={e => { addFiles(e.target.files); e.target.value = ''; }} />
                 </Button>
@@ -222,7 +226,7 @@ export default function PublicRemediatePage() {
 
               <Grid size={{ xs: 12 }}>
                 <Stack direction="row" justifyContent="flex-end">
-                  <Button type="submit" variant="contained" disabled={submitting}
+                  <Button type="submit" variant="contained" disabled={submitting || files.length === 0}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon size={16} />}>
                     {submitting ? 'Submitting…' : 'Submit Remediation'}
                   </Button>

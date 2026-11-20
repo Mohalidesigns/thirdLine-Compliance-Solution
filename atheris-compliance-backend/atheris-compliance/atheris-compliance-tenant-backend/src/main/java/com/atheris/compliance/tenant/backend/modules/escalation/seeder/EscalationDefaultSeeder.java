@@ -26,21 +26,21 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         try {
             seed(EscalationConstants.SUBJECT_RETURN, null, "Standard Return Escalation",
-                10, 2, true, true, standardLevels(0, 3, 7));
+                10, 2, true, true, standardLevels(1, 3, 7));
             seed(EscalationConstants.SUBJECT_RETURN, "DAILY", "Daily Return Escalation",
                 12, 12, true, true, standardLevels(1, 2, 3), EscalationConstants.UNIT_HOURS, 0, 1);
             seed(EscalationConstants.SUBJECT_RETURN, "WEEKLY", "Weekly Return Escalation",
-                2, 1, true, true, standardLevels(0, 2, 4));
+                2, 1, true, true, standardLevels(1, 2, 4));
             seed(EscalationConstants.SUBJECT_RETURN, "MONTHLY", "Monthly Return Escalation",
-                10, 2, true, true, standardLevels(0, 3, 7));
+                10, 2, true, true, standardLevels(1, 3, 7));
             seed(EscalationConstants.SUBJECT_RETURN, "QUARTERLY", "Quarterly Return Escalation",
-                15, 3, true, true, standardLevels(0, 5, 10));
+                15, 3, true, true, standardLevels(1, 5, 10));
             seed(EscalationConstants.SUBJECT_RETURN, "SEMI_ANNUAL", "Semi-Annual Return Escalation",
-                21, 5, true, true, standardLevels(0, 7, 14));
+                21, 5, true, true, standardLevels(1, 7, 14));
             seed(EscalationConstants.SUBJECT_RETURN, "ANNUAL", "Annual Return Escalation",
-                30, 7, true, true, standardLevels(0, 7, 14));
+                30, 7, true, true, standardLevels(1, 7, 14));
             seed(EscalationConstants.SUBJECT_RETURN, "BIENNIAL", "Biennial Return Escalation",
-                30, 7, true, true, standardLevels(0, 7, 14));
+                30, 7, true, true, standardLevels(1, 7, 14));
             seed(EscalationConstants.SUBJECT_CONTROL, null, "Standard Control Test Escalation",
                 5, 2, true, true, controlLevels());
             seed(EscalationConstants.SUBJECT_CONTROL, "MONTHLY", "Monthly Control Test Escalation",
@@ -51,6 +51,18 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
                 21, 5, true, true, controlLevels());
             seed(EscalationConstants.SUBJECT_CONTROL, "ANNUAL", "Annual Control Test Escalation",
                 30, 7, true, true, controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_CONTROL, null, controlLevelsLegacy(), controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_CONTROL, "MONTHLY", controlLevelsLegacy(), controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_CONTROL, "QUARTERLY", controlLevelsLegacy(), controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_CONTROL, "SEMI_ANNUAL", controlLevelsLegacy(), controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_CONTROL, "ANNUAL", controlLevelsLegacy(), controlLevels());
+            seedLevels(EscalationConstants.SUBJECT_RETURN, null, standardLevels(0, 3, 7), standardLevels(1, 3, 7));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "WEEKLY", standardLevels(0, 2, 4), standardLevels(1, 2, 4));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "MONTHLY", standardLevels(0, 3, 7), standardLevels(1, 3, 7));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "QUARTERLY", standardLevels(0, 5, 10), standardLevels(1, 5, 10));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "SEMI_ANNUAL", standardLevels(0, 7, 14), standardLevels(1, 7, 14));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "ANNUAL", standardLevels(0, 7, 14), standardLevels(1, 7, 14));
+            seedLevels(EscalationConstants.SUBJECT_RETURN, "BIENNIAL", standardLevels(0, 7, 14), standardLevels(1, 7, 14));
             seed(EscalationConstants.SUBJECT_FINDING, null, "Standard Finding Escalation",
                 7, 2, true, true, findingLevels());
             seed(EscalationConstants.SUBJECT_FINDING, "CRITICAL", "Critical Finding Escalation",
@@ -87,6 +99,12 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
             subjectType, frequencyScope == null ? "" : " " + frequencyScope);
     }
 
+    private void seedLevels(String subjectType, String frequencyScope,
+                            List<EscalationLevelRequest> legacy, List<EscalationLevelRequest> levels) {
+        if (!policies.hasDefaultExact(subjectType, frequencyScope)) return;
+        policies.refreshSeededLevels(subjectType, frequencyScope, legacy, levels);
+    }
+
     private static List<EscalationLevelRequest> findingLevels() {
         return List.of(
             level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
@@ -95,6 +113,13 @@ public class EscalationDefaultSeeder implements ApplicationRunner {
     }
 
     private static List<EscalationLevelRequest> controlLevels() {
+        return List.of(
+            level(1, 1, EscalationConstants.TARGET_ASSIGNEE, null),
+            level(2, 2, EscalationConstants.TARGET_MANAGER, null),
+            level(3, 5, EscalationConstants.TARGET_ROLE, AppRole.CCO));
+    }
+
+    private static List<EscalationLevelRequest> controlLevelsLegacy() {
         return List.of(
             level(1, 0, EscalationConstants.TARGET_ASSIGNEE, null),
             level(2, 2, EscalationConstants.TARGET_MANAGER, null),

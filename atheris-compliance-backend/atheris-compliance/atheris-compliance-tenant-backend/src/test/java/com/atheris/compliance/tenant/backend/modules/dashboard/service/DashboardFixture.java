@@ -17,11 +17,16 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Regu
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingInstance;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnFilingStatus;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.Mockito.*;
@@ -43,6 +48,7 @@ class DashboardFixture {
     final ReturnFilingInstanceRepository returns = mock(ReturnFilingInstanceRepository.class);
     final RegulatorySanctionRepository sanctions = mock(RegulatorySanctionRepository.class);
     final ComplianceScoreWeightsRepository weights = mock(ComplianceScoreWeightsRepository.class);
+    final RequirementService requirementService = mock(RequirementService.class);
 
     final List<Obligation> obligationRows = new ArrayList<>();
     final List<ObligationClassification> classificationRows = new ArrayList<>();
@@ -92,15 +98,27 @@ class DashboardFixture {
         when(returns.findAll()).thenReturn(returnRows);
         when(sanctions.findAll()).thenReturn(List.of());
         when(weights.findFirstByOrderByWeightIdAsc()).thenReturn(Optional.empty());
+        when(requirementService.summaries(anyCollection())).thenAnswer(inv -> {
+            Collection<Long> ids = inv.getArgument(0);
+            Map<Long, RequirementSummary> out = new HashMap<>();
+            for (Long id : ids) {
+                boolean gap = id != null && id == 5L;
+                out.put(id, RequirementSummary.builder().obligationId(id)
+                    .requirementCount(1).coveredCount(gap ? 0 : 1).gapCount(gap ? 1 : 0)
+                    .hasGap(gap).state(gap ? "GAP" : "COMPLIANT").build());
+            }
+            return out;
+        });
     }
 
     ComplianceMetricsService metrics() {
         return new ComplianceMetricsService(classifications, obligations, controls, tasks, tests,
-            findings, returns, sanctions, weights);
+            findings, returns, sanctions, weights, requirementService);
     }
 
     DashboardV2Service v2() {
-        return new DashboardV2Service(null, null, classifications, obligations, null, null, null, null, null);
+        return new DashboardV2Service(null, null, classifications, obligations, null, null, null, null, null, null,
+            requirementService);
     }
 
     private void obligation(long id, String area, String act, String inherent, String tenant, List<Integer> controlIds) {
@@ -112,7 +130,7 @@ class DashboardFixture {
     }
 
     private void control(int id, String residual) {
-        controlRows.add(Control.builder().controlId(id).residualRisk(residual).inherentRisk(residual).build());
+        controlRows.add(Control.builder().controlId(id).build());
     }
 
     private void test(int controlId, LocalDate date, String result, long testId) {

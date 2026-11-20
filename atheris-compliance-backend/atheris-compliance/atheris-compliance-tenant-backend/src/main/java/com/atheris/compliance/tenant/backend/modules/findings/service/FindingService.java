@@ -7,7 +7,6 @@ import com.atheris.compliance.tenant.backend.shared.util.WorkflowStatus;
 import com.atheris.compliance.tenant.backend.modules.controls.entity.*;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlTestResultRepository;
-import com.atheris.compliance.tenant.backend.modules.controls.service.ResidualRisk;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
@@ -58,6 +57,7 @@ public class FindingService {
     private final RemediationLinkService remediationLinks;
     private final EmailService email;
     private final EvidenceVaultService evidence;
+    private final com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService complianceSettings;
 
     private static final Set<String> ALLOWED_EVIDENCE_TYPES = Set.of(
         "application/pdf", "image/png", "image/jpeg",
@@ -159,8 +159,8 @@ public class FindingService {
 
     @Transactional
     public Finding autoRaiseFromTest(ControlTestResult test, Control control) {
-        String severity = determineSeverity(test.getFailureSeverity(), control.getInherentRisk());
-        int sla = slaDays(severity);
+        String severity = determineSeverity(test.getFailureSeverity());
+        int sla = slaDaysFor(severity);
         Integer ownerId = test.getRemediationOwnerId() != null
             ? test.getRemediationOwnerId()
             : control.getControlOwnerId();
@@ -208,7 +208,7 @@ public class FindingService {
                     .map(ids -> ids.get(0)).orElse(null);
             }
         }
-        int sla = slaDays(req.getSeverity());
+        int sla = slaDaysFor(req.getSeverity());
         Finding f = Finding.builder()
             .triggerReason("Manual discovery").findingType(type)
             .severity(req.getSeverity()).description(req.getDescription())
@@ -352,6 +352,10 @@ public class FindingService {
 
         List<MultipartFile> uploads = files == null ? List.of()
             : files.stream().filter(x -> x != null && !x.isEmpty()).toList();
+        if (uploads.isEmpty()) {
+            throw ApiException.conflict("evidence_required",
+                "Attach at least one evidence file before submitting remediation.");
+        }
         if (uploads.size() > maxFiles) {
             throw ApiException.badRequest("Too many files (max " + maxFiles + ")");
         }
@@ -376,6 +380,9 @@ public class FindingService {
         f.setRemediationSubmittedViaLink(false);
         f.setStatus(WorkflowStatus.FINDING_REMEDIATED);
         audit.log(userId, "remediation_submitted", "finding", id, Map.of());
+        repo.save(f);
+
+        if (closeIfReviewNotRequired(f, userId)) return f;
 
         Map<String, String> vars = findingDetails.messageVars(f, f.getAssignedToName());
         NotificationTemplateService.RenderedEmail rendered =
@@ -394,6 +401,20 @@ public class FindingService {
                 rendered.body() != null ? rendered.body() : summary, cc);
         }
         return repo.save(f);
+    }
+
+    @Transactional
+    public boolean closeIfReviewNotRequired(Finding f, Integer submittedByUserId) {
+        if (complianceSettings.requireFindingReview()) return false;
+        if (WorkflowStatus.FINDING_TYPE_GAP.equals(f.getFindingType()) && !gapResolved(f)) return false;
+        f.setStatus(WorkflowStatus.FINDING_CLOSED);
+        f.setClosedAt(Instant.now());
+        f.setSignedOffByUserId(submittedByUserId);
+        f.setSignedOffAt(Instant.now());
+        audit.log(submittedByUserId, "finding_auto_closed", "finding", f.getFindingId(),
+            Map.of("reason", "review_not_required"));
+        repo.save(f);
+        return true;
     }
 
     @Transactional
@@ -426,7 +447,6 @@ public class FindingService {
         f.setClosedAt(Instant.now());
         f.setSignedOffByUserId(reviewer.getUserId());
         f.setSignedOffAt(Instant.now());
-        reEvaluateControlResidualRisk(f);
         audit.log(reviewer.getUserId(), "gap_finding_closed", "finding", id, Map.of());
         return repo.save(f);
     }
@@ -460,7 +480,6 @@ public class FindingService {
             f.setClosedAt(Instant.now());
             f.setSignedOffByUserId(reviewer.getUserId());
             f.setSignedOffAt(Instant.now());
-            reEvaluateControlResidualRisk(f);
             audit.log(reviewer.getUserId(), "finding_signed_off", "finding", id, Map.of());
             sendReceipt(f);
         } else if (WorkflowStatus.REVIEW_REJECTED.equals(decision)) {
@@ -503,26 +522,6 @@ public class FindingService {
                     "Remediation for finding #" + f.getFindingId() + " accepted and closed", "/findings");
             }
             email.send(o.getEmail(), rendered.subject(), rendered.body(), null);
-        });
-    }
-
-    private void reEvaluateControlResidualRisk(Finding f) {
-        if (f.getLinkedControlId() == null) {
-            return;
-        }
-        Integer controlId = f.getLinkedControlId();
-        controlRepo.findById(controlId).ifPresent(control -> {
-            boolean otherOpen = repo.findByLinkedControlIdOrderByFindingIdDesc(controlId).stream()
-                .filter(x -> !x.getFindingId().equals(f.getFindingId()))
-                .anyMatch(x -> !WorkflowStatus.FINDING_CLOSED.equals(x.getStatus()));
-            String risk = otherOpen
-                ? controlTestRepo.findTopByControlIdAndReviewStatusOrderByTestDateDesc(controlId, WorkflowStatus.REVIEW_ACCEPTED)
-                    .map(t -> ResidualRisk.fromTestResult(t.getResult(), control.getInherentRisk())).orElse(null)
-                : ResidualRisk.capAtInherent(WorkflowStatus.RISK_LOW, control.getInherentRisk());
-            if (risk != null && !risk.equals(control.getResidualRisk())) {
-                control.setResidualRisk(risk);
-                controlRepo.save(control);
-            }
         });
     }
 
@@ -574,11 +573,11 @@ public class FindingService {
             .build();
     }
 
-    private String determineSeverity(String testSev, String inherent) {
-        if (WorkflowStatus.RISK_HIGH.equals(testSev) || WorkflowStatus.RISK_HIGH.equals(inherent)) {
+    private String determineSeverity(String testSev) {
+        if (WorkflowStatus.RISK_HIGH.equals(testSev)) {
             return WorkflowStatus.RISK_HIGH;
         }
-        if (WorkflowStatus.RISK_MEDIUM.equals(testSev) || WorkflowStatus.RISK_MEDIUM.equals(inherent)) {
+        if (WorkflowStatus.RISK_MEDIUM.equals(testSev)) {
             return WorkflowStatus.RISK_MEDIUM;
         }
         return WorkflowStatus.RISK_LOW;
@@ -591,5 +590,16 @@ public class FindingService {
             case WorkflowStatus.RISK_MEDIUM -> 30;
             default -> 60;
         };
+    }
+
+    private int slaDaysFor(String severity) {
+        var s = complianceSettings.current();
+        Integer override = switch (severity) {
+            case WorkflowStatus.RISK_CRITICAL -> s.getSlaCriticalDays();
+            case WorkflowStatus.RISK_HIGH -> s.getSlaHighDays();
+            case WorkflowStatus.RISK_MEDIUM -> s.getSlaMediumDays();
+            default -> s.getSlaLowDays();
+        };
+        return override == null ? slaDays(severity) : override;
     }
 }

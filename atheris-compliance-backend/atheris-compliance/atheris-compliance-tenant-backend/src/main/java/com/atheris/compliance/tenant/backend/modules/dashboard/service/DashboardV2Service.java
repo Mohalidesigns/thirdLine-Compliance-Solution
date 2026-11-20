@@ -14,6 +14,8 @@ import com.atheris.compliance.tenant.backend.modules.obligations.repository.Obli
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.requirements.dto.RequirementSummary;
+import com.atheris.compliance.tenant.backend.modules.requirements.service.RequirementService;
 import com.atheris.compliance.tenant.backend.modules.returns.entity.*;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnFilingInstanceRepository;
@@ -37,11 +39,13 @@ public class DashboardV2Service {
     private final RegulatoryReturnRepository regReturns;
     private final ObligationClassificationRepository obligations;
     private final ObligationRepository obligationRepo;
+    private final com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationService obligationService;
     private final ControlRepository controls;
     private final DashboardThresholdRepository thresholds;
     private final RiskMatrixConfigRepository riskMatrixConfig;
     private final TenantIdentityService tenantIdentity;
     private final DepartmentRepository departmentRepo;
+    private final RequirementService requirementService;
 
     private static final int APPROACHING_WINDOWS_DAYS_4 = 30;
 
@@ -64,8 +68,16 @@ public class DashboardV2Service {
                 (a, b) -> a));
     }
 
-    private boolean hasNoControl(ObligationClassification oc) {
-        return oc.getLinkedControlIds() == null || oc.getLinkedControlIds().isEmpty();
+    private Map<Long, Boolean> coverageGapByObligation(Collection<ObligationClassification> all) {
+        List<Long> ids = all.stream().map(ObligationClassification::getObligationId)
+            .filter(Objects::nonNull).distinct().toList();
+        Map<Long, RequirementSummary> summaries = requirementService.summaries(ids);
+        Map<Long, Boolean> out = new HashMap<>();
+        for (Long id : ids) {
+            RequirementSummary s = summaries.get(id);
+            out.put(id, s != null && s.isHasGap());
+        }
+        return out;
     }
 
     private String resolveArea(Map<Long, String> aofMap, ObligationClassification oc) {
@@ -315,20 +327,28 @@ public class DashboardV2Service {
             .filter(c -> "applicable".equals(c.getApplicability()))
             .toList();
 
+        boolean residualView = "residual".equals(view);
+        Map<Long, com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationResidual.Result> residual =
+            residualView ? obligationService.residualByObligation(all) : Map.of();
+        java.util.function.Function<ObligationClassification, String> impactOf = oc -> residualView
+            ? residualAxis(residual.get(oc.getObligationId()), true)
+            : oc.getImpactRating();
+        java.util.function.Function<ObligationClassification, String> likelihoodOf = oc -> residualView
+            ? residualAxis(residual.get(oc.getObligationId()), false)
+            : oc.getLikelihoodRating();
+
         Set<String> seenImpacts = new LinkedHashSet<>();
         Set<String> seenLikelihoods = new LinkedHashSet<>();
         for (ObligationClassification oc : all) {
-            String rating = "residual".equals(view) ? oc.getResidualRiskRating() : oc.getImpactRating();
+            String rating = impactOf.apply(oc);
             if (rating != null) seenImpacts.add(rating);
-            if (oc.getLikelihoodRating() != null) seenLikelihoods.add(oc.getLikelihoodRating());
+            String like = likelihoodOf.apply(oc);
+            if (like != null) seenLikelihoods.add(like);
         }
         List<String> impacts = resolveAxis(config.getImpactLevels(), seenImpacts, DEFAULT_IMPACT_LEVELS);
         List<String> likelihoods = resolveAxis(config.getLikelihoodLevels(), seenLikelihoods, DEFAULT_LIKELIHOOD_LEVELS);
 
-        Map<Long, Boolean> gapMap = all.stream()
-            .filter(oc -> oc.getObligationId() != null)
-            .collect(Collectors.toMap(ObligationClassification::getObligationId,
-                oc -> hasNoControl(oc), (a, b) -> a));
+        Map<Long, Boolean> gapMap = coverageGapByObligation(all);
 
         Map<String, Map<String, RiskHeatmapDto.HeatmapCell>> cellMap = new LinkedHashMap<>();
         for (String impact : impacts) {
@@ -353,8 +373,8 @@ public class DashboardV2Service {
         }
 
         for (ObligationClassification oc : all) {
-            String impact = "residual".equals(view) ? oc.getResidualRiskRating() : oc.getImpactRating();
-            String likelihood = oc.getLikelihoodRating();
+            String impact = impactOf.apply(oc);
+            String likelihood = likelihoodOf.apply(oc);
             if (impact == null || likelihood == null) continue;
             if (!impacts.contains(impact) || !likelihoods.contains(likelihood)) continue;
 
@@ -414,6 +434,12 @@ public class DashboardV2Service {
         if (idx > 0) return idx;
         int lvl = RiskBands.level(label);
         return lvl > 0 ? lvl : position;
+    }
+
+    private static String residualAxis(
+            com.atheris.compliance.tenant.backend.modules.obligations.service.ObligationResidual.Result r, boolean impact) {
+        if (r == null) return null;
+        return impact ? r.impact() : r.likelihood();
     }
 
     private String resolveBand(int score, Map<String, Integer> bands) {
@@ -508,13 +534,14 @@ public class DashboardV2Service {
             .toList();
         Map<Long, String> aofMap = buildAreaOfFocusMap();
 
+        Map<Long, Boolean> gapMap = coverageGapByObligation(all);
         Map<String, ControlCoverageDto.CoverageRow> map = new LinkedHashMap<>();
         for (ObligationClassification oc : all) {
             String area = resolveArea(aofMap, oc);
             ControlCoverageDto.CoverageRow row = map.computeIfAbsent(area, k ->
                 ControlCoverageDto.CoverageRow.builder().name(k).build());
             row.setTotalObligations(row.getTotalObligations() + 1);
-            if (hasNoControl(oc)) row.setGaps(row.getGaps() + 1);
+            if (gapMap.getOrDefault(oc.getObligationId(), false)) row.setGaps(row.getGaps() + 1);
             else row.setCovered(row.getCovered() + 1);
         }
         return buildCoverageResult("Area of Focus", map);
@@ -525,6 +552,7 @@ public class DashboardV2Service {
             .filter(c -> "applicable".equals(c.getApplicability()))
             .toList();
 
+        Map<Long, Boolean> gapMap = coverageGapByObligation(all);
         Map<String, ControlCoverageDto.CoverageRow> map = new LinkedHashMap<>();
         for (ObligationClassification oc : all) {
             String dept = oc.getAssignedDepartment() != null && !oc.getAssignedDepartment().isBlank()
@@ -532,7 +560,7 @@ public class DashboardV2Service {
             ControlCoverageDto.CoverageRow row = map.computeIfAbsent(dept, k ->
                 ControlCoverageDto.CoverageRow.builder().name(k).build());
             row.setTotalObligations(row.getTotalObligations() + 1);
-            if (hasNoControl(oc)) row.setGaps(row.getGaps() + 1);
+            if (gapMap.getOrDefault(oc.getObligationId(), false)) row.setGaps(row.getGaps() + 1);
             else row.setCovered(row.getCovered() + 1);
         }
         return buildCoverageResult("Department", map);
@@ -544,13 +572,14 @@ public class DashboardV2Service {
             .toList();
         Map<Long, String> actMap = buildActMap();
 
+        Map<Long, Boolean> gapMap = coverageGapByObligation(all);
         Map<String, ControlCoverageDto.CoverageRow> map = new LinkedHashMap<>();
         for (ObligationClassification oc : all) {
             String act = resolveAct(actMap, oc);
             ControlCoverageDto.CoverageRow row = map.computeIfAbsent(act, k ->
                 ControlCoverageDto.CoverageRow.builder().name(k).build());
             row.setTotalObligations(row.getTotalObligations() + 1);
-            if (hasNoControl(oc)) row.setGaps(row.getGaps() + 1);
+            if (gapMap.getOrDefault(oc.getObligationId(), false)) row.setGaps(row.getGaps() + 1);
             else row.setCovered(row.getCovered() + 1);
         }
         return buildCoverageResult("Act", map);
@@ -622,6 +651,7 @@ public class DashboardV2Service {
 
         Map<String, RiskProfileDto.AreaRow> areaMap = new LinkedHashMap<>();
         Map<String, RiskProfileDto.ActRow> actRowMap = new LinkedHashMap<>();
+        Map<Long, Boolean> gapMap = coverageGapByObligation(all);
         for (ObligationClassification oc : all) {
             String area = resolveArea(aofMap, oc);
             RiskProfileDto.AreaRow row = areaMap.computeIfAbsent(area, k ->
@@ -637,13 +667,13 @@ public class DashboardV2Service {
                 case "Low" -> { row.setLow(row.getLow() + 1); actRow.setLow(actRow.getLow() + 1); }
                 default -> { row.setUnrated(row.getUnrated() + 1); actRow.setUnrated(actRow.getUnrated() + 1); }
             }
-            if (hasNoControl(oc)) {
+            if (gapMap.getOrDefault(oc.getObligationId(), false)) {
                 row.setGaps(row.getGaps() + 1);
                 actRow.setGaps(actRow.getGaps() + 1);
             }
         }
 
-        int gapsCount = (int) all.stream().filter(this::hasNoControl).count();
+        int gapsCount = (int) gapMap.values().stream().filter(Boolean::booleanValue).count();
 
         return RiskProfileDto.builder()
             .riskLevels(riskRows)

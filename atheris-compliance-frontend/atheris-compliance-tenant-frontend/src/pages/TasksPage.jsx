@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, Button, Chip, Stack, Typography, Snackbar, Alert,
+import { Box, Button, Chip, Stack, Typography, Snackbar, Alert, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
   PageHeader, KpiCards, FilterBar, SectionTable, SectionTabs,
@@ -21,6 +21,12 @@ const CATEGORIES = [
   { key: 'FINDINGS', label: 'Findings' },
   { key: 'OBLIGATIONS', label: 'Obligations' },
 ];
+const CATEGORY_HELP = {
+  CONTROLS: 'Control tests to run, tests waiting for your review, and controls that need a tester or a follow-up after a failed test.',
+  RETURNS: 'Regulatory filings to start, submit or review — including the data review and the CCO report sign-off.',
+  FINDINGS: 'Findings to remediate or sign off, unassigned findings, and gap findings still waiting for a control.',
+  OBLIGATIONS: 'Applicable obligations that have a requirement with no control linked — a coverage gap to close.',
+};
 const CATEGORY_ORDER = CATEGORIES.map((c) => c.key);
 const priorityChip = {
   OVERDUE: { label: 'Overdue', color: 'error' },
@@ -139,9 +145,13 @@ export default function TasksPage() {
   }, [rows, kpi]);
 
   const titleColumn = {
-    id: 'title', label: 'Task', minWidth: 260, render: (t) => (
+    id: 'title', label: 'Task', minWidth: 340, render: (t) => (
       <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{t.title}</Typography>
+        <Tooltip title={t.title || ''}>
+          <Typography variant="body2" sx={{ fontWeight: 500, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {t.title}
+          </Typography>
+        </Tooltip>
         <Chip size="small" variant="outlined" label={priorityChip[t.priority]?.label || t.priority}
           color={priorityChip[t.priority]?.color || 'default'} />
       </Stack>
@@ -193,11 +203,14 @@ export default function TasksPage() {
           variant="outlined" /> : <Typography variant="body2" color="text.secondary">—</Typography>
       ),
     },
-    { ...responsibleColumn, label: 'Risk owner' },
+    { ...responsibleColumn, label: 'Accountable owner' },
   ];
 
   const defaultColumns = [titleColumn, dueColumn, regulatorColumn, responsibleColumn];
-  const columns = category === 'OBLIGATIONS' ? obligationColumns : defaultColumns;
+  const controlColumns = [titleColumn, dueColumn, responsibleColumn];
+  const columns = category === 'OBLIGATIONS' ? obligationColumns
+    : category === 'CONTROLS' ? controlColumns
+    : defaultColumns;
 
   return (
     <Box>
@@ -220,6 +233,10 @@ export default function TasksPage() {
       />
 
       <SectionTabs tabs={tabs} value={category} onChange={setCategory} sx={{ mb: 2 }} />
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {CATEGORY_HELP[category]}
+      </Typography>
 
       <KpiCards items={kpis.map((k) => ({ ...k, active: kpi === k.key }))}
         onSelect={(key) => { setKpi((v) => (v === key ? null : key)); setPage(0); }} columns={5} />

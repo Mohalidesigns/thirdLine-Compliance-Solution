@@ -81,6 +81,12 @@ public class EscalationEngine {
             }
         }
 
+        if (remind && !now.isBefore(dueAt) && now.isBefore(dueAt.plusDays(1))
+                && !fired(candidate, EscalationConstants.TRIGGER_DUE_TODAY, 0)) {
+            fire(candidate, null, EscalationConstants.TRIGGER_DUE_TODAY, 0, now,
+                Boolean.TRUE.equals(config.getSendLink()));
+        }
+
         for (EscalationLevelDto level : config.getLevels() == null ? List.<EscalationLevelDto>of() : config.getLevels()) {
             if (level.getLevelNo() == null) continue;
             LocalDateTime target = dueAt.plus(level.getAfterValue() == null ? 0 : level.getAfterValue(), unit(level.getAfterUnit()));
@@ -171,6 +177,9 @@ public class EscalationEngine {
             return finding ? EscalationConstants.KEY_FINDING_APPROACHING
                 : control ? EscalationConstants.KEY_CONTROL_APPROACHING : EscalationConstants.KEY_RETURN_APPROACHING;
         }
+        if (EscalationConstants.TRIGGER_DUE_TODAY.equals(trigger)) {
+            return control ? EscalationConstants.KEY_CONTROL_DUE_TODAY : EscalationConstants.KEY_RETURN_DUE_TODAY;
+        }
         return finding ? EscalationConstants.KEY_FINDING_REMINDER
             : control ? EscalationConstants.KEY_CONTROL_REMINDER : EscalationConstants.KEY_RETURN_REMINDER;
     }
@@ -190,7 +199,9 @@ public class EscalationEngine {
         vars.put("daysLate", String.valueOf(Math.max(0, ChronoUnit.DAYS.between(candidate.dueAt().toLocalDate(), LocalDate.now()))));
         vars.put("summary", EscalationConstants.TRIGGER_OVERDUE.equals(trigger)
             ? label + " is overdue (L" + level + ")"
-            : "Upcoming: " + label);
+            : EscalationConstants.TRIGGER_DUE_TODAY.equals(trigger)
+                ? "Due today: " + label
+                : "Upcoming: " + label);
         return vars;
     }
 

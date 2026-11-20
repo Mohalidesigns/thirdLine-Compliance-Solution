@@ -36,8 +36,8 @@ public class ControlImportHandler implements ImportHandler {
 
     // Column indexes — must match COLUMNS order.
     private static final int NAME = 0, NUMBER = 1, DESCRIPTION = 2, THEME = 3, CONTROL_TYPE = 4, FREQUENCY = 5,
-        FREQUENCY_DAYS = 6, INHERENT_RISK = 7, OWNER = 8, WHAT_IT_DOES = 9, HOW_TESTED = 10, REG_REQUIREMENT = 11,
-        COMPLIANCE_AREA = 12, ACT = 13, LINKED_OBLIGATIONS = 14;
+        FREQUENCY_DAYS = 6, OWNER = 7, WHAT_IT_DOES = 8, HOW_TESTED = 9, REG_REQUIREMENT = 10,
+        COMPLIANCE_AREA = 11, ACT = 12, LINKED_OBLIGATIONS = 13;
 
     private static final List<ImportColumn> COLUMNS = List.of(
         new ImportColumn("Control Name", true),
@@ -47,7 +47,6 @@ public class ControlImportHandler implements ImportHandler {
         new ImportColumn("Control Type", false),
         new ImportColumn("Test Frequency", false),
         new ImportColumn("Test Frequency Days", false),
-        new ImportColumn("Inherent Risk", false),
         new ImportColumn("Owner", false),
         new ImportColumn("What It Does", false),
         new ImportColumn("How Tested", false),
@@ -61,14 +60,12 @@ public class ControlImportHandler implements ImportHandler {
 
     static final List<String> CONTROL_TYPES = List.of("Preventive", "Detective", "Corrective", "Directive");
     static final List<String> FREQUENCIES = List.of("Monthly", "Quarterly", "Semi-Annual", "Annual");
-    static final List<String> RISK_LEVELS = List.of("Critical", "High", "Moderate", "Low");
     private static final Map<String, Integer> FREQUENCY_DAYS_DEFAULT =
         Map.of("Monthly", 30, "Quarterly", 90, "Semi-Annual", 182, "Annual", 365);
 
     private static final Map<String, String> TYPE_ALIASES = buildAliases(CONTROL_TYPES, Map.of());
     private static final Map<String, String> FREQUENCY_ALIASES = buildAliases(FREQUENCIES,
         Map.of("semi annual", "Semi-Annual", "semiannual", "Semi-Annual"));
-    private static final Map<String, String> RISK_ALIASES = buildAliases(RISK_LEVELS, Map.of("medium", "Moderate"));
 
     private static final Pattern GENERATED_NUMBER = Pattern.compile("(?i)^CTL-(\\d+)$");
 
@@ -94,7 +91,6 @@ public class ControlImportHandler implements ImportHandler {
         LinkedHashMap<String, List<String>> m = new LinkedHashMap<>();
         m.put("Control Type", CONTROL_TYPES);
         m.put("Test Frequency", FREQUENCIES);
-        m.put("Inherent Risk", RISK_LEVELS);
         m.put("Owner", ownerRepo.findByIsActiveTrueOrderByFullNameAsc().stream()
             .map(Owner::getFullName).filter(Objects::nonNull).distinct().toList());
         return m;
@@ -124,7 +120,6 @@ public class ControlImportHandler implements ImportHandler {
             "Detective",
             "Monthly",
             "30",
-            "High",
             "Jane Doe",
             "Checks the return for completeness and accuracy before submission",
             "Sample review of the filed return against source data",
@@ -143,7 +138,7 @@ public class ControlImportHandler implements ImportHandler {
 
     /** Parsed, resolved values of a valid row. */
     private record Parsed(String name, String number, String type, String frequency, Integer frequencyDays,
-                          String risk, Owner owner, List<Long> obligationIds) {}
+                          Owner owner, List<Long> obligationIds) {}
 
     private record Lookups(Map<String, Owner> owners, Set<Long> liveObligationIds,
                            Set<String> existingNumbers, Set<String> existingNameActKeys, List<Control> existing) {}
@@ -187,7 +182,6 @@ public class ControlImportHandler implements ImportHandler {
 
             String type = strict(row.value(CONTROL_TYPE), TYPE_ALIASES, "Control Type", CONTROL_TYPES, "", errors);
             String frequency = strict(row.value(FREQUENCY), FREQUENCY_ALIASES, "Test Frequency", FREQUENCIES, "", errors);
-            String risk = strict(row.value(INHERENT_RISK), RISK_ALIASES, "Inherent Risk", RISK_LEVELS, " (or Medium)", errors);
 
             Integer frequencyDays = null;
             String daysRaw = row.value(FREQUENCY_DAYS);
@@ -225,7 +219,7 @@ public class ControlImportHandler implements ImportHandler {
             row.setContext(joinContext(row.value(THEME),
                 frequency != null ? frequency : row.value(FREQUENCY),
                 linkCount > 0 ? linkCount + " linked obligation" + (linkCount == 1 ? "" : "s") : null));
-            row.setRisk(risk);
+            row.setRisk(null);
             row.setCreatedId(null);
 
             if (!errors.isEmpty()) {
@@ -260,7 +254,7 @@ public class ControlImportHandler implements ImportHandler {
 
             row.setResult(ImportRowData.VALID);
             row.setErrors(new ArrayList<>());
-            parsedRows.put(row, new Parsed(name, number, type, frequency, frequencyDays, risk, owner, ids.ids()));
+            parsedRows.put(row, new Parsed(name, number, type, frequency, frequencyDays, owner, ids.ids()));
         }
         return parsedRows;
     }
@@ -297,8 +291,6 @@ public class ControlImportHandler implements ImportHandler {
                 .testFrequency(p.frequency())
                 .testFrequencyDays(p.frequencyDays())
                 .linkedObligationIds(new ArrayList<>(p.obligationIds()))
-                .inherentRisk(p.risk())
-                .residualRisk(p.risk())
                 .regulatoryRequirement(row.value(REG_REQUIREMENT))
                 .complianceArea(row.value(COMPLIANCE_AREA))
                 .actName(row.value(ACT))

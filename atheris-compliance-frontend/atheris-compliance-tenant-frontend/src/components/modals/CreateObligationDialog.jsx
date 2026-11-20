@@ -13,9 +13,13 @@ import ReturnPicker from './ReturnPicker';
 import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
-  instrumentId: '', name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', effectiveDate: '',
+  instrumentId: null, name: '', tenantRegulatorId: '', requirements: [''], areaOfFocus: '', sectionReference: '', effectiveDate: '',
+  impactRating: '', likelihoodRating: '',
   assignedOwnerId: null, linkedControlIds: [], linkedReturnIds: [],
 };
+
+const IMPACT_LEVELS = ['Insignificant', 'Minor', 'Moderate', 'Major', 'Severe'];
+const LIKELIHOOD_LEVELS = ['Rare', 'Unlikely', 'Possible', 'Likely', 'Almost Certain'];
 
 function Field({ label, children, sx }) {
   return (
@@ -31,13 +35,6 @@ function Field({ label, children, sx }) {
 export default function CreateObligationDialog({ open, onClose, onSaved, onSnackbar, editing, initial }) {
   const isEditing = !!(editing && initial);
   const obligationId = isEditing ? initial.obligationId : null;
-
-  const { data: instruments = [] } = useQuery({
-    queryKey: ['obligations', 'dialog', 'instruments'],
-    queryFn: ({ signal }) => api.instruments.list(0, 50, '', { signal }),
-    enabled: open,
-    select: (d) => (Array.isArray(d) ? d : (d?.content || [])),
-  });
 
   const { data: fetchedRegulators = [] } = useQuery({
     queryKey: ['regulators', 'list'],
@@ -58,12 +55,14 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
       .map((r) => r.text || '').filter(Boolean);
     return {
-      instrumentId: initial.instrumentId ?? '',
       name: initial.name || '',
       tenantRegulatorId: initial.tenantRegulatorId ?? '',
       requirements: texts.length ? texts : [''],
       areaOfFocus: initial.areaOfFocus || '',
+      sectionReference: initial.sectionReference || '',
       effectiveDate: initial.effectiveDate || '',
+      impactRating: initial.impactRating || '',
+      likelihoodRating: initial.likelihoodRating || '',
       assignedOwnerId: initial.assignedOwnerId ?? null,
       linkedControlIds: [...(initial.linkedControlIds || [])],
       linkedReturnIds: [...(initial.linkedReturnIds || [])],
@@ -88,13 +87,12 @@ export default function CreateObligationDialog({ open, onClose, onSaved, onSnack
       isEditing={isEditing}
       obligationId={obligationId}
       initialForm={initialForm}
-      instruments={instruments}
       fetchedRegulators={fetchedRegulators}
     />
   );
 }
 
-function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligationId, initialForm, instruments, fetchedRegulators }) {
+function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligationId, initialForm, fetchedRegulators }) {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -136,7 +134,6 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
     try {
       const body = {
         ...form,
-        instrumentId: form.instrumentId ? Number(form.instrumentId) : null,
         tenantRegulatorId: form.tenantRegulatorId ? Number(form.tenantRegulatorId) : null,
         effectiveDate: form.effectiveDate || null,
         linkedControlIds: (form.linkedControlIds || []).map(Number),
@@ -150,7 +147,7 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
       const savedId = isEditing ? obligationId : saved?.obligationId;
       if (savedId && form.assignedOwnerId != null) {
         await api.obligations.assignOwner(savedId, {
-          assignedOwnerId: form.assignedOwnerId, changeReason: 'Risk owner set on save',
+          assignedOwnerId: form.assignedOwnerId, changeReason: 'Accountable owner set on save',
         });
       }
       const returnIds = (form.linkedReturnIds || []).map(Number);
@@ -217,18 +214,38 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
                 {AREAS_OF_FOCUS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
               </TextField>
             </Field>
+            <Field label="Section reference" sx={{ mb: 0 }}>
+              <TextField fullWidth size="small" placeholder="e.g. s.12(3)"
+                value={form.sectionReference} onChange={e => set('sectionReference', e.target.value)} />
+            </Field>
             <Field label="Effective date" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" type="date" value={form.effectiveDate}
                 onChange={e => set('effectiveDate', e.target.value)} />
             </Field>
           </Box>
-          <Box sx={{ mt: 2 }}>
-            <Field label="Risk owner (accountable for this obligation)" sx={{ mb: 0 }}>
-              <OwnerPicker value={form.assignedOwnerId} onChange={id => set('assignedOwnerId', id)}
-                label="Risk owner" />
+          <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Field label="Impact" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.impactRating}
+                onChange={e => set('impactRating', e.target.value)}>
+                <MenuItem value=""><em>Not rated</em></MenuItem>
+                {IMPACT_LEVELS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            </Field>
+            <Field label="Likelihood" sx={{ mb: 0 }}>
+              <TextField select fullWidth size="small" value={form.likelihoodRating}
+                onChange={e => set('likelihoodRating', e.target.value)}>
+                <MenuItem value=""><em>Not rated</em></MenuItem>
+                {LIKELIHOOD_LEVELS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
             </Field>
           </Box>
-          <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ mt: 2 }}>
+            <Field label="Accountable owner (responsible for this obligation)" sx={{ mb: 0 }}>
+              <OwnerPicker value={form.assignedOwnerId} onChange={id => set('assignedOwnerId', id)}
+                label="Accountable owner" />
+            </Field>
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <Field label="Regulator *" sx={{ mb: 0 }}>
               <TextField fullWidth size="small" select value={form.tenantRegulatorId}
                 onChange={e => {
@@ -242,17 +259,6 @@ function ObligationForm({ open, onClose, onSaved, onSnackbar, isEditing, obligat
                   </MenuItem>
                 ))}
                 <MenuItem value="__add__" sx={{ color: 'primary.main', fontWeight: 600 }}>+ Add regulator</MenuItem>
-              </TextField>
-            </Field>
-            <Field label="Instrument (optional)" sx={{ mb: 0 }}>
-              <TextField fullWidth size="small" select value={form.instrumentId}
-                onChange={e => set('instrumentId', e.target.value)}>
-                <MenuItem value=""><em>None — standalone obligation</em></MenuItem>
-                {instruments.map(ins => (
-                  <MenuItem key={ins.instrumentId} value={ins.instrumentId}>
-                    {ins.sourceTitle || `Instrument #${ins.instrumentId}`}
-                  </MenuItem>
-                ))}
               </TextField>
             </Field>
           </Box>

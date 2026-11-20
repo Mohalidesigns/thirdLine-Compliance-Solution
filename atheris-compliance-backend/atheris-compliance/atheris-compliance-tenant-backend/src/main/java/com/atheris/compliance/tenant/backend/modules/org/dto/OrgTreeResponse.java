@@ -7,7 +7,14 @@ import java.util.List;
 @Data
 @Builder
 public class OrgTreeResponse {
+    private String organizationName;
     private List<DepartmentNode> departments;
+    /** Platform users (role-holders added via onboarding/invites). */
+    @Builder.Default
+    private List<UserNode> users = List.of();
+    /** Owners with no department and no team. */
+    @Builder.Default
+    private List<OwnerDto> unassignedOwners = List.of();
 
     @Data
     @Builder
@@ -24,5 +31,17 @@ public class OrgTreeResponse {
     public static class TeamNode {
         private TeamDto team;
         private List<OwnerDto> owners;
+    }
+
+    @Data
+    @Builder
+    public static class UserNode {
+        private Integer userId;
+        private String fullName;
+        private String email;
+        private String jobTitle;
+        private String role;
+        private String department;
+        private Boolean isActive;
     }
 }

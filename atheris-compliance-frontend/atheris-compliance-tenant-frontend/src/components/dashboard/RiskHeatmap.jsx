@@ -164,7 +164,7 @@ function TableView({ data, onDrill }) {
 export default function RiskHeatmap({ onDrill: onDrillProp }) {
   const navigate = useNavigate();
   const [view, setView] = useState('grid');
-  const [riskView, setRiskView] = useState('inherent');
+  const [riskView, setRiskView] = useState('residual');
 
   const heatmapQuery = useQuery({
     queryKey: ['dashboard', 'v2', 'riskHeatmap', riskView],

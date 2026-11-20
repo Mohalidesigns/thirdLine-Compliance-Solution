@@ -20,8 +20,6 @@ public class ObligationRequirement {
     @Column(nullable = false, columnDefinition = "text")
     private String text;
 
-    private Integer riskId;
-
     @Builder.Default private String source = "toolkit_seed";
     @Builder.Default private Instant createdAt = Instant.now();
 }

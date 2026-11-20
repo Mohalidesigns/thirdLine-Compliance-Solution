@@ -91,7 +91,7 @@ export default function StepDialog({
           <Grid size={{ xs: 12, md: 9 }}>
             <TextField fullWidth multiline minRows={3} size="small" label="Command block" value={d.commandBlock}
               disabled={readOnly} onChange={(e) => set({ commandBlock: e.target.value })}
-              placeholder="Get-ADUser -Filter {Enabled -eq $true} -Properties LastLogonDate | Export-Csv users.csv"
+              placeholder="e.g. export the account list from the directory to CSV"
               slotProps={{ htmlInput: { style: { fontFamily: TL.mono, fontSize: '0.8125rem' }, spellCheck: false } }} />
             <LintHints hints={hintsFor('commandBlock')} />
           </Grid>

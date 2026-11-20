@@ -12,9 +12,12 @@ public class ObligationRequest {
     private Long tenantRegulatorId;
     private String description;
     private String areaOfFocus;
+    private String sectionReference;
     private String obligationType;
     private String recurringDeadlineType;
     private LocalDate effectiveDate;
+    private String impactRating;
+    private String likelihoodRating;
     private List<Integer> linkedControlIds;
     private List<String> obligationTexts;
     private String changeReason;

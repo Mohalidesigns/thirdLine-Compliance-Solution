@@ -80,6 +80,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "Reminder: {{returnName}} due {{dueDate}}",
                 "Hi {{recipientName}},\n\nThis is a reminder that {{returnName}} ({{period}}) is still due on {{dueDate}} "
                     + "({{daysLeft}} day(s) left) — please submit to avoid escalation.\n\n" + ESCALATION_DETAILS, true);
+            templates.ensure(EscalationConstants.KEY_RETURN_DUE_TODAY,
+                "Due today: {{returnName}}",
+                "Hi {{recipientName}},\n\n{{returnName}} ({{period}}) is due today ({{dueDate}}) "
+                    + "— please submit it now to avoid escalation.\n\n" + ESCALATION_DETAILS, true);
             templates.ensure(EscalationConstants.KEY_RETURN_OVERDUE,
                 "[L{{level}}] Overdue filing: {{returnName}}",
                 "{{returnName}} ({{period}}) was due on {{dueDate}} and is {{daysLate}} day(s) overdue.\n\n"
@@ -90,6 +94,10 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
                 "Upcoming control test: {{controlName}}",
                 "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due on {{dueDate}} "
                     + "({{daysLeft}} day(s) left) — please perform the test.\n\n" + CONTROL_DETAILS, true);
+            templates.ensure(EscalationConstants.KEY_CONTROL_DUE_TODAY,
+                "Due today: control test {{controlName}}",
+                "Hi {{recipientName}},\n\nA test of control \"{{controlName}}\" is due today ({{dueDate}}) "
+                    + "— please perform the test.\n\n" + CONTROL_DETAILS, true);
             templates.upgrade(EscalationConstants.KEY_CONTROL_REMINDER,
                 "Hi {{recipientName}},\n\nThis is a reminder that the test of control \"{{controlName}}\" is still "
                     + "due on {{dueDate}} ({{daysLeft}} day(s) left) — please record the result.\n\n" + CONTROL_DETAILS_PREV,
@@ -176,6 +184,27 @@ public class NotificationTemplateSeeder implements ApplicationRunner {
             templates.ensure(EscalationConstants.KEY_RETURN_CHANGES_REQUESTED,
                 "Changes requested: {{returnName}}",
                 FILING_DETAILS + "\nPlease review the requested changes and resubmit the draft.\n", false);
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_APPROACHING,
+                "Upcoming control test: {{controlName}}", "Upcoming control test: {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DUE_TODAY,
+                "Due today: control test {{controlName}}", "Due today: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_REMINDER,
+                "Reminder: test control {{controlName}}", "Reminder: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_REQUEST,
+                "Action required: test control {{controlName}}", "Action required: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_OVERDUE,
+                "[L{{level}}] Overdue control test: {{controlName}}", "[L{{level}}] Overdue control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DATA_REVIEW,
+                "Control test submitted: {{controlName}}", "Control test submitted: {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_DATA_RECEIPT,
+                "Received: {{controlName}} test result", "Received: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_TEST_ACCEPTED,
+                "Accepted: {{controlName}} test result", "Accepted: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_CONTROL_CHANGES_REQUESTED,
+                "Changes requested: {{controlName}} test", "Changes requested: control test {{controlNumber}}");
+            templates.upgradeSubject(EscalationConstants.KEY_FINDING_RAISED,
+                "Action required: Finding raised against control {{controlName}}",
+                "Action required: finding #{{findingId}} remediation");
             log.info("[TemplateSeeder] notification templates ensured");
         } catch (Throwable e) {
             log.error("[TemplateSeeder] failed: {}", e.getMessage(), e);

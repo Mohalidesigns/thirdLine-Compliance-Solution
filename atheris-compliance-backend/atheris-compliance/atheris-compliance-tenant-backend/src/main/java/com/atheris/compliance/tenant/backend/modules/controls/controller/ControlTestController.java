@@ -13,6 +13,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 
 @RestController
@@ -33,14 +34,15 @@ public class ControlTestController {
         return ResponseEntity.ok(service.getTest(testId));
     }
 
-    @PostMapping("/api/v1/controls/{id}/tests")
+    @PostMapping(value = "/api/v1/controls/{id}/tests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ControlTestResult> recordTest(
             @PathVariable Integer id,
-            @Valid @RequestBody RecordTestRequest req,
+            @Valid @ModelAttribute RecordTestRequest req,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal User u) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(service.recordTest(id, req, u));
+            .body(service.recordTest(id, req, files, u));
     }
 
     /** Email the responsible person (tester) the deterministic link to record this control's test result. */

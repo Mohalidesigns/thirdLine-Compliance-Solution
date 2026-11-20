@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  PageHeader, KpiCards, ArrowPathIcon, ScaleIcon, PlusIcon,
+  PageHeader, KpiCards, SectionTabs, ArrowPathIcon, ScaleIcon, PlusIcon,
   ChartBarIcon, CheckCircleIcon, ExclamationTriangleIcon, ShieldCheckIcon,
 } from 'shared';
 import { api } from '../services/api';
@@ -14,10 +15,16 @@ import ReturnsStatusSection from '../components/dashboard/ReturnsStatusSection';
 import SanctionsExposureRow from '../components/dashboard/SanctionsExposureRow';
 import ControlsRow from '../components/dashboard/ControlsRow';
 import { RiskProfileRow, AreaOfFocusTable, ActBreakdownTable } from '../components/dashboard/RiskAreaActRow';
+import RiskHeatmap from '../components/dashboard/RiskHeatmap';
 import RunbooksWidget from '../components/dashboard/RunbooksWidget';
 import ScoreBreakdown, { pctOrNa } from '../components/dashboard/ScoreBreakdown';
 
 const POLL_INTERVAL = 30000;
+
+const TABS = [
+  { key: 0, label: 'Overview' },
+  { key: 1, label: 'Risk Heatmap' },
+];
 
 const row = (cols) => ({
   display: 'grid',
@@ -31,6 +38,7 @@ export default function CcoDashboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [tab, setTab] = useState(0);
   const canGenerate = ['CCO', 'TENANT_ADMIN'].includes(user?.role);
   // each section fetches independently — one failing endpoint must never blank the page
   const attentionQuery = useQuery({
@@ -109,7 +117,7 @@ export default function CcoDashboardPage() {
     { key: 'highRisk', label: 'Critical/High Obligations', tone: 'red', icon: <ExclamationTriangleIcon size={16} />,
       value: metrics.obligationsHighRisk ?? 0, breakdown: metrics.obligationsByRisk || {},
       caption: `of ${metrics.obligationsApplicable ?? 0} applicable obligations` },
-    { key: 'gaps', label: 'No Control', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
+    { key: 'gaps', label: 'Coverage gaps', tone: 'orange', icon: <ShieldCheckIcon size={16} />,
       value: metrics.obligationsWithGaps ?? 0 },
   ];
 
@@ -161,36 +169,44 @@ export default function CcoDashboardPage() {
         )}
       />
 
-      {/* Compliance universe — first thing users see */}
-      <ComplianceUniverseSection stats={universeQuery.data} />
+      <SectionTabs tabs={TABS} value={tab} onChange={setTab} sx={{ mb: 3 }} />
 
-      {/* KPI row — every card has a breakdown dropdown */}
-      <KpiCards items={kpis} columns={4} onDrill={onKpiDrill} />
+      {tab === 0 ? (
+        <>
+          {/* Compliance universe — first thing users see */}
+          <ComplianceUniverseSection stats={universeQuery.data} />
 
-      {/* Needs attention — stat cards */}
-      <AttentionSection items={attention} />
+          {/* KPI row — every card has a breakdown dropdown and drills into a register */}
+          <KpiCards items={kpis} columns={4} onSelect={onKpiDrill} onDrill={onKpiDrill} />
 
-      {/* Compliance runbooks — hidden when the runbooks API is unavailable */}
-      <RunbooksWidget />
+          {/* Needs attention — stat cards */}
+          <AttentionSection items={attention} />
 
-      {/* Returns · Controls · Sanctions */}
-      <Box sx={row('repeat(3, 1fr)')}>
-        <ReturnsStatusSection stats={returnsStats} calendar={calendar} onTimePct={metrics.returnsOnTimePct} />
-        <ControlsRow metrics={metrics} />
-        <SanctionsExposureRow stats={sanctionsStats} />
-      </Box>
+          {/* Compliance runbooks — hidden when the runbooks API is unavailable */}
+          <RunbooksWidget />
 
-      {/* Compliance trend · inherent risk donut */}
-      <Box sx={row('2fr 1fr')}>
-        <ComplianceTrendChart trend={trend} metrics={metrics} />
-        <RiskProfileRow profile={riskProfile} />
-      </Box>
+          {/* Returns · Controls · Sanctions */}
+          <Box sx={row('repeat(3, 1fr)')}>
+            <ReturnsStatusSection stats={returnsStats} calendar={calendar} onTimePct={metrics.returnsOnTimePct} />
+            <ControlsRow metrics={metrics} />
+            <SanctionsExposureRow stats={sanctionsStats} />
+          </Box>
 
-      {/* Area of focus · act tables */}
-      <Box sx={row('1fr 1fr')}>
-        <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
-        <ActBreakdownTable profile={riskProfile} />
-      </Box>
+          {/* Compliance trend · inherent risk donut */}
+          <Box sx={row('2fr 1fr')}>
+            <ComplianceTrendChart trend={trend} metrics={metrics} />
+            <RiskProfileRow profile={riskProfile} />
+          </Box>
+
+          {/* Area of focus · act tables */}
+          <Box sx={row('1fr 1fr')}>
+            <AreaOfFocusTable profile={riskProfile} coverage={coverage} />
+            <ActBreakdownTable profile={riskProfile} />
+          </Box>
+        </>
+      ) : (
+        <RiskHeatmap />
+      )}
     </Box>
   );
 }

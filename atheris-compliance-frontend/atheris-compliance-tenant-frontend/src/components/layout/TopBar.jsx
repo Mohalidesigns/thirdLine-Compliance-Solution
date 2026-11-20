@@ -31,8 +31,7 @@ export default function TopBar({ offset, onMenuClick }) {
       <AppTopBar
         offset={offset}
         onMenuClick={onMenuClick}
-        searchPlaceholder="Search obligations, controls, returns..."
-        onSearch={(q) => { if (q.trim()) navigate(`/obligations?q=${encodeURIComponent(q.trim())}`); }}
+        brand={{ name: 'Verity Compliance' }}
         notificationCount={unreadCount}
         onNotificationsClick={() => setNotifOpen(true)}
         user={{ name: user?.fullName || 'User', role: ROLE_LABEL[user?.role] || user?.role }}

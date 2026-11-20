@@ -20,7 +20,7 @@ class BoardPackRendererTest {
             .obligationsApplicable(353).obligationsHighRisk(47).obligationsWithGaps(12)
             .obligationsByRisk(Map.of("Critical", 5, "High", 42, "Moderate", 120, "Low", 186))
             .obligationsByArea(Map.of("AML/CFT", 80, "Consumer Protection", 40))
-            .controlsTotal(200).controlsHighResidualRisk(9).controlCoverage(88.0).controlTestCompletion(91.0)
+            .controlsTotal(200).controlCoverage(88.0).controlTestCompletion(91.0)
             .returnsSubmittedOnTime(30).returnsSubmittedLate(2).returnsPending(4).returnsOverdue(1).returnsOnTimePct(93.8)
             .findingsOpen(14).findingsHighSeverity(3).findingsOverdueRemediation(2).findingsWithinSlaPct(85.0)
             .findingsAgeing(List.of(ComplianceMetricsDto.FindingAge.builder().severity("High").count(3).averageAgeDays(6.2).build()))

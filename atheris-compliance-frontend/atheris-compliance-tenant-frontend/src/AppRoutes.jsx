@@ -7,7 +7,6 @@ import { useAuth } from './contexts/AuthContext';
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const DashboardPage = lazy(() => import('./pages/CcoDashboardPage'));
-const DashboardV2Page = lazy(() => import('./pages/DashboardV2Page'));
 const ReviewInboxPage = lazy(() => import('./pages/ReviewInboxPage'));
 const ReviewEditPage = lazy(() => import('./pages/ReviewEditPage'));
 const InstrumentsPage = lazy(() => import('./pages/InstrumentsPage'));
@@ -30,8 +29,6 @@ const EvidenceVaultPage = lazy(() => import('./pages/EvidenceVaultPage'));
 const ObligationsRegisterPage = lazy(() => import('./pages/ObligationsRegisterPage'));
 const ObligationDetailPage = lazy(() => import('./pages/ObligationDetailPage'));
 const RequirementDetailPage = lazy(() => import('./pages/RequirementDetailPage'));
-const RisksPage = lazy(() => import('./pages/RisksPage'));
-const RiskDetailPage = lazy(() => import('./pages/RiskDetailPage'));
 const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -92,7 +89,6 @@ export default function AppRoutes() {
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="dashboard/v2" element={<DashboardV2Page />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="review" element={<ReviewInboxPage />} />
@@ -101,10 +97,7 @@ export default function AppRoutes() {
           <Route path="instruments" element={<InstrumentsPage />} />
           <Route path="obligations" element={<ObligationsRegisterPage />} />
           <Route path="obligations/:id" element={<ObligationDetailPage />} />
-          <Route path="requirements/:id" element={<RequirementDetailPage />} />
-          <Route path="risks" element={<RisksPage />} />
-          <Route path="risks/:id" element={<RiskDetailPage />} />
-          <Route path="acts" element={<ActsPage />} />
+          <Route path="requirements/:id" element={<RequirementDetailPage />} />          <Route path="acts" element={<ActsPage />} />
           <Route path="acts/:id" element={<ActDetailPage />} />
           <Route path="regulators" element={<RegulatorsPage />} />
           <Route path="regulators/:id" element={<RegulatorDetailPage />} />

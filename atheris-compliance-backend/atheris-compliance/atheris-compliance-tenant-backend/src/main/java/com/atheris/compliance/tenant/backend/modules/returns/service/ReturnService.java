@@ -1484,7 +1484,7 @@ public class ReturnService {
             .collect(Collectors.toList());
     }
 
-    private void ensureInstancesForActive() {
+    public void ensureInstancesForActive() {
         for (RegulatoryReturn r : returns.findByStatus(RegulatoryReturnStatus.ACTIVE)) {
             try { ensureInstances(r); }
             catch (Exception e) { log.warn("ensureInstances failed for return {}: {}", r.getReturnId(), e.getMessage()); }
@@ -1492,9 +1492,11 @@ public class ReturnService {
     }
 
     public void ensureInstances(RegulatoryReturn ret) {
-        boolean hasPerson = (ret.getResponsiblePersons() != null && !ret.getResponsiblePersons().isEmpty())
-            || (ret.getResponsiblePerson() != null && !ret.getResponsiblePerson().isBlank());
-        if (!hasPerson) return;
+        boolean hasResponsible = (ret.getResponsiblePersons() != null && !ret.getResponsiblePersons().isEmpty())
+            || (ret.getResponsiblePerson() != null && !ret.getResponsiblePerson().isBlank())
+            || (ret.getResponsibleUnits() != null && !ret.getResponsibleUnits().isEmpty())
+            || (ret.getResponsibleUnit() != null && !ret.getResponsibleUnit().isBlank());
+        if (!hasResponsible) return;
         ReturnPeriods.Step step = ReturnPeriods.stepFor(ret.getFrequencyType());
         if (step == null) return;
         DueRule rule = DueRule.of(ret);

@@ -11,18 +11,18 @@ import {
 import { api } from '../services/api';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
-  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, RISK_COLOR, TL,
-  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
+  KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
+  ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, TrashIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
   BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
-  ChartBarIcon, UserCircleIcon,
+  UserCircleIcon,
 } from 'shared';
 import { useAuth } from '../contexts/AuthContext';
 import OwnerPicker from '../components/org/OwnerPicker';
 import ControlEditDialog from '../components/controls/ControlEditDialog';
 import CreateControlDialog from '../components/modals/CreateControlDialog';
 import ImportDialog from '../components/modals/ImportDialog';
-import { Section, Field, FieldGrid, StatTile, RiskChip } from '../components/detailKit';
+import { Section, Field, FieldGrid, StatTile } from '../components/detailKit';
 import { isReadOnly } from '../utils/roles';
 
 function formatDate(d) {
@@ -38,60 +38,7 @@ function actLabel(row) {
 const TEST_RESULT_TONE = { Passed: 'green', Failed: 'red', Partial: 'orange' };
 const REVIEW_TONE = { Accepted: 'green', Rejected: 'red' };
 
-function nextTestDueCell(value) {
-  if (!value) {
-    return <Typography variant="body2" color="text.secondary">—</Typography>;
-  }
-  const due = new Date(value);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const days = Math.round((due - today) / 86400000);
-  if (days < 0) {
-    return <StatusBadge label={`Overdue ${Math.abs(days)}d`} tone="red" />;
-  }
-  if (days <= 7) {
-    return <StatusBadge label={`Due in ${days}d`} tone="orange" />;
-  }
-  return <Typography variant="body2">{formatDate(value)}</Typography>;
-}
-
-const COLUMNS = [
-  { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name', render: (c) => (
-    <Tooltip title={c.name || ''}>
-      <Typography variant="body2" sx={{ maxWidth: 420, overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'primary.main', fontWeight: 500 }}>
-        {c.name || 'Untitled control'}
-      </Typography>
-    </Tooltip>
-  ) },
-  { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => nextTestDueCell(c.nextTestDueDate) },
-  { id: 'openFindings', label: 'Has Finding', minWidth: 120, render: (c) => {
-    const n = c.openFindings ?? 0;
-    return n > 0
-      ? <StatusBadge label={`${n} open`} tone="red" />
-      : <Typography variant="body2" color="text.secondary">None</Typography>;
-  } },
-  { id: 'frequency', label: 'Test Frequency', minWidth: 140, sortable: true, sortField: 'testFrequency', render: (c) => (
-    c.frequency
-      ? <Typography variant="body2">{c.frequency}</Typography>
-      : <Typography variant="body2" color="text.secondary">Not set</Typography>
-  ) },
-  { id: 'testerName', label: 'Responsible person', minWidth: 170, render: (c) => (
-    c.testerName
-      ? <>
-          <Tooltip title={c.testerName}>
-            <Typography variant="body2" sx={{ maxWidth: 170, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.testerName}</Typography>
-          </Tooltip>
-          {(c.controlOwnerName || c.ownerName) && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', maxWidth: 170,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Owner: {c.controlOwnerName || c.ownerName}
-            </Typography>
-          )}
-        </>
-      : <StatusBadge label="No tester" tone="amber" />
-  ) },
-];
+const COLUMNS = controlRegisterColumns();
 
 export default function ControlsPage() {
   const { user: currentUser } = useAuth();
@@ -110,9 +57,9 @@ export default function ControlsPage() {
 
   const [search, setSearch] = useState('');
   const [themeFilter, setThemeFilter] = useState('All');
-  const [riskFilter, setRiskFilter] = useState('All');
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [effectivenessFilter, setEffectivenessFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
   const [obligationInput, setObligationInput] = useState('');
   const [page, setPage] = useState(0);
@@ -132,14 +79,15 @@ export default function ControlsPage() {
     if (cid && !Number.isNaN(Number(cid))) setDetailId(Number(cid));
   }, [searchParams]);
 
-  const hasFilters = search || themeFilter !== 'All' || riskFilter !== 'All'
-    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All' || obligationFilter != null;
+  const hasFilters = search || themeFilter !== 'All'
+    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All'
+    || effectivenessFilter !== 'All' || obligationFilter != null;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
   if (themeFilter !== 'All') params.theme = themeFilter;
-  if (riskFilter !== 'All') params.residualRisk = riskFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
+  if (effectivenessFilter !== 'All') params.effectiveness = effectivenessFilter;
   if (actFilter !== 'All') params.actName = actFilter;
   if (obligationFilter != null) params.obligationId = obligationFilter;
   if (sortField) params.sort = `${sortField},${sortDir}`;
@@ -197,7 +145,11 @@ export default function ControlsPage() {
     : (obligationOptions.find((o) => o.obligationId === obligationFilter)
         || { obligationId: obligationFilter, title: obligationChipLabel });
 
-  const refreshAll = () => queryClient.invalidateQueries({ queryKey: ['controls'] });
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['controls'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
 
   function setObligationFilter(id) {
     const next = new URLSearchParams(searchParams);
@@ -208,34 +160,32 @@ export default function ControlsPage() {
   }
 
   function clearFilters() {
-    setSearch(''); setThemeFilter('All'); setRiskFilter('All');
-    setOwnerFilter('All'); setStatusFilter('All'); setActFilter('All');
+    setSearch(''); setThemeFilter('All');
+    setOwnerFilter('All'); setStatusFilter('All'); setEffectivenessFilter('All'); setActFilter('All');
     setObligationFilter(null);
     setPage(0);
   }
 
   const kpis = [
-    { key: 'total', label: 'Total Controls', value: stats?.total ?? 0, tone: 'blue', icon: <ShieldCheckIcon />,
-      breakdown: stats?.byStatus, drill: (label) => setStatusFilter(label) },
-    { key: 'testsDue', label: 'Tests Due (30 days)', value: stats?.testsDue ?? 0, tone: 'orange', icon: <ClockIcon />,
-      breakdown: stats?.byTheme, drill: (label) => setThemeFilter(label) },
-    { key: 'failing', label: 'Failing Controls', value: stats?.failingControls ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
-      breakdown: stats?.byRiskLevel, drill: (label) => setRiskFilter(label) },
-    { key: 'openFindings', label: 'Open Findings', value: stats?.openFindings ?? 0, tone: 'purple', icon: <ExclamationCircleIcon />,
-      breakdown: stats?.findingsBySeverity, drill: (label) => navigate(`/findings?severity=${label}`) },
+    { key: 'effective', label: 'Effective', value: stats?.effective ?? 0, tone: 'green', icon: <ShieldCheckIcon />,
+      drill: () => setEffectivenessFilter('EFFECTIVE') },
+    { key: 'partial', label: 'Partially Effective', value: stats?.partiallyEffective ?? 0, tone: 'amber', icon: <ExclamationCircleIcon />,
+      drill: () => setEffectivenessFilter('PARTIAL') },
+    { key: 'ineffective', label: 'Ineffective', value: stats?.ineffective ?? 0, tone: 'red', icon: <ExclamationTriangleIcon />,
+      breakdown: stats?.findingsBySeverity, drill: () => setEffectivenessFilter('INEFFECTIVE') },
+    { key: 'untested', label: 'Untested', value: stats?.untested ?? 0, tone: 'gray', icon: <ClipboardDocumentCheckIcon />,
+      drill: () => setEffectivenessFilter('UNTESTED') },
   ];
 
   const kpiItems = kpis.map((k) => ({
     key: k.key, label: k.label, tone: k.tone, icon: k.icon, value: k.value, breakdown: k.breakdown,
-    active: k.key === 'failing' && riskFilter === 'High',
+    active: false,
   }));
 
   const onKpiSelect = (key) => {
     setPage(0);
-    if (key === 'testsDue') { setSortField(''); return; }
-    if (key === 'openFindings') { navigate('/findings'); return; }
-    if (key === 'failing') { setRiskFilter('High'); return; }
-    clearFilters();
+    if (key === 'untested') { setEffectivenessFilter('UNTESTED'); return; }
+    setEffectivenessFilter('All');
   };
 
   const onKpiDrill = (key, label) => {
@@ -245,12 +195,17 @@ export default function ControlsPage() {
   };
 
   const filters = [
+    { key: 'effectiveness', label: 'State', minWidth: 160, value: effectivenessFilter,
+      onChange: (v) => { setEffectivenessFilter(v); setPage(0); }, allLabel: 'All states',
+      options: [
+        { value: 'EFFECTIVE', label: 'Effective' },
+        { value: 'PARTIAL', label: 'Partially Effective' },
+        { value: 'INEFFECTIVE', label: 'Ineffective' },
+        { value: 'UNTESTED', label: 'Untested' },
+      ] },
     { key: 'theme', label: 'Theme', minWidth: 140, value: themeFilter,
       onChange: (v) => { setThemeFilter(v); setPage(0); }, allLabel: 'All themes',
       options: (themes?.map((t) => t.name) || stats?.themes || []).map((t) => ({ value: t, label: t })) },
-    { key: 'risk', label: 'Residual Risk', minWidth: 150, value: riskFilter,
-      onChange: (v) => { setRiskFilter(v); setPage(0); }, allLabel: 'All risks',
-      options: ['Critical', 'High', 'Moderate', 'Low'].map((r) => ({ value: r, label: r })) },
     { key: 'status', label: 'Status', minWidth: 130, value: statusFilter,
       onChange: (v) => { setStatusFilter(v); setPage(0); }, allLabel: 'All statuses',
       options: ['Active', 'Inactive'].map((s) => ({ value: s, label: s })) },
@@ -422,21 +377,38 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           <Chip size="small" variant="outlined" icon={<BuildingLibraryIcon size={14} />}
             label={actLabel(detail)} />
           {detail.status && <StateBadge value={detail.status} />}
+          {detail.effectivenessState && (
+            <StateBadge value={effectivenessLabel(detail.effectivenessState)}
+              tone={effectivenessTone(detail.effectivenessState)} />
+          )}
         </Box>
       </PageHeader>
 
       {/* Headline numbers */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 2.5 }}>
-        <StatTile icon={<ExclamationTriangleIcon />} label="Inherent Risk"
-          accent={RISK_COLOR[detail.inherentRisk] || TL.primary} chip={<RiskChip rating={detail.inherentRisk} />} />
-        <StatTile icon={<ShieldCheckIcon />} label="Residual Risk"
-          accent={RISK_COLOR[detail.residualRiskRating] || TL.primary}
-          chip={<RiskChip rating={detail.residualRiskRating || detail.residualRisk}
-            likelihood={detail.residualLikelihood} impact={detail.residualImpact} />} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 2.5 }}>
+        <StatTile icon={<ShieldCheckIcon />} label="Effectiveness"
+          value={effectivenessLabel(detail.effectivenessState)} />
+        <StatTile icon={<ClipboardDocumentCheckIcon />} label="Latest Test"
+          value="Not tested"
+          chip={detail.lastTestResult ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <StateBadge value={detail.lastTestResult}
+                tone={{ Passed: 'green', Partial: 'amber', Failed: 'red' }[detail.lastTestResult] || 'gray'} />
+              {detail.lastTestedByName && (
+                <Typography variant="caption" color="text.secondary">Tested by {detail.lastTestedByName}</Typography>
+              )}
+            </Box>
+          ) : undefined} />
         <StatTile icon={<ClockIcon />} label="Test Frequency" value={detail.testFrequency || 'Not set'} />
         <StatTile icon={<CalendarDaysIcon />} label="Due Date"
           value={detail.nextTestDueDate ? formatDate(detail.nextTestDueDate) : 'Not scheduled'} />
+        <StatTile icon={<UserCircleIcon />} label="Tester" value={detail.testerName || 'Not assigned'} />
       </Box>
+      {detail.effectivenessReason && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2.5 }}>
+          {detail.effectivenessReason}
+        </Typography>
+      )}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
         <Box>
@@ -545,7 +517,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                   <TableHead>
                     <TableRow>
                       <TableCell>Date</TableCell>
-                      <TableCell>Tester</TableCell>
+                      <TableCell>Tested by</TableCell>
                       <TableCell>Result</TableCell>
                       <TableCell>Review</TableCell>
                       <TableCell>Evidence</TableCell>
@@ -563,7 +535,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
                               Severity: {t.failureSeverity}
                             </Typography>
                           )}
-                          {t.resultDescription && (
+                          {t.resultDescription && t.resultDescription.trim().toLowerCase() !== (t.result || '').toLowerCase() && (
                             <Typography sx={{ display: 'block', mt: 0.25, fontSize: '0.75rem', color: TL.gray500, maxWidth: 320 }}>
                               {t.resultDescription}
                             </Typography>
@@ -619,23 +591,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Field label="Status" value={detail.status} />
               <Field label="Compliance Area" value={detail.complianceArea} />
             </FieldGrid>
-          </Section>
-
-          <Section icon={<ChartBarIcon />} title="Risk Assessment">
-            <FieldGrid min={130}>
-              <Field label="Inherent Risk"><RiskChip rating={detail.inherentRisk} /></Field>
-              <Field label="Residual Risk">
-                <RiskChip rating={detail.residualRiskRating || detail.residualRisk}
-                  likelihood={detail.residualLikelihood} impact={detail.residualImpact} />
-              </Field>
-              <Field label="Residual Likelihood" value={detail.residualLikelihood} />
-              <Field label="Residual Impact" value={detail.residualImpact} />
-            </FieldGrid>
-            {detail.residualRiskReason && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                {detail.residualRiskReason}
-              </Typography>
-            )}
           </Section>
 
           <Section icon={<UserCircleIcon />} title="Ownership">
@@ -804,24 +759,19 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
   useEffect(() => {
     if (open) { setForm(f => ({ ...f, remediationOwnerId: controlOwnerId ?? null })); setFiles([]); }
   }, [open, controlOwnerId]);
+  const showFailure = form.result === 'Failed' || form.result === 'Partial';
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { ...form };
-      if (!body.remediationOwnerId) body.remediationOwnerId = null;
-      if (!body.remediationDeadline) delete body.remediationDeadline;
-      const created = await api.controls.recordTest(controlId, body);
-      const testId = created?.testId;
-      if (testId && files.length) {
-        for (const file of files) {
-          const fd = new FormData();
-          fd.append('file', file);
-          fd.append('sourceType', 'control_test');
-          fd.append('sourceId', String(testId));
-          fd.append('description', `Test evidence ${body.testDate}`);
-          await api.evidence.upload(fd);
-        }
-      }
+      const fd = new FormData();
+      fd.append('testDate', form.testDate);
+      fd.append('result', form.result);
+      if (form.resultDescription) fd.append('resultDescription', form.resultDescription);
+      if (form.failureSeverity) fd.append('failureSeverity', form.failureSeverity);
+      if (form.remediationOwnerId) fd.append('remediationOwnerId', String(form.remediationOwnerId));
+      if (form.remediationDeadline) fd.append('remediationDeadline', form.remediationDeadline);
+      files.forEach(f => fd.append('files', f));
+      await api.controls.recordTest(controlId, fd);
       onSaved();
     } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
   };
@@ -842,41 +792,44 @@ function RecordTestDialog({ open, onClose, controlId, controlOwnerId, onSaved, o
               <MenuItem value="Partial">Partial</MenuItem>
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12 }}><TextField label="Result Description" fullWidth size="small" multiline minRows={2} value={form.resultDescription}
+          <Grid size={{ xs: 12 }}><TextField label="Notes" fullWidth size="small" multiline minRows={2}
+            placeholder="Describe how the control was tested and what you observed."
+            value={form.resultDescription}
             onChange={e => setForm(f => ({ ...f, resultDescription: e.target.value }))} /></Grid>
           <Grid size={{ xs: 12 }}>
             <Button variant="outlined" component="label" fullWidth startIcon={<ArrowUpTrayIcon size={16} />}
               sx={{ py: 2, borderStyle: 'dashed' }}>
-              {files.length ? `${files.length} file(s) selected` : 'Attach evidence (PDF, PNG, JPG, XLSX)'}
+              {files.length ? `${files.length} file(s) selected` : 'Attach evidence * (PDF, PNG, JPG, XLSX)'}
               <input type="file" hidden multiple
                 onChange={e => setFiles(Array.from(e.target.files || []))} />
             </Button>
             {files.length > 0 && (
               <Box sx={{ mt: 1 }}>
-                {files.map(f => <Typography key={f.name} variant="caption" sx={{ display: 'block' }}>{f.name}</Typography>)}
+                {files.map((f, i) => (
+                  <Box key={`${f.name}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
+                    <IconButton size="small" onClick={() => setFiles(fs => fs.filter((_, idx) => idx !== i))}>
+                      <TrashIcon size={16} />
+                    </IconButton>
+                  </Box>
+                ))}
               </Box>
             )}
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField select label="Failure Severity" fullWidth size="small" value={form.failureSeverity}
-              onChange={e => setForm(f => ({ ...f, failureSeverity: e.target.value }))}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Critical">Critical</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
-            onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
-          <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
-            InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
-            onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+          {showFailure && (
+            <>
+              <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
+                onChange={id => setForm(f => ({ ...f, remediationOwnerId: id }))} /></Grid>
+              <Grid size={{ xs: 6 }}><TextField label="Remediation Deadline" type="date" fullWidth size="small"
+                InputLabelProps={{ shrink: true }} value={form.remediationDeadline}
+                onChange={e => setForm(f => ({ ...f, remediationDeadline: e.target.value }))} /></Grid>
+            </>
+          )}
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result || files.length === 0}>
           {saving ? 'Saving...' : 'Record Test'}
         </Button>
       </DialogActions>

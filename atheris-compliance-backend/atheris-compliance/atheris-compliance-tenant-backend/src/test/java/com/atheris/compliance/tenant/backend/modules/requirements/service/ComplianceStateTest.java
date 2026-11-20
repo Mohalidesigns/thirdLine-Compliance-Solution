@@ -48,8 +48,8 @@ class ComplianceStateTest {
     }
 
     @Test
-    void untestedControlsAreNotEffectiveButNotAnAccusationEither() {
-        assertEquals(PARTIAL, ofRequirement(req(null), List.of(1, 2), Map.of()));
+    void untestedControlsAreNotAssessedTestedButIneffectiveArePartial() {
+        assertEquals(NOT_ASSESSED, ofRequirement(req(null), List.of(1, 2), Map.of()));
         assertEquals(PARTIAL, ofRequirement(req(null), List.of(1), results(1, "Partial")));
     }
 
@@ -65,6 +65,8 @@ class ComplianceStateTest {
         assertEquals(GAP, ofObligation(List.of(COMPLIANT, NO_CONTROL, PARTIAL)));
         assertEquals(PARTIAL, ofObligation(List.of(COMPLIANT, PARTIAL)));
         assertEquals(COMPLIANT, ofObligation(List.of(COMPLIANT, COMPLIANT)));
+        assertEquals(NOT_ASSESSED, ofObligation(List.of(NOT_ASSESSED, NOT_ASSESSED)));
+        assertEquals(PARTIAL, ofObligation(List.of(COMPLIANT, NOT_ASSESSED)));
         assertEquals(NO_REQUIREMENTS, ofObligation(List.of()));
     }
 

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atheris / Verity — GenAI in Compliance: Today &amp; v2</title>
+<style>
+  :root{
+    --navy:#1A365D; --gold:#D4AF37; --gold-soft:#faf3d6;
+    --bg:#F7FAFC; --hair:#E2E8F0; --ink:#1A202C; --muted:#64748B;
+    --green:#2F855A; --green-bg:#E6F4EA; --amber:#B7791F; --amber-bg:#FEF6E4;
+    --red:#C53030; --red-bg:#FDECEC; --blue-bg:#EBF4FF; --blue:#2B6CB0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  header.top{background:var(--navy);color:#fff;padding:28px 32px 22px}
+  header.top .brand{display:flex;align-items:center;gap:10px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#cbd5e1}
+  header.top .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+  header.top h1{margin:10px 0 4px;font-size:26px;font-weight:700;letter-spacing:-.01em}
+  header.top p.sub{margin:0;color:#cbd5e1;font-size:14px;max-width:920px}
+  header.top .meta{margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:#a9b6c9}
+  header.top .meta b{color:#fff;font-weight:600}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 56px}
+  nav.tabs{position:sticky;top:0;z-index:5;background:rgba(247,250,252,.96);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--hair);display:flex;gap:4px;flex-wrap:wrap;padding:10px 0;margin-bottom:22px}
+  nav.tabs button{border:1px solid transparent;background:transparent;color:var(--muted);
+    font:inherit;font-size:13.5px;padding:8px 13px;border-radius:8px;cursor:pointer;white-space:nowrap}
+  nav.tabs button:hover{background:#eef3f8;color:var(--navy)}
+  nav.tabs button.active{background:var(--navy);color:#fff;font-weight:600}
+  section.panel{display:none;animation:fade .18s ease}
+  section.panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2.ph{margin:0 0 6px;font-size:22px;color:var(--navy);letter-spacing:-.01em}
+  h2.ph .n{color:var(--gold);font-weight:800;margin-right:8px}
+  p.lead{margin:0 0 18px;color:var(--muted);font-size:14.5px}
+  .card{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:18px 20px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card h3{margin:0 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .card p{margin:0 0 8px}
+  .card p:last-child{margin-bottom:0}
+  .pain{border-left:4px solid var(--red);background:var(--red-bg)} .pain h3{color:var(--red)}
+  .sol{border-left:4px solid var(--green);background:var(--green-bg)} .sol h3{color:var(--green)}
+  .ex{border-left:4px solid var(--gold);background:var(--gold-soft)} .ex h3{color:var(--amber)}
+  .note{border-left:4px solid var(--blue);background:var(--blue-bg)} .note h3{color:var(--blue)}
+  ul.clean{margin:6px 0 0;padding-left:18px} ul.clean li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;border:1px solid var(--hair);border-radius:12px;overflow:hidden;margin:0 0 16px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--hair);vertical-align:top}
+  th{background:#f1f5f9;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  code.k{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;background:#eef3f8;border-radius:5px;padding:1px 6px;color:var(--navy)}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+  .pill.now{background:var(--blue-bg);color:var(--blue)}
+  .pill.p1{background:var(--green-bg);color:var(--green)}
+  .pill.p2{background:var(--amber-bg);color:var(--amber)}
+  .pill.p3{background:#F3E8FF;color:#7C3AED}
+  .pill.p4{background:#EDF2F7;color:#4A5568}
+  .verbs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:860px){.verbs{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.verbs{grid-template-columns:1fr}}
+  .verb{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:14px}
+  .verb .t{font-weight:700;color:var(--navy);font-size:14px;margin-bottom:4px}
+  .verb .d{font-size:12.5px;color:#475569}
+  .chain{background:var(--navy);color:#dbe4f0;border-radius:12px;padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre;margin-bottom:16px}
+  .chain b{color:var(--gold)}
+  footer{max-width:1080px;margin:0 auto;padding:22px 24px 40px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span> Verity Compliance — GenAI Strategy</div>
+  <h1>GenAI in compliance: where it helps today, and what v2 can do</h1>
+  <p class="sub">A general-level view of how generative AI fits a compliance platform — extraction, matching, reasoning and communication — with concrete v2 levers across dashboards, risk prioritisation, control identification and beyond, anchored to what the code already does.</p>
+  <div class="meta">
+    <span><b>Today's AI</b> extraction only</span>
+    <span><b>Core</b> deterministic &amp; auditable</span>
+    <span><b>v2 thesis</b> AI suggests, humans decide</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs">
+    <button data-t="today" class="active">Today</button>
+    <button data-t="map">Opportunity map</button>
+    <button data-t="dash">Dashboards &amp; insight</button>
+    <button data-t="risk">Risk prioritisation</button>
+    <button data-t="controls">Control identification</button>
+    <button data-t="levers">Other v2 levers</button>
+    <button data-t="arch">Architecture</button>
+    <button data-t="roadmap">Roadmap</button>
+    <button data-t="guard">Guardrails</button>
+    <button data-t="deep">Deep dive</button>
+  </nav>
+
+  <!-- TODAY -->
+  <section class="panel active" id="today">
+    <h2 class="ph">Where GenAI sits in the product <em>today</em></h2>
+    <p class="lead">One capability, done well — and a deliberately deterministic core around it.</p>
+    <div class="card note"><h3>The single AI capability</h3>
+      <p>When an instrument is scraped or uploaded, OCR text is sent to an LLM which returns a <b>structured</b> <code class="k">ClassificationResult</code>: area of focus, nature, risk rating + explanation, applicability + confidence, act, dates, licence types, an AI summary, and — critically — a list of <b>obligations</b> (verbatim <code class="k">description</code> + interpreted <code class="k">statement</code>, section, type, recurring deadline, area, risk description, likelihood, impact, control owner) and <b>sanctions</b> (penalty, liable roles, type). It is chunked (~15k chars) and merged, provider-agnostic (primary + fallback with cooldown), and uses Spring AI native structured output.</p></div>
+    <div class="card sol"><h3>Everything else is deterministic — on purpose</h3>
+      <p>Compliance state, requirement coverage, gap ("no control"), control effectiveness, residual risk, banding, deadline rules, de-duplication, escalation ladders, the task queue and the score are all computed by rules from accepted evidence. No LLM asserts compliance.</p></div>
+    <div class="card ex"><h3>Why that is the right base for v2</h3>
+      <p>Because the truth layer is deterministic and auditable, GenAI can be added as an <b>advisory</b> layer — suggestions, retrieval, narratives — without ever becoming the source of record. That is what makes AI usable in a regulated setting.</p></div>
+  </section>
+
+  <!-- MAP -->
+  <section class="panel" id="map">
+    <h2 class="ph">How GenAI helps compliance at a general level</h2>
+    <p class="lead">Four verbs. Every credible AI-in-compliance feature is one of these applied to the chain below.</p>
+    <div class="verbs">
+      <div class="verb"><div class="t">1 · Extract</div><div class="d">Unstructured → structured text: instruments, obligations, sanctions, deadlines, clauses, evidence metadata. <b>Done today.</b></div></div>
+      <div class="verb"><div class="t">2 · Match / map</div><div class="d">Semantic linking: obligation↔control, obligation↔framework clause, obligation↔obligation (dup), evidence↔requirement, old↔new instrument. <b>v2 sweet spot.</b></div></div>
+      <div class="verb"><div class="t">3 · Reason / prioritise</div><div class="d">Judgement with justification: risk scoring, gap analysis, "why does this apply?", evidence sufficiency, anomalies.</div></div>
+      <div class="verb"><div class="t">4 · Communicate / act</div><div class="d">Language out: board narrative, escalations, filing drafts, natural-language query, the assistant, test scripts.</div></div>
+    </div>
+    <div class="chain">Instrument → <b>Obligation</b> → <b>Requirement</b> → <b>Control</b> → <b>Test</b> → <b>Evidence</b>
+   extract     extract        match/map      match/map  extract    summarise
+   &amp; change    &amp; dedup        (controls,     + reason   + reason
+   monitoring  + risk          clauses)</div>
+    <table>
+      <thead><tr><th>Verb</th><th>Where it lands in the product</th><th>Value to the analyst</th></tr></thead>
+      <tbody>
+        <tr><td>Extract</td><td>Classification (exists); deadline rules; evidence metadata; change diffs</td><td>Less typing, fewer missed duties</td></tr>
+        <tr><td>Match / map</td><td>Control recommendation, framework crosswalk, semantic dedup, runbook↔control mapping</td><td>Less manual linking; far less control sprawl</td></tr>
+        <tr><td>Reason</td><td>Inherent-risk suggestion, residual/board narratives, gap explanations, applicability "why"</td><td>Faster, better-justified judgement</td></tr>
+        <tr><td>Communicate</td><td>NL query, assistant (RAG), board pack prose, escalation &amp; filing drafts</td><td>Answers in seconds, not days</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- DASH -->
+  <section class="panel" id="dash">
+    <h2 class="ph">Dashboards &amp; insight</h2>
+    <p class="lead">The dashboard is already derived and URL-backed — which makes it the easiest place to add GenAI safely.</p>
+    <div class="card sol"><h3>Natural-language query on the registers</h3>
+      <p>A query box that turns English into the <b>typed filters that already exist</b> — "High-risk AML obligations with no control", "returns due in 30 days not started", "controls owned by IT Security never tested".</p>
+      <p><b>Screen:</b> Obligations register / Compliance Universe / Tasks. <b>How:</b> the LLM maps the question to <code class="k">{area, risk, noControl, regulator, dueWindow…}</code> via tool-calling — it never writes SQL, it fills the same URL filters the UI already applies. Low risk, immediately useful.</p></div>
+    <div class="card sol"><h3>Executive &amp; board narrative</h3>
+      <p>Generate a readable summary from the live snapshot and the day-over-day delta — "score 45% (▼2); driven by 3 overdue CBN filings and 12 uncovered AML requirements; 2 controls regained effectiveness after remediation."</p>
+      <p><b>Screen:</b> Dashboard, Rendition &amp; Coverage, Reports. Deterministic numbers; the LLM writes the sentences.</p></div>
+    <div class="card sol"><h3>Anomaly explanations</h3>
+      <p>When a KPI moves outside a band, explain it: "returns on-time fell 12% — the CBN FX weekly slipped to late filing." Root-cause prose over the existing trend data.</p></div>
+    <div class="card note"><h3>Principle</h3>
+      <p>Every number stays computed; AI only <b>finds</b> (NL query) and <b>describes</b> (narrative). No metric is ever AI-generated.</p></div>
+  </section>
+
+  <!-- RISK -->
+  <section class="panel" id="risk">
+    <h2 class="ph">Risk prioritisation</h2>
+    <p class="lead">Inherent is a judgement; residual is already deterministic. AI improves the judgement and explains the movement.</p>
+    <div class="card sol"><h3>Suggested inherent risk with a rationale</h3>
+      <p>Classification already extracts <code class="k">likelihood</code>, <code class="k">impact</code> and <code class="k">risk_description</code>. v2 turns those into a <b>proposed</b> 5×5 band plus a cited justification the analyst accepts or edits. Banding stays rule-based; the AI only proposes the inputs.</p>
+      <p><b>Screen:</b> obligation risk block. <b>Example:</b> "Proposed High (L4×I5) — direct systemic exposure if capital adequacy lapses; sanction ₦500m."</p></div>
+    <div class="card sol"><h3>Residual narrative (deterministic trigger, AI prose)</h3>
+      <p>The residual is already derived live from accepted control tests. AI writes the "why": "Residual lowered to Moderate — the identity-verification control passed on 2026-10-18 (2 of 3 controls effective)."</p></div>
+    <div class="card sol"><h3>Risk theming &amp; clustering</h3>
+      <p>Group 300+ obligations into a handful of board-level themes ("AML/CFT programme hygiene", "data-protection governance") by semantic similarity — so the board sees 6 risks, not 340 rows.</p></div>
+    <div class="card sol"><h3>Prioritisation scoring</h3>
+      <p>A configurable materiality × exposure score with an explanation, to rank what the analyst touches first — tunable per firm, never a black box (weights are explicit).</p></div>
+  </section>
+
+  <!-- CONTROLS -->
+  <section class="panel" id="controls">
+    <h2 class="ph">Control identification &amp; mapping <span class="pill p1">headline v2</span></h2>
+    <p class="lead">The biggest manual burden is answering "what do we already do about this duty, and what should we do?". This is a matching problem — exactly what embeddings + an LLM re-ranker solve.</p>
+    <div class="card sol"><h3>1 — Recommend existing controls</h3>
+      <p>Given an obligation or a single requirement, retrieve the tenant's <b>existing</b> controls semantically and suggest a shortlist with a reason: "CTL-0142 Identity Verification Check covers this — it tests the same KYC duty." One click to link, one to dismiss.</p>
+      <p><b>Screen:</b> Obligation detail → Requirements (the coverage row), Link-controls picker.</p></div>
+    <div class="card sol"><h3>2 — Draft a missing control</h3>
+      <p>When nothing fits, generate a <b>draft</b> control in the toolkit's own vocabulary — name, what it does, how tested, test frequency, suggested owner, evidence type — for the analyst to edit and accept. Turns a blank form into a starting point.</p></div>
+    <div class="card sol"><h3>3 — Framework crosswalk</h3>
+      <p>Map each obligation to the clauses it satisfies (ISO 27001:2022, NIST CSF, NDPA, CBN RBCSF…), auto-populating the same framework-mapping that runbooks use. Answers "are we ISO-ready?" without a spreadsheet.</p></div>
+    <div class="card sol"><h3>4 — Tame control sprawl (semantic dedup)</h3>
+      <p>The seeded tenant carries ~2,137 controls with many near-duplicates. Embeddings surface "these 5 controls are the same control" for merge — complementing the existing natural-key dedup.</p></div>
+    <div class="card sol"><h3>5 — Map runbooks ↔ controls</h3>
+      <p>Suggest which controls a runbook procedure evidences, speeding the coverage matrix.</p></div>
+    <div class="card note"><h3>Method &amp; safety</h3>
+      <p>Embeddings (pgvector) for recall → LLM re-ranker for precision with a reason → <b>human accepts</b>. Every suggestion stores model, prompt hash, confidence and the accept/reject, so the AI's advice is itself auditable.</p></div>
+  </section>
+
+  <!-- LEVERS -->
+  <section class="panel" id="levers">
+    <h2 class="ph">Other v2 levers</h2>
+    <div class="card sol"><h3>Regulatory change monitoring</h3>
+      <p>When a new instrument arrives, semantically diff against the existing act/section it amends: "Section 4 changed — adds a 24-hour ATM funding duty; existing obligation O-1188 needs updating." This is the sharp end of Pain Point 1.</p></div>
+    <div class="card sol"><h3>Evidence intelligence</h3>
+      <p>Read uploaded evidence and judge sufficiency: is this actually a test result? a policy extract? Extract date/outcome, flag a mismatch with the claimed result, and auto-suggest the subject it belongs to.</p></div>
+    <div class="card sol"><h3>Deadline extraction fallback</h3>
+      <p>The rule parser handles most wording; for the messy remainder (the ~50 "Due date needed" returns) the LLM proposes a due-date rule and shows the source phrase for confirmation.</p></div>
+    <div class="card sol"><h3>Test-script generation</h3>
+      <p>Draft the "how tested" steps, sample size and evidence to collect for a control, from its linked obligation text.</p></div>
+    <div class="card sol"><h3>Communicate: escalations, filings, review summaries</h3>
+      <p>Personalise escalation emails; summarise a 60-page filing for the reviewing CCO; pre-draft a remediation note.</p></div>
+    <div class="card sol"><h3>The assistant (RAG over the tenant's own universe)</h3>
+      <p>A grounded chat: "what proves our KYC duty?", "what's our NDPA exposure?", "which controls were never tested?" — with <b>citations</b> to obligations, controls, tests and evidence, respecting RBAC and tenant scope. Read-only; it points, it does not act.</p></div>
+    <div class="card sol"><h3>Onboarding assist</h3>
+      <p>Suggest a sensible starter control set for the tenant's licence types and regulators, so a new institution is not staring at an empty controls register.</p></div>
+  </section>
+
+  <!-- ARCH -->
+  <section class="panel" id="arch">
+    <h2 class="ph">Architecture &amp; enablers</h2>
+    <table>
+      <thead><tr><th>Enabler</th><th>What it unlocks</th><th>Fit with today</th></tr></thead>
+      <tbody>
+        <tr><td><b>Embeddings + vector store (pgvector)</b></td><td>Recall for matching: control recommendation, framework crosswalk, dedup, assistant</td><td>Postgres already present — add pgvector + an embedding call at ingest</td></tr>
+        <tr><td><b>Retrieval-augmented generation (RAG)</b></td><td>Grounded answers with citations; no free invention</td><td>Retrieve from the tenant's own rows, then compose</td></tr>
+        <tr><td><b>Structured tool-calling</b></td><td>NL query → existing typed filters/services</td><td>Spring AI already supports structured output; extend to tools</td></tr>
+        <tr><td><b>Deterministic core (keep)</b></td><td>State, coverage, residual, bands, score never AI-authored</td><td>Already the design; AI is advisory only</td></tr>
+        <tr><td><b>AI suggestion ledger</b></td><td>Auditable "the AI proposed X; analyst accepted/rejected"</td><td>Extends the existing hash-chained audit trail</td></tr>
+        <tr><td><b>Eval harness (golden sets)</b></td><td>Measure precision/recall before shipping prompts</td><td>New; cheap relative to the risk of silent regressions</td></tr>
+        <tr><td><b>Provider routing</b></td><td>Small/cheap models for dedup; frontier models for mapping &amp; reasoning</td><td>Primary+fallback client already abstracts providers</td></tr>
+      </tbody>
+    </table>
+    <div class="card note"><h3>The operating model</h3>
+      <p><b>AI suggests → deterministic core decides → human accepts → audit records all three.</b> This is what lets a bank put GenAI in front of a regulator.</p></div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="panel" id="roadmap">
+    <h2 class="ph">Phased roadmap</h2>
+    <table>
+      <thead><tr><th>Phase</th><th>Ships</th><th>Risk</th><th>Why first</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p1">P1</span></td><td>Embeddings + pgvector; <b>semantic dedup</b>; <b>NL query → filters</b>; <b>control recommendation</b> (retrieve + suggest link)</td><td>Low</td><td>High value, read-only/advisory, no new write paths</td></tr>
+        <tr><td><span class="pill p2">P2</span></td><td>Draft missing controls; framework crosswalk; regulatory <b>change diff</b>; deadline-extraction fallback</td><td>Medium</td><td>Compounds P1; drafts are edited by humans</td></tr>
+        <tr><td><span class="pill p3">P3</span></td><td>Evidence intelligence; residual/board narratives; the <b>RAG assistant</b> with citations</td><td>Medium</td><td>Needs the retrieval layer and the ledger from P1/P2</td></tr>
+        <tr><td><span class="pill p4">P4</span></td><td>Risk-prioritisation suggestions &amp; theming; test-script generation; onboarding starter sets</td><td>Higher</td><td>Judgement-heavy — needs mature evals &amp; trust</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- GUARD -->
+  <section class="panel" id="guard">
+    <h2 class="ph">Guardrails &amp; risks</h2>
+    <div class="card pain"><h3>Hallucination</h3><p>Mitigate with retrieval over the tenant's own data, mandatory citations, confidence thresholds, and human accept/edit. Never let AI author a compliance state.</p></div>
+    <div class="card pain"><h3>Defensibility</h3><p>Every AI suggestion is logged (model, prompt hash, output, decision, actor) on the hash-chained trail, so "why did we do this?" is answerable years later.</p></div>
+    <div class="card pain"><h3>Prompt injection</h3><p>Regulatory documents and uploaded evidence are <b>untrusted input</b>. Treat all retrieved content as data, never as instructions; sandbox tool-calling to read-only, typed calls.</p></div>
+    <div class="card pain"><h3>Data isolation &amp; residency</h3><p>Send only the calling tenant's data; never cross tenants in a prompt or a vector index; respect PII and any residency constraints on the model provider.</p></div>
+    <div class="card pain"><h3>Cost &amp; latency at scale</h3><p>1,400+ obligations × many tenants — embed once, cache, route cheap tasks to small models, batch; keep the interactive path (query, assistant) fast and cheap.</p></div>
+    <div class="card pain"><h3>Over-reliance &amp; drift</h3><p>Golden-set evals in CI, confidence gating, and keeping the deterministic core authoritative so a bad model release cannot change a compliance verdict.</p></div>
+  </section>
+
+  <!-- DEEP DIVE -->
+  <section class="panel" id="deep">
+    <h2 class="ph">Deep dive — the expanded explanations</h2>
+    <p class="lead">The summary tabs say <em>what</em> each v2 capability is. This tab says <em>how it works end to end</em>: the data it reads and writes, a concrete example, and where it plugs into the product. Read the substrate first — most features are built on it.</p>
+
+    <h2 class="ph" style="margin-top:18px">A · The matching substrate <span class="pill p1">foundation</span></h2>
+    <div class="card sol"><h3>What it is</h3>
+      <p>Almost every v2 feature — control recommendation, framework crosswalk, dedup, the assistant — is the same primitive: <b>embed a piece of text, find the nearest neighbours, then let an LLM re-rank them and give a reason.</b> Build it once as a shared service and the features become thin.</p></div>
+    <div class="card"><h3>How it works</h3>
+      <ul class="clean">
+        <li><b>Embed at write time.</b> Whenever an obligation, requirement, control or framework clause is created or edited, compose a canonical string (title + text + area) and call an embedding model once; store the vector and a content hash. Re-embed only when the hash changes.</li>
+        <li><b>Store in pgvector.</b> Postgres already runs the app — add the <code class="k">vector</code> extension and one column per embeddable table (or a single polymorphic <code class="k">embeddings</code> table).</li>
+        <li><b>Retrieve.</b> At query time, embed the query text and run an approximate-nearest-neighbour search scoped to the tenant, filtered by type/status, top-K (say 20).</li>
+        <li><b>Re-rank &amp; explain.</b> Feed the query + the K candidates to an LLM and ask for a shortlist with a one-line reason and a confidence each. This is where precision comes from — vectors give recall, the LLM gives judgement.</li>
+        <li><b>Record the suggestion.</b> Write the outcome to the ledger (see L) so it is auditable and can train future thresholds.</li>
+      </ul></div>
+    <div class="chain">-- illustrative pgvector shape (one column per embeddable table)
+ALTER TABLE requirements ADD COLUMN embedding vector(1536);
+ALTER TABLE requirements ADD COLUMN embed_hash  text;
+CREATE INDEX ON requirements USING hnsw (embedding vector_cosine_ops);
+
+-- polymorphic alternative: one table for everything searchable
+CREATE TABLE embeddings (
+  id            bigserial PRIMARY KEY,
+  tenant_id     bigint      NOT NULL,
+  subject_type  text        NOT NULL,   -- obligation | requirement | control | clause | evidence
+  subject_id    bigint      NOT NULL,
+  content_hash  text        NOT NULL,
+  embedding     vector(1536) NOT NULL,
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON embeddings USING hnsw (embedding vector_cosine_ops);
+CREATE UNIQUE INDEX ON embeddings (subject_type, subject_id);</div>
+    <div class="card ex"><h3>Where it plugs in</h3>
+      <p>A single Spring service (<code class="k">SemanticMatcher</code>) with two methods — <code class="k">nearest(type, text, k)</code> and <code class="k">rank(query, candidates)</code> — that every feature calls. Embedding calls reuse the existing provider-agnostic <code class="k">AiClient</code> pattern (primary + fallback + cooldown), so a provider outage degrades gracefully rather than breaking a screen.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">B · Control recommendation — how it actually works</h2>
+    <div class="card"><h3>Steps</h3>
+      <ul class="clean">
+        <li><b>Trigger:</b> the analyst opens a requirement (or clicks "Suggest controls") on the Obligation detail → Requirements tab.</li>
+        <li><b>Query text:</b> the requirement's text + its obligation title + area of focus.</li>
+        <li><b>Retrieve:</b> nearest controls <b>in the same tenant</b>, active, and <b>excluding ones already linked</b> to this obligation; K = 20.</li>
+        <li><b>Re-rank:</b> the LLM returns the best 1–3 with a reason and confidence, and is instructed to return <em>none</em> if nothing genuinely covers the duty (abstention is a feature, not a failure).</li>
+        <li><b>Present &amp; link:</b> a compact list — "CTL-0142 Identity Verification Check — covers this KYC duty (high)" — with <b>Link</b> per row. Linking calls the existing <code class="k">PUT /requirements/{id}/controls</code>; nothing new is invented.</li>
+      </ul></div>
+    <div class="chain">GET /api/v1/requirements/{id}/control-suggestions?limit=3
+
+200 OK
+{
+  "requirementId": 4471,
+  "suggestions": [
+    { "controlId": 142, "controlNumber": "CTL-0142",
+      "name": "Identity Verification Check",
+      "confidence": "high",
+      "reason": "Tests the same KYC customer-identity duty this requirement states." },
+    { "controlId": 219, "controlNumber": "CTL-0219",
+      "name": "CDD Onboarding Review",
+      "confidence": "medium",
+      "reason": "Partially overlaps - covers onboarding checks, not ongoing verification." }
+  ]
+}</div>
+    <div class="card ex"><h3>Three worked examples</h3>
+      <ul class="clean">
+        <li><b>Direct match.</b> Requirement: "Verify customer identity before account opening." → CTL-0142 (high). One click links it; the requirement's state moves from <em>No control</em> to <em>Partial/Compliant</em> once a test is accepted.</li>
+        <li><b>Partial match.</b> Requirement: "Screen all new customers against sanctions lists." → CTL-0219 covers onboarding but not ongoing screening (medium). The reason tells the analyst it is partial, so they can link it <em>and</em> raise a gap for the ongoing part.</li>
+        <li><b>Promote to draft.</b> Requirement: "Report data-protection breaches to NDPC within 72 hours." → no control found. The analyst clicks <b>Draft a control</b> and gets a pre-filled candidate (Detective, evidence = notification log, monthly test) to edit and save.</li>
+      </ul></div>
+    <div class="card note"><h3>Precision tactics</h3>
+      <p>Exclude already-linked controls; cap suggestions per obligation (avoid 30-row dumps); always show the <em>reason</em> so a wrong suggestion is obviously wrong; and log dismissals — a dismissed pair is negative training signal and can raise the similarity floor over time.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">C · Framework crosswalk</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>The runbook framework library already holds <b>34 frameworks / 243 clauses</b> (ISO 27001:2022, NIST CSF, NDPA, CBN RBCSF…). Embed each clause, then for every obligation retrieve the nearest clauses and let the LLM confirm <em>and cite</em>: "NDPA s.40 — you must notify the Commission of a breach; your obligation O-1188 implements it." The result is a proposed clause mapping the analyst can accept.</p></div>
+    <div class="card ex"><h3>Value</h3>
+      <p>Answers "are we ISO-ready?" or "how does this map to NDPA?" as a filtered view instead of a spreadsheet — and it feeds the runbook coverage matrix, which already speaks in clause terms. The mapping is a suggestion, so a false positive is a one-click reject.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">D · Semantic de-duplication (taming sprawl)</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>Vector search is also the best duplicate detector. For each obligation/control, find near-identical neighbours (cosine ≥ a high threshold), then confirm with the LLM ("are these the same duty/control?"). Present them as <b>merge candidates</b> with the shared intent; the analyst merges or ignores.</p></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>The seeded tenant has ~<b>2,137 controls</b> with many near-duplicates ("Annual policy review" appearing several times per act). Today, de-duplication is by natural key <em>only</em>; embeddings surface the semantic duplicates the key misses — "these five controls are effectively one" — so the register reflects reality and coverage stops being inflated by clones.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">E · Natural-language query → filters</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>A single tool-calling step: the LLM receives an <b>allow-list of the filter parameters that already exist</b> and must return a structured filter object, never SQL. The UI applies that object to the same URL-backed filters it uses today, so the result is exactly what a human clicking the filters would see.</p></div>
+    <div class="chain">// tool the model may call - mirrors the register's existing params only
+setRegisterFilters({
+  areaOfFocus?: string,      // e.g. "AML/CFT/CPF"
+  riskRating?:  string,      // "High"
+  noControl?:   boolean,     // gap filter
+  regulator?:   string,
+  status?:      string,
+  dueWindowDays?: number,    // for returns/tasks
+  owner?:       string
+})</div>
+    <table>
+      <thead><tr><th>Analyst types</th><th>Model returns</th></tr></thead>
+      <tbody>
+        <tr><td>"High-risk AML obligations with no control"</td><td><code class="k">{areaOfFocus:"AML/CFT/CPF", riskRating:"High", noControl:true}</code></td></tr>
+        <tr><td>"returns due in the next 30 days not started"</td><td><code class="k">{dueWindowDays:30, status:"Not Started"} (tasks/returns lens)</code></td></tr>
+        <tr><td>"controls owned by IT Security never tested"</td><td><code class="k">{owner:"IT Security", effectiveness:"Untested"}</code></td></tr>
+      </tbody>
+    </table>
+    <div class="card note"><h3>Guardrails</h3>
+      <p>Only allowed parameters; always render the interpreted query back as filter chips ("AML/CFT/CPF · High · No control") so a misread is visible before results; no SQL, no free-form database access.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">F · Risk prioritisation — expanded</h2>
+    <div class="card sol"><h3>1 — Proposed inherent risk</h3>
+      <p>Classification already extracts <code class="k">likelihood</code>, <code class="k">impact</code>, <code class="k">risk_description</code> and the sanction. v2 turns that into a <b>proposed</b> 5×5 band plus a cited rationale; the analyst accepts or edits. The band itself is still computed by the rule engine — the AI only proposes the inputs.</p>
+      <p><b>Example (real pattern):</b> "Proposed <b>High</b> (L4 × I5). Rationale: failure to maintain capital adequacy threatens systemic stability; maximum sanction ₦500m."</p></div>
+    <div class="card sol"><h3>2 — Residual narrative</h3>
+      <p>Residual is already derived live from <b>accepted</b> control tests. The AI writes the sentence the analyst would otherwise have to assemble: "Residual lowered to <b>Moderate</b> — the identity-verification control passed on 2026-10-18; 2 of 3 linked controls effective." Deterministic trigger, AI prose.</p></div>
+    <div class="card sol"><h3>3 — Risk theming</h3>
+      <p>Cluster obligations/risks by embedding similarity into a handful of board-level themes ("AML/CFT programme hygiene", "data-protection governance"), so leadership sees six risks instead of 340 rows. Each theme lists its member obligations for drill-down.</p></div>
+    <div class="card sol"><h3>4 — Prioritisation score</h3>
+      <p>A configurable <b>materiality × exposure</b> score with an explicit breakdown — never a black box. The AI can propose the materiality inputs, but the weights are firm-set and the arithmetic is deterministic.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">G · Dashboard narratives &amp; anomaly explanations</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>The daily snapshot plus the day-over-day delta is fed to the LLM with a strict template: numbers are passed <b>in</b> (never computed by the model), and the model only writes prose. Anomaly detection is a rule (a KPI outside its band); the LLM then explains the most likely driver from the per-regulator / per-bucket deltas.</p></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>"Compliance score <b>45%</b> (▼2 vs yesterday). Drivers: 3 overdue CBN filings, 12 uncovered AML requirements; offset by 2 controls regaining effectiveness after remediation." Every figure is clickable to its rows; the model added only the connective tissue.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">H · Regulatory change monitoring</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <ul class="clean">
+        <li>When a new instrument is ingested, match it to the existing act/section it amends (by reference number, else embedding).</li>
+        <li>Diff the classified obligations: <b>added</b>, <b>removed</b>, <b>changed</b> (by semantic similarity of the duty text).</li>
+        <li>Raise a change alert per material difference with a before/after and a suggested action ("update obligation O-1188", "new duty — no control").</li>
+      </ul></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>"CBN Circular X amends Circular Y, Section 4: <b>adds</b> a 24-hour ATM funding duty (previously 48h). Existing obligation O-1188 needs updating; no control currently covers the tightened window." This is the sharp end of Pain Point 1 — not just "a new document arrived" but "here is what changed and what to do."</p></div>
+
+    <h2 class="ph" style="margin-top:22px">I · Evidence intelligence</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>On upload, extract the text and let the LLM: classify the document type (test result, policy extract, remediation proof, filing receipt), pull the date and outcome, check it against the claimed result, and suggest the subject it belongs to. Flag mismatches ("this is a policy extract, not a test result") rather than silently storing it.</p></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>A tester uploads a PDF claimed as a PASS. The extractor reads it, finds no test date or result table, and returns <b>"looks like a policy extract"</b> — so the reviewer opens it with a warning instead of trusting the label. Where it <em>is</em> a result, the date/outcome pre-fills the record.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">J · Deadline extraction fallback</h2>
+    <div class="card sol"><h3>How it works</h3>
+      <p>The deterministic parser handles most regulator wording (rule: DATE, OFFSET, or event-driven). For the messy remainder it currently leaves ~50 returns at "Due date needed". v2 adds an LLM fallback: propose a rule <b>and</b> quote the source phrase, so the analyst confirms with the evidence in front of them.</p></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>Regulator text: "within 3 months after year-end". Parser gets nothing → LLM proposes <code class="k">OFFSET 90 days after period end (→ 31 Mar)</code>, quoting the phrase. The analyst accepts; the schedule regenerates untouched periods. The rule, once set, is deterministic — the AI only proposed it.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">K · The assistant (RAG over the tenant's own universe)</h2>
+    <div class="card sol"><h3>Flow</h3>
+      <ul class="clean">
+        <li><b>Scope</b> to the caller's tenant and role (RBAC applies — an analyst and a CCO may see different things).</li>
+        <li><b>Retrieve</b> the top obligations/controls/tests/evidence for the question via the substrate.</li>
+        <li><b>Compose</b> an answer that <b>cites</b> the rows it used, and refuses when the retrieved context does not support an answer.</li>
+        <li><b>Read-only</b> — the assistant points; it never writes. Every answer links to the exact rows so the human verifies in one click.</li>
+      </ul></div>
+    <div class="card ex"><h3>Example</h3>
+      <p><b>Q:</b> "What proves our KYC obligation?" <b>A:</b> "Requirement R-4471 (Verify customer identity before account opening) is covered by CTL-0142 Identity Verification Check; its latest accepted test passed on 2026-10-18 with evidence attached." — with links to the requirement, control and test. "Which controls were never tested?" returns the list, each linking to the control.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">L · Architecture reference</h2>
+    <div class="card"><h3>Embedding pipeline</h3>
+      <p>Compose canonical text → call embed model → store vector + content hash → re-embed on hash change. Batch nightly for backlog; embed inline for new rows. Cache query embeddings for the session.</p></div>
+    <div class="chain">CREATE TABLE ai_suggestions (        -- auditable advisory layer
+  id            bigserial PRIMARY KEY,
+  tenant_id     bigint NOT NULL,
+  feature       text   NOT NULL,     -- control_recommendation | crosswalk | dedup | nl_query | change_diff | narrative
+  subject_type  text   NOT NULL,
+  subject_id    bigint,
+  model         text   NOT NULL,
+  prompt_hash   text   NOT NULL,
+  output        jsonb  NOT NULL,
+  confidence    text,
+  decision      text,                -- accepted | rejected | ignored (null until actioned)
+  decided_by    bigint,
+  decided_at    timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);</div>
+    <div class="card"><h3>Eval harness</h3>
+      <p>Golden sets per feature (e.g. 100 requirement→control pairs with known answers). Metrics: precision@k, recall, and abstention rate. Gate prompt/model changes in CI — a model swap that degrades mapping cannot ship silently.</p></div>
+    <div class="card"><h3>Provider routing &amp; cost</h3>
+      <p>Route by task: embeddings and dedup to a small/cheap model; mapping and reasoning to a frontier model. Embed once and cache; keep the interactive path (NL query, assistant) on the fast model. The existing primary/fallback client already abstracts the provider, so routing is configuration, not rework.</p></div>
+
+    <h2 class="ph" style="margin-top:22px">M · Guardrails — expanded</h2>
+    <div class="card pain"><h3>Prompt injection is the top risk</h3>
+      <p>Regulatory PDFs and uploaded evidence are <b>untrusted input</b> and must be treated as <em>data</em>, never as instructions. Delimit retrieved content, instruct the model to ignore imperative text inside documents, and never let a document trigger a tool call. Tool-calling is restricted to read-only, typed, allow-listed functions.</p></div>
+    <div class="card pain"><h3>No autonomous state</h3>
+      <p>The AI never writes a compliance state, links a control, or closes a finding by itself. It proposes; a human accepts; the deterministic core computes the result.</p></div>
+    <div class="card pain"><h3>Defensibility</h3>
+      <p>Each suggestion is on the ledger (model, prompt hash, output, decision, actor), so an examiner can ask "why did you link this control?" and get an answer years later, on the same hash-chained trail as everything else.</p></div>
+    <div class="card pain"><h3>Confidence &amp; abstention</h3>
+      <p>A confidence field on every suggestion, and a similarity/temperature floor below which the system returns <em>nothing</em> rather than a plausible-looking wrong answer.</p></div>
+    <div class="card pain"><h3>Isolation, residency, cost, drift</h3>
+      <p>Only the calling tenant's data enters a prompt or vector index; respect PII and provider residency; embed once and cache to control cost; and keep CI evals plus the authoritative deterministic core so a bad model release cannot change a verdict.</p></div>
+  </section>
+</div>
+
+<footer>
+  Atheris / Verity — GenAI in Compliance, v1.0. Today's footprint is instrument extraction; the v2 thesis is <b>AI suggests, deterministic core decides, humans accept, audit records all three</b>.
+</footer>
+
+<script>
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var tabs = this.querySelectorAll('button');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i] === btn);
+    var panels = document.querySelectorAll('section.panel');
+    for (var j = 0; j < panels.length; j++) panels[j].classList.toggle('active', panels[j].id === btn.dataset.t);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>

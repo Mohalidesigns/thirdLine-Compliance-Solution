@@ -1,0 +1,49 @@
+controls attributed : 1649
+low-confidence (<70) : 319
+spot-check sample    : 82
+confidence min/avg/max : 30/74.4/95
+
+by department:
+    929  Compliance
+    215  Legal & Company Secretariat
+    168  Human Resources
+    110  Operations
+     86  Finance & Treasury
+     74  Risk Management
+     56  Information Technology
+     11  Internal Audit
+
+distinct accountable role titles: 33
+  Board of Directors
+  Branch Manager
+  Chief Audit Executive
+  Chief Compliance Officer
+  Chief Executive Officer
+  Chief Financial Officer
+  Chief Information Security Officer
+  Chief Risk Officer
+  Company Secretary
+  Compliance Officer
+  Data Protection Officer
+  Financial Controller
+  HR Manager
+  Head of AML/CFT
+  Head of Cash Operations
+  Head of Compliance
+  Head of Data Protection
+  Head of Finance
+  Head of HR
+  Head of IT
+  Head of Internal Audit
+  Head of Legal
+  Head of Operations
+  Head of Regulatory Reporting
+  Head of Risk
+  Head of Treasury
+  IT Security Manager
+  Legal Manager
+  Operations Manager
+  Procurement Manager
+  Records Manager
+  Risk Manager
+  Treasury Manager
