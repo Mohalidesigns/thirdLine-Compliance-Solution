@@ -29,8 +29,7 @@ public class OrgController {
     }
 
     @PostMapping("/departments")
-    // CCO too: quick-added from the Add Owner dialog (see createOwner).
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<DepartmentDto> createDepartment(@Valid @RequestBody DepartmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createDepartment(request));
     }
@@ -56,8 +55,7 @@ public class OrgController {
     }
 
     @PostMapping("/teams")
-    // CCO too: quick-added from the Add Owner dialog (see createOwner).
-    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<TeamDto> createTeam(@Valid @RequestBody TeamRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createTeam(request));
     }

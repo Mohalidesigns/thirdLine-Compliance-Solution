@@ -25,7 +25,9 @@ public class OrgService {
     private final DepartmentRepository departments;
     private final TeamRepository teams;
     private final OwnerRepository owners;
+    private final com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository users;
     private final com.atheris.compliance.tenant.backend.modules.audit.service.AuditService audit;
+    private final com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService tenantIdentity;
     private final ExecutorService virtualThreadExecutor;
 
     // ---------------------------------------------------------------- departments
@@ -346,38 +348,63 @@ public class OrgService {
 
     public OrgTreeResponse getOrgTree() {
 
-        List<Department> departmentList = departments.findAll().stream()
+        List<Department> allDepartments = departments.findAll().stream()
             .sorted(Comparator.comparing(Department::getName))
             .toList();
+        List<Team> allTeams = teams.findAll().stream()
+            .sorted(Comparator.comparing(Team::getName))
+            .toList();
+        List<Owner> allOwners = owners.findAll().stream()
+            .sorted(Comparator.comparing(Owner::getFullName, Comparator.nullsLast(String::compareToIgnoreCase)))
+            .toList();
 
-        List<Team> allTeams = teams.findAll();
-        List<Department> allDepartments = departments.findAll();
+        List<OrgTreeResponse.DepartmentNode> nodes = allDepartments.stream()
+            .map(department -> buildDepartmentNode(department, allDepartments, allTeams, allOwners))
+            .toList();
 
-        List<OrgTreeResponse.DepartmentNode> nodes = departmentList.stream()
-            .map(department -> CompletableFuture
-                .supplyAsync(() -> buildDepartmentNode(department, allDepartments, allTeams), virtualThreadExecutor))
-            .map(CompletableFuture::join)
+        List<OrgTreeResponse.UserNode> userNodes = users.findByIsActiveTrue().stream()
+            .sorted(Comparator.comparing(com.atheris.compliance.tenant.backend.modules.users.entity.User::getFullName,
+                Comparator.nullsLast(String::compareToIgnoreCase)))
+            .map(user -> OrgTreeResponse.UserNode.builder()
+                .userId(user.getUserId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .jobTitle(user.getJobTitle())
+                .role(user.getRole())
+                .department(user.getDepartment())
+                .isActive(user.getIsActive())
+                .build())
+            .toList();
+
+        List<OwnerDto> unassignedOwners = allOwners.stream()
+            .filter(owner -> owner.getDepartmentId() == null && owner.getTeamId() == null)
+            .map(owner -> toDto(owner, allTeams, allDepartments))
             .toList();
 
         return OrgTreeResponse.builder()
+            .organizationName(tenantIdentity.currentProfile().map(p -> p.getLegalName()).orElse(null))
             .departments(nodes)
+            .users(userNodes)
+            .unassignedOwners(unassignedOwners)
             .build();
     }
 
     private OrgTreeResponse.DepartmentNode buildDepartmentNode(
             Department department,
             List<Department> allDepartments,
-            List<Team> allTeams) {
+            List<Team> allTeams,
+            List<Owner> allOwners) {
 
-        List<Team> departmentTeams = teams.findByDepartmentIdOrderByNameAsc(department.getDepartmentId());
-
-        List<OrgTreeResponse.TeamNode> teamNodes = departmentTeams.stream()
-            .map(team -> CompletableFuture
-                .supplyAsync(() -> buildTeamNode(team, allDepartments, allTeams), virtualThreadExecutor))
-            .map(CompletableFuture::join)
+        List<Team> departmentTeams = allTeams.stream()
+            .filter(team -> team.getDepartmentId().equals(department.getDepartmentId()))
             .toList();
 
-        List<OwnerDto> departmentOwners = owners.findByDepartmentIdOrderByFullNameAsc(department.getDepartmentId()).stream()
+        List<OrgTreeResponse.TeamNode> teamNodes = departmentTeams.stream()
+            .map(team -> buildTeamNode(team, allDepartments, allTeams, allOwners))
+            .toList();
+
+        List<OwnerDto> departmentOwners = allOwners.stream()
+            .filter(owner -> department.getDepartmentId().equals(owner.getDepartmentId()))
             .filter(owner -> owner.getTeamId() == null)
             .map(owner -> toDto(owner, allTeams, allDepartments))
             .toList();
@@ -388,6 +415,7 @@ public class OrgService {
                 .name(department.getName())
                 .code(department.getCode())
                 .headOwnerId(department.getHeadOwnerId())
+                .headOwnerName(resolveOwnerName(allOwners, department.getHeadOwnerId()))
                 .isActive(department.getIsActive())
                 .build())
             .teams(teamNodes)
@@ -398,9 +426,13 @@ public class OrgService {
     private OrgTreeResponse.TeamNode buildTeamNode(
             Team team,
             List<Department> allDepartments,
-            List<Team> allTeams) {
+            List<Team> allTeams,
+            List<Owner> allOwners) {
 
-        List<Owner> teamOwners = owners.findByTeamIdOrderByFullNameAsc(team.getTeamId());
+        List<OwnerDto> teamOwners = allOwners.stream()
+            .filter(owner -> team.getTeamId().equals(owner.getTeamId()))
+            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .toList();
 
         return OrgTreeResponse.TeamNode.builder()
             .team(TeamDto.builder()
@@ -411,9 +443,7 @@ public class OrgService {
                 .isActive(team.getIsActive())
                 .ownerCount(teamOwners.size())
                 .build())
-            .owners(teamOwners.stream()
-                .map(owner -> toDto(owner, allTeams, allDepartments))
-                .toList())
+            .owners(teamOwners)
             .build();
     }
 
