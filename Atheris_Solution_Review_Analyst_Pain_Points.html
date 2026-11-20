@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atheris / Verity — Solution Review: Compliance Analyst Pain Points</title>
+<style>
+  :root{
+    --navy:#1A365D; --navy-2:#244b7a; --gold:#D4AF37; --gold-soft:#faf3d6;
+    --bg:#F7FAFC; --hair:#E2E8F0; --ink:#1A202C; --muted:#64748B;
+    --green:#2F855A; --green-bg:#E6F4EA; --amber:#B7791F; --amber-bg:#FEF6E4;
+    --red:#C53030; --red-bg:#FDECEC; --blue-bg:#EBF4FF; --blue:#2B6CB0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;-webkit-font-smoothing:antialiased}
+  header.top{background:var(--navy);color:#fff;padding:28px 32px 22px}
+  header.top .brand{display:flex;align-items:center;gap:10px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#cbd5e1}
+  header.top .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+  header.top h1{margin:10px 0 4px;font-size:26px;font-weight:700;letter-spacing:-.01em}
+  header.top p.sub{margin:0;color:#cbd5e1;font-size:14px;max-width:900px}
+  header.top .meta{margin-top:14px;display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:#a9b6c9}
+  header.top .meta b{color:#fff;font-weight:600}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 56px}
+  nav.tabs{position:sticky;top:0;z-index:5;background:rgba(247,250,252,.96);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--hair);display:flex;gap:4px;flex-wrap:wrap;padding:10px 0;margin-bottom:22px}
+  nav.tabs button{border:1px solid transparent;background:transparent;color:var(--muted);
+    font:inherit;font-size:13.5px;padding:8px 13px;border-radius:8px;cursor:pointer;white-space:nowrap}
+  nav.tabs button:hover{background:#eef3f8;color:var(--navy)}
+  nav.tabs button.active{background:var(--navy);color:#fff;font-weight:600}
+  section.panel{display:none;animation:fade .18s ease}
+  section.panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2.ph{margin:0 0 6px;font-size:22px;color:var(--navy);letter-spacing:-.01em}
+  h2.ph .n{color:var(--gold);font-weight:800;margin-right:8px}
+  p.lead{margin:0 0 18px;color:var(--muted);font-size:14.5px}
+  .card{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:18px 20px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card h3{margin:0 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .card p{margin:0 0 8px}
+  .card p:last-child{margin-bottom:0}
+  .pain{border-left:4px solid var(--red);background:var(--red-bg)}
+  .pain h3{color:var(--red)}
+  .sol{border-left:4px solid var(--green);background:var(--green-bg)}
+  .sol h3{color:var(--green)}
+  .ex{border-left:4px solid var(--gold);background:var(--gold-soft)}
+  .ex h3{color:var(--amber)}
+  .note{border-left:4px solid var(--blue);background:var(--blue-bg)}
+  .note h3{color:var(--blue)}
+  ul.clean{margin:6px 0 0;padding-left:18px}
+  ul.clean li{margin:5px 0}
+  .screens{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.screens{grid-template-columns:1fr}}
+  .screen{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:12px 14px}
+  .screen .name{font-weight:600;color:var(--navy);font-size:14px}
+  .screen .route{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--blue);
+    background:var(--blue-bg);border-radius:5px;padding:1px 6px;display:inline-block;margin:4px 0 6px}
+  .screen .desc{font-size:13px;color:#475569;margin:0}
+  code.k{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;background:#eef3f8;border-radius:5px;padding:1px 6px;color:var(--navy)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;border:1px solid var(--hair);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--hair)}
+  th{background:#f1f5f9;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px}
+  .pill.yes{background:var(--green-bg);color:var(--green)}
+  .pill.partial{background:var(--amber-bg);color:var(--amber)}
+  .pill.planned{background:#EDF2F7;color:#4A5568}
+  .chain{background:var(--navy);color:#dbe4f0;border-radius:12px;padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12.5px;line-height:1.7;overflow-x:auto;white-space:pre;margin-bottom:16px}
+  .chain b{color:var(--gold)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  footer{max-width:1080px;margin:0 auto;padding:22px 24px 40px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span> Verity Compliance — Solution Review</div>
+  <h1>How the solution answers the compliance analyst's pain points</h1>
+  <p class="sub">An as-built review of the tenant compliance application (and the central intelligence platform that feeds it), mapped to the six pain points of a working compliance analyst — with the exact screens and a worked example for each.</p>
+  <div class="meta">
+    <span><b>Version</b> 3.1 — as-built</span>
+    <span><b>Tenant app</b> :5174</span>
+    <span><b>Intel platform</b> :5173</span>
+    <span><b>Analyst persona</b> Ngozi, mid-size Nigerian bank</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" id="tabs">
+    <button data-t="overview" class="active">Overview</button>
+    <button data-t="p1">1 · Finding regulations</button>
+    <button data-t="p2">2 · The register</button>
+    <button data-t="p3">3 · Return deadlines</button>
+    <button data-t="p4">4 · Evidence</button>
+    <button data-t="p5">5 · Chasing colleagues</button>
+    <button data-t="p6">6 · Board pack</button>
+    <button data-t="runbook">7 · Runbooks</button>
+    <button data-t="more">+ Risk &amp; Today</button>
+    <button data-t="cross">Cross-cutting</button>
+    <button data-t="status">Status &amp; gaps</button>
+  </nav>
+
+  <!-- OVERVIEW -->
+  <section class="panel active" id="overview">
+    <h2 class="ph">The solution in one model</h2>
+    <p class="lead">Every screen is a view onto one chain. The analyst never types a claim of compliance; the system reads the evidence trail and derives the answer.</p>
+    <div class="chain">Instrument  →  <b>Obligation</b>  →  <b>Requirement</b>  →  <b>Control</b>  →  <b>Test</b>  →  <b>Evidence</b>
+   (what the        (one duty per    (one duty per   (what we     (does it    (proof)
+    regulator         line)            line)           do about it) work?)
+    published)                                             │
+                                                           ▼
+                                       Finding  ←  Failure / Gap
+                                           │
+                                           ▼
+                             <b>Risk</b>  (inherent → residual, live)</div>
+
+    <div class="two">
+      <div class="card"><h3>Invariant 1 — nothing counts until it is accepted</h3>
+        <p>A control test moves <em>nothing</em> (residual risk, obligation compliance, control effectiveness, the score) until it is <b>Accepted</b> at review by someone other than the author. A recorded test sits <code class="k">Pending</code>.</p></div>
+      <div class="card"><h3>Invariant 2 — compliance state is derived, never stored</h3>
+        <p>No one can assert "we are compliant." State is read from requirement coverage and accepted tests: <code class="k">Compliant</code> / <code class="k">Partial</code> / <code class="k">Non-compliant</code> / <code class="k">No control</code>.</p></div>
+    </div>
+
+    <h2 class="ph" style="margin-top:22px">Scorecard</h2>
+    <p class="lead">The six catalogued pain points, plus two the original list missed.</p>
+    <table>
+      <thead><tr><th>#</th><th>Pain point</th><th>Status</th><th>Primary screens</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Finding new regulations manually</td><td><span class="pill yes">Yes</span></td><td>Compliance Universe · Review Inbox · Uploads</td></tr>
+        <tr><td>2</td><td>350+ obligations in an unstructured spreadsheet</td><td><span class="pill yes">Yes</span></td><td>Obligations register · Obligation detail (Requirements) · Acts</td></tr>
+        <tr><td>3</td><td>187 return deadlines with no safety net</td><td><span class="pill yes">Yes</span></td><td>Returns register · Return detail · public filing link</td></tr>
+        <tr><td>4</td><td>Producing evidence for examiners takes days</td><td><span class="pill yes">Yes</span></td><td>Evidence Vault · Audit Trail · Obligation Evidence rollup</td></tr>
+        <tr><td>5</td><td>Chasing colleagues for tests and attestations</td><td><span class="pill yes">Yes</span></td><td>Task Center · Escalation · public test / remediate / filing links</td></tr>
+        <tr><td>6</td><td>Board pack takes 4 days from stale data</td><td><span class="pill yes">Yes</span></td><td>Dashboard · Rendition &amp; Coverage · Reports</td></tr>
+        <tr><td>+</td><td>"What is actually my risk?"</td><td><span class="pill yes">Yes</span></td><td>Obligation risk block · Rendition &amp; Coverage risk profile</td></tr>
+        <tr><td>+</td><td>"What do I do today?"</td><td><span class="pill yes">Yes</span></td><td>Task Center (sidebar badge)</td></tr>
+        <tr><td>+</td><td>Auditor-grade defensibility</td><td><span class="pill partial">Partial</span></td><td>Audit Trail (hash-chained); examiner portal <span class="pill planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- P1 -->
+  <section class="panel" id="p1">
+    <h2 class="ph"><span class="n">1</span>Finding new regulations manually</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>Ngozi checks 12 regulator websites a week; the 30-day compliance window is often half gone before action starts because she learned of a circular by forwarded email.</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>The central platform runs a <b>Horizon Scanner</b> across the configured Nigerian regulators every 15 minutes. New documents are downloaded, OCR'd (PDFBox, Tesseract fallback for scans), and passed to the AI classifier, which returns <em>structured</em> fields (area of focus, risk rating, licence types, duties, sanctions) — not free text. Toolkit instruments seed straight to the register; scraped/AI instruments land in the tenant <b>Review Inbox</b>, where a human must <b>Edit &amp; Save</b> before anything reaches the register. The tenant then sees what applies to it through subscriptions and the confirmed universe in one place.</p></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Compliance Universe</div><span class="route">/universe</span><p class="desc">Risk KPIs, Top Regulators, Nature mix, Areas of Focus. Every card/chip drills into a filtered instrument table; a row opens a drawer with the AI summary and its obligations.</p></div>
+        <div class="screen"><div class="name">Review Inbox</div><span class="route">/review</span><p class="desc">The queue of newly arrived documents awaiting a human decision; a row expands to an enriched, read-only obligation summary (no N+1).</p></div>
+        <div class="screen"><div class="name">Review &amp; Edit</div><span class="route">/review/:reviewId</span><p class="desc">Inline edit of title, verbatim text, plain-English and risk. <b>Save</b> is the only path from document to register.</p></div>
+        <div class="screen"><div class="name">Uploads</div><span class="route">/uploads</span><p class="desc">Manual document intake into the same pipeline.</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>CBN publishes a circular at 02:14. By morning it appears in <b>Review Inbox</b> with a plain-English summary and a risk rating. Ngozi opens the review, corrects one duty's wording to match the bank's operation, sets the risk rating, and saves. The instrument now appears under <b>Compliance Universe → Regulators → Central Bank of Nigeria</b>, and each duty becomes a row in the Obligations register. Nothing was typed from scratch and no website was visited.</p></div>
+    <div class="card note"><h3>Design principle — human in the loop</h3>
+      <p>The AI proposes, the analyst disposes. A false claim can never enter the register un-reviewed.</p></div>
+  </section>
+
+  <!-- P2 -->
+  <section class="panel" id="p2">
+    <h2 class="ph"><span class="n">2</span>350+ obligations in an unstructured spreadsheet</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>A 1,200-row sheet where columns mean different things to different people, no ownership, no audit trail, and no reliable answer to "show me all High-risk AML obligations with no control."</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>The register is <b>one row per enforceable duty</b> (not per document) with typed fields: verbatim <code class="k">description</code> vs interpreted <code class="k">plain_english_statement</code>, area of focus, inherent risk, act/regulation, section and recurring deadline. Two capabilities turn the list into a working register:</p>
+      <ul class="clean">
+        <li><b>Requirements</b> — each obligation carries one-or-more requirements, the finest unit of duty, with a derived state. Requirements are the single place the duty text lives and the unit that controls attach to.</li>
+        <li><b>One gap definition, everywhere</b> — an obligation is a <b>gap</b> when at least one of its requirements has <b>no linked control</b>. That single definition drives the register's <em>No Control</em> KPI/filter, the Task Center's gap rows, and the finding close gate.</li>
+      </ul></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Obligations register</div><span class="route">/obligations</span><p class="desc">KPI cards (Total · High Risk · No Control, each with a breakdown dropdown), a filter bar (search, regulator, area, risk, owner, status, heatmap cells) and a 5-column sortable table. Every KPI/filter lives in the URL so a view is shareable.</p></div>
+        <div class="screen"><div class="name">Obligation detail</div><span class="route">/obligations/:id</span><p class="desc">Header (act, regulator, area, inherent risk) with tabs; the <b>Requirements</b> tab is the default and is where the duty text lives — one requirement per line with its derived state, its covering controls, and coverage <code class="k">effective/total</code>.</p></div>
+        <div class="screen"><div class="name">Requirement detail</div><span class="route">/requirements/:id</span><p class="desc">A single duty: state + hint, linked controls with latest test, link/unlink controls, and a manual state override (which always wins, and is recorded).</p></div>
+        <div class="screen"><div class="name">Acts</div><span class="route">/acts · /acts/:id</span><p class="desc">Group obligations by their governing act.</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example (grounded in the seeded tenant)</h3>
+      <p>The register holds <b>1,407 obligations</b>; risk bands read <b>High 1,197 · Moderate 205 · Critical 4 · Low 1</b>. Opening obligation <b>"General Principles"</b> (Corporate Governance, High) shows its requirement lines; a requirement with no control reads <b>No control</b> and counts toward the register's <em>No Control</em> KPI. Filtering by <em>Area of Focus = AML/CFT/CPF</em> narrows to <b>332 obligations</b> and the KPI strip updates — the exact question is now three clicks, not a spreadsheet formula.</p></div>
+    <div class="card note"><h3>Known defect surfaced by this review</h3>
+      <p>On the seeded tenant, <code class="k">obligations.control_owner</code> reads a <em>risk word</em> ("High") for <b>217 Corporate Governance obligations</b> (e.g. obligation 122 "General Principles" → owner <code class="k">High</code>) because the offline toolkit exporter resolved the owner column by a hard-coded index that mis-aligned on that sheet. The correct actor is present in the neighbouring responsibility text. This is a <b>seed-data</b> bug, not a model bug (owner is free text, not an FK). Repaired at source — see <em>Status &amp; gaps</em>.</p></div>
+  </section>
+
+  <!-- P3 -->
+  <section class="panel" id="p3">
+    <h2 class="ph"><span class="n">3</span>187 return deadlines with no safety net</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>Deadlines tracked in a shared calendar with no preparation workflow; a regulator changes a date and the calendar is never updated; the bank pays the fine even though the work was done.</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>Returns are a first-class module with a <b>five-stage workflow</b> — <code class="k">Not Started → Data Gathering → Draft → Review → Completed</code> — and a decision gate at each review. Deadlines come from a due-date rule (an offset from period end, a fixed date, or event-driven), not a copied field, so a corrected schedule regenerates untouched periods. A <b>policy-driven escalation engine</b> runs on a 5-minute tick: approaching, reminder, due-today and overdue rungs climb a ladder (responsible person → manager → CCO), each emailing the right people with the owner Cc'd. Filing can be done through a <b>no-login public link</b>, and the CCO's acceptance completes the period and rolls the schedule forward. Once accepted, a <b>proof of filing</b> receipt can be attached.</p></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Returns register</div><span class="route">/returns</span><p class="desc">Status buckets, overdue/unlinked/missing-act KPIs, frequency/act filters, <b>Send link</b>, and the proof/repair path.</p></div>
+        <div class="screen"><div class="name">Return detail</div><span class="route">/returns/:returnId</span><p class="desc">Details card (grounding, schedule, event trigger, escalation ladder, linked obligations) plus <b>Filings</b> and <b>History</b> tabs, a live stepper, a period switcher ("N of M"), and "Periods on record" + "Next periods (projected)".</p></div>
+        <div class="screen"><div class="name">Public filing page</div><span class="route">/return-upload/:token</span><p class="desc">No login, reached from the emailed link; submits the filing data plus files.</p></div>
+        <div class="screen"><div class="name">Review</div><span class="route">/returns/:returnId/instances/:instanceId/review</span><p class="desc">Data review, and the in-page report review panel (<code class="k">?review=report</code>).</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example (grounded)</h3>
+      <p>Return <b>"Basel III Capital Adequacy Returns"</b> is <code class="k">MONTHLY</code>, its rule derived from the platform's own wording. A filing is created with the successor projected (the next period appears only when the current one is accepted). As the due date nears, the engine fires the <em>approaching</em> email with a fresh <code class="k">/return-upload/{token}</code> to the responsible person (owner Cc'd); if they do not act, the overdue rung escalates to their manager, then the CCO. The responsible person files through the link; the analyst accepts the data (→ <em>Draft</em>); the CCO accepts the report (→ <em>Completed</em>), the schedule rolls forward, and a <b>proof of filing</b> receipt can be uploaded and appears under <em>Evidence Vault → Returns</em>.</p></div>
+    <div class="card note"><h3>Design principle — the deadline is the system's, not a memory</h3>
+      <p>Every rung is policy-driven and editable in Settings, and every send is logged.</p></div>
+  </section>
+
+  <!-- P4 -->
+  <section class="panel" id="p4">
+    <h2 class="ph"><span class="n">4</span>Producing evidence for examiners takes days</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>An examiner asks for a control test from 8 months ago; two days vanish searching email, SharePoint and WhatsApp. The bank cannot <em>prove</em> it did the right thing — even when it did.</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>Every artifact — a test result, a remediation file, a filing, a receipt — is a stored <code class="k">evidence_files</code> row bound to the thing it proves (<code class="k">sourceType</code>/<code class="k">sourceId</code>), downloadable through an authenticated endpoint. Evidence has <b>one home</b> and every item deep-links back to its subject. An obligation's <b>Evidence tab is a rollup</b> of its own evidence plus its controls' test evidence, its findings' remediation, and its returns' filing/receipt evidence. Separately, every state change writes an <b>append-only, hash-chained audit event</b>, so the trail is tamper-evident.</p></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Evidence Vault</div><span class="route">/evidence</span><p class="desc">Category KPI chips, search + source-type filter, and a 5-column table (File · Category · Linked to · Uploaded by · Uploaded) with deep links and a download drawer.</p></div>
+        <div class="screen"><div class="name">Obligation → Evidence tab</div><span class="route">/obligations/:id</span><p class="desc">The rollup described above — test evidence <em>via</em> controls, remediation <em>via</em> findings, receipts <em>via</em> returns.</p></div>
+        <div class="screen"><div class="name">Audit Trail</div><span class="route">/audit</span><p class="desc">The chained event log for any subject.</p></div>
+        <div class="screen"><div class="name">Proof of filing</div><span class="route">/returns/:returnId</span><p class="desc">Attach the filing receipt on the return detail after acceptance.</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>An examiner names a control test. Ngozi opens <b>Evidence Vault</b>, filters to <em>Control tests</em>, finds the entry labelled <em>"Control test · CTL-0001 Identity Verification Check"</em>, and downloads the file; the <em>Linked to</em> column also jumps straight to the control. If they instead ask about an obligation, its Evidence tab shows the test evidence <em>via</em> the control, the remediation <em>via</em> the finding, and the filing receipt <em>via</em> the return — one screen, no email search.</p></div>
+  </section>
+
+  <!-- P5 -->
+  <section class="panel" id="p5">
+    <h2 class="ph"><span class="n">5</span>Chasing colleagues for tests and attestations</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>"Did you test that control?" lives in WhatsApp and email; the work is invisible, untracked, and disappears into chat history.</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>Work is assigned and chased by the system, not by Ngozi:</p>
+      <ul class="clean">
+        <li><b>Control testing</b> separates the <b>Tester</b> (who runs the test) from the <b>owner</b> (who manages the control). The tester is emailed a deterministic, no-login <code class="k">/control-test/{token}</code> link; the test cannot be submitted without evidence; it lands as <b>Pending</b> and only becomes effective when <em>Accepted</em> at review (analysts may self-review; CCO/reviewer roles stay maker–checker). Tests recorded in-app or by a runbook are auto-accepted.</li>
+        <li><b>Findings</b> are raised automatically from failed tests (and manually for gaps), remediated by the owner through a <code class="k">/remediate/{token}</code> link, and closed under a review gate with an SLA.</li>
+        <li><b>Escalation</b> chases every due test, finding and filing up the manager chain, emailing concise, per-event messages.</li>
+        <li><b>Task Center</b> aggregates all of it into one derived queue.</li>
+      </ul></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Task Center (Tasks)</div><span class="route">/tasks</span><p class="desc">Live sidebar badge. Tabs <b>Controls · Returns · Findings · Obligations</b>, KPI strip, filter bar, columns <em>Task · Due date · Regulator · Responsible person · Actions</em>; inline actions (Start filing, Assign) and deep links for the rest. A CCO gets a <b>My work / Whole organisation</b> toggle; an analyst sees the whole organisation.</p></div>
+        <div class="screen"><div class="name">Control test review</div><span class="route">/controls/tests/:testId/review</span><p class="desc">Decision banner, control context (act, owner, department, frequency, next due, inherent/residual + basis), linked obligations and findings, the submitted result and the evidence.</p></div>
+        <div class="screen"><div class="name">Finding review</div><span class="route">/findings/:id/review</span><p class="desc">The remediation review and sign-off gate.</p></div>
+        <div class="screen"><div class="name">Public pages</div><span class="route">/control-test/:token · /remediate/:token</span><p class="desc">No-login submission pages reached from the emailed link.</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>A monthly control test comes due. The engine emails the tester (owner Cc'd) with a link; the tester submits a PASS with a PDF, which cannot go through without the file. The test sits <b>Pending</b>; the analyst opens the review page, sees the control, its basis and the evidence, and <b>Accepts</b>. Only now does the obligation's state move and the control's effectiveness update. If the tester goes quiet, the overdue rung escalates to their manager, then the CCO — all logged, none of it in WhatsApp.</p></div>
+  </section>
+
+  <!-- P6 -->
+  <section class="panel" id="p6">
+    <h2 class="ph"><span class="n">6</span>Board pack takes 4 days from stale data</h2>
+    <div class="card pain"><h3>The pain</h3>
+      <p>3–4 days pulling spreadsheets into PowerPoint; by presentation the data is two weeks old; a follow-up question needs a manual lookup.</p></div>
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>Metrics are <b>derived</b> from the live evidence trail, not typed in, and snapshotted daily so trends exist without manual assembly. A compliance score is a weighted mean of coverage, control effectiveness, returns-on-time and findings-within-SLA — with the weights and the band thresholds <b>configurable</b> per firm. Every KPI is clickable to the underlying rows.</p></div>
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Dashboard</div><span class="route">/dashboard</span><p class="desc">Compliance score with a breakdown tooltip, attention cards, and a Compliance Universe section.</p></div>
+        <div class="screen"><div class="name">Rendition &amp; Coverage</div><span class="route">/dashboard/v2</span><p class="desc">Rendition grid, escalation matrix, risk heatmap (drill-down into the register), control coverage.</p></div>
+        <div class="screen"><div class="name">Reports</div><span class="route">/reports</span><p class="desc">The board-facing pack on live data.</p></div>
+        <div class="screen"><div class="name">Settings → Compliance</div><span class="route">/settings</span><p class="desc">Risk-residual rule, SLA days, band thresholds, score weights, dashboard thresholds and the review gates.</p></div>
+      </div></div>
+    <div class="card ex"><h3>Example</h3>
+      <p>The morning of the board meeting the CCO opens the Dashboard: the score, "Critical/High Obligations", control effectiveness (passing ÷ tested), returns on time and open findings — all live as of that morning. A board member asks about the overdue AML test; the CCO clicks the attention card, lands on the exact control, and answers in the meeting. Nothing was exported or reformatted.</p></div>
+  </section>
+
+  <!-- RUNBOOKS -->
+  <section class="panel" id="runbook">
+    <h2 class="ph"><span class="n">7</span>Runbooks — executable procedures with built-in evidence</h2>
+    <p class="lead">A runbook turns "how we do this" from a PDF in a shared drive into a versioned, executable procedure that produces its own evidence as it is worked — the missing link between an obligation and the proof it was discharged.</p>
+
+    <div class="card pain"><h3>The pain</h3>
+      <p>The procedure for a quarterly access review lives in a Word file and in the analyst's head. When it is run, the outputs (account exports, exception lists, sign-offs) scatter across email and drives, nobody can prove which version was followed, and the evidence for the linked control is reconstructed by hand after the fact.</p></div>
+
+    <div class="card sol"><h3>What the solution does</h3>
+      <p>Runbooks are a first-class, executable object. A runbook is <b>versioned</b> (DRAFT → IN_REVIEW → PUBLISHED, with a SHA-256 content hash at publish and a diff between versions) and <b>linted</b> before it can be submitted (can't publish a procedure with no steps, no escalation on a HIGH/CRITICAL runbook, no framework clause, or a secret in a command). Each version is a tree of <b>sections → steps</b>, each step carrying an instruction, an optional command block, an expected result, an assigned role, blocking/dual-control flags, and <b>mandatory evidence requirements</b>. Runbooks map to obligations, controls and framework clauses.</p>
+      <p>Executing a runbook (an <em>execution</em>) walks a state machine — <code class="k">NOT_STARTED → PREFLIGHT → IN_PROGRESS → PENDING_SIGNOFF → COMPLETED_PASS</code> (with PAUSED / ESCALATED / ROLLING_BACK branches) — with a pre-flight acknowledgement, enforced step order, blocking steps that cannot be skipped, <b>dual control</b> (a second operator re-authenticates), automatic escalation up the manager chain on an SLA breach, and rollback steps that become tracked steps when a failure triggers them. Evidence is captured per step, hashed server-side, and stored. On final CCO sign-off the runbook writes a <b>control test result</b> back to each linked control — so the runbook closure <em>is</em> the test that drives obligation compliance and residual risk. The closure produces a downloadable <b>evidence pack</b>: a ZIP of every file plus a <code class="k">manifest.json</code>, a <code class="k">manifest.sha256</code>, and a PDF report — re-hashing every file on assembly.</p></div>
+
+    <div class="card"><h3>Screens</h3>
+      <div class="screens">
+        <div class="screen"><div class="name">Runbooks library</div><span class="route">/runbooks</span><p class="desc">The library, with tabs for <b>Library · Executions · Approvals · Templates · Coverage</b>.</p></div>
+        <div class="screen"><div class="name">Builder</div><span class="route">/runbooks/builder</span><p class="desc">5-step wizard (sections, steps, prerequisites, escalation/rollback, clauses) with 2-second autosave and live lint.</p></div>
+        <div class="screen"><div class="name">Runbook detail</div><span class="route">/runbooks/:id</span><p class="desc">8 tabs: overview, version tree, framework clauses, approvals, executions, coverage, schedule, history.</p></div>
+        <div class="screen"><div class="name">Execution console</div><span class="route">/runbooks/executions/:id</span><p class="desc">3-pane runner: SLA timer and milestones, per-step evidence capture, dual-control verify, rollback.</p></div>
+        <div class="screen"><div class="name">Evidence pack</div><span class="route">/runbooks/executions/:id</span><p class="desc">On sign-off, download the ZIP (files + manifest.json + manifest.sha256 + PDF). Copy the manifest hash and the pack hash re-verifies in the browser.</p></div>
+        <div class="screen"><div class="name">Coverage matrix</div><span class="route">/runbooks/coverage</span><p class="desc">Which controls / clauses a runbook covers, and the gap list.</p></div>
+      </div></div>
+
+    <div class="card ex"><h3>Worked example — RB-ACC-001 «Quarterly User Access Review» (sample run)</h3>
+      <p>Template <b>RB-ACC-001</b> (Criticality HIGH, quarterly, ISO 27001 A.5.16 / PCI-DSS 8.2.6 / NIST AC-2(3)) was <b>adopted</b> from the template library into a draft, linted clean, and executed against the local test bed. Because the test bed ships an <b>OpenLDAP</b> directory rather than Active Directory, the sample substitutes the directory (bind <code class="k">cn=admin,dc=atheris,dc=test</code>, base <code class="k">ou=people,dc=atheris,dc=test</code>) and uses the directory's <code class="k">modifyTimestamp</code> as a documented proxy for <code class="k">lastLogonDate</code>; no directory or database entry is modified — steps 3.1/3.2 emit a <em>proposed</em> disable list.</p>
+      <p>Each step produced its evidence file in the pack:</p>
+      <table>
+        <thead><tr><th>Step</th><th>Action</th><th>Evidence file</th><th>Type</th></tr></thead>
+        <tbody>
+          <tr><td>1.1</td><td>Export HR active staff list</td><td><code class="k">01_hr_active_staff.csv</code></td><td>DOCUMENT</td></tr>
+          <tr><td>1.2</td><td>Export system accounts (uid, title, enabled, last activity)</td><td><code class="k">02_system_accounts.csv</code></td><td>QUERY_OUTPUT</td></tr>
+          <tr><td>1.3</td><td>Export core-banking users and roles</td><td><code class="k">03_core_banking_users.csv</code></td><td>QUERY_OUTPUT</td></tr>
+          <tr><td>1.4</td><td>Export privileged database roles</td><td><code class="k">04_db_privileged_roles.csv</code></td><td>QUERY_OUTPUT</td></tr>
+          <tr><td>2.1</td><td>Reconcile system users vs HR; flag not-in-HR</td><td><code class="k">05_reconciliation.csv</code></td><td>QUERY_OUTPUT</td></tr>
+          <tr><td>2.2</td><td>Flag accounts with no activity &gt; 90 days</td><td><code class="k">08_dormant_accounts_90d.csv</code></td><td>QUERY_OUTPUT</td></tr>
+          <tr><td>2.3</td><td>Flag privileged accounts needing attestation</td><td><code class="k">07_privileged_accounts.csv</code></td><td>DOCUMENT</td></tr>
+          <tr><td>2.4</td><td>Manager attestations</td><td><em>in-app attestations</em></td><td>ATTESTATION</td></tr>
+          <tr><td>3.1</td><td>Disable dormant/orphaned accounts (<b>dual control</b>)</td><td><code class="k">09_disable_list.csv</code></td><td>SCREENSHOT + TICKET_REF</td></tr>
+          <tr><td>3.2</td><td>Verify disabled accounts cannot authenticate</td><td><code class="k">10_verification_checklist.csv</code></td><td>SCREENSHOT</td></tr>
+          <tr><td>4.1</td><td>Compile review summary</td><td><code class="k">11_review_summary.csv</code></td><td>DOCUMENT</td></tr>
+          <tr><td>4.2</td><td>CCO sign-off</td><td><em>in-app sign-off</em></td><td>ATTESTATION</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px">What the review found on the test directory:</p>
+      <table>
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Directory accounts in scope (<code class="k">ou=people</code>)</td><td><b>42</b></td></tr>
+          <tr><td>HR active staff / HR records incl. departed</td><td>40 / 43</td></tr>
+          <tr><td>Core-banking (tenant) users · privileged DB roles</td><td>3 · 1</td></tr>
+          <tr><td><b>Orphaned accounts</b> (in directory, not active in HR)</td><td><b>2</b> — <code class="k">dba</code> (Database Administrator), <code class="k">corebanking</code> (Core Banking Manager)</td></tr>
+          <tr><td>Privileged accounts requiring attestation</td><td>30</td></tr>
+          <tr><td>Dormant accounts (&gt; 90 days inactive)</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px">The two orphaned privileged accounts flow to <code class="k">09_disable_list.csv</code> (dual control, ticket reference to attach) and their post-action check to <code class="k">10_verification_checklist.csv</code>. The whole pack carries a <code class="k">manifest.sha256</code>, so the evidence is tamper-evident — exactly the pack the execution console hands back on sign-off.</p>
+      <p>Artifact on disk: <code class="k">~/Desktop/Atheris_Runbook_RB-ACC-001_2026-11-20/</code> (11 CSVs + <code class="k">00_README.md</code> step→evidence map + <code class="k">manifest.sha256</code>; regenerate with <code class="k">generate.py</code>).</p></div>
+
+    <div class="card note"><h3>Design principle — the procedure proves itself</h3>
+      <p>The analyst does not assemble evidence afterwards; the runbook captures it as each step is worked, and the closed runbook writes the control-test result back into the compliance graph. One artifact, from procedure to proof.</p></div>
+  </section>
+
+  <!-- MORE -->
+  <section class="panel" id="more">
+    <h2 class="ph">The two pain points the original list missed</h2>
+    <div class="card sol"><h3>"What is actually my risk?"</h3>
+      <p>Each obligation/risk carries an <b>inherent</b> 5×5 band; the <b>residual</b> is derived <em>live</em> from the obligation's controls' <b>accepted</b> test results (the analyst chooses how far effectiveness lowers the likelihood), so residual risk updates the moment a test is accepted and reverts when a remediation is proven.</p>
+      <p><b>Screens:</b> the obligation detail risk block, the Rendition &amp; Coverage risk profile / heatmap, and the risk detail view.</p></div>
+    <div class="card sol"><h3>"What do I do today?"</h3>
+      <p>The <b>Task Center</b> is the single answer. It is derived from the returns/controls/findings/obligations repositories, scoped to the caller, and always reflects the true state; the sidebar badge shows the org-wide backlog.</p>
+      <p><b>Screen:</b> <code class="k">/tasks</code>.</p></div>
+  </section>
+
+  <!-- CROSS -->
+  <section class="panel" id="cross">
+    <h2 class="ph">Cross-cutting capabilities that make it analyst-friendly</h2>
+    <div class="card"><h3>Review gates are configurable</h3>
+      <p><em>Settings → Compliance</em> toggles <em>require a review for control tests</em> and <em>require a review for findings</em> (both default on). With a gate off, a recorded test is auto-accepted — the firm chooses its own assurance level.</p></div>
+    <div class="card"><h3>Maker–checker with a deliberate exception</h3>
+      <p>CCO / TENANT_ADMIN / dedicated reviewer roles enforce separation of duties; an <b>ANALYST</b> may self-review (analysts do everything). The recorder can accept their own work; a reviewer cannot rubber-stamp someone else's two roles at once.</p></div>
+    <div class="card"><h3>One vocabulary</h3>
+      <p>"Gap" has exactly one meaning everywhere (a requirement with no control). Emails are concise and per-event (<code class="k">Changes requested: control test ABACA001</code>). Band words are unified across the toolkit and the matrix.</p></div>
+    <div class="card"><h3>Everything deep-links</h3>
+      <p>A task → the exact test/finding/filing. A KPI → the exact rows. Evidence → its subject. A URL encodes the view.</p></div>
+    <div class="card"><h3>Nothing is asserted</h3>
+      <p>Compliance state, effectiveness, residual risk and the score are all read from accepted evidence.</p></div>
+  </section>
+
+  <!-- STATUS -->
+  <section class="panel" id="status">
+    <h2 class="ph">Honest status and open items</h2>
+    <div class="card pain"><h3>Owner seed defect — open, repaired at source, not yet propagated</h3>
+      <p>The <b>217 Corporate-Governance obligations</b> with a risk word as <em>owner</em> are fixed in the committed toolkit JSON (<code class="k">tools/toolkit-enrichment/fix_owner_risk_words.py</code>); the central platform re-seeds clean (<b>0 such rows</b>). The <b>tenant</b> still carries the old values until it is re-seeded, because the seed import de-dupes rather than updates. A tenant re-seed is required to clear it.</p></div>
+    <div class="card"><h3>Runbooks</h3>
+      <p>The core slice (library, builder, execution console, evidence pack with a verifiable hash, approvals, coverage matrix, IT_OPS role) ships; the calendar, review queue, analytics, Settings tab and MD/PDF export are follow-ups. A worked sample run of <b>RB-ACC-001</b> against the LDAP test bed produced a full evidence pack — see tab <b>7 · Runbooks</b>. The seeded templates no longer ship Windows PowerShell command examples.</p></div>
+    <div class="card"><h3>Examiner portal</h3>
+      <p>Read-only external login is still <span class="pill planned">Planned</span>; today examiners are served from the Evidence Vault and Audit Trail.</p></div>
+    <div class="card"><h3>Live activity</h3>
+      <p>The freshly seeded tenant has obligations, controls (2,137) and returns (137) but <b>no test or finding activity yet</b>, so the test/finding walkthroughs describe what the analyst will see once they work the queue; the register/returns/evidence examples are grounded in seeded data.</p></div>
+    <div class="card"><h3>Screenshots</h3>
+      <p>Literal screenshots are not embedded; each <b>Screen</b> entry gives the exact route and nav path so it can be captured on demand.</p></div>
+  </section>
+</div>
+
+<footer>
+  Atheris / Verity — Solution Review v3.1 (as-built). Companion to <code class="k">Atheris_Pain_Points_and_Solutions.md</code> (v2.0 design stage). Tenant app :5174 · Intel platform :5173.
+</footer>
+
+<script>
+  document.getElementById('tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var tabs = this.querySelectorAll('button');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i] === btn);
+    var panels = document.querySelectorAll('section.panel');
+    for (var j = 0; j < panels.length; j++) panels[j].classList.toggle('active', panels[j].id === btn.dataset.t);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>

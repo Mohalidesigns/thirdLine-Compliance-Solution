@@ -1,0 +1,1148 @@
+[
+ {
+  "id": "ABAC001",
+  "control": "Immediate compliance with EFCC freezing orders including account freezing and information provision",
+  "area": "Freezing Orders",
+  "responsibleOfficer": "Branch Manager"
+ },
+ {
+  "id": "ABAC002",
+  "control": "Provision of account information, books, and documents to EFCC upon order",
+  "area": "Information Disclosure",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "ABAC003",
+  "control": "Stop all outward payments and transactions on frozen accounts as directed by EFCC",
+  "area": "Transaction Monitoring",
+  "responsibleOfficer": "Operations Manager"
+ },
+ {
+  "id": "ABAC004",
+  "control": "Anti-bribery policy preventing gifts, benefits, or promises to public officers",
+  "area": "Public Officer Corruption",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "ABAC005",
+  "control": "Third-party due diligence and controls to prevent corruption through agents",
+  "area": "Agent Corruption",
+  "responsibleOfficer": "Legal Manager"
+ },
+ {
+  "id": "ABAC006",
+  "control": "Code of conduct prohibiting bribery of public officers for votes, favours, or official acts",
+  "area": "Public Officer Bribery",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "ABAC007",
+  "control": "Procurement ethics policy preventing bribery related to public contracts",
+  "area": "Contract-Related Corruption",
+  "responsibleOfficer": "Procurement Manager"
+ },
+ {
+  "id": "ABAC008",
+  "control": "Comprehensive anti-bribery policy prohibiting giving bribes to public officials",
+  "area": "Official Corruption - Giving",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "ABAC009",
+  "control": "Employee code of conduct preventing solicitation or acceptance of bribes",
+  "area": "Official Corruption - Receiving",
+  "responsibleOfficer": "Internal Audit Manager"
+ },
+ {
+  "id": "ABAC010",
+  "control": "Regular anti-bribery and anti-corruption training programs for all staff",
+  "area": "Training &amp; Awareness",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "ABAC011",
+  "control": "Anonymous whistleblowing mechanism for reporting corruption",
+  "area": "Whistleblowing",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "ABAC012",
+  "control": "Mandatory reporting of corruption incidents to relevant authorities",
+  "area": "Incident Reporting",
+  "responsibleOfficer": "Legal Manager"
+ },
+ {
+  "id": "ABAC013",
+  "control": "Due diligence and monitoring of third parties for corruption risks",
+  "area": "Third-Party Risk",
+  "responsibleOfficer": "Vendor Management Officer"
+ },
+ {
+  "id": "ABAC014",
+  "control": "Segregation of duties and approval controls for high-risk transactions",
+  "area": "Internal Controls",
+  "responsibleOfficer": "Internal Audit Manager"
+ },
+ {
+  "id": "ABAC015",
+  "control": "Gift and hospitality register with approval thresholds and monitoring",
+  "area": "Gift &amp; Hospitality",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "ABAC016",
+  "control": "Comprehensive record keeping for all ABAC-related activities and investigations",
+  "area": "Record Keeping",
+  "responsibleOfficer": "Records Manager"
+ },
+ {
+  "id": "ABAC017",
+  "control": "Annual ABAC risk assessments covering all business areas and processes",
+  "area": "Risk Assessment",
+  "responsibleOfficer": "Chief Risk Officer"
+ },
+ {
+  "id": "ABAC018",
+  "control": "Independent audit of ABAC controls and compliance program effectiveness",
+  "area": "Internal Audit",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "CASH001",
+  "control": "Sort all cash deposits into fit and unfit categories before CBN deposit",
+  "area": "Note Classification",
+  "responsibleOfficer": "Head of Cash Operations"
+ },
+ {
+  "id": "CASH002",
+  "control": "Use only CBN-registered processing companies for banknote sorting",
+  "area": "Processing Companies",
+  "responsibleOfficer": "Vendor Management Officer"
+ },
+ {
+  "id": "CASH003",
+  "control": "Prevent re-circulation of unfit banknotes and ensure proper disposal",
+  "area": "Unfit Note Control",
+  "responsibleOfficer": "Vault Supervisor"
+ },
+ {
+  "id": "CASH004",
+  "control": "Avoid ₦12,000/box penalty for unsorted notes and additional re-circulation penalties",
+  "area": "Penalty Avoidance",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "CASH005",
+  "control": "Use only CBN-approved and configured cash processing machines",
+  "area": "Equipment Standards",
+  "responsibleOfficer": "IT Equipment Manager"
+ },
+ {
+  "id": "CASH006",
+  "control": "Ensure all machine categories meet CBN specifications and adaptation requirements",
+  "area": "Machine Categories",
+  "responsibleOfficer": "Operations Manager"
+ },
+ {
+  "id": "CASH007",
+  "control": "Configure ATMs to dispense only genuine and fit banknotes",
+  "area": "ATM Configuration",
+  "responsibleOfficer": "ATM Operations Manager"
+ },
+ {
+  "id": "CASH008",
+  "control": "Load ATMs only with authenticated and fitness-checked notes",
+  "area": "ATM Loading Controls",
+  "responsibleOfficer": "Cash Custodian"
+ },
+ {
+  "id": "CASH009",
+  "control": "Forward all suspected counterfeit notes to nearest CBN Branch immediately",
+  "area": "Counterfeit Detection",
+  "responsibleOfficer": "Branch Manager"
+ },
+ {
+  "id": "CASH010",
+  "control": "Prevent dispensing counterfeit notes through ATMs and teller points",
+  "area": "ATM Counterfeit Prevention",
+  "responsibleOfficer": "Quality Control Officer"
+ },
+ {
+  "id": "CASH011",
+  "control": "Follow CBN Operational Manual procedures for mutilated note assessment and replacement",
+  "area": "Mutilated Note Handling",
+  "responsibleOfficer": "Treasury Officer"
+ },
+ {
+  "id": "CASH012",
+  "control": "Prevent diversion of mint banknotes to currency hawkers and unauthorized agents",
+  "area": "Mint Note Control",
+  "responsibleOfficer": "Cash Management Head"
+ },
+ {
+  "id": "CASH013",
+  "control": "Implement dual authorization and detailed logging for mint note disbursements",
+  "area": "Distribution Controls",
+  "responsibleOfficer": "Vault Manager"
+ },
+ {
+  "id": "CASH014",
+  "control": "Screen all deposits for composed notes and prevent CBN deposit inclusion",
+  "area": "Composed Note Detection",
+  "responsibleOfficer": "Cash Processing Officer"
+ },
+ {
+  "id": "CASH015",
+  "control": "Train staff on CBN cash handling requirements and banknote authentication",
+  "area": "Staff Training",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "CASH016",
+  "control": "Support CBN public sensitization and customer education initiatives",
+  "area": "Customer Education",
+  "responsibleOfficer": "Customer Service Manager"
+ },
+ {
+  "id": "CASH017",
+  "control": "Implement quality checks on all cash handling processes and customer disbursements",
+  "area": "Quality Control",
+  "responsibleOfficer": "Quality Assurance Officer"
+ },
+ {
+  "id": "CASH018",
+  "control": "Implement CCTV and biometric access controls at cash centers and vaults",
+  "area": "Access Controls",
+  "responsibleOfficer": "Security Manager"
+ },
+ {
+  "id": "CASH019",
+  "control": "Maintain comprehensive records of all cash processing activities and transactions",
+  "area": "Record Keeping",
+  "responsibleOfficer": "Records Manager"
+ },
+ {
+  "id": "CASH020",
+  "control": "Maintain CBN liaison and ensure timely compliance with all cash management directives",
+  "area": "CBN Compliance",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CASH021",
+  "control": "Ensure all cash processing vendors meet CBN requirements and maintain compliance",
+  "area": "Third-Party Management",
+  "responsibleOfficer": "Vendor Management Officer"
+ },
+ {
+  "id": "CASH022",
+  "control": "Conduct regular internal audits of cash management controls and compliance",
+  "area": "Internal Audit",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "CASH023",
+  "control": "Conduct regular risk assessments of cash management operations and controls",
+  "area": "Risk Assessment",
+  "responsibleOfficer": "Chief Risk Officer"
+ },
+ {
+  "id": "CASH024",
+  "control": "Monitor and report cash management performance metrics to management and CBN",
+  "area": "Performance Metrics",
+  "responsibleOfficer": "Operations Controller"
+ },
+ {
+  "id": "CASH025",
+  "control": "Implement continuous improvement initiatives for cash management processes",
+  "area": "Process Improvement",
+  "responsibleOfficer": "Process Improvement Manager"
+ },
+ {
+  "id": "ESG001",
+  "control": "Board-approved E&amp;S Policy disclosed on website with sector-specific approaches",
+  "area": "E&amp;S Risk Management",
+  "responsibleOfficer": "Head of Sustainability"
+ },
+ {
+  "id": "ESG002",
+  "control": "E&amp;S procedures with clear roles, responsibilities, and staff assignments",
+  "area": "E&amp;S Risk Management",
+  "responsibleOfficer": "Compliance Department"
+ },
+ {
+  "id": "ESG003",
+  "control": "E&amp;S risk reporting framework with quantitative data on client assessments",
+  "area": "E&amp;S Risk Management",
+  "responsibleOfficer": "Risk Management"
+ },
+ {
+  "id": "ESG004",
+  "control": "Client engagement on E&amp;S issues with documented positive outcomes",
+  "area": "E&amp;S Risk Management",
+  "responsibleOfficer": "Relationship Management"
+ },
+ {
+  "id": "ESG005",
+  "control": "E&amp;S footprint management programme addressing climate change, GHG reduction, waste",
+  "area": "Operational Footprint",
+  "responsibleOfficer": "Facilities Management"
+ },
+ {
+  "id": "ESG006",
+  "control": "Community investment programme with senior management support",
+  "area": "Community Impact",
+  "responsibleOfficer": "CSR Manager"
+ },
+ {
+  "id": "ESG007",
+  "control": "Third-party E&amp;S standards for suppliers and contractors",
+  "area": "Vendor Management",
+  "responsibleOfficer": "Procurement"
+ },
+ {
+  "id": "ESG008",
+  "control": "E&amp;S footprint reporting framework with GRI-aligned metrics",
+  "area": "Environmental Reporting",
+  "responsibleOfficer": "Sustainability Team"
+ },
+ {
+  "id": "ESG009",
+  "control": "Human rights policy aligned with UN Declaration and Nigerian Constitution",
+  "area": "Human Rights",
+  "responsibleOfficer": "Sustainability Unit"
+ },
+ {
+  "id": "ESG010",
+  "control": "Employee training on human rights issues with documented investments",
+  "area": "Human Rights Training",
+  "responsibleOfficer": "HR Department"
+ },
+ {
+  "id": "ESG011",
+  "control": "Adherence to UN Global Compact and international human rights initiatives",
+  "area": "Global Standards",
+  "responsibleOfficer": "Sustainability Unit"
+ },
+ {
+  "id": "ESG012",
+  "control": "Human rights risk reporting with client assessment metrics",
+  "area": "Human Rights Reporting",
+  "responsibleOfficer": "Risk Management"
+ },
+ {
+  "id": "ESG013",
+  "control": "Women's Economic Empowerment Policy aligned with CBN strategy",
+  "area": "Gender Empowerment",
+  "responsibleOfficer": "HR Department"
+ },
+ {
+  "id": "ESG014",
+  "control": "Dedicated WEE Committee with senior leaders across business units",
+  "area": "Gender Governance",
+  "responsibleOfficer": "Executive Management"
+ },
+ {
+  "id": "ESG015",
+  "control": "Gender equality and women empowerment initiatives in workplace and society",
+  "area": "Gender Programs",
+  "responsibleOfficer": "Head of Sustainability"
+ },
+ {
+  "id": "ESG016",
+  "control": "Women's economic empowerment reporting with gender-disaggregated metrics",
+  "area": "Gender Reporting",
+  "responsibleOfficer": "Head of Sustainability"
+ },
+ {
+  "id": "ESG017",
+  "control": "Financial inclusion policy aligned with CBN strategy supporting SMEs and literacy",
+  "area": "Financial Inclusion",
+  "responsibleOfficer": "Compliance"
+ },
+ {
+  "id": "ESG018",
+  "control": "Financial inclusion reporting with CBN-defined criteria and metrics",
+  "area": "Inclusion Reporting",
+  "responsibleOfficer": "Retail Banking"
+ },
+ {
+  "id": "ESG019",
+  "control": "Board-level Sustainable Banking Governance Committee",
+  "area": "ESG Governance",
+  "responsibleOfficer": "Board of Directors"
+ },
+ {
+  "id": "ESG020",
+  "control": "ESG risk governance structure integrated with risk committee",
+  "area": "Risk Governance",
+  "responsibleOfficer": "Risk Management"
+ },
+ {
+  "id": "ESG021",
+  "control": "Annual internal and external ESG audits with independent assessors",
+  "area": "ESG Audit",
+  "responsibleOfficer": "Internal Audit"
+ },
+ {
+  "id": "ESG022",
+  "control": "ESG training across management levels and business functions",
+  "area": "ESG Education",
+  "responsibleOfficer": "Learning &amp; Development"
+ },
+ {
+  "id": "ESG023",
+  "control": "Participation in sustainability communities and sector initiatives",
+  "area": "Industry Engagement",
+  "responsibleOfficer": "Sustainability Unit"
+ },
+ {
+  "id": "ESG024",
+  "control": "Capacity building reporting with training metrics and outcomes",
+  "area": "Capacity Reporting",
+  "responsibleOfficer": "Sustainability Unit"
+ },
+ {
+  "id": "ESG025",
+  "control": "Engagement with Bankers' Sub-Committee and sector workshops",
+  "area": "Sector Partnerships",
+  "responsibleOfficer": "External Relations"
+ },
+ {
+  "id": "ESG026",
+  "control": "Public commitments to global standards and international initiatives",
+  "area": "International Standards",
+  "responsibleOfficer": "Strategy Units"
+ },
+ {
+  "id": "ESG027",
+  "control": "Comprehensive reporting template incorporating all principle criteria",
+  "area": "ESG Reporting",
+  "responsibleOfficer": "Compliance Units"
+ },
+ {
+  "id": "ESG028",
+  "control": "Clear ESG targets and performance indicators with annual tracking",
+  "area": "ESG Performance",
+  "responsibleOfficer": "Strategy Units"
+ },
+ {
+  "id": "ESG029",
+  "control": "Data collection systems integrated with third-party assurance",
+  "area": "Data Management",
+  "responsibleOfficer": "Data Governance"
+ },
+ {
+  "id": "ESG030",
+  "control": "Annual external ESG reporting with GRI compliance and third-party assurance",
+  "area": "Stakeholder Reporting",
+  "responsibleOfficer": "Corporate Communications"
+ },
+ {
+  "id": "ESG031",
+  "control": "Climate Change Officer appointment and annual carbon emission reporting",
+  "area": "Climate Compliance",
+  "responsibleOfficer": "Climate Change Officer"
+ },
+ {
+  "id": "ESG032",
+  "control": "Governance structures ensuring ethical conduct and transparency",
+  "area": "Ethics &amp; Transparency",
+  "responsibleOfficer": ""
+ },
+ {
+  "id": "CYB001",
+  "control": "Board-approved cybersecurity strategy, policies, and risk appetite with qualified NEDs",
+  "area": "Board Oversight",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CYB002",
+  "control": "CISO appointment with CBN approval and quarterly reporting to Board",
+  "area": "Senior Management",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CYB003",
+  "control": "Information Security Steering Committee (ISSC) with quarterly meetings",
+  "area": "Governance Structure",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB004",
+  "control": "Annual cybersecurity risk assessments and risk control self-assessments",
+  "area": "Risk Assessment",
+  "responsibleOfficer": "Chief Risk Officer"
+ },
+ {
+  "id": "CYB005",
+  "control": "Annual vulnerability assessments and quarterly internal scans",
+  "area": "Vulnerability Management",
+  "responsibleOfficer": "IT Security Officer"
+ },
+ {
+  "id": "CYB006",
+  "control": "Third-party risk management framework with annual vendor assessments",
+  "area": "Third Party Risk",
+  "responsibleOfficer": "Vendor Management Officer"
+ },
+ {
+  "id": "CYB007",
+  "control": "Maintain updated inventory of hardware, software, and network components",
+  "area": "Asset Management",
+  "responsibleOfficer": "IT Asset Manager"
+ },
+ {
+  "id": "CYB008",
+  "control": "Implementation of administrative, logical, and physical security controls",
+  "area": "Preventive Controls",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB009",
+  "control": "24/7 monitoring capabilities for anomaly and incident detection",
+  "area": "Monitoring &amp; Detection",
+  "responsibleOfficer": "SOC Manager"
+ },
+ {
+  "id": "CYB010",
+  "control": "Incident response capability available in-house or outsourced",
+  "area": "Incident Response",
+  "responsibleOfficer": "Incident Response Manager"
+ },
+ {
+  "id": "CYB011",
+  "control": "Segregation of duties in transaction posting and authorization",
+  "area": "Transaction Security",
+  "responsibleOfficer": "Head of Operations"
+ },
+ {
+  "id": "CYB012",
+  "control": "Immediate reporting of cyber threats to National CERT",
+  "area": "Threat Reporting",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB013",
+  "control": "Cardholder data protection and disclosure notification procedures",
+  "area": "Card Data Protection",
+  "responsibleOfficer": "Data Protection Officer"
+ },
+ {
+  "id": "CYB014",
+  "control": "NIN verification and KYC requirements for electronic transactions",
+  "area": "Customer Identity Verification",
+  "responsibleOfficer": "Customer Service Manager"
+ },
+ {
+  "id": "CYB015",
+  "control": "Two-year data retention and law enforcement cooperation procedures",
+  "area": "Data Retention",
+  "responsibleOfficer": "Data Protection Officer"
+ },
+ {
+  "id": "CYB016",
+  "control": "API security controls and consent management for open banking",
+  "area": "Open Banking Security",
+  "responsibleOfficer": "API Security Manager"
+ },
+ {
+  "id": "CYB017",
+  "control": "CBN approval process and due diligence for emerging technologies",
+  "area": "Emerging Technology",
+  "responsibleOfficer": "Chief Technology Officer"
+ },
+ {
+  "id": "CYB018",
+  "control": "Cybersecurity performance metrics and quarterly Board reporting",
+  "area": "Performance Metrics",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB019",
+  "control": "24-hour cyber incident reporting to CBN",
+  "area": "Incident Reporting",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB020",
+  "control": "Regular cybersecurity training and awareness programs",
+  "area": "Security Awareness",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "CYB021",
+  "control": "BCP testing including cybersecurity scenarios",
+  "area": "Business Continuity",
+  "responsibleOfficer": "Business Continuity Manager"
+ },
+ {
+  "id": "CYB022",
+  "control": "Independent cybersecurity audits and control testing",
+  "area": "Cybersecurity Audit",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "CYB023",
+  "control": "Compliance with cybersecurity laws and participation in cyber exercises",
+  "area": "Regulatory Compliance",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CYB024",
+  "control": "Annual CSAT completion and maturity roadmap development",
+  "area": "Maturity Assessment",
+  "responsibleOfficer": "CISO"
+ },
+ {
+  "id": "CYB025",
+  "control": "Data protection policies and privacy impact assessments",
+  "area": "Data Privacy",
+  "responsibleOfficer": "Data Protection Officer"
+ },
+ {
+  "id": "CAP001",
+  "control": "Filing of audited financial statements and periodic returns with SEC",
+  "area": "Annual Financial Reports",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP002",
+  "control": "CEO and CFO certification that they have reviewed the report",
+  "area": "Management Certification",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CAP003",
+  "control": "Certification that report contains no untrue statements or material omissions",
+  "area": "Material Facts Disclosure",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CAP004",
+  "control": "Certification that financial statements fairly present financial condition",
+  "area": "Financial Presentation",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP005",
+  "control": "Establishment and maintenance of internal controls with effectiveness evaluation",
+  "area": "Internal Controls",
+  "responsibleOfficer": "Chief Risk Officer"
+ },
+ {
+  "id": "CAP006",
+  "control": "Disclosure of control deficiencies and fraud to auditors and audit committee",
+  "area": "Auditor Disclosure",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "CAP007",
+  "control": "Identification and reporting of significant changes in internal controls",
+  "area": "Control Changes",
+  "responsibleOfficer": "Internal Audit Manager"
+ },
+ {
+  "id": "CAP008",
+  "control": "Establishment of internal control system over financial reporting and asset security",
+  "area": "Internal Control System",
+  "responsibleOfficer": "Board of Directors"
+ },
+ {
+  "id": "CAP009",
+  "control": "Board reporting on internal control system effectiveness in annual report",
+  "area": "Board Control Reporting",
+  "responsibleOfficer": "Board Chairman"
+ },
+ {
+  "id": "CAP010",
+  "control": "Compliance monitoring to avoid ₦5M penalty plus ₦50K daily for violations",
+  "area": "Penalty Avoidance",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CAP011",
+  "control": "Filing of audited financial statements and returns in specified format",
+  "area": "Periodic Financial Filing",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP012",
+  "control": "Appointment of compliance officer working with CFO on regulatory compliance",
+  "area": "Compliance Officer",
+  "responsibleOfficer": "Chief Executive Officer"
+ },
+ {
+  "id": "CAP013",
+  "control": "Annual report compliance with accounting standards and unclaimed dividend disclosure",
+  "area": "Annual Report Standards",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP014",
+  "control": "Annual report filing within 90 days of financial year-end per CAMA",
+  "area": "Filing Deadline",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CAP015",
+  "control": "CEO and CFO certification letter attachment per Section 60(2) requirements",
+  "area": "CEO/CFO Certification",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CAP016",
+  "control": "Auditor registration with SEC per Section 62 of the Act",
+  "area": "Auditor Registration",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP017",
+  "control": "Auditor statement on internal control system existence, adequacy, and effectiveness",
+  "area": "Auditor Internal Control Statement",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "CAP018",
+  "control": "Annual report disclosure of corporate governance code compliance per Schedule X",
+  "area": "Corporate Governance Compliance",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CAP019",
+  "control": "Avoiding ₦1M fine plus ₦25K daily penalty for late annual report filing",
+  "area": "Filing Penalty Avoidance",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "CAP020",
+  "control": "Earnings forecast release 20 days prior to quarter commencement",
+  "area": "Earnings Forecast",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP021",
+  "control": "Forecast alignment with policy, listing requirements, and underlying assumption disclosure",
+  "area": "Forecast Standards",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP022",
+  "control": "CEO and CFO certification of earnings forecast accuracy and completeness",
+  "area": "Forecast Certification",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "CAP023",
+  "control": "Immediate notification of forecast non-realization with reasons disclosure",
+  "area": "Forecast Variance Reporting",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP024",
+  "control": "Quarterly report filing within 30 days per IFRS with comprehensive notes disclosure",
+  "area": "Quarterly Reports",
+  "responsibleOfficer": "Chief Financial Officer"
+ },
+ {
+  "id": "CAP025",
+  "control": "Publication of signed quarterly statements in newspaper with website disclosure",
+  "area": "Quarterly Publication",
+  "responsibleOfficer": "Corporate Communications"
+ },
+ {
+  "id": "PCR001",
+  "control": "Contributory pension scheme implementation for all eligible employees with timely retirement benefits",
+  "area": "Pension Compliance",
+  "responsibleOfficer": "Head, HR"
+ },
+ {
+  "id": "PCR002",
+  "control": "CPS application to all employees with 15+ staff threshold compliance and voluntary participation guidelines",
+  "area": "Pension Application",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "PCR003",
+  "control": "Minimum 10% employer and 8% employee pension contributions with Group Life Insurance coverage",
+  "area": "Pension Contributions",
+  "responsibleOfficer": "CFO &amp; HR Lead"
+ },
+ {
+  "id": "PCR004",
+  "control": "Retirement Savings Account management with proper remittance and nominal account creation",
+  "area": "RSA Management",
+  "responsibleOfficer": "Payroll Officer"
+ },
+ {
+  "id": "PCR005",
+  "control": "Employee rights to transfer RSA between PFAs once per year without interference",
+  "area": "RSA Transfer Rights",
+  "responsibleOfficer": "HR Admin"
+ },
+ {
+  "id": "PCR006",
+  "control": "Formal dispute resolution protocol with PenCom review cooperation and response tracking",
+  "area": "Pension Disputes",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "PCR007",
+  "control": "Legal compliance with arbitration awards and National Industrial Court decisions",
+  "area": "Arbitration Compliance",
+  "responsibleOfficer": "Legal Adviser"
+ },
+ {
+  "id": "PCR008",
+  "control": "Written employment contracts within 3 months with statutory terms and conditions",
+  "area": "Employment Contracts",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "PCR009",
+  "control": "Maximum 8 hours daily and 40 hours weekly working time with overtime compensation",
+  "area": "Working Hours",
+  "responsibleOfficer": "HR Operations"
+ },
+ {
+  "id": "PCR010",
+  "control": "Minimum 12 working days annual leave after 12 months continuous service",
+  "area": "Annual Leave",
+  "responsibleOfficer": "HR Admin"
+ },
+ {
+  "id": "PCR011",
+  "control": "Proper notice periods and termination procedures with documented justification",
+  "area": "Termination Procedures",
+  "responsibleOfficer": "HR Director"
+ },
+ {
+  "id": "PCR012",
+  "control": "Employee compensation insurance coverage and workplace accident reporting",
+  "area": "Workers Compensation",
+  "responsibleOfficer": "Risk Manager"
+ },
+ {
+  "id": "PCR013",
+  "control": "Compliance with National Industrial Court jurisdiction over employment disputes",
+  "area": "Industrial Relations",
+  "responsibleOfficer": "Legal Counsel"
+ },
+ {
+  "id": "PCR014",
+  "control": "Non-discrimination policies covering recruitment, promotion, and workplace treatment",
+  "area": "Equal Opportunity",
+  "responsibleOfficer": "HR Director"
+ },
+ {
+  "id": "PCR015",
+  "control": "Gender equality policies with equal pay and opportunity frameworks",
+  "area": "Gender Equality",
+  "responsibleOfficer": "Diversity Officer"
+ },
+ {
+  "id": "PCR016",
+  "control": "Workplace health and safety standards with accident prevention measures",
+  "area": "Workplace Safety",
+  "responsibleOfficer": "Safety Officer"
+ },
+ {
+  "id": "PCR017",
+  "control": "Employee health insurance and occupational health programs",
+  "area": "Employee Health",
+  "responsibleOfficer": "HR Benefits"
+ },
+ {
+  "id": "PCR018",
+  "control": "Board composition, independence, diversity, and performance evaluation",
+  "area": "Board Governance",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "PCR019",
+  "control": "Fit and proper assessments for directors and key management personnel",
+  "area": "Personnel Fitness",
+  "responsibleOfficer": "Compliance Head"
+ },
+ {
+  "id": "PCR020",
+  "control": "Risk culture embedding across all levels with risk awareness training",
+  "area": "Risk Culture",
+  "responsibleOfficer": "Chief Risk Officer"
+ },
+ {
+  "id": "PCR021",
+  "control": "Comprehensive code of conduct with ethics training and violation reporting",
+  "area": "Business Ethics",
+  "responsibleOfficer": "Ethics Officer"
+ },
+ {
+  "id": "PCR022",
+  "control": "AML training and conduct standards with suspicious activity reporting",
+  "area": "AML Conduct",
+  "responsibleOfficer": "Compliance Head"
+ },
+ {
+  "id": "PCR023",
+  "control": "Protected disclosure framework with anonymous reporting channels",
+  "area": "Whistleblowing",
+  "responsibleOfficer": "Internal Audit"
+ },
+ {
+  "id": "PCR024",
+  "control": "Employee data protection with consent management and privacy training",
+  "area": "Data Privacy",
+  "responsibleOfficer": "Data Protection Officer"
+ },
+ {
+  "id": "PCR025",
+  "control": "Mandatory training programs with competency assessments and career development",
+  "area": "Competency Development",
+  "responsibleOfficer": "Learning &amp; Development"
+ },
+ {
+  "id": "PCR026",
+  "control": "Fair performance evaluation systems with objective criteria and feedback",
+  "area": "Performance Standards",
+  "responsibleOfficer": "HR Manager"
+ },
+ {
+  "id": "PCR027",
+  "control": "Fair compensation structure with market benchmarking and pay equity analysis",
+  "area": "Pay Equity",
+  "responsibleOfficer": "Compensation Manager"
+ },
+ {
+  "id": "PCR028",
+  "control": "Employee engagement programs with satisfaction surveys and feedback mechanisms",
+  "area": "Staff Relations",
+  "responsibleOfficer": "HR Business Partner"
+ },
+ {
+  "id": "PCR029",
+  "control": "Fair disciplinary procedures with due process and consistent application",
+  "area": "Discipline Management",
+  "responsibleOfficer": "Employee Relations"
+ },
+ {
+  "id": "PCR030",
+  "control": "Fair recruitment practices with diverse candidate pools and bias mitigation",
+  "area": "Talent Acquisition",
+  "responsibleOfficer": "Talent Acquisition"
+ },
+ {
+  "id": "PCR031",
+  "control": "Succession planning for key positions with talent pipeline development",
+  "area": "Leadership Pipeline",
+  "responsibleOfficer": "Talent Management"
+ },
+ {
+  "id": "PCR032",
+  "control": "Positive union relations with collective bargaining and dispute resolution",
+  "area": "Industrial Relations",
+  "responsibleOfficer": "Employee Relations"
+ },
+ {
+  "id": "PCR033",
+  "control": "Remote work arrangements with productivity monitoring and wellbeing support",
+  "area": "Flexible Working",
+  "responsibleOfficer": ""
+ },
+ {
+  "id": "FRC001",
+  "control": "CEO and CFO certification of periodic and annual reports with internal control attestation",
+  "area": "Certification Requirements",
+  "responsibleOfficer": "CEO &amp; CFO"
+ },
+ {
+  "id": "FRC002",
+  "control": "Board-mandated internal control system over financial reporting and asset security",
+  "area": "Internal Control System",
+  "responsibleOfficer": "Board Audit Committee"
+ },
+ {
+  "id": "FRC003",
+  "control": "Annual management assessment and reporting on internal control effectiveness",
+  "area": "Annual Control Assessment",
+  "responsibleOfficer": "CFO"
+ },
+ {
+  "id": "FRC004",
+  "control": "Engagement of SEC-registered public accounting firms for audit services",
+  "area": "Auditor Registration",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "FRC005",
+  "control": "External auditor attestation on management's internal control assessment",
+  "area": "Auditor Control Attestation",
+  "responsibleOfficer": "External Auditor"
+ },
+ {
+  "id": "FRC006",
+  "control": "Auditor independence maintenance with prohibited services monitoring",
+  "area": "Independence Compliance",
+  "responsibleOfficer": "Audit Committee"
+ },
+ {
+  "id": "FRC007",
+  "control": "Material weakness identification, disclosure, and remediation tracking",
+  "area": "Control Deficiency Management",
+  "responsibleOfficer": "Head of Internal Control"
+ },
+ {
+  "id": "FRC008",
+  "control": "Comprehensive control testing with adequate documentation and evidence",
+  "area": "Testing &amp; Documentation",
+  "responsibleOfficer": "Internal Audit"
+ },
+ {
+  "id": "FRC009",
+  "control": "Proper placement of internal control reports near auditor opinions in annual statements",
+  "area": "Disclosure Placement",
+  "responsibleOfficer": "Financial Reporting Unit"
+ },
+ {
+  "id": "FRC010",
+  "control": "Management assessment of internal controls including IS controls with independent attestation",
+  "area": "Management Assessment",
+  "responsibleOfficer": "CFO &amp; CIO"
+ },
+ {
+  "id": "FRC011",
+  "control": "Code of ethics for financial officers with annual certification and training",
+  "area": "Ethics Compliance",
+  "responsibleOfficer": "Ethics Officer"
+ },
+ {
+  "id": "FRC012",
+  "control": "Real-time disclosure systems for material changes in financial conditions or operations",
+  "area": "Material Changes",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "FRC013",
+  "control": "Timely submission of annual reports to FRC within 60 days of board approval",
+  "area": "Annual Report Filing",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "FRC014",
+  "control": "Full compliance with FRC Act and rules for registered professionals and entity",
+  "area": "Compliance Enforcement",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "FRC015",
+  "control": "Annual FRC levy calculation and payment based on market capitalization",
+  "area": "FRC Levy Payment",
+  "responsibleOfficer": "CFO"
+ },
+ {
+  "id": "FRC016",
+  "control": "FRC registration verification for all professionals serving public interest functions",
+  "area": "Professional Registration",
+  "responsibleOfficer": "Compliance Officer"
+ },
+ {
+  "id": "FRC017",
+  "control": "Immediate response protocol for auditor-identified material irregularities",
+  "area": "Material Irregularity Response",
+  "responsibleOfficer": "Chief Audit Executive"
+ },
+ {
+  "id": "FRC018",
+  "control": "Full compliance with FRC accounting and financial reporting standards",
+  "area": "Standards Compliance",
+  "responsibleOfficer": "CFO"
+ },
+ {
+  "id": "FRC019",
+  "control": "FRC filing within 30 days of government submissions with information request response",
+  "area": "Report Monitoring",
+  "responsibleOfficer": "Head of Regulatory Reporting"
+ },
+ {
+  "id": "FRC020",
+  "control": "Document production and cooperation during FRC investigations",
+  "area": "Investigation Cooperation",
+  "responsibleOfficer": "Chief Compliance Officer"
+ },
+ {
+  "id": "FRC021",
+  "control": "Timely financial statement restatement and resubmission with shareholder meeting",
+  "area": "Restatement Compliance",
+  "responsibleOfficer": "CFO"
+ },
+ {
+  "id": "FRC022",
+  "control": "Financial statement correction and resubmission to FRC and government authorities",
+  "area": "Corrective Resubmission",
+  "responsibleOfficer": "Financial Reporting Lead"
+ },
+ {
+  "id": "FRC023",
+  "control": "Internal grievance resolution with FRC Technical Committee appeal rights",
+  "area": "Grievance Procedures",
+  "responsibleOfficer": "Legal &amp; Regulatory Affairs"
+ },
+ {
+  "id": "FRC024",
+  "control": "Full compliance with International Financial Reporting Standards and local adaptations",
+  "area": "Accounting Standards",
+  "responsibleOfficer": "Financial Reporting Manager"
+ },
+ {
+  "id": "FRC025",
+  "control": "Accurate and timely quarterly financial reporting with management certification",
+  "area": "Interim Financial Reports",
+  "responsibleOfficer": "CFO"
+ },
+ {
+  "id": "FRC026",
+  "control": "Effective disclosure controls and procedures for material information",
+  "area": "Information Disclosure",
+  "responsibleOfficer": "Corporate Communications"
+ },
+ {
+  "id": "FRC027",
+  "control": "Proper identification, approval, and disclosure of related party transactions",
+  "area": "RPT Disclosure",
+  "responsibleOfficer": "Company Secretary"
+ },
+ {
+  "id": "FRC028",
+  "control": "Accurate fair value measurements with independent validation procedures",
+  "area": "Valuation Controls",
+  "responsibleOfficer": "Head of Finance"
+ },
+ {
+  "id": "FRC029",
+  "control": "Accurate segment identification and reporting in accordance with IFRS 8",
+  "area": "Business Segments",
+  "responsibleOfficer": "Financial Analysis Unit"
+ },
+ {
+  "id": "FRC030",
+  "control": "Regular impairment testing with documented procedures and independent review",
+  "area": "Asset Valuation",
+  "responsibleOfficer": "Credit Risk Manager"
+ },
+ {
+  "id": "FRC031",
+  "control": "Proper revenue recognition in accordance with IFRS 15 five-step model",
+  "area": "IFRS 15 Compliance",
+  "responsibleOfficer": "Revenue Recognition Team"
+ },
+ {
+  "id": "FRC032",
+  "control": "Proper classification, measurement, and impairment of financial instruments",
+  "area": "IFRS 9 Implementation",
+  "responsibleOfficer": "Treasury &amp; ALM"
+ },
+ {
+  "id": "FRC033",
+  "control": "Accurate consolidation procedures with subsidiary control assessment",
+  "area": "Group Reporting",
+  "responsibleOfficer": "Group Reporting Unit"
+ }
+]

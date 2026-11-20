@@ -1,0 +1,169 @@
+{
+ "departments": [
+  {
+   "name": "Compliance",
+   "units": [
+    "Regulatory Compliance",
+    "Data Protection",
+    "AML/CFT",
+    "Monitoring & Testing",
+    "Conduct & Ethics"
+   ]
+  },
+  {
+   "name": "Risk Management",
+   "units": [
+    "Enterprise Risk",
+    "Operational Risk",
+    "Credit Risk",
+    "Market & Liquidity Risk"
+   ]
+  },
+  {
+   "name": "Information Technology",
+   "units": [
+    "Core Banking",
+    "Database Administration",
+    "Networking",
+    "System Administration",
+    "IT Security"
+   ]
+  },
+  {
+   "name": "Operations",
+   "units": [
+    "Branch Operations",
+    "Cash Management",
+    "Transaction Processing",
+    "Trade Services",
+    "Customer Service"
+   ]
+  },
+  {
+   "name": "Finance & Treasury",
+   "units": [
+    "Financial Control",
+    "Treasury",
+    "Regulatory Reporting",
+    "Tax",
+    "Procurement"
+   ]
+  },
+  {
+   "name": "Internal Audit",
+   "units": [
+    "Audit Operations",
+    "Audit Assurance"
+   ]
+  },
+  {
+   "name": "Legal & Company Secretariat",
+   "units": [
+    "Legal Advisory",
+    "Company Secretariat",
+    "Litigation & Disputes"
+   ]
+  },
+  {
+   "name": "Human Resources",
+   "units": [
+    "HR Operations",
+    "Learning & Development",
+    "Recruitment"
+   ]
+  }
+ ],
+ "roleTitles": [
+  "API Security Manager",
+  "ATM Operations Manager",
+  "Board Chairman",
+  "Board of Directors",
+  "Branch Manager",
+  "Business Continuity Manager",
+  "CFO",
+  "CISO",
+  "CSR Manager",
+  "Cash Custodian",
+  "Cash Management Head",
+  "Cash Processing Officer",
+  "Chief Audit Executive",
+  "Chief Compliance Officer",
+  "Chief Executive Officer",
+  "Chief Financial Officer",
+  "Chief Information Security Officer",
+  "Chief Risk Officer",
+  "Chief Technology Officer",
+  "Climate Change Officer",
+  "Company Secretary",
+  "Compensation Manager",
+  "Compliance",
+  "Compliance Head",
+  "Compliance Officer",
+  "Credit Risk Manager",
+  "Customer Service Manager",
+  "Data Protection Officer",
+  "Diversity Officer",
+  "Ethics Officer",
+  "External Auditor",
+  "Financial Controller",
+  "Financial Reporting Lead",
+  "Financial Reporting Manager",
+  "HR Admin",
+  "HR Benefits",
+  "HR Business Partner",
+  "HR Director",
+  "HR Manager",
+  "Head of AML/CFT",
+  "Head of Cash Operations",
+  "Head of Compliance",
+  "Head of Data Protection",
+  "Head of Finance",
+  "Head of HR",
+  "Head of IT",
+  "Head of Internal Audit",
+  "Head of Internal Control",
+  "Head of Legal",
+  "Head of Operations",
+  "Head of Regulatory Reporting",
+  "Head of Risk",
+  "Head of Sustainability",
+  "Head of Treasury",
+  "Head, HR",
+  "IT Asset Manager",
+  "IT Equipment Manager",
+  "IT Security Manager",
+  "IT Security Officer",
+  "Incident Response Manager",
+  "Internal Audit",
+  "Internal Audit Manager",
+  "Legal Adviser",
+  "Legal Counsel",
+  "Legal Manager",
+  "Operations Controller",
+  "Operations Manager",
+  "Payroll Officer",
+  "Process Improvement Manager",
+  "Procurement",
+  "Procurement Manager",
+  "Quality Assurance Officer",
+  "Quality Control Officer",
+  "Records Manager",
+  "Retail Banking",
+  "Risk Manager",
+  "SOC Manager",
+  "Safety Officer",
+  "Security Manager",
+  "Talent Acquisition",
+  "Treasury Manager",
+  "Treasury Officer",
+  "Vault Manager",
+  "Vault Supervisor",
+  "Vendor Management Officer"
+ ],
+ "verificationDepartments": [
+  "Internal Audit",
+  "Compliance",
+  "Risk Management",
+  "Legal & Company Secretariat"
+ ]
+}
