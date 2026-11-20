@@ -704,10 +704,7 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     v2: {
-      returnsByPeriod: (from, to, opts = {}) => request(`/dashboard/v2/returns-by-period?from=${from}&to=${to}`, { signal: opts.signal }),
-      renditionGrid: (from, to, groupBy = 'department', opts = {}) => request(`/dashboard/v2/rendition-grid?from=${from}&to=${to}&groupBy=${groupBy}`, { signal: opts.signal }),
       riskHeatmap: (view = 'inherent', opts = {}) => request(`/dashboard/v2/risk-heatmap?view=${view}`, { signal: opts.signal }),
-      escalationMatrix: (opts = {}) => request('/dashboard/v2/escalation-matrix', { signal: opts.signal }),
       controlCoverage: (by = 'areaOfFocus', opts = {}) => request(`/dashboard/v2/control-coverage?by=${by}`, { signal: opts.signal }),
       riskProfile: (opts = {}) => request('/dashboard/v2/risk-profile', { signal: opts.signal }),
       thresholds: (opts = {}) => request('/dashboard/v2/thresholds', { signal: opts.signal }),
