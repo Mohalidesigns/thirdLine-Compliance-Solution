@@ -78,8 +78,13 @@ public class ObligationService {
     public Page<ObligationRegisterItem> getRegisterList(
             String q, String risk, String regulator, String areaOfFocus, String owner,
             String status, Boolean noControl, Long instrumentId,
-            String act, Boolean hasReturns, String state, String cells, String riskView, Pageable p) {
+            String act, Boolean hasReturns, String state, String cells, String riskView, Integer departmentId, Pageable p) {
         List<ObligationRegisterItem> rows = buildRegisterRows();
+        if (departmentId != null) {
+            java.util.Set<Long> ids = classifications.findByAssignedDepartmentId(departmentId).stream()
+                .map(ObligationClassification::getObligationId).collect(java.util.stream.Collectors.toSet());
+            rows = rows.stream().filter(r -> ids.contains(r.getObligationId())).toList();
+        }
         Set<String> heatmapCells = parseHeatmapCells(cells);
         boolean residual = "residual".equalsIgnoreCase(riskView);
         List<ObligationRegisterItem> filtered = rows.stream()
@@ -919,6 +924,10 @@ public class ObligationService {
         }
         Owner owner = ownerRepo.findById(ownerId)
             .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
+        if (owner.getDepartmentId() == null || owner.getTeamId() == null) {
+            throw ApiException.conflict("stakeholder_not_placed",
+                owner.getFullName() + " is not placed in a department and unit. Place them before assigning work.");
+        }
         applyOwner(c, owner, owner.getDepartmentId() != null
             ? departmentRepo.findById(owner.getDepartmentId())
                 .map(Department::getName)

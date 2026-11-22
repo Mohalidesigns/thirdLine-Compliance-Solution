@@ -34,8 +34,10 @@ CREATE TABLE IF NOT EXISTS controls (
     how_tested                    TEXT,
     control_owner_user_id         INT,
     control_owner_name            TEXT,
-    control_owner_id              INT REFERENCES owners(owner_id),
-    tester_owner_id               INT REFERENCES owners(owner_id),
+    control_owner_id              INT REFERENCES stakeholders(stakeholder_id),
+    tester_owner_id               INT REFERENCES stakeholders(stakeholder_id),
+    control_owner_department_id   INT REFERENCES departments(department_id),
+    control_owner_team_id         INT REFERENCES teams(team_id),
     tester_user_id                INT,
     tester_name                   VARCHAR(255),
     escalation_policy_id          BIGINT,
@@ -62,6 +64,7 @@ CREATE INDEX idx_controls_control_theme ON controls(control_theme_id);
 CREATE INDEX idx_controls_owner ON controls(control_owner_user_id);
 CREATE INDEX idx_controls_owner_id ON controls(control_owner_id);
 CREATE INDEX idx_controls_tester_owner ON controls(tester_owner_id);
+CREATE INDEX idx_controls_owner_dept ON controls(control_owner_department_id);
 CREATE INDEX idx_controls_tester_user ON controls(tester_user_id);
 
 CREATE TABLE IF NOT EXISTS control_tasks (
@@ -96,7 +99,7 @@ CREATE TABLE IF NOT EXISTS control_test_results (
     evidence_url           TEXT,
     remediation_required   BOOLEAN DEFAULT false,
     remediation_owner_user_id INT,
-    remediation_owner_id   INT REFERENCES owners(owner_id),
+    remediation_owner_id   INT REFERENCES stakeholders(stakeholder_id),
     remediation_deadline   DATE,
     review_status          VARCHAR(50) DEFAULT 'Pending',
     reviewed_by_user_id    INT,

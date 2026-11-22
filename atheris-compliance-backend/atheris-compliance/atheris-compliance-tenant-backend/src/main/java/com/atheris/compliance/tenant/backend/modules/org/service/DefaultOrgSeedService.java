@@ -26,6 +26,7 @@ public class DefaultOrgSeedService {
 
     private final DepartmentRepository departments;
     private final TeamRepository teams;
+    private final StakeholderTitleSeeder stakeholderTitles;
 
     /** Seeds any missing template departments/teams. Returns the number of departments created. */
     @Transactional
@@ -56,6 +57,7 @@ public class DefaultOrgSeedService {
         }
         log.info("[OrgSeed] Default org structure: {} departments, {} teams created",
             created, teamsCreated);
+        stakeholderTitles.seedDefaults();
         return created;
     }
 

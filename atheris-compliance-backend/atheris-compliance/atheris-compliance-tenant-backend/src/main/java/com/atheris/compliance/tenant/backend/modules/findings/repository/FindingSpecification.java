@@ -9,9 +9,14 @@ import java.util.List;
 public class FindingSpecification {
 
     public static Specification<Finding> withFilters(
-            String status, String severity, Boolean overdueOnly, Integer assignedToUserId) {
+            String status, String severity, Boolean overdueOnly, Integer assignedToUserId,
+            Integer departmentId, Integer teamId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            if (departmentId != null)
+                predicates.add(cb.equal(root.get("assignedDepartmentId"), departmentId));
+            if (teamId != null)
+                predicates.add(cb.equal(root.get("assignedTeamId"), teamId));
             if (status != null && !status.isEmpty())
                 predicates.add(cb.equal(root.get("status"), status));
             if (severity != null && !severity.isEmpty())

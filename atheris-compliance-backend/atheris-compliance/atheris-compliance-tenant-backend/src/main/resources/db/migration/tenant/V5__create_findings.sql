@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS findings (
     description               TEXT,
     assigned_to_user_id       INT,
     assigned_to_name          VARCHAR(255),
-    assigned_to_owner_id      INT REFERENCES owners(owner_id),
+    assigned_to_owner_id      INT REFERENCES stakeholders(stakeholder_id),
+    assigned_department_id    INT REFERENCES departments(department_id),
+    assigned_team_id          INT REFERENCES teams(team_id),
     assigned_at               TIMESTAMP WITH TIME ZONE,
     status                    VARCHAR(50) DEFAULT 'Open',
     remediation_deadline      DATE,
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS findings (
     -- the reviewer's note when a remediation is rejected.
     remediation_submitted_by_user_id INT,
     remediation_submitted_via_link BOOLEAN NOT NULL DEFAULT FALSE,
-    remediation_submitted_by_owner_id INT REFERENCES owners(owner_id),
+    remediation_submitted_by_owner_id INT REFERENCES stakeholders(stakeholder_id),
     review_notes              TEXT,
     -- Generic sign-off (Analyst, CCO or Tenant Admin may sign off) — not CCO-specific.
     signed_off_by_user_id     INT,
@@ -38,6 +40,7 @@ CREATE INDEX idx_findings_severity ON findings(severity);
 CREATE INDEX idx_findings_deadline ON findings(remediation_deadline, status);
 CREATE INDEX idx_findings_owner ON findings(assigned_to_owner_id);
 CREATE INDEX idx_findings_remediation_owner ON findings(remediation_submitted_by_owner_id);
+CREATE INDEX idx_findings_department ON findings(assigned_department_id);
 
 -- Optional external id (e.g. an audit report reference) used to dedup bulk imports.
 CREATE UNIQUE INDEX idx_findings_external_reference ON findings (LOWER(external_reference)) WHERE external_reference IS NOT NULL;

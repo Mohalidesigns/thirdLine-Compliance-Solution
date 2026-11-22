@@ -12,19 +12,32 @@ CREATE TABLE IF NOT EXISTS teams (
     team_id        SERIAL PRIMARY KEY,
     department_id  INT NOT NULL REFERENCES departments(department_id),
     name           VARCHAR(255) NOT NULL,
+    head_owner_id  INT,
     is_active      BOOLEAN DEFAULT true,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (department_id, name)
 );
 
-CREATE TABLE IF NOT EXISTS owners (
-    owner_id       SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS stakeholder_titles (
+    title_id              SERIAL PRIMARY KEY,
+    name                  VARCHAR(255) NOT NULL,
+    default_department_id INT REFERENCES departments(department_id),
+    default_unit_id       INT REFERENCES teams(team_id),
+    is_active             BOOLEAN DEFAULT true,
+    sort_order            INT DEFAULT 0,
+    created_at            TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stakeholder_titles_name ON stakeholder_titles (lower(name));
+
+CREATE TABLE IF NOT EXISTS stakeholders (
+    stakeholder_id SERIAL PRIMARY KEY,
     full_name      VARCHAR(255) NOT NULL,
-    email          VARCHAR(255),
-    job_title      VARCHAR(255),
+    email          VARCHAR(255) NOT NULL,
+    title_id       INT REFERENCES stakeholder_titles(title_id),
     team_id        INT REFERENCES teams(team_id),
-    department_id  INT REFERENCES departments(department_id),
+    department_id  INT NOT NULL REFERENCES departments(department_id),
     user_id        INT,
     is_active      BOOLEAN DEFAULT true,
     created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -32,9 +45,11 @@ CREATE TABLE IF NOT EXISTS owners (
 );
 
 CREATE INDEX idx_teams_department   ON teams(department_id);
-CREATE INDEX idx_owners_team        ON owners(team_id);
-CREATE INDEX idx_owners_department  ON owners(department_id);
-CREATE INDEX idx_owners_active      ON owners(is_active);
+CREATE INDEX idx_teams_head          ON teams(head_owner_id);
+CREATE INDEX idx_stakeholders_team        ON stakeholders(team_id);
+CREATE INDEX idx_stakeholders_department  ON stakeholders(department_id);
+CREATE INDEX idx_stakeholders_title       ON stakeholders(title_id);
+CREATE INDEX idx_stakeholders_active      ON stakeholders(is_active);
 
 CREATE TABLE IF NOT EXISTS obligations (
     obligation_id            BIGSERIAL PRIMARY KEY,
@@ -84,7 +99,7 @@ CREATE TABLE IF NOT EXISTS obligation_classifications (
     assigned_owner_user_id     INT,
     assigned_owner_name        TEXT,
     assigned_department        TEXT,
-    assigned_owner_id          INT REFERENCES owners(owner_id),
+    assigned_owner_id          INT REFERENCES stakeholders(stakeholder_id),
     assigned_team_id           INT REFERENCES teams(team_id),
     assigned_department_id     INT REFERENCES departments(department_id),
     linked_control_ids         JSONB,

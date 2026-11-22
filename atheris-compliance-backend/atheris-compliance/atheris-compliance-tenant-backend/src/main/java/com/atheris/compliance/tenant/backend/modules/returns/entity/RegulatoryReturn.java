@@ -27,6 +27,7 @@ public class RegulatoryReturn {
     private Long actId;
     private String actName;
     private Integer departmentId;
+    private Integer teamId;
     private String returnType;
     private String frequency;
     @Builder.Default

@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     tenant_regulator_id        BIGINT REFERENCES tenant_regulators(id),
     act_id                     BIGINT REFERENCES acts(regulation_id),
     act_name                   TEXT,
-    department_id              INT,
+    department_id              INT REFERENCES departments(department_id),
+    team_id                    INT REFERENCES teams(team_id),
     return_type                VARCHAR(100),
     frequency                  VARCHAR(50),
     frequency_type             VARCHAR(20) DEFAULT 'MONTHLY',
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
 
 CREATE INDEX idx_returns_regulator ON regulatory_returns(tenant_regulator_id);
 CREATE INDEX idx_returns_act ON regulatory_returns(act_id);
+CREATE INDEX idx_returns_department ON regulatory_returns(department_id);
 
 CREATE TABLE IF NOT EXISTS return_filing_instances (
     instance_id              BIGSERIAL PRIMARY KEY,

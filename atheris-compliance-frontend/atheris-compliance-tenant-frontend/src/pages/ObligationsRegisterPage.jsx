@@ -6,6 +6,7 @@ import {
   Tooltip, Snackbar, Alert as MuiAlert,
 } from '@mui/material';
 import { api } from '../services/api';
+import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import {
   SectionTable, PageHeader, KpiCards, FilterBar,
   ArrowPathIcon, PlusIcon, PencilSquareIcon, TrashIcon, InformationCircleIcon, ArrowUpTrayIcon,
@@ -35,6 +36,9 @@ export default function ObligationsRegisterPage() {
   const [areaFilter, setAreaFilter] = useState(searchParams.get('areaOfFocus') || 'All');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [stateFilter, setStateFilter] = useState(searchParams.get('state') || 'All');
+  const [deptFilter, setDeptFilter] = useState(searchParams.get('departmentId') || 'All');
+  const [unitFilter, setUnitFilter] = useState(searchParams.get('teamId') || 'All');
+  const { departments, units } = usePlacementOptions();
   const [noControl, setNoControl] = useState(() => searchParams.get('noControl') === 'true');
   const [withReturns, setWithReturns] = useState(() => searchParams.get('hasReturns') === 'true');
   // Risk-heatmap drill-down (dashboard → register): the clicked cells, the heatmap view, and a label.
@@ -54,6 +58,7 @@ export default function ObligationsRegisterPage() {
 
   const hasFilters = search || riskFilter !== 'All' || regulatorFilter !== 'All'
     || areaFilter !== 'All' || statusFilter !== 'All' || stateFilter !== 'All'
+    || deptFilter !== 'All' || unitFilter !== 'All'
     || noControl || withReturns || heatmapDrill;
 
   const params = { page, size: rowsPerPage };
@@ -63,6 +68,8 @@ export default function ObligationsRegisterPage() {
   if (areaFilter !== 'All') params.areaOfFocus = areaFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (stateFilter !== 'All') params.state = stateFilter;
+  if (deptFilter !== 'All') params.departmentId = deptFilter;
+  if (unitFilter !== 'All') params.teamId = unitFilter;
   if (noControl) params.noControl = 'true';
   if (withReturns) params.hasReturns = 'true';
   if (heatmapDrill) { params.cells = heatmapDrill.cells; params.riskView = heatmapDrill.riskView; }
@@ -139,6 +146,7 @@ export default function ObligationsRegisterPage() {
   function applyKpiFilter(type) {
     setRiskFilter('All'); setRegulatorFilter('All'); setAreaFilter('All');
     setStatusFilter('All'); setStateFilter('All'); setNoControl(false); setWithReturns(false);
+    setDeptFilter('All'); setUnitFilter('All');
     clearHeatmapDrill();
     if (type === 'highRisk') { setRiskFilter('High'); }
     else if (type === 'compliant') { setStateFilter('COMPLIANT'); }
@@ -201,6 +209,8 @@ export default function ObligationsRegisterPage() {
           { key: 'risk', label: 'Risk', value: riskFilter, onChange: (v) => { setRiskFilter(v); setPage(0); }, options: opts(riskLevels), allLabel: 'All', minWidth: 130 },
           { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); }, options: opts(stats?.regulators), allLabel: 'All', minWidth: 140 },
           { key: 'area', label: 'Domain', value: areaFilter, onChange: (v) => { setAreaFilter(v); setPage(0); }, options: opts(stats?.themes), allLabel: 'All', minWidth: 160 },
+          { key: 'department', label: 'Department', value: deptFilter, onChange: (v) => { setDeptFilter(v); setUnitFilter('All'); setPage(0); }, options: departmentOptions(departments), allLabel: 'All', minWidth: 170 },
+          { key: 'unit', label: 'Unit', value: unitFilter, onChange: (v) => { setUnitFilter(v); setPage(0); }, options: unitOptions(units, deptFilter), allLabel: 'All', minWidth: 170 },
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}

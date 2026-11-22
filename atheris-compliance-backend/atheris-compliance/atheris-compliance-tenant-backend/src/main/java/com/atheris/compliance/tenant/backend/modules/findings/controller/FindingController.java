@@ -28,8 +28,10 @@ public class FindingController {
             @RequestParam(required = false) String severity,
             @RequestParam(required = false) Boolean overdueOnly,
             @RequestParam(required = false) Integer assignedToUserId,
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer teamId,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegisterList(status, severity, overdueOnly, assignedToUserId, p));
+        return ResponseEntity.ok(service.getRegisterList(status, severity, overdueOnly, assignedToUserId, departmentId, teamId, p));
     }
 
     @GetMapping("/stats")

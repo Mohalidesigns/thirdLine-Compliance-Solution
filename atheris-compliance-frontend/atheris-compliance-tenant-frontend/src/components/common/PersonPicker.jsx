@@ -168,6 +168,7 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
   helperText, sx, onOwnerCreated, allowAddInline = true }) {
   const qc = useQueryClient();
   const [quickOpen, setQuickOpen] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
   const [actionError, setActionError] = useState('');
   const [input, setInput] = useState('');
   const [resolving, setResolving] = useState(false);
@@ -206,15 +207,9 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
     if (o.kind === 'owner') { onChange(o.ownerId); return; }
     const existing = owners.find((x) => (x.email || '').toLowerCase() === (o.email || '').toLowerCase());
     if (existing) { onChange(existing.ownerId); return; }
-    setResolving(true);
     setActionError('');
-    try {
-      const created = await api.org.createOwner({ fullName: o.fullName || o.email, email: o.email });
-      qc.invalidateQueries({ queryKey: ['org', 'owners'] });
-      onChange(created.ownerId);
-      onOwnerCreated?.(created);
-    } catch (e) { setActionError(e.message || 'Failed to add owner'); }
-    finally { setResolving(false); }
+    setPendingUser({ fullName: o.fullName, email: o.email });
+    setQuickOpen(true);
   };
 
   return (
@@ -265,13 +260,15 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
       />
       {allowCreate && allowAddInline && ldapEnabled === false && (
         <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ mt: 0.5 }}
-          onClick={() => { setActionError(''); setQuickOpen(true); }}>
+          onClick={() => { setActionError(''); setPendingUser(null); setQuickOpen(true); }}>
           Add new owner
         </Button>
       )}
-      {allowCreate && allowAddInline && ldapEnabled === false && (
-        <QuickAddOwnerDialog open={quickOpen} onClose={() => setQuickOpen(false)}
-          onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); qc.invalidateQueries({ queryKey: ['org', 'owners'] }); setQuickOpen(false); }} />
+      {allowCreate && allowAddInline && (
+        <QuickAddOwnerDialog open={quickOpen}
+          initialFullName={pendingUser?.fullName} initialEmail={pendingUser?.email}
+          onClose={() => { setQuickOpen(false); setPendingUser(null); }}
+          onCreated={(owner) => { onChange(owner.ownerId); onOwnerCreated?.(owner); qc.invalidateQueries({ queryKey: ['org', 'owners'] }); setQuickOpen(false); setPendingUser(null); }} />
       )}
     </Box>
   );
@@ -328,9 +325,9 @@ function LinkPickerBody({ value, onChange, label, disabled, size, fullWidth, hel
 
 /* ─────────────── owner quick-add ─────────────── */
 
-export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmentId, initialTeamId, title }) {
+export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmentId, initialTeamId, initialFullName, initialEmail, title }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ fullName: '', email: '', jobTitle: '', departmentId: '', teamId: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', titleId: '', departmentId: '', teamId: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deptOpen, setDeptOpen] = useState(false);
@@ -345,6 +342,7 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
     enabled: open,
   });
   const teamsQuery = useQuery({ queryKey: ['org', 'teams'], queryFn: () => api.org.teams(), enabled: open });
+  const titlesQuery = useQuery({ queryKey: ['stakeholder-titles'], queryFn: () => api.stakeholderTitles.list(), enabled: open });
   const dirQuery = useQuery({
     queryKey: ['ldap', 'users', dirTerm],
     queryFn: () => api.ldap.users(dirTerm).then((r) => r?.users || []),
@@ -352,33 +350,38 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
   });
   const departments = departmentsQuery.data || [];
   const teams = teamsQuery.data || [];
+  const titles = titlesQuery.data || [];
   const dirUsers = ldapEnabled ? (dirQuery.data || []) : [];
   const shownError = error || departmentsQuery.error?.message || '';
 
   useEffect(() => {
     if (open) {
       setForm({
-        fullName: '', email: '', jobTitle: '',
+        fullName: initialFullName || '', email: initialEmail || '', titleId: '',
         departmentId: initialDepartmentId != null ? String(initialDepartmentId) : '',
         teamId: initialTeamId != null ? String(initialTeamId) : '',
       });
       setError('');
       setDirInput('');
     }
-  }, [open, initialDepartmentId, initialTeamId]);
+  }, [open, initialDepartmentId, initialTeamId, initialFullName, initialEmail]);
 
   const departmentTeams = form.departmentId
     ? teams.filter((t) => t.departmentId === Number(form.departmentId))
     : teams;
 
   const handleSave = async () => {
-    if (!form.fullName.trim()) { setError('Owner full name is required'); return; }
+    if (!form.fullName.trim()) { setError('Full name is required'); return; }
+    if (!form.email.trim()) { setError('Email is required'); return; }
+    if (!form.departmentId) {
+      setError('A department is required');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const body = { fullName: form.fullName.trim() };
-      if (form.email.trim()) body.email = form.email.trim();
-      if (form.jobTitle.trim()) body.jobTitle = form.jobTitle.trim();
+      const body = { fullName: form.fullName.trim(), email: form.email.trim() };
+      if (form.titleId) body.titleId = Number(form.titleId);
       if (form.departmentId) body.departmentId = Number(form.departmentId);
       if (form.teamId) body.teamId = Number(form.teamId);
       const created = await api.org.createOwner(body);
@@ -416,10 +419,28 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
           )}
           <TextField label="Full name" fullWidth size="small" required value={form.fullName}
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
-          <TextField label="Email" fullWidth size="small" type="email" value={form.email}
+          <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
-            onChange={(e) => setForm((f) => ({ ...f, jobTitle: e.target.value }))} />
+          <Autocomplete
+            size="small"
+            options={titles}
+            getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+            isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
+            value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
+            onChange={(_, o) => {
+              if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
+              setForm((f) => ({
+                ...f,
+                titleId: String(o.titleId),
+                departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
+                teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
+              }));
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Title" placeholder="e.g. Chief Compliance Officer"
+                helperText="Sets a default department and unit" />
+            )}
+          />
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1 }}>
@@ -462,7 +483,7 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.fullName.trim() || !form.email.trim() || !form.departmentId}>
           {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Add Owner'}
         </Button>
       </DialogActions>

@@ -31,6 +31,8 @@ public class Finding {
     private Integer assignedToUserId;
     private String assignedToName;
     private Integer assignedToOwnerId;
+    private Integer assignedDepartmentId;
+    private Integer assignedTeamId;
     private Instant assignedAt;
     @Builder.Default
     private String status = WorkflowStatus.FINDING_OPEN;

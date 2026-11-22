@@ -82,13 +82,6 @@ atheris:
     link-expiry-grace-days: ${REMEDIATION_LINK_GRACE_DAYS:7}
     max-file-size-mb: ${REMEDIATION_MAX_FILE_MB:20}
     max-files: ${REMEDIATION_MAX_FILES:5}
-  # Dev only — never enable in production. Seeds admin@/cco@/analyst@/auditor@<domain>.
-  seed:
-    users:
-      enabled: ${SEED_USERS_ENABLED:false}
-      domain: ${SEED_USERS_DOMAIN:mamcorp.test}
-      password: ${SEED_USERS_PASSWORD:}
-      emails: ${SEED_USERS_EMAILS:}
 logging:
   level:
     com.atheris.compliance: DEBUG

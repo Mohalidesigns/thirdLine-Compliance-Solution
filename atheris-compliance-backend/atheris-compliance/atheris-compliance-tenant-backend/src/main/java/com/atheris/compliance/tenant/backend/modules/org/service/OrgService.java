@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -28,6 +29,7 @@ public class OrgService {
     private final com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository users;
     private final com.atheris.compliance.tenant.backend.modules.audit.service.AuditService audit;
     private final com.atheris.compliance.tenant.backend.shared.tenant.TenantIdentityService tenantIdentity;
+    private final StakeholderTitleService stakeholderTitles;
     private final ExecutorService virtualThreadExecutor;
 
     // ---------------------------------------------------------------- departments
@@ -267,9 +269,10 @@ public class OrgService {
 
         List<Team> allTeams = teams.findAll();
         List<Department> allDepartments = departments.findAll();
+        Map<Integer, String> titleNames = stakeholderTitles.namesById();
 
         return ownerList.stream()
-            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .map(owner -> toDto(owner, allTeams, allDepartments, titleNames))
             .toList();
     }
 
@@ -282,10 +285,16 @@ public class OrgService {
 
         Integer departmentId = resolveDepartmentId(request.getDepartmentId(), request.getTeamId());
 
+        if (departmentId == null || request.getEmail() == null || request.getEmail().isBlank()) {
+            throw com.atheris.compliance.tenant.backend.shared.exception.ApiException.badRequest(
+                "stakeholder_placement_required",
+                "A stakeholder must have an email and a department");
+        }
+
         Owner saved = owners.save(Owner.builder()
             .fullName(request.getFullName().trim())
             .email(normalize(request.getEmail()))
-            .jobTitle(request.getJobTitle())
+            .titleId(request.getTitleId())
             .teamId(request.getTeamId())
             .departmentId(departmentId)
             .userId(request.getUserId())
@@ -297,7 +306,7 @@ public class OrgService {
         List<Team> allTeams = teams.findAll();
         List<Department> allDepartments = departments.findAll();
 
-        return toDto(saved, allTeams, allDepartments);
+        return toDto(saved, allTeams, allDepartments, stakeholderTitles.namesById());
     }
 
     @Transactional
@@ -312,8 +321,8 @@ public class OrgService {
         if (request.getEmail() != null) {
             owner.setEmail(normalize(request.getEmail()));
         }
-        if (request.getJobTitle() != null) {
-            owner.setJobTitle(request.getJobTitle());
+        if (request.getTitleId() != null) {
+            owner.setTitleId(request.getTitleId());
         }
         if (request.getTeamId() != null || request.getDepartmentId() != null) {
             owner.setTeamId(request.getTeamId());
@@ -326,12 +335,20 @@ public class OrgService {
             owner.setIsActive(request.getIsActive());
         }
 
+        boolean willBeActive = request.getIsActive() == null
+            ? Boolean.TRUE.equals(owner.getIsActive()) : Boolean.TRUE.equals(request.getIsActive());
+        if (willBeActive && (owner.getDepartmentId() == null || owner.getEmail() == null || owner.getEmail().isBlank())) {
+            throw com.atheris.compliance.tenant.backend.shared.exception.ApiException.badRequest(
+                "stakeholder_placement_required",
+                "A stakeholder must have an email and a department");
+        }
+
         owners.save(owner);
 
         List<Team> allTeams = teams.findAll();
         List<Department> allDepartments = departments.findAll();
 
-        return toDto(owner, allTeams, allDepartments);
+        return toDto(owner, allTeams, allDepartments, stakeholderTitles.namesById());
     }
 
     @Transactional
@@ -358,8 +375,10 @@ public class OrgService {
             .sorted(Comparator.comparing(Owner::getFullName, Comparator.nullsLast(String::compareToIgnoreCase)))
             .toList();
 
+        Map<Integer, String> titleNames = stakeholderTitles.namesById();
+
         List<OrgTreeResponse.DepartmentNode> nodes = allDepartments.stream()
-            .map(department -> buildDepartmentNode(department, allDepartments, allTeams, allOwners))
+            .map(department -> buildDepartmentNode(department, allDepartments, allTeams, allOwners, titleNames))
             .toList();
 
         List<OrgTreeResponse.UserNode> userNodes = users.findByIsActiveTrue().stream()
@@ -378,7 +397,7 @@ public class OrgService {
 
         List<OwnerDto> unassignedOwners = allOwners.stream()
             .filter(owner -> owner.getDepartmentId() == null && owner.getTeamId() == null)
-            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .map(owner -> toDto(owner, allTeams, allDepartments, titleNames))
             .toList();
 
         return OrgTreeResponse.builder()
@@ -393,20 +412,21 @@ public class OrgService {
             Department department,
             List<Department> allDepartments,
             List<Team> allTeams,
-            List<Owner> allOwners) {
+            List<Owner> allOwners,
+            Map<Integer, String> titleNames) {
 
         List<Team> departmentTeams = allTeams.stream()
             .filter(team -> team.getDepartmentId().equals(department.getDepartmentId()))
             .toList();
 
         List<OrgTreeResponse.TeamNode> teamNodes = departmentTeams.stream()
-            .map(team -> buildTeamNode(team, allDepartments, allTeams, allOwners))
+            .map(team -> buildTeamNode(team, allDepartments, allTeams, allOwners, titleNames))
             .toList();
 
         List<OwnerDto> departmentOwners = allOwners.stream()
             .filter(owner -> department.getDepartmentId().equals(owner.getDepartmentId()))
             .filter(owner -> owner.getTeamId() == null)
-            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .map(owner -> toDto(owner, allTeams, allDepartments, titleNames))
             .toList();
 
         return OrgTreeResponse.DepartmentNode.builder()
@@ -427,11 +447,12 @@ public class OrgService {
             Team team,
             List<Department> allDepartments,
             List<Team> allTeams,
-            List<Owner> allOwners) {
+            List<Owner> allOwners,
+            Map<Integer, String> titleNames) {
 
         List<OwnerDto> teamOwners = allOwners.stream()
             .filter(owner -> team.getTeamId().equals(owner.getTeamId()))
-            .map(owner -> toDto(owner, allTeams, allDepartments))
+            .map(owner -> toDto(owner, allTeams, allDepartments, titleNames))
             .toList();
 
         return OrgTreeResponse.TeamNode.builder()
@@ -462,13 +483,15 @@ public class OrgService {
         return null;
     }
 
-    private OwnerDto toDto(Owner owner, List<Team> allTeams, List<Department> allDepartments) {
+    private OwnerDto toDto(Owner owner, List<Team> allTeams, List<Department> allDepartments,
+            Map<Integer, String> titleNames) {
 
         return OwnerDto.builder()
             .ownerId(owner.getOwnerId())
             .fullName(owner.getFullName())
             .email(owner.getEmail())
-            .jobTitle(owner.getJobTitle())
+            .titleId(owner.getTitleId())
+            .jobTitle(owner.getTitleId() == null ? null : titleNames.get(owner.getTitleId()))
             .teamId(owner.getTeamId())
             .teamName(owner.getTeamId() != null
                 ? resolveTeamName(allTeams, owner.getTeamId())

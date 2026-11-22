@@ -18,7 +18,8 @@ class DefaultOrgSeedServiceTest {
 
     private final DepartmentRepository departments = mock(DepartmentRepository.class);
     private final TeamRepository teams = mock(TeamRepository.class);
-    private final DefaultOrgSeedService service = new DefaultOrgSeedService(departments, teams);
+    private final StakeholderTitleSeeder stakeholderTitles = mock(StakeholderTitleSeeder.class);
+    private final DefaultOrgSeedService service = new DefaultOrgSeedService(departments, teams, stakeholderTitles);
 
     @Test
     void reusesTheSeededComplianceDepartmentAndAddsTheMissingOnes() {

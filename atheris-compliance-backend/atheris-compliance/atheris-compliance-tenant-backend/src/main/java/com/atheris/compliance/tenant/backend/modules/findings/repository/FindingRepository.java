@@ -14,6 +14,7 @@ public interface FindingRepository extends JpaRepository<Finding, Long>, JpaSpec
     List<Finding> findByStatus(String status);
     List<Finding> findBySeverity(String severity);
     List<Finding> findByAssignedToUserId(Integer userId);
+    List<Finding> findByAssignedToOwnerId(Integer assignedToOwnerId);
     long countByStatus(String status);
     long countByClosedAtGreaterThanEqual(Instant cutoff);
     long countBySeverity(String severity);

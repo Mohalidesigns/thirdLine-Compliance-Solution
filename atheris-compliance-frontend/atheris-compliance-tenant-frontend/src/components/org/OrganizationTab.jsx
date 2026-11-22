@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Card, CardContent, Button, Alert, CircularProgress, Chip,
   TextField, MenuItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Tooltip, Snackbar,
+  Tooltip, Snackbar, Autocomplete,
 } from '@mui/material';
 import {
   TL, StateBadge, PlusIcon, PencilSquareIcon, TrashIcon,
@@ -13,6 +13,7 @@ import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { QuickAddOwnerDialog } from '../common/PersonPicker';
 import { QuickAddDepartmentDialog, QuickAddTeamDialog } from './QuickAddDialogs';
+import StakeholdersPanel from './StakeholdersPanel';
 
 const CHART_SX = {
   overflowX: 'auto',
@@ -168,6 +169,8 @@ export default function OrganizationTab() {
           </Box>
         </CardContent>
       </Card>
+
+      <StakeholdersPanel />
 
       {deptModal && (
         <DepartmentDialog open onClose={() => setDeptModal(null)} initial={deptModal}
@@ -432,7 +435,7 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
   const [form, setForm] = useState(() => ({
     fullName: initial.owner?.fullName || '',
     email: initial.owner?.email || '',
-    jobTitle: initial.owner?.jobTitle || '',
+    titleId: initial.owner?.titleId != null ? String(initial.owner.titleId) : '',
     teamId: initial.owner?.teamId != null ? String(initial.owner.teamId) : (initial.teamId != null ? String(initial.teamId) : ''),
     departmentId: initial.owner?.departmentId != null ? String(initial.owner.departmentId) : (initial.departmentId != null ? String(initial.departmentId) : ''),
   }));
@@ -442,8 +445,10 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
 
   const departmentsQuery = useQuery({ queryKey: ['org', 'departments', false], queryFn: () => api.org.departments(false), enabled: open });
   const teamsQuery = useQuery({ queryKey: ['org', 'teams'], queryFn: () => api.org.teams(), enabled: open });
+  const titlesQuery = useQuery({ queryKey: ['stakeholder-titles'], queryFn: () => api.stakeholderTitles.list(), enabled: open });
   const departments = departmentsQuery.data || [];
   const teams = teamsQuery.data || [];
+  const titles = titlesQuery.data || [];
 
   const departmentTeams = form.departmentId
     ? teams.filter((t) => t.departmentId === Number(form.departmentId))
@@ -457,10 +462,11 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body = { fullName: form.fullName.trim() };
-      if (form.email.trim()) body.email = form.email.trim();
-      if (form.jobTitle.trim()) body.jobTitle = form.jobTitle.trim();
-      body.departmentId = form.departmentId ? Number(form.departmentId) : null;
+      if (!form.email.trim()) { onError('Email is required'); return; }
+      if (!form.departmentId) { onError('A department is required'); return; }
+      const body = { fullName: form.fullName.trim(), email: form.email.trim() };
+      if (form.titleId) body.titleId = Number(form.titleId);
+      body.departmentId = Number(form.departmentId);
       body.teamId = form.teamId ? Number(form.teamId) : null;
       if (initial.owner?.ownerId) await api.org.updateOwner(initial.owner.ownerId, body);
       else await api.org.createOwner(body);
@@ -476,10 +482,25 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField label="Full name" fullWidth size="small" required value={form.fullName}
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
-          <TextField label="Email" fullWidth size="small" type="email" value={form.email}
+          <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <TextField label="Job title" fullWidth size="small" value={form.jobTitle}
-            onChange={(e) => setForm((f) => ({ ...f, jobTitle: e.target.value }))} />
+          <Autocomplete
+            size="small"
+            options={titles}
+            getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+            isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
+            value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
+            onChange={(_, o) => {
+              if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
+              setForm((f) => ({
+                ...f,
+                titleId: String(o.titleId),
+                departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
+                teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
+              }));
+            }}
+            renderInput={(params) => <TextField {...params} label="Title" placeholder="e.g. Branch Manager" />}
+          />
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1 }}>

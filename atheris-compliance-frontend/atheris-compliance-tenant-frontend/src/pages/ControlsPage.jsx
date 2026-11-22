@@ -9,6 +9,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import { api } from '../services/api';
+import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
 import {
   KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
@@ -61,6 +62,9 @@ export default function ControlsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [effectivenessFilter, setEffectivenessFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [unitFilter, setUnitFilter] = useState('All');
+  const { departments, units } = usePlacementOptions();
   const [obligationInput, setObligationInput] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -81,6 +85,7 @@ export default function ControlsPage() {
 
   const hasFilters = search || themeFilter !== 'All'
     || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All'
+    || deptFilter !== 'All' || unitFilter !== 'All'
     || effectivenessFilter !== 'All' || obligationFilter != null;
 
   const params = { page, size: rowsPerPage };
@@ -89,6 +94,8 @@ export default function ControlsPage() {
   if (statusFilter !== 'All') params.status = statusFilter;
   if (effectivenessFilter !== 'All') params.effectiveness = effectivenessFilter;
   if (actFilter !== 'All') params.actName = actFilter;
+  if (deptFilter !== 'All') params.departmentId = deptFilter;
+  if (unitFilter !== 'All') params.teamId = unitFilter;
   if (obligationFilter != null) params.obligationId = obligationFilter;
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
@@ -212,6 +219,12 @@ export default function ControlsPage() {
     { key: 'act', label: 'Act', minWidth: 180, value: actFilter,
       onChange: (v) => { setActFilter(v); setPage(0); }, allLabel: 'All acts',
       options: (stats?.acts || []).map((a) => ({ value: a, label: a })) },
+    { key: 'department', label: 'Department', minWidth: 170, value: deptFilter,
+      onChange: (v) => { setDeptFilter(v); setUnitFilter('All'); setPage(0); }, allLabel: 'All departments',
+      options: departmentOptions(departments) },
+    { key: 'unit', label: 'Unit', minWidth: 170, value: unitFilter,
+      onChange: (v) => { setUnitFilter(v); setPage(0); }, allLabel: 'All units',
+      options: unitOptions(units, deptFilter) },
   ];
 
   if (detailId != null) {

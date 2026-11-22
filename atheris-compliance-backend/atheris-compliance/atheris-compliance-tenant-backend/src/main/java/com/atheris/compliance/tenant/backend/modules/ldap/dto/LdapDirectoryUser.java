@@ -9,4 +9,5 @@ import lombok.Data;
 public class LdapDirectoryUser {
     private String email;
     private String fullName;
+    private String title;
 }

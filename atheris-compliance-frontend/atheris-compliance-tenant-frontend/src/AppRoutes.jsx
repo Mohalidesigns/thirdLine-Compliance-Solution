@@ -46,6 +46,7 @@ const TemplateDetailPage = lazy(() => import('./pages/runbooks/TemplateDetailPag
 const PublicRemediatePage = lazy(() => import('./pages/PublicRemediatePage'));
 const PublicReturnUploadPage = lazy(() => import('./pages/PublicReturnUploadPage'));
 const PublicControlTestPage = lazy(() => import('./pages/PublicControlTestPage'));
+const PublicStakeholderPortalPage = lazy(() => import('./pages/PublicStakeholderPortalPage'));
 
 function Loading() {
   return (
@@ -86,6 +87,7 @@ export default function AppRoutes() {
         <Route path="/return-upload/:token" element={<PublicReturnUploadPage />} />
         {/* Public, no-login control-test page reached via an emailed token link. */}
         <Route path="/control-test/:token" element={<PublicControlTestPage />} />
+        <Route path="/stakeholder/:id/:token" element={<PublicStakeholderPortalPage />} />
         <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />

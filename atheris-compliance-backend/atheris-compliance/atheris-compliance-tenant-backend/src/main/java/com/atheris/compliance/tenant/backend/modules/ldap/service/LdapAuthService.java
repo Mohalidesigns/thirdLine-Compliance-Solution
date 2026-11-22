@@ -37,7 +37,7 @@ public class LdapAuthService {
     }
 
     /** A directory entry offered to the person picker: the login email plus a display name. */
-    public record DirectoryUser(String email, String fullName, String dn) {
+    public record DirectoryUser(String email, String fullName, String dn, String title) {
     }
 
     public boolean isLdapEnabled() {
@@ -161,7 +161,8 @@ public class LdapAuthService {
                 return new DirectoryUser(
                     d.getStringAttribute(s.getUserSearchFilterAttribute()),
                     d.getStringAttribute(s.getFullNameAttribute()),
-                    d.getNameInNamespace());
+                    d.getNameInNamespace(),
+                    d.getStringAttribute("title"));
             });
         for (DirectoryUser u : results) {
             if (u.dn() != null && u.email() != null && !u.email().isBlank()) {

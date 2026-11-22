@@ -36,6 +36,8 @@ public class Control {
     private Integer testerOwnerId;
     private Integer testerUserId;
     private String testerName;
+    private Integer controlOwnerDepartmentId;
+    private Integer controlOwnerTeamId;
     private Long escalationPolicyId;
     private String testFrequency;
     private Integer testFrequencyDays;

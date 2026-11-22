@@ -14,6 +14,7 @@ import {
   PresentationChartLineIcon,
 } from 'shared';
 import { api } from '../services/api';
+import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import { useAuth } from '../contexts/AuthContext';
 import { isReadOnly } from '../utils/roles';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
@@ -75,13 +76,17 @@ export default function ReturnsPage() {
   const [frequencyFilter, setFrequencyFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
   const [actFilter, setActFilter] = useState('All');
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [unitFilter, setUnitFilter] = useState('All');
+  const { departments, units } = usePlacementOptions();
   const [unlinkedFilter, setUnlinkedFilter] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
-  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All' || unlinkedFilter;
+  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All' || unlinkedFilter
+    || deptFilter !== 'All' || unitFilter !== 'All';
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -89,6 +94,8 @@ export default function ReturnsPage() {
   if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
   if (actFilter !== 'All') params.act = actFilter;
+  if (deptFilter !== 'All') params.departmentId = deptFilter;
+  if (unitFilter !== 'All') params.teamId = unitFilter;
   if (unlinkedFilter) params.unlinked = 'true';
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
@@ -207,6 +214,10 @@ export default function ReturnsPage() {
             options: opts(stats?.regulators), allLabel: 'All', minWidth: 150 },
           { key: 'act', label: 'Act', value: actFilter, onChange: (v) => { setActFilter(v); setPage(0); },
             options: opts(actOptions.length ? actOptions : stats?.actNames), allLabel: 'All', minWidth: 200 },
+          { key: 'department', label: 'Department', value: deptFilter, onChange: (v) => { setDeptFilter(v); setUnitFilter('All'); setPage(0); },
+            options: departmentOptions(departments), allLabel: 'All departments', minWidth: 170 },
+          { key: 'unit', label: 'Unit', value: unitFilter, onChange: (v) => { setUnitFilter(v); setPage(0); },
+            options: unitOptions(units, deptFilter), allLabel: 'All units', minWidth: 170 },
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}

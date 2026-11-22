@@ -54,9 +54,10 @@ public class ControlService {
     private final ControlThemeService themeService;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, String effectiveness, Pageable p) {
+            String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, String effectiveness,
+            Integer departmentId, Integer teamId, Pageable p) {
         Integer themeId = themeService.require(theme);
-        var spec = ControlSpecification.withFilters(themeId, ownerUserId, ownerId, status, q, actId, actName, obligationId);
+        var spec = ControlSpecification.withFilters(themeId, ownerUserId, ownerId, status, q, actId, actName, obligationId, departmentId, teamId);
         if (effectiveness == null || effectiveness.isBlank()) {
             Page<Control> page = repo.findAll(spec, safeSort(p));
             return new PageImpl<>(buildRegisterItems(page.getContent()), p, page.getTotalElements());
@@ -440,6 +441,7 @@ public class ControlService {
         if (req.getControlOwnerId() != null) {
             c.setControlOwnerId(req.getControlOwnerId());
             c.setControlOwnerName(resolveOwnerName(req.getControlOwnerId()));
+            applyControlOwnerPlacement(c, req.getControlOwnerId());
         }
         if (req.getTesterOwnerId() != null) {
             c.setTesterOwnerId(req.getTesterOwnerId());
@@ -583,13 +585,28 @@ public class ControlService {
         return toDto(saved);
     }
 
+    private void applyControlOwnerPlacement(Control c, Integer ownerId) {
+        if (ownerId == null) {
+            c.setControlOwnerDepartmentId(null);
+            c.setControlOwnerTeamId(null);
+            return;
+        }
+        Owner o = ownerRepo.findById(ownerId).orElse(null);
+        c.setControlOwnerDepartmentId(o != null ? o.getDepartmentId() : null);
+        c.setControlOwnerTeamId(o != null ? o.getTeamId() : null);
+    }
+
     private String resolveOwnerName(Integer ownerId) {
         if (ownerId == null) {
             return null;
         }
-        return ownerRepo.findById(ownerId)
-            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
-            .getFullName();
+        Owner owner = ownerRepo.findById(ownerId)
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
+        if (owner.getDepartmentId() == null || owner.getTeamId() == null) {
+            throw ApiException.conflict("stakeholder_not_placed",
+                owner.getFullName() + " is not placed in a department and unit. Place them before assigning work.");
+        }
+        return owner.getFullName();
     }
 
     private Integer resolveTesterUserId(Integer ownerId) {

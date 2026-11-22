@@ -9,6 +9,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateReturnRequest {
     private List<String> responsiblePersons;
+    private List<Integer> responsibleStakeholderIds;
     private Integer returnOwnerUserId;
     private String returnOwnerName;
 }

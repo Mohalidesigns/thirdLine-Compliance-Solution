@@ -77,6 +77,8 @@ public class ReturnService {
     private final NotificationTemplateService templates;
     private final EmailService email;
     private final PersonDirectoryService personDirectory;
+    private final com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnResponsibleStakeholderRepository responsibleStakeholders;
+    private final com.atheris.compliance.tenant.backend.modules.org.service.PlacementService placement;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -208,9 +210,17 @@ public class ReturnService {
     @Transactional
     public Page<ReturnRegisterItem> getRegister(String q, String frequency, String regulator,
                                                  String act, String frequencyType, String responsibleUnit,
-                                                 Long actId, String status, Boolean unlinked, Pageable p) {
+                                                 Long actId, String status, Boolean unlinked,
+                                                 Integer departmentId, Integer teamId, Pageable p) {
 
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
+
+        if (departmentId != null) {
+            allReturns = allReturns.stream().filter(r -> departmentId.equals(r.getDepartmentId())).toList();
+        }
+        if (teamId != null) {
+            allReturns = allReturns.stream().filter(r -> teamId.equals(r.getTeamId())).toList();
+        }
 
         // Apply filters
         if (act != null && !act.isBlank()) {
@@ -347,6 +357,10 @@ public class ReturnService {
                 r.setReturnOwnerName(req.getReturnOwnerName());
             }
             returns.save(r);
+            if (req.getResponsibleStakeholderIds() != null) {
+                applyResponsibleStakeholders(r, req.getResponsibleStakeholderIds());
+                returns.save(r);
+            }
             audit.log(userId, "return_updated", "return", returnId,
                 Collections.singletonMap("responsiblePersons", String.valueOf(persons.size())));
             ensureInstances(r);
@@ -1196,11 +1210,40 @@ public class ReturnService {
     @Transactional
     public RegulatoryReturn create(CreateReturnRequest req, Integer userId) {
         try {
-            return doCreate(req, userId);
+            RegulatoryReturn ret = doCreate(req, userId);
+            if (req.getResponsibleStakeholderIds() != null) {
+                applyResponsibleStakeholders(ret, req.getResponsibleStakeholderIds());
+                returns.save(ret);
+            }
+            return ret;
         } catch (RuntimeException e) {
             rollback();
             throw e;
         }
+    }
+
+    private void applyResponsibleStakeholders(RegulatoryReturn r, List<Integer> ids) {
+        List<Integer> distinct = ids.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        responsibleStakeholders.deleteByReturnId(r.getReturnId());
+        responsibleStakeholders.flush();
+        if (distinct.isEmpty()) {
+            r.setDepartmentId(null);
+            r.setTeamId(null);
+            return;
+        }
+        Integer departmentId = null;
+        Integer teamId = null;
+        for (Integer stakeholderId : distinct) {
+            com.atheris.compliance.tenant.backend.modules.org.entity.Owner o = placement.requirePlaced(stakeholderId);
+            responsibleStakeholders.save(com.atheris.compliance.tenant.backend.modules.returns.entity.ReturnResponsibleStakeholder.builder()
+                .returnId(r.getReturnId()).stakeholderId(stakeholderId).build());
+            if (departmentId == null) {
+                departmentId = o.getDepartmentId();
+                teamId = o.getTeamId();
+            }
+        }
+        r.setDepartmentId(departmentId);
+        r.setTeamId(teamId);
     }
 
     private RegulatoryReturn doCreate(CreateReturnRequest req, Integer userId) {

@@ -14,6 +14,7 @@ import {
   PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon, ArrowPathIcon, CheckCircleIcon,
 } from 'shared';
 import { api } from '../services/api';
+import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import OwnerPicker from '../components/org/OwnerPicker';
 import { useAuth } from '../contexts/AuthContext';
 import ImportDialog from '../components/modals/ImportDialog';
@@ -43,7 +44,8 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false });
+  const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false, departmentId: '', teamId: '' });
+  const { departments: allDepartments, units: allUnits } = usePlacementOptions();
   const [stats, setStats] = useState(null);
   const [searchParams] = useSearchParams();
   const [raiseOpen, setRaiseOpen] = useState(false);
@@ -71,6 +73,8 @@ export default function FindingsPage() {
     if (filters.status) p.status = filters.status;
     if (filters.severity) p.severity = filters.severity;
     if (filters.overdueOnly) p.overdueOnly = true;
+    if (filters.departmentId) p.departmentId = filters.departmentId;
+    if (filters.teamId) p.teamId = filters.teamId;
     api.findings.register(p).then(res => setData(res))
       .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
     loadStats();
@@ -204,6 +208,20 @@ export default function FindingsPage() {
           <FormControlLabel sx={{ height: 40, m: 0 }} control={<Checkbox size="small" checked={filters.overdueOnly}
             onChange={e => { setFilters(f => ({ ...f, overdueOnly: e.target.checked })); setPage(0); }} />}
             label={<Typography variant="body2" sx={{ color: TL.gray700 }}>Overdue only</Typography>} />
+        </FilterField>
+        <FilterField label="Department" minWidth={170}>
+          <TextField select size="small" value={filters.departmentId}
+            onChange={e => { setFilters(f => ({ ...f, departmentId: e.target.value, teamId: '' })); setPage(0); }}>
+            <MenuItem value="">All</MenuItem>
+            {departmentOptions(allDepartments).map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+          </TextField>
+        </FilterField>
+        <FilterField label="Unit" minWidth={170}>
+          <TextField select size="small" value={filters.teamId}
+            onChange={e => { setFilters(f => ({ ...f, teamId: e.target.value })); setPage(0); }}>
+            <MenuItem value="">All</MenuItem>
+            {unitOptions(allUnits, filters.departmentId).map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+          </TextField>
         </FilterField>
       </FilterBar>
 

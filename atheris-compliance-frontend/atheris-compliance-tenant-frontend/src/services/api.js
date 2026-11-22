@@ -12,6 +12,15 @@ export const getRefreshToken = () => authRefreshToken;
 // Kept separate from `api` so it never attaches the Authorization header or triggers
 // the 401-refresh/logout path.
 export const publicApi = {
+  async stakeholderPortal(id, token) {
+    const res = await fetch(`${API_BASE}/public/stakeholder/${encodeURIComponent(id)}/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This stakeholder link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
   async remediationView(token) {
     const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`);
     if (!res.ok) {
@@ -814,6 +823,27 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     deleteOwner: (id) => request(`/org/owners/${id}`, { method: 'DELETE' }),
+  },
+
+  stakeholders: {
+    list: (params = {}, opts = {}) => {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
+      const s = qs.toString();
+      return request(`/stakeholders${s ? '?' + s : ''}`, { signal: opts.signal });
+    },
+    roles: () => request('/stakeholders/roles'),
+    accessLink: (id) => request(`/stakeholders/${id}/access-link`),
+    assignments: (id) => request(`/stakeholders/${id}/assignments`),
+    assign: (id, data) => request(`/stakeholders/${id}/assignments`, { method: 'POST', body: JSON.stringify(data) }),
+    unassign: (assignmentId) => request(`/stakeholders/assignments/${assignmentId}`, { method: 'DELETE' }),
+    bulkImport: (formData) => rawRequest('/stakeholders/bulk-import', { method: 'POST', body: formData }),
+  },
+
+  stakeholderTitles: {
+    list: (opts = {}) => request('/stakeholder-titles', { signal: opts.signal }),
+    create: (data) => request('/stakeholder-titles', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/stakeholder-titles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   // Compliance Runbooks — contract: runbook library, versions, executions, templates, coverage.
   // Every read takes { signal } so TanStack Query can cancel it.

@@ -28,7 +28,7 @@ public class LdapController {
         boolean enabled = ldap.isLdapEnabled();
         List<LdapDirectoryUser> users = enabled
             ? ldap.searchUsers(q).stream()
-                .map(u -> LdapDirectoryUser.builder().email(u.email()).fullName(u.fullName()).build())
+                .map(u -> LdapDirectoryUser.builder().email(u.email()).fullName(u.fullName()).title(u.title()).build())
                 .toList()
             : List.of();
         return ResponseEntity.ok(LdapDirectoryResponse.builder().enabled(enabled).users(users).build());

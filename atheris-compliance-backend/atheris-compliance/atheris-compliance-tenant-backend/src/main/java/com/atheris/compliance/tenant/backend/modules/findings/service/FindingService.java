@@ -22,6 +22,7 @@ import com.atheris.compliance.tenant.backend.modules.notifications.service.Notif
 import com.atheris.compliance.tenant.backend.modules.remediation.service.RemediationLinkService;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.modules.audit.service.AuditService;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
@@ -70,8 +71,9 @@ public class FindingService {
     private int maxFiles;
 
     public Page<FindingRegisterItem> getRegisterList(
-            String status, String severity, Boolean overdueOnly, Integer assignedToUserId, Pageable p) {
-        var spec = FindingSpecification.withFilters(status, severity, overdueOnly, assignedToUserId);
+            String status, String severity, Boolean overdueOnly, Integer assignedToUserId,
+            Integer departmentId, Integer teamId, Pageable p) {
+        var spec = FindingSpecification.withFilters(status, severity, overdueOnly, assignedToUserId, departmentId, teamId);
         Page<Finding> page = repo.findAll(spec, p);
         // One query per page for the linked controls' numbers (no N+1).
         Set<Integer> controlIds = page.getContent().stream().map(Finding::getLinkedControlId)
@@ -173,6 +175,8 @@ public class FindingService {
             .description(describeTestFailure(control, test))
             .assignedToOwnerId(ownerId)
             .assignedToName(resolveOwnerName(ownerId))
+            .assignedDepartmentId(ownerDept(ownerId))
+            .assignedTeamId(ownerTeam(ownerId))
             .assignedAt(ownerId != null ? Instant.now() : null)
             // the tester's deadline when they gave one (it used to be dropped for the SLA default)
             .remediationDeadline(test.getRemediationDeadline() != null
@@ -216,6 +220,8 @@ public class FindingService {
             .linkedControlId(controlId)
             .assignedToOwnerId(req.getAssignedToOwnerId())
             .assignedToName(resolveOwnerName(req.getAssignedToOwnerId()))
+            .assignedDepartmentId(ownerDept(req.getAssignedToOwnerId()))
+            .assignedTeamId(ownerTeam(req.getAssignedToOwnerId()))
             .assignedAt(req.getAssignedToOwnerId() != null ? Instant.now() : null)
             .remediationDeadline(req.getRemediationDeadline()).slaDays(sla)
             .createdByUserId(userId).status(req.getAssignedToOwnerId() != null
@@ -255,6 +261,8 @@ public class FindingService {
                 "The deadline is past the " + f.getSlaDays() + "-day SLA (" + slaDeadline + ") — give a reason of at least 10 characters");
         f.setAssignedToOwnerId(req.getAssignedToOwnerId());
         f.setAssignedToName(resolveOwnerName(req.getAssignedToOwnerId()));
+        f.setAssignedDepartmentId(ownerDept(req.getAssignedToOwnerId()));
+        f.setAssignedTeamId(ownerTeam(req.getAssignedToOwnerId()));
         f.setRemediationDeadline(deadline);
         f.setStatus(WorkflowStatus.FINDING_IN_REMEDIATION);
         f.setAssignedAt(Instant.now());
@@ -318,9 +326,21 @@ public class FindingService {
         if (ownerId == null) {
             return null;
         }
-        return ownerRepo.findById(ownerId)
-            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId))
-            .getFullName();
+        Owner owner = ownerRepo.findById(ownerId)
+            .orElseThrow(() -> new EntityNotFoundException("Owner not found: " + ownerId));
+        if (owner.getDepartmentId() == null || owner.getTeamId() == null) {
+            throw ApiException.conflict("stakeholder_not_placed",
+                owner.getFullName() + " is not placed in a department and unit. Place them before assigning work.");
+        }
+        return owner.getFullName();
+    }
+
+    private Integer ownerDept(Integer ownerId) {
+        return ownerId == null ? null : ownerRepo.findById(ownerId).map(Owner::getDepartmentId).orElse(null);
+    }
+
+    private Integer ownerTeam(Integer ownerId) {
+        return ownerId == null ? null : ownerRepo.findById(ownerId).map(Owner::getTeamId).orElse(null);
     }
 
     private void notifyOwnerOfAssignment(Finding f) {

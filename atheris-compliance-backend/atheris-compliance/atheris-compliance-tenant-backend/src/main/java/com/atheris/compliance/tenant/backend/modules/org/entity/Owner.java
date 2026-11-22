@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "owners")
+@Table(name = "stakeholders")
 @Getter
 @Setter
 @Builder
@@ -14,11 +14,13 @@ import java.time.Instant;
 public class Owner {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "stakeholder_id")
     private Integer ownerId;
     @Column(nullable = false)
     private String fullName;
+    @Column(nullable = false)
     private String email;
-    private String jobTitle;
+    private Integer titleId;
     private Integer teamId;
     private Integer departmentId;
     private Integer userId;

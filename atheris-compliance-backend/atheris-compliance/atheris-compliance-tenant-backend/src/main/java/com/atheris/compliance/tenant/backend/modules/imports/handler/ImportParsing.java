@@ -163,6 +163,6 @@ final class ImportParsing {
             .map(c -> Arrays.asList(c.getControlNumber(), c.getName(),
                 c.getControlThemeId() == null ? null : themeNames.get(c.getControlThemeId())))
             .toList();
-        return new ImportHandler.ReferenceSheet("Controls", List.of("Control Number", "Name", "Theme"), rows);
+        return new ImportHandler.ReferenceSheet("Existing Controls", List.of("Control Number", "Name", "Theme"), rows);
     }
 }

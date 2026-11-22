@@ -9,6 +9,7 @@ public class OwnerDto {
     private Integer ownerId;
     private String fullName;
     private String email;
+    private Integer titleId;
     private String jobTitle;
     private Integer teamId;
     private String teamName;
