@@ -13,6 +13,7 @@ import {
   PageHeader, DetailHeader, FilterBar, FilterField, DataCard, RiskBadge, StateBadge, TL, KpiCards,
   PlusIcon, ExclamationTriangleIcon, ClockIcon, ArrowUpTrayIcon, EyeIcon, ArrowPathIcon, CheckCircleIcon,
 } from 'shared';
+import ViewTaskButton from '../components/tasks/ViewTaskButton';
 import { api } from '../services/api';
 import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import OwnerPicker from '../components/org/OwnerPicker';
@@ -389,6 +390,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
         )}
         right={(
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <ViewTaskButton subjectType="FINDING" subjectId={detail.findingId} category="FINDINGS" />
             {isGapFinding && !isClosed && canRecord && (
               <Button variant="outlined" size="small" onClick={() => setCreateControlOpen(true)}>
                 {controlLinked ? 'Change control' : 'Create control'}

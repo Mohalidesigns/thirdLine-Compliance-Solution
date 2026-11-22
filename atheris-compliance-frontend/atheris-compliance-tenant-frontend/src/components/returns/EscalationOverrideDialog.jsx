@@ -11,6 +11,8 @@ const UNITS = [
   { value: 'HOURS', label: 'Hours' },
 ];
 const TARGETS = [
+  { value: 'UNIT_HEAD', label: 'Unit head' },
+  { value: 'DEPT_HEAD', label: 'Department head' },
   { value: 'ASSIGNEE', label: 'Responsible person' },
   { value: 'MANAGER', label: "Person's manager" },
   { value: 'MANAGER_OF_MANAGER', label: "Manager's manager" },

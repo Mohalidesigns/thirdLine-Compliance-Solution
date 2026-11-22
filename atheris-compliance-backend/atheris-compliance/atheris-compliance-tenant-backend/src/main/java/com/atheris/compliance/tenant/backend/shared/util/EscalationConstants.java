@@ -13,6 +13,8 @@ public final class EscalationConstants {
     public static final String TARGET_MANAGER_OF_MANAGER = "MANAGER_OF_MANAGER";
     public static final String TARGET_PERSON = "PERSON";
     public static final String TARGET_ROLE = "ROLE";
+    public static final String TARGET_UNIT_HEAD = "UNIT_HEAD";
+    public static final String TARGET_DEPT_HEAD = "DEPT_HEAD";
 
     public static final String UNIT_DAYS = "DAYS";
     public static final String UNIT_HOURS = "HOURS";

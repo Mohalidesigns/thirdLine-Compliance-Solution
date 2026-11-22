@@ -18,6 +18,8 @@ const UNITS = [
   { value: 'HOURS', label: 'Hours' },
 ];
 const TARGETS = [
+  { value: 'UNIT_HEAD', label: 'Unit head' },
+  { value: 'DEPT_HEAD', label: 'Department head' },
   { value: 'ASSIGNEE', label: 'Responsible person' },
   { value: 'MANAGER', label: "Person's manager" },
   { value: 'MANAGER_OF_MANAGER', label: "Manager's manager" },
@@ -28,9 +30,9 @@ const ROLES = ['TENANT_ADMIN', 'CCO', 'ANALYST', 'AUDITOR', 'IT_OPS'];
 
 function defaultLevels() {
   return [
-    { levelNo: 1, afterValue: 0, afterUnit: 'DAYS', targetType: 'ASSIGNEE' },
-    { levelNo: 2, afterValue: 3, afterUnit: 'DAYS', targetType: 'MANAGER' },
-    { levelNo: 3, afterValue: 7, afterUnit: 'DAYS', targetType: 'MANAGER_OF_MANAGER' },
+    { levelNo: 1, afterValue: 0, afterUnit: 'DAYS', targetType: 'UNIT_HEAD' },
+    { levelNo: 2, afterValue: 3, afterUnit: 'DAYS', targetType: 'DEPT_HEAD' },
+    { levelNo: 3, afterValue: 7, afterUnit: 'DAYS', targetType: 'ROLE', targetRole: 'CCO' },
   ];
 }
 

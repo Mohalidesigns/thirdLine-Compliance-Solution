@@ -18,6 +18,7 @@ public class Team {
     private Integer departmentId;
     @Column(nullable = false)
     private String name;
+    private Integer headOwnerId;
     @Builder.Default
     private Boolean isActive = true;
     private Instant createdAt;

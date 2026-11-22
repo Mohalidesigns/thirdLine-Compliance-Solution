@@ -49,7 +49,7 @@ class EscalationCcTargetsTest {
             List.of(new Person("Tester", "tester@x.test", 5)), owner,
             LocalDateTime.of(2026, 12, 4, 0, 0), null,
             1L, "/controls?controlId=", "CONTROLS", Map.of(), "MONTHLY", true, true,
-            List.of("riskowner@x.test", "analyst@x.test", "digithead@x.test"));
+            List.of("riskowner@x.test", "analyst@x.test", "digithead@x.test"), null, null);
 
         assertEquals(List.of("analyst@x.test", "tester@x.test", "riskowner@x.test", "digithead@x.test"),
             service.ccTargets(candidate, owner));
@@ -67,6 +67,6 @@ class EscalationCcTargetsTest {
             "RETURN", 42L, "Report fx transactions", 11L,
             assignees, owner,
             LocalDateTime.of(2026, 10, 26, 0, 0), null,
-            1L, "/returns/", "RETURNS", Map.of(), "DAILY", true, false);
+            1L, "/returns/", "RETURNS", Map.of(), "DAILY", true, false, null, null);
     }
 }

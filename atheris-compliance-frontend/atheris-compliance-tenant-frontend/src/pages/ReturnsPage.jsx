@@ -14,7 +14,7 @@ import {
   PresentationChartLineIcon,
 } from 'shared';
 import { api } from '../services/api';
-import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
+import { usePlacementOptions, departmentOptions } from '../hooks/usePlacementOptions';
 import { useAuth } from '../contexts/AuthContext';
 import { isReadOnly } from '../utils/roles';
 import CreateReturnDialog from '../components/modals/CreateReturnDialog';
@@ -73,31 +73,25 @@ export default function ReturnsPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [frequencyFilter, setFrequencyFilter] = useState('All');
   const [regulatorFilter, setRegulatorFilter] = useState('All');
-  const [actFilter, setActFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
-  const [unitFilter, setUnitFilter] = useState('All');
   const [dueFrom, setDueFrom] = useState('');
   const [dueTo, setDueTo] = useState('');
-  const { departments, units } = usePlacementOptions();
+  const { departments } = usePlacementOptions();
   const [unlinkedFilter, setUnlinkedFilter] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortField, setSortField] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
-  const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All' || unlinkedFilter
-    || deptFilter !== 'All' || unitFilter !== 'All' || dueFrom || dueTo;
+  const hasFilters = search || statusFilter !== 'All' || regulatorFilter !== 'All' || unlinkedFilter
+    || deptFilter !== 'All' || dueFrom || dueTo;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
   if (statusFilter !== 'All') params.status = statusFilter;
-  if (frequencyFilter !== 'All') params.frequency = frequencyFilter;
   if (regulatorFilter !== 'All') params.regulator = regulatorFilter;
-  if (actFilter !== 'All') params.act = actFilter;
   if (deptFilter !== 'All') params.departmentId = deptFilter;
-  if (unitFilter !== 'All') params.teamId = unitFilter;
   if (dueFrom) params.dueFrom = dueFrom;
   if (dueTo) params.dueTo = dueTo;
   if (unlinkedFilter) params.unlinked = 'true';
@@ -112,12 +106,6 @@ export default function ReturnsPage() {
     queryKey: ['returns', 'stats'],
     queryFn: ({ signal }) => api.returns.stats({ signal }),
   });
-  // All acts (not just those already on a return) so the Act filter offers the full list.
-  const actsQuery = useQuery({
-    queryKey: ['acts', 'options'],
-    queryFn: ({ signal }) => api.acts.list({ size: 1000 }, { signal }),
-    staleTime: 5 * 60 * 1000,
-  });
   // One-off schedule repair preview (dry run). TENANT_ADMIN only; errors (incl. 403) render nothing.
   const repairQuery = useQuery({
     queryKey: ['returns', 'frequency-repair'],
@@ -131,15 +119,13 @@ export default function ReturnsPage() {
   const items = listQuery.data?.content || [];
   const total = listQuery.data?.totalElements || 0;
   const stats = statsQuery.data;
-  const actOptions = ((actsQuery.data?.content) || (Array.isArray(actsQuery.data) ? actsQuery.data : []))
-    .map(a => a.name).filter(Boolean);
   const loading = listQuery.isPending;
   const error = listQuery.error?.message || '';
 
   function refresh() { queryClient.invalidateQueries({ queryKey: ['returns'] }); }
   function clearFilters() {
-    setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All'); setActFilter('All');
-    setDeptFilter('All'); setUnitFilter('All'); setDueFrom(''); setDueTo('');
+    setSearch(''); setStatusFilter('All'); setRegulatorFilter('All');
+    setDeptFilter('All'); setDueFrom(''); setDueTo('');
     setUnlinkedFilter(false); setPage(0);
   }
   function applyKpiFilter(type) {
@@ -211,29 +197,22 @@ export default function ReturnsPage() {
       <FilterBar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(0); }, placeholder: 'Search return, act, or regulator...' }}
         filters={[
-          { key: 'status', label: 'Status', value: statusFilter, onChange: (v) => { setStatusFilter(v); setPage(0); },
-            options: opts(['Not Started', 'In Progress', 'Submitted', 'Submitted Late', 'Overdue', DUE_DATE_NEEDED]), allLabel: 'All', minWidth: 150 },
-          { key: 'frequency', label: 'Frequency', value: frequencyFilter, onChange: (v) => { setFrequencyFilter(v); setPage(0); },
-            options: opts(['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Semi-Annual', 'Annual', 'Biennial', 'On event']), allLabel: 'All', minWidth: 140 },
           { key: 'regulator', label: 'Regulator', value: regulatorFilter, onChange: (v) => { setRegulatorFilter(v); setPage(0); },
-            options: opts(stats?.regulators), allLabel: 'All', minWidth: 150 },
-          { key: 'act', label: 'Act', value: actFilter, onChange: (v) => { setActFilter(v); setPage(0); },
-            options: opts(actOptions.length ? actOptions : stats?.actNames), allLabel: 'All', minWidth: 200 },
-          { key: 'department', label: 'Department', value: deptFilter, onChange: (v) => { setDeptFilter(v); setUnitFilter('All'); setPage(0); },
-            options: departmentOptions(departments), allLabel: 'All departments', minWidth: 170 },
-          { key: 'unit', label: 'Unit', value: unitFilter, onChange: (v) => { setUnitFilter(v); setPage(0); },
-            options: unitOptions(units, deptFilter), allLabel: 'All units', minWidth: 170 },
+            options: opts(stats?.regulators), allLabel: 'All', minWidth: 170 },
+          { key: 'department', label: 'Department', value: deptFilter, onChange: (v) => { setDeptFilter(v); setPage(0); },
+            options: departmentOptions(departments), allLabel: 'All departments', minWidth: 180 },
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}
       >
-        <FilterField label="Due from" minWidth={160}>
-          <TextField type="date" size="small" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setPage(0); }}
-            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
-        </FilterField>
-        <FilterField label="Due to" minWidth={160}>
-          <TextField type="date" size="small" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setPage(0); }}
-            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+        <FilterField label="Due date" minWidth={280}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: '8px', height: 40, px: 1 }}>
+            <TextField type="date" variant="standard" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setPage(0); }}
+              slotProps={{ input: { disableUnderline: true } }} sx={{ minWidth: 118, '& input': { fontSize: '0.8125rem', p: 0 } }} />
+            <Typography sx={{ color: 'text.disabled', fontSize: '0.8125rem' }}>–</Typography>
+            <TextField type="date" variant="standard" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setPage(0); }}
+              slotProps={{ input: { disableUnderline: true } }} sx={{ minWidth: 118, '& input': { fontSize: '0.8125rem', p: 0 } }} />
+          </Box>
         </FilterField>
       </FilterBar>
 

@@ -50,7 +50,10 @@ export default function TasksPage() {
   const { user } = useAuth();
   const [sp, setSp] = useSearchParams();
   const isCco = user?.role === 'CCO';
-  const assignee = isCco ? (sp.get('assignee') || 'me') : 'all';
+  const subjectType = sp.get('subjectType');
+  const subjectId = sp.get('subjectId');
+  const subjectCategory = { CONTROL: 'CONTROLS', FINDING: 'FINDINGS', RETURN: 'RETURNS', OBLIGATION: 'OBLIGATIONS' }[subjectType];
+  const assignee = (subjectType && subjectId) ? 'all' : (isCco ? (sp.get('assignee') || 'me') : 'all');
   const categoryParam = sp.get('category');
   const priority = sp.get('priority') || '';
   const setFilter = (patch) => {
@@ -76,12 +79,14 @@ export default function TasksPage() {
   });
   const byCategory = allStats?.byCategory || {};
   const category = categoryParam
+    || subjectCategory
     || CATEGORY_ORDER.find((k) => (byCategory[k] ?? 0) > 0)
     || 'CONTROLS';
 
   const params = { assignee, category, page, size };
   if (priority) params.priority = priority;
   if (q) params.q = q;
+  if (subjectType && subjectId) { params.subjectType = subjectType; params.subjectId = subjectId; }
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['tasks', 'center', params],
@@ -270,16 +275,28 @@ export default function TasksPage() {
           emptyMessage="Nothing to action in this category."
           emptyIcon={<CheckCircleIcon size={44} sx={{ mb: 1, opacity: 0.35 }} />}
           actions={(t) => {
+            const viewLabel = { RETURNS: 'View return', CONTROLS: 'View control', FINDINGS: 'View finding', OBLIGATIONS: 'View obligation' }[t.category] || 'View';
+            const view = (
+              <Button size="small" variant="text" onClick={() => navigate(t.linkPath)}>{viewLabel}</Button>
+            );
             if (t.actionType === 'START') {
               return (
-                <Button size="small" variant="contained" disabled={startMut.isPending}
-                  onClick={() => startMut.mutate(t.sourceRef?.instanceId)}>Start</Button>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <Button size="small" variant="contained" disabled={startMut.isPending}
+                    onClick={() => startMut.mutate(t.sourceRef?.instanceId)}>Start</Button>
+                  {view}
+                </Box>
               );
             }
             if (t.actionType === 'ASSIGN') {
-              return <Button size="small" variant="contained" onClick={() => setAssignFor(t)}>Assign</Button>;
+              return (
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <Button size="small" variant="contained" onClick={() => setAssignFor(t)}>Assign</Button>
+                  {view}
+                </Box>
+              );
             }
-            return <Button size="small" variant="outlined" onClick={() => navigate(t.linkPath)}>{t.actionLabel || 'Open'}</Button>;
+            return <Button size="small" variant="outlined" onClick={() => navigate(t.linkPath)}>{t.actionLabel || viewLabel}</Button>;
           }}
         />
       )}

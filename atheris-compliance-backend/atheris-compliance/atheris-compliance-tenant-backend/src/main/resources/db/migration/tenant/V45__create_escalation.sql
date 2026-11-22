@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS escalation_instances (
     reminder_repeat_unit   VARCHAR(10),
     send_link              BOOLEAN NOT NULL DEFAULT TRUE,
     active                 BOOLEAN NOT NULL DEFAULT TRUE,
+    customised             BOOLEAN NOT NULL DEFAULT FALSE,
     created_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at             TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT uq_escalation_instance UNIQUE (subject_type, subject_id)

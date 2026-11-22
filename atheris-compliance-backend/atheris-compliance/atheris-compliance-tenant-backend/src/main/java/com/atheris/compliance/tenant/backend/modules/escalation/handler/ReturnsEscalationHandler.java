@@ -85,7 +85,9 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
                 extra,
                 r.getFrequencyType(),
                 instance.getCurrentStage() != null && instance.getCurrentStage() != ReturnStage.NOT_STARTED,
-                oldestPerReturn.add(r.getReturnId())));
+                oldestPerReturn.add(r.getReturnId()),
+                r.getDepartmentId(),
+                r.getTeamId()));
         }
         return out;
     }

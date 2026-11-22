@@ -80,12 +80,27 @@ public class TaskCenterService {
 
     @Transactional(readOnly = true)
     public Page<TaskItemDto> page(String assignee, String category, String priority, String q,
-                                  Integer ownerUserId, Integer currentUserId, String currentUserRole, Pageable pageable) {
+                                  Integer ownerUserId, String subjectType, Long subjectId,
+                                  Integer currentUserId, String currentUserRole, Pageable pageable) {
         List<TaskItemDto> all = build(assignee, category, priority, q, ownerUserId, currentUserId, currentUserRole);
+        if (subjectType != null && !subjectType.isBlank() && subjectId != null) {
+            all = all.stream().filter(t -> matchesSubject(t, subjectType, subjectId)).toList();
+        }
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), all.size());
         List<TaskItemDto> slice = start >= all.size() ? List.of() : all.subList(start, end);
         return new PageImpl<>(slice, pageable, all.size());
+    }
+
+    private static boolean matchesSubject(TaskItemDto t, String subjectType, Long subjectId) {
+        Object v = switch (subjectType.toUpperCase(java.util.Locale.ROOT)) {
+            case "CONTROL" -> t.getSourceRef().get("controlId");
+            case "FINDING" -> t.getSourceRef().get("findingId");
+            case "RETURN" -> t.getSourceRef().get("returnId");
+            case "OBLIGATION" -> t.getSourceRef().get("obligationId");
+            default -> null;
+        };
+        return v != null && String.valueOf(v).equals(String.valueOf(subjectId));
     }
 
     @Transactional(readOnly = true)

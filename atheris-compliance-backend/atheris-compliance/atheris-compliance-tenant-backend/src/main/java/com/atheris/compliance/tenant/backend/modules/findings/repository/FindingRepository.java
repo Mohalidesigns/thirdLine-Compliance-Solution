@@ -26,4 +26,6 @@ public interface FindingRepository extends JpaRepository<Finding, Long>, JpaSpec
     List<Finding> findByStatusInAndRemediationDeadlineBetweenOrderByRemediationDeadlineAsc(
         List<String> statuses, LocalDate from, LocalDate to);
     List<Finding> findByLinkedControlIdOrderByFindingIdDesc(Integer controlId);
+    List<Finding> findByAssignedDepartmentId(Integer assignedDepartmentId);
+    List<Finding> findByAssignedTeamId(Integer assignedTeamId);
 }

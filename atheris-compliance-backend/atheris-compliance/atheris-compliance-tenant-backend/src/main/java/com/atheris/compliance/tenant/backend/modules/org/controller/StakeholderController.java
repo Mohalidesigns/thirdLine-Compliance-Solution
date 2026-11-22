@@ -30,6 +30,15 @@ public class StakeholderController {
         return ResponseEntity.ok(service.list(departmentId, teamId, q));
     }
 
+    @GetMapping("/bulk-import/template")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<byte[]> bulkImportTemplate() {
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"stakeholders-template.xlsx\"")
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .body(bulkImport.template());
+    }
+
     @PostMapping(value = "/bulk-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
     public ResponseEntity<com.atheris.compliance.tenant.backend.modules.org.dto.StakeholderImportResult> bulkImport(

@@ -64,7 +64,9 @@ export default function MultiPersonPicker({ value = [], onChange, label = 'Peopl
         <li {...props} key={o.email}>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" noWrap>{o.fullName || o.email}</Typography>
-            {o.fullName && <Typography variant="caption" color="text.secondary" noWrap>{o.email}</Typography>}
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {[o.title || o.jobTitle, o.email].filter(Boolean).join(' · ')}
+            </Typography>
           </Box>
         </li>
       )}

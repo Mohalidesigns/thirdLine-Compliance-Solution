@@ -74,7 +74,9 @@ public class FindingEscalationHandler implements EscalationSubjectHandler {
                 extra,
                 f.getSeverity(),
                 true, true,
-                riskOwners.ccEmailsForFinding(f)));
+                riskOwners.ccEmailsForFinding(f),
+                f.getAssignedDepartmentId(),
+                f.getAssignedTeamId()));
         }
         return out;
     }

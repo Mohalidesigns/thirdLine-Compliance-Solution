@@ -8,5 +8,6 @@ public class TeamRequest {
     @NotBlank
     private String name;
     private Integer departmentId;
+    private Integer headOwnerId;
     private Boolean isActive;
 }

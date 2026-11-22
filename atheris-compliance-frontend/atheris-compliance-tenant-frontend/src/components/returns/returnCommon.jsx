@@ -72,7 +72,7 @@ export function escalationTargetLabel(level) {
   if (!level) return '—';
   return level.targetName || level.targetEmail || level.targetRole
     || { ASSIGNEE: 'Responsible person', MANAGER: "Responsible person's manager",
-      MANAGER_OF_MANAGER: "Manager's manager" }[level.targetType] || level.targetType || '—';
+      MANAGER_OF_MANAGER: "Manager's manager", UNIT_HEAD: 'Unit head', DEPT_HEAD: 'Department head' }[level.targetType] || level.targetType || '—';
 }
 
 export function escalationLadder(levels) {

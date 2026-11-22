@@ -86,7 +86,9 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
                 extra,
                 ControlSchedule.scope(c == null ? null : c.getTestFrequency()),
                 true, true,
-                c == null ? List.of() : riskOwners.ccEmailsForControl(c)));
+                c == null ? List.of() : riskOwners.ccEmailsForControl(c),
+                c == null ? null : c.getControlOwnerDepartmentId(),
+                c == null ? null : c.getControlOwnerTeamId()));
         }
         return out;
     }

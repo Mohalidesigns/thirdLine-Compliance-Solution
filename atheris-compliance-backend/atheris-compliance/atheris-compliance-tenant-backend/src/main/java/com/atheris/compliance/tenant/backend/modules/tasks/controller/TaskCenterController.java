@@ -25,9 +25,11 @@ public class TaskCenterController {
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Integer ownerUserId,
+            @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) Long subjectId,
             @AuthenticationPrincipal User u,
             Pageable p) {
-        return ResponseEntity.ok(service.page(assignee, category, priority, q, ownerUserId,
+        return ResponseEntity.ok(service.page(assignee, category, priority, q, ownerUserId, subjectType, subjectId,
             u == null ? null : u.getUserId(), u == null ? null : u.getRole(), p));
     }
 

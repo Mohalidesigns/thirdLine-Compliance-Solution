@@ -23,6 +23,8 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
     List<Control> findByControlOwnerUserIdAndStatus(Integer userId, String status);
     List<Control> findByActId(Integer actId);
     List<Control> findByObligationId(Long obligationId);
+    List<Control> findByControlOwnerDepartmentId(Integer departmentId);
+    List<Control> findByControlOwnerTeamId(Integer teamId);
 
     long countByStatus(String status);
     long countByActId(Integer actId);

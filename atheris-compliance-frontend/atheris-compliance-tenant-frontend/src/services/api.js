@@ -21,6 +21,16 @@ export const publicApi = {
     }
     return res.json();
   },
+  async departmentPortal(scope, id, token) {
+    const seg = scope === 'unit' ? 'unit' : 'department';
+    const res = await fetch(`${API_BASE}/public/${seg}/${encodeURIComponent(id)}/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      let message = 'This reporting link is not valid.';
+      try { const d = await res.json(); message = d.message || d.error || message; } catch { /* keep default */ }
+      throw new Error(message);
+    }
+    return res.json();
+  },
   async remediationView(token) {
     const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`);
     if (!res.ok) {
@@ -802,6 +812,10 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     deleteDepartment: (id) => request(`/org/departments/${id}`, { method: 'DELETE' }),
+    setDepartmentHead: (id, headOwnerId) => request(`/org/departments/${id}/head`, {
+      method: 'PUT', body: JSON.stringify({ headOwnerId }),
+    }),
+    clearDepartmentHead: (id) => request(`/org/departments/${id}/head`, { method: 'DELETE' }),
     teams: (departmentId) => request(`/org/teams${departmentId ? `?departmentId=${departmentId}` : ''}`),
     createTeam: (data) => request('/org/teams', {
       method: 'POST', body: JSON.stringify(data),
@@ -810,6 +824,12 @@ export const api = {
       method: 'PUT', body: JSON.stringify(data),
     }),
     deleteTeam: (id) => request(`/org/teams/${id}`, { method: 'DELETE' }),
+    setTeamHead: (id, headOwnerId) => request(`/org/teams/${id}/head`, {
+      method: 'PUT', body: JSON.stringify({ headOwnerId }),
+    }),
+    clearTeamHead: (id) => request(`/org/teams/${id}/head`, { method: 'DELETE' }),
+    departmentReportLink: (id) => request(`/org/departments/${id}/report-link`),
+    unitReportLink: (id) => request(`/org/teams/${id}/report-link`),
     owners: (params = {}, opts = {}) => {
       const qs = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') qs.set(k, v); });
@@ -838,6 +858,7 @@ export const api = {
     assign: (id, data) => request(`/stakeholders/${id}/assignments`, { method: 'POST', body: JSON.stringify(data) }),
     unassign: (assignmentId) => request(`/stakeholders/assignments/${assignmentId}`, { method: 'DELETE' }),
     bulkImport: (formData) => rawRequest('/stakeholders/bulk-import', { method: 'POST', body: formData }),
+    template: () => rawRequest('/stakeholders/bulk-import/template', { responseType: 'blob', fallbackName: 'stakeholders-template.xlsx' }).then((f) => { saveBlob(f); return f; }),
   },
 
   stakeholderTitles: {

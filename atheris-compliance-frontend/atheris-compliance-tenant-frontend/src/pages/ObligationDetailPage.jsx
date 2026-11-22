@@ -9,6 +9,7 @@ import {
   controlRegisterColumns, returnColumns,  PencilSquareIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, LinkIcon, ArrowLeftIcon,
 } from 'shared';
 import { api } from '../services/api';
+import ViewTaskButton from '../components/tasks/ViewTaskButton';
 import CreateObligationDialog from '../components/modals/CreateObligationDialog';
 import LinkControlsModal from '../components/modals/LinkControlsModal';
 import LinkSanctionsModal from '../components/modals/LinkSanctionsModal';
@@ -232,8 +233,13 @@ export default function ObligationDetailPage() {
             )}
           </Box>
         )}
-        right={<Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
-          onClick={() => setEditOpen(true)}>Edit</Button>}
+        right={(
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <ViewTaskButton subjectType="OBLIGATION" subjectId={obligationId} category="OBLIGATIONS" />
+            <Button size="small" variant="outlined" startIcon={<PencilSquareIcon size={16} />}
+              onClick={() => setEditOpen(true)}>Edit</Button>
+          </Box>
+        )}
       />
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>

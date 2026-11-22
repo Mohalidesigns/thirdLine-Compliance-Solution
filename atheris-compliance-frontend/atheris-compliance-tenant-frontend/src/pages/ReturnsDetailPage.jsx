@@ -10,6 +10,7 @@ import {
   PageHeader, ArrowPathIcon, CalendarIcon, PencilSquareIcon, LinkIcon,
 } from 'shared';
 import { api } from '../services/api';
+import ViewTaskButton from '../components/tasks/ViewTaskButton';
 import { useAuth } from '../contexts/AuthContext';
 import ReturnEditDialog from '../components/returns/ReturnEditDialog';
 import EventTriggerSetupDialog from '../components/modals/EventTriggerSetupDialog';
@@ -169,6 +170,7 @@ export default function ReturnsDetailPage() {
         backLabel="Back to Returns Register"
         actions={(
           <>
+            <ViewTaskButton subjectType="RETURN" subjectId={Number(returnId)} category="RETURNS" />
             <Tooltip title="Refresh"><IconButton onClick={refresh}><ArrowPathIcon size={18} /></IconButton></Tooltip>
             {canEditFiling && !eventDriven && (
               <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={() => setEditOpen(true)}>

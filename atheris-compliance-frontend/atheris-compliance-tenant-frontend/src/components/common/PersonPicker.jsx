@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { PlusIcon } from 'shared';
 import { api } from '../../services/api';
-import { QuickAddDepartmentDialog, QuickAddTeamDialog } from '../org/QuickAddDialogs';
+import { QuickAddDepartmentDialog, QuickAddTeamDialog, QuickAddTitleDialog } from '../org/QuickAddDialogs';
 
 function useLdapEnabled({ authType, onboarding } = {}) {
   const query = useQuery({
@@ -126,7 +126,9 @@ function UserPickerBody({ value, onChange, label, role, authType, ldapConfig, al
           <li {...props} key={o.email}>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="body2" noWrap>{o.fullName || o.email}</Typography>
-              {o.fullName && <Typography variant="caption" color="text.secondary" noWrap>{o.email}</Typography>}
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {[o.title || o.jobTitle, o.email].filter(Boolean).join(' · ')}
+              </Typography>
             </Box>
           </li>
         )}
@@ -235,10 +237,12 @@ function OwnerPickerBody({ value, onChange, label, allowCreate, allowClear, disa
         loading={loading || resolving}
         noOptionsText={ldapEnabled ? 'Search owners or your directory…' : 'No matching owners'}
         renderOption={(props, o) => (
-          <li {...props} key={o.kind === 'owner' ? `o-${o.ownerId}` : `d-${o.email}`}>
+          <li {...props} key={o.email}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="body2" noWrap>{o.fullName}{o.kind === 'owner' && o.departmentName ? ` — ${o.departmentName}` : ''}</Typography>
-              {o.email && <Typography variant="caption" color="text.secondary" noWrap>{o.email}{o.kind === 'directory' ? ' · directory' : ''}</Typography>}
+              <Typography variant="body2" noWrap>{o.fullName || o.email}</Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {[o.title || o.jobTitle, o.email].filter(Boolean).join(' · ')}
+              </Typography>
             </Box>
           </li>
         )}
@@ -299,7 +303,9 @@ function LinkPickerBody({ value, onChange, label, disabled, size, fullWidth, hel
           <li {...props} key={o.email}>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="body2" noWrap>{o.fullName || o.email}</Typography>
-              {o.fullName && <Typography variant="caption" color="text.secondary" noWrap>{o.email}</Typography>}
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {[o.title || o.jobTitle, o.email].filter(Boolean).join(' · ')}
+              </Typography>
             </Box>
           </li>
         )}
@@ -332,6 +338,7 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
   const [error, setError] = useState('');
   const [deptOpen, setDeptOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [titleOpen, setTitleOpen] = useState(false);
   const [dirInput, setDirInput] = useState('');
   const dirTerm = useDebounced(dirInput);
   const ldapEnabled = useLdapEnabled();
@@ -421,26 +428,34 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <Autocomplete
-            size="small"
-            options={titles}
-            getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
-            isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
-            value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
-            onChange={(_, o) => {
-              if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
-              setForm((f) => ({
-                ...f,
-                titleId: String(o.titleId),
-                departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
-                teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
-              }));
-            }}
-            renderInput={(params) => (
-              <TextField {...params} label="Title" placeholder="e.g. Chief Compliance Officer"
-                helperText="Sets a default department and unit" />
-            )}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <Autocomplete
+                size="small"
+                options={titles}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+                isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
+                value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
+                onChange={(_, o) => {
+                  if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
+                  setForm((f) => ({
+                    ...f,
+                    titleId: String(o.titleId),
+                    departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
+                    teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
+                  }));
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Title" placeholder="e.g. Chief Compliance Officer"
+                    helperText="Sets a default department and unit" />
+                )}
+              />
+            </Box>
+            <Button size="small" variant="outlined" startIcon={<PlusIcon size={16} />} sx={{ width: 170, whiteSpace: 'nowrap' }}
+              onClick={() => { setError(''); setTitleOpen(true); }}>
+              {titles.length === 0 ? 'Add title' : 'Add new title'}
+            </Button>
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1 }}>
@@ -492,6 +507,17 @@ export function QuickAddOwnerDialog({ open, onClose, onCreated, initialDepartmen
         onCreated={(d) => { reload(); setForm((f) => ({ ...f, departmentId: String(d.departmentId), teamId: '' })); setDeptOpen(false); }} />
       <QuickAddTeamDialog open={teamOpen} onClose={() => setTeamOpen(false)} departmentId={form.departmentId}
         onCreated={(t) => { reload(); setForm((f) => ({ ...f, teamId: String(t.teamId) })); setTeamOpen(false); }} />
+      <QuickAddTitleDialog open={titleOpen} onClose={() => setTitleOpen(false)} departments={departments} units={teams}
+        onCreated={(t) => {
+          qc.invalidateQueries({ queryKey: ['stakeholder-titles'] });
+          setForm((f) => ({
+            ...f,
+            titleId: String(t.titleId),
+            departmentId: f.departmentId || (t.defaultDepartmentId != null ? String(t.defaultDepartmentId) : ''),
+            teamId: f.teamId || (t.defaultUnitId != null ? String(t.defaultUnitId) : ''),
+          }));
+          setTitleOpen(false);
+        }} />
     </Dialog>
   );
 }

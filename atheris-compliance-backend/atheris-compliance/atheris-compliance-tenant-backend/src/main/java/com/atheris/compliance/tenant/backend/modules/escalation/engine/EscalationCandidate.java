@@ -20,21 +20,24 @@ public record EscalationCandidate(
     String frequencyScope,
     boolean started,
     boolean remindable,
-    List<String> extraCcEmails
+    List<String> extraCcEmails,
+    Integer departmentId,
+    Integer teamId
 ) {
     public EscalationCandidate(String subjectType, Long subjectId, String subjectLabel, Long subjectPolicyId,
                                List<Person> assignees, Person owner, LocalDateTime dueAt, LocalDateTime approachAt,
                                Long linkSubjectId, String linkBase, String category, Map<String, String> extraVars,
                                String frequencyScope, boolean started) {
         this(subjectType, subjectId, subjectLabel, subjectPolicyId, assignees, owner, dueAt, approachAt,
-            linkSubjectId, linkBase, category, extraVars, frequencyScope, started, true, List.of());
+            linkSubjectId, linkBase, category, extraVars, frequencyScope, started, true, List.of(), null, null);
     }
 
     public EscalationCandidate(String subjectType, Long subjectId, String subjectLabel, Long subjectPolicyId,
                                List<Person> assignees, Person owner, LocalDateTime dueAt, LocalDateTime approachAt,
                                Long linkSubjectId, String linkBase, String category, Map<String, String> extraVars,
-                               String frequencyScope, boolean started, boolean remindable) {
+                               String frequencyScope, boolean started, boolean remindable,
+                               Integer departmentId, Integer teamId) {
         this(subjectType, subjectId, subjectLabel, subjectPolicyId, assignees, owner, dueAt, approachAt,
-            linkSubjectId, linkBase, category, extraVars, frequencyScope, started, remindable, List.of());
+            linkSubjectId, linkBase, category, extraVars, frequencyScope, started, remindable, List.of(), departmentId, teamId);
     }
 }

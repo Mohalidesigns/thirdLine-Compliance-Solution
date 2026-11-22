@@ -11,6 +11,7 @@ import {
 import { api } from '../services/api';
 import { usePlacementOptions, departmentOptions, unitOptions } from '../hooks/usePlacementOptions';
 import { EvidenceFileList } from '../components/evidence/EvidenceFiles';
+import ViewTaskButton from '../components/tasks/ViewTaskButton';
 import {
   KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, TrashIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
@@ -393,6 +394,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         backLabel="Back to Controls Register"
         actions={(
           <>
+            <ViewTaskButton subjectType="CONTROL" subjectId={detail.controlId} category="CONTROLS" />
             <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={onEdit}>Edit</Button>
             <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setTestLinkOpen(true)}>Send link</Button>
             <Button variant="contained" startIcon={<ClipboardDocumentCheckIcon size={16} />} onClick={onRecordTest}>Record Test</Button>

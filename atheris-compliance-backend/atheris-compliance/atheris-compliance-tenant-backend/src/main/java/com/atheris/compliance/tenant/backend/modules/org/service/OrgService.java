@@ -168,9 +168,13 @@ public class OrgService {
         CompletableFuture<List<Department>> departmentsFuture = CompletableFuture
             .supplyAsync(departments::findAll, virtualThreadExecutor);
 
+        CompletableFuture<List<Owner>> ownersFuture = CompletableFuture
+            .supplyAsync(owners::findAll, virtualThreadExecutor);
+
         List<Team> teamList = teamsFuture.join();
         List<TeamOwnerCountRow> ownerCounts = ownerCountsFuture.join();
         List<Department> allDepartments = departmentsFuture.join();
+        List<Owner> allOwners = ownersFuture.join();
 
         return teamList.stream()
             .map(team -> TeamDto.builder()
@@ -178,6 +182,8 @@ public class OrgService {
                 .departmentId(team.getDepartmentId())
                 .departmentName(resolveDepartmentName(allDepartments, team.getDepartmentId()))
                 .name(team.getName())
+                .headOwnerId(team.getHeadOwnerId())
+                .headOwnerName(resolveOwnerName(allOwners, team.getHeadOwnerId()))
                 .isActive(team.getIsActive())
                 .ownerCount(teamOwnerCount(ownerCounts, team.getTeamId()))
                 .build())
@@ -197,6 +203,7 @@ public class OrgService {
         Team saved = teams.save(Team.builder()
             .departmentId(request.getDepartmentId())
             .name(request.getName().trim())
+            .headOwnerId(request.getHeadOwnerId())
             .isActive(request.getIsActive() == null || request.getIsActive())
             .build());
 
@@ -207,6 +214,10 @@ public class OrgService {
                 .map(Department::getName)
                 .orElse(null))
             .name(saved.getName())
+            .headOwnerId(saved.getHeadOwnerId())
+            .headOwnerName(saved.getHeadOwnerId() != null
+                ? owners.findById(saved.getHeadOwnerId()).map(Owner::getFullName).orElse(null)
+                : null)
             .isActive(saved.getIsActive())
             .ownerCount(0)
             .build();
@@ -223,6 +234,9 @@ public class OrgService {
         }
         if (request.getDepartmentId() != null) {
             team.setDepartmentId(request.getDepartmentId());
+        }
+        if (request.getHeadOwnerId() != null) {
+            team.setHeadOwnerId(request.getHeadOwnerId());
         }
         if (request.getIsActive() != null) {
             team.setIsActive(request.getIsActive());
@@ -461,11 +475,45 @@ public class OrgService {
                 .departmentId(team.getDepartmentId())
                 .departmentName(resolveDepartmentName(allDepartments, team.getDepartmentId()))
                 .name(team.getName())
+                .headOwnerId(team.getHeadOwnerId())
+                .headOwnerName(resolveOwnerName(allOwners, team.getHeadOwnerId()))
                 .isActive(team.getIsActive())
                 .ownerCount(teamOwners.size())
                 .build())
             .owners(teamOwners)
             .build();
+    }
+
+    @Transactional
+    public void setDepartmentHead(Integer id, Integer ownerId) {
+        Department department = departments.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Department not found: " + id));
+        if (ownerId != null && !owners.existsById(ownerId)) {
+            throw new EntityNotFoundException("Stakeholder not found: " + ownerId);
+        }
+        department.setHeadOwnerId(ownerId);
+        departments.save(department);
+    }
+
+    @Transactional
+    public void clearDepartmentHead(Integer id) {
+        setDepartmentHead(id, null);
+    }
+
+    @Transactional
+    public void setTeamHead(Integer id, Integer ownerId) {
+        Team team = teams.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Team not found: " + id));
+        if (ownerId != null && !owners.existsById(ownerId)) {
+            throw new EntityNotFoundException("Stakeholder not found: " + ownerId);
+        }
+        team.setHeadOwnerId(ownerId);
+        teams.save(team);
+    }
+
+    @Transactional
+    public void clearTeamHead(Integer id) {
+        setTeamHead(id, null);
     }
 
     // ---------------------------------------------------------------- helpers

@@ -142,6 +142,7 @@ public class LdapAuthService {
             if (!s.getFullNameAttribute().equalsIgnoreCase(s.getUserSearchFilterAttribute())) {
                 searchInto(template, s, s.getFullNameAttribute(), term, merged);
             }
+            searchInto(template, s, "title", term, merged);
         } catch (Exception e) {
             log.warn("LDAP directory search failed: {}", e.getMessage());
             return List.of();

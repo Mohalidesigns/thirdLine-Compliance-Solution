@@ -19,6 +19,7 @@ public interface ObligationClassificationRepository extends JpaRepository<Obliga
     Optional<ObligationClassification> findByObligationId(Long obligationId);
     List<ObligationClassification> findByObligationIdIn(Collection<Long> obligationIds);
     List<ObligationClassification> findByAssignedDepartmentId(Integer assignedDepartmentId);
+    List<ObligationClassification> findByAssignedTeamId(Integer assignedTeamId);
     Page<ObligationClassification> findByApplicability(String applicability, Pageable p);
     List<ObligationClassification> findByApplicability(String applicability);
     Page<ObligationClassification> findByStatus(String status, Pageable p);

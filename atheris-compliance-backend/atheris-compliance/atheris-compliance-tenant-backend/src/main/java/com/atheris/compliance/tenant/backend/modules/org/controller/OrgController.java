@@ -2,6 +2,7 @@ package com.atheris.compliance.tenant.backend.modules.org.controller;
 
 import com.atheris.compliance.tenant.backend.modules.org.dto.*;
 import com.atheris.compliance.tenant.backend.modules.org.service.OrgService;
+import com.atheris.compliance.tenant.backend.modules.org.service.DepartmentReportService;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/org")
@@ -16,6 +18,7 @@ import java.util.List;
 public class OrgController {
 
     private final OrgService service;
+    private final DepartmentReportService reportService;
 
     @GetMapping
     public ResponseEntity<OrgTreeResponse> tree() {
@@ -49,6 +52,25 @@ public class OrgController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/departments/{id}/head")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<Void> setDepartmentHead(@PathVariable Integer id, @RequestBody HeadRequest request) {
+        service.setDepartmentHead(id, request.getHeadOwnerId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/departments/{id}/head")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<Void> clearDepartmentHead(@PathVariable Integer id) {
+        service.clearDepartmentHead(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/departments/{id}/report-link")
+    public ResponseEntity<Map<String, String>> departmentReportLink(@PathVariable Integer id) {
+        return ResponseEntity.ok(Map.of("path", reportService.departmentPath(id)));
+    }
+
     @GetMapping("/teams")
     public ResponseEntity<List<TeamDto>> teams(@RequestParam(required = false) Integer departmentId) {
         return ResponseEntity.ok(service.listTeams(departmentId));
@@ -73,6 +95,25 @@ public class OrgController {
     public ResponseEntity<Void> deleteTeam(@PathVariable Integer id) {
         service.deleteTeam(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/teams/{id}/head")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<Void> setTeamHead(@PathVariable Integer id, @RequestBody HeadRequest request) {
+        service.setTeamHead(id, request.getHeadOwnerId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/teams/{id}/head")
+    @PreAuthorize("hasAnyRole('" + AppRole.TENANT_ADMIN + "','" + AppRole.CCO + "','" + AppRole.ANALYST + "')")
+    public ResponseEntity<Void> clearTeamHead(@PathVariable Integer id) {
+        service.clearTeamHead(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/teams/{id}/report-link")
+    public ResponseEntity<Map<String, String>> unitReportLink(@PathVariable Integer id) {
+        return ResponseEntity.ok(Map.of("path", reportService.unitPath(id)));
     }
 
     @GetMapping("/owners")

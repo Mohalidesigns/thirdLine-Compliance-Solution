@@ -1,43 +1,38 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Box, Typography, Card, CardContent, Button, Alert, CircularProgress, Chip,
+  Box, Typography, Card, CardContent, Button, Alert, CircularProgress,
   TextField, MenuItem, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Tooltip, Snackbar, Autocomplete,
+  Snackbar, Autocomplete, Menu,
 } from '@mui/material';
 import {
-  TL, StateBadge, PlusIcon, PencilSquareIcon, TrashIcon,
-  BuildingOffice2Icon, UserGroupIcon, UserCircleIcon,
+  TL, PlusIcon,
+  BuildingOffice2Icon, UserGroupIcon, UserCircleIcon, EllipsisVerticalIcon,
 } from 'shared';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { QuickAddOwnerDialog } from '../common/PersonPicker';
-import { QuickAddDepartmentDialog, QuickAddTeamDialog } from './QuickAddDialogs';
+import { QuickAddDepartmentDialog, QuickAddTeamDialog, QuickAddTitleDialog } from './QuickAddDialogs';
 import StakeholdersPanel from './StakeholdersPanel';
 
-const CHART_SX = {
-  overflowX: 'auto',
-  pb: 2,
+const TREE_SX = {
   '& ul': {
-    display: 'flex', justifyContent: 'center', position: 'relative',
-    m: 0, p: 0, listStyle: 'none', pt: '20px',
+    listStyle: 'none', m: 0, p: 0,
+    display: 'flex', flexDirection: 'column', justifyContent: 'center',
   },
-  '& > ul': { pt: 0 },
-  '& li': { listStyle: 'none', position: 'relative', textAlign: 'center', pt: '20px', px: '8px' },
-  '& li::before, & li::after': {
-    content: '""', position: 'absolute', top: 0, right: '50%',
-    borderTop: `2px solid ${TL.gray200}`, width: '50%', height: '20px',
+  '& li': { position: 'relative', display: 'flex', alignItems: 'center', pl: '26px', py: '3px' },
+  '& li::before': {
+    content: '""', position: 'absolute', left: 0, top: 0, height: '100%',
+    borderLeft: `1px solid ${TL.gray200}`,
   },
-  '& li::after': { right: 'auto', left: '50%', borderLeft: `2px solid ${TL.gray200}` },
-  '& li:only-child::before, & li:only-child::after': { display: 'none' },
-  '& li:only-child': { pt: 0 },
-  '& li:first-child::before, & li:last-child::after': { border: 0 },
-  '& li:last-child::before': { borderRight: `2px solid ${TL.gray200}`, borderRadius: '0 6px 0 0' },
-  '& li:first-child::after': { borderRadius: '6px 0 0 0' },
-  '& ul ul::before': {
-    content: '""', position: 'absolute', top: 0, left: '50%',
-    borderLeft: `2px solid ${TL.gray200}`, width: 0, height: '20px',
+  '& li:last-child::before': { height: '50%' },
+  '& li::after': {
+    content: '""', position: 'absolute', left: 0, top: '50%', width: '26px',
+    borderTop: `1px solid ${TL.gray200}`,
   },
+  '& > ul': { justifyContent: 'flex-start' },
+  '& > ul > li': { pl: 0 },
+  '& > ul > li::before, & > ul > li::after': { display: 'none' },
 };
 
 export default function OrganizationTab() {
@@ -53,6 +48,7 @@ export default function OrganizationTab() {
   const [teamModal, setTeamModal] = useState(null);
   const [ownerModal, setOwnerModal] = useState(null);
   const [addMemberTo, setAddMemberTo] = useState(null);
+  const [headModal, setHeadModal] = useState(null);
 
   const treeQuery = useQuery({ queryKey: ['org', 'tree'], queryFn: () => api.org.tree() });
   const invalidate = () => {
@@ -61,6 +57,12 @@ export default function OrganizationTab() {
     qc.invalidateQueries({ queryKey: ['org', 'departments'] });
     qc.invalidateQueries({ queryKey: ['org', 'teams'] });
   };
+
+  const headMutation = useMutation({
+    mutationFn: ({ fn }) => fn(),
+    onSuccess: (_d, { label }) => { setSnack({ severity: 'success', message: label }); invalidate(); },
+    onError: (e) => setSnack({ severity: 'error', message: e.message }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: ({ fn }) => fn(),
@@ -72,6 +74,23 @@ export default function OrganizationTab() {
   });
 
   const handleDelete = (fn, label) => deleteMutation.mutate({ fn, label });
+
+  const copyReportLink = async (kind, id) => {
+    try {
+      const res = kind === 'department'
+        ? await api.org.departmentReportLink(id) : await api.org.unitReportLink(id);
+      await navigator.clipboard.writeText(window.location.origin + res.path);
+      setSnack({ severity: 'success', message: 'Reporting link copied' });
+    } catch (e) { setSnack({ severity: 'error', message: e.message }); }
+  };
+
+  const openReportLink = async (kind, id) => {
+    try {
+      const res = kind === 'department'
+        ? await api.org.departmentReportLink(id) : await api.org.unitReportLink(id);
+      window.open(window.location.origin + res.path, '_blank', 'noopener');
+    } catch (e) { setSnack({ severity: 'error', message: e.message }); }
+  };
 
   if (treeQuery.isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
@@ -98,77 +117,114 @@ export default function OrganizationTab() {
         </Box>
       </Box>
 
-      <Card variant="outlined" sx={{ bgcolor: TL.gray50 }}>
-        <CardContent sx={{ p: { xs: 1.5, md: 3 } }}>
-          <Box sx={CHART_SX}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+        <Typography variant="caption" sx={{ color: TL.gray500 }}>
+          {departments.length} department{departments.length === 1 ? '' : 's'} · {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
+        </Typography>
+        {canAddStructure && (
+          <Button size="small" variant="outlined" startIcon={<PlusIcon size={14} />} onClick={() => setDeptModal({})}>
+            Add department
+          </Button>
+        )}
+      </Box>
+
+      <Box sx={TREE_SX}>
+        <ul>
+          <li>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.75,
+              border: `1px solid ${TL.gray300}`, borderRadius: '8px', bgcolor: '#fff', width: 220, flexShrink: 0 }}>
+              <BuildingOffice2Icon size={18} sx={{ color: TL.primary }} />
+              <Typography noWrap sx={{ fontWeight: 700, fontSize: '0.95rem', color: TL.gray800 }}>
+                {tree.organizationName || 'Organization'}
+              </Typography>
+            </Box>
             <ul>
+              {departments.map((node) => (
+                <li key={node.department.departmentId}>
+                  <TreeRow
+                    icon={<BuildingOffice2Icon size={16} sx={{ color: TL.primary }} />}
+                    label={node.department.name}
+                    title={node.department.headOwnerName}
+                    bold
+                    menu={<CardMenu items={[
+                      canAddStructure && { label: 'Add unit', onClick: () => setTeamModal({ departmentId: node.department.departmentId }) },
+                      canAddMember && { label: 'Add member', onClick: () => setAddMemberTo({ departmentId: node.department.departmentId }) },
+                      canAddMember && { label: node.department.headOwnerName ? 'Change head' : 'Set head', onClick: () => setHeadModal({ kind: 'department', id: node.department.departmentId, name: node.department.name, currentHeadId: node.department.headOwnerId }) },
+                      canAddMember && node.department.headOwnerId != null && { label: 'Clear head', onClick: () => headMutation.mutate({ label: 'Department head cleared', fn: () => api.org.clearDepartmentHead(node.department.departmentId) }) },
+                      { label: 'Copy reporting link', onClick: () => copyReportLink('department', node.department.departmentId) },
+                      { label: 'Open reporting page', onClick: () => openReportLink('department', node.department.departmentId) },
+                      isAdmin && { label: 'Edit department', onClick: () => setDeptModal(node.department) },
+                      isAdmin && { label: 'Delete department', onClick: () => handleDelete(() => api.org.deleteDepartment(node.department.departmentId), 'Department'), danger: true },
+                    ]} />}
+                  />
+                  {(node.teams.length > 0 || node.owners.length > 0) && (
+                    <ul>
+                      {node.teams.map((team) => (
+                        <li key={team.team.teamId}>
+                          <TreeRow
+                            icon={<UserGroupIcon size={15} sx={{ color: TL.gray500 }} />}
+                            label={team.team.name}
+                            title={team.team.headOwnerName}
+                            menu={<CardMenu size={15} items={[
+                              canAddMember && { label: 'Add member', onClick: () => setAddMemberTo({ departmentId: node.department.departmentId, teamId: team.team.teamId }) },
+                              canAddMember && { label: team.team.headOwnerName ? 'Change head' : 'Set head', onClick: () => setHeadModal({ kind: 'team', id: team.team.teamId, name: team.team.name, currentHeadId: team.team.headOwnerId }) },
+                              canAddMember && team.team.headOwnerId != null && { label: 'Clear head', onClick: () => headMutation.mutate({ label: 'Unit head cleared', fn: () => api.org.clearTeamHead(team.team.teamId) }) },
+                              { label: 'Copy reporting link', onClick: () => copyReportLink('unit', team.team.teamId) },
+                              { label: 'Open reporting page', onClick: () => openReportLink('unit', team.team.teamId) },
+                              { label: 'Edit unit', onClick: () => setTeamModal({ team: team.team, departmentId: node.department.departmentId }) },
+                              { label: 'Delete unit', onClick: () => handleDelete(() => api.org.deleteTeam(team.team.teamId), 'Unit'), danger: true },
+                            ]} />}
+                          />
+                          {team.owners.length > 0 && (
+                            <ul>
+                              {team.owners.map((o) => (
+                                <li key={o.ownerId}>
+                                  <MemberRow member={o} editable={isAdmin}
+                                    onEdit={() => setOwnerModal({ owner: o, teamId: team.team.teamId, departmentId: node.department.departmentId })}
+                                    onDelete={() => handleDelete(() => api.org.deleteOwner(o.ownerId), 'Member')} />
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                      {node.owners.map((o) => (
+                        <li key={o.ownerId}>
+                          <MemberRow member={o} editable={isAdmin}
+                            onEdit={() => setOwnerModal({ owner: o, departmentId: node.department.departmentId })}
+                            onDelete={() => handleDelete(() => api.org.deleteOwner(o.ownerId), 'Member')} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
               <li>
-                <Card variant="outlined" sx={{ display: 'inline-block', minWidth: 240, textAlign: 'left', borderColor: TL.gray300, borderRadius: '10px' }}>
-                  <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <BuildingOffice2Icon size={18} sx={{ color: TL.primary }} />
-                      <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: TL.gray800 }}>
-                        {tree.organizationName || 'Organization'}
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" sx={{ color: TL.gray500 }}>
-                      {departments.length} department{departments.length === 1 ? '' : 's'} · {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
-                    </Typography>
-                    {canAddStructure && (
-                      <Box>
-                        <Button size="small" variant="outlined" startIcon={<PlusIcon size={14} />}
-                          sx={{ mt: 1 }} onClick={() => setDeptModal({})}>
-                          Add department
-                        </Button>
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <ul>
-                  {departments.map((node) => (
-                    <li key={node.department.departmentId}>
-                      <DepartmentCard
-                        node={node}
-                        isAdmin={isAdmin}
-                        canAddStructure={canAddStructure}
-                        canAddMember={canAddMember}
-                        onEdit={() => setDeptModal(node.department)}
-                        onDelete={() => handleDelete(() => api.org.deleteDepartment(node.department.departmentId), 'Department')}
-                        onAddUnit={() => setTeamModal({ departmentId: node.department.departmentId })}
-                        onAddMember={() => setAddMemberTo({ departmentId: node.department.departmentId })}
-                        onEditMember={(owner) => setOwnerModal({ owner, departmentId: node.department.departmentId })}
-                        onDeleteMember={(owner) => handleDelete(() => api.org.deleteOwner(owner.ownerId), 'Member')}
-                      />
-                      {(node.teams.length > 0) && (
-                        <ul>
-                          {node.teams.map((team) => (
-                            <li key={team.team.teamId}>
-                              <UnitCard
-                                team={team}
-                                canAddMember={canAddMember}
-                                onEdit={() => setTeamModal({ team: team.team, departmentId: node.department.departmentId })}
-                                onDelete={() => handleDelete(() => api.org.deleteTeam(team.team.teamId), 'Unit')}
-                                onAddMember={() => setAddMemberTo({ departmentId: node.department.departmentId, teamId: team.team.teamId })}
-                                onEditMember={(owner) => setOwnerModal({ owner, teamId: team.team.teamId, departmentId: node.department.departmentId })}
-                                onDeleteMember={(owner) => handleDelete(() => api.org.deleteOwner(owner.ownerId), 'Member')}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-
-                  <li>
-                    <PeopleCard users={users} unassignedOwners={unassignedOwners} />
-                  </li>
-                </ul>
+                <TreeRow icon={<UserCircleIcon size={16} sx={{ color: TL.primary }} />}
+                  label="Platform users" title={`${users.length} user${users.length === 1 ? '' : 's'}`} bold />
+                {users.length > 0 && (
+                  <ul>
+                    {users.map((u) => (
+                      <li key={u.userId}>
+                        <TreeRow icon={<UserCircleIcon size={14} sx={{ color: TL.gray500 }} />}
+                          label={u.fullName} title={[u.role, u.email].filter(Boolean).join(' · ')}
+                          muted={u.isActive === false} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {unassignedOwners.length > 0 && (
+                  <ul>
+                    {unassignedOwners.map((o) => (
+                      <li key={o.ownerId}><MemberRow member={o} editable={false} /></li>
+                    ))}
+                  </ul>
+                )}
               </li>
             </ul>
-          </Box>
-        </CardContent>
-      </Card>
+          </li>
+        </ul>
+      </Box>
 
       <StakeholdersPanel />
 
@@ -192,6 +248,22 @@ export default function OrganizationTab() {
           initialDepartmentId={addMemberTo.departmentId} initialTeamId={addMemberTo.teamId}
           onCreated={() => { setAddMemberTo(null); setSnack({ severity: 'success', message: 'Member added' }); invalidate(); }} />
       )}
+      {headModal && (
+        <HeadDialog
+          key={`${headModal.kind}-${headModal.id}`}
+          open
+          title={headModal.kind === 'department' ? `Head of ${headModal.name}` : `Head of ${headModal.name}`}
+          currentHeadId={headModal.currentHeadId}
+          onClose={() => setHeadModal(null)}
+          onSave={(ownerId) => {
+            const fn = headModal.kind === 'department'
+              ? () => api.org.setDepartmentHead(headModal.id, ownerId)
+              : () => api.org.setTeamHead(headModal.id, ownerId);
+            headMutation.mutate({ label: 'Head updated', fn });
+            setHeadModal(null);
+          }}
+        />
+      )}
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
@@ -201,144 +273,90 @@ export default function OrganizationTab() {
   );
 }
 
-function CardHead({ icon, title, actions }) {
+function TreeRow({ icon, label, title, menu, bold, muted, onClick, width = 220 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-        {icon}
-        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', color: TL.gray800, lineHeight: 1.3 }}>{title}</Typography>
-      </Box>
-      {actions && <Box sx={{ ml: 'auto', display: 'flex', gap: 0.25, flexShrink: 0 }}>{actions}</Box>}
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 0.75, minWidth: width, maxWidth: 320, flexShrink: 0,
+      px: 1, py: 0.5, border: `1px solid ${TL.gray200}`, borderRadius: '8px', bgcolor: '#fff',
+    }}>
+      {icon}
+      <Typography onClick={onClick}
+        sx={{ flex: 1, minWidth: 0, lineHeight: 1.3, fontSize: bold ? '0.875rem' : '0.8125rem',
+          fontWeight: bold ? 700 : 600, color: TL.gray800,
+          cursor: onClick ? 'pointer' : 'default', opacity: muted ? 0.55 : 1 }}>
+        {label || '—'}
+        {title ? <Box component="span" sx={{ color: TL.gray500, fontWeight: 400 }}> · {title}</Box> : null}
+      </Typography>
+      {menu}
     </Box>
   );
 }
 
-function MemberList({ members, editable, onEdit, onDelete, emptyLabel }) {
-  if (!members.length) {
-    return <Typography variant="caption" sx={{ color: TL.gray400, display: 'block', mt: 0.5 }}>{emptyLabel}</Typography>;
-  }
+function MemberRow({ member, editable, onEdit, onDelete }) {
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
-      {members.map((member) => (
-        <Tooltip key={member.ownerId} title={member.isActive === false ? 'Inactive' : ''}>
-          <Chip
-            size="small"
-            variant="outlined"
-            icon={<UserCircleIcon size={14} />}
-            label={member.jobTitle ? `${member.fullName} · ${member.jobTitle}` : member.fullName}
-            onClick={editable ? () => onEdit(member) : undefined}
-            onDelete={editable ? () => onDelete(member) : undefined}
-            sx={{
-              maxWidth: 240, opacity: member.isActive === false ? 0.55 : 1,
-              borderStyle: member.isActive === false ? 'dashed' : 'solid',
-              '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
-            }}
-          />
-        </Tooltip>
-      ))}
-    </Box>
+    <TreeRow
+      icon={<UserCircleIcon size={14} sx={{ color: TL.gray500 }} />}
+      label={member.fullName || member.email}
+      title={member.jobTitle}
+      width={200}
+      muted={member.isActive === false}
+      onClick={editable ? onEdit : undefined}
+      menu={editable ? <CardMenu size={15} items={[
+        { label: 'Edit member', onClick: onEdit },
+        { label: 'Remove member', onClick: onDelete, danger: true },
+      ]} /> : null}
+    />
   );
 }
 
-function DepartmentCard({
-  node, isAdmin, canAddStructure, canAddMember,
-  onEdit, onDelete, onAddUnit, onAddMember, onEditMember, onDeleteMember,
-}) {
-  const { department, teams, owners } = node;
-
+function CardMenu({ items, size = 17 }) {
+  const [anchor, setAnchor] = useState(null);
   return (
-    <Card variant="outlined" sx={{ display: 'inline-block', minWidth: 220, maxWidth: 280, textAlign: 'left', borderColor: TL.gray300, borderRadius: '10px' }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <CardHead
-          icon={<BuildingOffice2Icon size={16} sx={{ color: TL.primary }} />}
-          title={department.name}
-          actions={isAdmin && (
-            <>
-              <IconButton size="small" onClick={onEdit}><PencilSquareIcon size={15} /></IconButton>
-              <IconButton size="small" onClick={onDelete}><TrashIcon size={15} /></IconButton>
-            </>
-          )}
+    <>
+      <IconButton size="small" sx={{ p: 0.25 }} onClick={(e) => setAnchor(e.currentTarget)}>
+        <EllipsisVerticalIcon size={size} />
+      </IconButton>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        {items.filter(Boolean).map((it, i) => (
+          <MenuItem key={i} dense onClick={() => { setAnchor(null); it.onClick?.(); }}
+            sx={it.danger ? { color: 'error.main' } : undefined}>
+            {it.label}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+}
+
+function HeadDialog({ open, title, currentHeadId, onClose, onSave }) {
+  const query = useQuery({ queryKey: ['stakeholders', 'list', 'heads'], queryFn: () => api.stakeholders.list({}), enabled: open });
+  const options = query.data || [];
+  const [value, setValue] = useState(currentHeadId != null ? String(currentHeadId) : '');
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogContent dividers>
+        <Autocomplete
+          size="small"
+          options={options}
+          getOptionLabel={(o) => (o ? `${o.fullName}${o.jobTitle ? ' · ' + o.jobTitle : ''}` : '')}
+          isOptionEqualToValue={(o, v) => o?.stakeholderId === v?.stakeholderId}
+          value={options.find((o) => String(o.stakeholderId) === value) || null}
+          onChange={(_, o) => setValue(o ? String(o.stakeholderId) : '')}
+          loading={query.isLoading}
+          renderInput={(params) => <TextField {...params} label="Head" placeholder="Search people…" />}
         />
-        {department.headOwnerName && (
-          <Typography variant="caption" sx={{ color: TL.gray500, display: 'block', mt: 0.25 }}>
-            Head: {department.headOwnerName}
-          </Typography>
-        )}
-        <Typography variant="caption" sx={{ color: TL.gray400, display: 'block' }}>
-          {teams.length} unit{teams.length === 1 ? '' : 's'}
+        <Typography variant="caption" sx={{ color: TL.gray500, display: 'block', mt: 1 }}>
+          The head receives the unit- and department-level escalation steps by default.
         </Typography>
-        <MemberList members={owners} editable={isAdmin} onEdit={onEditMember} onDelete={onDeleteMember}
-          emptyLabel="No direct members" />
-        {(canAddStructure || canAddMember) && (
-          <Box sx={{ display: 'flex', gap: 0.5, mt: 1, flexWrap: 'wrap' }}>
-            {canAddStructure && (
-              <Button size="small" startIcon={<PlusIcon size={14} />} onClick={onAddUnit}>Add unit</Button>
-            )}
-            {canAddMember && (
-              <Button size="small" startIcon={<PlusIcon size={14} />} onClick={onAddMember}>Add member</Button>
-            )}
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function UnitCard({ team, canAddMember, onEdit, onDelete, onAddMember, onEditMember, onDeleteMember }) {
-  return (
-    <Card variant="outlined" sx={{ display: 'inline-block', minWidth: 190, maxWidth: 250, textAlign: 'left', borderRadius: '10px' }}>
-      <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 } }}>
-        <CardHead
-          icon={<UserGroupIcon size={15} sx={{ color: TL.gray500 }} />}
-          title={team.team.name}
-          actions={
-            <>
-              <IconButton size="small" onClick={onEdit}><PencilSquareIcon size={14} /></IconButton>
-              <IconButton size="small" onClick={onDelete}><TrashIcon size={14} /></IconButton>
-            </>
-          }
-        />
-        <MemberList members={team.owners} editable onEdit={onEditMember} onDelete={onDeleteMember} emptyLabel="No members" />
-        {canAddMember && (
-          <Box>
-            <Button size="small" startIcon={<PlusIcon size={14} />} sx={{ mt: 0.5 }} onClick={onAddMember}>Add member</Button>
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PeopleCard({ users, unassignedOwners }) {
-  return (
-    <Card variant="outlined" sx={{ display: 'inline-block', minWidth: 230, maxWidth: 280, textAlign: 'left', borderColor: TL.gray300, borderStyle: 'dashed', borderRadius: '10px' }}>
-      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-        <CardHead icon={<UserCircleIcon size={16} sx={{ color: TL.primary }} />} title="Platform users" />
-        <Typography variant="caption" sx={{ color: TL.gray400, display: 'block' }}>
-          {users.length} user{users.length === 1 ? '' : 's'}
-        </Typography>
-        <Box sx={{ mt: 0.75, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {users.map((u) => (
-            <Box key={u.userId}>
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: TL.gray800, lineHeight: 1.3 }}>
-                {u.fullName}
-              </Typography>
-              <Typography variant="caption" sx={{ color: TL.gray500 }}>
-                {[u.role, u.email].filter(Boolean).join(' · ')}
-              </Typography>
-            </Box>
-          ))}
-          {users.length === 0 && <Typography variant="caption" sx={{ color: TL.gray400 }}>No users</Typography>}
-        </Box>
-        {unassignedOwners.length > 0 && (
-          <>
-            <Box sx={{ borderTop: `1px solid ${TL.gray200}`, mt: 1, pt: 0.75 }} />
-            <Typography variant="caption" sx={{ color: TL.gray500, fontWeight: 600 }}>Unassigned owners</Typography>
-            <MemberList members={unassignedOwners} editable={false} emptyLabel="" />
-          </>
-        )}
-      </CardContent>
-    </Card>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={() => onSave(value ? Number(value) : null)}>Save</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -442,6 +460,7 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
   const [saving, setSaving] = useState(false);
   const [deptOpen, setDeptOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [titleOpen, setTitleOpen] = useState(false);
 
   const departmentsQuery = useQuery({ queryKey: ['org', 'departments', false], queryFn: () => api.org.departments(false), enabled: open });
   const teamsQuery = useQuery({ queryKey: ['org', 'teams'], queryFn: () => api.org.teams(), enabled: open });
@@ -484,23 +503,31 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
             onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <TextField label="Email" fullWidth size="small" type="email" required value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <Autocomplete
-            size="small"
-            options={titles}
-            getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
-            isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
-            value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
-            onChange={(_, o) => {
-              if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
-              setForm((f) => ({
-                ...f,
-                titleId: String(o.titleId),
-                departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
-                teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
-              }));
-            }}
-            renderInput={(params) => <TextField {...params} label="Title" placeholder="e.g. Branch Manager" />}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <Autocomplete
+                size="small"
+                options={titles}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : (o.name || ''))}
+                isOptionEqualToValue={(o, v) => o.titleId === v.titleId}
+                value={titles.find((t) => String(t.titleId) === String(form.titleId)) || null}
+                onChange={(_, o) => {
+                  if (!o) { setForm((f) => ({ ...f, titleId: '' })); return; }
+                  setForm((f) => ({
+                    ...f,
+                    titleId: String(o.titleId),
+                    departmentId: f.departmentId || (o.defaultDepartmentId != null ? String(o.defaultDepartmentId) : ''),
+                    teamId: f.teamId || (o.defaultUnitId != null ? String(o.defaultUnitId) : ''),
+                  }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Title" placeholder="e.g. Branch Manager" />}
+              />
+            </Box>
+            <Button size="small" startIcon={<PlusIcon size={16} />} sx={{ whiteSpace: 'nowrap' }}
+              onClick={() => setTitleOpen(true)}>
+              Add title
+            </Button>
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ flex: 1 }}>
@@ -550,6 +577,19 @@ function OwnerDialog({ open, onClose, initial, onSaved, onError }) {
       {teamOpen && (
         <QuickAddTeamDialog open onClose={() => setTeamOpen(false)} departmentId={form.departmentId}
           onCreated={(t) => { reload(); setForm((f) => ({ ...f, teamId: String(t.teamId) })); setTeamOpen(false); }} />
+      )}
+      {titleOpen && (
+        <QuickAddTitleDialog open onClose={() => setTitleOpen(false)} departments={departments} units={teams}
+          onCreated={(t) => {
+            qc.invalidateQueries({ queryKey: ['stakeholder-titles'] });
+            setForm((f) => ({
+              ...f,
+              titleId: String(t.titleId),
+              departmentId: f.departmentId || (t.defaultDepartmentId != null ? String(t.defaultDepartmentId) : ''),
+              teamId: f.teamId || (t.defaultUnitId != null ? String(t.defaultUnitId) : ''),
+            }));
+            setTitleOpen(false);
+          }} />
       )}
     </Dialog>
   );

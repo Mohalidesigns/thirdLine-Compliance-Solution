@@ -19,8 +19,8 @@ const UNITS = [{ value: 'DAYS', label: 'Days' }, { value: 'HOURS', label: 'Hours
 const MAX_LEVELS = 3;
 const CUSTOM = 'CUSTOM';
 const SCHEDULE_TAB = 0;
-const ESCALATION_TAB = 1;
-const RESPONSIBILITY_TAB = 2;
+const RESPONSIBILITY_TAB = 1;
+const ESCALATION_TAB = 2;
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[\s_-]/g, '');
 
@@ -40,16 +40,11 @@ function initialSchedule(item) {
     ruleType,
     firstDueDate: item?.firstDueDate || '',
     daysAfterPeriodEnd: item?.daysAfterPeriodEnd != null ? String(item.daysAfterPeriodEnd) : '',
-    prepDays: item?.prepDays != null ? String(item.prepDays) : '5',
   };
 }
 
 function validateSchedule(form) {
   if (!form.frequency) return 'Choose a frequency.';
-  if (form.prepDays !== '') {
-    const p = Number(form.prepDays);
-    if (!Number.isInteger(p) || p < 0) return 'Prep days must be a whole number of 0 or more.';
-  }
   if (NO_RULE.includes(form.frequency)) return '';
   if (form.ruleType === 'DATE') return form.firstDueDate ? '' : 'Enter the first due date.';
   if (form.ruleType === 'OFFSET') {
@@ -64,16 +59,15 @@ function validateSchedule(form) {
 }
 
 function scheduleBody(form) {
-  const prepDays = form.prepDays === '' ? null : Number(form.prepDays);
   if (NO_RULE.includes(form.frequency)) {
-    return { frequency: form.frequency, ruleType: null, firstDueDate: null, daysAfterPeriodEnd: null, prepDays };
+    return { frequency: form.frequency, ruleType: null, firstDueDate: null, daysAfterPeriodEnd: null };
   }
   if (form.ruleType === 'DATE') {
-    return { frequency: form.frequency, ruleType: 'DATE', firstDueDate: form.firstDueDate, daysAfterPeriodEnd: null, prepDays };
+    return { frequency: form.frequency, ruleType: 'DATE', firstDueDate: form.firstDueDate, daysAfterPeriodEnd: null };
   }
   return {
     frequency: form.frequency, ruleType: 'OFFSET', firstDueDate: null,
-    daysAfterPeriodEnd: Number(form.daysAfterPeriodEnd), prepDays,
+    daysAfterPeriodEnd: Number(form.daysAfterPeriodEnd),
   };
 }
 
@@ -140,6 +134,7 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
   const [people, setPeople] = useState(() => initialResponsibility(item));
   const [owner, setOwner] = useState(null);
   const [escalation, setEscalation] = useState(null);
+  const [levelCount, setLevelCount] = useState(1);
   const [policyChoice, setPolicyChoice] = useState(CUSTOM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -183,6 +178,7 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
   useEffect(() => {
     if (!open || !escalationQuery.data) return;
     setEscalation(toEscalationForm(escalationQuery.data));
+    setLevelCount(1);
   }, [open, escalationQuery.data]);
 
   useEffect(() => {
@@ -197,6 +193,21 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
   const setLevel = (index, key, value) => setEscalation((f) => ({
     ...f, levels: f.levels.map((l, i) => (i === index ? { ...l, [key]: value } : l)),
   }));
+
+  const addLevel = () => {
+    const next = Math.min(levelCount + 1, MAX_LEVELS);
+    if (next <= levelCount) return;
+    if (!escalation || escalation.levels.length < next) {
+      setEscalation((f) => ({ ...f, levels: [...f.levels,
+        { afterValue: 3, afterUnit: 'DAYS', targetType: 'MANAGER', person: null }] }));
+    }
+    setLevelCount(next);
+  };
+
+  const removeLevel = (index) => {
+    setEscalation((f) => ({ ...f, levels: f.levels.filter((_, i) => i !== index) }));
+    setLevelCount((n) => Math.max(1, n - 1));
+  };
 
   const showRule = schedule.frequency && !NO_RULE.includes(schedule.frequency);
 
@@ -236,7 +247,7 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
           reminderStartUnit: escalation.reminderStartUnit,
           reminderRepeatValue: escalation.reminderRepeatValue === '' ? null : Number(escalation.reminderRepeatValue),
           reminderRepeatUnit: escalation.reminderRepeatUnit,
-          levels: toLevels(escalation.levels),
+          levels: toLevels(escalation.levels.slice(0, levelCount)),
         });
       } else {
         await api.returns.updateEscalationPolicy(returnId, Number(policyChoice));
@@ -261,8 +272,8 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
         {canEditSchedule && (
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Tab label="Schedule" />
-            <Tab label="Escalation" />
             <Tab label="Responsibility" />
+            <Tab label="Escalation" />
           </Tabs>
         )}
 
@@ -306,9 +317,6 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                 The deadline is anchored to the event — configure the trigger on the return.
               </Alert>
             )}
-            <TextField fullWidth size="small" type="number" label="Prep days before due"
-              value={schedule.prepDays} onChange={e => setS('prepDays', e.target.value)}
-              helperText="How many days before the due date the responsible person should start." />
           </>
         )}
 
@@ -364,9 +372,17 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                 </Box>
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="overline" color="text.secondary">Ladder (after the due date)</Typography>
-                {escalation.levels.map((level, index) => (
+                {escalation.levels.slice(0, levelCount).map((level, index) => (
                   <Box key={index} sx={{ mb: 1.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>Level {index + 1}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>Level {index + 1}</Typography>
+                      {levelCount > 1 && (
+                        <Button size="small" color="inherit" sx={{ minWidth: 0, p: 0, fontSize: '0.7rem' }}
+                          onClick={() => removeLevel(index)}>
+                          Remove
+                        </Button>
+                      )}
+                    </Box>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1 }}>
                       <PersonPicker mode="user" label={`Level ${index + 1} escalate to`} value={level.person}
                         onChange={(p) => setLevel(index, 'person', p)} />
@@ -380,17 +396,9 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                     </Box>
                   </Box>
                 ))}
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Button size="small" variant="text" disabled={escalation.levels.length >= MAX_LEVELS}
-                    onClick={() => setE('levels', [...escalation.levels,
-                      { afterValue: 3, afterUnit: 'DAYS', targetType: 'MANAGER', person: null }])}>
-                    + Add level
-                  </Button>
-                  <Button size="small" variant="text" disabled={escalation.levels.length <= 1}
-                    onClick={() => setE('levels', escalation.levels.slice(0, -1))}>
-                    Remove level
-                  </Button>
-                </Box>
+                <Button size="small" variant="text" disabled={levelCount >= MAX_LEVELS} onClick={addLevel}>
+                  + Add level
+                </Button>
                 <Typography variant="caption" color="text.secondary">
                   An empty “escalate to” falls back to the responsible person's manager, then the CCO.
                 </Typography>

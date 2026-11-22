@@ -10,6 +10,8 @@ public class TeamDto {
     private Integer departmentId;
     private String departmentName;
     private String name;
+    private Integer headOwnerId;
+    private String headOwnerName;
     private Boolean isActive;
     private Integer ownerCount;
 }

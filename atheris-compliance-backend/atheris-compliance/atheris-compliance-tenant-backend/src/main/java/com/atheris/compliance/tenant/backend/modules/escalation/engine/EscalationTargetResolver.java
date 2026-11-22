@@ -1,6 +1,12 @@
 package com.atheris.compliance.tenant.backend.modules.escalation.engine;
 
 import com.atheris.compliance.tenant.backend.modules.escalation.dto.EscalationLevelDto;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
+import com.atheris.compliance.tenant.backend.modules.org.entity.Team;
+import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.org.repository.TeamRepository;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
 import com.atheris.compliance.tenant.backend.shared.util.AppRole;
@@ -18,8 +24,12 @@ import java.util.Objects;
 public class EscalationTargetResolver {
 
     private final UserRepository users;
+    private final DepartmentRepository departments;
+    private final TeamRepository teams;
+    private final OwnerRepository owners;
 
-    public List<EscalationTarget> resolve(EscalationLevelDto level, List<Person> assignees, Person owner) {
+    public List<EscalationTarget> resolve(EscalationLevelDto level, List<Person> assignees, Person owner,
+                                          Integer departmentId, Integer teamId) {
         String type = level.getTargetType() == null ? "" : level.getTargetType().toUpperCase(Locale.ROOT);
         return switch (type) {
             case EscalationConstants.TARGET_PERSON ->
@@ -28,8 +38,30 @@ public class EscalationTargetResolver {
                 List.of(new EscalationTarget(null, null, null, level.getTargetRole()));
             case EscalationConstants.TARGET_MANAGER -> oneOrCco(managerOf(firstWithUser(assignees)));
             case EscalationConstants.TARGET_MANAGER_OF_MANAGER -> oneOrCco(managerOf(managerOf(firstWithUser(assignees))));
+            case EscalationConstants.TARGET_UNIT_HEAD -> oneOrCcoOwner(teamHead(teamId, departmentId));
+            case EscalationConstants.TARGET_DEPT_HEAD -> oneOrCcoOwner(departmentHead(departmentId));
             default -> assigneeTargets(assignees, owner);
         };
+    }
+
+    private Integer teamHead(Integer teamId, Integer departmentId) {
+        if (teamId != null) {
+            Integer head = teams.findById(teamId).map(Team::getHeadOwnerId).orElse(null);
+            if (head != null) return head;
+        }
+        return departmentHead(departmentId);
+    }
+
+    private Integer departmentHead(Integer departmentId) {
+        return departmentId == null ? null
+            : departments.findById(departmentId).map(Department::getHeadOwnerId).orElse(null);
+    }
+
+    private List<EscalationTarget> oneOrCcoOwner(Integer ownerId) {
+        if (ownerId == null) return List.of(new EscalationTarget(null, null, null, AppRole.CCO));
+        Owner owner = owners.findById(ownerId).orElse(null);
+        if (owner == null || owner.getEmail() == null) return List.of(new EscalationTarget(null, null, null, AppRole.CCO));
+        return List.of(new EscalationTarget(owner.getFullName(), owner.getEmail(), owner.getUserId(), null));
     }
 
     public List<EscalationTarget> assigneeTargets(List<Person> assignees, Person owner) {

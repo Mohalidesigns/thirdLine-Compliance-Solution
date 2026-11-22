@@ -147,7 +147,7 @@ public class EscalationPolicyService {
                 .subjectType(subjectType).subjectId(subjectId).sourcePolicyId(policy.getPolicyId())
                 .reminderStartValue(policy.getReminderStartValue()).reminderStartUnit(policy.getReminderStartUnit())
                 .reminderRepeatValue(policy.getReminderRepeatValue()).reminderRepeatUnit(policy.getReminderRepeatUnit())
-                .sendLink(policy.getSendLink()).active(true).build());
+                .sendLink(policy.getSendLink()).active(true).customised(false).build());
             for (EscalationPolicyLevel l : policyLevels.findByPolicyIdOrderByLevelNoAsc(policy.getPolicyId())) {
                 instanceLevels.save(EscalationInstanceLevel.builder()
                     .overrideId(instance.getOverrideId()).levelNo(l.getLevelNo())
@@ -173,6 +173,7 @@ public class EscalationPolicyService {
             instance.setReminderRepeatUnit(normUnit(req.getReminderRepeatUnit()));
             instance.setSendLink(req.getSendLink() == null || req.getSendLink());
             instance.setActive(req.getActive() == null || req.getActive());
+            instance.setCustomised(true);
             instance = instances.save(instance);
             instanceLevels.deleteByOverrideId(instance.getOverrideId());
             instanceLevels.flush();
@@ -214,6 +215,7 @@ public class EscalationPolicyService {
             instance.setReminderRepeatUnit(policy.getReminderRepeatUnit());
             instance.setSendLink(policy.getSendLink());
             instance.setActive(true);
+            instance.setCustomised(false);
             instance = instances.save(instance);
             instanceLevels.deleteByOverrideId(instance.getOverrideId());
             instanceLevels.flush();
@@ -238,13 +240,29 @@ public class EscalationPolicyService {
         int changed = 0;
         for (Long subjectId : subjectIds == null ? List.<Long>of() : subjectIds) {
             EscalationInstance row = instances.findBySubjectTypeAndSubjectId(subjectType, subjectId).orElse(null);
-            if (row == null || !matchesSource(row)) continue;
+            if (row == null || Boolean.TRUE.equals(row.getCustomised())) continue;
             freezeFromPolicy(subjectType, subjectId, target.getPolicyId(), null);
             changed++;
         }
         if (changed > 0) {
             log.info("[Escalation] re-pinned {} {} filing(s) to policy {}",
                 changed, subjectType, target.getPolicyId());
+        }
+        return changed;
+    }
+
+    @Transactional
+    public int repinUntouched(String subjectType) {
+        int changed = 0;
+        for (EscalationInstance row : instances.findBySubjectType(subjectType)) {
+            if (Boolean.TRUE.equals(row.getCustomised())) continue;
+            if (row.getSourcePolicyId() == null) continue;
+            if (matchesSource(row)) continue;
+            freezeFromPolicy(subjectType, row.getSubjectId(), row.getSourcePolicyId(), null);
+            changed++;
+        }
+        if (changed > 0) {
+            log.info("[Escalation] re-pinned {} {} filing(s) to their policy", changed, subjectType);
         }
         return changed;
     }

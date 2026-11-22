@@ -18,4 +18,6 @@ public interface RegulatoryReturnRepository extends JpaRepository<RegulatoryRetu
     long countByActId(Long actId);
     boolean existsByReturnNameAndActId(String returnName, Long actId);
     boolean existsByReturnNameAndTenantRegulatorId(String returnName, Long tenantRegulatorId);
+    List<RegulatoryReturn> findByDepartmentId(Integer departmentId);
+    List<RegulatoryReturn> findByTeamId(Integer teamId);
 }

@@ -131,7 +131,8 @@ public class EscalationEngine {
                       LocalDateTime now, boolean includePublicLink) {
         List<EscalationTarget> targets = level == null
             ? resolver.assigneeTargets(candidate.assignees(), candidate.owner())
-            : resolver.resolve(level, candidate.assignees(), candidate.owner());
+            : resolver.resolve(level, candidate.assignees(), candidate.owner(),
+                candidate.departmentId(), candidate.teamId());
         if (targets.isEmpty()) return;
 
         String publicLink = includePublicLink

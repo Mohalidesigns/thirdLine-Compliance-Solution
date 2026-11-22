@@ -12,7 +12,9 @@ import com.atheris.compliance.tenant.backend.shared.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -159,6 +163,59 @@ public class StakeholderBulkImportService {
             .created(created).updated(updated).skipped(skipped).errors(errors).build();
     }
 
+    public byte[] template() {
+        List<Department> depts = departments.findAll();
+        List<Team> allTeams = teams.findAll();
+        try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            CellStyle headerStyle = wb.createCellStyle();
+            Font headerFont = wb.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            Sheet data = wb.createSheet("Stakeholders");
+            String[] headers = { COL_NAME + "*", COL_EMAIL + "*", COL_TITLE, COL_DEPARTMENT + "*", COL_UNIT };
+            Row head = data.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell c = head.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+                data.setColumnWidth(i, 7500);
+            }
+            String exampleDept = depts.stream().map(Department::getName).filter(Objects::nonNull).findFirst().orElse("Compliance");
+            String[] example = { "Jane Doe", "jane.doe@example.com", "Head of Compliance", exampleDept, "" };
+            Row exampleRow = data.createRow(1);
+            for (int i = 0; i < example.length; i++) {
+                exampleRow.createCell(i).setCellValue(example[i]);
+            }
+
+            Sheet ref = wb.createSheet("Departments & units");
+            Row refHead = ref.createRow(0);
+            Cell refDeptCell = refHead.createCell(0);
+            refDeptCell.setCellValue("Department (required)");
+            refDeptCell.setCellStyle(headerStyle);
+            Cell refUnitCell = refHead.createCell(1);
+            refUnitCell.setCellValue("Unit (optional)");
+            refUnitCell.setCellStyle(headerStyle);
+            int r = 1;
+            for (Department d : depts) {
+                List<Team> ds = allTeams.stream().filter(t -> Objects.equals(t.getDepartmentId(), d.getDepartmentId())).toList();
+                if (ds.isEmpty()) {
+                    ref.createRow(r++).createCell(0).setCellValue(d.getName());
+                } else {
+                    for (Team t : ds) {
+                        Row row = ref.createRow(r++);
+                        row.createCell(0).setCellValue(d.getName());
+                        row.createCell(1).setCellValue(t.getName());
+                    }
+                }
+            }
+            wb.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw ApiException.badRequest("template_failed", "Could not generate the template");
+        }
+    }
+
     private List<List<String>> readGrid(MultipartFile file) {
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
         try (InputStream in = file.getInputStream()) {
@@ -234,9 +291,13 @@ public class StakeholderBulkImportService {
     private static Map<String, Integer> headerIndex(List<String> header) {
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < header.size(); i++) {
-            map.putIfAbsent(key(header.get(i)), i);
+            map.putIfAbsent(headerKey(header.get(i)), i);
         }
         return map;
+    }
+
+    private static String headerKey(String value) {
+        return key(value).replace("*", "").trim();
     }
 
     private static int require(Map<String, Integer> header, String column) {

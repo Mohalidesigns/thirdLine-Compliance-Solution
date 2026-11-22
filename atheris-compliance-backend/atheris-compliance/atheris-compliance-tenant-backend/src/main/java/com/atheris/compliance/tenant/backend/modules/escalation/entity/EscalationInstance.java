@@ -38,6 +38,9 @@ public class EscalationInstance {
     @Builder.Default
     private Boolean active = true;
 
+    @Builder.Default
+    private Boolean customised = false;
+
     private Instant createdAt;
     private Instant updatedAt;
 
