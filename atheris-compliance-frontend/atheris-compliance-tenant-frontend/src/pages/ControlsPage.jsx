@@ -64,6 +64,8 @@ export default function ControlsPage() {
   const [actFilter, setActFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [unitFilter, setUnitFilter] = useState('All');
+  const [dueFrom, setDueFrom] = useState('');
+  const [dueTo, setDueTo] = useState('');
   const { departments, units } = usePlacementOptions();
   const [obligationInput, setObligationInput] = useState('');
   const [page, setPage] = useState(0);
@@ -86,7 +88,7 @@ export default function ControlsPage() {
   const hasFilters = search || themeFilter !== 'All'
     || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All'
     || deptFilter !== 'All' || unitFilter !== 'All'
-    || effectivenessFilter !== 'All' || obligationFilter != null;
+    || effectivenessFilter !== 'All' || obligationFilter != null || dueFrom || dueTo;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -96,6 +98,8 @@ export default function ControlsPage() {
   if (actFilter !== 'All') params.actName = actFilter;
   if (deptFilter !== 'All') params.departmentId = deptFilter;
   if (unitFilter !== 'All') params.teamId = unitFilter;
+  if (dueFrom) params.dueFrom = dueFrom;
+  if (dueTo) params.dueTo = dueTo;
   if (obligationFilter != null) params.obligationId = obligationFilter;
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
@@ -169,6 +173,7 @@ export default function ControlsPage() {
   function clearFilters() {
     setSearch(''); setThemeFilter('All');
     setOwnerFilter('All'); setStatusFilter('All'); setEffectivenessFilter('All'); setActFilter('All');
+    setDeptFilter('All'); setUnitFilter('All'); setDueFrom(''); setDueTo('');
     setObligationFilter(null);
     setPage(0);
   }
@@ -303,6 +308,14 @@ export default function ControlsPage() {
             renderInput={(params) => <TextField {...params} placeholder="Search obligation…" />}
             sx={{ minWidth: 260 }}
           />
+        </FilterField>
+        <FilterField label="Due from" minWidth={160}>
+          <TextField type="date" size="small" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setPage(0); }}
+            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+        <FilterField label="Due to" minWidth={160}>
+          <TextField type="date" size="small" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setPage(0); }}
+            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
         </FilterField>
       </FilterBar>
 

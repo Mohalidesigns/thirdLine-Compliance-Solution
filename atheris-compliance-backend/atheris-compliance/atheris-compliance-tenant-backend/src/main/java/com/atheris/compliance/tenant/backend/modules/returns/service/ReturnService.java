@@ -211,7 +211,8 @@ public class ReturnService {
     public Page<ReturnRegisterItem> getRegister(String q, String frequency, String regulator,
                                                  String act, String frequencyType, String responsibleUnit,
                                                  Long actId, String status, Boolean unlinked,
-                                                 Integer departmentId, Integer teamId, Pageable p) {
+                                                 Integer departmentId, Integer teamId,
+                                                 LocalDate dueFrom, LocalDate dueTo, Pageable p) {
 
         List<RegulatoryReturn> allReturns = returns.findByStatus(RegulatoryReturnStatus.ACTIVE);
 
@@ -278,6 +279,9 @@ public class ReturnService {
                 boolean hasLinks = item.getLinkedObligationCount() != null && item.getLinkedObligationCount() > 0;
                 if (unlinked == hasLinks) continue; // unlinked=true keeps link-less rows; false keeps linked ones
             }
+            LocalDate due = item.getCurrentDueDate();
+            if (dueFrom != null && (due == null || due.isBefore(dueFrom))) continue;
+            if (dueTo != null && (due == null || due.isAfter(dueTo))) continue;
             boolean eventDriven = ReturnFrequency.fromCode(r.getFrequencyType()).orElse(ReturnFrequency.MONTHLY)
                 == ReturnFrequency.EVENT_DRIVEN;
             if (dueDateNeededFilter) {

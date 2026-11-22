@@ -55,20 +55,30 @@ public class ControlService {
 
     public Page<ControlRegisterItem> getRegisterList(
             String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, String effectiveness,
-            Integer departmentId, Integer teamId, Pageable p) {
+            Integer departmentId, Integer teamId, LocalDate dueFrom, LocalDate dueTo, Pageable p) {
         Integer themeId = themeService.require(theme);
         var spec = ControlSpecification.withFilters(themeId, ownerUserId, ownerId, status, q, actId, actName, obligationId, departmentId, teamId);
-        if (effectiveness == null || effectiveness.isBlank()) {
+        boolean hasEffectiveness = effectiveness != null && !effectiveness.isBlank();
+        if (!hasEffectiveness && dueFrom == null && dueTo == null) {
             Page<Control> page = repo.findAll(spec, safeSort(p));
             return new PageImpl<>(buildRegisterItems(page.getContent()), p, page.getTotalElements());
         }
         List<Control> all = repo.findAll(spec, safeSort(Pageable.unpaged(p.getSort()))).getContent();
         List<ControlRegisterItem> filtered = buildRegisterItems(all).stream()
-            .filter(i -> effectiveness.equalsIgnoreCase(i.getEffectivenessState()))
+            .filter(i -> !hasEffectiveness || effectiveness.equalsIgnoreCase(i.getEffectivenessState()))
+            .filter(i -> withinDueRange(i.getNextTestDueDate(), dueFrom, dueTo))
             .toList();
         int from = (int) Math.min((long) p.getPageNumber() * p.getPageSize(), filtered.size());
         int to = Math.min(from + p.getPageSize(), filtered.size());
         return new PageImpl<>(filtered.subList(from, to), p, filtered.size());
+    }
+
+    private static boolean withinDueRange(LocalDate due, LocalDate from, LocalDate to) {
+        if (from == null && to == null) return true;
+        if (due == null) return false;
+        if (from != null && due.isBefore(from)) return false;
+        if (to != null && due.isAfter(to)) return false;
+        return true;
     }
 
     private List<ControlRegisterItem> buildRegisterItems(List<Control> controls) {

@@ -10,11 +10,13 @@ import com.atheris.compliance.tenant.backend.shared.util.AppRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -57,8 +59,10 @@ public class ReturnController {
             @RequestParam(required = false) Boolean unlinked,
             @RequestParam(required = false) Integer departmentId,
             @RequestParam(required = false) Integer teamId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, frequencyType, responsibleUnit, actId, status, unlinked, departmentId, teamId, p));
+        return ResponseEntity.ok(service.getRegister(q, frequency, regulator, act, frequencyType, responsibleUnit, actId, status, unlinked, departmentId, teamId, dueFrom, dueTo, p));
     }
 
     @GetMapping("/stats")

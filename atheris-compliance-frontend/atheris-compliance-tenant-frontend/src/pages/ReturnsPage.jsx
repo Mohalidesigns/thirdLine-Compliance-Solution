@@ -4,11 +4,11 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import {
   Box, Typography, Chip, Button, CircularProgress, Alert, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Tooltip, TablePagination, TableSortLabel,
+  Tooltip, TablePagination, TableSortLabel, TextField,
   Snackbar, Alert as MuiAlert,
 } from '@mui/material';
 import {
-  PageHeader, KpiCards, FilterBar, StatusBadge,
+  PageHeader, KpiCards, FilterBar, FilterField, StatusBadge,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, ClockIcon, CheckCircleIcon,
   ClipboardDocumentListIcon, ExclamationTriangleIcon,
   PresentationChartLineIcon,
@@ -78,6 +78,8 @@ export default function ReturnsPage() {
   const [actFilter, setActFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [unitFilter, setUnitFilter] = useState('All');
+  const [dueFrom, setDueFrom] = useState('');
+  const [dueTo, setDueTo] = useState('');
   const { departments, units } = usePlacementOptions();
   const [unlinkedFilter, setUnlinkedFilter] = useState(false);
   const [page, setPage] = useState(0);
@@ -86,7 +88,7 @@ export default function ReturnsPage() {
   const [sortDir, setSortDir] = useState('asc');
 
   const hasFilters = search || statusFilter !== 'All' || frequencyFilter !== 'All' || regulatorFilter !== 'All' || actFilter !== 'All' || unlinkedFilter
-    || deptFilter !== 'All' || unitFilter !== 'All';
+    || deptFilter !== 'All' || unitFilter !== 'All' || dueFrom || dueTo;
 
   const params = { page, size: rowsPerPage };
   if (search) params.q = search;
@@ -96,6 +98,8 @@ export default function ReturnsPage() {
   if (actFilter !== 'All') params.act = actFilter;
   if (deptFilter !== 'All') params.departmentId = deptFilter;
   if (unitFilter !== 'All') params.teamId = unitFilter;
+  if (dueFrom) params.dueFrom = dueFrom;
+  if (dueTo) params.dueTo = dueTo;
   if (unlinkedFilter) params.unlinked = 'true';
   if (sortField) params.sort = `${sortField},${sortDir}`;
 
@@ -135,6 +139,7 @@ export default function ReturnsPage() {
   function refresh() { queryClient.invalidateQueries({ queryKey: ['returns'] }); }
   function clearFilters() {
     setSearch(''); setStatusFilter('All'); setFrequencyFilter('All'); setRegulatorFilter('All'); setActFilter('All');
+    setDeptFilter('All'); setUnitFilter('All'); setDueFrom(''); setDueTo('');
     setUnlinkedFilter(false); setPage(0);
   }
   function applyKpiFilter(type) {
@@ -221,7 +226,16 @@ export default function ReturnsPage() {
         ]}
         showClear={!!hasFilters}
         onClear={clearFilters}
-      />
+      >
+        <FilterField label="Due from" minWidth={160}>
+          <TextField type="date" size="small" value={dueFrom} onChange={(e) => { setDueFrom(e.target.value); setPage(0); }}
+            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+        <FilterField label="Due to" minWidth={160}>
+          <TextField type="date" size="small" value={dueTo} onChange={(e) => { setDueTo(e.target.value); setPage(0); }}
+            slotProps={{ inputLabel: { shrink: true } }} sx={{ '& .MuiOutlinedInput-root': { height: 40 } }} />
+        </FilterField>
+      </FilterBar>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
