@@ -233,7 +233,8 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
       if (canEditSchedule) {
         const body = scheduleBody(schedule);
         const before = scheduleBody(initialSchedule(item));
-        if (JSON.stringify(body) !== JSON.stringify(before)) {
+        const promoteToUser = item?.dueDateSource !== 'user' && body.ruleType != null;
+        if (JSON.stringify(body) !== JSON.stringify(before) || promoteToUser) {
           await api.returns.updateSchedule(returnId, body);
         }
       }

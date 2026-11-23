@@ -29,9 +29,8 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
   const currentStatus = item.hasOverdue ? 'Overdue' : item.currentStatus;
 
   return (
-    <Box>
-      <Section icon={<ClipboardDocumentListIcon />} title="Return details"
-        >
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5, alignItems: 'start', mb: 2.5 }}>
+      <Section icon={<ClipboardDocumentListIcon />} title="Return details" sx={{ mb: 0 }}>
         <FieldGrid min={180}>
           <Field label="Act" value={item.actName || 'No act recorded'} />
           <Field label="Regulator" value={item.filingRegulator} />
@@ -46,7 +45,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
         </FieldGrid>
       </Section>
 
-      <Section icon={<CalendarIcon />} title="Schedule & periods">
+      <Section icon={<CalendarIcon />} title="Schedule & periods" sx={{ mb: 0 }}>
         <FieldGrid min={180}>
           <Field label="Current period" value={item.currentPeriod || (eventDriven ? 'On event' : '—')} />
           <Field label="Current due date" value={item.currentDueDate ? formatDate(item.currentDueDate) : '—'} />
@@ -84,7 +83,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
       </Section>
 
       {eventDriven && (
-        <Section icon={<CalendarIcon />} title="Event trigger">
+        <Section icon={<CalendarIcon />} title="Event trigger" sx={{ mb: 0 }}>
           <FieldGrid min={180}>
             <Field label="Trigger" value={item.eventTriggerLabel} />
             <Field label="Deadline mode" value={item.eventDeadlineMode} />
@@ -102,7 +101,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
         </Section>
       )}
 
-      <Section icon={<ExclamationTriangleIcon />} title="Escalation">
+      <Section icon={<ExclamationTriangleIcon />} title="Escalation" sx={{ mb: 0 }}>
         {escalationLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={22} /></Box>
         ) : !escalation || escalation.policyId == null ? (
@@ -141,6 +140,7 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
       </Section>
 
       <Section icon={<LinkIcon />} title={`Linked obligations (${obligations?.length ?? item.linkedObligationCount ?? 0})`}
+        sx={{ mb: 0 }}
         action={obligations?.length ? (
           <Button size="small" variant="text" onClick={() => setShowObligations((v) => !v)}>
             {showObligations ? 'Hide' : 'Show'}
