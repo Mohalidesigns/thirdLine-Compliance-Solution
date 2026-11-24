@@ -10,7 +10,8 @@ import { api } from '../services/api';
 import RecordTestDialog from '../components/modals/RecordTestDialog';
 import LinkControlsPicker from '../components/modals/LinkControlsPicker';
 import OwnerPicker from '../components/org/OwnerPicker';
-import WorkflowTimeline from '../components/tasks/WorkflowTimeline';
+import WorkflowSteps from '../components/tasks/WorkflowSteps';
+import AuditLog from '../components/tasks/AuditLog';
 
 const AUDIT_TYPES = {
   CONTROL: ['control', 'control_test'],
@@ -170,9 +171,12 @@ export default function TaskCockpitPage() {
         </DataCard>
       </Box>
 
-      <Box sx={{ mt: 3 }}>
-        <DataCard title="Workflow & audit">
-          <WorkflowTimeline subjectTypes={AUDIT_TYPES[subjectType]} subjectId={subjectId} />
+      <Box sx={{ mt: 3, display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
+        <DataCard>
+          <WorkflowSteps subjectType={subjectType} subjectId={subjectId} sourceRef={primary?.sourceRef} />
+        </DataCard>
+        <DataCard>
+          <AuditLog subjectTypes={AUDIT_TYPES[subjectType]} subjectId={subjectId} />
         </DataCard>
       </Box>
 
