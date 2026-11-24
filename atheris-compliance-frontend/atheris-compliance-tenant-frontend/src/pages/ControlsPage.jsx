@@ -52,6 +52,7 @@ export default function ControlsPage() {
   // "Linked obligation" filter lives in the URL (?obligationId=) so it survives navigation
   // from the obligation detail page and can be cleared with a chip.
   const obligationIdParam = searchParams.get('obligationId');
+  const fromTasks = searchParams.get('from') === 'tasks';
   const obligationFilter = obligationIdParam && !Number.isNaN(Number(obligationIdParam))
     ? Number(obligationIdParam) : null;
 
@@ -234,7 +235,7 @@ export default function ControlsPage() {
   ];
 
   if (detailId != null) {
-    const goBack = () => { setDetailId(null); setEditOpen(false); setRecordTestOpen(false); };
+    const goBack = () => { if (fromTasks) { navigate('/tasks'); return; } setDetailId(null); setEditOpen(false); setRecordTestOpen(false); };
     if (detailQuery.isPending) {
       return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
     }

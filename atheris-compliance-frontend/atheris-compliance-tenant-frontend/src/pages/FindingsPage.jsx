@@ -44,6 +44,8 @@ export default function FindingsPage() {
   const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false, departmentId: '', teamId: '' });
   const { departments: allDepartments, units: allUnits } = usePlacementOptions();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const fromTasks = searchParams.get('from') === 'tasks';
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseInitial, setRaiseInitial] = useState(null);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -159,14 +161,14 @@ export default function FindingsPage() {
       return (
         <Box>
           <Alert severity="error" sx={{ mb: 2 }}>{detailQuery.error?.message || 'Failed to load finding.'}</Alert>
-          <Button onClick={() => setDetailId(null)}>Back to Findings</Button>
+          <Button onClick={() => (fromTasks ? navigate('/tasks') : setDetailId(null))}>Back to {fromTasks ? 'Tasks' : 'Findings'}</Button>
         </Box>
       );
     }
     return (
       <DetailView
         detail={detail}
-        onBack={() => { setDetailId(null); refreshRelated(); }}
+        onBack={() => { if (fromTasks) { navigate('/tasks'); return; } setDetailId(null); refreshRelated(); }}
         onRefresh={refreshRelated}
         onAssign={() => setAssignOpen(true)}
         onRemediate={() => setRemediateOpen(true)}
