@@ -23,6 +23,7 @@ public class CreateReturnRequest {
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;
+    private String returnOwnerEmail;
     private String responsibleUnit;
     private String responsiblePerson;
     private java.util.List<String> responsibleUnits;

@@ -41,6 +41,7 @@ export default function PublicControlTestPage() {
   const [testDate, setTestDate] = useState(today());
   const [result, setResult] = useState('');
   const [notes, setNotes] = useState('');
+  const [evidenceName, setEvidenceName] = useState('');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
 
@@ -87,14 +88,17 @@ export default function PublicControlTestPage() {
     setFile(f);
   }
 
+  const nameMissing = !!file && !evidenceName.trim();
+
   function handleSubmit(e) {
     e.preventDefault();
-    if (!result || !file) return;
+    if (!result || !file || nameMissing) return;
     mutation.mutate({
       testDate,
       result,
       notes: notes.trim() || undefined,
       file: file || undefined,
+      evidenceName: evidenceName.trim() || undefined,
     });
   }
 
@@ -170,12 +174,17 @@ export default function PublicControlTestPage() {
                 {file && (
                   <Typography sx={{ fontSize: '0.875rem', color: TL.gray700, mt: 1 }}>{file.name}</Typography>
                 )}
+                <TextField label="Test evidence title" fullWidth required size="small" sx={{ mt: 2 }}
+                  placeholder="A short label for the attached evidence."
+                  error={nameMissing}
+                  helperText={nameMissing ? 'An evidence name is required.' : ''}
+                  value={evidenceName} onChange={(e) => setEvidenceName(e.target.value)} />
               </Box>
 
               {mutation.isError && <Alert severity="error">{mutation.error?.message || 'Submission failed.'}</Alert>}
 
               <Stack direction="row" justifyContent="flex-end">
-                <Button type="submit" variant="contained" disabled={mutation.isPending || !result || !file}
+                <Button type="submit" variant="contained" disabled={mutation.isPending || !result || !file || nameMissing}
                   startIcon={mutation.isPending ? <CircularProgress size={16} color="inherit" /> : null}>
                   {mutation.isPending ? 'Submitting…' : 'Submit test result'}
                 </Button>

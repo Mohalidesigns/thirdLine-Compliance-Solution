@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS regulatory_returns (
     filing_channel             TEXT,
     return_owner_user_id       INT,
     return_owner_name          TEXT,
+    return_owner_email         TEXT,
     responsible_unit           TEXT,
     responsible_person         TEXT,
     responsible_units          JSONB DEFAULT '[]',

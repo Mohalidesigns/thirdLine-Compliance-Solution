@@ -53,6 +53,7 @@ export default function PublicRemediatePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [notes, setNotes] = useState('');
+  const [evidenceName, setEvidenceName] = useState('');
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -86,6 +87,8 @@ export default function PublicRemediatePage() {
     setFiles(f => f.filter((_, idx) => idx !== i));
   }
 
+  const nameMissing = files.length > 0 && !evidenceName.trim();
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError('');
@@ -93,9 +96,13 @@ export default function PublicRemediatePage() {
       setSubmitError('Attach at least one evidence file before submitting.');
       return;
     }
+    if (nameMissing) {
+      setSubmitError('An evidence name is required before submitting.');
+      return;
+    }
     setSubmitting(true);
     try {
-      await publicApi.remediationSubmit(token, { notes, files });
+      await publicApi.remediationSubmit(token, { notes, files, evidenceName: evidenceName.trim() });
       setDone(true);
     } catch (err) {
       setSubmitError(err.message || 'Submission failed.');
@@ -196,6 +203,14 @@ export default function PublicRemediatePage() {
               </Grid>
 
               <Grid size={{ xs: 12 }}>
+                <TextField label="Remediation evidence title" fullWidth required size="small"
+                  placeholder="A short label for the attached evidence."
+                  error={nameMissing}
+                  helperText={nameMissing ? 'An evidence name is required.' : ''}
+                  value={evidenceName} onChange={e => setEvidenceName(e.target.value)} />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
                 <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />}
                   disabled={files.length >= MAX_FILES}>
                   Attach evidence * (PDF, PNG, JPG, DOCX, XLSX · max {MAX_FILES} files · {MAX_MB} MB each)
@@ -226,7 +241,7 @@ export default function PublicRemediatePage() {
 
               <Grid size={{ xs: 12 }}>
                 <Stack direction="row" justifyContent="flex-end">
-                  <Button type="submit" variant="contained" disabled={submitting || files.length === 0}
+                  <Button type="submit" variant="contained" disabled={submitting || files.length === 0 || nameMissing}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon size={16} />}>
                     {submitting ? 'Submitting…' : 'Submit Remediation'}
                   </Button>

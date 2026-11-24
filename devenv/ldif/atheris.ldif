@@ -548,3 +548,17 @@ title: Talent Acquisition
 mail: recruitment@atheris.test
 uid: recruitment
 userPassword: Passw0rd!
+
+# --- Groups ---
+dn: ou=groups,dc=atheris,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+# Compliance team distribution group (oversight Cc target). extensibleObject allows mail.
+dn: cn=compliance,ou=groups,dc=atheris,dc=test
+objectClass: groupOfNames
+objectClass: extensibleObject
+cn: compliance
+mail: compliance@atheris.test
+description: Compliance team distribution group
+member: cn=cco,ou=people,dc=atheris,dc=test

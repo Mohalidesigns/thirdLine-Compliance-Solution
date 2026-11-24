@@ -85,6 +85,7 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
     slaLowDays: String(initial.slaLowDays ?? 60),
     requireControlTestReview: initial.requireControlTestReview ?? true,
     requireFindingReview: initial.requireFindingReview ?? true,
+    complianceTeamEmail: initial.complianceTeamEmail || '',
   }), [initial]);
   const [form, setForm] = useState(seed);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -104,6 +105,7 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
       slaLowDays: Number(form.slaLowDays),
       requireControlTestReview: form.requireControlTestReview,
       requireFindingReview: form.requireFindingReview,
+      complianceTeamEmail: form.complianceTeamEmail || null,
     }),
     onSuccess: () => onSaved('Compliance settings saved.'),
     onError: (e) => onError(e.message || 'Could not save compliance settings.'),
@@ -120,6 +122,18 @@ function ComplianceForm({ initial, onSaved, onError, saved, error }) {
     <>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {saved && <Alert severity="success" sx={{ mb: 2 }}>Compliance settings saved.</Alert>}
+
+      <DataCard title="Compliance team" sx={{ mb: 3 }}
+        subtitle="The accountable owner for filings and for obligations with no business owner. Used as the default return owner and copied on obligation, control and finding escalations.">
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField fullWidth size="small" type="email" label="Compliance team email"
+              value={form.complianceTeamEmail} onChange={set('complianceTeamEmail')}
+              placeholder="compliance@yourbank.com"
+              helperText="A group inbox, e.g. compliance@… Leave blank to disable." />
+          </Grid>
+        </Grid>
+      </DataCard>
 
       <DataCard title="Risk residual rule" sx={{ mb: 3 }}
         subtitle="How a risk's residual rating is derived from its linked controls' latest accepted tests.">

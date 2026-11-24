@@ -14,6 +14,7 @@ CREATE TABLE tenant_compliance_settings (
     sla_low_days            INTEGER NOT NULL DEFAULT 60,
     require_control_test_review BOOLEAN NOT NULL DEFAULT TRUE,
     require_finding_review      BOOLEAN NOT NULL DEFAULT TRUE,
+    compliance_team_email       VARCHAR(255),
     created_at              TIMESTAMP DEFAULT NOW(),
     updated_at              TIMESTAMP DEFAULT NOW()
 );

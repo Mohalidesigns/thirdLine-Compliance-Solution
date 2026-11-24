@@ -243,19 +243,23 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
   const [file, setFile] = useState(null);
   const [sourceType, setSourceType] = useState('');
   const [sourceId, setSourceId] = useState('');
-  const [description, setDescription] = useState('');
+  const [evidenceName, setEvidenceName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => { setFile(null); setSourceType(''); setSourceId(''); setDescription(''); };
+  const nameMissing = !evidenceName.trim();
+
+  const reset = () => { setFile(null); setSourceType(''); setSourceId(''); setEvidenceName(''); setNameTouched(false); };
   const handleSave = async () => {
     if (!file) return;
+    if (nameMissing) { setNameTouched(true); return; }
     setSaving(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
       if (sourceType) fd.append('sourceType', sourceType);
       if (sourceId) fd.append('sourceId', sourceId);
-      if (description) fd.append('description', description);
+      fd.append('description', evidenceName.trim());
       await api.evidence.upload(fd);
       reset();
       onSaved();
@@ -290,14 +294,17 @@ function UploadDialog({ open, onClose, onSaved, onSnackbar }) {
               disabled={!sourceType} value={sourceId} onChange={(e) => setSourceId(e.target.value)} />
           </Grid>
           <Grid size={{ xs: 12 }}>
-            <TextField label="Description" fullWidth size="small" multiline minRows={2} value={description}
-              onChange={(e) => setDescription(e.target.value)} />
+            <TextField label="Document title" fullWidth size="small" required value={evidenceName}
+              onBlur={() => setNameTouched(true)}
+              error={nameTouched && nameMissing}
+              helperText={nameTouched && nameMissing ? 'Document title is required.' : ''}
+              onChange={(e) => setEvidenceName(e.target.value)} />
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !file}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !file || nameMissing}>
           {saving ? 'Uploading…' : 'Upload'}
         </Button>
       </DialogActions>

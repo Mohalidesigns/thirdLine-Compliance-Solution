@@ -237,12 +237,12 @@ public class ReturnUploadLinkService {
      * else stores the reference. Runs with a null user — the token is the only credential.
      */
     @Transactional
-    public void submit(String rawToken, LocalDate triggerDate, String reference, LocalDate dueDate, MultipartFile file) {
+    public void submit(String rawToken, LocalDate triggerDate, String reference, LocalDate dueDate, MultipartFile file, String evidenceName) {
         ReturnUploadLink link = resolve(rawToken);
         RegulatoryReturn ret = returns.findById(link.getReturnId())
             .orElseThrow(() -> ApiException.notFound("Return not found"));
         if (link.getInstanceId() != null) {
-            submitFiling(link, reference, file);
+            submitFiling(link, reference, file, evidenceName);
             return;
         }
         requireEventDriven(ret);
@@ -255,38 +255,30 @@ public class ReturnUploadLinkService {
         req.setReference(reference);
 
         boolean hasFile = file != null && !file.isEmpty();
-        if (hasFile) {
-            returnEvents.recordUploaded(ret.getReturnId(), req, file, null);
-        } else {
-            if (reference == null || reference.isBlank())
-                throw ApiException.badRequest("Provide an evidence reference or attach a file.");
-            returnEvents.record(ret.getReturnId(), req, null);
-        }
+        if (!hasFile) throw ApiException.conflict("evidence_required", "Attach a document as evidence of the filing.");
+        returnEvents.recordUploaded(ret.getReturnId(), req, file, null);
 
         link.setUseCount(link.getUseCount() + 1);
         link.setLastUsedAt(Instant.now());
         links.save(link);
     }
 
-    private void submitFiling(ReturnUploadLink link, String reference, MultipartFile file) {
+    private void submitFiling(ReturnUploadLink link, String reference, MultipartFile file, String evidenceName) {
         ReturnFilingInstance inst = instances.findById(link.getInstanceId())
             .orElseThrow(() -> ApiException.notFound("Filing not found"));
         if (inst.getStatus() == ReturnFilingStatus.SUBMITTED || inst.getStatus() == ReturnFilingStatus.SUBMITTED_LATE)
             throw ApiException.conflict("already_submitted", "This filing has already been submitted.");
         boolean hasFile = file != null && !file.isEmpty();
+        if (!hasFile) throw ApiException.conflict("evidence_required", "Attach the filing document before submitting.");
+        if (evidenceName == null || evidenceName.isBlank())
+            throw ApiException.badRequest("evidence_name_required", "A document title is required");
         String evidenceRef;
-        if (hasFile) {
-            try {
-                EvidenceFile f = evidenceVault.upload(file, "return_instance", inst.getInstanceId(),
-                    "Filing submission " + inst.getPeriod(), null);
-                evidenceRef = f.getOriginalName() != null ? f.getOriginalName() : ("evidence:" + f.getFileId());
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to store filing evidence", e);
-            }
-        } else if (reference != null && !reference.isBlank()) {
-            evidenceRef = reference.trim();
-        } else {
-            throw ApiException.badRequest("Provide the filing data: attach a file or a reference.");
+        try {
+            EvidenceFile f = evidenceVault.upload(file, "return_instance", inst.getInstanceId(),
+                evidenceName.trim(), null);
+            evidenceRef = f.getOriginalName() != null ? f.getOriginalName() : ("evidence:" + f.getFileId());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to store filing evidence", e);
         }
         returnService.submitFromLink(inst.getInstanceId(), evidenceRef,
             link.getRecipientName(), link.getRecipientEmail(), null);

@@ -95,10 +95,11 @@ public class ReturnController {
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnInstanceDetailResponse> submitDraft(
             @PathVariable Long id,
+            @RequestParam(value = "evidenceName", required = false) String evidenceName,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal User u) {
-        service.submitDraft(id, files, notes, u.getUserId());
+        service.submitDraft(id, files, notes, evidenceName, u.getUserId());
         return ResponseEntity.ok(service.getDetail(id));
     }
 
@@ -106,10 +107,11 @@ public class ReturnController {
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<ReturnInstanceDetailResponse> proofOfFiling(
             @PathVariable Long id,
+            @RequestParam(value = "evidenceName", required = false) String evidenceName,
             @RequestParam(value = "reference", required = false) String reference,
             @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal User u) {
-        return ResponseEntity.ok(service.addProofOfFiling(id, files, reference, u.getUserId()));
+        return ResponseEntity.ok(service.addProofOfFiling(id, files, evidenceName, reference, u.getUserId()));
     }
 
     @PutMapping("/instances/{id}/data-review")

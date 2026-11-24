@@ -31,8 +31,9 @@ public class PublicRemediationController {
     public ResponseEntity<Map<String, Object>> submit(
             @PathVariable String token,
             @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "evidenceName", required = false) String evidenceName,
             @RequestParam(value = "files", required = false) List<MultipartFile> files) throws Exception {
-        service.submit(token, notes, files);
+        service.submit(token, notes, files, evidenceName);
         return ResponseEntity.ok(Map.of("status", "submitted"));
     }
 }

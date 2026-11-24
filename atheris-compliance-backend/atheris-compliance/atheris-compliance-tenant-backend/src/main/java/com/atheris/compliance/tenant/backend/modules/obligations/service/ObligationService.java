@@ -356,7 +356,7 @@ public class ObligationService {
                     ? residualByObligation.get(ob.getObligationId()).likelihood() : null)
                 .impactRating(c != null ? c.getImpactRating() : null)
                 .likelihoodRating(c != null ? c.getLikelihoodRating() : null)
-                .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+                .assignedOwnerName(ownerNameOrTeam(c))
                 .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
                 .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
                 .controlOwner(ob.getControlOwner())
@@ -522,6 +522,12 @@ public class ObligationService {
 
     private static String nullSafe(String s) { return s != null ? s : ""; }
 
+    private String ownerNameOrTeam(ObligationClassification c) {
+        String name = ownerNameOrTeam(c);
+        if (name != null && !name.isBlank()) return name;
+        return complianceSettings.complianceTeamEmail() == null ? null : "Compliance Team";
+    }
+
     // ------------------------------------------------------------------ CRUD
 
     @Transactional
@@ -670,7 +676,7 @@ public class ObligationService {
             .inherentLikelihood(ob.getInherentLikelihood())
             .inherentImpact(ob.getInherentImpact())
             .residualRiskRating(c != null ? c.getResidualRiskRating() : null)
-            .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+            .assignedOwnerName(ownerNameOrTeam(c))
                 .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
                 .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .controlOwner(ob.getControlOwner())
@@ -828,7 +834,7 @@ public class ObligationService {
             .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
             .assignedTeamId(c != null ? c.getAssignedTeamId() : null)
             .assignedDepartmentId(c != null ? c.getAssignedDepartmentId() : null)
-            .assignedOwnerName(c != null ? c.getAssignedOwnerName() : null)
+            .assignedOwnerName(ownerNameOrTeam(c))
                 .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)
                 .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .controlOwner(ob.getControlOwner())
@@ -1097,7 +1103,7 @@ public class ObligationService {
             .inherentRiskRating(c.getInherentRiskRating())
             .residualRiskRating(c.getResidualRiskRating())
             .assignedOwnerUserId(c.getAssignedOwnerUserId())
-            .assignedOwnerName(c.getAssignedOwnerName())
+            .assignedOwnerName(ownerNameOrTeam(c))
             .assignedDepartment(c.getAssignedDepartment())
             .linkedControlIds(c.getLinkedControlIds())
                         .status(c.getStatus())
@@ -1139,7 +1145,7 @@ public class ObligationService {
             .impactJustification(c.getImpactJustification()).likelihoodRating(c.getLikelihoodRating())
             .likelihoodJustification(c.getLikelihoodJustification()).inherentRiskRating(c.getInherentRiskRating())
             .residualRiskRating(c.getResidualRiskRating())
-            .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
+            .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(ownerNameOrTeam(c))
             .assignedDepartment(c.getAssignedDepartment()).linkedControlIds(c.getLinkedControlIds())
                         .classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();
@@ -1213,7 +1219,7 @@ public class ObligationService {
             .impactJustification(c.getImpactJustification())
             .likelihoodRating(c.getLikelihoodRating()).likelihoodJustification(c.getLikelihoodJustification())
             .inherentRiskRating(c.getInherentRiskRating()).residualRiskRating(c.getResidualRiskRating())
-            .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(c.getAssignedOwnerName())
+            .assignedOwnerUserId(c.getAssignedOwnerUserId()).assignedOwnerName(ownerNameOrTeam(c))
             .assignedDepartment(c.getAssignedDepartment())
             .linkedControlIds(c.getLinkedControlIds())            .status(c.getStatus()).classificationVersion(c.getClassificationVersion())
             .classifiedAt(c.getClassifiedAt()).updatedAt(c.getUpdatedAt()).build();

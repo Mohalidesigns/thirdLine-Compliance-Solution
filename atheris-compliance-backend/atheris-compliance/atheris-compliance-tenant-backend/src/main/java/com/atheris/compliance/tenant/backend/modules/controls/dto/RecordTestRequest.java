@@ -10,6 +10,7 @@ import java.time.LocalDate;
 public class RecordTestRequest {
     @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) private LocalDate testDate;
     private String testedByName;
+    private String evidenceName;
     @NotBlank private String result;
     private String resultDescription;
     private String failureSeverity;

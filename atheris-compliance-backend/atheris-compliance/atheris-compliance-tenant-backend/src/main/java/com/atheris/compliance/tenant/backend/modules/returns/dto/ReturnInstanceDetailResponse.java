@@ -34,6 +34,7 @@ public class ReturnInstanceDetailResponse {
     private String status;
     private String filingChannel;
     private String returnOwnerName;
+    private String returnOwnerEmail;
     private Integer stageOwnerUserId;
     private LocalDate submittedDate;
     private Integer submittedByUserId;
@@ -76,7 +77,7 @@ public class ReturnInstanceDetailResponse {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static ReturnInstanceDetailResponse from(ReturnFilingInstance inst,
-            String returnName, String filingRegulator, String returnOwnerName) {
+            String returnName, String filingRegulator, String returnOwnerName, String returnOwnerEmail) {
         Map<String, Map<String, String>> stageData = parseStageData(inst.getStageData());
         int currentIdx = STAGE_ORDER.indexOf(inst.getCurrentStage());
         ReturnFilingStatus status = inst.getStatus();
@@ -103,6 +104,7 @@ public class ReturnInstanceDetailResponse {
             .currentStage(inst.getCurrentStage() != null ? inst.getCurrentStage().db() : null)
             .status(status != null ? status.db() : null)
             .filingChannel(inst.getFilingChannel()).returnOwnerName(returnOwnerName)
+            .returnOwnerEmail(returnOwnerEmail)
             .stageOwnerUserId(inst.getStageOwnerUserId())
             .submittedDate(inst.getSubmittedDate())
             .submittedByUserId(inst.getSubmittedByUserId())

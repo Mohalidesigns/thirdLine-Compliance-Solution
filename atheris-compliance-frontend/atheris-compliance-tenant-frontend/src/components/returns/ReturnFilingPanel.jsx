@@ -24,12 +24,20 @@ const ESCALATION_ROLE = { 1: 'Analyst', 2: 'Manager', 3: 'CCO' };
 export default function ReturnFilingPanel({ detail, item, periods = [], onSelectPeriod, onRefresh, onSnackbar, highlight }) {
   const { user } = useAuth();
   const canReview = REVIEW_ROLES.includes(user?.role);
+  const canAttachProof = ['ANALYST', ...REVIEW_ROLES].includes(user?.role);
   const [draftOpen, setDraftOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [escalationOpen, setEscalationOpen] = useState(false);
   const [proofOpen, setProofOpen] = useState(false);
   const reviewRef = useRef(null);
   const isCompleted = detail.currentStage === 'Completed';
+
+  const receiptQuery = useQuery({
+    queryKey: ['evidence', 'by-source', 'return_receipt', String(detail.instanceId)],
+    queryFn: ({ signal }) => api.evidence.bySource('return_receipt', detail.instanceId, { signal }),
+    enabled: isCompleted,
+  });
+  const hasReceipt = (receiptQuery.data || []).length > 0;
 
   useEffect(() => {
     if (highlight && detail.pendingReview && reviewRef.current) {
@@ -44,9 +52,13 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
     finally { setStarting(false); }
   }
 
-  const steps = (detail.stages || []).filter((s) => s.name !== NOT_STARTED);
+  const stageSteps = (detail.stages || []).filter((s) => s.name !== NOT_STARTED);
+  const steps = isCompleted
+    ? [...stageSteps, { name: 'Proof of filing', completed: hasReceipt }]
+    : stageSteps;
   const stepIdx = steps.findIndex((s) => s.current);
-  const currentStageIdx = stepIdx >= 0 ? stepIdx : WORKFLOW_STAGES.indexOf(detail.currentStage);
+  const stageIdx = stepIdx >= 0 ? stepIdx : WORKFLOW_STAGES.indexOf(detail.currentStage);
+  const currentStageIdx = isCompleted && !hasReceipt ? steps.length - 1 : stageIdx;
   const periodIdx = periods.findIndex((p) => p.instanceId === detail.instanceId);
 
   return (
@@ -234,7 +246,7 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
 
       {isCompleted && (
         <Section icon={<DocumentTextIcon />} title="Proof of filing"
-          action={canReview ? (
+          action={canAttachProof ? (
             <Button size="small" variant="outlined" onClick={() => setProofOpen(true)}>Attach proof</Button>
           ) : null}>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
@@ -265,18 +277,20 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
 
 function ProofOfFilingDialog({ open, instanceId, onClose, onSaved, onSnackbar }) {
   const [files, setFiles] = useState([]);
+  const [name, setName] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!files.length) return;
+    if (!files.length || !name.trim()) return;
     setSaving(true);
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append('files', f));
+      fd.append('evidenceName', name.trim());
       if (reference.trim()) fd.append('reference', reference.trim());
       await api.returns.proofOfFiling(instanceId, fd);
-      setFiles([]); setReference('');
+      setFiles([]); setName(''); setReference('');
       onSaved();
     } catch (e) { onSnackbar?.(e.message || 'Failed to attach proof of filing.'); }
     finally { setSaving(false); }
@@ -284,7 +298,7 @@ function ProofOfFilingDialog({ open, instanceId, onClose, onSaved, onSnackbar })
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
-      TransitionProps={{ onExited: () => { setFiles([]); setReference(''); } }}>
+      TransitionProps={{ onExited: () => { setFiles([]); setName(''); setReference(''); } }}>
       <DialogTitle>Attach proof of filing</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -296,6 +310,8 @@ function ProofOfFilingDialog({ open, instanceId, onClose, onSaved, onSnackbar })
           <input type="file" hidden multiple
             onChange={(e) => setFiles(Array.from(e.target.files || []))} />
         </Button>
+        <TextField fullWidth size="small" required label="Receipt title" value={name}
+          onChange={(e) => setName(e.target.value)} sx={{ mb: 2 }} placeholder="e.g. CBN filing acknowledgement" />
         <TextField fullWidth size="small" label="Reference (optional)" value={reference}
           onChange={(e) => setReference(e.target.value)} placeholder="e.g. CBN-ACK-2026-0042" />
         {files.length > 0 && (
@@ -306,7 +322,7 @@ function ProofOfFilingDialog({ open, instanceId, onClose, onSaved, onSnackbar })
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !files.length}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !files.length || !name.trim()}>
           {saving ? 'Uploading…' : 'Attach'}
         </Button>
       </DialogActions>

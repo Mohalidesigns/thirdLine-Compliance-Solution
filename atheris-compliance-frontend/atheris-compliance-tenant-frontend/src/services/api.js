@@ -40,9 +40,10 @@ export const publicApi = {
     }
     return res.json();
   },
-  async remediationSubmit(token, { notes, files }) {
+  async remediationSubmit(token, { notes, files, evidenceName }) {
     const form = new FormData();
     if (notes) form.append('notes', notes);
+    if (evidenceName) form.append('evidenceName', evidenceName);
     (files || []).forEach((f) => form.append('files', f));
     const res = await fetch(`${API_BASE}/public/remediation/${encodeURIComponent(token)}`, {
       method: 'POST', body: form,
@@ -64,13 +65,14 @@ export const publicApi = {
     }
     return res.json();
   },
-  async controlTestSubmit(token, { testDate, result, notes, failureDetails, file }) {
+  async controlTestSubmit(token, { testDate, result, notes, failureDetails, file, evidenceName }) {
     const form = new FormData();
     if (testDate) form.append('testDate', testDate);
     form.append('result', result);
     if (notes) form.append('notes', notes);
     if (failureDetails) form.append('failureDetails', failureDetails);
     if (file) form.append('file', file);
+    if (evidenceName) form.append('evidenceName', evidenceName);
     const res = await fetch(`${API_BASE}/public/control-test/${encodeURIComponent(token)}`, {
       method: 'POST', body: form,
     });
@@ -91,12 +93,13 @@ export const publicApi = {
     }
     return res.json();
   },
-  async returnUploadSubmit(token, { triggerDate, reference, dueDate, file }) {
+  async returnUploadSubmit(token, { triggerDate, reference, dueDate, file, evidenceName }) {
     const form = new FormData();
     if (triggerDate) form.append('triggerDate', triggerDate);
     if (reference) form.append('reference', reference);
     if (dueDate) form.append('dueDate', dueDate);
     if (file) form.append('file', file);
+    if (evidenceName) form.append('evidenceName', evidenceName);
     const res = await fetch(`${API_BASE}/public/returns/${encodeURIComponent(token)}`, {
       method: 'POST', body: form,
     });

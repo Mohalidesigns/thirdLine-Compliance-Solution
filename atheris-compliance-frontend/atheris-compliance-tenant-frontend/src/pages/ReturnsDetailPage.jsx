@@ -109,7 +109,9 @@ export default function ReturnsDetailPage() {
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ['returns'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['evidence'] });
   }
 
   function openFiling(instanceId) {

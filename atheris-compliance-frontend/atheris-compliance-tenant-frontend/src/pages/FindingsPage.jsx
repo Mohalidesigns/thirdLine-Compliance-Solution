@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   TablePagination, TextField, MenuItem, Button, IconButton,
@@ -38,16 +38,11 @@ const SUBMIT_ROLES = ['ANALYST', 'TENANT_ADMIN'];
 const DATE_FMT = { day: '2-digit', month: 'short', year: 'numeric' };
 
 export default function FindingsPage() {
-  const [view, setView] = useState('list');
   const [detailId, setDetailId] = useState(null);
-  const [data, setData] = useState({ content: [], totalElements: 0 });
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [filters, setFilters] = useState({ status: '', severity: '', overdueOnly: false, departmentId: '', teamId: '' });
   const { departments: allDepartments, units: allUnits } = usePlacementOptions();
-  const [stats, setStats] = useState(null);
   const [searchParams] = useSearchParams();
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseInitial, setRaiseInitial] = useState(null);
@@ -61,61 +56,76 @@ export default function FindingsPage() {
   const { user } = useAuth();
   const canImport = IMPORT_ROLES.includes(user?.role);
   const queryClient = useQueryClient();
-  // A finding changes an obligation's finding state → refresh the obligations register/dashboard caches.
+
   const refreshRelated = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['findings'] });
     queryClient.invalidateQueries({ queryKey: ['obligations'] });
+    queryClient.invalidateQueries({ queryKey: ['controls'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['evidence'] });
   }, [queryClient]);
 
-  const loadList = useCallback(() => {
-    setLoading(true);
-    const p = { page, size: rowsPerPage };
-    if (filters.status) p.status = filters.status;
-    if (filters.severity) p.severity = filters.severity;
-    if (filters.overdueOnly) p.overdueOnly = true;
-    if (filters.departmentId) p.departmentId = filters.departmentId;
-    if (filters.teamId) p.teamId = filters.teamId;
-    api.findings.register(p).then(res => setData(res))
-      .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
-    loadStats();
-  }, [page, rowsPerPage, filters]);
+  const params = { page, size: rowsPerPage };
+  if (filters.status) params.status = filters.status;
+  if (filters.severity) params.severity = filters.severity;
+  if (filters.overdueOnly) params.overdueOnly = true;
+  if (filters.departmentId) params.departmentId = filters.departmentId;
+  if (filters.teamId) params.teamId = filters.teamId;
 
-  const loadStats = useCallback(() => {
-    api.findings.stats().then(setStats).catch(() => {});
-  }, []);
+  const listQuery = useQuery({
+    queryKey: ['findings', 'register', params],
+    queryFn: () => api.findings.register(params),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { loadList(); }, [loadList]);
+  const statsQuery = useQuery({
+    queryKey: ['findings', 'stats'],
+    queryFn: ({ signal }) => api.findings.stats({ signal }),
+  });
 
-  const loadDetail = useCallback((id) => {
-    setLoading(true);
-    api.findings.detail(id).then(res => { setDetail(res); setView('detail'); setDetailId(id); })
-      .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
-  }, []);
+  const detailQuery = useQuery({
+    queryKey: ['findings', 'detail', String(detailId)],
+    queryFn: () => api.findings.detail(detailId),
+    enabled: detailId != null,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const data = listQuery.data ?? { content: [], totalElements: 0 };
+  const stats = statsQuery.data;
+  const loading = listQuery.isPending;
+  const detail = detailQuery.data ?? null;
 
   useEffect(() => {
     const fid = searchParams.get('findingId');
-    if (fid) loadDetail(fid);
-  }, [searchParams, loadDetail]);
+    if (fid) setDetailId(Number(fid));
+  }, [searchParams]);
 
-  useEffect(() => {
-    const raise = searchParams.get('raise');
-    if (raise !== 'gap') return;
-    const oid = searchParams.get('obligationId');
-    const load = async () => {
-      let label = oid ? `Obligation #${oid}` : '';
-      if (oid) {
+  const raiseParam = searchParams.get('raise');
+  const raiseObligationId = searchParams.get('obligationId');
+  const gapRaiseQuery = useQuery({
+    queryKey: ['findings', 'gap-raise', raiseObligationId],
+    queryFn: async () => {
+      let label = raiseObligationId ? `Obligation #${raiseObligationId}` : '';
+      if (raiseObligationId) {
         try {
           const o = await api.obligations.register({ size: 200 });
-          const row = (o.content || o || []).find((x) => String(x.obligationId) === String(oid));
+          const row = (o.content || o || []).find((x) => String(x.obligationId) === String(raiseObligationId));
           if (row) label = row.title || row.name || label;
-        } catch { /* label stays as the id */ }
+        } catch {}
       }
-      setRaiseInitial({ findingType: 'Gap', linkedObligationId: oid ? Number(oid) : null, obligationLabel: label });
+      return { findingType: 'Gap', linkedObligationId: raiseObligationId ? Number(raiseObligationId) : null, obligationLabel: label };
+    },
+    enabled: raiseParam === 'gap',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (gapRaiseQuery.data) {
+      setRaiseInitial(gapRaiseQuery.data);
       setRaiseOpen(true);
-    };
-    load();
-  }, [searchParams]);
+    }
+  }, [gapRaiseQuery.data]);
 
   const byStatus = stats?.byStatus || {};
   const findingKpis = [
@@ -141,12 +151,23 @@ export default function FindingsPage() {
     else if (key === 'closed') setFilters({ ...base, status: 'Closed' });
   };
 
-  if (view === 'detail' && detail) {
+  if (detailId != null) {
+    if (detailQuery.isPending) {
+      return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+    }
+    if (detailQuery.error || !detail) {
+      return (
+        <Box>
+          <Alert severity="error" sx={{ mb: 2 }}>{detailQuery.error?.message || 'Failed to load finding.'}</Alert>
+          <Button onClick={() => setDetailId(null)}>Back to Findings</Button>
+        </Box>
+      );
+    }
     return (
       <DetailView
         detail={detail}
-        onBack={() => { setView('list'); setDetail(null); setDetailId(null); loadList(); }}
-        onRefresh={() => { loadDetail(detailId); loadList(); loadStats(); refreshRelated(); }}
+        onBack={() => { setDetailId(null); refreshRelated(); }}
+        onRefresh={refreshRelated}
         onAssign={() => setAssignOpen(true)}
         onRemediate={() => setRemediateOpen(true)}
         onReview={() => setReviewOpen(true)}
@@ -254,7 +275,7 @@ export default function FindingsPage() {
                     const isOverdue = deadline && deadline < new Date() && row.status !== 'Closed' && row.status !== 'Remediated';
                     return (
                       <TableRow key={row.findingId} hover sx={{ cursor: 'pointer' }}
-                        onClick={() => loadDetail(row.findingId)}>
+                        onClick={() => setDetailId(row.findingId)}>
                         <TableCell sx={{ maxWidth: 420 }}>
                           <Tooltip title={row.description || ''}>
                             <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -276,7 +297,7 @@ export default function FindingsPage() {
                         </TableCell>
                         <TableCell align="right">
                           <Tooltip title="View detail">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); loadDetail(row.findingId); }}>
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDetailId(row.findingId); }}>
                               <EyeIcon size={16} />
                             </IconButton>
                           </Tooltip>
@@ -296,14 +317,14 @@ export default function FindingsPage() {
       </DataCard>
 
       <RaiseDialog open={raiseOpen} onClose={() => setRaiseOpen(false)} initial={raiseInitial}
-        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); loadList(); loadStats(); refreshRelated(); }} onSnackbar={setSnackbar} />
+        onSaved={() => { setRaiseOpen(false); setRaiseInitial(null); refreshRelated(); }} onSnackbar={setSnackbar} />
 
       {canImport && (
         <ImportDialog entityType="findings" entityLabel="findings" open={importOpen}
           itemLabel="Finding" contextLabel="Control / Obligation"
           invalidateKeys={[['dashboard']]}
           onClose={() => setImportOpen(false)}
-          onImported={(r) => { loadList(); setSuccess(`Imported ${r?.importedRows ?? 0} findings.`); }} />
+          onImported={(r) => { refreshRelated(); setSuccess(`Imported ${r?.importedRows ?? 0} findings.`); }} />
       )}
 
       <Snackbar open={!!success} autoHideDuration={3000} onClose={() => setSuccess('')}
@@ -335,20 +356,17 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
   const [createControlOpen, setCreateControlOpen] = useState(false);
   const [recordTestOpen, setRecordTestOpen] = useState(false);
 
-  const linkControl = async (controlId) => {
-    try {
-      await api.findings.linkControl(detail.findingId, controlId);
-      setCreateControlOpen(false);
-      onRefresh();
-    } catch (e) { onSnackbar(e.message); }
-  };
+  const linkControlMutation = useMutation({
+    mutationFn: (controlId) => api.findings.linkControl(detail.findingId, controlId),
+    onSuccess: () => { setCreateControlOpen(false); onRefresh(); },
+    onError: (e) => onSnackbar(e.message),
+  });
 
-  const handleCloseGap = async () => {
-    try {
-      await api.findings.closeGap(detail.findingId);
-      onRefresh();
-    } catch (e) { onSnackbar(e.message); }
-  };
+  const closeGapMutation = useMutation({
+    mutationFn: () => api.findings.closeGap(detail.findingId),
+    onSuccess: () => onRefresh(),
+    onError: (e) => onSnackbar(e.message),
+  });
 
   const hasControl = detail.linkedControlId != null;
   const isGapFinding = detail.findingType === 'Gap';
@@ -407,7 +425,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
                 : 'Close this gap finding'}>
                 <span>
                   <Button variant="contained" color="success" size="small" disabled={!controlProven}
-                    onClick={handleCloseGap}>Close gap</Button>
+                    onClick={() => closeGapMutation.mutate()}>Close gap</Button>
                 </span>
               </Tooltip>
             )}
@@ -576,7 +594,7 @@ function DetailView({ detail, onBack, onRefresh, onAssign, onRemediate, onReview
       {isGapFinding && (
         <GapControlDialog open={createControlOpen} onClose={() => setCreateControlOpen(false)}
           obligationId={detail.linkedObligationId} currentControlId={detail.linkedControlId}
-          onLinked={linkControl} onSnackbar={onSnackbar} />
+          onLinked={linkControlMutation.mutate} onSnackbar={onSnackbar} />
       )}
 
       {controlLinked && (
@@ -605,11 +623,17 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
     assignedToOwnerId: null, remediationDeadline: '',
   };
   const [form, setForm] = useState(empty);
-  const [saving, setSaving] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
   const [obligationOpen, setObligationOpen] = useState(false);
   const [controlLabel, setControlLabel] = useState('');
   const [obligationLabel, setObligationLabel] = useState('');
+
+  const raiseMutation = useMutation({
+    mutationFn: (body) => api.findings.raise(body),
+    onSuccess: () => onSaved(),
+    onError: (e) => onSnackbar(e.message),
+  });
+  const saving = raiseMutation.isPending;
 
   const isGap = form.findingType === 'Gap';
   const isFailure = form.findingType === 'Control Failure';
@@ -622,19 +646,15 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
     }
   }, [open]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const body = {
-        findingType: form.findingType, severity: form.severity, description: form.description,
-        assignedToOwnerId: form.assignedToOwnerId,
-        remediationDeadline: form.remediationDeadline,
-      };
-      if (isFailure) body.linkedControlId = form.linkedControlId;
-      if (isGap) body.linkedObligationId = form.linkedObligationId;
-      await api.findings.raise(body);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  const handleSave = () => {
+    const body = {
+      findingType: form.findingType, severity: form.severity, description: form.description,
+      assignedToOwnerId: form.assignedToOwnerId,
+      remediationDeadline: form.remediationDeadline,
+    };
+    if (isFailure) body.linkedControlId = form.linkedControlId;
+    if (isGap) body.linkedObligationId = form.linkedObligationId;
+    raiseMutation.mutate(body);
   };
 
   const linkedOk = isFailure ? form.linkedControlId != null : (isGap ? form.linkedObligationId != null : true);
@@ -744,8 +764,12 @@ function RaiseDialog({ open, onClose, onSaved, onSnackbar, initial }) {
 /* ---------- Assign Dialog ---------- */
 function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }) {
   const [form, setForm] = useState({ assignedToOwnerId: null, remediationDeadline: '', deadlineJustification: '' });
-  const [saving, setSaving] = useState(false);
-  // SLA deadline = raised date + SLA days; going past it needs a recorded reason (server-enforced too).
+  const assignMutation = useMutation({
+    mutationFn: (payload) => api.findings.assign(findingId, payload),
+    onSuccess: () => onSaved(),
+    onError: (e) => onSnackbar(e.message),
+  });
+  const saving = assignMutation.isPending;
   const slaDeadline = useMemo(() => {
     if (!finding?.createdAt || finding?.slaDays == null) return null;
     const d = new Date(finding.createdAt);
@@ -754,16 +778,12 @@ function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }
   }, [finding]);
   const beyondSla = !!(slaDeadline && form.remediationDeadline && form.remediationDeadline > slaDeadline);
   const justificationOk = !beyondSla || form.deadlineJustification.trim().length >= 10;
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await api.findings.assign(findingId, {
-        assignedToOwnerId: form.assignedToOwnerId,
-        remediationDeadline: form.remediationDeadline,
-        deadlineJustification: beyondSla ? form.deadlineJustification.trim() : undefined,
-      });
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  const handleSave = () => {
+    assignMutation.mutate({
+      assignedToOwnerId: form.assignedToOwnerId,
+      remediationDeadline: form.remediationDeadline,
+      deadlineJustification: beyondSla ? form.deadlineJustification.trim() : undefined,
+    });
   };
   useEffect(() => {
     if (open) setForm({
@@ -812,16 +832,17 @@ function AssignDialog({ open, onClose, findingId, finding, onSaved, onSnackbar }
 function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
   const [notes, setNotes] = useState('');
   const [files, setFiles] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const form = new FormData();
-      if (notes) form.append('notes', notes);
-      files.forEach((f) => form.append('files', f));
-      await api.findings.remediate(findingId, form);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+  const remediateMutation = useMutation({
+    mutationFn: (formData) => api.findings.remediate(findingId, formData),
+    onSuccess: () => onSaved(),
+    onError: (e) => onSnackbar(e.message),
+  });
+  const saving = remediateMutation.isPending;
+  const handleSave = () => {
+    const form = new FormData();
+    if (notes) form.append('notes', notes);
+    files.forEach((f) => form.append('files', f));
+    remediateMutation.mutate(form);
   };
   useEffect(() => { if (open) { setNotes(''); setFiles([]); } }, [open]);
   return (
@@ -866,22 +887,23 @@ function RemediateDialog({ open, onClose, findingId, onSaved, onSnackbar }) {
 function ReviewDialog({ open, onClose, findingId, detail, onSaved, onSnackbar }) {
   const [decision, setDecision] = useState('Accepted');
   const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
+  const reviewMutation = useMutation({
+    mutationFn: ({ decision: d, notes: n }) => api.findings.review(findingId, d, n),
+    onSuccess: () => onSaved(),
+    onError: (e) => onSnackbar(e.message),
+  });
+  const saving = reviewMutation.isPending;
 
   useEffect(() => {
     if (open) { setDecision('Accepted'); setNotes(''); }
   }, [open]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (decision === 'Rejected' && !notes.trim()) {
       onSnackbar('A reason is required when rejecting.');
       return;
     }
-    setSaving(true);
-    try {
-      await api.findings.review(findingId, decision, notes.trim() || undefined);
-      onSaved();
-    } catch (e) { onSnackbar(e.message); } finally { setSaving(false); }
+    reviewMutation.mutate({ decision, notes: notes.trim() || undefined });
   };
 
   const submittedBy = detail?.remediationSubmittedViaLink
@@ -950,22 +972,28 @@ function EmailStatusNote({ status, to }) {
 }
 
 function RemediationLinkDialog({ open, onClose, findingId, onSnackbar }) {
-  const [link, setLink] = useState(null);
-  const [email, setEmail] = useState(null);   // { status, to } — whether the owner was really emailed
-  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const linkQuery = useQuery({
+    queryKey: ['findings', 'remediation-link', String(findingId)],
+    queryFn: () => api.findings.remediationLink(findingId),
+    enabled: open,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  useEffect(() => { if (open) setCopied(false); }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-    setLink(null); setEmail(null); setCopied(false); setLoading(true);
-    api.findings.remediationLink(findingId)
-      .then((res) => {
-        setLink(res.path ? `${window.location.origin}${res.path}` : res.url);
-        setEmail({ status: res.emailStatus, to: res.ownerEmail });
-      })
-      .catch((e) => onSnackbar(e.message))
-      .finally(() => setLoading(false));
-  }, [open, findingId]);
+    if (open && linkQuery.isError) onSnackbar(linkQuery.error.message);
+  }, [open, linkQuery.isError, linkQuery.error, onSnackbar]);
+
+  const link = linkQuery.data
+    ? (linkQuery.data.path ? `${window.location.origin}${linkQuery.data.path}` : linkQuery.data.url)
+    : null;
+  const email = linkQuery.data
+    ? { status: linkQuery.data.emailStatus, to: linkQuery.data.ownerEmail }
+    : null;
+  const loading = open && linkQuery.isPending;
 
   const copy = async () => {
     try {

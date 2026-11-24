@@ -72,6 +72,12 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
     queryFn: () => api.org.departments(true),
     enabled: open,
   });
+  const complianceQuery = useQuery({
+    queryKey: ['settings', 'compliance'],
+    queryFn: ({ signal }) => api.settings.compliance({ signal }),
+    enabled: open,
+  });
+  const complianceTeamEmail = complianceQuery.data?.complianceTeamEmail || '';
   const asList = (d) => (Array.isArray(d) ? d : (d?.content || []));
   const regulators = useMemo(() => [...asList(regulatorsQuery.data), ...extraRegulators], [regulatorsQuery.data, extraRegulators]);
   const acts = asList(actsQuery.data);
@@ -91,11 +97,13 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
         ...EMPTY,
         linkedObligationIds: obligationContext?.obligationId ? [obligationContext.obligationId] : [],
         tenantRegulatorId: obligationContext?.tenantRegulatorId ? String(obligationContext.tenantRegulatorId) : '',
-        ownerEmail: user?.email || '', ownerName: user?.fullName || '', ownerUserId: user?.userId ?? '',
+        ownerEmail: complianceTeamEmail || user?.email || '',
+        ownerName: complianceTeamEmail ? 'Compliance Team' : (user?.fullName || ''),
+        ownerUserId: complianceTeamEmail ? '' : (user?.userId ?? ''),
       });
       setError(''); setExtraRegulators([]); setLevel2Shown(false);
     }
-  }, [open, user, obligationContext]);
+  }, [open, user, obligationContext, complianceTeamEmail]);
 
   useEffect(() => {
     if (!open || !obligationContext?.tenantRegulatorId || form.filingRegulator) return;
@@ -141,6 +149,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
       if (form.ownerUserId) body.returnOwnerUserId = parseInt(form.ownerUserId, 10);
       body.returnOwnerName = form.ownerName || form.ownerEmail || undefined;
       if (!body.returnOwnerName) delete body.returnOwnerName;
+      if (!form.ownerUserId && form.ownerEmail) body.returnOwnerEmail = form.ownerEmail;
 
       if (form.frequency === EVENT_DRIVEN) {
         delete body.filingDate;
@@ -379,6 +388,11 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
           <Field label="Owner" sx={{ mb: 0 }}>
             <PersonPicker mode="user" label="Owner" value={ownerValue}
               onChange={(p) => setForm(f => ({ ...f, ownerEmail: p?.email || '', ownerName: p?.fullName || '', ownerUserId: p?.userId ?? '' }))} />
+            {complianceTeamEmail && !form.ownerUserId && (
+              <Typography variant="caption" color="text.secondary">
+                Defaults to the compliance team ({complianceTeamEmail})
+              </Typography>
+            )}
           </Field>
         </Box>
         <Field label="Responsible team" sx={{ mt: 2 }}>

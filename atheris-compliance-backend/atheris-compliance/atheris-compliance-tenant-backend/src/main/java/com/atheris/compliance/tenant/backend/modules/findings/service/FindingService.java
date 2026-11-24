@@ -362,7 +362,7 @@ public class FindingService {
     }
 
     @Transactional
-    public Finding submitRemediation(Long id, String notes, List<MultipartFile> files, Integer userId) throws Exception {
+    public Finding submitRemediation(Long id, String notes, List<MultipartFile> files, String evidenceName, Integer userId) throws Exception {
         Finding f = findById(id);
         if (!WorkflowStatus.FINDING_IN_REMEDIATION.equals(f.getStatus())
                 && !WorkflowStatus.FINDING_OPEN.equals(f.getStatus())) {
@@ -388,7 +388,7 @@ public class FindingService {
                 throw ApiException.badRequest("Unsupported file type: " + file.getOriginalFilename());
             }
             EvidenceFile saved = evidence.upload(file, "finding", f.getFindingId(),
-                "Remediation evidence (recorded by analyst)", userId);
+                evidenceName == null || evidenceName.isBlank() ? "Remediation evidence (recorded by analyst)" : evidenceName.trim(), userId);
             if (f.getRemediationEvidenceUrl() == null) {
                 f.setRemediationEvidenceUrl("/api/v1/evidence/" + saved.getFileId() + "/download");
             }

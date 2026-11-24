@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Box, Typography, Table, TableHead, TableBody, TableRow, TableCell,
   TablePagination, Chip, TextField, MenuItem, Button, Paper,
@@ -8,45 +8,47 @@ import {
   PageHeader, FilterBar, FilterField, StatusBadge, TL,
   ShieldCheckIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ClockIcon, LinkIcon,
 } from 'shared';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '../services/api';
 
 export default function AuditTrailPage() {
-  const [data, setData] = useState({ content: [], totalElements: 0 });
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [chainStatus, setChainStatus] = useState(null);
-  const [snackbar, setSnackbar] = useState(null);
   const [filters, setFilters] = useState({
     subjectType: '', subjectId: '', actorUserId: '', dateFrom: '', dateTo: ''
   });
 
-  const loadList = useCallback(() => {
-    setLoading(true);
-    const p = { page, size: rowsPerPage };
-    if (filters.subjectType) p.subjectType = filters.subjectType;
-    if (filters.subjectId) p.subjectId = filters.subjectId;
-    if (filters.actorUserId) p.actorUserId = filters.actorUserId;
-    if (filters.dateFrom) p.dateFrom = new Date(filters.dateFrom).toISOString();
-    if (filters.dateTo) p.dateTo = new Date(filters.dateTo).toISOString();
-    api.audit.register(p).then(res => setData(res))
-      .catch(e => setSnackbar(e.message)).finally(() => setLoading(false));
-  }, [page, rowsPerPage, filters]);
+  const params = { page, size: rowsPerPage };
+  if (filters.subjectType) params.subjectType = filters.subjectType;
+  if (filters.subjectId) params.subjectId = filters.subjectId;
+  if (filters.actorUserId) params.actorUserId = filters.actorUserId;
+  if (filters.dateFrom) params.dateFrom = new Date(filters.dateFrom).toISOString();
+  if (filters.dateTo) params.dateTo = new Date(filters.dateTo).toISOString();
 
-  useEffect(() => { loadList(); }, [loadList]);
+  const listQuery = useQuery({
+    queryKey: ['audit', 'register', params],
+    queryFn: () => api.audit.register(params),
+    placeholderData: keepPreviousData,
+  });
 
-  // Actor filter by name rather than a numeric user id.
-  const { data: actors } = useQuery({
+  const verifyQuery = useQuery({
+    queryKey: ['audit', 'verify'],
+    queryFn: () => api.audit.verify(),
+    staleTime: 60 * 1000,
+  });
+
+  const actorsQuery = useQuery({
     queryKey: ['audit', 'actors'],
     queryFn: ({ signal }) => api.runbooks.assignees({ signal }),
     staleTime: 5 * 60 * 1000,
   });
 
-  useEffect(() => {
-    api.audit.verify().then(res => setChainStatus(res))
-      .catch(() => setChainStatus({ chainValid: false, message: 'Failed to verify chain' }));
-  }, []);
+  const data = listQuery.data ?? { content: [], totalElements: 0 };
+  const loading = listQuery.isPending;
+  const actors = actorsQuery.data;
+  const chainStatus = verifyQuery.isError
+    ? { chainValid: false, message: 'Failed to verify chain' }
+    : (verifyQuery.data ?? null);
 
   return (
     <Box>
@@ -169,8 +171,8 @@ export default function AuditTrailPage() {
         )}
       </Paper>
 
-      {snackbar && <Alert severity="error" onClose={() => setSnackbar(null)}
-        sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999 }}>{snackbar}</Alert>}
+      {listQuery.isError && <Alert severity="error"
+        sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999 }}>{listQuery.error?.message || 'Failed to load audit events.'}</Alert>}
     </Box>
   );
 }

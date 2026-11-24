@@ -91,6 +91,9 @@ function responsibilityBody(people, owner) {
   if (owner?.userId) {
     body.returnOwnerUserId = Number(owner.userId);
     body.returnOwnerName = owner.fullName || owner.email || null;
+  } else if (owner?.email) {
+    body.returnOwnerName = owner.fullName || 'Compliance Team';
+    body.returnOwnerEmail = owner.email;
   }
   return body;
 }
@@ -147,6 +150,13 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
     enabled: open,
   });
 
+  const complianceQuery = useQuery({
+    queryKey: ['settings', 'compliance'],
+    queryFn: ({ signal }) => api.settings.compliance({ signal }),
+    enabled: open,
+  });
+  const complianceTeamEmail = complianceQuery.data?.complianceTeamEmail || '';
+
   const templatesQuery = useQuery({
     queryKey: ['escalation', 'policies', 'RETURN', 'templates'],
     queryFn: ({ signal }) => api.escalation.policies('RETURN', { defaultsOnly: true }, { signal }),
@@ -172,8 +182,11 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
     if (!open) return;
     const match = (usersQuery.data || [])
       .find(u => String(u.userId) === String(item?.returnOwnerUserId));
-    setOwner(match ? { email: match.email, fullName: match.fullName, userId: match.userId } : null);
-  }, [open, item?.returnOwnerUserId, usersQuery.data]);
+    if (match) setOwner({ email: match.email, fullName: match.fullName, userId: match.userId });
+    else if (item?.returnOwnerEmail) setOwner({ email: item.returnOwnerEmail, fullName: item.returnOwnerName || 'Compliance Team', userId: null });
+    else if (complianceTeamEmail) setOwner({ email: complianceTeamEmail, fullName: 'Compliance Team', userId: null });
+    else setOwner(null);
+  }, [open, item?.returnOwnerUserId, item?.returnOwnerEmail, item?.returnOwnerName, usersQuery.data, complianceTeamEmail]);
 
   useEffect(() => {
     if (!open || !escalationQuery.data) return;
@@ -221,7 +234,9 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
     const peopleBefore = responsibilityBody(initialResponsibility(item),
       item?.returnOwnerUserId
         ? { userId: item.returnOwnerUserId, fullName: item.returnOwnerName || '' }
-        : null);
+        : (item?.returnOwnerEmail
+          ? { email: item.returnOwnerEmail, fullName: item.returnOwnerName || 'Compliance Team' }
+          : null));
     const peopleChanged = JSON.stringify(peopleBody) !== JSON.stringify(peopleBefore);
     if (peopleChanged && !peopleBody.responsiblePersons.length) {
       setError('Select at least one responsible person.');
@@ -420,6 +435,11 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
             </Box>
             <PersonPicker mode="user" label="Return owner" value={owner} onChange={setOwner}
               helperText="Directory users can be responsible persons; the owner must be a platform user." />
+            {owner && !owner.userId && (
+              <Typography variant="caption" color="text.secondary">
+                Defaults to the compliance team ({owner.email})
+              </Typography>
+            )}
           </>
         )}
       </DialogContent>

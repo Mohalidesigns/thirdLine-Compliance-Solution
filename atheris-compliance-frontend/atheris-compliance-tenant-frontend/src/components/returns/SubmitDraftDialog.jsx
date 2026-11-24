@@ -9,14 +9,23 @@ export default function SubmitDraftDialog({ open, instanceId, period, onClose, o
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState('');
   const [files, setFiles] = useState([]);
+  const [evidenceName, setEvidenceName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { if (open) { setNotes(''); setFiles([]); setError(''); } }, [open]);
+  useEffect(() => { if (open) { setNotes(''); setFiles([]); setEvidenceName(''); setNameTouched(false); setError(''); } }, [open]);
+
+  const nameMissing = files.length > 0 && !evidenceName.trim();
 
   async function submit() {
     if (files.length === 0) {
       setError('Attach the drafted report before sending it to the CCO.');
+      return;
+    }
+    if (nameMissing) {
+      setNameTouched(true);
+      setError('Enter an evidence name before sending it to the CCO.');
       return;
     }
     setError('');
@@ -25,6 +34,7 @@ export default function SubmitDraftDialog({ open, instanceId, period, onClose, o
       const form = new FormData();
       if (notes.trim()) form.append('notes', notes.trim());
       files.forEach((f) => form.append('files', f));
+      form.append('evidenceName', evidenceName.trim());
       await api.returns.submitDraft(instanceId, form);
       queryClient.invalidateQueries({ queryKey: ['evidence', 'source'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -56,6 +66,11 @@ export default function SubmitDraftDialog({ open, instanceId, period, onClose, o
               </Box>
             )}
           </Box>
+          <TextField label="Report title" fullWidth size="small" required={files.length > 0}
+            value={evidenceName} onBlur={() => setNameTouched(true)}
+            error={nameTouched && nameMissing}
+            helperText={nameTouched && nameMissing ? 'Report title is required.' : ''}
+            onChange={(e) => setEvidenceName(e.target.value)} />
           <TextField label="Cover note (optional)" multiline minRows={2} fullWidth size="small"
             value={notes} onChange={(e) => setNotes(e.target.value)} />
           {error && <Alert severity="error">{error}</Alert>}

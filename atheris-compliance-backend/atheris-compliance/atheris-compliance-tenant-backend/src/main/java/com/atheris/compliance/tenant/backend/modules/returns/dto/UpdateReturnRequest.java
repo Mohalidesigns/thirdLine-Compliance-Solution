@@ -12,4 +12,5 @@ public class UpdateReturnRequest {
     private List<Integer> responsibleStakeholderIds;
     private Integer returnOwnerUserId;
     private String returnOwnerName;
+    private String returnOwnerEmail;
 }

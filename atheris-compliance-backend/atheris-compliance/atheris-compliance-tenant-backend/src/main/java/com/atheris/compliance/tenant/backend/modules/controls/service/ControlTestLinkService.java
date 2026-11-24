@@ -248,7 +248,7 @@ public class ControlTestLinkService {
 
     @Transactional
     public void submit(String rawToken, LocalDate testDate, String result, String notes,
-                       MultipartFile file) {
+                       MultipartFile file, String evidenceName) {
         ControlTestLink link = resolve(rawToken);
         Control c = controls.findById(link.getControlId())
             .orElseThrow(() -> ApiException.notFound("Control not found"));
@@ -271,7 +271,7 @@ public class ControlTestLinkService {
 
         try {
             evidenceVault.upload(file, EVIDENCE_TYPE, saved.getTestId(),
-                "Test evidence " + saved.getTestDate(), null);
+                evidenceName == null || evidenceName.isBlank() ? "Test evidence " + saved.getTestDate() : evidenceName.trim(), null);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to store the test evidence", e);
         }

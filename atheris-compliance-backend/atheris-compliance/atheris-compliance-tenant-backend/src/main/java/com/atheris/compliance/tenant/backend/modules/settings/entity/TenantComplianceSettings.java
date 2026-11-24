@@ -33,6 +33,8 @@ public class TenantComplianceSettings {
     @Builder.Default private Boolean requireControlTestReview = true;
     @Builder.Default private Boolean requireFindingReview = true;
 
+    private String complianceTeamEmail;
+
     private Instant createdAt;
     private Instant updatedAt;
 

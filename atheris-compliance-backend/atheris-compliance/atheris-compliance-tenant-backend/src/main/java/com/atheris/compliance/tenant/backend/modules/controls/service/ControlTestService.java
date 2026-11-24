@@ -103,14 +103,14 @@ public class ControlTestService {
         }
         ControlTestResult result = record(controlId, req, tester.getUserId(), tester.getFullName(),
             !complianceSettings.requireControlTestReview());
-        for (MultipartFile file : uploads) storeTestEvidence(file, result, tester.getUserId());
+        for (MultipartFile file : uploads) storeTestEvidence(file, result, req.getEvidenceName(), tester.getUserId());
         return result;
     }
 
-    private void storeTestEvidence(MultipartFile file, ControlTestResult result, Integer userId) {
+    private void storeTestEvidence(MultipartFile file, ControlTestResult result, String evidenceName, Integer userId) {
         try {
             evidenceVault.upload(file, ControlTestLinkService.EVIDENCE_TYPE, result.getTestId(),
-                "Test evidence " + result.getTestDate(), userId);
+                evidenceName == null || evidenceName.isBlank() ? "Test evidence " + result.getTestDate() : evidenceName.trim(), userId);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to store the test evidence", e);
         }

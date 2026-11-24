@@ -80,10 +80,12 @@ public class EvidenceController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) Long sourceId,
-            @RequestParam(required = false) String description,
+            @RequestParam String description,
             @AuthenticationPrincipal User u) {
         if (file == null || file.isEmpty())
             throw ApiException.badRequest("empty_file", "The uploaded file is empty");
+        if (description == null || description.isBlank())
+            throw ApiException.badRequest("evidence_name_required", "An evidence name is required");
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.uploadLinked(file, sourceType, sourceId, description, u.getUserId()));

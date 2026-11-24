@@ -16,6 +16,7 @@ import com.atheris.compliance.tenant.backend.modules.escalation.entity.Escalatio
 import com.atheris.compliance.tenant.backend.modules.escalation.service.EscalationPolicyService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationService;
 import com.atheris.compliance.tenant.backend.modules.notifications.service.NotificationTemplateService;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import com.atheris.compliance.tenant.backend.shared.email.EmailService;
 import com.atheris.compliance.tenant.backend.modules.users.entity.User;
 import com.atheris.compliance.tenant.backend.modules.users.repository.UserRepository;
@@ -79,6 +80,7 @@ public class ReturnService {
     private final PersonDirectoryService personDirectory;
     private final com.atheris.compliance.tenant.backend.modules.returns.repository.ReturnResponsibleStakeholderRepository responsibleStakeholders;
     private final com.atheris.compliance.tenant.backend.modules.org.service.PlacementService placement;
+    private final ComplianceSettingsService complianceSettings;
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -359,6 +361,12 @@ public class ReturnService {
             if (req.getReturnOwnerUserId() != null) {
                 r.setReturnOwnerUserId(req.getReturnOwnerUserId());
                 r.setReturnOwnerName(req.getReturnOwnerName());
+                r.setReturnOwnerEmail(req.getReturnOwnerEmail());
+            } else if (req.getReturnOwnerEmail() != null && !req.getReturnOwnerEmail().isBlank()) {
+                r.setReturnOwnerUserId(null);
+                r.setReturnOwnerName(req.getReturnOwnerName() != null && !req.getReturnOwnerName().isBlank()
+                    ? req.getReturnOwnerName() : "Compliance Team");
+                r.setReturnOwnerEmail(req.getReturnOwnerEmail().trim());
             }
             returns.save(r);
             if (req.getResponsibleStakeholderIds() != null) {
@@ -586,6 +594,7 @@ public class ReturnService {
             .responsibleUnits(r.getResponsibleUnits())
             .responsiblePersons(r.getResponsiblePersons())
             .returnOwnerName(r.getReturnOwnerName())
+            .returnOwnerEmail(r.getReturnOwnerEmail())
             .filingChannel(r.getFilingChannel())
             .escalationPolicyId(r.getEscalationPolicyId())
             .dueDateNeeded(DueRule.dueDateNeeded(r))
@@ -762,7 +771,7 @@ public class ReturnService {
             .orElseThrow(() -> ApiException.notFound("Return not found: " + returnId));
         ReturnFilingInstance inst = instances.findById(instanceId)
             .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
-        ReturnInstanceDetailResponse detail = ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName());
+        ReturnInstanceDetailResponse detail = ReturnInstanceDetailResponse.from(inst, r.getReturnName(), regulatorLabel(r), r.getReturnOwnerName(), r.getReturnOwnerEmail());
         detail.setActId(r.getActId());
         detail.setActName(r.getActName());
         detail.setFrequency(r.getFrequency());
@@ -889,7 +898,7 @@ public class ReturnService {
     }
 
     @Transactional
-    public void submitDraft(Long instanceId, List<MultipartFile> files, String notes, Integer userId) {
+    public void submitDraft(Long instanceId, List<MultipartFile> files, String notes, String evidenceName, Integer userId) {
         try {
             ReturnFilingInstance inst = instances.findById(instanceId)
                 .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
@@ -901,8 +910,10 @@ public class ReturnService {
             if (attached.isEmpty())
                 throw ApiException.conflict("draft_evidence_required",
                     "Attach the drafted report before sending it to the CCO.");
+            if (evidenceName == null || evidenceName.isBlank())
+                throw ApiException.badRequest("evidence_name_required", "An evidence name is required");
             int version = draftFileCount(instanceId) + 1;
-            String reference = DRAFT_EVIDENCE_PREFIX + inst.getPeriod() + " (v" + version + ")";
+            String reference = DRAFT_EVIDENCE_PREFIX + evidenceName.trim() + " · " + inst.getPeriod() + " (v" + version + ")";
             for (MultipartFile file : attached) {
                 evidenceVault.upload(file, INSTANCE_EVIDENCE_TYPE, instanceId, reference, userId);
             }
@@ -923,7 +934,7 @@ public class ReturnService {
     }
 
     @Transactional
-    public ReturnInstanceDetailResponse addProofOfFiling(Long instanceId, List<MultipartFile> files, String reference, Integer userId) {
+    public ReturnInstanceDetailResponse addProofOfFiling(Long instanceId, List<MultipartFile> files, String evidenceName, String reference, Integer userId) {
         try {
             ReturnFilingInstance inst = instances.findById(instanceId)
                 .orElseThrow(() -> ApiException.notFound("Return instance not found: " + instanceId));
@@ -934,8 +945,10 @@ public class ReturnService {
                 : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
             if (attached.isEmpty())
                 throw ApiException.conflict("proof_required", "Attach the regulator's acknowledgement or filing receipt.");
-            String description = RECEIPT_EVIDENCE_PREFIX
-                + (reference != null && !reference.isBlank() ? reference.trim() : inst.getPeriod());
+            if (evidenceName == null || evidenceName.isBlank())
+                throw ApiException.badRequest("evidence_name_required", "An evidence name is required");
+            String description = RECEIPT_EVIDENCE_PREFIX + evidenceName.trim()
+                + (reference != null && !reference.isBlank() ? " · " + reference.trim() : "");
             for (MultipartFile file : attached) {
                 evidenceVault.upload(file, RECEIPT_EVIDENCE_TYPE, instanceId, description, userId);
             }
@@ -943,7 +956,8 @@ public class ReturnService {
                 Map.of("files", attached.size()));
             RegulatoryReturn ret = returns.findById(inst.getReturnId()).orElse(null);
             return ReturnInstanceDetailResponse.from(inst, ret == null ? null : ret.getReturnName(),
-                ret == null ? null : regulatorLabel(ret), ret == null ? null : ret.getReturnOwnerName());
+                ret == null ? null : regulatorLabel(ret), ret == null ? null : ret.getReturnOwnerName(),
+                ret == null ? null : ret.getReturnOwnerEmail());
         } catch (Throwable e) {
             log.error("Adding proof of filing for instance {} failed: {}", instanceId, e.getMessage(), e);
             try { em.clear(); } catch (Throwable ignored) {}
@@ -1029,9 +1043,14 @@ public class ReturnService {
     }
 
     private String ownerEmail(RegulatoryReturn ret) {
-        if (ret == null || ret.getReturnOwnerUserId() == null) return null;
-        return users.findById(ret.getReturnOwnerUserId()).map(User::getEmail)
-            .filter(e -> e != null && !e.isBlank()).orElse(null);
+        if (ret == null) return null;
+        if (ret.getReturnOwnerUserId() != null) {
+            String e = users.findById(ret.getReturnOwnerUserId()).map(User::getEmail)
+                .filter(x -> x != null && !x.isBlank()).orElse(null);
+            if (e != null) return e;
+        }
+        String team = ret.getReturnOwnerEmail();
+        return team == null || team.isBlank() ? null : team.trim();
     }
 
     private List<String> responsibleCc(RegulatoryReturn ret, List<String> to) {
@@ -1296,10 +1315,25 @@ public class ReturnService {
             "Select at least one responsible person — they receive the filing request and submit the data.");
         Integer ownerUserId = req.getReturnOwnerUserId();
         String ownerName = req.getReturnOwnerName();
-        if (ownerUserId == null && ownerName != null && !ownerName.isBlank()) {
-            User owner = users.findByEmail(ownerName)
-                .orElseGet(() -> users.findFirstByFullNameIgnoreCase(ownerName).orElse(null));
+        String ownerEmail = req.getReturnOwnerEmail();
+        String ownerLookup = ownerName;
+        if (ownerUserId == null && ownerLookup != null && !ownerLookup.isBlank()) {
+            User owner = users.findByEmail(ownerLookup)
+                .orElseGet(() -> users.findFirstByFullNameIgnoreCase(ownerLookup).orElse(null));
             if (owner != null) ownerUserId = owner.getUserId();
+        }
+        String effectiveEmail = ownerEmail != null && !ownerEmail.isBlank()
+            ? ownerEmail.trim() : complianceSettings.complianceTeamEmail();
+        if (ownerUserId == null && effectiveEmail != null) {
+            User teamUser = users.findByEmail(effectiveEmail).orElse(null);
+            if (teamUser != null) {
+                ownerUserId = teamUser.getUserId();
+                ownerName = teamUser.getFullName();
+                ownerEmail = null;
+            } else {
+                ownerEmail = effectiveEmail;
+                if (ownerName == null || ownerName.isBlank()) ownerName = "Compliance Team";
+            }
         }
         RegulatoryReturn r = RegulatoryReturn.builder()
             .returnName(req.getReturnName()).filingRegulator(snapshot)
@@ -1316,6 +1350,7 @@ public class ReturnService {
             .filingChannel(req.getFilingChannel())
             .returnOwnerUserId(ownerUserId)
             .returnOwnerName(ownerName)
+            .returnOwnerEmail(ownerEmail)
             .responsibleUnits(units)
             .responsiblePersons(persons)
             .responsibleUnit(units.isEmpty() ? null : units.get(0))

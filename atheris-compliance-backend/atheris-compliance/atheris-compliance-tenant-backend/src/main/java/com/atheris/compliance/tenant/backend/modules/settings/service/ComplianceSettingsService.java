@@ -66,6 +66,7 @@ public class ComplianceSettingsService {
         if (req.getSlaLowDays() != null) s.setSlaLowDays(nonNegative(req.getSlaLowDays(), "slaLowDays"));
         if (req.getRequireControlTestReview() != null) s.setRequireControlTestReview(req.getRequireControlTestReview());
         if (req.getRequireFindingReview() != null) s.setRequireFindingReview(req.getRequireFindingReview());
+        if (req.getComplianceTeamEmail() != null) s.setComplianceTeamEmail(normaliseEmail(req.getComplianceTeamEmail()));
         return toResponse(repo.save(s));
     }
 
@@ -79,6 +80,21 @@ public class ComplianceSettingsService {
     public boolean requireFindingReview() {
         Boolean v = current().getRequireFindingReview();
         return v == null || v;
+    }
+
+    @Transactional(readOnly = true)
+    public String complianceTeamEmail() {
+        String v = current().getComplianceTeamEmail();
+        return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    private String normaliseEmail(String value) {
+        if (value == null || value.isBlank()) return null;
+        String v = value.trim();
+        int at = v.indexOf('@');
+        if (at <= 0 || at == v.length() - 1 || v.contains(" "))
+            throw ApiException.badRequest("invalid_setting", "complianceTeamEmail must be a valid email address");
+        return v;
     }
 
     private int nonNegative(Integer value, String field) {
@@ -120,6 +136,7 @@ public class ComplianceSettingsService {
             .slaLowDays(s.getSlaLowDays())
             .requireControlTestReview(s.getRequireControlTestReview() == null || s.getRequireControlTestReview())
             .requireFindingReview(s.getRequireFindingReview() == null || s.getRequireFindingReview())
+            .complianceTeamEmail(s.getComplianceTeamEmail())
             .build();
     }
 

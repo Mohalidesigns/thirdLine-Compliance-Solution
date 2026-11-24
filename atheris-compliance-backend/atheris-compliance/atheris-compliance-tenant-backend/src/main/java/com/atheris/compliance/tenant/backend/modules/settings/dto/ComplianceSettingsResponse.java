@@ -23,4 +23,5 @@ public class ComplianceSettingsResponse {
 
     private Boolean requireControlTestReview;
     private Boolean requireFindingReview;
+    private String complianceTeamEmail;
 }

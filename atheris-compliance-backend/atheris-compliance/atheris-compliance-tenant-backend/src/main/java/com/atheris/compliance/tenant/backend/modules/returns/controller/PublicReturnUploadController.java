@@ -34,10 +34,11 @@ public class PublicReturnUploadController {
             @RequestParam(value = "triggerDate", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate triggerDate,
             @RequestParam(value = "reference", required = false) String reference,
+            @RequestParam(value = "evidenceName", required = false) String evidenceName,
             @RequestParam(value = "dueDate", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDate,
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dueDate,
             @RequestParam(value = "file", required = false) MultipartFile file) {
-        service.submit(token, triggerDate, reference, dueDate, file);
+        service.submit(token, triggerDate, reference, dueDate, file, evidenceName);
         return ResponseEntity.ok(Map.of("status", "recorded"));
     }
 }

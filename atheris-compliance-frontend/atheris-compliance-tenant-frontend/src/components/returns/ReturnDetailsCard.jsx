@@ -38,46 +38,25 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
           <Field label="Due rule" value={dueRuleText(item)} />
           <Field label="Start preparing" value={item.prepDays != null ? `${item.prepDays} day(s) before due` : 'Default (5 days before due)'} />
           <Field label="Filing channel" value={item.filingChannel} />
-          <Field label="Return owner" value={item.returnOwnerName} />
+          <Field label="Return owner" value={item.returnOwnerName
+            ? (item.returnOwnerEmail ? `${item.returnOwnerName} · ${item.returnOwnerEmail}` : item.returnOwnerName)
+            : '—'} />
           <Field label="Responsible units"><Chips values={responsibleUnits(item)} /></Field>
           <Field label="Filers"><Chips values={responsiblePersons(item)} /></Field>
           {item.deadlineText && <Field label="Regulator wording" value={item.deadlineText} />}
         </FieldGrid>
       </Section>
 
-      <Section icon={<CalendarIcon />} title="Schedule & periods" sx={{ mb: 0 }}>
+      <Section icon={<CalendarIcon />} title="Schedule" sx={{ mb: 0 }}>
         <FieldGrid min={180}>
           <Field label="Current period" value={item.currentPeriod || (eventDriven ? 'On event' : '—')} />
           <Field label="Current due date" value={item.currentDueDate ? formatDate(item.currentDueDate) : '—'} />
           <Field label="Current status" value={currentStatus ? statusBadge(currentStatus) : '—'} />
-          <Field label="Periods on record" value={item.totalInstances ?? 0} />
-          <Field label="Overdue periods" value={item.overdueCount ?? 0} />
-          <Field label="Due date needed" value={item.dueDateNeeded ? 'Yes' : 'No'} />
           {item.dueDateSource === 'user' && <Field label="Due rule source" value="Set by your team" />}
         </FieldGrid>
-        {!eventDriven && (item.projectedInstances || []).length > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="overline" color="text.secondary">
-              Next periods (projected)
-            </Typography>
-            {(item.projectedInstances || []).map((p) => (
-              <Typography key={p.period} variant="body2" sx={{ fontSize: '0.85rem', mt: 0.5 }}>
-                • {p.period} · due {formatDate(p.dueDate)}
-              </Typography>
-            ))}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              The next period is created when the current one is accepted.
-            </Typography>
-          </Box>
-        )}
         {item.dueDateNeeded && !eventDriven && (
           <Alert severity="warning" sx={{ mt: 2 }}>
             This return has no due rule yet, so no filing periods are generated. Use “Edit schedule” to set one.
-          </Alert>
-        )}
-        {(item.linkedObligationCount ?? 0) === 0 && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            This return is not linked to any obligation — its filing has no documented duty behind it.
           </Alert>
         )}
       </Section>

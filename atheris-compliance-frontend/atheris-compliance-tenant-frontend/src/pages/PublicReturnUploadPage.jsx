@@ -65,6 +65,7 @@ export default function PublicReturnUploadPage() {
   const [triggerDate, setTriggerDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [reference, setReference] = useState('');
+  const [evidenceName, setEvidenceName] = useState('');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -89,21 +90,24 @@ export default function PublicReturnUploadPage() {
     setFile(f);
   }
 
+  const nameMissing = !evidenceName.trim();
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError('');
     const isFiling = view?.mode === 'FILING';
     if (!isFiling && !triggerDate) { setSubmitError('The event (trigger) date is required.'); return; }
-    if (mode === 'reference' && !reference.trim()) { setSubmitError('Provide an evidence reference.'); return; }
-    if (mode === 'file' && !file) { setSubmitError('Attach an evidence file.'); return; }
+    if (!file) { setSubmitError('Attach the filing document.'); return; }
+    if (nameMissing) { setSubmitError('A document title is required before submitting.'); return; }
     if (!isFiling && view.deadlineMode === 'MANUAL' && !dueDate) { setSubmitError('This return requires a due date.'); return; }
     setSubmitting(true);
     try {
       await publicApi.returnUploadSubmit(token, {
         triggerDate: isFiling ? undefined : triggerDate,
-        reference: mode === 'reference' ? reference.trim() : undefined,
+        reference: reference.trim() || undefined,
         dueDate: !isFiling && view.deadlineMode === 'MANUAL' ? dueDate : undefined,
-        file: mode === 'file' ? file : undefined,
+        file,
+        evidenceName: evidenceName.trim(),
       });
       setDone(true);
     } catch (err) {
@@ -222,44 +226,36 @@ export default function PublicReturnUploadPage() {
 
               <Grid size={{ xs: 12 }}>
                 <Typography sx={{ ...labelSx, mb: 0.75 }}>Evidence</Typography>
-                <ToggleButtonGroup exclusive size="small" value={mode} sx={{ mb: 1.5 }}
-                  onChange={(_, v) => { if (v) { setMode(v); setFileError(''); setSubmitError(''); } }}>
-                  <ToggleButton value="file">Attach a file</ToggleButton>
-                  <ToggleButton value="reference">Enter a reference</ToggleButton>
-                </ToggleButtonGroup>
+                <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />}>
+                  Attach evidence (PDF, PNG, JPG, DOCX, XLSX · max {MAX_MB} MB)
+                  <input hidden type="file" accept={ACCEPT}
+                    onChange={(e) => { pickFile(e.target.files); e.target.value = ''; }} />
+                </Button>
+                {fileError && <Alert severity="warning" sx={{ mt: 1 }}>{fileError}</Alert>}
+                <TextField label="Filing document title" fullWidth required size="small" sx={{ mt: 2 }}
+                  placeholder="A short label for the attached document."
+                  error={nameMissing}
+                  helperText={nameMissing ? 'A document title is required.' : ''}
+                  value={evidenceName} onChange={(e) => setEvidenceName(e.target.value)} />
+                {file && (
+                  <List dense sx={{ mt: 1, maxWidth: 480 }}>
+                    <ListItem divider secondaryAction={
+                      <IconButton edge="end" size="small" onClick={() => setFile(null)}><TrashIcon size={16} /></IconButton>
+                    }>
+                      <ListItemText primary={file.name} secondary={`${(file.size / 1024 / 1024).toFixed(1)} MB`} />
+                    </ListItem>
+                  </List>
+                )}
+                <TextField label="Reference (optional)" fullWidth size="small" sx={{ mt: 2 }}
+                  placeholder="e.g. the filing portal reference"
+                  value={reference} onChange={(e) => setReference(e.target.value)} />
               </Grid>
-
-              {mode === 'file' ? (
-                <Grid size={{ xs: 12 }}>
-                  <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />}>
-                    Attach evidence (PDF, PNG, JPG, DOCX, XLSX · max {MAX_MB} MB)
-                    <input hidden type="file" accept={ACCEPT}
-                      onChange={(e) => { pickFile(e.target.files); e.target.value = ''; }} />
-                  </Button>
-                  {fileError && <Alert severity="warning" sx={{ mt: 1 }}>{fileError}</Alert>}
-                  {file && (
-                    <List dense sx={{ mt: 1, maxWidth: 480 }}>
-                      <ListItem divider secondaryAction={
-                        <IconButton edge="end" size="small" onClick={() => setFile(null)}><TrashIcon size={16} /></IconButton>
-                      }>
-                        <ListItemText primary={file.name} secondary={`${(file.size / 1024 / 1024).toFixed(1)} MB`} />
-                      </ListItem>
-                    </List>
-                  )}
-                </Grid>
-              ) : (
-                <Grid size={{ xs: 12 }}>
-                  <TextField label="Evidence reference" fullWidth multiline minRows={2}
-                    placeholder="e.g. the filing portal reference, or a short description of the occurrence"
-                    value={reference} onChange={(e) => setReference(e.target.value)} />
-                </Grid>
-              )}
 
               {submitError && <Grid size={{ xs: 12 }}><Alert severity="error">{submitError}</Alert></Grid>}
 
               <Grid size={{ xs: 12 }}>
                 <Stack direction="row" justifyContent="flex-end">
-                  <Button type="submit" variant="contained" disabled={submitting}
+                  <Button type="submit" variant="contained" disabled={submitting || nameMissing || !file}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon size={16} />}>
                     {submitting ? 'Submitting…' : (filing ? 'Submit filing' : 'Record event filing')}
                   </Button>

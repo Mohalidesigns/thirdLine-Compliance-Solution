@@ -15,6 +15,8 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
     remediationOwnerId: null, remediationDeadline: '',
   });
   const [files, setFiles] = useState([]);
+  const [evidenceName, setEvidenceName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -26,12 +28,16 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
         remediationOwnerId: controlOwnerId ?? null, remediationDeadline: '',
       });
       setFiles([]);
+      setEvidenceName('');
+      setNameTouched(false);
     }
   }, [open, controlOwnerId]);
 
   const showFailure = form.result === 'Failed' || form.result === 'Partial';
+  const nameMissing = !evidenceName.trim();
 
   const handleSave = async () => {
+    if (nameMissing) { setNameTouched(true); return; }
     setSaving(true);
     try {
       const fd = new FormData();
@@ -42,6 +48,7 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
       if (form.remediationOwnerId) fd.append('remediationOwnerId', String(form.remediationOwnerId));
       if (form.remediationDeadline) fd.append('remediationDeadline', form.remediationDeadline);
       files.forEach(f => fd.append('files', f));
+      fd.append('evidenceName', evidenceName.trim());
       await api.controls.recordTest(controlId, fd);
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -100,6 +107,13 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
               </Box>
             )}
           </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField label="Test evidence title" fullWidth size="small" required={files.length > 0}
+              value={evidenceName} onBlur={() => setNameTouched(true)}
+              error={nameTouched && nameMissing}
+              helperText={nameTouched && nameMissing ? 'Test evidence title is required.' : ''}
+              onChange={e => setEvidenceName(e.target.value)} />
+          </Grid>
           {showFailure && (
             <>
               <Grid size={{ xs: 6 }}><OwnerPicker value={form.remediationOwnerId} label="Remediation Owner"
@@ -113,7 +127,7 @@ export default function RecordTestDialog({ open, onClose, controlId, controlOwne
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result || files.length === 0}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.testDate || !form.result || files.length === 0 || nameMissing}>
           {saving ? 'Saving...' : 'Record Test'}
         </Button>
       </DialogActions>

@@ -28,6 +28,7 @@ public class ReturnRegisterItem {
     private List<String> responsibleUnits;
     private List<String> responsiblePersons;
     private String returnOwnerName;
+    private String returnOwnerEmail;
     private String filingChannel;
     private Long escalationPolicyId;
     private String currentPeriod;

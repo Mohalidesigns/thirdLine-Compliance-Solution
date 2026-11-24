@@ -205,7 +205,7 @@ public class RemediationLinkService {
     }
 
     @Transactional
-    public void submit(String rawToken, String notes, List<MultipartFile> files) throws Exception {
+    public void submit(String rawToken, String notes, List<MultipartFile> files, String evidenceName) throws Exception {
         RemediationLink link = resolve(rawToken);
         Finding f = findings.findById(link.getFindingId())
             .orElseThrow(() -> ApiException.notFound("Finding not found"));

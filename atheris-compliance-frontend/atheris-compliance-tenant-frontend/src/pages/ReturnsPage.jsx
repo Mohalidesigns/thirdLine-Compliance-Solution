@@ -122,7 +122,12 @@ export default function ReturnsPage() {
   const loading = listQuery.isPending;
   const error = listQuery.error?.message || '';
 
-  function refresh() { queryClient.invalidateQueries({ queryKey: ['returns'] }); }
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: ['returns'] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['evidence'] });
+  }
   function clearFilters() {
     setSearch(''); setStatusFilter('All'); setRegulatorFilter('All');
     setDeptFilter('All'); setDueFrom(''); setDueTo('');

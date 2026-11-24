@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   CircularProgress, Typography, Box, List, ListItem, ListItemText, IconButton, Tooltip,
 } from '@mui/material';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from 'shared';
@@ -8,23 +8,28 @@ import { api } from '../../services/api';
 
 export default function EvidenceUploadModal({ open, onClose, obligationId, evidence = [], onSaved, onError }) {
   const [file, setFile] = useState(null);
+  const [evidenceName, setEvidenceName] = useState('');
+  const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) setFile(null);
+    if (open) { setFile(null); setEvidenceName(''); setTouched(false); }
   }, [open]);
 
+  const nameMissing = !evidenceName.trim();
+
   async function handleUpload() {
-    if (!file) return;
+    if (!file || nameMissing) return;
     setLoading(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('sourceType', 'obligation');
       fd.append('sourceId', String(obligationId));
-      fd.append('description', 'Evidence uploaded from obligation detail');
+      fd.append('description', evidenceName.trim());
       await api.evidence.upload(fd);
       setFile(null);
+      setEvidenceName('');
       onSaved?.();
     } catch (e) { onError?.(e.message || 'Upload failed.'); }
     finally { setLoading(false); }
@@ -44,13 +49,18 @@ export default function EvidenceUploadModal({ open, onClose, obligationId, evide
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Evidence</DialogTitle>
       <DialogContent dividers>
+        <TextField label="Document title" fullWidth size="small" required sx={{ mb: 2 }}
+          value={evidenceName} onBlur={() => setTouched(true)}
+          error={touched && nameMissing}
+          helperText={touched && nameMissing ? 'Document title is required.' : ''}
+          onChange={e => setEvidenceName(e.target.value)} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Button component="label" variant="outlined" startIcon={<ArrowUpTrayIcon size={16} />} size="small">
             {file ? file.name : 'Choose file'}
             <input type="file" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
           </Button>
           {file && (
-            <Button size="small" variant="contained" onClick={handleUpload} disabled={loading}
+            <Button size="small" variant="contained" onClick={handleUpload} disabled={loading || nameMissing}
               startIcon={loading ? <CircularProgress size={14} /> : null}>
               Upload
             </Button>

@@ -145,6 +145,11 @@ public class ReturnsEscalationHandler implements EscalationSubjectHandler {
             User u = users.findById(r.getReturnOwnerUserId()).orElse(null);
             if (u != null) return new Person(u.getFullName(), u.getEmail(), u.getUserId());
         }
+        if (r.getReturnOwnerEmail() != null && !r.getReturnOwnerEmail().isBlank()) {
+            String name = r.getReturnOwnerName() != null && !r.getReturnOwnerName().isBlank()
+                ? r.getReturnOwnerName() : "Compliance Team";
+            return new Person(name, r.getReturnOwnerEmail(), null);
+        }
         return r.getReturnOwnerName() == null ? null : new Person(r.getReturnOwnerName(), null, null);
     }
 

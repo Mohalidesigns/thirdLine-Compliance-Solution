@@ -6,6 +6,7 @@ import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -22,8 +23,9 @@ class RiskOwnerDirectoryTest {
         mock(ObligationClassificationRepository.class);
     private final OwnerRepository owners = mock(OwnerRepository.class);
     private final DepartmentRepository departments = mock(DepartmentRepository.class);
+    private final ComplianceSettingsService complianceSettings = mock(ComplianceSettingsService.class);
     private final RiskOwnerDirectory directory =
-        new RiskOwnerDirectory(classifications, owners, departments);
+        new RiskOwnerDirectory(classifications, owners, departments, complianceSettings);
 
     @Test
     void resolvesObligationOwnerAndDepartmentHead() {
@@ -58,6 +60,19 @@ class RiskOwnerDirectoryTest {
 
         assertEquals(List.of(), directory.ccEmailsForObligations(List.of(5L)));
         assertEquals("", directory.detailVars(List.of(5L)).get("riskOwner"));
+    }
+
+    @Test
+    void copiesComplianceTeamEmailOnEscalations() {
+        when(classifications.findByObligationIdIn(any())).thenReturn(List.of(classification(5L, 100, 7)));
+        when(owners.findAllById(any()))
+            .thenReturn(List.of(owner(100, "Risk Owner", "risk@x.test", 7)))
+            .thenReturn(List.of(owner(200, "Dept Head", "head@x.test", 7)));
+        when(departments.findAllById(any())).thenReturn(List.of(department(7, "Compliance", 200)));
+        when(complianceSettings.complianceTeamEmail()).thenReturn("team@x.test");
+
+        assertEquals(List.of("risk@x.test", "head@x.test", "team@x.test"),
+            directory.ccEmailsForObligations(List.of(5L)));
     }
 
     private static ObligationClassification classification(Long obligationId, Integer ownerId, Integer departmentId) {

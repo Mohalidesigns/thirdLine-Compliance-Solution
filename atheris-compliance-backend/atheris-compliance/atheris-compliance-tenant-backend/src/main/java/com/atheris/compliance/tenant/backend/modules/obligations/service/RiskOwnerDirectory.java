@@ -8,6 +8,7 @@ import com.atheris.compliance.tenant.backend.modules.org.entity.Department;
 import com.atheris.compliance.tenant.backend.modules.org.entity.Owner;
 import com.atheris.compliance.tenant.backend.modules.org.repository.DepartmentRepository;
 import com.atheris.compliance.tenant.backend.modules.org.repository.OwnerRepository;
+import com.atheris.compliance.tenant.backend.modules.settings.service.ComplianceSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class RiskOwnerDirectory {
     private final ObligationClassificationRepository classifications;
     private final OwnerRepository owners;
     private final DepartmentRepository departments;
+    private final ComplianceSettingsService complianceSettings;
 
     @Transactional(readOnly = true)
     public List<String> ccEmailsForControl(Control control) {
@@ -70,6 +72,8 @@ public class RiskOwnerDirectory {
         for (Owner head : people.departmentHeads()) {
             if (notBlank(head.getEmail())) emails.add(head.getEmail());
         }
+        String team = complianceSettings.complianceTeamEmail();
+        if (notBlank(team)) emails.add(team);
         return new ArrayList<>(emails);
     }
 

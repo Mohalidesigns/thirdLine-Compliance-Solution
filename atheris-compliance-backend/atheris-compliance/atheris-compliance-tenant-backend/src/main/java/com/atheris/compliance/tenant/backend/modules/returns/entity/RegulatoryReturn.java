@@ -54,6 +54,7 @@ public class RegulatoryReturn {
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;
+    private String returnOwnerEmail;
     private Long escalationPolicyId;
     private String responsibleUnit;
     private String responsiblePerson;

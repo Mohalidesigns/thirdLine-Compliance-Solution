@@ -20,4 +20,5 @@ public class ComplianceSettingsRequest {
 
     private Boolean requireControlTestReview;
     private Boolean requireFindingReview;
+    private String complianceTeamEmail;
 }

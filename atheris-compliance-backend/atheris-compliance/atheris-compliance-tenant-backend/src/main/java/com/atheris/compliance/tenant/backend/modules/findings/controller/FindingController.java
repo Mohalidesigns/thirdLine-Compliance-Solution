@@ -72,10 +72,11 @@ public class FindingController {
     @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.TENANT_ADMIN + "')")
     public ResponseEntity<FindingDetailResponse> remediate(
             @PathVariable Long id,
+            @RequestParam(value = "evidenceName", required = false) String evidenceName,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal User u) throws Exception {
-        service.submitRemediation(id, notes, files, u.getUserId());
+        service.submitRemediation(id, notes, files, evidenceName, u.getUserId());
         return ResponseEntity.ok(service.getDetail(id));
     }
 
