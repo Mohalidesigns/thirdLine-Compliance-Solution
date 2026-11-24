@@ -562,3 +562,211 @@ cn: compliance
 mail: compliance@atheris.test
 description: Compliance team distribution group
 member: cn=cco,ou=people,dc=atheris,dc=test
+# --- Department members (report to their head) — for escalation testing ---
+dn: cn=amina okonkwo,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Amina Okonkwo
+sn: Okonkwo
+givenName: Amina
+title: Compliance Analyst
+mail: complianceanalyst1@atheris.test
+uid: complianceanalyst1
+userPassword: Passw0rd!
+manager: cn=headofcompliance,ou=people,dc=atheris,dc=test
+
+dn: cn=daniel eze,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Daniel Eze
+sn: Eze
+givenName: Daniel
+title: Compliance Officer
+mail: complianceofficer1@atheris.test
+uid: complianceofficer1
+userPassword: Passw0rd!
+manager: cn=headofcompliance,ou=people,dc=atheris,dc=test
+
+dn: cn=ifedayo balogun,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ifedayo Balogun
+sn: Balogun
+givenName: Ifedayo
+title: Risk Analyst
+mail: riskanalyst1@atheris.test
+uid: riskanalyst1
+userPassword: Passw0rd!
+manager: cn=headofrisk,ou=people,dc=atheris,dc=test
+
+dn: cn=grace nwosu,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Grace Nwosu
+sn: Nwosu
+givenName: Grace
+title: Risk Officer
+mail: riskofficer1@atheris.test
+uid: riskofficer1
+userPassword: Passw0rd!
+manager: cn=headofrisk,ou=people,dc=atheris,dc=test
+
+dn: cn=tobi adeyemi,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Tobi Adeyemi
+sn: Adeyemi
+givenName: Tobi
+title: IT Engineer
+mail: itengineer1@atheris.test
+uid: itengineer1
+userPassword: Passw0rd!
+manager: cn=headofit,ou=people,dc=atheris,dc=test
+
+dn: cn=chidera obi,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chidera Obi
+sn: Obi
+givenName: Chidera
+title: Systems Analyst
+mail: systemsanalyst1@atheris.test
+uid: systemsanalyst1
+userPassword: Passw0rd!
+manager: cn=headofit,ou=people,dc=atheris,dc=test
+
+dn: cn=sadiq yusuf,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Sadiq Yusuf
+sn: Yusuf
+givenName: Sadiq
+title: Operations Officer
+mail: operationsofficer1@atheris.test
+uid: operationsofficer1
+userPassword: Passw0rd!
+manager: cn=headofoperations,ou=people,dc=atheris,dc=test
+
+dn: cn=ngozi okafor,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Ngozi Okafor
+sn: Okafor
+givenName: Ngozi
+title: Branch Operations Lead
+mail: branchlead1@atheris.test
+uid: branchlead1
+userPassword: Passw0rd!
+manager: cn=headofoperations,ou=people,dc=atheris,dc=test
+
+dn: cn=femi adebayo,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Femi Adebayo
+sn: Adebayo
+givenName: Femi
+title: Financial Analyst
+mail: financialanalyst1@atheris.test
+uid: financialanalyst1
+userPassword: Passw0rd!
+manager: cn=headoffinance,ou=people,dc=atheris,dc=test
+
+dn: cn=kelechi umeh,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Kelechi Umeh
+sn: Umeh
+givenName: Kelechi
+title: Treasury Officer
+mail: treasuryofficer1@atheris.test
+uid: treasuryofficer1
+userPassword: Passw0rd!
+manager: cn=headoffinance,ou=people,dc=atheris,dc=test
+
+dn: cn=bisi adeyinka,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Bisi Adeyinka
+sn: Adeyinka
+givenName: Bisi
+title: Internal Auditor
+mail: internalauditor1@atheris.test
+uid: internalauditor1
+userPassword: Passw0rd!
+manager: cn=chiefauditexecutive,ou=people,dc=atheris,dc=test
+
+dn: cn=emeka nnamdi,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Emeka Nnamdi
+sn: Nnamdi
+givenName: Emeka
+title: Audit Officer
+mail: auditofficer1@atheris.test
+uid: auditofficer1
+userPassword: Passw0rd!
+manager: cn=chiefauditexecutive,ou=people,dc=atheris,dc=test
+
+dn: cn=zainab bello,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Zainab Bello
+sn: Bello
+givenName: Zainab
+title: Legal Officer
+mail: legalofficer1@atheris.test
+uid: legalofficer1
+userPassword: Passw0rd!
+manager: cn=headoflegal,ou=people,dc=atheris,dc=test
+
+dn: cn=chuka nwankwo,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Chuka Nwankwo
+sn: Nwankwo
+givenName: Chuka
+title: Secretariat Officer
+mail: secretrariatofficer1@atheris.test
+uid: secretrariatofficer1
+userPassword: Passw0rd!
+manager: cn=headoflegal,ou=people,dc=atheris,dc=test
+
+dn: cn=tola fashola,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Tola Fashola
+sn: Fashola
+givenName: Tola
+title: HR Officer
+mail: hrofficer1@atheris.test
+uid: hrofficer1
+userPassword: Passw0rd!
+manager: cn=headofhr,ou=people,dc=atheris,dc=test
+
+dn: cn=obinna anyanwu,ou=people,dc=atheris,dc=test
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+cn: Obinna Anyanwu
+sn: Anyanwu
+givenName: Obinna
+title: Talent Officer
+mail: talentofficer1@atheris.test
+uid: talentofficer1
+userPassword: Passw0rd!
+manager: cn=headofhr,ou=people,dc=atheris,dc=test

@@ -12,7 +12,7 @@ const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective', 'Directive'];
 const FREQUENCIES = ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'];
 const DEFAULT_POLICY = '';
 
-const TABS = { DETAILS: 0, SCHEDULE: 1, ESCALATION: 2, RESPONSIBILITY: 3 };
+const TABS = { DETAILS: 0, SCHEDULE: 1, RESPONSIBILITY: 2, ESCALATION: 3 };
 
 function initialForm(control) {
   return {
@@ -165,8 +165,8 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Details" />
           <Tab label="Testing schedule" />
-          <Tab label="Escalation" />
           <Tab label="Responsibility" />
+          <Tab label="Escalation" />
         </Tabs>
 
         {tab === TABS.DETAILS && (

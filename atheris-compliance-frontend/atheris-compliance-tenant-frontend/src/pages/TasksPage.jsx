@@ -271,13 +271,13 @@ export default function TasksPage() {
           onPage={setPage}
           onSize={(s) => { setSize(s); setPage(0); }}
           rowKey={(t) => t.key}
-          onRowClick={(t) => navigate(t.linkPath)}
+          onRowClick={(t) => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}
           emptyMessage="Nothing to action in this category."
           emptyIcon={<CheckCircleIcon size={44} sx={{ mb: 1, opacity: 0.35 }} />}
           actions={(t) => {
             const viewLabel = { RETURNS: 'View return', CONTROLS: 'View control', FINDINGS: 'View finding', OBLIGATIONS: 'View obligation' }[t.category] || 'View';
             const view = (
-              <Button size="small" variant="text" onClick={() => navigate(t.linkPath)}>{viewLabel}</Button>
+              <Button size="small" variant="text" onClick={() => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}>{viewLabel}</Button>
             );
             if (t.actionType === 'START') {
               return (
@@ -296,7 +296,7 @@ export default function TasksPage() {
                 </Box>
               );
             }
-            return <Button size="small" variant="outlined" onClick={() => navigate(t.linkPath)}>{t.actionLabel || viewLabel}</Button>;
+            return <Button size="small" variant="outlined" onClick={() => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}>{t.actionLabel || viewLabel}</Button>;
           }}
         />
       )}

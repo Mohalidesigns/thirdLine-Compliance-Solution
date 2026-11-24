@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Typography, Button, CircularProgress, Alert, IconButton, Snackbar,
@@ -77,6 +77,8 @@ const HISTORY_COLUMNS = [
 export default function ObligationDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const fromTasks = searchParams.get('from') === 'tasks';
   const obligationId = Number(id);
   const queryClient = useQueryClient();
 
@@ -218,8 +220,8 @@ export default function ObligationDetailPage() {
     <Box>
       <DetailHeader
         band
-        onBack={() => navigate('/obligations')}
-        backLabel="Back to Obligations"
+        onBack={() => navigate(fromTasks ? '/tasks' : '/obligations')}
+        backLabel={fromTasks ? 'Back to Tasks' : 'Back to Obligations'}
         title={selected.title || selected.name || 'Untitled obligation'}
         status={complianceLabel}
         statusTone={complianceTone}

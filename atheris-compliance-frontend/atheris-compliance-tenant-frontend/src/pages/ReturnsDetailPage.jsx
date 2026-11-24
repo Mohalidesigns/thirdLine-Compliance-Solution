@@ -38,6 +38,7 @@ export default function ReturnsDetailPage() {
   const tabParam = searchParams.get('tab');
   const instanceParam = searchParams.get('instanceId');
   const reviewParam = searchParams.get('review');
+  const fromTasks = searchParams.get('from') === 'tasks';
 
   const [tab, setTab] = useState(() => (TAB_NAMES.includes(tabParam) ? TAB_NAMES.indexOf(tabParam) : 0));
   const [selectedInstanceId, setSelectedInstanceId] = useState(instanceParam ? Number(instanceParam) : null);
@@ -104,8 +105,9 @@ export default function ReturnsDetailPage() {
     if (tabIdx === 1) next.set('tab', 'history');
     if (instanceId != null) next.set('instanceId', String(instanceId));
     if (keepReview && reviewParam) next.set('review', reviewParam);
+    if (fromTasks) next.set('from', 'tasks');
     setSearchParams(next, { replace: true });
-  }, [reviewParam, setSearchParams]);
+  }, [reviewParam, setSearchParams, fromTasks]);
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ['returns'] });
@@ -168,8 +170,8 @@ export default function ReturnsDetailPage() {
             {(item.frequency || item.frequencyType) && ` · ${eventDriven ? 'On event' : item.frequency}`}
           </>
         )}
-        onBack={() => navigate('/returns')}
-        backLabel="Back to Returns Register"
+        onBack={() => navigate(fromTasks ? '/tasks' : '/returns')}
+        backLabel={fromTasks ? 'Back to Tasks' : 'Back to Returns Register'}
         actions={(
           <>
             <ViewTaskButton subjectType="RETURN" subjectId={Number(returnId)} category="RETURNS" />
