@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -76,14 +76,7 @@ export default function TaskCockpitPage() {
   }, [primary, actionParam, autoOpened]);
 
   if (!valid) {
-    return (
-      <Box>
-        <PageHeader title="Tasks" onBack={() => navigate('/tasks')} backLabel="Back to Tasks" />
-        <Alert severity="info" action={<Button size="small" onClick={() => navigate('/tasks')}>Go to Tasks</Button>}>
-          This link doesn&apos;t point at a specific task. Open a task from the Tasks list to use this page.
-        </Alert>
-      </Box>
-    );
+    return <Navigate to={backTo} replace />;
   }
 
   const linkPath = primary?.linkPath
