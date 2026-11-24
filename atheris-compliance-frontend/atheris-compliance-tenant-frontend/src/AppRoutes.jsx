@@ -33,6 +33,8 @@ const ActsPage = lazy(() => import('./pages/ActsPage'));
 const ActDetailPage = lazy(() => import('./pages/ActDetailPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const TasksPage = lazy(() => import('./pages/TasksPage'));
+const TaskCockpitPage = lazy(() => import('./pages/TaskCockpitPage'));
+const TaskReviewRedirect = lazy(() => import('./pages/TaskReviewRedirect'));
 const RunbooksLibraryPage = lazy(() => import('./pages/runbooks/RunbooksLibraryPage'));
 const RunbookDetailPage = lazy(() => import('./pages/runbooks/RunbookDetailPage'));
 const RunbookBuilderPage = lazy(() => import('./pages/runbooks/RunbookBuilderPage'));
@@ -95,6 +97,7 @@ export default function AppRoutes() {
           <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="tasks/view" element={<TaskCockpitPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="review" element={<ReviewInboxPage />} />
           <Route path="review/:reviewId" element={<ReviewEditPage />} />
@@ -109,7 +112,7 @@ export default function AppRoutes() {
           <Route path="uploads" element={<UploadPage />} />
           <Route path="upload-history" element={<UploadStatusPage />} />
           <Route path="controls" element={<ControlsPage />} />
-          <Route path="controls/tests/:testId/review" element={<ControlTestReviewPage />} />
+          <Route path="controls/tests/:testId/review" element={<TaskReviewRedirect kind="control_test" />} />
           <Route path="runbooks" element={<RunbooksLibraryPage />} />
           <Route path="runbooks/new" element={<RunbookBuilderPage />} />
           <Route path="runbooks/executions" element={<ExecutionsPage />} />
@@ -122,7 +125,7 @@ export default function AppRoutes() {
           <Route path="runbooks/:id" element={<RunbookDetailPage />} />
           <Route path="runbooks/:id/edit" element={<RunbookBuilderPage />} />
           <Route path="findings" element={<FindingsPage />} />
-          <Route path="findings/:id/review" element={<FindingReviewPage />} />
+          <Route path="findings/:id/review" element={<TaskReviewRedirect kind="finding" />} />
           <Route path="returns" element={<ReturnsPage />} />
           <Route path="returns/:returnId" element={<ReturnsDetailPage />} />
           <Route path="returns/:returnId/instances/:instanceId/review" element={<ReturnInstanceReviewPage />} />

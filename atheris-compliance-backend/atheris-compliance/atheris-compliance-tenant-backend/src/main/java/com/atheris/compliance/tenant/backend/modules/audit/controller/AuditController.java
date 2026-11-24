@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,19 +21,23 @@ public class AuditController {
     private final AuditService service;
 
     @GetMapping("/register")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<Page<AuditEventItem>> register(
             @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) String subjectTypes,
             @RequestParam(required = false) Long subjectId,
             @RequestParam(required = false) Integer actorUserId,
             @RequestParam(required = false) Instant dateFrom,
             @RequestParam(required = false) Instant dateTo,
             Pageable p) {
-        return ResponseEntity.ok(service.search(subjectType, subjectId, actorUserId, dateFrom, dateTo, p));
+        List<String> types = subjectTypes != null && !subjectTypes.isBlank()
+            ? Arrays.stream(subjectTypes.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList()
+            : (subjectType == null || subjectType.isBlank() ? null : List.of(subjectType));
+        return ResponseEntity.ok(service.search(types, subjectId, actorUserId, dateFrom, dateTo, p));
     }
 
     @GetMapping("/verify")
-    @PreAuthorize("hasAnyRole('" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
+    @PreAuthorize("hasAnyRole('" + AppRole.ANALYST + "','" + AppRole.CCO + "','" + AppRole.TENANT_ADMIN + "','" + AppRole.AUDITOR + "')")
     public ResponseEntity<Map<String, Object>> verify() {
         boolean valid = service.verifyChain();
         return ResponseEntity.ok(Map.of(

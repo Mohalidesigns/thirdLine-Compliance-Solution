@@ -12,10 +12,18 @@ public class AuditSpecification {
     public static Specification<AuditEvent> withFilters(
             String subjectType, Long subjectId, Integer actorUserId,
             Instant dateFrom, Instant dateTo) {
+        return withFilters(
+            subjectType == null || subjectType.isBlank() ? null : List.of(subjectType),
+            subjectId, actorUserId, dateFrom, dateTo);
+    }
+
+    public static Specification<AuditEvent> withFilters(
+            List<String> subjectTypes, Long subjectId, Integer actorUserId,
+            Instant dateFrom, Instant dateTo) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            if (subjectType != null && !subjectType.isEmpty())
-                predicates.add(cb.equal(root.get("subjectType"), subjectType));
+            if (subjectTypes != null && !subjectTypes.isEmpty())
+                predicates.add(root.get("subjectType").in(subjectTypes));
             if (subjectId != null)
                 predicates.add(cb.equal(root.get("subjectId"), subjectId));
             if (actorUserId != null)

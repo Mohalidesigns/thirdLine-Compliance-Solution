@@ -62,22 +62,17 @@ public class AuditService {
     }
 
     public Page<AuditEventItem> search(
-            String subjectType, Long subjectId, Integer actorUserId,
+            List<String> subjectTypes, Long subjectId, Integer actorUserId,
             Instant dateFrom, Instant dateTo, Pageable p) {
-        var spec = AuditSpecification.withFilters(subjectType, subjectId, actorUserId, dateFrom, dateTo);
-        Page<AuditEventItem> page = repo.findAll(spec, p).map(e -> AuditEventItem.from(e));
+        var spec = AuditSpecification.withFilters(subjectTypes, subjectId, actorUserId, dateFrom, dateTo);
+        Page<AuditEvent> entities = repo.findAll(spec, p);
         Set<Integer> userIds = new HashSet<>();
-        page.forEach(item -> { if (item.getActorUserId() != null) userIds.add(item.getActorUserId()); });
+        entities.forEach(e -> { if (e.getActorUserId() != null) userIds.add(e.getActorUserId()); });
         Map<Integer, String> nameMap = new HashMap<>();
         if (!userIds.isEmpty()) {
             users.findAllById(userIds).forEach(u -> nameMap.put(u.getUserId(), u.getFullName()));
         }
-        return page.map(item -> AuditEventItem.builder()
-            .eventId(item.getEventId()).actorUserId(item.getActorUserId())
-            .actorName(nameMap.getOrDefault(item.getActorUserId(), "System"))
-            .action(item.getAction()).actionDescription(item.getActionDescription())
-            .subjectType(item.getSubjectType()).subjectId(item.getSubjectId())
-            .evidenceUrl(item.getEvidenceUrl()).occurredAt(item.getOccurredAt()).build());
+        return entities.map(e -> AuditEventItem.from(e, nameMap.getOrDefault(e.getActorUserId(), "System")));
     }
 
     public Page<AuditEvent> findBySubject(String subjectType, Long subjectId, Pageable p) {

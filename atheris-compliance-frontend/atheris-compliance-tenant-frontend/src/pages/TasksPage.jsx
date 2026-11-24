@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Box, Button, Chip, Stack, Typography, Snackbar, Alert, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import {
@@ -47,7 +47,15 @@ function relText(t) {
 export default function TasksPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const location = useLocation();
   const { user } = useAuth();
+  const openTask = (t) => {
+    const map = { RETURNS: ['RETURN', 'returnId'], CONTROLS: ['CONTROL', 'controlId'], FINDINGS: ['FINDING', 'findingId'], OBLIGATIONS: ['OBLIGATION', 'obligationId'] }[t.category];
+    const id = map ? t.sourceRef?.[map[1]] : null;
+    if (!map || id == null) return;
+    const back = location.search ? `&back=${encodeURIComponent('/tasks' + location.search)}` : '';
+    navigate(`/tasks/view?subjectType=${map[0]}&subjectId=${id}${back}`);
+  };
   const [sp, setSp] = useSearchParams();
   const isCco = user?.role === 'CCO';
   const subjectType = sp.get('subjectType');
@@ -271,13 +279,13 @@ export default function TasksPage() {
           onPage={setPage}
           onSize={(s) => { setSize(s); setPage(0); }}
           rowKey={(t) => t.key}
-          onRowClick={(t) => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}
+          onRowClick={(t) => openTask(t)}
           emptyMessage="Nothing to action in this category."
           emptyIcon={<CheckCircleIcon size={44} sx={{ mb: 1, opacity: 0.35 }} />}
           actions={(t) => {
             const viewLabel = { RETURNS: 'View return', CONTROLS: 'View control', FINDINGS: 'View finding', OBLIGATIONS: 'View obligation' }[t.category] || 'View';
             const view = (
-              <Button size="small" variant="text" onClick={() => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}>{viewLabel}</Button>
+              <Button size="small" variant="text" onClick={() => openTask(t)}>{viewLabel}</Button>
             );
             if (t.actionType === 'START') {
               return (
@@ -296,7 +304,7 @@ export default function TasksPage() {
                 </Box>
               );
             }
-            return <Button size="small" variant="outlined" onClick={() => navigate(`${t.linkPath}${t.linkPath.includes('?') ? '&' : '?'}from=tasks`)}>{t.actionLabel || viewLabel}</Button>;
+            return <Button size="small" variant="outlined" onClick={() => openTask(t)}>{t.actionLabel || viewLabel}</Button>;
           }}
         />
       )}
