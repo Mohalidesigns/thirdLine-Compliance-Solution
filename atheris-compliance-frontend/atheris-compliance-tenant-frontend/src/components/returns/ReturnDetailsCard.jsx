@@ -21,6 +21,10 @@ function Chips({ values }) {
   );
 }
 
+function externalDiffers(item) {
+  return !!(item?.currentDueDate && item?.currentExternalDueDate && item.currentDueDate !== item.currentExternalDueDate);
+}
+
 export default function ReturnDetailsCard({ item, obligations, obligationsLoading, escalation, escalationLoading }) {
   const navigate = useNavigate();
   const [showObligations, setShowObligations] = useState(false);
@@ -51,6 +55,14 @@ export default function ReturnDetailsCard({ item, obligations, obligationsLoadin
         <FieldGrid min={180}>
           <Field label="Current period" value={item.currentPeriod || (eventDriven ? 'On event' : '—')} />
           <Field label="Current due date" value={item.currentDueDate ? formatDate(item.currentDueDate) : '—'} />
+          <Field label="External due date" value={(
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                {item.currentExternalDueDate ? formatDate(item.currentExternalDueDate) : '—'}
+              </Typography>
+              {externalDiffers(item) && <Chip size="small" color="warning" variant="outlined" label="Differs from current" />}
+            </Box>
+          )} />
           <Field label="Current status" value={currentStatus ? statusBadge(currentStatus) : '—'} />
           {item.dueDateSource === 'user' && <Field label="Due rule source" value="Set by your team" />}
         </FieldGrid>

@@ -40,6 +40,7 @@ function initialSchedule(item) {
     ruleType,
     firstDueDate: item?.firstDueDate || '',
     daysAfterPeriodEnd: item?.daysAfterPeriodEnd != null ? String(item.daysAfterPeriodEnd) : '',
+    externalDueDate: item?.currentExternalDueDate || '',
   };
 }
 
@@ -62,12 +63,13 @@ function scheduleBody(form) {
   if (NO_RULE.includes(form.frequency)) {
     return { frequency: form.frequency, ruleType: null, firstDueDate: null, daysAfterPeriodEnd: null };
   }
+  const externalDueDate = form.externalDueDate || null;
   if (form.ruleType === 'DATE') {
-    return { frequency: form.frequency, ruleType: 'DATE', firstDueDate: form.firstDueDate, daysAfterPeriodEnd: null };
+    return { frequency: form.frequency, ruleType: 'DATE', firstDueDate: form.firstDueDate, daysAfterPeriodEnd: null, externalDueDate };
   }
   return {
     frequency: form.frequency, ruleType: 'OFFSET', firstDueDate: null,
-    daysAfterPeriodEnd: Number(form.daysAfterPeriodEnd),
+    daysAfterPeriodEnd: Number(form.daysAfterPeriodEnd), externalDueDate,
   };
 }
 
@@ -326,6 +328,11 @@ export default function ReturnEditDialog({ open, item, canEditSchedule, onClose,
                     helperText="e.g. 10 → due the 10th day of the following month."
                     sx={{ mb: 2 }} />
                 )}
+                <TextField fullWidth size="small" type="date" label="External due date (regulator)"
+                  value={schedule.externalDueDate}
+                  onChange={e => setS('externalDueDate', e.target.value)}
+                  helperText="The regulator's/statutory deadline for the current period. Leave blank to match the current due date."
+                  slotProps={{ inputLabel: { shrink: true } }} sx={{ mb: 2 }} />
               </>
             )}
             {schedule.frequency === 'On event' && (

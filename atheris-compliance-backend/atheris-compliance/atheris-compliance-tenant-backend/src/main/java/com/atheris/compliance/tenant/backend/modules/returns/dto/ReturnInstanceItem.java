@@ -21,6 +21,7 @@ public class ReturnInstanceItem {
     private String responsiblePerson;
     private String period;
     private LocalDate dueDate;
+    private LocalDate externalDueDate;
     private LocalDate prepStartDate;
     private String currentStage;
     private String status;
@@ -69,7 +70,7 @@ public class ReturnInstanceItem {
             .instanceId(inst.getInstanceId()).returnId(inst.getReturnId())
             .returnName(returnName).actName(actName).filingRegulator(filingRegulator)
             .responsibleUnit(responsibleUnit).responsiblePerson(responsiblePerson)
-            .period(inst.getPeriod()).dueDate(inst.getDueDate())
+            .period(inst.getPeriod()).dueDate(inst.getDueDate()).externalDueDate(inst.getExternalDueDate())
             .triggerDate(inst.getTriggerDate()).eventReference(inst.getEventReference())
             .eventEvidenceFileId(inst.getEventEvidenceFileId()).unadjustedDueDate(inst.getUnadjustedDueDate())
             .dueDateAdjusted(inst.isDueDateAdjusted())

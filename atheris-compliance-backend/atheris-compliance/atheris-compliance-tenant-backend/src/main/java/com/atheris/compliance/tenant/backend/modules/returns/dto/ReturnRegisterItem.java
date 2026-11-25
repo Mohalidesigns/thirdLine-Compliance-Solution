@@ -33,6 +33,7 @@ public class ReturnRegisterItem {
     private Long escalationPolicyId;
     private String currentPeriod;
     private LocalDate currentDueDate;
+    private LocalDate currentExternalDueDate;
     private String currentStatus;
     private String currentStage;
     private Long currentInstanceId;

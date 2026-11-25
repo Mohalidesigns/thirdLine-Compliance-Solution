@@ -633,6 +633,7 @@ public class ReturnService {
             if (currentEvent == null) return b.projectedInstances(List.of()).totalInstances(insts.size())
                 .overdueCount((int) eventOverdue).hasOverdue(eventOverdue > 0).build();
             return b.currentPeriod(currentEvent.getTriggerDate().toString()).currentDueDate(currentEvent.getDueDate())
+                .currentExternalDueDate(currentEvent.getExternalDueDate())
                 .deadline(deadlineOf(r, currentEvent.getDueDate()))
                 .currentStatus(currentEvent.getStatus() != null ? currentEvent.getStatus().db() : null)
                 .currentStage(currentEvent.getCurrentStage() != null ? currentEvent.getCurrentStage().db() : null)
@@ -651,6 +652,7 @@ public class ReturnService {
         return b
             .currentPeriod(current.getPeriod())
             .currentDueDate(current.getDueDate())
+            .currentExternalDueDate(current.getExternalDueDate())
             .deadline(deadlineOf(r, current.getDueDate()))
             .currentStatus(current.getStatus() != null ? current.getStatus().db() : null)
             .currentStage(current.getCurrentStage() != null ? current.getCurrentStage().db() : null)
@@ -1358,6 +1360,7 @@ public class ReturnService {
             .escalationPolicyId(req.getEscalationPolicyId()).build();
         RegulatoryReturn saved = returns.save(r);
         ensureInstances(saved);
+        applyExternalDueDate(saved.getReturnId(), req.getExternalDueDate());
         audit.log(userId, "return_created", "return", saved.getReturnId(),
             Collections.singletonMap("name", saved.getReturnName()));
         return saved;
@@ -1443,6 +1446,7 @@ public class ReturnService {
         instances.flush();
         if (r.getStatus() == RegulatoryReturnStatus.ACTIVE) ensureInstances(r);
         instances.flush();
+        applyExternalDueDate(returnId, req.getExternalDueDate());
 
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("before", before);
@@ -1651,12 +1655,20 @@ public class ReturnService {
         int offset = ret.getFilingDeadlineOffsetDays() != null ? ret.getFilingDeadlineOffsetDays() : 5;
         ReturnFilingInstance instance = instances.save(ReturnFilingInstance.builder()
             .returnId(ret.getReturnId())
-            .period(period).dueDate(due).prepStartDate(due.minusDays(offset))
+            .period(period).dueDate(due).externalDueDate(due).prepStartDate(due.minusDays(offset))
             .filingChannel(ret.getFilingChannel())
             .currentStage(ReturnStage.NOT_STARTED)
             .status(ReturnFilingStatus.NOT_STARTED).build());
         escalationPolicyService.ensureFrozen(EscalationConstants.SUBJECT_RETURN, instance.getInstanceId(),
             ret.getEscalationPolicyId(), ret.getFrequencyType());
+    }
+
+    private void applyExternalDueDate(Long returnId, LocalDate externalDueDate) {
+        if (externalDueDate == null) return;
+        ReturnFilingInstance current = currentInstance(instances.findByReturnId(returnId));
+        if (current == null) return;
+        current.setExternalDueDate(externalDueDate);
+        instances.save(current);
     }
 
     /** Blank → null; otherwise a canonical label/alias or recognisable free text, else 400. */

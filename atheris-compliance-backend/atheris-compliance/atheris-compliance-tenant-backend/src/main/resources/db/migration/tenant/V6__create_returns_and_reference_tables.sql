@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS return_filing_instances (
     return_id                BIGINT NOT NULL REFERENCES regulatory_returns(return_id),
     period                   VARCHAR(20),
     due_date                 DATE,
+    external_due_date        DATE,
     prep_start_date          DATE,
     current_stage            VARCHAR(50) DEFAULT 'Not Started',
     status                   VARCHAR(50) DEFAULT 'Not Started',

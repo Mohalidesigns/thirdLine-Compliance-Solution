@@ -22,6 +22,7 @@ public class ReturnFilingInstance {
     private Long returnId;
     private String period;
     private LocalDate dueDate;
+    private LocalDate externalDueDate;
     private LocalDate prepStartDate;
     private LocalDate triggerDate;
     @Column(columnDefinition = "text")

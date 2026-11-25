@@ -292,6 +292,12 @@ export default function ReturnsPage() {
                               : isEventDriven(item) ? (item.eventTriggerConfigured ? (item.eventTriggerLabel || 'On event') : 'Trigger setup needed')
                                 : noPeriodLabel(item)}
                         </Typography>
+                        {item.currentExternalDueDate && item.currentDueDate
+                          && item.currentExternalDueDate !== item.currentDueDate && (
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                            Regulator: {formatDate(item.currentExternalDueDate)}
+                          </Typography>
+                        )}
                         {item.dueDateNeeded && !isEventDriven(item) && (
                           <Box sx={{ mt: 0.25 }}><StatusBadge label={DUE_DATE_NEEDED} tone="amber" /></Box>
                         )}

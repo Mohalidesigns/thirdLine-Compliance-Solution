@@ -20,6 +20,7 @@ public class CreateReturnRequest {
     /** Offset due rule: days after the period end. */
     private Integer dueDaysAfterPeriodEnd;
     private Integer filingDeadlineOffsetDays;
+    private java.time.LocalDate externalDueDate;
     private String filingChannel;
     private Integer returnOwnerUserId;
     private String returnOwnerName;

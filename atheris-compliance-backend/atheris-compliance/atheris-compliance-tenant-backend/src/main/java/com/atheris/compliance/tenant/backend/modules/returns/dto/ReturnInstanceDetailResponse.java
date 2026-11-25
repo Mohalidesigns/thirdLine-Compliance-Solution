@@ -29,6 +29,7 @@ public class ReturnInstanceDetailResponse {
     private String filingRegulator;
     private String period;
     private LocalDate dueDate;
+    private LocalDate externalDueDate;
     private LocalDate prepStartDate;
     private String currentStage;
     private String status;
@@ -99,7 +100,7 @@ public class ReturnInstanceDetailResponse {
         return ReturnInstanceDetailResponse.builder()
             .instanceId(inst.getInstanceId()).returnId(inst.getReturnId())
             .returnName(returnName).filingRegulator(filingRegulator)
-            .period(inst.getPeriod()).dueDate(inst.getDueDate())
+            .period(inst.getPeriod()).dueDate(inst.getDueDate()).externalDueDate(inst.getExternalDueDate())
             .prepStartDate(inst.getPrepStartDate())
             .currentStage(inst.getCurrentStage() != null ? inst.getCurrentStage().db() : null)
             .status(status != null ? status.db() : null)

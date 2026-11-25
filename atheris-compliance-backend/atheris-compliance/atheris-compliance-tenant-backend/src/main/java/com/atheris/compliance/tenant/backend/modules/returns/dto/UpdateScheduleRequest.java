@@ -16,4 +16,6 @@ public class UpdateScheduleRequest {
     private Integer daysAfterPeriodEnd;
     /** Days before the due date that preparation starts; null keeps the current value. */
     private Integer prepDays;
+    /** The regulator/statutory external due date for the current period; null keeps the current value. */
+    private LocalDate externalDueDate;
 }

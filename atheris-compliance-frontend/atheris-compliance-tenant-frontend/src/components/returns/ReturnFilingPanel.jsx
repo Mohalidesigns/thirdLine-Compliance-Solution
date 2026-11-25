@@ -107,6 +107,7 @@ export default function ReturnFilingPanel({ detail, item, periods = [], onSelect
         <FieldGrid min={160}>
           <Field label="Period" value={detail.period || (isEventDriven(detail) ? 'On event' : '—')} />
           <Field label="Due Date" value={detail.dueDate ? formatDate(detail.dueDate) : '—'} />
+          <Field label="External Due Date" value={detail.externalDueDate ? formatDate(detail.externalDueDate) : '—'} />
           <Field label="Prep Start" value={detail.prepStartDate ? formatDate(detail.prepStartDate) : '—'} />
           <Field label="Filing Channel" value={detail.filingChannel} />
           <Field label="Return Owner" value={detail.returnOwnerName} />

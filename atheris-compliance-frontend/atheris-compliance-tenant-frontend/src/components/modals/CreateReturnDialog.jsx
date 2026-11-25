@@ -15,7 +15,7 @@ import RegulatorFormDialog from './RegulatorFormDialog';
 
 const EMPTY = {
   returnName: '', actId: '', filingRegulator: '', tenantRegulatorId: '', returnType: '', frequency: '',
-  filingDate: '', ruleType: 'DATE', dueDaysAfterPeriodEnd: '', filingDeadlineOffsetDays: '', filingChannel: '',
+  filingDate: '', ruleType: 'DATE', dueDaysAfterPeriodEnd: '', externalDueDate: '', filingDeadlineOffsetDays: '', filingChannel: '',
   responsibleUnits: [], responsiblePersons: [], escalationPolicyId: '',
   ownerEmail: '', ownerName: '', ownerUserId: '',
   reminderStartValue: 10, reminderStartUnit: 'DAYS', reminderRepeatValue: 2, reminderRepeatUnit: 'DAYS',
@@ -163,6 +163,7 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
         delete body.dueDaysAfterPeriodEnd;
         if (!body.filingDate) delete body.filingDate;
       }
+      if (!body.externalDueDate || form.frequency === EVENT_DRIVEN) delete body.externalDueDate;
       delete body.deadlineKind;
 
       const created = await api.returns.create(body);
@@ -325,6 +326,14 @@ export default function CreateReturnDialog({ open, onClose, onSaved, onSnackbar,
                     slotProps={{ inputLabel: { shrink: true } }} />
                 </Field>
               )}
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <Field label="External due date (regulator)" sx={{ mb: 0 }}>
+                <TextField fullWidth size="small" type="date" value={form.externalDueDate}
+                  onChange={e => set('externalDueDate', e.target.value)}
+                  helperText="The regulator's/statutory deadline. Leave blank to match the computed due date."
+                  slotProps={{ inputLabel: { shrink: true } }} />
+              </Field>
             </Box>
             {form.ruleType === 'OFFSET' && !offsetSupported(form.frequency) && (
               <Alert severity="warning" sx={{ mt: 1 }}>
