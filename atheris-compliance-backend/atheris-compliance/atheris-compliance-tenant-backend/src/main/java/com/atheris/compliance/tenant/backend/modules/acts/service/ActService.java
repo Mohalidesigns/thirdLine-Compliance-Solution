@@ -5,7 +5,6 @@ import com.atheris.compliance.tenant.backend.modules.acts.dto.ActListItem;
 import com.atheris.compliance.tenant.backend.modules.acts.dto.ActStatsDto;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
 import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
-import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
@@ -29,7 +28,6 @@ public class ActService {
     private final ActRepository acts;
     private final ObligationRepository obligations;
     private final ObligationClassificationRepository classifications;
-    private final ControlRepository controls;
     private final RegulatoryReturnRepository returns;
     private final RegulatorySanctionRepository sanctions;
 
@@ -101,12 +99,10 @@ public class ActService {
         List<Long> obligationIds = obligations.findByInstrumentId(a.getCanonicalInstrumentId()).stream()
             .map(Obligation::getObligationId).toList();
         if (obligationIds.isEmpty()) return 0;
-        java.util.Set<Integer> linked = classifications.findByObligationIdIn(obligationIds).stream()
+        return classifications.findByObligationIdIn(obligationIds).stream()
             .flatMap(c -> c.getLinkedControlIds() == null ? java.util.stream.Stream.<Integer>empty()
                 : c.getLinkedControlIds().stream())
-            .collect(java.util.stream.Collectors.toSet());
-        if (linked.isEmpty()) return 0;
-        return controls.findByControlIdInAndStatus(linked, "Active").size();
+            .distinct().count();
     }
 
     private long returnCount(Act a) {

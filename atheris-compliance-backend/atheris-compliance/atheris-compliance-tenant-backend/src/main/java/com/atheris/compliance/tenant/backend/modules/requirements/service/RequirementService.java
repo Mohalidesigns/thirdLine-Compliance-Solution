@@ -314,13 +314,14 @@ public class RequirementService {
             .findByRequirementIdIn(reqs.stream().map(Requirement::getRequirementId).toList()).stream()
             .collect(Collectors.groupingBy(RequirementControl::getRequirementId,
                 Collectors.mapping(RequirementControl::getControlId, Collectors.toList())));
-        Set<Integer> active = activeControlIds(controlIdsByReq.values().stream().flatMap(List::stream).collect(Collectors.toSet()));
+        Set<Integer> allIds = controlIdsByReq.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Set<Integer> active = activeControlIds(allIds);
         Map<Integer, String> latest = latestResults(active);
         Map<Long, String> out = new HashMap<>();
         for (Requirement r : reqs) {
-            List<Integer> ids = controlIdsByReq.getOrDefault(r.getRequirementId(), List.of()).stream()
-                .filter(active::contains).toList();
-            out.put(r.getRequirementId(), ComplianceState.ofRequirement(r, ids, latest));
+            List<Integer> all = controlIdsByReq.getOrDefault(r.getRequirementId(), List.of());
+            List<Integer> act = all.stream().filter(active::contains).toList();
+            out.put(r.getRequirementId(), computeState(r, all, act, latest));
         }
         return out;
     }
@@ -329,6 +330,14 @@ public class RequirementService {
         if (ids.isEmpty()) return Set.of();
         return controls.findByControlIdInAndStatus(ids, "Active").stream()
             .map(Control::getControlId).collect(Collectors.toSet());
+    }
+
+    private static String computeState(Requirement r, List<Integer> all, List<Integer> active,
+                                       Map<Integer, String> latest) {
+        if (r.getStateOverride() != null && !r.getStateOverride().isBlank()) return r.getStateOverride();
+        if (all.isEmpty()) return ComplianceState.NO_CONTROL;
+        if (active.isEmpty()) return ComplianceState.NOT_ASSESSED;
+        return ComplianceState.ofRequirement(r, active, latest);
     }
 
     private Map<Integer, String> latestResults(Collection<Integer> controlIds) {
@@ -362,10 +371,11 @@ public class RequirementService {
             .collect(Collectors.groupingBy(RequirementControl::getRequirementId,
                 Collectors.mapping(RequirementControl::getControlId, Collectors.toList())));
         Set<Integer> allControlIds = controlIdsByReq.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        Set<Integer> activeControlIds = activeControlIds(allControlIds);
         Map<Integer, Control> controlById = allControlIds.isEmpty() ? Map.of()
-            : controls.findByControlIdInAndStatus(allControlIds, "Active").stream()
+            : controls.findAllById(allControlIds).stream()
                 .collect(Collectors.toMap(Control::getControlId, Function.identity()));
-        Map<Integer, ControlTestResult> latest = latestTests(controlById.keySet());
+        Map<Integer, ControlTestResult> latest = latestTests(activeControlIds);
         Map<Integer, String> latestResult = latest.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getResult()));
 
@@ -377,7 +387,8 @@ public class RequirementService {
         for (Requirement r : reqs) {
             List<Integer> ids = controlIdsByReq.getOrDefault(r.getRequirementId(), List.of()).stream()
                 .filter(controlById::containsKey).toList();
-            String state = ComplianceState.ofRequirement(r, ids, latestResult);
+            List<Integer> act = ids.stream().filter(activeControlIds::contains).toList();
+            String state = computeState(r, ids, act, latestResult);
             Obligation ob = obligationById.get(r.getObligationId());
             out.add(RequirementDto.builder()
                 .requirementId(r.getRequirementId())

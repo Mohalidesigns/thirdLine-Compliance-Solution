@@ -57,11 +57,11 @@ public class StakeholderPortalService {
             .orElseThrow(() -> ApiException.badRequest("invalid_link", "This stakeholder link is not valid"));
 
         List<StakeholderPortalDto.Item> items = new ArrayList<>();
-        for (Control c : activeOnly(controls.findByControlOwnerId(stakeholderId))) {
+        for (Control c : controls.findByControlOwnerId(stakeholderId)) {
             items.add(item("Owner", "control", c.getControlId().longValue(), c.getName(),
                 c.getControlNumber(), null));
         }
-        for (Control c : activeOnly(controls.findByTesterOwnerId(stakeholderId))) {
+        for (Control c : controls.findByTesterOwnerId(stakeholderId)) {
             items.add(item("Tester", "control", c.getControlId().longValue(), c.getName(),
                 c.getControlNumber(), null));
         }
@@ -86,10 +86,6 @@ public class StakeholderPortalService {
 
         return StakeholderPortalDto.builder()
             .fullName(s.getFullName()).departmentName(deptName).teamName(teamName).items(items).build();
-    }
-
-    private static List<Control> activeOnly(List<Control> cs) {
-        return cs.stream().filter(c -> c.getStatus() == null || "Active".equalsIgnoreCase(c.getStatus())).toList();
     }
 
     private static StakeholderPortalDto.Item item(String role, String subjectType, Long subjectId,
