@@ -443,9 +443,17 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         <Box>
           <Section icon={<DocumentTextIcon />} title="About this Control">
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {detail.whatItDoes && <Field label="What it does" value={detail.whatItDoes} />}
-              {detail.howTested && <Field label="How it's tested" value={detail.howTested} />}
-              {detail.description && <Field label="Description" value={detail.description} />}
+              {(detail.whatItDoes || detail.description) && (
+                <Field label="What it does" value={detail.whatItDoes || detail.description} />
+              )}
+              {detail.howTested
+                ? <Field label="How it's tested" value={detail.howTested} />
+                : <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    How it&apos;s tested is not documented — use Edit to describe how this control is tested.
+                  </Typography>}
+              {detail.whatItDoes && detail.description && detail.whatItDoes !== detail.description && (
+                <Field label="Description" value={detail.description} />
+              )}
               {!detail.whatItDoes && !detail.howTested && !detail.description && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>Not recorded.</Typography>
               )}
