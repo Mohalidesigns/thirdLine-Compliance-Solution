@@ -30,7 +30,7 @@ export default function AuditLog({ subjectTypes, subjectId }) {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Activity log</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Audit log</Typography>
         <Typography variant="caption" color="text.secondary">every event, in order</Typography>
         {verified && <Chip size="small" label="Tamper-evident ✓" sx={{ bgcolor: '#F0FFF4', color: '#276749', fontWeight: 600, ml: 'auto' }} />}
       </Box>

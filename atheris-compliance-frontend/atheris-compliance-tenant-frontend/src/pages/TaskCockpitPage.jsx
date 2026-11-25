@@ -151,24 +151,30 @@ export default function TaskCockpitPage() {
             </Typography>
           )}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
-            <Field label="Due" value={primary?.dueDate ? `${primary.dueDate}${primary.daysRemaining != null ? ` (${primary.daysRemaining}d)` : ''}` : '—'} />
-            <Field label="Responsible" value={primary?.responsiblePerson || '—'} />
-            <Field label="Department" value={primary?.department || '—'} />
-            <Field label="Area of focus" value={primary?.areaOfFocus || '—'} />
-            <Field label="Escalation" value={primary?.escalationLevel != null ? `Level ${primary.escalationLevel}` : '—'} />
-            <Field label="Type" value={primary?.type || '—'} />
+            {[
+              ['Due', primary?.dueDate ? `${primary.dueDate}${primary.daysRemaining != null ? ` (${primary.daysRemaining}d)` : ''}` : null],
+              ['Responsible', primary?.responsiblePerson],
+              ['Department', primary?.department],
+              ['Area of focus', primary?.areaOfFocus],
+              ['Escalation', primary?.escalationLevel != null ? `Level ${primary.escalationLevel}` : null],
+              ['Regulator', primary?.regulator],
+              ['Type', primary?.type],
+            ].filter(([, v]) => v != null && v !== '').map(([label, value]) => (
+              <Field key={label} label={label} value={value} />
+            ))}
           </Box>
         </DataCard>
 
-        <DataCard title="Related tasks">
-          {tasks.length <= 1 && <Typography variant="body2" color="text.secondary">This is the only task for this item.</Typography>}
-          {tasks.length > 1 && tasks.map((t) => (
-            <Box key={t.key} sx={{ mb: 1.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t.actionLabel || t.type}</Typography>
-              <Typography variant="caption" color="text.secondary">{t.priority}{t.dueDate ? ` · due ${t.dueDate}` : ''}</Typography>
-            </Box>
-          ))}
-        </DataCard>
+        {tasks.length > 1 && (
+          <DataCard title={`Related tasks (${tasks.length})`}>
+            {tasks.map((t) => (
+              <Box key={t.key} sx={{ mb: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{t.actionLabel || t.type}</Typography>
+                <Typography variant="caption" color="text.secondary">{t.priority}{t.dueDate ? ` · due ${t.dueDate}` : ''}</Typography>
+              </Box>
+            ))}
+          </DataCard>
+        )}
       </Box>
 
       <Box sx={{ mt: 3, display: 'grid', gap: 3 }}>

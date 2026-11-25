@@ -23,11 +23,13 @@ function returnSteps(detail) {
 function controlSteps(d) {
   if (!d) return [];
   const review = d.lastTestReviewStatus;
+  const inactive = (d.status || '').toLowerCase() !== 'active';
+  const hasTest = !!d.lastTestDate;
   return [
-    { label: 'Active', done: (d.status || '').toLowerCase() === 'active' },
-    { label: 'Test due', done: !!d.lastTestDate, current: !d.lastTestDate, hint: d.nextTestDueDate ? `due ${fmtDate(d.nextTestDueDate)}` : null },
-    { label: 'Tested', done: !!d.lastTestDate, current: !!d.lastTestDate && review === 'Pending', hint: d.lastTestResult, who: d.testHistory?.[0]?.testedByName, when: d.lastTestDate },
-    { label: 'Reviewed', done: review === 'Accepted', current: review === 'Pending', hint: review },
+    { label: inactive ? 'Inactive' : 'Active', done: hasTest, current: !hasTest,
+      hint: inactive ? 'not active' : (hasTest ? null : 'untested') },
+    { label: 'Tested', done: hasTest, hint: d.lastTestResult, who: d.testHistory?.[0]?.testedByName, when: d.lastTestDate },
+    { label: 'Reviewed', done: review === 'Accepted', current: hasTest && review === 'Pending', hint: review },
     { label: 'Outcome', done: !!d.effectivenessState, current: review === 'Accepted' && !d.effectivenessState, hint: d.effectivenessState },
   ];
 }
