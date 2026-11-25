@@ -49,7 +49,7 @@ function StepPill({ step }) {
   const border = step.done || step.current ? TL.primary : '#E2E8F0';
   const color = step.done ? '#fff' : (step.current ? TL.primary : 'text.secondary');
   return (
-    <Box sx={{ minWidth: 92, textAlign: 'center' }}>
+    <Box sx={{ minWidth: 92, flex: '0 0 auto', textAlign: 'center' }}>
       <Box sx={{
         px: 1.25, py: 0.4, borderRadius: '999px', border: '1.5px solid', borderColor: border, bgcolor: bg,
         display: 'inline-flex', alignItems: 'center', gap: 0.5, color, fontWeight: step.current ? 700 : 600, fontSize: '0.8125rem',
@@ -98,11 +98,13 @@ export default function WorkflowSteps({ subjectType, subjectId, sourceRef }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Workflow</Typography>
         <Typography variant="caption" color="text.secondary">the progression, each step once</Typography>
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap', rowGap: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, overflowX: 'auto', pb: 0.5 }}>
         {steps.map((s, i) => (
           <Fragment key={`${s.label}-${i}`}>
             {i > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', pt: 0.75, color: steps[i - 1].done ? TL.primary : '#CBD5E0' }}>
+              <Box sx={{ flex: '1 1 auto', minWidth: 56, display: 'flex', alignItems: 'center', mt: '11px',
+                color: steps[i - 1].done ? TL.primary : '#CBD5E0' }}>
+                <Box sx={{ flex: 1, height: 2, borderRadius: 1, bgcolor: 'currentColor', opacity: 0.5 }} />
                 <ChevronRightIcon size={18} />
               </Box>
             )}
