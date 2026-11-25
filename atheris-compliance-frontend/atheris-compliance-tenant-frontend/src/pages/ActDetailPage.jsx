@@ -44,8 +44,8 @@ const COLUMNS = {
       <Box sx={{ minWidth: 0 }}>
         <Typography variant="body2" sx={{ ...primarySx, ...ellipsis(320) }}>{r.name || r.controlSummary || '—'}</Typography>
       </Box>) },
-    { id: 'theme', label: 'Theme / Area', minWidth: 180, truncate: true,
-      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>{r.theme || r.complianceArea || '—'}</Typography> },
+    { id: 'theme', label: 'Theme', minWidth: 180, truncate: true,
+      render: (r) => <Typography variant="body2" color="text.secondary" sx={ellipsis(200)}>{r.theme || '—'}</Typography> },
     { id: 'controlType', label: 'Type', minWidth: 120, render: (r) => <Typography variant="body2">{r.controlType || '—'}</Typography> },
     { id: 'status', label: 'Status', minWidth: 110, render: (r) => (r.status ? <StateBadge value={r.status} /> : <Typography variant="body2">—</Typography>) },
   ],

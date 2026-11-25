@@ -15,19 +15,14 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
     Optional<Control> findByControlNumber(String controlNumber);
     List<Control> findByControlNumberIn(java.util.Collection<String> controlNumbers);
     boolean existsByControlNumber(String controlNumber);
-    List<Control> findByControlOwnerUserId(Integer userId);
     List<Control> findByControlOwnerId(Integer ownerId);
     List<Control> findByTesterOwnerId(Integer testerOwnerId);
     List<Control> findByControlThemeId(Integer controlThemeId);
     List<Control> findByStatus(String status);
-    List<Control> findByControlOwnerUserIdAndStatus(Integer userId, String status);
-    List<Control> findByActId(Integer actId);
-    List<Control> findByObligationId(Long obligationId);
     List<Control> findByControlOwnerDepartmentId(Integer departmentId);
     List<Control> findByControlOwnerTeamId(Integer teamId);
 
     long countByStatus(String status);
-    long countByActId(Integer actId);
     long countByControlThemeId(Integer controlThemeId);
 
     @Query(value = "SELECT DISTINCT ct.control_id FROM control_tasks ct WHERE ct.status = 'Pending' AND ct.due_date <= :today", nativeQuery = true)
@@ -35,7 +30,4 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
 
     @Query(value = "SELECT DISTINCT control_owner_name FROM controls WHERE control_owner_name IS NOT NULL AND control_owner_name != '' ORDER BY control_owner_name", nativeQuery = true)
     List<String> findDistinctOwners();
-
-    @Query(value = "SELECT DISTINCT act_name FROM controls WHERE act_name IS NOT NULL AND act_name != '' ORDER BY act_name", nativeQuery = true)
-    List<String> findDistinctActNames();
 }

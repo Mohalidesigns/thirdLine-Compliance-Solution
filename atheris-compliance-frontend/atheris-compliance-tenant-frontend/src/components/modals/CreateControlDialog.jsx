@@ -11,7 +11,7 @@ import PersonPicker from '../common/PersonPicker';
 
 const EMPTY = {
   name: '', description: '', theme: '', controlType: '',
-  whatItDoes: '', howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
+  howTested: '', controlOwnerId: null, testerOwnerId: null, testFrequency: '',
   firstDueDate: '',
   reminderStartValue: '', reminderStartUnit: 'DAYS', reminderRepeatValue: '', reminderRepeatUnit: 'DAYS',
   level1Person: null, level1AfterValue: '', level1AfterUnit: 'DAYS',
@@ -165,13 +165,10 @@ export default function CreateControlDialog({ open, onClose, onSaved, onSnackbar
           </Box>
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Execution</Typography>
-          <Field label="What it does">
-            <TextField fullWidth size="small" multiline minRows={2} placeholder="How this control is executed"
-              value={form.whatItDoes} onChange={e => set('whatItDoes', e.target.value)} />
-          </Field>
+          <Typography variant="overline" sx={{ display: 'block', color: 'text.secondary', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 2 }}>Testing</Typography>
           <Field label="How it's tested">
-            <TextField fullWidth size="small" multiline minRows={2} placeholder="How testing is performed"
+            <TextField fullWidth size="small" multiline minRows={3}
+              placeholder={"1. Obtain the evidence (e.g. the filed return) and source data.\n2. Re-perform or recalculate the key figures.\n3. Confirm the control operated as described and record the outcome."}
               value={form.howTested} onChange={e => set('howTested', e.target.value)} />
           </Field>
 

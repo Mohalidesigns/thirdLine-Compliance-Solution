@@ -20,10 +20,8 @@ function initialForm(control) {
     description: control?.description || '',
     theme: control?.theme || '',
     controlType: control?.controlType || '',
-    whatItDoes: control?.whatItDoes || '',
     howTested: control?.howTested || '',
     testFrequency: control?.testFrequency || control?.frequency || '',
-    testFrequencyDays: control?.testFrequencyDays != null ? String(control.testFrequencyDays) : '',
     firstDueDate: control?.firstDueDate || '',
     controlOwnerId: control?.controlOwnerId ?? null,
     testerOwnerId: control?.testerOwnerId ?? null,
@@ -70,10 +68,8 @@ function body(form) {
     description: form.description,
     theme: form.theme || null,
     controlType: form.controlType,
-    whatItDoes: form.whatItDoes,
     howTested: form.howTested,
     testFrequency: form.testFrequency,
-    testFrequencyDays: form.testFrequencyDays === '' ? null : Number(form.testFrequencyDays),
     firstDueDate: form.firstDueDate || null,
     controlOwnerId: form.controlOwnerId || null,
     testerOwnerId: form.testerOwnerId || null,
@@ -181,13 +177,12 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
               {CONTROL_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
             </TextField>
             <TextField select fullWidth size="small" label="Theme" value={form.theme}
-              onChange={(e) => set('theme', e.target.value)} sx={{ mb: 1 }}>
+              onChange={(e) => set('theme', e.target.value)} sx={{ mb: 2 }}>
               <MenuItem value=""><em>No theme</em></MenuItem>
               {Array.from(new Set(themes.map((t) => t.name))).map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
             </TextField>
-            <TextField fullWidth size="small" multiline minRows={2} label="What it does" value={form.whatItDoes}
-              onChange={(e) => set('whatItDoes', e.target.value)} sx={{ mb: 2 }} />
-            <TextField fullWidth size="small" multiline minRows={2} label="How it's tested" value={form.howTested}
+            <TextField fullWidth size="small" multiline minRows={3} label="How it's tested" value={form.howTested}
+              placeholder={"1. Obtain the evidence (e.g. the filed return) and source data.\n2. Re-perform or recalculate the key figures.\n3. Confirm the control operated as described and record the outcome."}
               onChange={(e) => set('howTested', e.target.value)} />
           </>
         )}
@@ -197,17 +192,11 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               How often this control is tested. The next test is scheduled from the day the last test is recorded.
             </Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <TextField select fullWidth size="small" label="Test frequency" value={form.testFrequency}
-                onChange={(e) => set('testFrequency', e.target.value)}>
-                <MenuItem value=""><em>Not set</em></MenuItem>
-                {FREQUENCIES.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-              </TextField>
-              <TextField fullWidth size="small" type="number" label="Interval (days)" value={form.testFrequencyDays}
-                slotProps={{ htmlInput: { min: 1 } }}
-                onChange={(e) => set('testFrequencyDays', e.target.value)}
-                helperText="Leave blank to derive it from the frequency." />
-            </Box>
+            <TextField select fullWidth size="small" label="Test frequency" value={form.testFrequency}
+              onChange={(e) => set('testFrequency', e.target.value)} sx={{ maxWidth: 240 }}>
+              <MenuItem value=""><em>Not set</em></MenuItem>
+              {FREQUENCIES.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+            </TextField>
             <TextField fullWidth size="small" type="date" label="First test due date" value={form.firstDueDate}
               onChange={(e) => set('firstDueDate', e.target.value)} sx={{ mt: 2 }}
               slotProps={{ inputLabel: { shrink: true } }}

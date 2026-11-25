@@ -376,7 +376,7 @@ function drillTitle(drill) {
 function drillSubtitle(drill) {
   if (!drill) return '';
   const r = drill.row;
-  if (drill.kind === 'control') return r.theme || r.complianceArea || null;
+  if (drill.kind === 'control') return r.theme || null;
   if (drill.kind === 'return') return r.frequencyType || r.frequency || null;
   return null;
 }
@@ -386,7 +386,7 @@ function DrillBody({ kind, row }) {
     return (
       <FieldGrid min={150}>
         <Field label="Summary" value={row.controlSummary || row.name} />
-        <Field label="Theme / Area" value={row.theme || row.complianceArea} />
+        <Field label="Theme" value={row.theme} />
         <Field label="Type" value={row.controlType} />
         <Field label="Owner" value={row.controlOwnerName} />
         <Field label="Status" value={row.status} />

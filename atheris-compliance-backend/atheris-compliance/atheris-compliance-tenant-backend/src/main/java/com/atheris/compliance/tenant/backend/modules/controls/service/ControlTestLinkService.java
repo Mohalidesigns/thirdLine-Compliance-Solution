@@ -231,12 +231,8 @@ public class ControlTestLinkService {
             .theme(c.getControlThemeId() == null ? null
                 : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
-            .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
-            .regulatoryRequirement(c.getRegulatoryRequirement())
             .frequency(c.getTestFrequency())
-            .actName(c.getActName())
-            .regulator(c.getActName())
             .responsiblePerson(c.getTesterName())
             .ownerName(c.getControlOwnerName())
             .dueDate(t != null ? t.getDueDate() : null)

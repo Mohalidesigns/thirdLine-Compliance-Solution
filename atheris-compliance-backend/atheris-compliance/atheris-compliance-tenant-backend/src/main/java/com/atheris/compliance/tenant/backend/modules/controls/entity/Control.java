@@ -27,10 +27,7 @@ public class Control {
     private Integer controlThemeId;
     private String controlType;
     @Column(columnDefinition = "text")
-    private String whatItDoes;
-    @Column(columnDefinition = "text")
     private String howTested;
-    private Integer controlOwnerUserId;
     private String controlOwnerName;
     private Integer controlOwnerId;
     private Integer testerOwnerId;
@@ -40,24 +37,10 @@ public class Control {
     private Integer controlOwnerTeamId;
     private Long escalationPolicyId;
     private String testFrequency;
-    private Integer testFrequencyDays;
     private java.time.LocalDate firstDueDate;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<Long> linkedObligationIds;
-    @Column(columnDefinition = "text")
-    private String regulatoryRequirement;
-    private String complianceArea;
-    @Column(columnDefinition = "text")
-    private String monitoringActivity;
-    private String dueDate;
-    @Column(columnDefinition = "text")
-    private String controlEffectivenessMeasure;
-    private Integer actId;
-    @Column(columnDefinition = "text")
-    private String actName;
-    private Long obligationId;
-    @Column(columnDefinition = "text") private String ownerName;
     @Builder.Default
     private String status = "Active";
     private Integer createdByUserId;

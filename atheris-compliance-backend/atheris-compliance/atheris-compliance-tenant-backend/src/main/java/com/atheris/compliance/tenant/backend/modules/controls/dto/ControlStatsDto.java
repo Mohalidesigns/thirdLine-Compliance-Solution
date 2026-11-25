@@ -18,7 +18,6 @@ public class ControlStatsDto {
     private long untested;
     private List<String> themes;
     private List<String> owners;
-    private List<String> acts;
     private Map<String, Long> byTheme;
     private Map<String, Long> findingsBySeverity;
     /** Aliases consumed by the shared intel register config. */

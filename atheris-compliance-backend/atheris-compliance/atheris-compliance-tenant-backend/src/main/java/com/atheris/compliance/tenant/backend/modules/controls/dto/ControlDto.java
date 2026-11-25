@@ -14,9 +14,7 @@ public class ControlDto {
     private String description;
     private String theme;
     private String controlType;
-    private String whatItDoes;
     private String howTested;
-    private Integer controlOwnerUserId;
     private Integer controlOwnerId;
     private String controlOwnerName;
     private Integer testerOwnerId;
@@ -24,7 +22,6 @@ public class ControlDto {
     private String testerName;
     private Long escalationPolicyId;
     private String testFrequency;
-    private Integer testFrequencyDays;
     private java.time.LocalDate firstDueDate;
     private List<Long> linkedObligationIds;
     private String status;

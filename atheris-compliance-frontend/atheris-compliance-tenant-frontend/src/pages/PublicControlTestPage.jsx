@@ -122,8 +122,6 @@ export default function PublicControlTestPage() {
           <Detail label="Theme" value={view.theme} />
           <Detail label="Control type" value={view.controlType} />
           <Detail label="Frequency" value={view.frequency} />
-          <Detail label="Act / Regulation" value={view.actName} />
-          <Detail label="Regulator" value={view.regulator} />
           <Detail label="Tester" value={view.responsiblePerson} />
           <Detail label="Control owner" value={view.ownerName} />
           <Detail label="Due date" value={formatDate(view.dueDate)} />
@@ -132,9 +130,7 @@ export default function PublicControlTestPage() {
         </Box>
 
         <Box sx={{ mb: 3 }}>
-          <Detail label="What it does" value={view.whatItDoes} />
-          <Box sx={{ mt: 2 }}><Detail label="How it is tested" value={view.howTested} /></Box>
-          <Box sx={{ mt: 2 }}><Detail label="Regulatory requirement" value={view.regulatoryRequirement} /></Box>
+          <Detail label="How it is tested" value={view.howTested} />
         </Box>
 
         <Divider sx={{ mb: 3 }} />

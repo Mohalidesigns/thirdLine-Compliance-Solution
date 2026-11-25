@@ -10,7 +10,7 @@ import java.util.List;
 public class ControlSpecification {
 
     public static Specification<Control> withFilters(
-            Integer themeId, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId,
+            Integer themeId, Integer ownerId, String status, String q, Integer obligationId,
             Integer departmentId, Integer teamId) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -20,16 +20,10 @@ public class ControlSpecification {
                 predicates.add(cb.equal(root.get("controlOwnerTeamId"), teamId));
             if (themeId != null)
                 predicates.add(cb.equal(root.get("controlThemeId"), themeId));
-            if (ownerUserId != null)
-                predicates.add(cb.equal(root.get("controlOwnerUserId"), ownerUserId));
             if (ownerId != null)
                 predicates.add(cb.equal(root.get("controlOwnerId"), ownerId));
             if (status != null && !status.isEmpty())
                 predicates.add(cb.equal(root.get("status"), status));
-            if (actId != null)
-                predicates.add(cb.equal(root.get("actId"), actId));
-            if (actName != null && !actName.isEmpty())
-                predicates.add(cb.equal(root.get("actName"), actName));
             if (obligationId != null)
                 predicates.add(cb.isTrue(cb.function("jsonb_contains", Boolean.class,
                     root.get("linkedObligationIds"),
@@ -39,9 +33,7 @@ public class ControlSpecification {
                 predicates.add(cb.or(
                     cb.like(cb.lower(root.get("name")), ql),
                     cb.like(cb.lower(root.get("controlNumber")), ql),
-                    cb.like(cb.lower(root.get("controlOwnerName")), ql),
-                    cb.like(cb.lower(root.get("complianceArea")), ql),
-                    cb.like(cb.lower(root.get("regulatoryRequirement")), ql)
+                    cb.like(cb.lower(root.get("controlOwnerName")), ql)
                 ));
             }
             return cb.and(predicates.toArray(new Predicate[0]));

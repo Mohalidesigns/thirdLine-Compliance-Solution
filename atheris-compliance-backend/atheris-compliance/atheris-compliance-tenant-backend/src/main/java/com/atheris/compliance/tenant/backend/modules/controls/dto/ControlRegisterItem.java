@@ -17,7 +17,6 @@ public class ControlRegisterItem {
     private Integer testerUserId;
     private String testerName;
     private Long escalationPolicyId;
-    private String ownerName;
     private String controlType;
     private String status;
     private LocalDate nextTestDueDate;
@@ -27,10 +26,5 @@ public class ControlRegisterItem {
     private Long openFindings;
     private String effectivenessState;
     private String effectivenessReason;
-    private String complianceArea;
-    private String regulatoryRequirement;
     private String frequency;
-    private String dueDate;
-    private Integer actId;
-    private String actName;
 }

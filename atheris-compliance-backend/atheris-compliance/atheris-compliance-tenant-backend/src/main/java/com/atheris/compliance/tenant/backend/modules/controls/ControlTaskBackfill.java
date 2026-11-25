@@ -55,16 +55,11 @@ public class ControlTaskBackfill implements ApplicationRunner {
     }
 
     private boolean scheduleOne(Control c) {
-        if (c.getTestFrequencyDays() == null) {
-            if (c.getTestFrequency() == null || c.getTestFrequency().isBlank()) {
-                return false;
-            }
-            Integer days = ControlSchedule.daysForFrequency(c.getTestFrequency());
-            if (days == null) {
-                return false;
-            }
-            c.setTestFrequencyDays(days);
-            controls.save(c);
+        if (c.getTestFrequency() == null || c.getTestFrequency().isBlank()) {
+            return false;
+        }
+        if (ControlSchedule.daysForFrequency(c.getTestFrequency()) == null) {
+            return false;
         }
         boolean hasOpen = tasks.findByControlId(c.getControlId()).stream()
             .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));

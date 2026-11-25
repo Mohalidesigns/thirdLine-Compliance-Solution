@@ -30,9 +30,7 @@ CREATE TABLE IF NOT EXISTS controls (
     description                   TEXT,
     control_theme_id              INT REFERENCES control_themes(theme_id),
     control_type                  VARCHAR(100),
-    what_it_does                  TEXT,
     how_tested                    TEXT,
-    control_owner_user_id         INT,
     control_owner_name            TEXT,
     control_owner_id              INT REFERENCES stakeholders(stakeholder_id),
     tester_owner_id               INT REFERENCES stakeholders(stakeholder_id),
@@ -42,18 +40,8 @@ CREATE TABLE IF NOT EXISTS controls (
     tester_name                   VARCHAR(255),
     escalation_policy_id          BIGINT,
     test_frequency                VARCHAR(50),
-    test_frequency_days           INT,
     first_due_date                DATE,
     linked_obligation_ids         JSONB,
-    owner_name                    TEXT,
-    regulatory_requirement        TEXT,
-    compliance_area               TEXT,
-    monitoring_activity           TEXT,
-    due_date                      VARCHAR(100),
-    control_effectiveness_measure TEXT,
-    act_id                        INT,
-    act_name                      TEXT,
-    obligation_id                 BIGINT,
     status                        VARCHAR(50) DEFAULT 'Active',
     created_by_user_id            INT,
     created_at                    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -61,7 +49,6 @@ CREATE TABLE IF NOT EXISTS controls (
 );
 
 CREATE INDEX idx_controls_control_theme ON controls(control_theme_id);
-CREATE INDEX idx_controls_owner ON controls(control_owner_user_id);
 CREATE INDEX idx_controls_owner_id ON controls(control_owner_id);
 CREATE INDEX idx_controls_tester_owner ON controls(tester_owner_id);
 CREATE INDEX idx_controls_owner_dept ON controls(control_owner_department_id);

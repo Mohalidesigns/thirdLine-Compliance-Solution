@@ -15,7 +15,7 @@ import ViewTaskButton from '../components/tasks/ViewTaskButton';
 import {
   KpiCards, FilterBar, FilterField, SectionTable, PageHeader, StatusBadge, StateBadge, RiskBadge, controlRegisterColumns, effectivenessLabel, effectivenessTone, TL,
   ArrowPathIcon, PlusIcon, ArrowUpTrayIcon, TrashIcon, EyeIcon, PencilSquareIcon, ClipboardDocumentCheckIcon,
-  BuildingLibraryIcon, ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
+  ScaleIcon, ShieldCheckIcon, ClockIcon, CalendarDaysIcon,
   ExclamationTriangleIcon, ExclamationCircleIcon, DocumentTextIcon, LinkIcon, QueueListIcon,
   UserCircleIcon,
 } from 'shared';
@@ -30,11 +30,6 @@ import { isReadOnly } from '../utils/roles';
 function formatDate(d) {
   if (!d) return '-';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function actLabel(row) {
-  if (!row) return '-';
-  return row.actName || '-';
 }
 
 const TEST_RESULT_TONE = { Passed: 'green', Failed: 'red', Partial: 'orange' };
@@ -63,7 +58,6 @@ export default function ControlsPage() {
   const [ownerFilter, setOwnerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [effectivenessFilter, setEffectivenessFilter] = useState('All');
-  const [actFilter, setActFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [unitFilter, setUnitFilter] = useState('All');
   const [dueFrom, setDueFrom] = useState('');
@@ -88,7 +82,7 @@ export default function ControlsPage() {
   }, [searchParams]);
 
   const hasFilters = search || themeFilter !== 'All'
-    || ownerFilter !== 'All' || statusFilter !== 'All' || actFilter !== 'All'
+    || ownerFilter !== 'All' || statusFilter !== 'All'
     || deptFilter !== 'All' || unitFilter !== 'All'
     || effectivenessFilter !== 'All' || obligationFilter != null || dueFrom || dueTo;
 
@@ -97,7 +91,6 @@ export default function ControlsPage() {
   if (themeFilter !== 'All') params.theme = themeFilter;
   if (statusFilter !== 'All') params.status = statusFilter;
   if (effectivenessFilter !== 'All') params.effectiveness = effectivenessFilter;
-  if (actFilter !== 'All') params.actName = actFilter;
   if (deptFilter !== 'All') params.departmentId = deptFilter;
   if (unitFilter !== 'All') params.teamId = unitFilter;
   if (dueFrom) params.dueFrom = dueFrom;
@@ -174,7 +167,7 @@ export default function ControlsPage() {
 
   function clearFilters() {
     setSearch(''); setThemeFilter('All');
-    setOwnerFilter('All'); setStatusFilter('All'); setEffectivenessFilter('All'); setActFilter('All');
+    setOwnerFilter('All'); setStatusFilter('All'); setEffectivenessFilter('All');
     setDeptFilter('All'); setUnitFilter('All'); setDueFrom(''); setDueTo('');
     setObligationFilter(null);
     setPage(0);
@@ -223,9 +216,6 @@ export default function ControlsPage() {
     { key: 'status', label: 'Status', minWidth: 130, value: statusFilter,
       onChange: (v) => { setStatusFilter(v); setPage(0); }, allLabel: 'All statuses',
       options: ['Active', 'Inactive'].map((s) => ({ value: s, label: s })) },
-    { key: 'act', label: 'Act', minWidth: 180, value: actFilter,
-      onChange: (v) => { setActFilter(v); setPage(0); }, allLabel: 'All acts',
-      options: (stats?.acts || []).map((a) => ({ value: a, label: a })) },
     { key: 'department', label: 'Department', minWidth: 170, value: deptFilter,
       onChange: (v) => { setDeptFilter(v); setUnitFilter('All'); setPage(0); }, allLabel: 'All departments',
       options: departmentOptions(departments) },
@@ -403,8 +393,7 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
         )}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Chip size="small" variant="outlined" icon={<BuildingLibraryIcon size={14} />}
-            label={actLabel(detail)} />
+          {detail.controlType && <StateBadge value={detail.controlType} />}
           {detail.status && <StateBadge value={detail.status} />}
           {detail.effectivenessState && (
             <StateBadge value={effectivenessLabel(detail.effectivenessState)}
@@ -441,23 +430,20 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2.5, alignItems: 'start' }}>
         <Box>
-          <Section icon={<DocumentTextIcon />} title="About this Control">
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {(detail.whatItDoes || detail.description) && (
-                <Field label="What it does" value={detail.whatItDoes || detail.description} />
-              )}
-              {detail.howTested
-                ? <Field label="How it's tested" value={detail.howTested} />
-                : <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    How it&apos;s tested is not documented — use Edit to describe how this control is tested.
-                  </Typography>}
-              {detail.whatItDoes && detail.description && detail.whatItDoes !== detail.description && (
-                <Field label="Description" value={detail.description} />
-              )}
-              {!detail.whatItDoes && !detail.howTested && !detail.description && (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>Not recorded.</Typography>
-              )}
-            </Box>
+          <Section icon={<DocumentTextIcon />} title="Design">
+            {detail.description
+              ? <Field label="Description" value={detail.description} />
+              : <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  No description recorded — use Edit to describe what this control is.
+                </Typography>}
+          </Section>
+
+          <Section icon={<ClipboardDocumentCheckIcon />} title="How it's tested">
+            {detail.howTested
+              ? <Field label="Test steps" value={detail.howTested} />
+              : <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  Not documented — use Edit to describe how this control is tested.
+                </Typography>}
           </Section>
 
           <Section icon={<LinkIcon />} title="Linked Obligations"
@@ -626,7 +612,6 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
               <Field label="Theme" value={detail.theme} />
               <Field label="Type" value={detail.controlType} />
               <Field label="Status" value={detail.status} />
-              <Field label="Compliance Area" value={detail.complianceArea} />
             </FieldGrid>
           </Section>
 
@@ -634,19 +619,8 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
             <FieldGrid min={130}>
               <Field label="Responsible person (tester)"
                 value={detail.testerName || 'Not set — set it to send the test link'} />
-              <Field label="Control Owner" value={detail.controlOwnerName || detail.ownerName || 'Unassigned'} />
-              {detail.ownerName && detail.controlOwnerName && detail.ownerName !== detail.controlOwnerName && (
-                <Field label="Owner" value={detail.ownerName} />
-              )}
-            </FieldGrid>
-          </Section>
-
-          <Section icon={<BuildingLibraryIcon />} title="Act / Regulation">
-            <FieldGrid min={130}>
-              <Field label="Act" value={actLabel(detail)} />
-              <Field label="Regulatory Requirement" value={detail.regulatoryRequirement} />
-              <Field label="Monitoring Activity" value={detail.monitoringActivity} />
-              <Field label="Effectiveness Measure" value={detail.controlEffectivenessMeasure} />
+              <Field label="Control Owner" value={detail.controlOwnerName || 'Unassigned'} />
+              <Field label="Department" value={detail.department} />
             </FieldGrid>
           </Section>
         </Box>

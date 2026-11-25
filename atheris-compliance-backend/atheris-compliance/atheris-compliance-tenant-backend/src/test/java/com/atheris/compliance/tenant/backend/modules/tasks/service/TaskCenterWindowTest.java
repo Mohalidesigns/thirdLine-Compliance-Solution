@@ -10,7 +10,7 @@ class TaskCenterWindowTest {
 
     @Test
     void usesTheControlsOwnCadenceWhenNoOverride() {
-        Control monthly = control("Monthly", 30);
+        Control monthly = control("Monthly");
         assertTrue(TaskCenterService.withinControlHorizon(30, monthly, null));
         assertTrue(TaskCenterService.withinControlHorizon(10, monthly, null));
         assertFalse(TaskCenterService.withinControlHorizon(31, monthly, null));
@@ -18,39 +18,39 @@ class TaskCenterWindowTest {
 
     @Test
     void longerCadencesAreVisibleWithinTheirOwnWindow() {
-        Control annual = control("Annual", 365);
+        Control annual = control("Annual");
         assertTrue(TaskCenterService.withinControlHorizon(300, annual, null));
         assertFalse(TaskCenterService.withinControlHorizon(366, annual, null));
     }
 
     @Test
-    void derivesCadenceFromTheFrequencyWhenDaysMissing() {
-        Control derived = control("Quarterly", null);
+    void derivesCadenceFromTheFrequency() {
+        Control derived = control("Quarterly");
         assertTrue(TaskCenterService.withinControlHorizon(90, derived, null));
         assertFalse(TaskCenterService.withinControlHorizon(91, derived, null));
     }
 
     @Test
     void explicitOverrideWinsWhenPositive() {
-        Control annual = control("Annual", 365);
+        Control annual = control("Annual");
         assertFalse(TaskCenterService.withinControlHorizon(60, annual, 30));
         assertTrue(TaskCenterService.withinControlHorizon(30, annual, 30));
     }
 
     @Test
     void zeroOverrideFallsBackToCadence() {
-        Control monthly = control("Monthly", 30);
+        Control monthly = control("Monthly");
         assertTrue(TaskCenterService.withinControlHorizon(30, monthly, 0));
     }
 
     @Test
     void unknownCadenceUsesTheThirtyDayFallback() {
-        Control unknown = control("Ad hoc", null);
+        Control unknown = control("Ad hoc");
         assertTrue(TaskCenterService.withinControlHorizon(30, unknown, null));
         assertFalse(TaskCenterService.withinControlHorizon(31, unknown, null));
     }
 
-    private static Control control(String frequency, Integer days) {
-        return Control.builder().testFrequency(frequency).testFrequencyDays(days).build();
+    private static Control control(String frequency) {
+        return Control.builder().testFrequency(frequency).build();
     }
 }

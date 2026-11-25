@@ -65,8 +65,6 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
             extra.put("controlNumber", t.getControlNumber() == null ? "" : t.getControlNumber());
             extra.put("controlName", c != null && c.getName() != null ? c.getName()
                 : (t.getControlName() == null ? "" : t.getControlName()));
-            extra.put("regulator", c != null && c.getActName() != null ? c.getActName() : "");
-            extra.put("actName", c != null && c.getActName() != null ? c.getActName() : "");
             extra.put("responsiblePerson", c != null && c.getTesterName() != null ? c.getTesterName() : "");
             extra.put("ownerName", c != null && c.getControlOwnerName() != null ? c.getControlOwnerName() : "");
             extra.put("testFrequency", c != null && c.getTestFrequency() != null ? c.getTestFrequency() : "");
@@ -123,11 +121,6 @@ public class ControlsEscalationHandler implements EscalationSubjectHandler {
 
     private Person owner(Control c) {
         if (c == null) return null;
-        if (c.getControlOwnerUserId() != null) {
-            User u = users.findById(c.getControlOwnerUserId()).orElse(null);
-            if (u != null) return new Person(u.getFullName(), u.getEmail(), u.getUserId());
-            return new Person(c.getControlOwnerName(), null, c.getControlOwnerUserId());
-        }
         if (c.getControlOwnerId() == null) return null;
         return owners.findById(c.getControlOwnerId())
             .map(o -> new Person(o.getFullName(), o.getEmail(), o.getUserId()))

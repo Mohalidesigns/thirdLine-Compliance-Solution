@@ -40,7 +40,7 @@ public class FindingDetails {
         Control c = control(f);
         vars.put("controlNumber", c == null ? "" : blank(c.getControlNumber()));
         vars.put("controlName", c == null ? "" : blank(c.getName()));
-        vars.put("actName", c == null ? "" : blank(c.getActName()));
+        vars.put("actName", actName(f));
         vars.put("controlOwner", c == null ? "" : blank(c.getControlOwnerName()));
         vars.put("department", department(c));
 
@@ -79,6 +79,13 @@ public class FindingDetails {
         if (f.getLinkedObligationId() == null) return "";
         return obligations.findById(f.getLinkedObligationId())
             .map(o -> o.getTitle() != null && !o.getTitle().isBlank() ? o.getTitle() : blank(o.getName()))
+            .orElse("");
+    }
+
+    private String actName(Finding f) {
+        if (f.getLinkedObligationId() == null) return "";
+        return obligations.findById(f.getLinkedObligationId())
+            .map(o -> blank(o.getActName()))
             .orElse("");
     }
 

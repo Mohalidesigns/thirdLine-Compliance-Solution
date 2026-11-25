@@ -290,8 +290,7 @@ public class TaskCenterService {
             String actionType = noTester ? "ASSIGN" : "OPEN";
             String actionLabel = noTester ? "Assign tester" : label;
             if (noTester) type = "CONTROL_TEST_ASSIGN";
-            Integer ownerId = t.getAssignedToUserId() != null ? t.getAssignedToUserId()
-                : (c == null ? null : c.getControlOwnerUserId());
+            Integer ownerId = t.getAssignedToUserId();
             String ownerName = t.getAssignedToName() != null && !t.getAssignedToName().isBlank()
                 ? t.getAssignedToName() : (c == null ? null : c.getControlOwnerName());
             out.add(TaskItemDto.builder()
@@ -347,7 +346,7 @@ public class TaskCenterService {
                 .responsiblePerson(ownerName)
                 .priority(priority)
                 .dueDate(awaiting ? null : r.getTestDate()).daysRemaining(null)
-                .ownerName(ownerName).ownerUserId(c == null ? null : c.getControlOwnerUserId())
+                .ownerName(ownerName).ownerUserId(null)
                 .stage(r.getResult())
                 .linkPath(awaiting ? "/controls/tests/" + r.getTestId() + "/review"
                                    : "/controls?controlId=" + r.getControlId())
@@ -536,8 +535,7 @@ public class TaskCenterService {
 
     static boolean withinControlHorizon(long days, Control c, Integer configuredHorizon, int fallbackHorizon) {
         if (configuredHorizon != null && configuredHorizon > 0) return days <= configuredHorizon;
-        Integer cadence = c == null ? null : c.getTestFrequencyDays();
-        if (cadence == null) cadence = com.atheris.compliance.tenant.backend.shared.util.ControlSchedule
+        Integer cadence = com.atheris.compliance.tenant.backend.shared.util.ControlSchedule
             .daysForFrequency(c == null ? null : c.getTestFrequency());
         int horizon = cadence == null ? fallbackHorizon : cadence;
         return days <= horizon;

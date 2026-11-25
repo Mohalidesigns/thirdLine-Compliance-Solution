@@ -14,9 +14,7 @@ public class ControlDetailResponse {
     private String description;
     private String theme;
     private String controlType;
-    private String whatItDoes;
     private String howTested;
-    private Integer controlOwnerUserId;
     private Integer controlOwnerId;
     private String controlOwnerName;
     private String department;
@@ -25,18 +23,9 @@ public class ControlDetailResponse {
     private String testerName;
     private Long escalationPolicyId;
     private String testFrequency;
-    private Integer testFrequencyDays;
     private java.time.LocalDate firstDueDate;
     private List<LinkedObligation> linkedObligations;
-    private String ownerName;
     private String status;
-    private String regulatoryRequirement;
-    private String complianceArea;
-    private String monitoringActivity;
-    private String dueDate;
-    private String controlEffectivenessMeasure;
-    private Integer actId;
-    private String actName;
     private Integer createdByUserId;
     private Instant createdAt;
     private Instant updatedAt;
@@ -81,6 +70,7 @@ public class ControlDetailResponse {
         private String failureSeverity;
         private Boolean remediationRequired;
         private String reviewStatus;
+        private String reviewNotes;
         private Instant createdAt;
     }
 }

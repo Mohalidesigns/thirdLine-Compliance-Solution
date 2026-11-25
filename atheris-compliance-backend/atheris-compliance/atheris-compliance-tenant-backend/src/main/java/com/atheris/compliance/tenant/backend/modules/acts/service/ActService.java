@@ -5,7 +5,8 @@ import com.atheris.compliance.tenant.backend.modules.acts.dto.ActListItem;
 import com.atheris.compliance.tenant.backend.modules.acts.dto.ActStatsDto;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
 import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
-import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
+import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
+import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.RegulatorySanctionRepository;
 import com.atheris.compliance.tenant.backend.modules.returns.repository.RegulatoryReturnRepository;
@@ -22,8 +23,8 @@ import java.util.TreeMap;
 
 /**
  * Read-only view over the tenant's acts: the browsable list with linked-record counts, the
- * KPI stats, and one act's detail. Counts reuse the existing repositories (obligations are
- * instrument-keyed; controls/returns/sanctions are act-keyed).
+ * KPI stats, and one act's detail. Counts reuse the existing repositories (obligations, controls
+ * via their linked obligations; returns/sanctions are act-keyed).
  */
 @Service
 @RequiredArgsConstructor
@@ -31,7 +32,7 @@ public class ActService {
 
     private final ActRepository acts;
     private final ObligationRepository obligations;
-    private final ControlRepository controls;
+    private final ObligationClassificationRepository classifications;
     private final RegulatoryReturnRepository returns;
     private final RegulatorySanctionRepository sanctions;
 
@@ -99,7 +100,14 @@ public class ActService {
     }
 
     private long controlCount(Act a) {
-        return a.getRegulationId() == null ? 0 : controls.countByActId(a.getRegulationId().intValue());
+        if (a.getCanonicalInstrumentId() == null) return 0;
+        List<Long> obligationIds = obligations.findByInstrumentId(a.getCanonicalInstrumentId()).stream()
+            .map(Obligation::getObligationId).toList();
+        if (obligationIds.isEmpty()) return 0;
+        return classifications.findByObligationIdIn(obligationIds).stream()
+            .flatMap(c -> c.getLinkedControlIds() == null ? java.util.stream.Stream.<Integer>empty()
+                : c.getLinkedControlIds().stream())
+            .distinct().count();
     }
 
     private long returnCount(Act a) {

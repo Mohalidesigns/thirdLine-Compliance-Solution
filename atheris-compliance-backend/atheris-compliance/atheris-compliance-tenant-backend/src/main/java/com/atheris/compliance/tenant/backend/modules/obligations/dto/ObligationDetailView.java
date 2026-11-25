@@ -96,7 +96,6 @@ public class ObligationDetailView {
         private String name;
         private String controlSummary;
         private String theme;
-        private String complianceArea;
         private String controlType;
         private String controlOwnerName;
         private String testerName;

@@ -724,7 +724,6 @@ public class ObligationService {
                         .controlId(ct.getControlId()).controlNumber(ct.getControlNumber())
                         .name(ct.getName()).controlSummary(ct.getName())
                         .theme(ct.getControlThemeId() == null ? null : themeNames.get(ct.getControlThemeId()))
-                        .complianceArea(ct.getComplianceArea())
                         .controlType(ct.getControlType())
                         .controlOwnerName(ct.getControlOwnerName())
                         .testerName(ct.getTesterName())

@@ -25,12 +25,9 @@ public class ControlController {
     @GetMapping("/register")
     public ResponseEntity<Page<ControlRegisterItem>> register(
             @RequestParam(required = false) String theme,
-            @RequestParam(required = false) Integer ownerUserId,
             @RequestParam(required = false) Integer ownerId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) Integer actId,
-            @RequestParam(required = false) String actName,
             @RequestParam(required = false) Integer obligationId,
             @RequestParam(required = false) String effectiveness,
             @RequestParam(required = false) Integer departmentId,
@@ -38,7 +35,7 @@ public class ControlController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
             Pageable p) {
-        return ResponseEntity.ok(service.getRegisterList(theme, ownerUserId, ownerId, status, q, actId, actName, obligationId, effectiveness, departmentId, teamId, dueFrom, dueTo, p));
+        return ResponseEntity.ok(service.getRegisterList(theme, ownerId, status, q, obligationId, effectiveness, departmentId, teamId, dueFrom, dueTo, p));
     }
 
     @GetMapping("/stats")

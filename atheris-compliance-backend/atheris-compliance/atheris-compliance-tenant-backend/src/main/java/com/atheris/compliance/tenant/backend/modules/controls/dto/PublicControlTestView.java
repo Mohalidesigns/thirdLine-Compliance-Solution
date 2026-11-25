@@ -17,13 +17,9 @@ public class PublicControlTestView {
     private String controlName;
     private String theme;
     private String controlType;
-    private String whatItDoes;
     private String howTested;
-    private String regulatoryRequirement;
     private String frequency;
 
-    private String actName;
-    private String regulator;
     private String responsiblePerson;
     private String ownerName;
 

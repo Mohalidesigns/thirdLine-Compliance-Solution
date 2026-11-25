@@ -36,8 +36,7 @@ public class ControlImportHandler implements ImportHandler {
 
     // Column indexes — must match COLUMNS order.
     private static final int NAME = 0, NUMBER = 1, DESCRIPTION = 2, THEME = 3, CONTROL_TYPE = 4, FREQUENCY = 5,
-        FREQUENCY_DAYS = 6, OWNER = 7, WHAT_IT_DOES = 8, HOW_TESTED = 9, REG_REQUIREMENT = 10,
-        COMPLIANCE_AREA = 11, ACT = 12, LINKED_OBLIGATIONS = 13;
+        OWNER = 6, HOW_TESTED = 7, LINKED_OBLIGATIONS = 8;
 
     private static final List<ImportColumn> COLUMNS = List.of(
         new ImportColumn("Control Name", true),
@@ -46,13 +45,8 @@ public class ControlImportHandler implements ImportHandler {
         new ImportColumn("Theme", false),
         new ImportColumn("Control Type", false),
         new ImportColumn("Test Frequency", false),
-        new ImportColumn("Test Frequency Days", false),
         new ImportColumn("Owner", false),
-        new ImportColumn("What It Does", false),
         new ImportColumn("How Tested", false),
-        new ImportColumn("Regulatory Requirement", false),
-        new ImportColumn("Compliance Area", false),
-        new ImportColumn("Act / Regulation", false),
         new ImportColumn("Linked Obligation IDs", false, true));
 
     /** Column widths of the target VARCHAR columns (control_tasks.control_name is VARCHAR(500)). */
@@ -60,8 +54,6 @@ public class ControlImportHandler implements ImportHandler {
 
     static final List<String> CONTROL_TYPES = List.of("Preventive", "Detective", "Corrective", "Directive");
     static final List<String> FREQUENCIES = List.of("Monthly", "Quarterly", "Semi-Annual", "Annual");
-    private static final Map<String, Integer> FREQUENCY_DAYS_DEFAULT =
-        Map.of("Monthly", 30, "Quarterly", 90, "Semi-Annual", 182, "Annual", 365);
 
     private static final Map<String, String> TYPE_ALIASES = buildAliases(CONTROL_TYPES, Map.of());
     private static final Map<String, String> FREQUENCY_ALIASES = buildAliases(FREQUENCIES,
@@ -119,13 +111,8 @@ public class ControlImportHandler implements ImportHandler {
             "Compliance",
             "Detective",
             "Monthly",
-            "30",
             "Jane Doe",
-            "Checks the return for completeness and accuracy before submission",
-            "Sample review of the filed return against source data",
-            "CBN AML/CFT Regulations 2022 s.12(3)",
-            "Anti-Money Laundering",
-            "CBN AML/CFT Regulations 2022",
+            "1. Obtain the filed return and source data. 2. Recalculate totals. 3. Confirm completeness and accuracy.",
             "12; 345 (IDs from the 'Obligations' sheet)");
     }
 
@@ -137,11 +124,11 @@ public class ControlImportHandler implements ImportHandler {
     }
 
     /** Parsed, resolved values of a valid row. */
-    private record Parsed(String name, String number, String type, String frequency, Integer frequencyDays,
+    private record Parsed(String name, String number, String type, String frequency,
                           Owner owner, List<Long> obligationIds) {}
 
     private record Lookups(Map<String, Owner> owners, Set<Long> liveObligationIds,
-                           Set<String> existingNumbers, Set<String> existingNameActKeys, List<Control> existing) {}
+                           Set<String> existingNumbers, Set<String> existingNames, List<Control> existing) {}
 
     private Lookups loadLookups(List<ImportRowData> rows) {
         Map<String, Owner> owners = new HashMap<>();
@@ -159,9 +146,9 @@ public class ControlImportHandler implements ImportHandler {
         List<Control> existing = controlRepo.findAll();
         Set<String> numbers = existing.stream().map(Control::getControlNumber).filter(Objects::nonNull)
             .map(ImportParsing::norm).collect(Collectors.toSet());
-        Set<String> nameAct = existing.stream().map(c -> nameActKey(c.getName(), c.getActName()))
-            .collect(Collectors.toSet());
-        return new Lookups(owners, live, numbers, nameAct, existing);
+        Set<String> names = existing.stream().map(Control::getName).filter(Objects::nonNull)
+            .map(ImportParsing::norm).collect(Collectors.toSet());
+        return new Lookups(owners, live, numbers, names, existing);
     }
 
     private Map<ImportRowData, Parsed> validateInternal(List<ImportRowData> rows, Lookups lk) {
@@ -182,16 +169,6 @@ public class ControlImportHandler implements ImportHandler {
 
             String type = strict(row.value(CONTROL_TYPE), TYPE_ALIASES, "Control Type", CONTROL_TYPES, "", errors);
             String frequency = strict(row.value(FREQUENCY), FREQUENCY_ALIASES, "Test Frequency", FREQUENCIES, "", errors);
-
-            Integer frequencyDays = null;
-            String daysRaw = row.value(FREQUENCY_DAYS);
-            if (daysRaw != null) {
-                frequencyDays = parsePositiveInt(daysRaw);
-                if (frequencyDays == null)
-                    errors.add("Test Frequency Days '" + daysRaw + "' must be a positive whole number");
-            } else if (frequency != null) {
-                frequencyDays = FREQUENCY_DAYS_DEFAULT.get(frequency);
-            }
 
             Owner owner = null;
             String ownerRaw = row.value(OWNER);
@@ -238,12 +215,12 @@ public class ControlImportHandler implements ImportHandler {
                     duplicate = "Duplicate of row " + earlier + " in this file (same control number " + number + ")";
                 else numbersInFile.put(key, row.getRowNumber());
             } else {
-                String key = nameActKey(name, row.value(ACT));
+                String key = norm(name);
                 Integer earlier = nameActInFile.get(key);
-                if (lk.existingNameActKeys().contains(key))
-                    duplicate = "Duplicate of a control already in the register: same name and act (no control number given)";
+                if (lk.existingNames().contains(key))
+                    duplicate = "Duplicate of a control already in the register: same name (no control number given)";
                 else if (earlier != null)
-                    duplicate = "Duplicate of row " + earlier + " in this file: same name and act (no control number given)";
+                    duplicate = "Duplicate of row " + earlier + " in this file: same name (no control number given)";
                 else nameActInFile.put(key, row.getRowNumber());
             }
             if (duplicate != null) {
@@ -254,7 +231,7 @@ public class ControlImportHandler implements ImportHandler {
 
             row.setResult(ImportRowData.VALID);
             row.setErrors(new ArrayList<>());
-            parsedRows.put(row, new Parsed(name, number, type, frequency, frequencyDays, owner, ids.ids()));
+            parsedRows.put(row, new Parsed(name, number, type, frequency, owner, ids.ids()));
         }
         return parsedRows;
     }
@@ -284,16 +261,11 @@ public class ControlImportHandler implements ImportHandler {
                 .description(row.value(DESCRIPTION))
                 .controlThemeId(controlThemeService.resolveOrCreate(row.value(THEME)))
                 .controlType(p.type())
-                .whatItDoes(row.value(WHAT_IT_DOES))
                 .howTested(row.value(HOW_TESTED))
                 .controlOwnerId(p.owner() != null ? p.owner().getOwnerId() : null)
                 .controlOwnerName(p.owner() != null ? p.owner().getFullName() : null)
                 .testFrequency(p.frequency())
-                .testFrequencyDays(p.frequencyDays())
                 .linkedObligationIds(new ArrayList<>(p.obligationIds()))
-                .regulatoryRequirement(row.value(REG_REQUIREMENT))
-                .complianceArea(row.value(COMPLIANCE_AREA))
-                .actName(row.value(ACT))
                 .status("Active")
                 .createdByUserId(userId)
                 .build());
@@ -375,7 +347,4 @@ public class ControlImportHandler implements ImportHandler {
         }
     }
 
-    private static String nameActKey(String name, String act) {
-        return norm(name) + "|" + norm(act);
-    }
 }

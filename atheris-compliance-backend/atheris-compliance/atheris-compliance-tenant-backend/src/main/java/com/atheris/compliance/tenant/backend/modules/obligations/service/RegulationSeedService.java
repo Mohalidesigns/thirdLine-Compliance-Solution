@@ -277,21 +277,11 @@ public class RegulationSeedService {
                     .description(c.getComplianceControl())
                     .controlThemeId(resolveTheme(c.getTheme()))
                     .controlType(c.getControlType() != null ? c.getControlType() : "CMP")
-                    .whatItDoes(c.getMonitoringActivity())
                     // Deliberately NOT howTested: the toolkit only carries one control description,
                     // and copying it here made the detail's "How it's tested" a duplicate of "Description".
                     .controlOwnerName(c.getResponsibleOfficer())
-                    .ownerName(c.getOwnerName())
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))
-                    .testFrequencyDays(ControlSchedule.daysForFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel())))
                     .linkedObligationIds(linkedIds)
-                    .regulatoryRequirement(c.getRegulatoryRequirement())
-                    .complianceArea(c.getComplianceArea())
-                    .monitoringActivity(c.getMonitoringActivity())
-                    .dueDate(c.getDueDate())
-                    .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
-                    .actId(bundle.getRegulationId() != null ? bundle.getRegulationId().intValue() : null)
-                    .actName(c.getActName() != null ? c.getActName() : bundle.getRegulationName())
                     .status("Active")
                     .build());
                 seededControls++;

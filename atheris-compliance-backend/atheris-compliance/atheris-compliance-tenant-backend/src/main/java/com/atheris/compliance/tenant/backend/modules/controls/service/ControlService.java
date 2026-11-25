@@ -54,10 +54,10 @@ public class ControlService {
     private final ControlThemeService themeService;
 
     public Page<ControlRegisterItem> getRegisterList(
-            String theme, Integer ownerUserId, Integer ownerId, String status, String q, Integer actId, String actName, Integer obligationId, String effectiveness,
+            String theme, Integer ownerId, String status, String q, Integer obligationId, String effectiveness,
             Integer departmentId, Integer teamId, LocalDate dueFrom, LocalDate dueTo, Pageable p) {
         Integer themeId = themeService.require(theme);
-        var spec = ControlSpecification.withFilters(themeId, ownerUserId, ownerId, status, q, actId, actName, obligationId, departmentId, teamId);
+        var spec = ControlSpecification.withFilters(themeId, ownerId, status, q, obligationId, departmentId, teamId);
         boolean hasEffectiveness = effectiveness != null && !effectiveness.isBlank();
         if (!hasEffectiveness && dueFrom == null && dueTo == null) {
             Page<Control> page = repo.findAll(spec, safeSort(p));
@@ -120,7 +120,6 @@ public class ControlService {
             .testerUserId(c.getTesterUserId())
             .testerName(c.getTesterName())
             .escalationPolicyId(c.getEscalationPolicyId())
-            .ownerName(c.getOwnerName())
             .controlType(c.getControlType())
             .status(c.getStatus())
             .nextTestDueDate(nextTask != null ? nextTask.getDueDate() : null)
@@ -131,12 +130,7 @@ public class ControlService {
             .effectivenessState(state)
             .effectivenessReason(ControlEffectiveness.reason(latestResult,
                 lastTest != null ? lastTest.getTestDate() : null, openFindings))
-            .complianceArea(c.getComplianceArea())
-            .regulatoryRequirement(c.getRegulatoryRequirement())
             .frequency(c.getTestFrequency())
-            .dueDate(c.getDueDate())
-            .actId(c.getActId())
-            .actName(c.getActName())
             .build();
     }
 
@@ -146,7 +140,6 @@ public class ControlService {
         long testsDue = ControlTaskRules.testsDue(taskRepo.findAll(), LocalDate.now());
         List<String> themes = themeService.list(true).stream().map(t -> t.getName()).toList();
         List<String> owners = repo.findDistinctOwners();
-        List<String> acts = repo.findDistinctActNames();
 
         List<Control> all = repo.findAll();
         List<Integer> allIds = all.stream().map(Control::getControlId).toList();
@@ -194,7 +187,6 @@ public class ControlService {
             .untested(byEffectiveness.getOrDefault(ControlEffectiveness.UNTESTED, 0L))
             .themes(themes)
             .owners(owners)
-            .acts(acts)
             .byTheme(byTheme)
             .findingsBySeverity(findingsBySeverity)
             .totalControls(total)
@@ -295,6 +287,7 @@ public class ControlService {
                 .failureSeverity(t.getFailureSeverity())
                 .remediationRequired(t.getRemediationRequired())
                 .reviewStatus(t.getReviewStatus())
+                .reviewNotes(t.getReviewNotes())
                 .createdAt(t.getCreatedAt())
                 .build())
             .toList();
@@ -340,28 +333,17 @@ public class ControlService {
             .theme(c.getControlThemeId() == null ? null
                 : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
-            .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
             .testerOwnerId(c.getTesterOwnerId())
             .testerUserId(c.getTesterUserId())
             .testerName(c.getTesterName())
-            .ownerName(c.getOwnerName())
             .department(departmentOf(c))
             .testFrequency(c.getTestFrequency())
-            .testFrequencyDays(c.getTestFrequencyDays())
             .firstDueDate(c.getFirstDueDate())
             .linkedObligations(obligations)
             .status(c.getStatus())
-            .regulatoryRequirement(c.getRegulatoryRequirement())
-            .complianceArea(c.getComplianceArea())
-            .monitoringActivity(c.getMonitoringActivity())
-            .dueDate(c.getDueDate())
-            .controlEffectivenessMeasure(c.getControlEffectivenessMeasure())
-            .actId(c.getActId())
-            .actName(c.getActName())
             .createdByUserId(c.getCreatedByUserId())
             .createdAt(c.getCreatedAt())
             .updatedAt(c.getUpdatedAt())
@@ -407,7 +389,6 @@ public class ControlService {
             .description(req.getDescription())
             .controlThemeId(themeService.resolveOrCreate(req.getTheme()))
             .controlType(req.getControlType())
-            .whatItDoes(req.getWhatItDoes())
             .howTested(req.getHowTested())
             .controlOwnerId(req.getControlOwnerId())
             .controlOwnerName(resolveOwnerName(req.getControlOwnerId()))
@@ -416,8 +397,6 @@ public class ControlService {
             .testerName(resolveOwnerName(req.getTesterOwnerId()))
             .escalationPolicyId(req.getEscalationPolicyId())
             .testFrequency(req.getTestFrequency())
-            .testFrequencyDays(req.getTestFrequencyDays() != null
-                ? req.getTestFrequencyDays() : ControlSchedule.daysForFrequency(req.getTestFrequency()))
             .firstDueDate(req.getFirstDueDate())
             .linkedObligationIds(new ArrayList<>())
             .status("Active")
@@ -441,9 +420,6 @@ public class ControlService {
         }
         if (req.getDescription() != null) {
             c.setDescription(req.getDescription());
-        }
-        if (req.getWhatItDoes() != null) {
-            c.setWhatItDoes(req.getWhatItDoes());
         }
         if (req.getHowTested() != null) {
             c.setHowTested(req.getHowTested());
@@ -470,17 +446,11 @@ public class ControlService {
         if (req.getFirstDueDate() != null) {
             c.setFirstDueDate(req.getFirstDueDate());
         }
-        if (req.getTestFrequencyDays() != null) {
-            c.setTestFrequencyDays(req.getTestFrequencyDays());
-        } else if (req.getTestFrequency() != null) {
-            Integer derived = ControlSchedule.daysForFrequency(req.getTestFrequency());
-            if (derived != null) c.setTestFrequencyDays(derived);
-        }
         audit.log(userId, "control_updated", "control", id.longValue(), Map.of());
         Control saved = repo.save(c);
         boolean hasOpenTask = taskRepo.findByControlId(id).stream()
             .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
-        if (!hasOpenTask && saved.getTestFrequencyDays() != null) {
+        if (!hasOpenTask) {
             testService.scheduleNextTest(saved);
         } else {
             testService.reassignOpenTasks(saved);
@@ -659,16 +629,13 @@ public class ControlService {
             .theme(c.getControlThemeId() == null ? null
                 : themeService.namesById(java.util.Set.of(c.getControlThemeId())).get(c.getControlThemeId()))
             .controlType(c.getControlType())
-            .whatItDoes(c.getWhatItDoes())
             .howTested(c.getHowTested())
-            .controlOwnerUserId(c.getControlOwnerUserId())
             .controlOwnerId(c.getControlOwnerId())
             .controlOwnerName(c.getControlOwnerName())
             .testerOwnerId(c.getTesterOwnerId())
             .testerUserId(c.getTesterUserId())
             .testerName(c.getTesterName())
             .testFrequency(c.getTestFrequency())
-            .testFrequencyDays(c.getTestFrequencyDays())
             .firstDueDate(c.getFirstDueDate())
             .linkedObligationIds(c.getLinkedObligationIds())
             .status(c.getStatus())

@@ -313,8 +313,7 @@ public class ControlTestService {
 
     private LocalDate openTaskDueDate(Control control) {
         if (control.getFirstDueDate() != null) return control.getFirstDueDate();
-        Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
-            : ControlSchedule.daysForFrequency(control.getTestFrequency());
+        Integer days = ControlSchedule.daysForFrequency(control.getTestFrequency());
         return days == null ? null : LocalDate.now().plus(days, ChronoUnit.DAYS);
     }
 
@@ -325,8 +324,7 @@ public class ControlTestService {
             taskRepo.save(buildTask(control, control.getFirstDueDate()));
             return;
         }
-        Integer days = control.getTestFrequencyDays() != null ? control.getTestFrequencyDays()
-            : ControlSchedule.daysForFrequency(control.getTestFrequency());
+        Integer days = ControlSchedule.daysForFrequency(control.getTestFrequency());
         if (days == null) {
             return;
         }
