@@ -171,7 +171,7 @@ export default function TaskCockpitPage() {
         </DataCard>
       </Box>
 
-      <Box sx={{ mt: 3, display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
+      <Box sx={{ mt: 3, display: 'grid', gap: 3 }}>
         <DataCard>
           <WorkflowSteps subjectType={subjectType} subjectId={subjectId} sourceRef={primary?.sourceRef} />
         </DataCard>

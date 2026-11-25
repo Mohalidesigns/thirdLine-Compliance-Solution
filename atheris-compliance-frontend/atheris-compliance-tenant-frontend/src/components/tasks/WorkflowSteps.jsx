@@ -1,6 +1,7 @@
+import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { TL } from 'shared';
+import { TL, ChevronRightIcon, CheckCircleIcon } from 'shared';
 import { api } from '../../services/api';
 
 function fmtDate(d) {
@@ -23,9 +24,9 @@ function controlSteps(d) {
   if (!d) return [];
   const review = d.lastTestReviewStatus;
   return [
-    { label: 'Control active', done: (d.status || '').toLowerCase() === 'active' },
-    { label: 'Test scheduled', done: !!d.lastTestDate, current: !d.lastTestDate, hint: d.nextTestDueDate ? `due ${fmtDate(d.nextTestDueDate)}` : null },
-    { label: 'Test recorded', done: !!d.lastTestDate, current: !!d.lastTestDate && review === 'Pending', hint: d.lastTestResult, who: d.testHistory?.[0]?.testedByName, when: d.lastTestDate },
+    { label: 'Active', done: (d.status || '').toLowerCase() === 'active' },
+    { label: 'Test due', done: !!d.lastTestDate, current: !d.lastTestDate, hint: d.nextTestDueDate ? `due ${fmtDate(d.nextTestDueDate)}` : null },
+    { label: 'Tested', done: !!d.lastTestDate, current: !!d.lastTestDate && review === 'Pending', hint: d.lastTestResult, who: d.testHistory?.[0]?.testedByName, when: d.lastTestDate },
     { label: 'Reviewed', done: review === 'Accepted', current: review === 'Pending', hint: review },
     { label: 'Outcome', done: !!d.effectivenessState, current: review === 'Accepted' && !d.effectivenessState, hint: d.effectivenessState },
   ];
@@ -35,12 +36,34 @@ function findingSteps(d) {
   if (!d) return [];
   const s = d.status;
   return [
-    { label: 'Finding raised', done: true, when: d.createdAt },
+    { label: 'Raised', done: true, when: d.createdAt },
     { label: 'Assigned', done: !!d.assignedAt, who: d.assignedToName, when: d.assignedAt, current: s === 'Open' && !d.assignedAt },
-    { label: 'In remediation', done: !!d.remediationSubmittedAt, when: d.remediationSubmittedAt, current: s === 'In Remediation' || (s === 'Open' && !!d.assignedAt) },
-    { label: 'Review & sign off', done: !!d.signedOffAt, when: d.signedOffAt, current: s === 'Remediated' },
+    { label: 'Remediation', done: !!d.remediationSubmittedAt, when: d.remediationSubmittedAt, current: s === 'In Remediation' || (s === 'Open' && !!d.assignedAt) },
+    { label: 'Review', done: !!d.signedOffAt, when: d.signedOffAt, current: s === 'Remediated' },
     { label: 'Closed', done: !!d.closedAt, when: d.closedAt },
   ];
+}
+
+function StepPill({ step }) {
+  const bg = step.done ? TL.primary : 'transparent';
+  const border = step.done || step.current ? TL.primary : '#E2E8F0';
+  const color = step.done ? '#fff' : (step.current ? TL.primary : 'text.secondary');
+  return (
+    <Box sx={{ minWidth: 92, textAlign: 'center' }}>
+      <Box sx={{
+        px: 1.25, py: 0.4, borderRadius: '999px', border: '1.5px solid', borderColor: border, bgcolor: bg,
+        display: 'inline-flex', alignItems: 'center', gap: 0.5, color, fontWeight: step.current ? 700 : 600, fontSize: '0.8125rem',
+      }}>
+        {step.done && <CheckCircleIcon size={14} />}
+        {step.label}
+      </Box>
+      {(step.who || step.hint || step.when) && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, fontSize: '0.7rem' }}>
+          {[step.who, step.hint, step.when ? fmtDate(step.when) : ''].filter(Boolean).join(' · ')}
+        </Typography>
+      )}
+    </Box>
+  );
 }
 
 export default function WorkflowSteps({ subjectType, subjectId, sourceRef }) {
@@ -64,40 +87,28 @@ export default function WorkflowSteps({ subjectType, subjectId, sourceRef }) {
   if (q.isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={22} /></Box>;
   if (q.isError) return <Typography variant="body2" color="text.secondary">Could not load the workflow.</Typography>;
 
-  const steps = subjectType === 'RETURN' ? returnSteps(q.data)
+  const steps = (subjectType === 'RETURN' ? returnSteps(q.data)
     : subjectType === 'CONTROL' ? controlSteps(q.data)
-      : findingSteps(q.data);
-  const shown = steps.filter((s) => s.label);
-  if (!shown.length) return <Typography variant="body2" color="text.secondary">No workflow yet.</Typography>;
+      : findingSteps(q.data)).filter((s) => s.label);
+  if (!steps.length) return <Typography variant="body2" color="text.secondary">No workflow yet.</Typography>;
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Workflow</Typography>
-        <Typography variant="caption" color="text.secondary">the {shown.length} steps, each once</Typography>
+        <Typography variant="caption" color="text.secondary">the progression, each step once</Typography>
       </Box>
-      <Box sx={{ position: 'relative', pl: 3, '&::before': { content: '""', position: 'absolute', left: 9, top: 8, bottom: 8, width: 2, bgcolor: TL.gray100 } }}>
-        {shown.map((s, i) => {
-          const active = s.done;
-          return (
-            <Box key={`${s.label}-${i}`} sx={{ position: 'relative', mb: 2, '&::before': {
-              content: '""', position: 'absolute', left: -22, top: 3, width: 14, height: 14, borderRadius: '50%',
-              bgcolor: active ? TL.primary : (s.current ? '#fff' : '#fff'),
-              border: `2px solid ${active ? TL.primary : (s.current ? TL.primary : '#CBD5E0')}`,
-              boxSizing: 'border-box',
-            } }}>
-              <Typography variant="body2" sx={{ fontWeight: s.current ? 700 : 600, color: s.current ? 'primary.main' : 'text.primary' }}>
-                {s.label}
-                {s.current ? ' · current' : ''}
-              </Typography>
-              {(s.who || s.when || s.hint) && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {[s.who, s.hint, s.when ? fmtDate(s.when) : ''].filter(Boolean).join(' · ')}
-                </Typography>
-              )}
-            </Box>
-          );
-        })}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flexWrap: 'wrap', rowGap: 1.5 }}>
+        {steps.map((s, i) => (
+          <Fragment key={`${s.label}-${i}`}>
+            {i > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', pt: 0.75, color: steps[i - 1].done ? TL.primary : '#CBD5E0' }}>
+                <ChevronRightIcon size={18} />
+              </Box>
+            )}
+            <StepPill step={s} />
+          </Fragment>
+        ))}
       </Box>
     </Box>
   );
