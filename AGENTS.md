@@ -141,7 +141,7 @@ Config: `opencode.json`
 ## Recent Changes
 
 ### Return external due date — `feature/control-risk-ux-and-compliance-settings`
-Tenant only. **V6 inline edit** (`return_filing_instances.external_due_date DATE`) ⇒ tenant DB dropped/recreated; **you re-onboard.** Tenant compile + **201 tests green** + FE build + clean boot (v52, `err.log` empty). **Uncommitted.**
+Tenant only. Committed `7504cd5`. **V6 inline edit** (`return_filing_instances.external_due_date DATE`) ⇒ tenant DB dropped/recreated + re-onboarded. Tenant compile + **201 tests green** + FE build + clean boot (v52, `err.log` empty). Verified live: 62/62 filing instances have `external_due_date = due_date`.
 - **Per filing period.** New `ReturnFilingInstance.externalDueDate` — the **regulator/statutory** deadline, distinct from the computed **Current due date** (the tenant's internal working due date). **Seeded to match:** `ReturnService.materializeAt` sets `externalDueDate = dueDate` for every generated period, so toolkit-seeded returns show the same value for both by default.
 - **Editable (Add + Edit):** `CreateReturnRequest.externalDueDate` + `UpdateScheduleRequest.externalDueDate`; `ReturnService.applyExternalDueDate(returnId, date)` applies the given date to the **current open period** after `ensureInstances` (called from `doCreate` and `doUpdateSchedule`; null keeps the current value).
 - **Exposed:** `ReturnRegisterItem.currentExternalDueDate` (current period), `ReturnInstanceItem.externalDueDate`, `ReturnInstanceDetailResponse.externalDueDate`.
