@@ -8,7 +8,7 @@ import {
   StatusBadge, TL,
   ShieldCheckIcon, ExclamationTriangleIcon, CheckCircleIcon, TrashIcon, ArrowUpTrayIcon,
 } from 'shared';
-import verityLogoLight from '../Verity/verity-logo-light.png';
+import verityLogoLight from '../Verity/Verity-dark.svg';
 import { publicApi } from '../services/api';
 
 const labelSx = { fontSize: '0.625rem', fontWeight: 600, color: TL.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' };

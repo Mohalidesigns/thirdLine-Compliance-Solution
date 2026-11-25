@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Box, Typography, Paper, TextField, MenuItem, Button, Alert, CircularProgress, Stack, Divider,
 } from '@mui/material';
-import verityLogoLight from '../Verity/verity-logo-light.png';
+import verityLogoLight from '../Verity/Verity-dark.svg';
 import { publicApi } from '../services/api';
 
 const TL = {

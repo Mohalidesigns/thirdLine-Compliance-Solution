@@ -8,8 +8,8 @@ import { VisibilityOff } from '@mui/icons-material';
 import {
   TL, EyeIcon, EnvelopeIcon, LockClosedIcon, ScaleIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
 } from 'shared';
-import verityLogoDark from '../atheris-verity/verity-logo-on-black.svg';
-import verityLogoLight from '../atheris-verity/verity-logo-on-white.svg';
+import verityLogoDark from '../Verity/Verity-white.svg';
+import verityLogoLight from '../Verity/Verity-dark.svg';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -86,7 +86,7 @@ export default function LoginPage() {
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 2, sm: 4 } }}>
         <Box sx={{ width: 420, maxWidth: '100%' }}>
           <Box component="img" src={verityLogoLight} alt="Verity Compliance"
-            sx={{ display: { xs: 'block', md: 'none' }, height: 40, width: 'auto', mb: 3 }} />
+            sx={{ display: 'block', height: 72, width: 'auto', mx: 'auto', mb: 3 }} />
 
           <Box sx={{
             bgcolor: '#FFFFFF', border: `1px solid ${TL.gray100}`, borderRadius: '12px',

@@ -7,8 +7,8 @@ import {
   BanknotesIcon, FolderOpenIcon, Cog6ToothIcon, BookOpenIcon, ChartBarIcon, ClipboardDocumentCheckIcon,
   QueueListIcon,
 } from 'shared';
-import verityLogoDark from '../../atheris-verity/verity-logo-on-black.svg';
-import verityMark from '../../atheris-verity/verity-mark-on-black.svg';
+import verityLogoDark from '../../Verity/Verity-white.svg';
+import verityMark from '../../Verity/Verity-app-icon.svg';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
