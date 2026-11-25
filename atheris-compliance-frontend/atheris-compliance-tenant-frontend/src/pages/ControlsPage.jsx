@@ -371,7 +371,21 @@ export default function ControlsPage() {
 function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen, setEditOpen, recordTestOpen, setRecordTestOpen, onSnackbar, saving, setSaving }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const readOnly = isReadOnly(user?.role);
   const canReview = ['ANALYST', 'CCO', 'TENANT_ADMIN'].includes(user?.role);
+  const isInactive = detail.status === 'Inactive';
+  const statusMutation = useMutation({
+    mutationFn: () => api.controls.update(detail.controlId, { status: isInactive ? 'Active' : 'Inactive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['controls'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      onSnackbar?.(isInactive ? 'Control activated.' : 'Control deactivated.');
+      onRefresh();
+    },
+    onError: (e) => onSnackbar?.(e.message),
+  });
   const [reviewTarget, setReviewTarget] = useState(null);
   const [testLinkOpen, setTestLinkOpen] = useState(false);
   const obligations = detail.linkedObligations || [];
@@ -387,8 +401,16 @@ function DetailView({ detail, onBack, onRefresh, onEdit, onRecordTest, editOpen,
           <>
             <ViewTaskButton subjectType="CONTROL" subjectId={detail.controlId} category="CONTROLS" />
             <Button variant="outlined" startIcon={<PencilSquareIcon size={16} />} onClick={onEdit}>Edit</Button>
-            <Button variant="outlined" startIcon={<LinkIcon size={16} />} onClick={() => setTestLinkOpen(true)}>Send link</Button>
-            <Button variant="contained" startIcon={<ClipboardDocumentCheckIcon size={16} />} onClick={onRecordTest}>Record Test</Button>
+            {!readOnly && (
+              <Button variant="outlined" color={isInactive ? 'success' : 'inherit'}
+                onClick={() => statusMutation.mutate()} disabled={statusMutation.isPending}>
+                {isInactive ? 'Activate' : 'Deactivate'}
+              </Button>
+            )}
+            <Button variant="outlined" startIcon={<LinkIcon size={16} />} disabled={isInactive}
+              onClick={() => setTestLinkOpen(true)}>Send link</Button>
+            <Button variant="contained" startIcon={<ClipboardDocumentCheckIcon size={16} />} disabled={isInactive}
+              onClick={onRecordTest}>Record Test</Button>
           </>
         )}
       >

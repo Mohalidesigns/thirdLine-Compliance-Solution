@@ -446,11 +446,20 @@ public class ControlService {
         if (req.getFirstDueDate() != null) {
             c.setFirstDueDate(req.getFirstDueDate());
         }
+        if (req.getStatus() != null && !req.getStatus().isBlank()) {
+            c.setStatus(req.getStatus());
+        }
         audit.log(userId, "control_updated", "control", id.longValue(), Map.of());
         Control saved = repo.save(c);
-        boolean hasOpenTask = taskRepo.findByControlId(id).stream()
-            .anyMatch(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus()));
-        if (!hasOpenTask) {
+        boolean inactive = "Inactive".equalsIgnoreCase(saved.getStatus());
+        List<ControlTask> openTasks = taskRepo.findByControlId(id).stream()
+            .filter(t -> !WorkflowStatus.TASK_COMPLETED.equals(t.getStatus())).toList();
+        if (inactive) {
+            if (!openTasks.isEmpty()) {
+                openTasks.forEach(t -> t.setStatus(WorkflowStatus.TASK_COMPLETED));
+                taskRepo.saveAll(openTasks);
+            }
+        } else if (openTasks.isEmpty()) {
             testService.scheduleNextTest(saved);
         } else {
             testService.reassignOpenTasks(saved);

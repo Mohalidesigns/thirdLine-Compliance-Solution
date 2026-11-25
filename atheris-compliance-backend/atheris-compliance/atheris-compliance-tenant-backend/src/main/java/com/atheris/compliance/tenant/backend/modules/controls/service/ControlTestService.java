@@ -319,6 +319,9 @@ public class ControlTestService {
 
     @Transactional
     public void scheduleNextTest(Control control) {
+        if (control.getStatus() != null && !"Active".equalsIgnoreCase(control.getStatus())) {
+            return;
+        }
         boolean firstTest = taskRepo.findByControlId(control.getControlId()).isEmpty();
         if (firstTest && control.getFirstDueDate() != null) {
             taskRepo.save(buildTask(control, control.getFirstDueDate()));

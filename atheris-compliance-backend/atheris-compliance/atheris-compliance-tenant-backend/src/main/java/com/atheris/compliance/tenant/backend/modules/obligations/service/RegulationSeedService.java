@@ -282,7 +282,7 @@ public class RegulationSeedService {
                     .controlOwnerName(c.getResponsibleOfficer())
                     .testFrequency(controlFrequency(c.getFrequency(), c.getRiskLevel()))
                     .linkedObligationIds(linkedIds)
-                    .status("Active")
+                    .status("Inactive")
                     .build());
                 seededControls++;
                 for (Long oid : linkedIds) {

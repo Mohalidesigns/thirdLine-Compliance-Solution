@@ -899,7 +899,8 @@ The pre-due window, the recipient of the overdue link and the filing↔policy bi
 ## CODING STYLE
 
 - controllers must be using thin and delegate to service classes
-- NEVER add comments to any code — backend Java (no line/block/Javadoc) **and** frontend JS/JSX (no `//`, no `/* */`, no JSX `{/* */}`). New code must be self-explanatory.
+- NEVER add ANY comments to code — no line comments, **no multi-line/block comments, no Javadoc**, no JSX `{/* */}`. This applies to every file (backend Java and frontend JS/JSX). New code must be self-explanatory. If you edit a line that already carries a comment and no longer need it, delete it; never rewrite or add a replacement comment.
+- **Rule: always TanStack, never hooks.** Every data read is a TanStack `useQuery` and every write a `useMutation` — never raw `useEffect` + `useState` + `fetch`/`.then()` for data anywhere (pages, modals, dialogs, pickers). This is non-negotiable; `useEffect` is only ever local UI state.
 - always try to use jpa query methods where possible
 - for filtering and searching, use jpa criteria unless otherwise
 - avoid using jpql no matter what, when necessary use native query after prompting me for approval

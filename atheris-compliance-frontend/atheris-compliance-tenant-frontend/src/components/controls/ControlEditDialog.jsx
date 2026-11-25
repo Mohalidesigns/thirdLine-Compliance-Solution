@@ -20,6 +20,7 @@ function initialForm(control) {
     description: control?.description || '',
     theme: control?.theme || '',
     controlType: control?.controlType || '',
+    status: control?.status || 'Active',
     howTested: control?.howTested || '',
     testFrequency: control?.testFrequency || control?.frequency || '',
     firstDueDate: control?.firstDueDate || '',
@@ -68,6 +69,7 @@ function body(form) {
     description: form.description,
     theme: form.theme || null,
     controlType: form.controlType,
+    status: form.status,
     howTested: form.howTested,
     testFrequency: form.testFrequency,
     firstDueDate: form.firstDueDate || null,
@@ -175,6 +177,12 @@ export default function ControlEditDialog({ open, control, onClose, onSaved, onS
               onChange={(e) => set('controlType', e.target.value)} sx={{ mb: 2 }}>
               <MenuItem value=""><em>Not set</em></MenuItem>
               {CONTROL_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+            <TextField select fullWidth size="small" label="Status" value={form.status}
+              onChange={(e) => set('status', e.target.value)} sx={{ mb: 2 }}
+              helperText="An inactive control is not tested and does not count toward obligation coverage until activated.">
+              <MenuItem value="Active">Active</MenuItem>
+              <MenuItem value="Inactive">Inactive</MenuItem>
             </TextField>
             <TextField select fullWidth size="small" label="Theme" value={form.theme}
               onChange={(e) => set('theme', e.target.value)} sx={{ mb: 2 }}>

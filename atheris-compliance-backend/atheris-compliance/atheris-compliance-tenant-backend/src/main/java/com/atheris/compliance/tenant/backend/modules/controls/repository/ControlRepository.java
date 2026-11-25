@@ -19,6 +19,7 @@ public interface ControlRepository extends JpaRepository<Control, Integer>, JpaS
     List<Control> findByTesterOwnerId(Integer testerOwnerId);
     List<Control> findByControlThemeId(Integer controlThemeId);
     List<Control> findByStatus(String status);
+    List<Control> findByControlIdInAndStatus(java.util.Collection<Integer> controlIds, String status);
     List<Control> findByControlOwnerDepartmentId(Integer departmentId);
     List<Control> findByControlOwnerTeamId(Integer teamId);
 

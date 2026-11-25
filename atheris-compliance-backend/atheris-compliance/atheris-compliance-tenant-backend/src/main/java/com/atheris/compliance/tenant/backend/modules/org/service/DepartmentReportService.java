@@ -61,7 +61,7 @@ public class DepartmentReportService {
             .orElseThrow(() -> ApiException.badRequest("invalid_link", "This reporting link is not valid"));
         return build("Department", d.getName(), null,
             obligations.findByAssignedDepartmentId(departmentId),
-            controls.findByControlOwnerDepartmentId(departmentId),
+            activeOnly(controls.findByControlOwnerDepartmentId(departmentId)),
             findings.findByAssignedDepartmentId(departmentId),
             returns.findByDepartmentId(departmentId));
     }
@@ -77,9 +77,13 @@ public class DepartmentReportService {
             : departments.findById(t.getDepartmentId()).map(Department::getName).orElse(null);
         return build("Unit", t.getName(), parent,
             obligations.findByAssignedTeamId(teamId),
-            controls.findByControlOwnerTeamId(teamId),
+            activeOnly(controls.findByControlOwnerTeamId(teamId)),
             findings.findByAssignedTeamId(teamId),
             returns.findByTeamId(teamId));
+    }
+
+    private static List<Control> activeOnly(List<Control> cs) {
+        return cs.stream().filter(c -> c.getStatus() == null || "Active".equalsIgnoreCase(c.getStatus())).toList();
     }
 
     private DepartmentReportDto build(String scopeType, String name, String parentDepartmentName,

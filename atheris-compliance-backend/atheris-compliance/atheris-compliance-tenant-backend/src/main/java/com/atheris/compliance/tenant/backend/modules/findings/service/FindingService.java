@@ -555,7 +555,8 @@ public class FindingService {
         return obligationClassificationRepo.findByObligationId(f.getLinkedObligationId())
             .map(c -> c.getLinkedControlIds())
             .filter(ids -> ids != null && !ids.isEmpty())
-            .map(ids -> ids.stream().anyMatch(this::controlProven))
+            .map(ids -> controlRepo.findByControlIdInAndStatus(ids, "Active").stream()
+                .map(Control::getControlId).anyMatch(this::controlProven))
             .orElse(false);
     }
 

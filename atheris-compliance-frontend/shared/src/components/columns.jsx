@@ -127,11 +127,14 @@ export function controlRegisterColumns() {
   return [
     { id: 'name', label: 'Control', minWidth: 340, sortable: true, sortField: 'name',
       render: (c) => (
-        <Tooltip title={c.name || ''}>
-          <Typography variant="body2" sx={{ ...ellipsis(420), color: 'primary.main', fontWeight: 500 }}>
-            {c.name || 'Untitled control'}
-          </Typography>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <Tooltip title={c.name || ''}>
+            <Typography variant="body2" sx={{ ...ellipsis(420), color: 'primary.main', fontWeight: 500 }}>
+              {c.name || 'Untitled control'}
+            </Typography>
+          </Tooltip>
+          {c.status === 'Inactive' && <StatusBadge label="Inactive" tone="gray" />}
+        </Box>
       ) },
     { id: 'dueDate', label: 'Due Date', minWidth: 140, render: (c) => <ControlDueCell value={c.nextTestDueDate} /> },
     { id: 'effectiveness', label: 'State', minWidth: 150,

@@ -136,7 +136,7 @@ public class ComplianceMetricsService {
         double coverage = totalApplicable > 0 ? (double) covered / totalApplicable * 100 : 0.0;
 
         // ── Controls ── (pass/fail from the latest test result per control)
-        List<Control> allControls = controls.findAll();
+        List<Control> allControls = controls.findByStatus("Active");
         int controlsTotal = allControls.size();
         Map<Integer, ControlTestResult> latestTest = latestTestByControl(controlTests.findAll().stream()
             .filter(t -> WorkflowStatus.REVIEW_ACCEPTED.equals(t.getReviewStatus())).toList());
@@ -153,6 +153,7 @@ public class ComplianceMetricsService {
         Double effectivenessOfAll = pct(controlsPassing, controlsTotal);
         LocalDate todayDate = LocalDate.now();
         List<ControlTask> openTasks = controlTasks.findAll().stream()
+            .filter(t -> controlIds.contains(t.getControlId()))
             .filter(t -> OPEN_TASK_STATUS.contains(t.getStatus()) && t.getDueDate() != null)
             .toList();
         int testsDue = com.atheris.compliance.tenant.backend.modules.controls.service.ControlTaskRules.testsDue(openTasks, todayDate);

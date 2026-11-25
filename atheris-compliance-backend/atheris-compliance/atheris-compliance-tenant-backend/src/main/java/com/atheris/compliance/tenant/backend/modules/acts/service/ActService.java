@@ -5,6 +5,7 @@ import com.atheris.compliance.tenant.backend.modules.acts.dto.ActListItem;
 import com.atheris.compliance.tenant.backend.modules.acts.dto.ActStatsDto;
 import com.atheris.compliance.tenant.backend.modules.acts.entity.Act;
 import com.atheris.compliance.tenant.backend.modules.acts.repository.ActRepository;
+import com.atheris.compliance.tenant.backend.modules.controls.repository.ControlRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.entity.Obligation;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationClassificationRepository;
 import com.atheris.compliance.tenant.backend.modules.obligations.repository.ObligationRepository;
@@ -21,11 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * Read-only view over the tenant's acts: the browsable list with linked-record counts, the
- * KPI stats, and one act's detail. Counts reuse the existing repositories (obligations, controls
- * via their linked obligations; returns/sanctions are act-keyed).
- */
 @Service
 @RequiredArgsConstructor
 public class ActService {
@@ -33,6 +29,7 @@ public class ActService {
     private final ActRepository acts;
     private final ObligationRepository obligations;
     private final ObligationClassificationRepository classifications;
+    private final ControlRepository controls;
     private final RegulatoryReturnRepository returns;
     private final RegulatorySanctionRepository sanctions;
 
@@ -104,10 +101,12 @@ public class ActService {
         List<Long> obligationIds = obligations.findByInstrumentId(a.getCanonicalInstrumentId()).stream()
             .map(Obligation::getObligationId).toList();
         if (obligationIds.isEmpty()) return 0;
-        return classifications.findByObligationIdIn(obligationIds).stream()
+        java.util.Set<Integer> linked = classifications.findByObligationIdIn(obligationIds).stream()
             .flatMap(c -> c.getLinkedControlIds() == null ? java.util.stream.Stream.<Integer>empty()
                 : c.getLinkedControlIds().stream())
-            .distinct().count();
+            .collect(java.util.stream.Collectors.toSet());
+        if (linked.isEmpty()) return 0;
+        return controls.findByControlIdInAndStatus(linked, "Active").size();
     }
 
     private long returnCount(Act a) {

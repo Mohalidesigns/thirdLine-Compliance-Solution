@@ -17,5 +17,6 @@ public class CreateControlRequest {
     private Long escalationPolicyId;
     private String testFrequency;
     private java.time.LocalDate firstDueDate;
+    private String status;
     private List<Long> linkedObligationIds;
 }

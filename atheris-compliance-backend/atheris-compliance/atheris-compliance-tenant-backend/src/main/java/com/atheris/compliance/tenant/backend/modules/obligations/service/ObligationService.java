@@ -184,16 +184,29 @@ public class ObligationService {
             .filter(Objects::nonNull)
             .flatMap(List::stream)
             .collect(Collectors.toSet());
-        Map<Integer, String> latestResult = latestAcceptedResults(controlIds);
+        final Set<Integer> activeControlIds = controlIds.isEmpty() ? Set.of()
+            : controlRepo.findByControlIdInAndStatus(controlIds, "Active").stream()
+                .map(Control::getControlId).collect(Collectors.toSet());
+        Map<Integer, String> latestResult = latestAcceptedResults(activeControlIds);
         com.atheris.compliance.tenant.backend.modules.risk.service.ResidualRule rule = complianceSettings.residualRule();
         Map<Long, ObligationResidual.Result> out = new HashMap<>();
         for (ObligationClassification c : classes) {
             if (c.getObligationId() == null) continue;
-            List<Integer> ids = c.getLinkedControlIds() == null ? List.of() : c.getLinkedControlIds();
+            List<Integer> ids = c.getLinkedControlIds() == null ? List.of()
+                : c.getLinkedControlIds().stream().filter(activeControlIds::contains).toList();
             out.put(c.getObligationId(), ObligationResidual.compute(
                 c.getImpactRating(), c.getLikelihoodRating(), ids, latestResult, rule));
         }
         return out;
+    }
+
+    private List<Integer> activeLinkedControlIds(ObligationClassification c) {
+        if (c == null || c.getLinkedControlIds() == null) return null;
+        Set<Integer> ids = new LinkedHashSet<>(c.getLinkedControlIds());
+        if (ids.isEmpty()) return List.of();
+        Set<Integer> active = controlRepo.findByControlIdInAndStatus(ids, "Active").stream()
+            .map(Control::getControlId).collect(Collectors.toSet());
+        return ids.stream().filter(active::contains).toList();
     }
 
     private Map<Integer, String> latestAcceptedResults(Collection<Integer> controlIds) {
@@ -289,6 +302,13 @@ public class ObligationService {
 
         Map<Long, ObligationResidual.Result> residualByObligation = residualByObligation(classByObligation.values());
 
+        Set<Integer> allLinkedControlIds = classByObligation.values().stream()
+            .map(ObligationClassification::getLinkedControlIds).filter(Objects::nonNull)
+            .flatMap(List::stream).collect(Collectors.toSet());
+        final Set<Integer> activeControlIds = allLinkedControlIds.isEmpty() ? Set.of()
+            : controlRepo.findByControlIdInAndStatus(allLinkedControlIds, "Active").stream()
+                .map(Control::getControlId).collect(Collectors.toSet());
+
         Map<Long, PlatformInstrumentDetail> detailCache = platform.getInstrumentDetailsBulk(new ArrayList<>(uniqueInstrumentIds));
 
         // Standalone obligations (no platform instrument) carry their regulator locally — one query for all.
@@ -362,8 +382,10 @@ public class ObligationService {
                 .controlOwner(ob.getControlOwner())
                 .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
                 .status(c != null ? c.getStatus() : ob.getStatus())
-                .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
-                .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
+                .linkedControlIds(c != null && c.getLinkedControlIds() != null
+                    ? c.getLinkedControlIds().stream().filter(activeControlIds::contains).toList() : null)
+                .controlCount(c != null && c.getLinkedControlIds() != null
+                    ? (int) c.getLinkedControlIds().stream().filter(activeControlIds::contains).count() : 0)
                 .requirementCount(requirementSummaries.get(ob.getObligationId()).getRequirementCount())
                 .coveredRequirementCount(requirementSummaries.get(ob.getObligationId()).getCoveredCount())
                 .gapRequirementCount(requirementSummaries.get(ob.getObligationId()).getGapCount())
@@ -649,6 +671,7 @@ public class ObligationService {
             PlatformInstrumentDetail d, List<Long> linkedReturnIds, List<String> returnNames) {
         TenantRegulator tr = d == null ? tenantRegulatorFor(ob) : null;
         RequirementSummary summary = requirementService.summaries(List.of(ob.getObligationId())).get(ob.getObligationId());
+        List<Integer> activeControlIds = activeLinkedControlIds(c);
         return ObligationRegisterItem.builder()
             .obligationId(ob.getObligationId())
             .name(ob.getName())
@@ -682,8 +705,8 @@ public class ObligationService {
             .controlOwner(ob.getControlOwner())
             .assignedDepartment(c != null ? c.getAssignedDepartment() : null)
             .status(c != null ? c.getStatus() : ob.getStatus())
-                        .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
-            .controlCount(c != null && c.getLinkedControlIds() != null ? c.getLinkedControlIds().size() : 0)
+            .linkedControlIds(activeControlIds)
+            .controlCount(activeControlIds == null ? 0 : activeControlIds.size())
             .requirementCount(summary.getRequirementCount())
             .coveredRequirementCount(summary.getCoveredCount())
             .gapRequirementCount(summary.getGapCount())
@@ -706,16 +729,17 @@ public class ObligationService {
         TenantRegulator tr = d == null ? tenantRegulatorFor(ob) : null;
 
         List<ObligationDetailView.ControlItem> controls = Collections.emptyList();
-        if (c != null && c.getLinkedControlIds() != null && !c.getLinkedControlIds().isEmpty()) {
-            Map<Integer, Control> byId = controlRepo.findAllById(c.getLinkedControlIds()).stream()
+        List<Integer> activeControlIds = activeLinkedControlIds(c);
+        if (activeControlIds != null && !activeControlIds.isEmpty()) {
+            Map<Integer, Control> byId = controlRepo.findAllById(activeControlIds).stream()
                 .collect(Collectors.toMap(Control::getControlId, x -> x, (a, b) -> a));
             Map<Integer, String> themeNames = controlThemeService.namesById(byId.values().stream()
                 .map(Control::getControlThemeId).filter(Objects::nonNull).collect(Collectors.toSet()));
-            List<Integer> controlIds = c.getLinkedControlIds();
+            List<Integer> controlIds = activeControlIds;
             Map<Integer, LocalDate> nextOpenDue = nextOpenTaskDue(controlIds);
             Map<Integer, Long> openFindings = openFindingCounts(controlIds);
             Map<Integer, String> latestAccepted = latestAcceptedResults(controlIds);
-            controls = c.getLinkedControlIds().stream()
+            controls = activeControlIds.stream()
                 .map(byId::get).filter(Objects::nonNull)
                 .map(ct -> {
                     long open = openFindings.getOrDefault(ct.getControlId(), 0L);
@@ -827,7 +851,7 @@ public class ObligationService {
             .residualLikelihood(residual != null ? residual.likelihood() : null)
             .residualImpact(residual != null ? residual.impact() : null)
             .residualReason(residual != null ? residual.reason() : null)
-            .linkedControlIds(c != null ? c.getLinkedControlIds() : null)
+            .linkedControlIds(activeControlIds)
             .linkedReturnIds(returnIds)
             .assignedOwnerUserId(c != null ? c.getAssignedOwnerUserId() : null)
             .assignedOwnerId(c != null ? c.getAssignedOwnerId() : null)

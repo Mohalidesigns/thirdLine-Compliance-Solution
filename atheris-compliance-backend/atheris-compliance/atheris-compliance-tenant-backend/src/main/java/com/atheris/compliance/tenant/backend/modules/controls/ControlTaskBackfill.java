@@ -55,6 +55,9 @@ public class ControlTaskBackfill implements ApplicationRunner {
     }
 
     private boolean scheduleOne(Control c) {
+        if (c.getStatus() != null && !"Active".equalsIgnoreCase(c.getStatus())) {
+            return false;
+        }
         if (c.getTestFrequency() == null || c.getTestFrequency().isBlank()) {
             return false;
         }

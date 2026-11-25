@@ -92,6 +92,7 @@ class DashboardFixture {
         when(classifications.findAll()).thenReturn(classificationRows);
         when(obligations.findAll()).thenReturn(obligationRows);
         when(controls.findAll()).thenReturn(controlRows);
+        when(controls.findByStatus("Active")).thenReturn(controlRows);
         when(tests.findAll()).thenReturn(testRows);
         when(tasks.findAll()).thenReturn(taskRows);
         when(findings.findAll()).thenReturn(findingRows);
